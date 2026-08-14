@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 using NeraSpreadSheet.Core;
@@ -36,12 +37,19 @@ public sealed class NeraSpreadsheetControl : Control
         _frameTimer.Tick += OnFrameTick;
     }
 
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public Workbook? Workbook { get; set; }
 
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public double ContentWidth { get; set; }
 
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public double ContentHeight { get; set; }
 
+    [DefaultValue(96d)]
     public double WheelPixelsPerNotch { get; set; } = 96d;
 
     public ScrollSnapshot ScrollSnapshot => _scrollController.Snapshot;
