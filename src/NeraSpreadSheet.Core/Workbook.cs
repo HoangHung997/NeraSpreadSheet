@@ -1,8 +1,10 @@
+using System.Buffers;
+
 namespace NeraSpreadSheet.Core;
 
 public sealed class Workbook
 {
-    private static readonly char[] InvalidWorksheetNameCharacters = ['[', ']', ':', '*', '?', '/', '\\'];
+    private static readonly SearchValues<char> InvalidWorksheetNameCharacters = SearchValues.Create("[]:*?/\\");
     private readonly List<Worksheet> _worksheets = [];
 
     public Workbook()
@@ -113,13 +115,12 @@ public sealed class Workbook
                 nameof(name));
         }
 
-        if (normalized.IndexOfAny(InvalidWorksheetNameCharacters) >= 0)
+        if (normalized.AsSpan().IndexOfAny(InvalidWorksheetNameCharacters) >= 0)
         {
             throw new ArgumentException("Worksheet name contains an invalid character.", nameof(name));
         }
 
-        if (normalized.StartsWith("'", StringComparison.Ordinal) ||
-            normalized.EndsWith("'", StringComparison.Ordinal))
+        if (normalized.StartsWith('\'') || normalized.EndsWith('\''))
         {
             throw new ArgumentException("Worksheet name cannot start or end with an apostrophe.", nameof(name));
         }

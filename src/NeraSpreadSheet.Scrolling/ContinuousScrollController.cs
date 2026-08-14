@@ -144,17 +144,26 @@ public sealed class ContinuousScrollController
     {
         if (!double.IsFinite(options.WheelResponsePerSecond) || options.WheelResponsePerSecond <= 0d)
         {
-            throw new ArgumentOutOfRangeException(nameof(options.WheelResponsePerSecond));
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                options.WheelResponsePerSecond,
+                "WheelResponsePerSecond must be finite and greater than zero.");
         }
 
         if (!double.IsFinite(options.SnapEpsilon) || options.SnapEpsilon < 0d)
         {
-            throw new ArgumentOutOfRangeException(nameof(options.SnapEpsilon));
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                options.SnapEpsilon,
+                "SnapEpsilon must be finite and non-negative.");
         }
 
         if (!double.IsFinite(options.MaximumFrameSeconds) || options.MaximumFrameSeconds <= 0d)
         {
-            throw new ArgumentOutOfRangeException(nameof(options.MaximumFrameSeconds));
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                options.MaximumFrameSeconds,
+                "MaximumFrameSeconds must be finite and greater than zero.");
         }
     }
 }

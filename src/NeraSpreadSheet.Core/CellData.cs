@@ -4,15 +4,12 @@ public sealed record CellData
 {
     public CellData(CellValue value, string? formula = null, int styleId = 0)
     {
-        if (formula is not null && !formula.StartsWith("=", StringComparison.Ordinal))
+        if (formula is not null && !formula.StartsWith('='))
         {
             throw new ArgumentException("Formula must start with '='.", nameof(formula));
         }
 
-        if (styleId < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(styleId));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(styleId);
 
         Value = value;
         Formula = formula;

@@ -58,7 +58,7 @@ public sealed class Worksheet
     public void SetFormula(CellAddress address, string formula)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(formula);
-        var normalized = formula.StartsWith("=", StringComparison.Ordinal) ? formula : $"={formula}";
+        var normalized = formula.StartsWith('=') ? formula : $"={formula}";
         var current = GetCell(address);
         SetCell(address, new CellData(current.Value, normalized, current.StyleId));
     }
