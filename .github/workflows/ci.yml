@@ -1,0 +1,58 @@
+name: ci
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: Core build and tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore NeraSpreadSheet.Core.slnx
+
+      - name: Build
+        run: dotnet build NeraSpreadSheet.Core.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test NeraSpreadSheet.Core.slnx -c Release --no-build --logger "trx;LogFileName=core-tests.trx"
+
+      - name: Verify architecture
+        shell: pwsh
+        run: ./scripts/verify-architecture.ps1
+
+  windows-hosts:
+    name: Windows hosts build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore NeraSpreadSheet.slnx
+
+      - name: Build
+        run: dotnet build NeraSpreadSheet.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test NeraSpreadSheet.Core.slnx -c Release --no-build --logger "trx;LogFileName=windows-tests.trx"

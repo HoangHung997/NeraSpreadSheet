@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Description>Direct2D and DirectWrite backend boundary for NeraSpreadSheet.</Description>
+    <PackageId>NeraSpreadSheet.Rendering.Direct2D</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NeraSpreadSheet.Rendering.Abstractions/NeraSpreadSheet.Rendering.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
