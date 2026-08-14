@@ -52,5 +52,5 @@ public interface IFormulaFunction
 
 public interface IFormulaFunctionRegistry
 {
-    bool TryResolve(string name, out IFormulaFunction function);
+    bool TryResolve(string name, out IFormulaFunction formulaFunction);
 }

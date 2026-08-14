@@ -10,10 +10,7 @@ public sealed class SparseAxisMetricIndex
 
     public SparseAxisMetricIndex(int count, double defaultSize)
     {
-        if (count <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(count));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
 
         Count = count;
         DefaultSize = Guard.PositiveFinite(defaultSize, nameof(defaultSize));
