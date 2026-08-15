@@ -1,4 +1,3 @@
 using BenchmarkDotNet.Running;
-using NeraSpreadSheet.Benchmarks;
 
-BenchmarkRunner.Run<AxisMetricIndexBenchmarks>();
+BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);

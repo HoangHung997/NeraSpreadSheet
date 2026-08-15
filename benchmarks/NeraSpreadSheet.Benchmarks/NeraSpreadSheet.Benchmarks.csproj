@@ -6,7 +6,10 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.Core/NeraSpreadSheet.Core.csproj" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.Editing/NeraSpreadSheet.Editing.csproj" />
     <ProjectReference Include="../../src/NeraSpreadSheet.Layout/NeraSpreadSheet.Layout.csproj" />
     <ProjectReference Include="../../src/NeraSpreadSheet.Scrolling/NeraSpreadSheet.Scrolling.csproj" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.Viewport/NeraSpreadSheet.Viewport.csproj" />
   </ItemGroup>
 </Project>
