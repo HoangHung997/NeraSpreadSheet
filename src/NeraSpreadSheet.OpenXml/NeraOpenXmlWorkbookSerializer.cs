@@ -3,6 +3,9 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using NeraSpreadSheet.Core;
+using NeraCellValue = NeraSpreadSheet.Core.CellValue;
+using NeraWorkbook = NeraSpreadSheet.Core.Workbook;
+using NeraWorksheet = NeraSpreadSheet.Core.Worksheet;
 using OpenXmlCellValue = DocumentFormat.OpenXml.Spreadsheet.CellValue;
 using OpenXmlWorkbook = DocumentFormat.OpenXml.Spreadsheet.Workbook;
 using OpenXmlWorksheet = DocumentFormat.OpenXml.Spreadsheet.Worksheet;
@@ -22,7 +25,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         WritesBasicDimensions: true,
         PreservesUnknownParts: false);
 
-    public Task<Workbook> LoadAsync(
+    public Task<NeraWorkbook> LoadAsync(
         Stream source,
         OpenXmlImportOptions options,
         CancellationToken cancellationToken = default)
@@ -45,7 +48,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         var sheets = workbookPart.Workbook.GetFirstChild<Sheets>()
             ?? throw new InvalidDataException("The XLSX workbook does not contain a sheets collection.");
 
-        var workbook = new Workbook(createDefaultWorksheet: false);
+        var workbook = new NeraWorkbook(createDefaultWorksheet: false);
         var sharedStrings = workbookPart.SharedStringTablePart?.SharedStringTable;
         foreach (var sheet in sheets.Elements<Sheet>())
         {
@@ -76,7 +79,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
     }
 
     public Task SaveAsync(
-        Workbook workbook,
+        NeraWorkbook workbook,
         Stream destination,
         OpenXmlExportOptions options,
         CancellationToken cancellationToken = default)
@@ -120,7 +123,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
 
     private static void ImportCells(
         WorksheetPart worksheetPart,
-        Worksheet worksheet,
+        NeraWorksheet worksheet,
         SharedStringTable? sharedStrings,
         OpenXmlImportOptions options,
         CancellationToken cancellationToken)
@@ -146,7 +149,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 var formulaText = cell.CellFormula?.Text;
                 var formula = string.IsNullOrWhiteSpace(formulaText) ? null : $"={formulaText}";
                 var value = formula is not null && !options.LoadCachedFormulaValues
-                    ? CellValue.Blank
+                    ? NeraCellValue.Blank
                     : ReadValue(cell, sharedStrings);
                 var data = new CellData(value, formula);
                 if (!data.IsEmpty)
@@ -158,51 +161,51 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         worksheet.SetCells(changes);
     }
 
-    private static CellValue ReadValue(Cell cell, SharedStringTable? sharedStrings)
+    private static NeraCellValue ReadValue(Cell cell, SharedStringTable? sharedStrings)
     {
         var dataType = cell.DataType?.Value;
         var raw = cell.CellValue?.Text;
         if (dataType == CellValues.InlineString)
         {
-            return CellValue.FromText(cell.InlineString?.InnerText);
+            return NeraCellValue.FromText(cell.InlineString?.InnerText);
         }
         if (dataType == CellValues.SharedString)
         {
             if (sharedStrings is null || !int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) || index < 0)
             {
-                return CellValue.Blank;
+                return NeraCellValue.Blank;
             }
             var item = sharedStrings.Elements<SharedStringItem>().ElementAtOrDefault(index);
-            return CellValue.FromText(item?.InnerText);
+            return NeraCellValue.FromText(item?.InnerText);
         }
         if (dataType == CellValues.Boolean)
         {
-            return CellValue.FromBoolean(raw is "1" or "true" or "TRUE");
+            return NeraCellValue.FromBoolean(raw is "1" or "true" or "TRUE");
         }
         if (dataType == CellValues.Error)
         {
-            return string.IsNullOrWhiteSpace(raw) ? CellValue.FromError("#VALUE!") : CellValue.FromError(raw);
+            return string.IsNullOrWhiteSpace(raw) ? NeraCellValue.FromError("#VALUE!") : NeraCellValue.FromError(raw);
         }
         if (dataType == CellValues.Date)
         {
             return DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dateTime)
-                ? CellValue.FromDateTime(dateTime)
-                : CellValue.Blank;
+                ? NeraCellValue.FromDateTime(dateTime)
+                : NeraCellValue.Blank;
         }
         if (dataType == CellValues.String)
         {
-            return CellValue.FromText(raw);
+            return NeraCellValue.FromText(raw);
         }
         if (string.IsNullOrWhiteSpace(raw))
         {
-            return CellValue.Blank;
+            return NeraCellValue.Blank;
         }
         return double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) && double.IsFinite(number)
-            ? CellValue.FromNumber(number)
-            : CellValue.FromText(raw);
+            ? NeraCellValue.FromNumber(number)
+            : NeraCellValue.FromText(raw);
     }
 
-    private static void ImportDimensions(WorksheetPart worksheetPart, Worksheet worksheet)
+    private static void ImportDimensions(WorksheetPart worksheetPart, NeraWorksheet worksheet)
     {
         foreach (var columns in worksheetPart.Worksheet.Elements<Columns>())
         {
@@ -251,7 +254,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
     }
 
     private static OpenXmlWorksheet BuildWorksheet(
-        Worksheet worksheet,
+        NeraWorksheet worksheet,
         OpenXmlExportOptions options,
         CancellationToken cancellationToken)
     {
@@ -301,7 +304,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         return result;
     }
 
-    private static Columns BuildColumns(Worksheet worksheet)
+    private static Columns BuildColumns(NeraWorksheet worksheet)
     {
         var columns = new Columns();
         foreach (var pair in worksheet.Dimensions.GetColumnOverrides().OrderBy(pair => pair.Key))
@@ -338,7 +341,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         return cell;
     }
 
-    private static void ApplyValue(Cell cell, CellValue value, bool isFormulaResult)
+    private static void ApplyValue(Cell cell, NeraCellValue value, bool isFormulaResult)
     {
         switch (value.Kind)
         {
