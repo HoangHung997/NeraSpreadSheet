@@ -13,6 +13,10 @@ public sealed class SpreadsheetViewportEngine
     private SparseAxisMetricIndex? _columns;
     private Worksheet? _metricsWorksheet;
     private long _dimensionsVersion = -1;
+    private WorksheetSnapshot? _worksheetSnapshot;
+    private Worksheet? _snapshotWorksheet;
+    private long _snapshotWorksheetVersion = -1;
+    private long _snapshotDimensionsVersion = -1;
 
     public SpreadsheetViewportEngine(SpreadsheetSession session)
     {
@@ -20,6 +24,8 @@ public sealed class SpreadsheetViewportEngine
     }
 
     public SpreadsheetSession Session => _session;
+
+    public long SnapshotRefreshCount { get; private set; }
 
     public SpreadsheetViewportFrame Compose(
         double scrollX,
@@ -34,8 +40,9 @@ public sealed class SpreadsheetViewportEngine
             new ViewportRequest(scrollX, scrollY, new SizeD(viewportWidth, viewportHeight), overscan));
         var worksheet = _session.ActiveWorksheet;
         var selection = _session.Selection.Capture();
+        var worksheetSnapshot = GetWorksheetSnapshot(worksheet);
         var displayList = SpreadsheetDisplayListComposer.Compose(
-            WorksheetSnapshot.Capture(worksheet),
+            worksheetSnapshot,
             layout,
             selection,
             theme,
@@ -131,6 +138,33 @@ public sealed class SpreadsheetViewportEngine
         _dimensionsVersion = -1;
         _rows = null;
         _columns = null;
+        InvalidateSnapshot();
+    }
+
+    public void InvalidateSnapshot()
+    {
+        _worksheetSnapshot = null;
+        _snapshotWorksheet = null;
+        _snapshotWorksheetVersion = -1;
+        _snapshotDimensionsVersion = -1;
+    }
+
+    private WorksheetSnapshot GetWorksheetSnapshot(Worksheet worksheet)
+    {
+        if (_worksheetSnapshot is not null &&
+            ReferenceEquals(_snapshotWorksheet, worksheet) &&
+            _snapshotWorksheetVersion == worksheet.Version &&
+            _snapshotDimensionsVersion == worksheet.Dimensions.Version)
+        {
+            return _worksheetSnapshot;
+        }
+
+        _worksheetSnapshot = WorksheetSnapshot.Capture(worksheet);
+        _snapshotWorksheet = worksheet;
+        _snapshotWorksheetVersion = worksheet.Version;
+        _snapshotDimensionsVersion = worksheet.Dimensions.Version;
+        SnapshotRefreshCount++;
+        return _worksheetSnapshot;
     }
 
     private void EnsureMetrics()
