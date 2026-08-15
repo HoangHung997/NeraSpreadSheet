@@ -30,17 +30,24 @@ public sealed class SelectionModel
 
     public bool Contains(CellAddress address) => _ranges.Any(range => range.Contains(address));
 
-    public void SetActiveCell(CellAddress address, bool preserveRanges = false)
+    public void SetActiveCell(CellAddress address, bool preserveRanges = false, bool preserveAnchor = false)
     {
-        var changed = ActiveCell != address || AnchorCell != address;
+        var keepRanges = preserveRanges || preserveAnchor;
+        var changed = ActiveCell != address;
         ActiveCell = address;
-        AnchorCell = address;
 
-        if (!preserveRanges)
+        if (!preserveAnchor)
         {
-            changed |= _ranges.Count != 1 || _ranges[0] != new CellRange(address, address);
+            changed |= AnchorCell != address;
+            AnchorCell = address;
+        }
+
+        if (!keepRanges)
+        {
+            var singleCellRange = new CellRange(address, address);
+            changed |= _ranges.Count != 1 || _ranges[0] != singleCellRange;
             _ranges.Clear();
-            _ranges.Add(new CellRange(address, address));
+            _ranges.Add(singleCellRange);
         }
 
         PublishIfChanged(changed);

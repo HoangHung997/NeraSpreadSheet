@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using NeraSpreadSheet.Core;
 
 namespace NeraSpreadSheet.Editing;
@@ -12,12 +14,17 @@ public sealed class SpreadsheetClipboardPackage
 {
     private readonly Dictionary<(int Row, int Column), SpreadsheetClipboardCell> _cells;
 
-    internal SpreadsheetClipboardPackage(string sourceWorksheetName, CellRange sourceRange, IEnumerable<SpreadsheetClipboardCell> cells)
+    internal SpreadsheetClipboardPackage(
+        string sourceWorksheetName,
+        CellRange sourceRange,
+        IEnumerable<SpreadsheetClipboardCell> cells,
+        bool translateFormulasOnPaste = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceWorksheetName);
         ArgumentNullException.ThrowIfNull(cells);
         SourceWorksheetName = sourceWorksheetName;
         SourceRange = sourceRange;
+        TranslateFormulasOnPaste = translateFormulasOnPaste;
         _cells = cells.ToDictionary(cell => (cell.RowOffset, cell.ColumnOffset));
     }
 
@@ -26,6 +33,7 @@ public sealed class SpreadsheetClipboardPackage
     public int RowCount => SourceRange.RowCount;
     public int ColumnCount => SourceRange.ColumnCount;
     public int UsedCellCount => _cells.Count;
+    public bool TranslateFormulasOnPaste { get; }
     public IReadOnlyCollection<SpreadsheetClipboardCell> Cells => _cells.Values;
 
     public CellData GetCell(int rowOffset, int columnOffset)
@@ -41,8 +49,53 @@ public sealed class SpreadsheetClipboardPackage
         return _cells.TryGetValue((rowOffset, columnOffset), out var cell) ? cell.Data : CellData.Empty;
     }
 
+    public string ToTabSeparatedText()
+    {
+        var builder = new StringBuilder();
+        for (var row = 0; row < RowCount; row++)
+        {
+            if (row > 0)
+            {
+                builder.Append("\r\n");
+            }
+            for (var column = 0; column < ColumnCount; column++)
+            {
+                if (column > 0)
+                {
+                    builder.Append('\t');
+                }
+                var cell = GetCell(row, column);
+                AppendEscapedField(builder, cell.Formula ?? cell.Value.ToString());
+            }
+        }
+        return builder.ToString();
+    }
+
     internal bool TryGetStoredCell(int rowOffset, int columnOffset, out SpreadsheetClipboardCell cell) =>
         _cells.TryGetValue((rowOffset, columnOffset), out cell!);
+
+    private static void AppendEscapedField(StringBuilder builder, string text)
+    {
+        if (text.AsSpan().IndexOfAny("\t\r\n\"") < 0)
+        {
+            builder.Append(text);
+            return;
+        }
+
+        builder.Append('"');
+        foreach (var character in text)
+        {
+            if (character == '"')
+            {
+                builder.Append("\"\"");
+            }
+            else
+            {
+                builder.Append(character);
+            }
+        }
+        builder.Append('"');
+    }
 }
 
 public sealed class SpreadsheetClipboardController
@@ -83,6 +136,37 @@ public sealed class SpreadsheetClipboardController
         return _session.ClearSelection();
     }
 
+    public SpreadsheetClipboardPackage ImportTabSeparatedText(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var rows = ParseTabSeparatedText(text);
+        var rowCount = Math.Max(1, rows.Count);
+        var columnCount = Math.Max(1, rows.Max(row => row.Count));
+        var logicalRange = new CellRange(default, new CellAddress(rowCount - 1, columnCount - 1));
+        EnsureMaterializationLimit(logicalRange);
+
+        var cells = new List<SpreadsheetClipboardCell>();
+        for (var row = 0; row < rows.Count; row++)
+        {
+            for (var column = 0; column < rows[row].Count; column++)
+            {
+                var data = ParseExternalCell(rows[row][column]);
+                if (!data.IsEmpty)
+                {
+                    var sourceAddress = new CellAddress(row, column);
+                    cells.Add(new SpreadsheetClipboardCell(row, column, sourceAddress, data));
+                }
+            }
+        }
+
+        Clipboard = new SpreadsheetClipboardPackage(
+            "ExternalText",
+            logicalRange,
+            cells,
+            translateFormulasOnPaste: false);
+        return Clipboard;
+    }
+
     public bool PasteAtActiveCell() => Paste(_session.Selection.ActiveCell);
 
     public bool Paste(CellAddress destination)
@@ -103,9 +187,11 @@ public sealed class SpreadsheetClipboardController
                 CellData data;
                 if (Clipboard.TryGetStoredCell(rowOffset, columnOffset, out var stored))
                 {
-                    var formula = stored.Data.Formula is null
-                        ? null
-                        : FormulaReferenceTranslator.Translate(stored.Data.Formula, stored.SourceAddress, targetAddress);
+                    var formula = stored.Data.Formula;
+                    if (formula is not null && Clipboard.TranslateFormulasOnPaste)
+                    {
+                        formula = FormulaReferenceTranslator.Translate(formula, stored.SourceAddress, targetAddress);
+                    }
                     data = new CellData(stored.Data.Value, formula, stored.Data.StyleId);
                 }
                 else
@@ -126,12 +212,99 @@ public sealed class SpreadsheetClipboardController
         return true;
     }
 
+    private static CellData ParseExternalCell(string text)
+    {
+        if (text.Length == 0)
+        {
+            return CellData.Empty;
+        }
+        if (text.StartsWith('='))
+        {
+            return new CellData(CellValue.Blank, text);
+        }
+        if (bool.TryParse(text, out var boolean))
+        {
+            return new CellData(CellValue.FromBoolean(boolean));
+        }
+        if (double.TryParse(text, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.CurrentCulture, out var localNumber) && double.IsFinite(localNumber))
+        {
+            return new CellData(CellValue.FromNumber(localNumber));
+        }
+        if (double.TryParse(text, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var invariantNumber) && double.IsFinite(invariantNumber))
+        {
+            return new CellData(CellValue.FromNumber(invariantNumber));
+        }
+        return new CellData(CellValue.FromText(text));
+    }
+
+    private static List<List<string>> ParseTabSeparatedText(string text)
+    {
+        var rows = new List<List<string>>();
+        var row = new List<string>();
+        var field = new StringBuilder();
+        var quoted = false;
+
+        for (var index = 0; index < text.Length; index++)
+        {
+            var character = text[index];
+            if (quoted)
+            {
+                if (character == '"')
+                {
+                    if (index + 1 < text.Length && text[index + 1] == '"')
+                    {
+                        field.Append('"');
+                        index++;
+                    }
+                    else
+                    {
+                        quoted = false;
+                    }
+                }
+                else
+                {
+                    field.Append(character);
+                }
+                continue;
+            }
+
+            if (character == '"' && field.Length == 0)
+            {
+                quoted = true;
+            }
+            else if (character == '\t')
+            {
+                row.Add(field.ToString());
+                field.Clear();
+            }
+            else if (character is '\r' or '\n')
+            {
+                if (character == '\r' && index + 1 < text.Length && text[index + 1] == '\n')
+                {
+                    index++;
+                }
+                row.Add(field.ToString());
+                field.Clear();
+                rows.Add(row);
+                row = [];
+            }
+            else
+            {
+                field.Append(character);
+            }
+        }
+
+        row.Add(field.ToString());
+        rows.Add(row);
+        return rows;
+    }
+
     private void EnsureMaterializationLimit(CellRange range)
     {
         var cellCount = checked((long)range.RowCount * range.ColumnCount);
         if (cellCount > _maximumMaterializedCells)
         {
-            throw new InvalidOperationException($"Clipboard range contains {cellCount.ToString(System.Globalization.CultureInfo.InvariantCulture)} cells, exceeding the configured limit of {_maximumMaterializedCells.ToString(System.Globalization.CultureInfo.InvariantCulture)}.");
+            throw new InvalidOperationException($"Clipboard range contains {cellCount.ToString(CultureInfo.InvariantCulture)} cells, exceeding the configured limit of {_maximumMaterializedCells.ToString(CultureInfo.InvariantCulture)}.");
         }
     }
 
