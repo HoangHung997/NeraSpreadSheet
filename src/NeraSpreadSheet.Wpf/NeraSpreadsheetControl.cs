@@ -66,7 +66,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
         EnsureWorksheetSubscription();
         var viewport = EnsureViewport();
         var snapshot = _scrollController.Snapshot;
-        var frame = viewport.Compose(snapshot.X, snapshot.Y, ActualWidth, ActualHeight, OverscanPixels, RenderTheme);
+        var frame = viewport.Compose(snapshot.OffsetX, snapshot.OffsetY, ActualWidth, ActualHeight, OverscanPixels, RenderTheme);
         ContentWidth = frame.Layout.ContentWidth;
         ContentHeight = frame.Layout.ContentHeight;
         _displayListRenderer.Render(drawingContext, frame.DisplayList, VisualTreeHelper.GetDpi(this).PixelsPerDip);
@@ -100,7 +100,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
         var point = e.GetPosition(this);
         var scroll = _scrollController.Snapshot;
-        if (!EnsureViewport().TryHitTest(point.X, point.Y, scroll.X, scroll.Y, out var address))
+        if (!EnsureViewport().TryHitTest(point.X, point.Y, scroll.OffsetX, scroll.OffsetY, out var address))
         {
             return;
         }

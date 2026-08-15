@@ -105,7 +105,7 @@ public sealed class NeraSpreadsheetControl : Control
         }
         Focus();
         var scroll = _scrollController.Snapshot;
-        if (!EnsureViewport().TryHitTest(e.X, e.Y, scroll.X, scroll.Y, out var address))
+        if (!EnsureViewport().TryHitTest(e.X, e.Y, scroll.OffsetX, scroll.OffsetY, out var address))
         {
             return;
         }
@@ -179,7 +179,7 @@ public sealed class NeraSpreadsheetControl : Control
         {
             EnsureWorksheetSubscription();
             var scroll = _scrollController.Snapshot;
-            var frame = EnsureViewport().Compose(scroll.X, scroll.Y, ClientSize.Width, ClientSize.Height, OverscanPixels, RenderTheme);
+            var frame = EnsureViewport().Compose(scroll.OffsetX, scroll.OffsetY, ClientSize.Width, ClientSize.Height, OverscanPixels, RenderTheme);
             ContentWidth = frame.Layout.ContentWidth;
             ContentHeight = frame.Layout.ContentHeight;
             _displayListRenderer.Render(e.Graphics, frame.DisplayList);
