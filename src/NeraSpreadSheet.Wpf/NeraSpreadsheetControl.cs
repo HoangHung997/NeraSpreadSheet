@@ -8,6 +8,7 @@ using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Rendering.Spreadsheet;
 using NeraSpreadSheet.Scrolling;
 using NeraSpreadSheet.Viewport;
+using NeraSelectionChangedEventArgs = NeraSpreadSheet.Interaction.SelectionChangedEventArgs;
 
 namespace NeraSpreadSheet.Wpf;
 
@@ -378,7 +379,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
         InvalidateVisual();
     }
 
-    private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void OnSelectionChanged(object? sender, NeraSelectionChangedEventArgs e)
     {
         UpdateEditorBounds();
         InvalidateVisual();
