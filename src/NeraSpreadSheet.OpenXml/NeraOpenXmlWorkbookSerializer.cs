@@ -23,7 +23,9 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         WritesFormulas: true,
         ReadsBasicDimensions: true,
         WritesBasicDimensions: true,
-        PreservesUnknownParts: false);
+        PreservesUnknownParts: false,
+        ReadsMergedCells: true,
+        WritesMergedCells: true);
 
     public Task<NeraWorkbook> LoadAsync(
         Stream source,
@@ -71,6 +73,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             var worksheet = workbook.AddWorksheet(name);
             ImportDimensions(worksheetPart, worksheet);
             ImportCells(worksheetPart, worksheet, sharedStrings, options, cancellationToken);
+            ImportMergedCells(worksheetPart, worksheet, cancellationToken);
         }
 
         if (workbook.Worksheets.Count == 0)
@@ -167,6 +170,30 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             }
         }
         worksheet.SetCells(changes);
+    }
+
+    private static void ImportMergedCells(
+        WorksheetPart worksheetPart,
+        NeraWorksheet worksheet,
+        CancellationToken cancellationToken)
+    {
+        var openXmlWorksheet = worksheetPart.Worksheet;
+        if (openXmlWorksheet is null)
+        {
+            return;
+        }
+
+        foreach (var mergeCells in openXmlWorksheet.Elements<MergeCells>())
+        {
+            foreach (var mergeCell in mergeCells.Elements<MergeCell>())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (TryParseCellRange(mergeCell.Reference?.Value, out var range))
+                {
+                    worksheet.MergeCells(range, clearNonTopLeftCells: false);
+                }
+            }
+        }
     }
 
     private static NeraCellValue ReadValue(Cell cell, SharedStringTable? sharedStrings)
@@ -314,7 +341,23 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         }
 
         result.Append(sheetData);
+        AppendMergedCells(result, worksheet);
         return result;
+    }
+
+    private static void AppendMergedCells(OpenXmlWorksheet result, NeraWorksheet worksheet)
+    {
+        if (worksheet.MergedCells.Count == 0)
+        {
+            return;
+        }
+
+        var mergeCells = new MergeCells { Count = (uint)worksheet.MergedCells.Count };
+        foreach (var range in worksheet.MergedCells.Ranges)
+        {
+            mergeCells.Append(new MergeCell { Reference = ToA1Range(range) });
+        }
+        result.Append(mergeCells);
     }
 
     private static Columns BuildColumns(NeraWorksheet worksheet)
@@ -393,6 +436,30 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         }
     }
 
+    private static bool TryParseCellRange(string? reference, out CellRange range)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            range = default;
+            return false;
+        }
+
+        var separatorIndex = reference.IndexOf(':');
+        if (separatorIndex <= 0 || separatorIndex >= reference.Length - 1 ||
+            !CellAddress.TryParseA1(reference[..separatorIndex], out var first) ||
+            !CellAddress.TryParseA1(reference[(separatorIndex + 1)..], out var second))
+        {
+            range = default;
+            return false;
+        }
+
+        range = new CellRange(first, second);
+        return range.RowCount > 1 || range.ColumnCount > 1;
+    }
+
+    private static string ToA1Range(CellRange range) => $"{range.TopLeft.ToA1()}:{range.BottomRight.ToA1()}";
+
     private static double ExcelColumnWidthToPixels(double width) => Math.Max(0d, (width * 7d) + 5d);
+
     private static double PixelsToExcelColumnWidth(double pixels) => Math.Max(0d, (pixels - 5d) / 7d);
 }

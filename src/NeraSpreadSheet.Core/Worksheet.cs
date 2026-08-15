@@ -20,10 +20,12 @@ public sealed class Worksheet
     {
         Name = name;
         Dimensions = new WorksheetDimensions();
+        MergedCells = new MergedCellCollection();
     }
 
     public string Name { get; internal set; }
     public WorksheetDimensions Dimensions { get; }
+    public MergedCellCollection MergedCells { get; }
     public long Version { get; private set; }
     public int UsedCellCount => _cells.Count;
     public event EventHandler<CellsChangedEventArgs>? CellsChanged;
@@ -37,14 +39,19 @@ public sealed class Worksheet
             cellData = stored;
             return true;
         }
+
         cellData = CellData.Empty;
         return false;
     }
 
     public IEnumerable<KeyValuePair<CellAddress, CellData>> EnumerateUsedCells() => _cells;
 
+    public CellAddress ResolveMergedAnchor(CellAddress address) =>
+        MergedCells.TryGetContaining(address, out var range) ? range.TopLeft : address;
+
     public void SetValue(CellAddress address, object? value)
     {
+        address = ResolveMergedAnchor(address);
         var current = GetCell(address);
         SetCell(address, new CellData(CellValue.FromObject(value), styleId: current.StyleId));
     }
@@ -52,6 +59,7 @@ public sealed class Worksheet
     public void SetFormula(CellAddress address, string formula)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(formula);
+        address = ResolveMergedAnchor(address);
         var normalized = formula.StartsWith('=') ? formula : $"={formula}";
         var current = GetCell(address);
         SetCell(address, new CellData(current.Value, normalized, current.StyleId));
@@ -59,15 +67,58 @@ public sealed class Worksheet
 
     public void SetStyle(CellAddress address, int styleId)
     {
+        address = ResolveMergedAnchor(address);
         var current = GetCell(address);
         SetCell(address, new CellData(current.Value, current.Formula, styleId));
     }
 
-    public void Clear(CellAddress address) => SetCell(address, CellData.Empty);
+    public void Clear(CellAddress address) => SetCell(ResolveMergedAnchor(address), CellData.Empty);
+
+    public void MergeCells(CellRange range, bool clearNonTopLeftCells = true)
+    {
+        MergedCells.Add(range);
+
+        if (clearNonTopLeftCells)
+        {
+            var addressesToRemove = _cells.Keys
+                .Where(address => address != range.TopLeft && range.Contains(address))
+                .ToArray();
+            foreach (var address in addressesToRemove)
+            {
+                _cells.Remove(address);
+            }
+        }
+
+        Version++;
+        CellsChanged?.Invoke(this, new CellsChangedEventArgs(range, Version));
+    }
+
+    public bool UnmergeCells(CellRange range)
+    {
+        if (!MergedCells.Remove(range))
+        {
+            return false;
+        }
+
+        Version++;
+        CellsChanged?.Invoke(this, new CellsChangedEventArgs(range, Version));
+        return true;
+    }
+
+    public bool UnmergeCell(CellAddress address)
+    {
+        if (!MergedCells.TryGetContaining(address, out var range))
+        {
+            return false;
+        }
+
+        return UnmergeCells(range);
+    }
 
     public void SetCell(CellAddress address, CellData cellData)
     {
         ArgumentNullException.ThrowIfNull(cellData);
+        address = ResolveMergedAnchor(address);
         SetCells([new KeyValuePair<CellAddress, CellData>(address, cellData)]);
     }
 
@@ -78,7 +129,7 @@ public sealed class Worksheet
         foreach (var pair in changes)
         {
             ArgumentNullException.ThrowIfNull(pair.Value);
-            requested[pair.Key] = pair.Value;
+            requested[ResolveMergedAnchor(pair.Key)] = pair.Value;
         }
 
         if (requested.Count == 0)

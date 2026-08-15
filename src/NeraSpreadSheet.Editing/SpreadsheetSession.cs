@@ -17,6 +17,19 @@ public sealed class SpreadsheetSession
         {
             throw new ArgumentException("Active worksheet must belong to the workbook.", nameof(activeWorksheet));
         }
+
+        Clipboard = new SpreadsheetClipboardController(this);
+        Styles = new SpreadsheetStyleController(this);
+        Merge = new SpreadsheetMergeController(this);
+        Sort = new SpreadsheetSortController(this);
+        Editor = new SpreadsheetCellEditorController(this);
+        Commands = new CommandRegistry();
+        SpreadsheetCommandCatalog.Register(Commands, this);
+        SpreadsheetClipboardCommandCatalog.Register(Commands, Clipboard);
+        SpreadsheetFormattingCommandCatalog.Register(Commands, Styles);
+        SpreadsheetMergeCommandCatalog.Register(Commands, Merge);
+        SpreadsheetSortCommandCatalog.Register(Commands, Sort);
+        CommandDispatcher = new CommandDispatcher(Commands);
     }
 
     public Workbook Workbook { get; }
@@ -24,6 +37,13 @@ public sealed class SpreadsheetSession
     public SelectionModel Selection { get; } = new();
     public UndoRedoManager History { get; } = new();
     public WorkbookCalculationEngine Calculation { get; } = new();
+    public SpreadsheetClipboardController Clipboard { get; }
+    public SpreadsheetStyleController Styles { get; }
+    public SpreadsheetMergeController Merge { get; }
+    public SpreadsheetSortController Sort { get; }
+    public SpreadsheetCellEditorController Editor { get; }
+    public CommandRegistry Commands { get; }
+    public CommandDispatcher CommandDispatcher { get; }
 
     public event EventHandler? ActiveWorksheetChanged;
 
@@ -39,6 +59,7 @@ public sealed class SpreadsheetSession
             return;
         }
 
+        Editor.Cancel();
         ActiveWorksheet = worksheet;
         Selection.SetActiveCell(default);
         ActiveWorksheetChanged?.Invoke(this, EventArgs.Empty);
@@ -46,6 +67,7 @@ public sealed class SpreadsheetSession
 
     public void SetValue(CellAddress address, object? value)
     {
+        address = ActiveWorksheet.ResolveMergedAnchor(address);
         var current = ActiveWorksheet.GetCell(address);
         var next = new CellData(CellValue.FromObject(value), styleId: current.StyleId);
         Execute(new SetCellsOperation(
@@ -57,6 +79,7 @@ public sealed class SpreadsheetSession
     public void SetFormula(CellAddress address, string formula)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(formula);
+        address = ActiveWorksheet.ResolveMergedAnchor(address);
         var normalized = formula.StartsWith('=') ? formula : $"={formula}";
         var current = ActiveWorksheet.GetCell(address);
         var next = new CellData(current.Value, normalized, current.StyleId);

@@ -26,7 +26,7 @@ public sealed class SpreadsheetCellEditorController
 
     public CellEditState BeginEdit(CellAddress? address = null)
     {
-        var target = address ?? _session.Selection.ActiveCell;
+        var target = _session.ActiveWorksheet.ResolveMergedAnchor(address ?? _session.Selection.ActiveCell);
         _session.Selection.SetActiveCell(target);
         var cell = _session.ActiveWorksheet.GetCell(target);
         var initialText = cell.Formula ?? cell.Value.ToString();

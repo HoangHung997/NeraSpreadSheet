@@ -71,7 +71,7 @@ public sealed class SpreadsheetViewportEngine
             return false;
         }
 
-        address = new CellAddress(rowIndex, columnIndex);
+        address = _session.ActiveWorksheet.ResolveMergedAnchor(new CellAddress(rowIndex, columnIndex));
         return true;
     }
 
@@ -84,9 +84,28 @@ public sealed class SpreadsheetViewportEngine
         }
 
         EnsureMetrics();
-        var width = _columns!.GetSize(address.ColumnIndex);
-        var height = _rows!.GetSize(address.RowIndex);
-        if (width <= 0d || height <= 0d)
+        var worksheet = _session.ActiveWorksheet;
+        if (worksheet.MergedCells.TryGetContaining(address, out var mergedRange))
+        {
+            var left = _columns!.GetOffset(mergedRange.Left);
+            var right = _columns.GetOffset(mergedRange.Right + 1);
+            var top = _rows!.GetOffset(mergedRange.Top);
+            var bottom = _rows.GetOffset(mergedRange.Bottom + 1);
+            var width = right - left;
+            var height = bottom - top;
+            if (width <= 0d || height <= 0d)
+            {
+                bounds = RectD.Empty;
+                return false;
+            }
+
+            bounds = new RectD(left - scrollX, top - scrollY, width, height);
+            return true;
+        }
+
+        var cellWidth = _columns!.GetSize(address.ColumnIndex);
+        var cellHeight = _rows!.GetSize(address.RowIndex);
+        if (cellWidth <= 0d || cellHeight <= 0d)
         {
             bounds = RectD.Empty;
             return false;
@@ -95,8 +114,8 @@ public sealed class SpreadsheetViewportEngine
         bounds = new RectD(
             _columns.GetOffset(address.ColumnIndex) - scrollX,
             _rows.GetOffset(address.RowIndex) - scrollY,
-            width,
-            height);
+            cellWidth,
+            cellHeight);
         return true;
     }
 

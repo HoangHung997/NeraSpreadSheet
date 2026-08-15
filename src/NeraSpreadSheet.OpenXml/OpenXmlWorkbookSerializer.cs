@@ -35,4 +35,6 @@ public sealed record OpenXmlSerializerCapabilities(
     bool WritesFormulas,
     bool ReadsBasicDimensions,
     bool WritesBasicDimensions,
-    bool PreservesUnknownParts);
+    bool PreservesUnknownParts,
+    bool ReadsMergedCells = false,
+    bool WritesMergedCells = false);

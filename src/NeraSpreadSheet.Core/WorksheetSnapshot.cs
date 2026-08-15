@@ -5,6 +5,7 @@ namespace NeraSpreadSheet.Core;
 public sealed class WorksheetSnapshot
 {
     private readonly IReadOnlyDictionary<CellAddress, CellData> _cells;
+    private readonly CellRange[] _mergedCells;
 
     private WorksheetSnapshot(
         string name,
@@ -13,7 +14,8 @@ public sealed class WorksheetSnapshot
         double defaultRowHeight,
         double defaultColumnWidth,
         IReadOnlyDictionary<int, double> rowHeights,
-        IReadOnlyDictionary<int, double> columnWidths)
+        IReadOnlyDictionary<int, double> columnWidths,
+        CellRange[] mergedCells)
     {
         Name = name;
         Version = version;
@@ -22,25 +24,36 @@ public sealed class WorksheetSnapshot
         DefaultColumnWidth = defaultColumnWidth;
         RowHeights = rowHeights;
         ColumnWidths = columnWidths;
+        _mergedCells = mergedCells;
     }
 
     public string Name { get; }
-
     public long Version { get; }
-
     public int UsedCellCount => _cells.Count;
-
     public double DefaultRowHeight { get; }
-
     public double DefaultColumnWidth { get; }
-
     public IReadOnlyDictionary<int, double> RowHeights { get; }
-
     public IReadOnlyDictionary<int, double> ColumnWidths { get; }
+    public IReadOnlyList<CellRange> MergedCells => _mergedCells;
 
     public CellData GetCell(CellAddress address) => _cells.GetValueOrDefault(address, CellData.Empty);
 
     public IEnumerable<KeyValuePair<CellAddress, CellData>> EnumerateUsedCells() => _cells;
+
+    public bool TryGetMergedRange(CellAddress address, out CellRange range)
+    {
+        foreach (var candidate in _mergedCells)
+        {
+            if (candidate.Contains(address))
+            {
+                range = candidate;
+                return true;
+            }
+        }
+
+        range = default;
+        return false;
+    }
 
     public static WorksheetSnapshot Capture(Worksheet worksheet)
     {
@@ -59,6 +72,7 @@ public sealed class WorksheetSnapshot
             worksheet.Dimensions.DefaultRowHeight,
             worksheet.Dimensions.DefaultColumnWidth,
             rows,
-            columns);
+            columns,
+            [.. worksheet.MergedCells.Ranges]);
     }
 }
