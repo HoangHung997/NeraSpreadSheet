@@ -75,6 +75,31 @@ public sealed class SpreadsheetViewportEngine
         return true;
     }
 
+    public bool TryGetCellBounds(CellAddress address, double scrollX, double scrollY, out RectD bounds)
+    {
+        if (!double.IsFinite(scrollX) || !double.IsFinite(scrollY) || scrollX < 0d || scrollY < 0d)
+        {
+            bounds = RectD.Empty;
+            return false;
+        }
+
+        EnsureMetrics();
+        var width = _columns!.GetSize(address.ColumnIndex);
+        var height = _rows!.GetSize(address.RowIndex);
+        if (width <= 0d || height <= 0d)
+        {
+            bounds = RectD.Empty;
+            return false;
+        }
+
+        bounds = new RectD(
+            _columns.GetOffset(address.ColumnIndex) - scrollX,
+            _rows.GetOffset(address.RowIndex) - scrollY,
+            width,
+            height);
+        return true;
+    }
+
     public SizeD GetContentExtent()
     {
         EnsureMetrics();

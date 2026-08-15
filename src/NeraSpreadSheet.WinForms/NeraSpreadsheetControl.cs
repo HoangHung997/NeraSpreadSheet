@@ -21,8 +21,10 @@ public sealed class NeraSpreadsheetControl : Control
     private readonly ContinuousScrollController _scrollController = new();
     private readonly WinFormsDisplayListRenderer _displayListRenderer = new();
     private readonly System.Windows.Forms.Timer _frameTimer;
+    private readonly TextBox _editor;
     private SpreadsheetSession? _session;
     private SpreadsheetViewportEngine? _viewport;
+    private SpreadsheetCellEditorController? _cellEditor;
     private Worksheet? _subscribedWorksheet;
     private DateTime _lastFrameUtc = DateTime.UtcNow;
 
@@ -38,6 +40,9 @@ public sealed class NeraSpreadsheetControl : Control
         TabStop = true;
         _frameTimer = new System.Windows.Forms.Timer { Interval = 8 };
         _frameTimer.Tick += OnFrameTick;
+        _editor = new TextBox { Visible = false, BorderStyle = BorderStyle.FixedSingle };
+        _editor.KeyDown += OnEditorKeyDown;
+        Controls.Add(_editor);
     }
 
     [Browsable(false)]
@@ -68,15 +73,19 @@ public sealed class NeraSpreadsheetControl : Control
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public double ContentHeight { get; private set; }
 
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public ScrollSnapshot ScrollSnapshot => _scrollController.Snapshot;
+
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool IsEditing => _cellEditor?.IsEditing == true;
+
     [DefaultValue(96d)]
     public double WheelPixelsPerNotch { get; set; } = 96d;
 
     [DefaultValue(128d)]
     public double OverscanPixels { get; set; } = 128d;
-
-    [Browsable(false)]
-    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-    public ScrollSnapshot ScrollSnapshot => _scrollController.Snapshot;
 
     public event EventHandler<ScrollChangedEventArgs>? ScrollChanged;
 
@@ -103,6 +112,10 @@ public sealed class NeraSpreadsheetControl : Control
         {
             return;
         }
+        if (IsEditing)
+        {
+            CommitEditor();
+        }
         Focus();
         var scroll = _scrollController.Snapshot;
         if (!EnsureViewport().TryHitTest(e.X, e.Y, scroll.OffsetX, scroll.OffsetY, out var address))
@@ -121,18 +134,22 @@ public sealed class NeraSpreadsheetControl : Control
         {
             _session.Selection.SetActiveCell(address);
         }
+        if (e.Clicks >= 2)
+        {
+            BeginEdit();
+        }
     }
 
     protected override bool IsInputKey(Keys keyData)
     {
-        return (keyData & Keys.KeyCode) is Keys.Left or Keys.Right or Keys.Up or Keys.Down
+        return (keyData & Keys.KeyCode) is Keys.Left or Keys.Right or Keys.Up or Keys.Down or Keys.Tab
             || base.IsInputKey(keyData);
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (_session is null)
+        if (_session is null || IsEditing)
         {
             return;
         }
@@ -154,6 +171,27 @@ public sealed class NeraSpreadsheetControl : Control
             e.SuppressKeyPress = e.Handled;
             return;
         }
+        if (e.KeyCode == Keys.F2)
+        {
+            BeginEdit();
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            return;
+        }
+        if (e.KeyCode == Keys.Enter)
+        {
+            MoveActiveCell(1, 0, false);
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            return;
+        }
+        if (e.KeyCode == Keys.Tab)
+        {
+            MoveActiveCell(0, e.Shift ? -1 : 1, false);
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            return;
+        }
 
         var delta = e.KeyCode switch
         {
@@ -172,6 +210,17 @@ public sealed class NeraSpreadsheetControl : Control
         e.SuppressKeyPress = true;
     }
 
+    protected override void OnKeyPress(KeyPressEventArgs e)
+    {
+        base.OnKeyPress(e);
+        if (_session is null || IsEditing || char.IsControl(e.KeyChar))
+        {
+            return;
+        }
+        BeginEdit(e.KeyChar.ToString());
+        e.Handled = true;
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         e.Graphics.Clear(BackColor);
@@ -187,6 +236,56 @@ public sealed class NeraSpreadsheetControl : Control
         base.OnPaint(e);
     }
 
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        UpdateEditorBounds();
+    }
+
+    public void BeginEdit(string? replacementText = null)
+    {
+        if (_cellEditor is null)
+        {
+            return;
+        }
+        var state = _cellEditor.BeginEdit();
+        _editor.Text = replacementText ?? state.InitialText;
+        _editor.Visible = true;
+        UpdateEditorBounds();
+        _editor.Focus();
+        if (replacementText is null)
+        {
+            _editor.SelectAll();
+        }
+        else
+        {
+            _editor.SelectionStart = _editor.TextLength;
+            _editor.SelectionLength = 0;
+        }
+    }
+
+    public bool CommitEditor()
+    {
+        if (_cellEditor is null || !_cellEditor.Commit(_editor.Text))
+        {
+            return false;
+        }
+        HideEditor();
+        Focus();
+        return true;
+    }
+
+    public bool CancelEditor()
+    {
+        if (_cellEditor is null || !_cellEditor.Cancel())
+        {
+            return false;
+        }
+        HideEditor();
+        Focus();
+        return true;
+    }
+
     public void QueuePrecisionScroll(double deltaX, double deltaY)
     {
         _scrollController.QueueDelta(new ScrollDelta(deltaX, deltaY, ScrollInputKind.Precision));
@@ -196,6 +295,7 @@ public sealed class NeraSpreadsheetControl : Control
     public void ScrollTo(double offsetX, double offsetY, bool animated = false)
     {
         _scrollController.ScrollTo(offsetX, offsetY, animated);
+        UpdateEditorBounds();
         Invalidate();
         if (animated)
         {
@@ -211,6 +311,7 @@ public sealed class NeraSpreadsheetControl : Control
             _frameTimer.Stop();
             _frameTimer.Tick -= OnFrameTick;
             _frameTimer.Dispose();
+            _editor.KeyDown -= OnEditorKeyDown;
             _displayListRenderer.Dispose();
         }
         base.Dispose(disposing);
@@ -225,7 +326,9 @@ public sealed class NeraSpreadsheetControl : Control
         DetachSessionEvents();
         _session = value;
         _viewport = value is null ? null : new SpreadsheetViewportEngine(value);
+        _cellEditor = value is null ? null : new SpreadsheetCellEditorController(value);
         _scrollController.Reset();
+        HideEditor();
         AttachSessionEvents();
         UpdateContentExtent();
         Invalidate();
@@ -272,6 +375,7 @@ public sealed class NeraSpreadsheetControl : Control
 
     private void OnActiveWorksheetChanged(object? sender, EventArgs e)
     {
+        CancelEditor();
         EnsureWorksheetSubscription();
         _viewport?.InvalidateMetrics();
         _scrollController.Reset();
@@ -279,13 +383,19 @@ public sealed class NeraSpreadsheetControl : Control
         Invalidate();
     }
 
-    private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e) => Invalidate();
+    private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        UpdateEditorBounds();
+        Invalidate();
+    }
+
     private void OnCellsChanged(object? sender, CellsChangedEventArgs e) => Invalidate();
 
     private void OnDimensionsChanged(object? sender, DimensionChangedEventArgs e)
     {
         _viewport?.InvalidateMetrics();
         UpdateContentExtent();
+        UpdateEditorBounds();
         Invalidate();
     }
 
@@ -312,6 +422,56 @@ public sealed class NeraSpreadsheetControl : Control
         if (extend) _session.Selection.ExtendTo(next); else _session.Selection.SetActiveCell(next);
     }
 
+    private void OnEditorKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Enter)
+        {
+            if (CommitEditor()) MoveActiveCell(1, 0, false);
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+        }
+        else if (e.KeyCode == Keys.Escape)
+        {
+            CancelEditor();
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+        }
+        else if (e.KeyCode == Keys.Tab)
+        {
+            if (CommitEditor()) MoveActiveCell(0, e.Shift ? -1 : 1, false);
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+        }
+    }
+
+    private void UpdateEditorBounds()
+    {
+        if (_cellEditor?.State is not { } state || _viewport is null)
+        {
+            return;
+        }
+        var scroll = _scrollController.Snapshot;
+        if (!_viewport.TryGetCellBounds(state.Address, scroll.OffsetX, scroll.OffsetY, out var bounds))
+        {
+            _editor.Visible = false;
+            return;
+        }
+        var rectangle = Rectangle.FromLTRB(
+            (int)Math.Floor(bounds.Left),
+            (int)Math.Floor(bounds.Top),
+            (int)Math.Ceiling(bounds.Right),
+            (int)Math.Ceiling(bounds.Bottom));
+        _editor.Bounds = rectangle;
+        _editor.Visible = rectangle.IntersectsWith(ClientRectangle);
+        if (_editor.Visible) _editor.BringToFront();
+    }
+
+    private void HideEditor()
+    {
+        _editor.Visible = false;
+        _editor.Text = string.Empty;
+    }
+
     private void StartFrameLoop()
     {
         _lastFrameUtc = DateTime.UtcNow;
@@ -330,6 +490,7 @@ public sealed class NeraSpreadsheetControl : Control
         if (result.Changed)
         {
             ScrollChanged?.Invoke(this, new ScrollChangedEventArgs(result.Snapshot));
+            UpdateEditorBounds();
             Invalidate();
         }
         if (!_scrollController.HasPendingMotion) _frameTimer.Stop();
