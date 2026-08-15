@@ -198,7 +198,6 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
         var bounds = ToRawRect(command.Bounds);
         target.DrawText(
             command.Text,
-            (uint)command.Text.Length,
             GetTextFormat(command.Style),
             bounds,
             GetBrush(command.Style.Color),
