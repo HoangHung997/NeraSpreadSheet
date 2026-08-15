@@ -1,7 +1,9 @@
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
+using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Layout;
+using NeraSpreadSheet.Rendering;
 using NeraSpreadSheet.Rendering.Spreadsheet;
 
 namespace NeraSpreadSheet.Viewport;
@@ -9,6 +11,8 @@ namespace NeraSpreadSheet.Viewport;
 public sealed class SpreadsheetViewportEngine
 {
     private readonly SpreadsheetSession _session;
+    private readonly SpreadsheetViewportCacheOptions _cacheOptions;
+    private readonly Dictionary<DisplayListCacheKey, CachedDisplayListEntry> _displayListCache = [];
     private SparseAxisMetricIndex? _rows;
     private SparseAxisMetricIndex? _columns;
     private Worksheet? _metricsWorksheet;
@@ -17,15 +21,26 @@ public sealed class SpreadsheetViewportEngine
     private Worksheet? _snapshotWorksheet;
     private long _snapshotWorksheetVersion = -1;
     private long _snapshotDimensionsVersion = -1;
+    private long _cacheClock;
 
-    public SpreadsheetViewportEngine(SpreadsheetSession session)
+    public SpreadsheetViewportEngine(
+        SpreadsheetSession session,
+        SpreadsheetViewportCacheOptions? cacheOptions = null)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
+        _cacheOptions = cacheOptions ?? new SpreadsheetViewportCacheOptions();
+        ValidateCacheOptions(_cacheOptions);
     }
 
     public SpreadsheetSession Session => _session;
 
     public long SnapshotRefreshCount { get; private set; }
+
+    public long DisplayListCacheHitCount { get; private set; }
+
+    public long DisplayListCacheMissCount { get; private set; }
+
+    public int DisplayListCacheEntryCount => _displayListCache.Count;
 
     public SpreadsheetViewportFrame Compose(
         double scrollX,
@@ -36,17 +51,15 @@ public sealed class SpreadsheetViewportEngine
         SpreadsheetRenderTheme? theme = null)
     {
         EnsureMetrics();
-        var layout = new ViewportLayoutEngine(_rows!, _columns!).Compute(
+        theme ??= new SpreadsheetRenderTheme();
+        var layoutEngine = new ViewportLayoutEngine(_rows!, _columns!);
+        var layout = layoutEngine.Compute(
             new ViewportRequest(scrollX, scrollY, new SizeD(viewportWidth, viewportHeight), overscan));
         var worksheet = _session.ActiveWorksheet;
         var selection = _session.Selection.Capture();
-        var worksheetSnapshot = GetWorksheetSnapshot(worksheet);
-        var displayList = SpreadsheetDisplayListComposer.Compose(
-            worksheetSnapshot,
-            layout,
-            selection,
-            theme,
-            _session.Workbook.Styles);
+        var displayList = _cacheOptions.Enabled
+            ? ComposeCachedDisplayList(layoutEngine, layout, worksheet, selection, theme, overscan)
+            : ComposeFreshDisplayList(worksheet, layout, selection, theme);
 
         return new SpreadsheetViewportFrame(layout, displayList, worksheet.Version, selection.Version);
     }
@@ -147,6 +160,114 @@ public sealed class SpreadsheetViewportEngine
         _snapshotWorksheet = null;
         _snapshotWorksheetVersion = -1;
         _snapshotDimensionsVersion = -1;
+        ClearDisplayListCache();
+    }
+
+    public void ClearDisplayListCache() => _displayListCache.Clear();
+
+    private DisplayList ComposeFreshDisplayList(
+        Worksheet worksheet,
+        ViewportLayout layout,
+        SelectionSnapshot selection,
+        SpreadsheetRenderTheme theme) =>
+        SpreadsheetDisplayListComposer.Compose(
+            GetWorksheetSnapshot(worksheet),
+            layout,
+            selection,
+            theme,
+            _session.Workbook.Styles);
+
+    private DisplayList ComposeCachedDisplayList(
+        ViewportLayoutEngine layoutEngine,
+        ViewportLayout actualLayout,
+        Worksheet worksheet,
+        SelectionSnapshot selection,
+        SpreadsheetRenderTheme theme,
+        double overscan)
+    {
+        var tileSize = _cacheOptions.ScrollTileSize;
+        var expandedWidth = actualLayout.ViewportSize.Width + tileSize;
+        var expandedHeight = actualLayout.ViewportSize.Height + tileSize;
+        var requestedTileX = Math.Floor(actualLayout.ScrollX / tileSize) * tileSize;
+        var requestedTileY = Math.Floor(actualLayout.ScrollY / tileSize) * tileSize;
+        var maximumCacheX = Math.Max(0d, _columns!.TotalExtent - expandedWidth);
+        var maximumCacheY = Math.Max(0d, _rows!.TotalExtent - expandedHeight);
+        var cacheScrollX = Math.Min(requestedTileX, maximumCacheX);
+        var cacheScrollY = Math.Min(requestedTileY, maximumCacheY);
+        var key = new DisplayListCacheKey(
+            worksheet,
+            worksheet.Version,
+            worksheet.Dimensions.Version,
+            selection.Version,
+            cacheScrollX,
+            cacheScrollY,
+            actualLayout.ViewportSize.Width,
+            actualLayout.ViewportSize.Height,
+            overscan,
+            theme);
+
+        DisplayList cachedDisplayList;
+        if (_displayListCache.TryGetValue(key, out var entry))
+        {
+            DisplayListCacheHitCount++;
+            entry.LastAccess = ++_cacheClock;
+            cachedDisplayList = entry.DisplayList;
+        }
+        else
+        {
+            DisplayListCacheMissCount++;
+            var cachedLayout = layoutEngine.Compute(new ViewportRequest(
+                cacheScrollX,
+                cacheScrollY,
+                new SizeD(expandedWidth, expandedHeight),
+                overscan));
+            cachedDisplayList = SpreadsheetDisplayListComposer.Compose(
+                GetWorksheetSnapshot(worksheet),
+                cachedLayout,
+                selection,
+                theme,
+                _session.Workbook.Styles);
+            AddDisplayListCacheEntry(key, cachedDisplayList);
+        }
+
+        var builder = new DisplayListBuilder();
+        builder.PushClip(new RectD(
+            0d,
+            0d,
+            actualLayout.ViewportSize.Width,
+            actualLayout.ViewportSize.Height));
+        builder.PushTranslation(
+            cacheScrollX - actualLayout.ScrollX,
+            cacheScrollY - actualLayout.ScrollY);
+        builder.Append(cachedDisplayList);
+        builder.PopTranslation();
+        builder.PopClip();
+        return builder.Build();
+    }
+
+    private void AddDisplayListCacheEntry(DisplayListCacheKey key, DisplayList displayList)
+    {
+        if (_displayListCache.Count >= _cacheOptions.MaxEntries)
+        {
+            DisplayListCacheKey? leastRecentlyUsedKey = null;
+            var leastRecentlyUsed = long.MaxValue;
+            foreach (var pair in _displayListCache)
+            {
+                if (pair.Value.LastAccess >= leastRecentlyUsed)
+                {
+                    continue;
+                }
+                leastRecentlyUsed = pair.Value.LastAccess;
+                leastRecentlyUsedKey = pair.Key;
+            }
+
+            if (leastRecentlyUsedKey is { } keyToRemove)
+            {
+                _displayListCache.Remove(keyToRemove);
+            }
+        }
+
+        _displayListCache[key] = new CachedDisplayListEntry(displayList, ++_cacheClock);
     }
 
     private WorksheetSnapshot GetWorksheetSnapshot(Worksheet worksheet)
@@ -194,5 +315,43 @@ public sealed class SpreadsheetViewportEngine
         _columns = columns;
         _metricsWorksheet = worksheet;
         _dimensionsVersion = worksheet.Dimensions.Version;
+        ClearDisplayListCache();
+    }
+
+    private static void ValidateCacheOptions(SpreadsheetViewportCacheOptions options)
+    {
+        if (!double.IsFinite(options.ScrollTileSize) || options.ScrollTileSize <= 0d)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "ScrollTileSize must be finite and positive.");
+        }
+        if (options.MaxEntries <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "MaxEntries must be positive.");
+        }
+    }
+
+    private readonly record struct DisplayListCacheKey(
+        Worksheet Worksheet,
+        long WorksheetVersion,
+        long DimensionsVersion,
+        long SelectionVersion,
+        double CacheScrollX,
+        double CacheScrollY,
+        double ViewportWidth,
+        double ViewportHeight,
+        double Overscan,
+        SpreadsheetRenderTheme Theme);
+
+    private sealed class CachedDisplayListEntry
+    {
+        public CachedDisplayListEntry(DisplayList displayList, long lastAccess)
+        {
+            DisplayList = displayList;
+            LastAccess = lastAccess;
+        }
+
+        public DisplayList DisplayList { get; }
+
+        public long LastAccess { get; set; }
     }
 }

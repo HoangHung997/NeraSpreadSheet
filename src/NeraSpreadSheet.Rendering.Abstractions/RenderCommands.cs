@@ -21,6 +21,10 @@ public sealed record PushClipCommand(RectD Bounds) : RenderCommand;
 
 public sealed record PopClipCommand : RenderCommand;
 
+public sealed record PushTranslationCommand(double DeltaX, double DeltaY) : RenderCommand;
+
+public sealed record PopTranslationCommand : RenderCommand;
+
 public sealed record TextStyle(
     string FontFamily,
     double FontSize,

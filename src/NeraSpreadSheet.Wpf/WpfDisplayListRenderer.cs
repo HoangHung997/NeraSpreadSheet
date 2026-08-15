@@ -21,7 +21,9 @@ internal sealed class WpfDisplayListRenderer
             throw new ArgumentOutOfRangeException(nameof(pixelsPerDip));
         }
 
-        var clipDepth = 0;
+        var states = new Stack<RenderState>();
+        var offsetX = 0d;
+        var offsetY = 0d;
         try
         {
             foreach (var command in displayList.Commands)
@@ -29,26 +31,39 @@ internal sealed class WpfDisplayListRenderer
                 switch (command)
                 {
                     case FillRectangleCommand fill:
-                        drawingContext.DrawRectangle(GetBrush(fill.Color), null, ToRect(fill.Bounds));
+                        drawingContext.DrawRectangle(GetBrush(fill.Color), null, ToRect(fill.Bounds.Translate(offsetX, offsetY)));
                         break;
                     case DrawLineCommand line:
-                        drawingContext.DrawLine(GetPen(line.Color, line.StrokeWidth), ToPoint(line.Start), ToPoint(line.End));
+                        drawingContext.DrawLine(
+                            GetPen(line.Color, line.StrokeWidth),
+                            ToPoint(line.Start, offsetX, offsetY),
+                            ToPoint(line.End, offsetX, offsetY));
                         break;
                     case DrawTextCommand text:
-                        DrawText(drawingContext, text, pixelsPerDip);
+                        DrawText(drawingContext, text, pixelsPerDip, offsetX, offsetY);
                         break;
                     case PushClipCommand pushClip:
-                        drawingContext.PushClip(new RectangleGeometry(ToRect(pushClip.Bounds)));
-                        clipDepth++;
+                        drawingContext.PushClip(new RectangleGeometry(ToRect(pushClip.Bounds.Translate(offsetX, offsetY))));
+                        states.Push(new RenderState(RenderStateKind.Clip, offsetX, offsetY));
                         break;
                     case PopClipCommand:
-                        if (clipDepth <= 0)
-                        {
-                            throw new InvalidOperationException("Display-list clip stack is unbalanced.");
-                        }
+                        EnsureTopState(states, RenderStateKind.Clip);
                         drawingContext.Pop();
-                        clipDepth--;
+                        states.Pop();
                         break;
+                    case PushTranslationCommand translation:
+                        states.Push(new RenderState(RenderStateKind.Translation, offsetX, offsetY));
+                        offsetX += translation.DeltaX;
+                        offsetY += translation.DeltaY;
+                        break;
+                    case PopTranslationCommand:
+                    {
+                        var state = EnsureTopState(states, RenderStateKind.Translation);
+                        states.Pop();
+                        offsetX = state.PreviousOffsetX;
+                        offsetY = state.PreviousOffsetY;
+                        break;
+                    }
                     default:
                         throw new NotSupportedException($"Unsupported render command '{command.GetType().Name}'.");
                 }
@@ -56,15 +71,27 @@ internal sealed class WpfDisplayListRenderer
         }
         finally
         {
-            while (clipDepth > 0)
+            while (states.TryPop(out var state))
             {
-                drawingContext.Pop();
-                clipDepth--;
+                if (state.Kind == RenderStateKind.Clip)
+                {
+                    drawingContext.Pop();
+                }
+                else
+                {
+                    offsetX = state.PreviousOffsetX;
+                    offsetY = state.PreviousOffsetY;
+                }
             }
         }
     }
 
-    private void DrawText(DrawingContext drawingContext, DrawTextCommand command, double pixelsPerDip)
+    private void DrawText(
+        DrawingContext drawingContext,
+        DrawTextCommand command,
+        double pixelsPerDip,
+        double offsetX,
+        double offsetY)
     {
         if (string.IsNullOrEmpty(command.Text) || command.Bounds.Width <= 0d || command.Bounds.Height <= 0d)
         {
@@ -85,7 +112,7 @@ internal sealed class WpfDisplayListRenderer
             Trimming = TextTrimming.CharacterEllipsis,
         };
 
-        drawingContext.DrawText(formatted, new Point(command.Bounds.X, command.Bounds.Y));
+        drawingContext.DrawText(formatted, new Point(command.Bounds.X + offsetX, command.Bounds.Y + offsetY));
     }
 
     private SolidColorBrush GetBrush(ColorRgba color)
@@ -131,6 +158,25 @@ internal sealed class WpfDisplayListRenderer
         return typeface;
     }
 
+    private static RenderState EnsureTopState(Stack<RenderState> states, RenderStateKind expected)
+    {
+        if (!states.TryPeek(out var state) || state.Kind != expected)
+        {
+            throw new InvalidOperationException("Display-list render-state stack is unbalanced.");
+        }
+        return state;
+    }
+
     private static Rect ToRect(RectD bounds) => new(bounds.X, bounds.Y, bounds.Width, bounds.Height);
-    private static Point ToPoint(PointD point) => new(point.X, point.Y);
+
+    private static Point ToPoint(PointD point, double offsetX, double offsetY) =>
+        new(point.X + offsetX, point.Y + offsetY);
+
+    private readonly record struct RenderState(RenderStateKind Kind, double PreviousOffsetX, double PreviousOffsetY);
+
+    private enum RenderStateKind
+    {
+        Clip,
+        Translation,
+    }
 }

@@ -41,7 +41,9 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
         graphics.SmoothingMode = SmoothingMode.None;
         graphics.PixelOffsetMode = PixelOffsetMode.Half;
         graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
-        var states = new Stack<GraphicsState>();
+        var states = new Stack<RenderState>();
+        var offsetX = 0d;
+        var offsetY = 0d;
         try
         {
             foreach (var command in displayList.Commands)
@@ -49,25 +51,44 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
                 switch (command)
                 {
                     case FillRectangleCommand fill:
-                        graphics.FillRectangle(GetBrush(fill.Color), ToRectangleF(fill.Bounds));
+                        graphics.FillRectangle(GetBrush(fill.Color), ToRectangleF(fill.Bounds.Translate(offsetX, offsetY)));
                         break;
                     case DrawLineCommand line:
-                        graphics.DrawLine(GetPen(line.Color, line.StrokeWidth), ToPointF(line.Start), ToPointF(line.End));
+                        graphics.DrawLine(
+                            GetPen(line.Color, line.StrokeWidth),
+                            ToPointF(line.Start, offsetX, offsetY),
+                            ToPointF(line.End, offsetX, offsetY));
                         break;
                     case DrawTextCommand text:
-                        DrawText(graphics, text);
+                        DrawText(graphics, text, offsetX, offsetY);
                         break;
                     case PushClipCommand pushClip:
-                        states.Push(graphics.Save());
-                        graphics.SetClip(ToRectangleF(pushClip.Bounds), CombineMode.Intersect);
+                    {
+                        var graphicsState = graphics.Save();
+                        graphics.SetClip(ToRectangleF(pushClip.Bounds.Translate(offsetX, offsetY)), CombineMode.Intersect);
+                        states.Push(new RenderState(RenderStateKind.Clip, graphicsState, offsetX, offsetY));
                         break;
+                    }
                     case PopClipCommand:
-                        if (!states.TryPop(out var state))
-                        {
-                            throw new InvalidOperationException("Display-list clip stack is unbalanced.");
-                        }
-                        graphics.Restore(state);
+                    {
+                        var state = EnsureTopState(states, RenderStateKind.Clip);
+                        states.Pop();
+                        graphics.Restore(state.GraphicsState!);
                         break;
+                    }
+                    case PushTranslationCommand translation:
+                        states.Push(new RenderState(RenderStateKind.Translation, null, offsetX, offsetY));
+                        offsetX += translation.DeltaX;
+                        offsetY += translation.DeltaY;
+                        break;
+                    case PopTranslationCommand:
+                    {
+                        var state = EnsureTopState(states, RenderStateKind.Translation);
+                        states.Pop();
+                        offsetX = state.PreviousOffsetX;
+                        offsetY = state.PreviousOffsetY;
+                        break;
+                    }
                     default:
                         throw new NotSupportedException($"Unsupported render command '{command.GetType().Name}'.");
                 }
@@ -77,7 +98,15 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
         {
             while (states.TryPop(out var state))
             {
-                graphics.Restore(state);
+                if (state.Kind == RenderStateKind.Clip)
+                {
+                    graphics.Restore(state.GraphicsState!);
+                }
+                else
+                {
+                    offsetX = state.PreviousOffsetX;
+                    offsetY = state.PreviousOffsetY;
+                }
             }
         }
     }
@@ -96,7 +125,7 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
         _disposed = true;
     }
 
-    private void DrawText(Graphics graphics, DrawTextCommand command)
+    private void DrawText(Graphics graphics, DrawTextCommand command, double offsetX, double offsetY)
     {
         if (string.IsNullOrEmpty(command.Text) || command.Bounds.Width <= 0d || command.Bounds.Height <= 0d)
         {
@@ -106,7 +135,7 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
             command.Text,
             GetFont(command.Style),
             GetBrush(command.Style.Color),
-            ToRectangleF(command.Bounds),
+            ToRectangleF(command.Bounds.Translate(offsetX, offsetY)),
             command.Style.Wrap ? _wrappedFormat : _singleLineFormat);
     }
 
@@ -138,6 +167,30 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
         return font;
     }
 
-    private static RectangleF ToRectangleF(RectD bounds) => new((float)bounds.X, (float)bounds.Y, (float)bounds.Width, (float)bounds.Height);
-    private static PointF ToPointF(PointD point) => new((float)point.X, (float)point.Y);
+    private static RenderState EnsureTopState(Stack<RenderState> states, RenderStateKind expected)
+    {
+        if (!states.TryPeek(out var state) || state.Kind != expected)
+        {
+            throw new InvalidOperationException("Display-list render-state stack is unbalanced.");
+        }
+        return state;
+    }
+
+    private static RectangleF ToRectangleF(RectD bounds) =>
+        new((float)bounds.X, (float)bounds.Y, (float)bounds.Width, (float)bounds.Height);
+
+    private static PointF ToPointF(PointD point, double offsetX, double offsetY) =>
+        new((float)(point.X + offsetX), (float)(point.Y + offsetY));
+
+    private readonly record struct RenderState(
+        RenderStateKind Kind,
+        GraphicsState? GraphicsState,
+        double PreviousOffsetX,
+        double PreviousOffsetY);
+
+    private enum RenderStateKind
+    {
+        Clip,
+        Translation,
+    }
 }
