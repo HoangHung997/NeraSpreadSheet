@@ -10,8 +10,9 @@ public sealed class SpreadsheetSession
     public SpreadsheetSession(Workbook workbook, Worksheet? activeWorksheet = null)
     {
         Workbook = workbook ?? throw new ArgumentNullException(nameof(workbook));
-        ActiveWorksheet = activeWorksheet ?? workbook.Worksheets.FirstOrDefault()
-            ?? throw new ArgumentException("Workbook must contain at least one worksheet.", nameof(workbook));
+        ActiveWorksheet = activeWorksheet ?? (workbook.Worksheets.Count > 0
+            ? workbook.Worksheets[0]
+            : throw new ArgumentException("Workbook must contain at least one worksheet.", nameof(workbook)));
         if (!workbook.Worksheets.Contains(ActiveWorksheet))
         {
             throw new ArgumentException("Active worksheet must belong to the workbook.", nameof(activeWorksheet));
