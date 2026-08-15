@@ -45,7 +45,9 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         using var document = SpreadsheetDocument.Open(source, false);
         var workbookPart = document.WorkbookPart
             ?? throw new InvalidDataException("The XLSX package does not contain a workbook part.");
-        var sheets = workbookPart.Workbook.GetFirstChild<Sheets>()
+        var openXmlWorkbook = workbookPart.Workbook
+            ?? throw new InvalidDataException("The XLSX workbook part does not contain workbook markup.");
+        var sheets = openXmlWorkbook.GetFirstChild<Sheets>()
             ?? throw new InvalidDataException("The XLSX workbook does not contain a sheets collection.");
 
         var workbook = new NeraWorkbook(createDefaultWorksheet: false);
@@ -99,8 +101,9 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         cancellationToken.ThrowIfCancellationRequested();
         using var document = SpreadsheetDocument.Create(destination, SpreadsheetDocumentType.Workbook, true);
         var workbookPart = document.AddWorkbookPart();
-        workbookPart.Workbook = new OpenXmlWorkbook();
-        var sheets = workbookPart.Workbook.AppendChild(new Sheets());
+        var openXmlWorkbook = new OpenXmlWorkbook();
+        workbookPart.Workbook = openXmlWorkbook;
+        var sheets = openXmlWorkbook.AppendChild(new Sheets());
         uint sheetId = 1;
 
         foreach (var worksheet in workbook.Worksheets)
@@ -117,7 +120,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             });
         }
 
-        workbookPart.Workbook.Save();
+        openXmlWorkbook.Save();
         return Task.CompletedTask;
     }
 
@@ -128,7 +131,12 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         OpenXmlImportOptions options,
         CancellationToken cancellationToken)
     {
-        var sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>();
+        var openXmlWorksheet = worksheetPart.Worksheet;
+        if (openXmlWorksheet is null)
+        {
+            return;
+        }
+        var sheetData = openXmlWorksheet.GetFirstChild<SheetData>();
         if (sheetData is null)
         {
             return;
@@ -207,7 +215,12 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
 
     private static void ImportDimensions(WorksheetPart worksheetPart, NeraWorksheet worksheet)
     {
-        foreach (var columns in worksheetPart.Worksheet.Elements<Columns>())
+        var openXmlWorksheet = worksheetPart.Worksheet;
+        if (openXmlWorksheet is null)
+        {
+            return;
+        }
+        foreach (var columns in openXmlWorksheet.Elements<Columns>())
         {
             foreach (var column in columns.Elements<Column>())
             {
@@ -231,7 +244,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             }
         }
 
-        var sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>();
+        var sheetData = openXmlWorksheet.GetFirstChild<SheetData>();
         if (sheetData is null)
         {
             return;
