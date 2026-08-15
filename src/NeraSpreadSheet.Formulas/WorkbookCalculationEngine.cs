@@ -18,55 +18,120 @@ public sealed class WorkbookCalculationEngine
     public WorkbookCalculationResult Recalculate(Workbook workbook)
     {
         ArgumentNullException.ThrowIfNull(workbook);
+        DependencyGraph.Clear();
+        var formulaCells = new List<FormulaCellKey>();
+        foreach (var worksheet in workbook.Worksheets)
+        {
+            formulaCells.AddRange(worksheet.EnumerateUsedCells()
+                .Where(pair => pair.Value.Formula is not null)
+                .Select(pair => new FormulaCellKey(worksheet.Name, pair.Key)));
+        }
+        return RecalculateFormulaCells(workbook, formulaCells);
+    }
+
+    public WorkbookCalculationResult RecalculateAffected(Workbook workbook, Worksheet changedWorksheet, CellRange changedRange)
+    {
+        ArgumentNullException.ThrowIfNull(workbook);
+        ArgumentNullException.ThrowIfNull(changedWorksheet);
+
+        if (DependencyGraph.FormulaCount == 0)
+        {
+            return Recalculate(workbook);
+        }
+
+        var candidates = new HashSet<FormulaCellKey>(
+            DependencyGraph.GetTransitiveDependents(changedWorksheet.Name, changedRange));
+
+        foreach (var pair in changedWorksheet.EnumerateUsedCells())
+        {
+            if (pair.Value.Formula is not null && changedRange.Contains(pair.Key))
+            {
+                candidates.Add(new FormulaCellKey(changedWorksheet.Name, pair.Key));
+            }
+        }
+
+        foreach (var formulaCell in DependencyGraph.FormulaCells)
+        {
+            if (!string.Equals(formulaCell.WorksheetName, changedWorksheet.Name, StringComparison.OrdinalIgnoreCase) ||
+                !changedRange.Contains(formulaCell.Address))
+            {
+                continue;
+            }
+
+            if (changedWorksheet.GetCell(formulaCell.Address).Formula is null)
+            {
+                DependencyGraph.Remove(formulaCell);
+            }
+        }
+
+        return RecalculateFormulaCells(workbook, candidates);
+    }
+
+    private WorkbookCalculationResult RecalculateFormulaCells(Workbook workbook, IEnumerable<FormulaCellKey> formulaCells)
+    {
+        var requested = formulaCells.Distinct().ToArray();
         var states = new Dictionary<CellKey, VisitState>();
         var cache = new Dictionary<CellKey, CellValue>();
         var updates = new Dictionary<Worksheet, List<KeyValuePair<CellAddress, CellData>>>();
-        var formulaCount = 0;
         var errors = 0;
+        var evaluated = 0;
 
-        foreach (var worksheet in workbook.Worksheets)
+        foreach (var formulaCell in requested)
         {
-            foreach (var pair in worksheet.EnumerateUsedCells().ToArray())
+            Worksheet worksheet;
+            try
             {
-                if (pair.Value.Formula is null)
-                {
-                    continue;
-                }
-
-                formulaCount++;
-                var value = EvaluateCell(workbook, worksheet, pair.Key, states, cache);
-                if (value.Kind == CellValueKind.Error)
-                {
-                    errors++;
-                }
-
-                if (pair.Value.Value == value)
-                {
-                    continue;
-                }
-
-                if (!updates.TryGetValue(worksheet, out var worksheetUpdates))
-                {
-                    worksheetUpdates = [];
-                    updates.Add(worksheet, worksheetUpdates);
-                }
-
-                worksheetUpdates.Add(new KeyValuePair<CellAddress, CellData>(pair.Key, new CellData(value, pair.Value.Formula, pair.Value.StyleId)));
+                worksheet = workbook.GetWorksheet(formulaCell.WorksheetName);
             }
+            catch (KeyNotFoundException)
+            {
+                continue;
+            }
+
+            var current = worksheet.GetCell(formulaCell.Address);
+            if (current.Formula is null)
+            {
+                DependencyGraph.Remove(formulaCell);
+                continue;
+            }
+
+            evaluated++;
+            var value = EvaluateCell(workbook, worksheet, formulaCell.Address, states, cache);
+            if (value.Kind == CellValueKind.Error)
+            {
+                errors++;
+            }
+
+            if (current.Value == value)
+            {
+                continue;
+            }
+
+            if (!updates.TryGetValue(worksheet, out var worksheetUpdates))
+            {
+                worksheetUpdates = [];
+                updates.Add(worksheet, worksheetUpdates);
+            }
+
+            worksheetUpdates.Add(new KeyValuePair<CellAddress, CellData>(
+                formulaCell.Address,
+                new CellData(value, current.Formula, current.StyleId)));
         }
 
         foreach (var (worksheet, worksheetUpdates) in updates)
         {
-            foreach (var update in worksheetUpdates)
-            {
-                worksheet.SetCell(update.Key, update.Value);
-            }
+            worksheet.SetCells(worksheetUpdates);
         }
 
-        return new WorkbookCalculationResult(formulaCount, updates.Values.Sum(list => list.Count), errors);
+        return new WorkbookCalculationResult(evaluated, updates.Values.Sum(list => list.Count), errors);
     }
 
-    private CellValue EvaluateCell(Workbook workbook, Worksheet worksheet, CellAddress address, IDictionary<CellKey, VisitState> states, IDictionary<CellKey, CellValue> cache)
+    private CellValue EvaluateCell(
+        Workbook workbook,
+        Worksheet worksheet,
+        CellAddress address,
+        IDictionary<CellKey, VisitState> states,
+        IDictionary<CellKey, CellValue> cache)
     {
         var key = new CellKey(worksheet, address);
         if (cache.TryGetValue(key, out var cached))
@@ -107,7 +172,12 @@ public sealed class WorkbookCalculationEngine
         private readonly IDictionary<CellKey, VisitState> _states;
         private readonly IDictionary<CellKey, CellValue> _cache;
 
-        public CalculationContext(WorkbookCalculationEngine owner, Workbook workbook, Worksheet currentWorksheet, IDictionary<CellKey, VisitState> states, IDictionary<CellKey, CellValue> cache)
+        public CalculationContext(
+            WorkbookCalculationEngine owner,
+            Workbook workbook,
+            Worksheet currentWorksheet,
+            IDictionary<CellKey, VisitState> states,
+            IDictionary<CellKey, CellValue> cache)
         {
             _owner = owner;
             _workbook = workbook;
@@ -134,5 +204,9 @@ public sealed class WorkbookCalculationEngine
 
     private readonly record struct CellKey(Worksheet Worksheet, CellAddress Address);
 
-    private enum VisitState { Visiting, Visited }
+    private enum VisitState
+    {
+        Visiting,
+        Visited,
+    }
 }

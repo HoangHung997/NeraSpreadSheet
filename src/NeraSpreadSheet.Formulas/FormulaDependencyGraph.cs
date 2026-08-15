@@ -10,6 +10,8 @@ public sealed class FormulaDependencyGraph
 
     public int FormulaCount => _dependencies.Count;
 
+    public IReadOnlyList<FormulaCellKey> FormulaCells => _dependencies.Keys.ToArray();
+
     public void Replace(FormulaCellKey formulaCell, IEnumerable<FormulaDependency> dependencies)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(formulaCell.WorksheetName);
@@ -37,7 +39,6 @@ public sealed class FormulaDependencyGraph
                 }
             }
         }
-
         return result;
     }
 
@@ -47,21 +48,11 @@ public sealed class FormulaDependencyGraph
         var queue = new Queue<FormulaCellKey>(GetDirectDependents(worksheetName, changedRange));
         while (queue.TryDequeue(out var dependent))
         {
-            if (!result.Add(dependent))
-            {
-                continue;
-            }
-
+            if (!result.Add(dependent)) continue;
             var dependentRange = new CellRange(dependent.Address, dependent.Address);
             foreach (var next in GetDirectDependents(dependent.WorksheetName, dependentRange))
-            {
-                if (!result.Contains(next))
-                {
-                    queue.Enqueue(next);
-                }
-            }
+                if (!result.Contains(next)) queue.Enqueue(next);
         }
-
         return result.ToArray();
     }
 

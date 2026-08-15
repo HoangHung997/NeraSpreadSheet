@@ -9,7 +9,6 @@ public sealed class CellsChangedEventArgs : EventArgs
     }
 
     public CellRange Range { get; }
-
     public long WorksheetVersion { get; }
 }
 
@@ -24,13 +23,9 @@ public sealed class Worksheet
     }
 
     public string Name { get; internal set; }
-
     public WorksheetDimensions Dimensions { get; }
-
     public long Version { get; private set; }
-
     public int UsedCellCount => _cells.Count;
-
     public event EventHandler<CellsChangedEventArgs>? CellsChanged;
 
     public CellData GetCell(CellAddress address) => _cells.GetValueOrDefault(address, CellData.Empty);
@@ -42,7 +37,6 @@ public sealed class Worksheet
             cellData = stored;
             return true;
         }
-
         cellData = CellData.Empty;
         return false;
     }
@@ -74,23 +68,60 @@ public sealed class Worksheet
     public void SetCell(CellAddress address, CellData cellData)
     {
         ArgumentNullException.ThrowIfNull(cellData);
-        var current = GetCell(address);
+        SetCells([new KeyValuePair<CellAddress, CellData>(address, cellData)]);
+    }
 
-        if (current == cellData)
+    public void SetCells(IEnumerable<KeyValuePair<CellAddress, CellData>> changes)
+    {
+        ArgumentNullException.ThrowIfNull(changes);
+        var requested = new Dictionary<CellAddress, CellData>();
+        foreach (var pair in changes)
+        {
+            ArgumentNullException.ThrowIfNull(pair.Value);
+            requested[pair.Key] = pair.Value;
+        }
+
+        if (requested.Count == 0)
         {
             return;
         }
 
-        if (cellData.IsEmpty)
+        var changed = false;
+        var top = int.MaxValue;
+        var left = int.MaxValue;
+        var bottom = int.MinValue;
+        var right = int.MinValue;
+
+        foreach (var (address, cellData) in requested)
         {
-            _cells.Remove(address);
+            if (GetCell(address) == cellData)
+            {
+                continue;
+            }
+
+            if (cellData.IsEmpty)
+            {
+                _cells.Remove(address);
+            }
+            else
+            {
+                _cells[address] = cellData;
+            }
+
+            changed = true;
+            top = Math.Min(top, address.RowIndex);
+            left = Math.Min(left, address.ColumnIndex);
+            bottom = Math.Max(bottom, address.RowIndex);
+            right = Math.Max(right, address.ColumnIndex);
         }
-        else
+
+        if (!changed)
         {
-            _cells[address] = cellData;
+            return;
         }
 
         Version++;
-        CellsChanged?.Invoke(this, new CellsChangedEventArgs(new CellRange(address, address), Version));
+        var range = new CellRange(new CellAddress(top, left), new CellAddress(bottom, right));
+        CellsChanged?.Invoke(this, new CellsChangedEventArgs(range, Version));
     }
 }
