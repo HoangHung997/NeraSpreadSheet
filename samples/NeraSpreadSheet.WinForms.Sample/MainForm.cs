@@ -3,6 +3,7 @@ using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.OpenXml;
 using NeraSpreadsheetControl = NeraSpreadSheet.WinForms.NeraSpreadsheetControl;
+using WinFormsRenderingBackend = NeraSpreadSheet.WinForms.WinFormsRenderingBackend;
 
 namespace NeraSpreadSheet.WinForms.Sample;
 
@@ -26,6 +27,18 @@ public sealed class MainForm : Form
         toolbar.Items.Add(CreateButton("Italic", ItalicClick));
         toolbar.Items.Add(CreateButton("Merge", MergeClick));
         toolbar.Items.Add(CreateButton("Unmerge", UnmergeClick));
+        toolbar.Items.Add(new ToolStripSeparator());
+        var direct2DButton = new ToolStripButton("Direct2D")
+        {
+            CheckOnClick = true,
+            Checked = false,
+            ToolTipText = "Bật backend Direct2D/DirectWrite HWND; bỏ chọn để quay về GDI+.",
+        };
+        direct2DButton.CheckedChanged += (_, _) =>
+            _spreadsheet.RenderingBackend = direct2DButton.Checked
+                ? WinFormsRenderingBackend.Direct2D
+                : WinFormsRenderingBackend.GdiPlus;
+        toolbar.Items.Add(direct2DButton);
         toolbar.Items.Add(new ToolStripSeparator());
         toolbar.Items.Add(new ToolStripLabel("F2/double-click = edit · Ctrl+C/X/V · Ctrl+B/I · wheel/Shift+wheel"));
 
