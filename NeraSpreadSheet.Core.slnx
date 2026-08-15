@@ -24,5 +24,6 @@
   <Project Path="tests/NeraSpreadSheet.Editing.Tests/NeraSpreadSheet.Editing.Tests.csproj" />
   <Project Path="tests/NeraSpreadSheet.Rendering.Spreadsheet.Tests/NeraSpreadSheet.Rendering.Spreadsheet.Tests.csproj" />
   <Project Path="tests/NeraSpreadSheet.Viewport.Tests/NeraSpreadSheet.Viewport.Tests.csproj" />
+  <Project Path="tests/NeraSpreadSheet.OpenXml.Tests/NeraSpreadSheet.OpenXml.Tests.csproj" />
   <Project Path="benchmarks/NeraSpreadSheet.Benchmarks/NeraSpreadSheet.Benchmarks.csproj" />
 </Solution>

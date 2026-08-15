@@ -15,6 +15,6 @@ This is Nera's own capability map. External spreadsheet products are comparison 
 | Rendering | Visible-cell display list; WPF/WinForms fallback executors | style resolution, DirectWrite text cache |
 | Direct2D / DirectWrite | Contract only | device, surface, glyph cache, composition |
 | Skia GPU | Contract only | GPU surface and MAUI handler |
-| XLSX | Contract only | round-trip import/export and preservation layer |
+| XLSX | Basic cells/formulas/sheets/row heights/column widths round-trip | styles, shared formulas, merged cells, drawings, preservation layer |
 | Commands | Registry, state query, dispatcher, Undo/Redo/Clear/Recalculate | copy/paste, formatting, row/column and sheet commands |
 | Ribbon / Bars / DataGrid | Schema foundations | platform presenters and design-time tooling |
