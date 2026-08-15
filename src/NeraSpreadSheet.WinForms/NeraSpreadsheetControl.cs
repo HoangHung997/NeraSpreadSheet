@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Interaction;
+using NeraSpreadSheet.Rendering;
 using NeraSpreadSheet.Rendering.Direct2D;
 using NeraSpreadSheet.Rendering.Spreadsheet;
 using NeraSpreadSheet.Scrolling;
@@ -25,6 +26,7 @@ public sealed class ScrollChangedEventArgs : EventArgs
 
 public sealed class NeraSpreadsheetControl : Control
 {
+    private const double DirtyRegionPadding = 3d;
     private readonly ContinuousScrollController _scrollController = new();
     private readonly WinFormsDisplayListRenderer _displayListRenderer = new();
     private readonly System.Windows.Forms.Timer _frameTimer;
@@ -314,11 +316,13 @@ public sealed class NeraSpreadsheetControl : Control
 
             if (_renderingBackend == WinFormsRenderingBackend.Direct2D)
             {
-                EnsureDirect2DRenderer().Render(frame.DisplayList);
+                var displayList = e.ClipRectangle == ClientRectangle
+                    ? frame.DisplayList
+                    : CreateDirtyClippedDisplayList(frame.DisplayList, e.ClipRectangle);
+                EnsureDirect2DRenderer().Render(displayList);
             }
             else
             {
-                e.Graphics.Clear(BackColor);
                 _displayListRenderer.Render(e.Graphics, frame.DisplayList);
             }
         }
@@ -336,6 +340,7 @@ public sealed class NeraSpreadsheetControl : Control
         if (_direct2DRenderer is not null && ClientSize.Width > 0 && ClientSize.Height > 0)
         {
             _direct2DRenderer.Resize(ClientSize.Width, ClientSize.Height);
+            Invalidate();
         }
         UpdateEditorBounds();
     }
@@ -541,7 +546,10 @@ public sealed class NeraSpreadsheetControl : Control
         Invalidate();
     }
 
-    private void OnCellsChanged(object? sender, CellsChangedEventArgs e) => Invalidate();
+    private void OnCellsChanged(object? sender, CellsChangedEventArgs e)
+    {
+        InvalidateCellRange(e.Range);
+    }
 
     private void OnDimensionsChanged(object? sender, DimensionChangedEventArgs e)
     {
@@ -549,6 +557,50 @@ public sealed class NeraSpreadsheetControl : Control
         UpdateContentExtent();
         UpdateEditorBounds();
         Invalidate();
+    }
+
+    private void InvalidateCellRange(CellRange range)
+    {
+        if (_viewport is null || ClientSize.Width <= 0 || ClientSize.Height <= 0)
+        {
+            Invalidate();
+            return;
+        }
+
+        var scroll = _scrollController.Snapshot;
+        if (!_viewport.TryGetRangeBounds(range, scroll.OffsetX, scroll.OffsetY, out var bounds))
+        {
+            Invalidate();
+            return;
+        }
+
+        var left = Math.Max(0d, bounds.Left - DirtyRegionPadding);
+        var top = Math.Max(0d, bounds.Top - DirtyRegionPadding);
+        var right = Math.Min(ClientSize.Width, bounds.Right + DirtyRegionPadding);
+        var bottom = Math.Min(ClientSize.Height, bounds.Bottom + DirtyRegionPadding);
+        if (right <= left || bottom <= top)
+        {
+            return;
+        }
+
+        Invalidate(Rectangle.FromLTRB(
+            (int)Math.Floor(left),
+            (int)Math.Floor(top),
+            (int)Math.Ceiling(right),
+            (int)Math.Ceiling(bottom)));
+    }
+
+    private static DisplayList CreateDirtyClippedDisplayList(DisplayList displayList, Rectangle clipRectangle)
+    {
+        var builder = new DisplayListBuilder();
+        builder.PushClip(new RectD(
+            clipRectangle.X,
+            clipRectangle.Y,
+            clipRectangle.Width,
+            clipRectangle.Height));
+        builder.Append(displayList);
+        builder.PopClip();
+        return builder.Build();
     }
 
     private void UpdateContentExtent()

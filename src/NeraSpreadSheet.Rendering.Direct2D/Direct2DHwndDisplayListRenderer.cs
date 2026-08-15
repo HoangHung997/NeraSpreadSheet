@@ -168,7 +168,7 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
         {
             Hwnd = _windowHandle,
             PixelSize = new SizeI(_pixelWidth, _pixelHeight),
-            PresentOptions = PresentOptions.Immediately,
+            PresentOptions = PresentOptions.RetainContents | PresentOptions.Immediately,
         };
         _renderTarget = _d2dFactory.CreateHwndRenderTarget(new RenderTargetProperties(), hwndProperties);
     }
