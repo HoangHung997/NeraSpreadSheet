@@ -21,18 +21,16 @@ public sealed class Workbook
     }
 
     public IReadOnlyList<Worksheet> Worksheets => _worksheets;
-
+    public CellStyleCatalog Styles { get; } = new();
     public long Version { get; private set; }
 
     public Worksheet AddWorksheet(string? requestedName = null)
     {
         var name = requestedName is null ? GenerateUniqueName("Sheet") : ValidateWorksheetName(requestedName);
-
         if (_worksheets.Any(sheet => string.Equals(sheet.Name, name, StringComparison.OrdinalIgnoreCase)))
         {
             throw new InvalidOperationException($"A worksheet named '{name}' already exists.");
         }
-
         var worksheet = new Worksheet(name);
         _worksheets.Add(worksheet);
         Version++;
@@ -43,24 +41,18 @@ public sealed class Workbook
     {
         ArgumentNullException.ThrowIfNull(worksheet);
         var validated = ValidateWorksheetName(newName);
-
         if (!_worksheets.Contains(worksheet))
         {
             throw new InvalidOperationException("Worksheet does not belong to this workbook.");
         }
-
-        if (_worksheets.Any(sheet =>
-                !ReferenceEquals(sheet, worksheet) &&
-                string.Equals(sheet.Name, validated, StringComparison.OrdinalIgnoreCase)))
+        if (_worksheets.Any(sheet => !ReferenceEquals(sheet, worksheet) && string.Equals(sheet.Name, validated, StringComparison.OrdinalIgnoreCase)))
         {
             throw new InvalidOperationException($"A worksheet named '{validated}' already exists.");
         }
-
         if (string.Equals(worksheet.Name, validated, StringComparison.Ordinal))
         {
             return;
         }
-
         worksheet.Name = validated;
         Version++;
     }
@@ -68,25 +60,21 @@ public sealed class Workbook
     public void RemoveWorksheet(Worksheet worksheet)
     {
         ArgumentNullException.ThrowIfNull(worksheet);
-
         if (_worksheets.Count <= 1)
         {
             throw new InvalidOperationException("A workbook must contain at least one worksheet.");
         }
-
         if (!_worksheets.Remove(worksheet))
         {
             throw new InvalidOperationException("Worksheet does not belong to this workbook.");
         }
-
         Version++;
     }
 
     public Worksheet GetWorksheet(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        return _worksheets.FirstOrDefault(sheet =>
-                   string.Equals(sheet.Name, name, StringComparison.OrdinalIgnoreCase))
+        return _worksheets.FirstOrDefault(sheet => string.Equals(sheet.Name, name, StringComparison.OrdinalIgnoreCase))
                ?? throw new KeyNotFoundException($"Worksheet '{name}' was not found.");
     }
 
@@ -95,8 +83,7 @@ public sealed class Workbook
         for (var index = 1; ; index++)
         {
             var candidate = $"{prefix}{index}";
-            if (_worksheets.All(sheet =>
-                    !string.Equals(sheet.Name, candidate, StringComparison.OrdinalIgnoreCase)))
+            if (_worksheets.All(sheet => !string.Equals(sheet.Name, candidate, StringComparison.OrdinalIgnoreCase)))
             {
                 return candidate;
             }
@@ -107,24 +94,18 @@ public sealed class Workbook
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         var normalized = name.Trim();
-
         if (normalized.Length > SpreadsheetLimits.MaxWorksheetNameLength)
         {
-            throw new ArgumentException(
-                $"Worksheet names cannot exceed {SpreadsheetLimits.MaxWorksheetNameLength} characters.",
-                nameof(name));
+            throw new ArgumentException($"Worksheet names cannot exceed {SpreadsheetLimits.MaxWorksheetNameLength} characters.", nameof(name));
         }
-
         if (normalized.AsSpan().IndexOfAny(InvalidWorksheetNameCharacters) >= 0)
         {
             throw new ArgumentException("Worksheet name contains an invalid character.", nameof(name));
         }
-
         if (normalized.StartsWith('\'') || normalized.EndsWith('\''))
         {
             throw new ArgumentException("Worksheet name cannot start or end with an apostrophe.", nameof(name));
         }
-
         return normalized;
     }
 }

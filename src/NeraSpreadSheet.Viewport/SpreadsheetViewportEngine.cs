@@ -38,7 +38,8 @@ public sealed class SpreadsheetViewportEngine
             WorksheetSnapshot.Capture(worksheet),
             layout,
             selection,
-            theme);
+            theme,
+            _session.Workbook.Styles);
 
         return new SpreadsheetViewportFrame(layout, displayList, worksheet.Version, selection.Version);
     }
