@@ -45,7 +45,7 @@ public sealed class SpreadsheetMergeController
         var range = _session.Selection.Ranges[0];
         _session.Execute(new MergeCellsOperation(_session.ActiveWorksheet, range));
         _session.Selection.Select(range);
-        _session.Selection.SetActiveCell(range.TopLeft);
+        _session.Selection.SetActiveCell(range.TopLeft, preserveRanges: true, preserveAnchor: true);
         return true;
     }
 
@@ -58,7 +58,7 @@ public sealed class SpreadsheetMergeController
 
         _session.Execute(new UnmergeCellsOperation(_session.ActiveWorksheet, range));
         _session.Selection.Select(range);
-        _session.Selection.SetActiveCell(range.TopLeft);
+        _session.Selection.SetActiveCell(range.TopLeft, preserveRanges: true, preserveAnchor: true);
         return true;
     }
 
@@ -124,6 +124,8 @@ public static class SpreadsheetMergeCommandIds
 {
     public static CommandId MergeCells { get; } = new("Cell.Merge");
     public static CommandId UnmergeCells { get; } = new("Cell.Unmerge");
+    public static CommandId Merge => MergeCells;
+    public static CommandId Unmerge => UnmergeCells;
 }
 
 public static class SpreadsheetMergeCommandCatalog
