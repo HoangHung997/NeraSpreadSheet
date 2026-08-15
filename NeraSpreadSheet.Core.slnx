@@ -14,6 +14,7 @@
   <Project Path="src/NeraSpreadSheet.Rendering.Spreadsheet/NeraSpreadSheet.Rendering.Spreadsheet.csproj" />
   <Project Path="src/NeraSpreadSheet.Rendering.Skia/NeraSpreadSheet.Rendering.Skia.csproj" />
   <Project Path="src/NeraSpreadSheet.OpenXml/NeraSpreadSheet.OpenXml.csproj" />
+  <Project Path="src/NeraSpreadSheet.Viewport/NeraSpreadSheet.Viewport.csproj" />
   <Project Path="tests/NeraSpreadSheet.Core.Tests/NeraSpreadSheet.Core.Tests.csproj" />
   <Project Path="tests/NeraSpreadSheet.Formulas.Tests/NeraSpreadSheet.Formulas.Tests.csproj" />
   <Project Path="tests/NeraSpreadSheet.Layout.Tests/NeraSpreadSheet.Layout.Tests.csproj" />
@@ -22,5 +23,6 @@
   <Project Path="tests/NeraSpreadSheet.Interaction.Tests/NeraSpreadSheet.Interaction.Tests.csproj" />
   <Project Path="tests/NeraSpreadSheet.Editing.Tests/NeraSpreadSheet.Editing.Tests.csproj" />
   <Project Path="tests/NeraSpreadSheet.Rendering.Spreadsheet.Tests/NeraSpreadSheet.Rendering.Spreadsheet.Tests.csproj" />
+  <Project Path="tests/NeraSpreadSheet.Viewport.Tests/NeraSpreadSheet.Viewport.Tests.csproj" />
   <Project Path="benchmarks/NeraSpreadSheet.Benchmarks/NeraSpreadSheet.Benchmarks.csproj" />
 </Solution>

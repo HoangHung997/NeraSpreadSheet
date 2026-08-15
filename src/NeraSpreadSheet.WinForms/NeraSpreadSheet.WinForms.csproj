@@ -8,9 +8,13 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../NeraSpreadSheet.Core/NeraSpreadSheet.Core.csproj" />
-    <ProjectReference Include="../NeraSpreadSheet.Layout/NeraSpreadSheet.Layout.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Editing/NeraSpreadSheet.Editing.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Foundation/NeraSpreadSheet.Foundation.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Interaction/NeraSpreadSheet.Interaction.csproj" />
     <ProjectReference Include="../NeraSpreadSheet.Scrolling/NeraSpreadSheet.Scrolling.csproj" />
     <ProjectReference Include="../NeraSpreadSheet.Rendering.Abstractions/NeraSpreadSheet.Rendering.Abstractions.csproj" />
     <ProjectReference Include="../NeraSpreadSheet.Rendering.Direct2D/NeraSpreadSheet.Rendering.Direct2D.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Rendering.Spreadsheet/NeraSpreadSheet.Rendering.Spreadsheet.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Viewport/NeraSpreadSheet.Viewport.csproj" />
   </ItemGroup>
 </Project>

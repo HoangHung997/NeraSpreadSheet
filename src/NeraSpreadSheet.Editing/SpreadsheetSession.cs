@@ -25,6 +25,8 @@ public sealed class SpreadsheetSession
     public UndoRedoManager History { get; } = new();
     public WorkbookCalculationEngine Calculation { get; } = new();
 
+    public event EventHandler? ActiveWorksheetChanged;
+
     public void ActivateWorksheet(Worksheet worksheet)
     {
         ArgumentNullException.ThrowIfNull(worksheet);
@@ -32,8 +34,14 @@ public sealed class SpreadsheetSession
         {
             throw new ArgumentException("Worksheet must belong to the session workbook.", nameof(worksheet));
         }
+        if (ReferenceEquals(ActiveWorksheet, worksheet))
+        {
+            return;
+        }
+
         ActiveWorksheet = worksheet;
         Selection.SetActiveCell(default);
+        ActiveWorksheetChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void SetValue(CellAddress address, object? value)
