@@ -25,7 +25,7 @@ public enum CellBorderLineStyle
     Thick,
     Dashed,
     Dotted,
-    Double,
+    DoubleLine,
 }
 
 public sealed record CellFontStyle
@@ -75,7 +75,6 @@ public sealed record CellNumberFormatStyle
 public sealed record CellStyle
 {
     public static CellStyle Default { get; } = new();
-
     public CellFontStyle Font { get; init; } = new();
     public CellFillStyle Fill { get; init; } = new();
     public CellBorderStyle Border { get; init; } = new();
@@ -85,11 +84,11 @@ public sealed record CellStyle
 
 public sealed class CellStyleCatalog
 {
+    public const int DefaultStyleId = 0;
     private readonly List<CellStyle> _styles = [CellStyle.Default];
-    private readonly Dictionary<CellStyle, int> _ids = new() { [CellStyle.Default] = 0 };
+    private readonly Dictionary<CellStyle, int> _ids = new() { [CellStyle.Default] = DefaultStyleId };
 
     public int Count => _styles.Count;
-    public int DefaultStyleId => 0;
 
     public CellStyle Get(int styleId)
     {
@@ -108,7 +107,6 @@ public sealed class CellStyleCatalog
         {
             return existing;
         }
-
         var id = _styles.Count;
         _styles.Add(style);
         _ids.Add(style, id);
@@ -133,17 +131,18 @@ public sealed class CellStyleCatalog
             throw new ArgumentOutOfRangeException(nameof(style), "Text rotation must be between -90 and 90 degrees.");
         }
         ArgumentException.ThrowIfNullOrWhiteSpace(style.NumberFormat.FormatCode);
-        ValidateBorder(style.Border.Left, nameof(style.Border.Left));
-        ValidateBorder(style.Border.Top, nameof(style.Border.Top));
-        ValidateBorder(style.Border.Right, nameof(style.Border.Right));
-        ValidateBorder(style.Border.Bottom, nameof(style.Border.Bottom));
+        ValidateBorder(style.Border.Left);
+        ValidateBorder(style.Border.Top);
+        ValidateBorder(style.Border.Right);
+        ValidateBorder(style.Border.Bottom);
     }
 
-    private static void ValidateBorder(CellBorderSide border, string parameterName)
+    private static void ValidateBorder(CellBorderSide border)
     {
+        ArgumentNullException.ThrowIfNull(border);
         if (!double.IsFinite(border.Width) || border.Width <= 0d)
         {
-            throw new ArgumentOutOfRangeException(parameterName, "Border width must be finite and positive.");
+            throw new ArgumentOutOfRangeException(nameof(border), "Border width must be finite and positive.");
         }
     }
 }
