@@ -20,12 +20,12 @@ public sealed class Worksheet
     {
         Name = name;
         Dimensions = new WorksheetDimensions();
-        MergedCells = new MergedCellCollection();
+        MergedCells = new MergedCellRanges();
     }
 
     public string Name { get; internal set; }
     public WorksheetDimensions Dimensions { get; }
-    public MergedCellCollection MergedCells { get; }
+    public MergedCellRanges MergedCells { get; }
     public long Version { get; private set; }
     public int UsedCellCount => _cells.Count;
     public event EventHandler<CellsChangedEventArgs>? CellsChanged;

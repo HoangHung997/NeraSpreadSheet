@@ -1,6 +1,6 @@
 namespace NeraSpreadSheet.Core;
 
-public sealed class MergedCellCollection
+public sealed class MergedCellRanges
 {
     private readonly List<CellRange> _ranges = [];
 
