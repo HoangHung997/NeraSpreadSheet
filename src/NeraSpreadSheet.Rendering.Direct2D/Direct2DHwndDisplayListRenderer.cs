@@ -2,6 +2,7 @@ using System.Numerics;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Rendering;
 using Vortice;
+using Vortice.DCommon;
 using Vortice.Direct2D1;
 using Vortice.DirectWrite;
 using Vortice.Mathematics;
