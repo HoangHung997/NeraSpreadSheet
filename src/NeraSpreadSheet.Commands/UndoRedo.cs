@@ -3,15 +3,13 @@ namespace NeraSpreadSheet.Commands;
 public interface IUndoableOperation
 {
     string Description { get; }
-
     void Execute();
-
     void Undo();
 }
 
 public sealed class CompositeUndoableOperation : IUndoableOperation
 {
-    private readonly IReadOnlyList<IUndoableOperation> _operations;
+    private readonly IUndoableOperation[] _operations;
 
     public CompositeUndoableOperation(string description, IEnumerable<IUndoableOperation> operations)
     {
@@ -19,7 +17,7 @@ public sealed class CompositeUndoableOperation : IUndoableOperation
         ArgumentNullException.ThrowIfNull(operations);
         Description = description.Trim();
         _operations = operations.ToArray();
-        if (_operations.Count == 0)
+        if (_operations.Length == 0)
         {
             throw new ArgumentException("At least one operation is required.", nameof(operations));
         }
@@ -32,7 +30,7 @@ public sealed class CompositeUndoableOperation : IUndoableOperation
         var executed = 0;
         try
         {
-            for (; executed < _operations.Count; executed++)
+            for (; executed < _operations.Length; executed++)
             {
                 _operations[executed].Execute();
             }
@@ -43,14 +41,13 @@ public sealed class CompositeUndoableOperation : IUndoableOperation
             {
                 _operations[index].Undo();
             }
-
             throw;
         }
     }
 
     public void Undo()
     {
-        for (var index = _operations.Count - 1; index >= 0; index--)
+        for (var index = _operations.Length - 1; index >= 0; index--)
         {
             _operations[index].Undo();
         }
@@ -70,15 +67,10 @@ public sealed class UndoRedoManager
     }
 
     public int UndoCount => _undo.Count;
-
     public int RedoCount => _redo.Count;
-
     public bool CanUndo => _undo.Count > 0;
-
     public bool CanRedo => _redo.Count > 0;
-
     public string? NextUndoDescription => _undo.TryPeek(out var operation) ? operation.Description : null;
-
     public string? NextRedoDescription => _redo.TryPeek(out var operation) ? operation.Description : null;
 
     public void Execute(IUndoableOperation operation)
@@ -92,11 +84,7 @@ public sealed class UndoRedoManager
 
     public bool Undo()
     {
-        if (!_undo.TryPop(out var operation))
-        {
-            return false;
-        }
-
+        if (!_undo.TryPop(out var operation)) return false;
         operation.Undo();
         _redo.Push(operation);
         return true;
@@ -104,35 +92,20 @@ public sealed class UndoRedoManager
 
     public bool Redo()
     {
-        if (!_redo.TryPop(out var operation))
-        {
-            return false;
-        }
-
+        if (!_redo.TryPop(out var operation)) return false;
         operation.Execute();
         _undo.Push(operation);
         TrimUndoHistory();
         return true;
     }
 
-    public void Clear()
-    {
-        _undo.Clear();
-        _redo.Clear();
-    }
+    public void Clear() { _undo.Clear(); _redo.Clear(); }
 
     private void TrimUndoHistory()
     {
-        if (_undo.Count <= _maximumDepth)
-        {
-            return;
-        }
-
+        if (_undo.Count <= _maximumDepth) return;
         var keep = _undo.Take(_maximumDepth).Reverse().ToArray();
         _undo.Clear();
-        foreach (var operation in keep)
-        {
-            _undo.Push(operation);
-        }
+        foreach (var operation in keep) _undo.Push(operation);
     }
 }

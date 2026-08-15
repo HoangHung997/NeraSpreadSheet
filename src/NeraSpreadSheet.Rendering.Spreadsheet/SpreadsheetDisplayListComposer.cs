@@ -6,129 +6,52 @@ using NeraSpreadSheet.Rendering;
 
 namespace NeraSpreadSheet.Rendering.Spreadsheet;
 
-public sealed class SpreadsheetDisplayListComposer
+public static class SpreadsheetDisplayListComposer
 {
-    public DisplayList Compose(WorksheetSnapshot worksheet, ViewportLayout layout, SelectionSnapshot? selection = null, SpreadsheetRenderTheme? theme = null)
+    public static DisplayList Compose(WorksheetSnapshot worksheet, ViewportLayout layout, SelectionSnapshot? selection = null, SpreadsheetRenderTheme? theme = null)
     {
-        ArgumentNullException.ThrowIfNull(worksheet);
-        ArgumentNullException.ThrowIfNull(layout);
-        theme ??= new SpreadsheetRenderTheme();
-        ValidateTheme(theme);
-
-        var builder = new DisplayListBuilder();
-        var viewport = new RectD(0d, 0d, layout.ViewportSize.Width, layout.ViewportSize.Height);
-        builder.FillRectangle(viewport, theme.Background);
-        builder.PushClip(viewport);
-
-        var textStyle = theme.CreateTextStyle();
+        ArgumentNullException.ThrowIfNull(worksheet); ArgumentNullException.ThrowIfNull(layout); theme ??= new SpreadsheetRenderTheme(); ValidateTheme(theme);
+        var builder = new DisplayListBuilder(); var viewport = new RectD(0d, 0d, layout.ViewportSize.Width, layout.ViewportSize.Height);
+        builder.FillRectangle(viewport, theme.Background); builder.PushClip(viewport); var textStyle = theme.CreateTextStyle();
         foreach (var row in layout.Rows)
-        {
-            foreach (var column in layout.Columns)
-            {
-                var bounds = new RectD(column.Start, row.Start, column.Size, row.Size);
-                if (!bounds.IntersectsWith(viewport))
-                {
-                    continue;
-                }
-
-                var address = new CellAddress(row.Index, column.Index);
-                var cell = worksheet.GetCell(address);
-                if (!cell.Value.IsBlank)
-                {
-                    var textBounds = new RectD(bounds.X + 4d, bounds.Y + 1d, Math.Max(0d, bounds.Width - 8d), Math.Max(0d, bounds.Height - 2d));
-                    builder.DrawText(cell.Value.ToString(), textBounds, textStyle);
-                }
-            }
-        }
-
-        DrawGrid(builder, layout, viewport, theme);
-        if (selection is not null)
-        {
-            DrawSelection(builder, layout, selection, theme);
-        }
-
-        builder.PopClip();
-        return builder.Build();
-    }
-
-    private static void DrawGrid(DisplayListBuilder builder, ViewportLayout layout, RectD viewport, SpreadsheetRenderTheme theme)
-    {
         foreach (var column in layout.Columns)
         {
-            var x = column.End;
-            if (x >= viewport.Left && x <= viewport.Right)
+            var bounds = new RectD(column.Start, row.Start, column.Size, row.Size); if (!bounds.IntersectsWith(viewport)) continue;
+            var cell = worksheet.GetCell(new CellAddress(row.Index, column.Index));
+            if (!cell.Value.IsBlank)
             {
-                builder.DrawLine(new PointD(x, viewport.Top), new PointD(x, viewport.Bottom), theme.GridStrokeWidth, theme.GridLine);
+                var textBounds = new RectD(bounds.X + 4d, bounds.Y + 1d, Math.Max(0d, bounds.Width - 8d), Math.Max(0d, bounds.Height - 2d));
+                builder.DrawText(cell.Value.ToString(), textBounds, textStyle);
             }
         }
-
-        foreach (var row in layout.Rows)
-        {
-            var y = row.End;
-            if (y >= viewport.Top && y <= viewport.Bottom)
-            {
-                builder.DrawLine(new PointD(viewport.Left, y), new PointD(viewport.Right, y), theme.GridStrokeWidth, theme.GridLine);
-            }
-        }
+        DrawGrid(builder, layout, viewport, theme); if (selection is not null) DrawSelection(builder, layout, selection, theme); builder.PopClip(); return builder.Build();
     }
-
+    private static void DrawGrid(DisplayListBuilder builder, ViewportLayout layout, RectD viewport, SpreadsheetRenderTheme theme)
+    {
+        foreach (var column in layout.Columns) { var x = column.End; if (x >= viewport.Left && x <= viewport.Right) builder.DrawLine(new PointD(x, viewport.Top), new PointD(x, viewport.Bottom), theme.GridStrokeWidth, theme.GridLine); }
+        foreach (var row in layout.Rows) { var y = row.End; if (y >= viewport.Top && y <= viewport.Bottom) builder.DrawLine(new PointD(viewport.Left, y), new PointD(viewport.Right, y), theme.GridStrokeWidth, theme.GridLine); }
+    }
     private static void DrawSelection(DisplayListBuilder builder, ViewportLayout layout, SelectionSnapshot selection, SpreadsheetRenderTheme theme)
     {
-        foreach (var range in selection.Ranges)
-        {
-            if (TryGetRangeBounds(layout, range, out var bounds))
-            {
-                DrawRectangleOutline(builder, bounds, theme.SelectionStrokeWidth, theme.Selection);
-            }
-        }
-
-        var activeRange = new CellRange(selection.ActiveCell, selection.ActiveCell);
-        if (TryGetRangeBounds(layout, activeRange, out var activeBounds))
-        {
-            DrawRectangleOutline(builder, activeBounds, theme.SelectionStrokeWidth, theme.ActiveCell);
-        }
+        foreach (var range in selection.Ranges) if (TryGetRangeBounds(layout, range, out var bounds)) DrawRectangleOutline(builder, bounds, theme.SelectionStrokeWidth, theme.Selection);
+        if (TryGetRangeBounds(layout, new CellRange(selection.ActiveCell, selection.ActiveCell), out var activeBounds)) DrawRectangleOutline(builder, activeBounds, theme.SelectionStrokeWidth, theme.ActiveCell);
     }
-
     private static bool TryGetRangeBounds(ViewportLayout layout, CellRange range, out RectD bounds)
     {
-        var firstRow = layout.Rows.FirstOrDefault(slot => slot.Index >= range.Top && slot.Index <= range.Bottom);
-        var lastRow = layout.Rows.LastOrDefault(slot => slot.Index >= range.Top && slot.Index <= range.Bottom);
-        var firstColumn = layout.Columns.FirstOrDefault(slot => slot.Index >= range.Left && slot.Index <= range.Right);
-        var lastColumn = layout.Columns.LastOrDefault(slot => slot.Index >= range.Left && slot.Index <= range.Right);
-
-        if (firstRow.Size <= 0d || lastRow.Size <= 0d || firstColumn.Size <= 0d || lastColumn.Size <= 0d)
-        {
-            bounds = RectD.Empty;
-            return false;
-        }
-
-        bounds = new RectD(firstColumn.Start, firstRow.Start, lastColumn.End - firstColumn.Start, lastRow.End - firstRow.Start);
-        return true;
+        var firstRow = layout.Rows.FirstOrDefault(slot => slot.Index >= range.Top && slot.Index <= range.Bottom); var lastRow = layout.Rows.LastOrDefault(slot => slot.Index >= range.Top && slot.Index <= range.Bottom);
+        var firstColumn = layout.Columns.FirstOrDefault(slot => slot.Index >= range.Left && slot.Index <= range.Right); var lastColumn = layout.Columns.LastOrDefault(slot => slot.Index >= range.Left && slot.Index <= range.Right);
+        if (firstRow.Size <= 0d || lastRow.Size <= 0d || firstColumn.Size <= 0d || lastColumn.Size <= 0d) { bounds = RectD.Empty; return false; }
+        bounds = new RectD(firstColumn.Start, firstRow.Start, lastColumn.End - firstColumn.Start, lastRow.End - firstRow.Start); return true;
     }
-
     private static void DrawRectangleOutline(DisplayListBuilder builder, RectD bounds, double strokeWidth, ColorRgba color)
     {
-        builder.DrawLine(new PointD(bounds.Left, bounds.Top), new PointD(bounds.Right, bounds.Top), strokeWidth, color);
-        builder.DrawLine(new PointD(bounds.Right, bounds.Top), new PointD(bounds.Right, bounds.Bottom), strokeWidth, color);
-        builder.DrawLine(new PointD(bounds.Right, bounds.Bottom), new PointD(bounds.Left, bounds.Bottom), strokeWidth, color);
-        builder.DrawLine(new PointD(bounds.Left, bounds.Bottom), new PointD(bounds.Left, bounds.Top), strokeWidth, color);
+        builder.DrawLine(new PointD(bounds.Left, bounds.Top), new PointD(bounds.Right, bounds.Top), strokeWidth, color); builder.DrawLine(new PointD(bounds.Right, bounds.Top), new PointD(bounds.Right, bounds.Bottom), strokeWidth, color);
+        builder.DrawLine(new PointD(bounds.Right, bounds.Bottom), new PointD(bounds.Left, bounds.Bottom), strokeWidth, color); builder.DrawLine(new PointD(bounds.Left, bounds.Bottom), new PointD(bounds.Left, bounds.Top), strokeWidth, color);
     }
-
     private static void ValidateTheme(SpreadsheetRenderTheme theme)
     {
-        if (!double.IsFinite(theme.FontSize) || theme.FontSize <= 0d)
-        {
-            throw new ArgumentOutOfRangeException(nameof(theme), "FontSize must be finite and positive.");
-        }
-
-        if (!double.IsFinite(theme.SelectionStrokeWidth) || theme.SelectionStrokeWidth <= 0d)
-        {
-            throw new ArgumentOutOfRangeException(nameof(theme), "SelectionStrokeWidth must be finite and positive.");
-        }
-
-        if (!double.IsFinite(theme.GridStrokeWidth) || theme.GridStrokeWidth <= 0d)
-        {
-            throw new ArgumentOutOfRangeException(nameof(theme), "GridStrokeWidth must be finite and positive.");
-        }
+        if (!double.IsFinite(theme.FontSize) || theme.FontSize <= 0d) throw new ArgumentOutOfRangeException(nameof(theme), "FontSize must be finite and positive.");
+        if (!double.IsFinite(theme.SelectionStrokeWidth) || theme.SelectionStrokeWidth <= 0d) throw new ArgumentOutOfRangeException(nameof(theme), "SelectionStrokeWidth must be finite and positive.");
+        if (!double.IsFinite(theme.GridStrokeWidth) || theme.GridStrokeWidth <= 0d) throw new ArgumentOutOfRangeException(nameof(theme), "GridStrokeWidth must be finite and positive.");
     }
 }
