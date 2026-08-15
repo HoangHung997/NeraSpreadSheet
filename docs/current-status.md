@@ -37,6 +37,7 @@ This file is the handoff source of truth for the current development branch. It 
 - Shared display-list composition.
 - Visible cells only; no UI control per cell.
 - Grid, text, selection, fill, font and border rendering.
+- Merged cells render as one visual cell and suppress internal grid lines through merged-area repaint.
 - WPF fallback display-list executor.
 - WinForms fallback display-list executor.
 - One reusable in-cell text editor overlay per host.
