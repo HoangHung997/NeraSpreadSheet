@@ -74,6 +74,71 @@ public sealed class WorksheetDimensions
 
     public IReadOnlyDictionary<int, double> GetColumnOverrides() => _columnWidths;
 
+    internal KeyValuePair<int, double>[] CreateStructuralOverrides(WorksheetStructuralChange change)
+    {
+        var source = change.Axis == WorksheetAxis.Row ? _rowHeights : _columnWidths;
+        var transformed = new List<KeyValuePair<int, double>>(source.Count);
+        foreach (var (index, size) in source)
+        {
+            if (!change.TryMapIndex(index, out var mappedIndex))
+            {
+                if (change.Kind == WorksheetStructuralChangeKind.Insert)
+                {
+                    throw new InvalidOperationException(
+                        "Cannot insert because a dimension override would move outside the worksheet bounds.");
+                }
+                continue;
+            }
+            transformed.Add(new KeyValuePair<int, double>(mappedIndex, size));
+        }
+        return [.. transformed];
+    }
+
+    internal void ReplaceStructuralOverrides(
+        WorksheetStructuralChange change,
+        IReadOnlyList<KeyValuePair<int, double>> transformed)
+    {
+        var target = change.Axis == WorksheetAxis.Row ? _rowHeights : _columnWidths;
+        target.Clear();
+        foreach (var (index, size) in transformed)
+        {
+            target.Add(index, size);
+        }
+
+        Version++;
+        var defaultSize = change.Axis == WorksheetAxis.Row ? DefaultRowHeight : DefaultColumnWidth;
+        Changed?.Invoke(this, new DimensionChangedEventArgs(
+            change.Axis,
+            change.Index,
+            defaultSize,
+            defaultSize));
+    }
+
+    internal void RestoreOverrides(
+        IReadOnlyList<KeyValuePair<int, double>> rowHeights,
+        IReadOnlyList<KeyValuePair<int, double>> columnWidths,
+        WorksheetStructuralChange signalChange)
+    {
+        _rowHeights.Clear();
+        foreach (var (index, size) in rowHeights)
+        {
+            _rowHeights.Add(index, size);
+        }
+        _columnWidths.Clear();
+        foreach (var (index, size) in columnWidths)
+        {
+            _columnWidths.Add(index, size);
+        }
+
+        Version++;
+        var defaultSize = signalChange.Axis == WorksheetAxis.Row ? DefaultRowHeight : DefaultColumnWidth;
+        Changed?.Invoke(this, new DimensionChangedEventArgs(
+            signalChange.Axis,
+            signalChange.Index,
+            defaultSize,
+            defaultSize));
+    }
+
     private void SetSize(
         Dictionary<int, double> values,
         WorksheetAxis axis,
