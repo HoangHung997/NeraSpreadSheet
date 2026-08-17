@@ -16,6 +16,7 @@ public enum WinFormsRenderingBackend
 {
     GdiPlus,
     Direct2D,
+    Direct2DSwapChain,
 }
 
 public sealed class ScrollChangedEventArgs : EventArgs
@@ -36,8 +37,10 @@ public sealed class NeraSpreadsheetControl : Control
     private SpreadsheetCellEditorController? _cellEditor;
     private Worksheet? _subscribedWorksheet;
     private Direct2DHwndDisplayListRenderer? _direct2DRenderer;
+    private Direct2DSwapChainDisplayListRenderer? _swapChainRenderer;
     private DateTime _lastFrameUtc = DateTime.UtcNow;
     private WinFormsRenderingBackend _renderingBackend;
+    private bool _swapChainVSync = true;
 
     public NeraSpreadsheetControl()
     {
@@ -87,6 +90,14 @@ public sealed class NeraSpreadsheetControl : Control
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public bool IsEditing => _cellEditor?.IsEditing == true;
 
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Direct2DRendererDiagnostics? Direct2DDiagnostics => _direct2DRenderer?.Diagnostics;
+
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Direct2DSwapChainRendererDiagnostics? SwapChainDiagnostics => _swapChainRenderer?.Diagnostics;
+
     [DefaultValue(WinFormsRenderingBackend.GdiPlus)]
     public WinFormsRenderingBackend RenderingBackend
     {
@@ -99,13 +110,27 @@ public sealed class NeraSpreadsheetControl : Control
             }
 
             _renderingBackend = value;
-            DisposeDirect2DRenderer();
+            DisposeGpuRenderers();
             SetGdiPaintingStyles(value == WinFormsRenderingBackend.GdiPlus);
-            if (value == WinFormsRenderingBackend.Direct2D && IsHandleCreated)
+            if (IsHandleCreated)
             {
-                EnsureDirect2DRenderer();
+                EnsureSelectedGpuRenderer();
             }
             Invalidate();
+        }
+    }
+
+    [DefaultValue(true)]
+    public bool SwapChainVSync
+    {
+        get => _swapChainVSync;
+        set
+        {
+            _swapChainVSync = value;
+            if (_swapChainRenderer is not null)
+            {
+                _swapChainRenderer.VSync = value;
+            }
         }
     }
 
@@ -120,21 +145,18 @@ public sealed class NeraSpreadsheetControl : Control
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        if (_renderingBackend == WinFormsRenderingBackend.Direct2D)
-        {
-            EnsureDirect2DRenderer();
-        }
+        EnsureSelectedGpuRenderer();
     }
 
     protected override void OnHandleDestroyed(EventArgs e)
     {
-        DisposeDirect2DRenderer();
+        DisposeGpuRenderers();
         base.OnHandleDestroyed(e);
     }
 
     protected override void OnPaintBackground(PaintEventArgs pevent)
     {
-        if (_direct2DRenderer is null)
+        if (_direct2DRenderer is null && _swapChainRenderer is null)
         {
             base.OnPaintBackground(pevent);
         }
@@ -314,21 +336,27 @@ public sealed class NeraSpreadsheetControl : Control
             ContentWidth = frame.Layout.ContentWidth;
             ContentHeight = frame.Layout.ContentHeight;
 
-            if (_renderingBackend == WinFormsRenderingBackend.Direct2D)
+            switch (_renderingBackend)
             {
-                var displayList = e.ClipRectangle == ClientRectangle
-                    ? frame.DisplayList
-                    : CreateDirtyClippedDisplayList(frame.DisplayList, e.ClipRectangle);
-                EnsureDirect2DRenderer().Render(displayList);
-            }
-            else
-            {
-                _displayListRenderer.Render(e.Graphics, frame.DisplayList);
+                case WinFormsRenderingBackend.Direct2D:
+                {
+                    var displayList = e.ClipRectangle == ClientRectangle
+                        ? frame.DisplayList
+                        : CreateDirtyClippedDisplayList(frame.DisplayList, e.ClipRectangle);
+                    EnsureDirect2DRenderer().Render(displayList);
+                    break;
+                }
+                case WinFormsRenderingBackend.Direct2DSwapChain:
+                    EnsureSwapChainRenderer().Render(frame.DisplayList);
+                    break;
+                default:
+                    _displayListRenderer.Render(e.Graphics, frame.DisplayList);
+                    break;
             }
         }
         else
         {
-            e.Graphics.Clear(BackColor);
+            RenderEmptyBackground(e.Graphics);
         }
 
         base.OnPaint(e);
@@ -337,10 +365,14 @@ public sealed class NeraSpreadsheetControl : Control
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
-        if (_direct2DRenderer is not null && ClientSize.Width > 0 && ClientSize.Height > 0)
+        if (ClientSize.Width > 0 && ClientSize.Height > 0)
         {
-            _direct2DRenderer.Resize(ClientSize.Width, ClientSize.Height);
-            Invalidate();
+            _direct2DRenderer?.Resize(ClientSize.Width, ClientSize.Height);
+            _swapChainRenderer?.Resize(ClientSize.Width, ClientSize.Height);
+            if (_direct2DRenderer is not null || _swapChainRenderer is not null)
+            {
+                Invalidate();
+            }
         }
         UpdateEditorBounds();
     }
@@ -415,25 +447,31 @@ public sealed class NeraSpreadsheetControl : Control
             _frameTimer.Tick -= OnFrameTick;
             _frameTimer.Dispose();
             _editor.KeyDown -= OnEditorKeyDown;
-            DisposeDirect2DRenderer();
+            DisposeGpuRenderers();
             _displayListRenderer.Dispose();
         }
         base.Dispose(disposing);
     }
 
+    private void EnsureSelectedGpuRenderer()
+    {
+        switch (_renderingBackend)
+        {
+            case WinFormsRenderingBackend.Direct2D:
+                EnsureDirect2DRenderer();
+                break;
+            case WinFormsRenderingBackend.Direct2DSwapChain:
+                EnsureSwapChainRenderer();
+                break;
+        }
+    }
+
     private Direct2DHwndDisplayListRenderer EnsureDirect2DRenderer()
     {
+        EnsureGpuPlatformAndHandle();
         if (_renderingBackend != WinFormsRenderingBackend.Direct2D)
         {
-            throw new InvalidOperationException("Direct2D rendering is not enabled for this control.");
-        }
-        if (!Direct2DBackendDescriptor.IsPlatformSupported)
-        {
-            throw new PlatformNotSupportedException("The Direct2D backend requires Windows 10 version 2004 or later.");
-        }
-        if (!IsHandleCreated)
-        {
-            throw new InvalidOperationException("The control handle must be created before the Direct2D renderer can be initialized.");
+            throw new InvalidOperationException("The HWND Direct2D backend is not selected for this control.");
         }
 
         var width = Math.Max(1, ClientSize.Width);
@@ -442,10 +480,72 @@ public sealed class NeraSpreadsheetControl : Control
         return _direct2DRenderer;
     }
 
-    private void DisposeDirect2DRenderer()
+    private Direct2DSwapChainDisplayListRenderer EnsureSwapChainRenderer()
+    {
+        EnsureGpuPlatformAndHandle();
+        if (_renderingBackend != WinFormsRenderingBackend.Direct2DSwapChain)
+        {
+            throw new InvalidOperationException("The D3D11/DXGI swap-chain backend is not selected for this control.");
+        }
+
+        var width = Math.Max(1, ClientSize.Width);
+        var height = Math.Max(1, ClientSize.Height);
+        if (_swapChainRenderer is null)
+        {
+            _swapChainRenderer = new Direct2DSwapChainDisplayListRenderer(Handle, width, height)
+            {
+                VSync = _swapChainVSync,
+            };
+        }
+        return _swapChainRenderer;
+    }
+
+    private void EnsureGpuPlatformAndHandle()
+    {
+        if (!Direct2DBackendDescriptor.IsPlatformSupported)
+        {
+            throw new PlatformNotSupportedException("The Direct2D backends require Windows 10 version 2004 or later.");
+        }
+        if (!IsHandleCreated)
+        {
+            throw new InvalidOperationException("The control handle must be created before a GPU renderer can be initialized.");
+        }
+    }
+
+    private void DisposeGpuRenderers()
     {
         _direct2DRenderer?.Dispose();
         _direct2DRenderer = null;
+        _swapChainRenderer?.Dispose();
+        _swapChainRenderer = null;
+    }
+
+    private void RenderEmptyBackground(Graphics graphics)
+    {
+        if (ClientSize.Width <= 0 || ClientSize.Height <= 0)
+        {
+            return;
+        }
+
+        if (_renderingBackend == WinFormsRenderingBackend.GdiPlus)
+        {
+            graphics.Clear(BackColor);
+            return;
+        }
+
+        var builder = new DisplayListBuilder();
+        builder.FillRectangle(
+            new RectD(0d, 0d, ClientSize.Width, ClientSize.Height),
+            new ColorRgba(BackColor.R, BackColor.G, BackColor.B, BackColor.A));
+        var displayList = builder.Build();
+        if (_renderingBackend == WinFormsRenderingBackend.Direct2D)
+        {
+            EnsureDirect2DRenderer().Render(displayList);
+        }
+        else
+        {
+            EnsureSwapChainRenderer().Render(displayList);
+        }
     }
 
     private void SetGdiPaintingStyles(bool enabled)
@@ -548,6 +648,11 @@ public sealed class NeraSpreadsheetControl : Control
 
     private void OnCellsChanged(object? sender, CellsChangedEventArgs e)
     {
+        if (_renderingBackend == WinFormsRenderingBackend.Direct2DSwapChain)
+        {
+            Invalidate();
+            return;
+        }
         InvalidateCellRange(e.Range);
     }
 

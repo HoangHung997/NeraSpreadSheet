@@ -11,6 +11,8 @@ public sealed class MainForm : Form
 {
     private readonly NeraOpenXmlWorkbookSerializer _serializer = new();
     private readonly NeraSpreadsheetControl _spreadsheet = new() { Dock = DockStyle.Fill };
+    private readonly ToolStripDropDownButton _rendererButton = new("Renderer: GDI+");
+    private readonly ToolStripLabel _rendererStatus = new("GDI+ fallback");
 
     public MainForm()
     {
@@ -28,23 +30,61 @@ public sealed class MainForm : Form
         toolbar.Items.Add(CreateButton("Merge", MergeClick));
         toolbar.Items.Add(CreateButton("Unmerge", UnmergeClick));
         toolbar.Items.Add(new ToolStripSeparator());
-        var direct2DButton = new ToolStripButton("Direct2D")
-        {
-            CheckOnClick = true,
-            Checked = false,
-            ToolTipText = "Bật backend Direct2D/DirectWrite HWND; bỏ chọn để quay về GDI+.",
-        };
-        direct2DButton.CheckedChanged += (_, _) =>
-            _spreadsheet.RenderingBackend = direct2DButton.Checked
-                ? WinFormsRenderingBackend.Direct2D
-                : WinFormsRenderingBackend.GdiPlus;
-        toolbar.Items.Add(direct2DButton);
+        ConfigureRendererMenu();
+        toolbar.Items.Add(_rendererButton);
+        toolbar.Items.Add(_rendererStatus);
         toolbar.Items.Add(new ToolStripSeparator());
         toolbar.Items.Add(new ToolStripLabel("F2/double-click = edit · Ctrl+C/X/V · Ctrl+B/I · wheel/Shift+wheel"));
 
         Controls.Add(_spreadsheet);
         Controls.Add(toolbar);
         _spreadsheet.Session = CreateSampleSession();
+    }
+
+    private void ConfigureRendererMenu()
+    {
+        _rendererButton.ToolTipText = "Chọn backend render để so sánh GDI+, Direct2D HWND và D3D11/DXGI flip-model.";
+        _rendererButton.DropDownItems.Add(CreateRendererItem("GDI+", WinFormsRenderingBackend.GdiPlus));
+        _rendererButton.DropDownItems.Add(CreateRendererItem("Direct2D HWND", WinFormsRenderingBackend.Direct2D));
+        _rendererButton.DropDownItems.Add(CreateRendererItem("D3D11/DXGI Flip", WinFormsRenderingBackend.Direct2DSwapChain));
+    }
+
+    private ToolStripMenuItem CreateRendererItem(string caption, WinFormsRenderingBackend backend)
+    {
+        var item = new ToolStripMenuItem(caption);
+        item.Click += (_, _) => SelectRenderer(caption, backend);
+        return item;
+    }
+
+    private void SelectRenderer(string caption, WinFormsRenderingBackend backend)
+    {
+        try
+        {
+            _spreadsheet.RenderingBackend = backend;
+            _rendererButton.Text = $"Renderer: {caption}";
+            UpdateRendererStatus();
+        }
+        catch (Exception exception) when (exception is PlatformNotSupportedException or InvalidOperationException)
+        {
+            _spreadsheet.RenderingBackend = WinFormsRenderingBackend.GdiPlus;
+            _rendererButton.Text = "Renderer: GDI+";
+            _rendererStatus.Text = $"GPU backend unavailable: {exception.Message}";
+        }
+    }
+
+    private void UpdateRendererStatus()
+    {
+        if (_spreadsheet.SwapChainDiagnostics is { } swapChain)
+        {
+            _rendererStatus.Text = $"{swapChain.AdapterName} · {swapChain.DeviceFeatureLevel} · VSync={swapChain.VSync}";
+            return;
+        }
+        if (_spreadsheet.Direct2DDiagnostics is { } direct2D)
+        {
+            _rendererStatus.Text = $"Direct2D HWND · layouts {direct2D.CachedTextLayouts}/{direct2D.TextLayoutCacheCapacity}";
+            return;
+        }
+        _rendererStatus.Text = "GDI+ fallback";
     }
 
     private static ToolStripButton CreateButton(string text, EventHandler handler)

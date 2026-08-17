@@ -38,6 +38,7 @@ public sealed class Direct2DSwapChainDisplayListRenderer : IDisposable
     private ID2D1Device? _d2dDevice;
     private ID2D1DeviceContext? _d2dContext;
     private ID2D1Bitmap1? _targetBitmap;
+    private FeatureLevel _featureLevel;
     private int _pixelWidth;
     private int _pixelHeight;
     private bool _disposed;
@@ -67,13 +68,26 @@ public sealed class Direct2DSwapChainDisplayListRenderer : IDisposable
     public int PixelWidth => _pixelWidth;
     public int PixelHeight => _pixelHeight;
     public bool VSync { get; set; } = true;
-    public FeatureLevel FeatureLevel { get; private set; }
+    public string DeviceFeatureLevel => _featureLevel.ToString();
     public string AdapterName { get; private set; } = string.Empty;
     public long DeviceRecoveryCount { get; private set; }
     public int CachedTextLayoutCount => _executor.CachedTextLayoutCount;
     public long TextLayoutCacheHits => _executor.TextLayoutCacheHits;
     public long TextLayoutCacheMisses => _executor.TextLayoutCacheMisses;
     public long TextLayoutCacheEvictions => _executor.TextLayoutCacheEvictions;
+
+    public Direct2DSwapChainRendererDiagnostics Diagnostics => new(
+        _pixelWidth,
+        _pixelHeight,
+        AdapterName,
+        DeviceFeatureLevel,
+        VSync,
+        _executor.TextLayoutCacheCapacity,
+        _executor.CachedTextLayoutCount,
+        _executor.TextLayoutCacheHits,
+        _executor.TextLayoutCacheMisses,
+        _executor.TextLayoutCacheEvictions,
+        DeviceRecoveryCount);
 
     public void Resize(int pixelWidth, int pixelHeight)
     {
@@ -149,7 +163,7 @@ public sealed class Direct2DSwapChainDisplayListRenderer : IDisposable
         _dxgiFactory = CreateDXGIFactory1<IDXGIFactory2>();
 
         using var adapter = TryGetHardwareAdapter(_dxgiFactory);
-        AdapterName = adapter?.Description1.Description ?? "Microsoft WARP";
+        AdapterName = adapter?.Description1.Description ?? "Default hardware adapter";
         CreateD3DDevice(adapter);
         CreateSwapChain();
         CreateD2DDeviceContext();
@@ -201,7 +215,7 @@ public sealed class Direct2DSwapChainDisplayListRenderer : IDisposable
             AdapterName = "Microsoft WARP";
         }
 
-        FeatureLevel = featureLevel;
+        _featureLevel = featureLevel;
         _d3dDevice = tempDevice.QueryInterface<ID3D11Device1>();
         _d3dContext = tempContext.QueryInterface<ID3D11DeviceContext1>();
         tempContext.Dispose();
