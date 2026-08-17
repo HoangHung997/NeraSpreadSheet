@@ -1,8 +1,8 @@
 using System.Numerics;
 using NeraSpreadSheet.Foundation;
+using NeraSpreadSheet.Foundation.Collections;
 using NeraSpreadSheet.Rendering;
 using Vortice;
-using Vortice.DCommon;
 using Vortice.Direct2D1;
 using Vortice.DirectWrite;
 using Vortice.Mathematics;
@@ -13,17 +13,24 @@ namespace NeraSpreadSheet.Rendering.Direct2D;
 
 public sealed class Direct2DHwndDisplayListRenderer : IDisposable
 {
+    public const int DefaultTextLayoutCacheCapacity = 2048;
+
     private readonly nint _windowHandle;
     private readonly ID2D1Factory1 _d2dFactory;
     private readonly IDWriteFactory1 _writeFactory;
     private readonly Dictionary<ColorRgba, ID2D1SolidColorBrush> _brushes = [];
     private readonly Dictionary<TextStyle, IDWriteTextFormat> _textFormats = [];
+    private readonly BoundedLruCache<TextLayoutKey, IDWriteTextLayout> _textLayouts;
     private ID2D1HwndRenderTarget? _renderTarget;
     private int _pixelWidth;
     private int _pixelHeight;
     private bool _disposed;
 
-    public Direct2DHwndDisplayListRenderer(nint windowHandle, int pixelWidth, int pixelHeight)
+    public Direct2DHwndDisplayListRenderer(
+        nint windowHandle,
+        int pixelWidth,
+        int pixelHeight,
+        int textLayoutCacheCapacity = DefaultTextLayoutCacheCapacity)
     {
         if (windowHandle == 0)
         {
@@ -31,17 +38,30 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
         }
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pixelWidth);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pixelHeight);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(textLayoutCacheCapacity);
 
         _windowHandle = windowHandle;
         _pixelWidth = pixelWidth;
         _pixelHeight = pixelHeight;
         _d2dFactory = D2D1CreateFactory<ID2D1Factory1>();
         _writeFactory = DWriteCreateFactory<IDWriteFactory1>();
+        _textLayouts = new BoundedLruCache<TextLayoutKey, IDWriteTextLayout>(
+            textLayoutCacheCapacity,
+            static layout => layout.Dispose());
         CreateRenderTarget();
     }
 
     public int PixelWidth => _pixelWidth;
+
     public int PixelHeight => _pixelHeight;
+
+    public int CachedTextLayoutCount => _textLayouts.Count;
+
+    public long TextLayoutCacheHits => _textLayouts.HitCount;
+
+    public long TextLayoutCacheMisses => _textLayouts.MissCount;
+
+    public long TextLayoutCacheEvictions => _textLayouts.EvictionCount;
 
     public void Resize(int pixelWidth, int pixelHeight)
     {
@@ -143,6 +163,12 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
         CreateRenderTarget();
     }
 
+    public void ClearTextLayoutCache()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _textLayouts.Clear();
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -151,6 +177,7 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
         }
 
         DisposeTargetResources();
+        _textLayouts.Dispose();
         foreach (var format in _textFormats.Values)
         {
             format.Dispose();
@@ -218,6 +245,25 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
         return format;
     }
 
+    private IDWriteTextLayout GetTextLayout(DrawTextCommand command)
+    {
+        var width = Math.Max(0.1f, (float)command.Bounds.Width);
+        var height = Math.Max(0.1f, (float)command.Bounds.Height);
+        var key = new TextLayoutKey(command.Text, command.Style, width, height);
+        return _textLayouts.GetOrAdd(key, CreateTextLayout);
+    }
+
+    private IDWriteTextLayout CreateTextLayout(TextLayoutKey key)
+    {
+        var layout = _writeFactory.CreateTextLayout(
+            key.Text,
+            GetTextFormat(key.Style),
+            key.Width,
+            key.Height);
+        layout.SetWordWrapping(key.Style.Wrap ? WordWrapping.Wrap : WordWrapping.NoWrap);
+        return layout;
+    }
+
     private void DrawText(
         ID2D1RenderTarget target,
         DrawTextCommand command,
@@ -229,13 +275,14 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
             return;
         }
 
-        target.DrawText(
-            command.Text,
-            GetTextFormat(command.Style),
-            ToRawRect(command.Bounds.Translate(offsetX, offsetY)),
+        var origin = new Vector2(
+            (float)(command.Bounds.X + offsetX),
+            (float)(command.Bounds.Y + offsetY));
+        target.DrawTextLayout(
+            origin,
+            GetTextLayout(command),
             GetBrush(command.Style.Color),
-            DrawTextOptions.Clip,
-            MeasuringMode.Natural);
+            DrawTextOptions.Clip);
     }
 
     private static RenderState EnsureTopState(Stack<RenderState> states, RenderStateKind expected)
@@ -252,6 +299,8 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
         (float)bounds.Top,
         (float)bounds.Right,
         (float)bounds.Bottom);
+
+    private readonly record struct TextLayoutKey(string Text, TextStyle Style, float Width, float Height);
 
     private readonly record struct RenderState(RenderStateKind Kind, double PreviousOffsetX, double PreviousOffsetY);
 

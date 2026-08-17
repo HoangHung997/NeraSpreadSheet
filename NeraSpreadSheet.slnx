@@ -18,6 +18,7 @@
   <Project Path="src/NeraSpreadSheet.Viewport/NeraSpreadSheet.Viewport.csproj" />
   <Project Path="src/NeraSpreadSheet.Wpf/NeraSpreadSheet.Wpf.csproj" />
   <Project Path="src/NeraSpreadSheet.WinForms/NeraSpreadSheet.WinForms.csproj" />
+  <Project Path="tests/NeraSpreadSheet.Foundation.Tests/NeraSpreadSheet.Foundation.Tests.csproj" />
   <Project Path="tests/NeraSpreadSheet.Core.Tests/NeraSpreadSheet.Core.Tests.csproj" />
   <Project Path="tests/NeraSpreadSheet.Formulas.Tests/NeraSpreadSheet.Formulas.Tests.csproj" />
   <Project Path="tests/NeraSpreadSheet.Layout.Tests/NeraSpreadSheet.Layout.Tests.csproj" />
