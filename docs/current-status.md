@@ -10,6 +10,9 @@ This file is the handoff source of truth for the current development branch. It 
 - Multiple worksheets, rename/remove/add.
 - Native merged-cell ranges with overlap protection.
 - Workbook-owned immutable style interning (`StyleId`).
+- Native structural row/column insert and delete over the full logical worksheet axes.
+- Structural mutation preflights sparse cells, dimension overrides and merged ranges before committing, so overflow failures leave worksheet and dimension versions/state unchanged.
+- Structural snapshots restore cells, dimensions and merged ranges for undo/redo.
 
 ### Formula and recalculation
 - Tokenizer, parser and AST.
@@ -17,20 +20,27 @@ This file is the handoff source of truth for the current development branch. It 
 - Basic cross-sheet references.
 - SUM, AVERAGE, MIN, MAX, COUNT and IF.
 - Dependency graph, circular-reference detection and affected-only recalculation.
+- Structural reference rewriting for local and cross-sheet formulas, including absolute markers, reversed ranges, quoted/escaped sheet qualifiers and string-literal exclusion.
+- Insert expands or shifts references/ranges; delete shrinks partially intersected ranges and emits `#REF!` when the referenced cell/range is removed.
+- Workbook recalculation is rebuilt after structural operations and their undo/redo transitions.
 
 ### Editing, commands and view state
-- Session-owned selection, history, calculation, clipboard, style, merge, sort, editor and view controllers.
-- Undo/redo for cell edits, paste, formatting, merge/unmerge and sort.
+- Session-owned selection, history, calculation, clipboard, style, merge, sort, editor, view and structure controllers.
+- Undo/redo for cell edits, paste, formatting, merge/unmerge, sort and structural row/column operations.
 - Native Nera command IDs; no UNO/Excel command identifiers.
-- Clear contents, recalculate, copy/cut/paste, bold/italic, merge/unmerge, sort ascending/descending.
+- Clear contents, recalculate, copy/cut/paste, bold/italic, merge/unmerge, sort ascending/descending and row/column insert/delete.
+- Structural commands use whole-row/whole-column selection size when applicable and otherwise operate at the active cell.
 - Relative/absolute formula translation for native paste.
 - TSV/quoted-text clipboard import/export adapter independent of other spreadsheet products.
 - Per-worksheet freeze-pane state with native `View.FreezePanes` / `View.UnfreezePanes` commands.
 - Freeze boundaries reject merged ranges that would be split; new merges are also rejected when they would cross an active freeze boundary.
+- Structural edits map selection active/anchor/multi-range state and freeze boundaries; undo restores their exact snapshots.
+- Failed structural inserts do not enter undo history and do not mutate workbook formulas, selection or freeze state.
 
 ### Selection and viewport
 - Single, extended and multi-range selection.
 - Native whole-row, whole-column and whole-sheet selection primitives.
+- Selection snapshot restore with change suppression when the target snapshot already matches current state.
 - Shift-extension for row/column header selection preserves the original axis anchor; Ctrl can add whole-axis ranges to a multi-range selection.
 - Fractional pixel scrolling with `double` offsets; no row/column snapping.
 - Sparse row/column metric index.
@@ -103,17 +113,18 @@ Both samples exercise formulas, style interning, merged cells, in-cell editing a
 - TSV clipboard is an interoperability fallback. Native Nera clipboard remains the high-fidelity internal format.
 - Full-row/full-column range operations are still subject to existing materialization safety limits; sparse whole-axis style storage is not implemented yet.
 - Header drag-reordering is not implemented yet; live row/column resizing is implemented.
+- Structural formula rewriting covers current A1 cell/range syntax; complete Excel table/structured-reference, shared-formula and dynamic-array semantics are not implemented yet.
 - Pane-aware cache correctness/allocation are CI-gated; real GPU FPS still depends on target hardware and should be measured with the sample diagnostics.
 
 ## Next implementation work
-- Structural row/column insert/delete with sparse-cell/dimension/merge transforms and complete formula/reference rewriting.
+- Split panes independent from freeze panes, with per-pane scroll state and shared body/header geometry.
+- Header drag-reordering and sparse whole-axis style storage.
 - Additional runtime smoke/benchmark coverage for HWND Direct2D, DXGI flip-model and WPF shared-texture GPU paths on real Windows hardware.
 - Skia GPU surface + MAUI native handler/touch interaction.
 
 ## Not implemented yet
 - Split panes independent from freeze panes.
 - Header drag-reordering and sparse whole-axis styles.
-- Structural row/column insert/delete with complete formula/reference rewriting.
 - Full XLSX styles, shared formulas, conditional formatting, validation, tables, drawings, charts, macros and unknown-part preservation.
 - Complete Excel-compatible formula/function surface and dynamic arrays.
 - AutoFilter/filter UI and advanced sort.
@@ -129,7 +140,7 @@ Both samples exercise formulas, style interning, merged cells, in-cell editing a
 - GPU/advanced XLSX features are not marked implemented until there is executable code plus CI validation; runtime-only claims require a real runtime smoke test or benchmark.
 
 ## Latest validation milestone
-CI run #116 for commit `1548a9eac40fff4b88f5957c0aeba060680248f4` passed Core restore/build/tests/architecture verification and the full Windows restore/build/test job. This milestone includes GPU backends, freeze panes, row/column headers, pane-aware caching, nested display lists, allocation/benchmark gates and live WPF/WinForms row/column header resizing.
+CI run #139 for commit `135617d61416e1bb64c9a8e1d9192e04c7d00b11` passed Core restore/build/tests/architecture verification and the full Windows restore/build/test job. This milestone includes GPU backends, freeze panes, headers and resize interaction, pane-aware caching, nested display lists, plus atomic structural row/column insert/delete with workbook-aware formula rewriting, selection/freeze mapping and undo/redo.
 
 ## Independence rule
 NeraSpreadSheet is a native independent spreadsheet SDK. Excel, LibreOffice and DevExpress may be used as external behavior/coverage references only. Their command identifiers, public types and runtime engines are not part of Nera's Core contracts.
