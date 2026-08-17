@@ -39,18 +39,22 @@ This file is the handoff source of truth for the current development branch. It 
 - Merged-cell hit-test and editor bounds resolve to the merged region/top-left cell.
 - Worksheet snapshot cache keyed by worksheet/dimension versions so pure scroll frames do not recopy all sparse cells.
 - Translated viewport tile cache: 256-pixel scroll tiles, bounded LRU entries and double-precision translation inside a tile.
-- Allocation regression test verifies cached fractional scrolling allocates less than full recomposition.
-- BenchmarkDotNet viewport benchmark compares repeated full composition with cached tile scrolling.
+- Pane-aware freeze caching reuses one cached tile-origin body and reprojects it through four clips: frozen corner, frozen rows (X translation only), frozen columns (Y translation only) and scrolling body (XY translation).
+- Freeze separator lines are appended fresh after cached pane replay so they never inherit tile translation.
+- Cache identity includes frozen-row/frozen-column configuration, worksheet/dimension/selection versions, viewport geometry and render theme.
+- Display-list nesting is reference based: `Append`/`DrawDisplayList` store a single immutable child-list reference instead of flatten-copying command arrays.
+- GDI+, WPF and Direct2D executors recursively traverse nested display lists while preserving one shared clip/translation stack; Direct2D keeps a single BeginDraw/EndDraw frame.
+- Allocation regression tests verify both normal cached scrolling and frozen pane cached scrolling allocate less than fresh composition.
+- BenchmarkDotNet coverage exists for normal viewport caching and frozen pane-aware caching.
 - Freeze panes preserve fractional scroll in the scrollable body while frozen rows/columns remain fixed.
 - Frozen hit-testing, cell/editor bounds and dirty-region calculations use pane-aware coordinates.
-- The whole-frame translated tile cache is intentionally bypassed while frozen panes are active until a pane-aware cache is added.
 
 ### Rendering and desktop hosts
 - Shared display-list composition; visible cells only; no UI control per cell.
 - Grid, text, selection, fill, font and border rendering.
 - Merged cells render as one visual cell and suppress internal grid lines.
 - Display-list clip and translation stacks shared by WPF, GDI+ and Direct2D executors.
-- Frozen rendering is split into four independently clipped panes (frozen corner, frozen rows, frozen columns, scrollable body) plus freeze separator lines.
+- Frozen rendering is split into four independently clipped panes plus freeze separator lines.
 - Shared spreadsheet chrome compositor draws row/column headers and the top-left select-all corner outside the body viewport.
 - Header geometry is centralized and shared by WPF/WinForms; body coordinates remain local to the spreadsheet viewport.
 - Column labels use the native A..Z, AA.. sequence and row labels use one-based row numbers.
@@ -97,17 +101,16 @@ Both samples exercise formulas, style interning, merged cells, in-cell editing a
 - TSV clipboard is an interoperability fallback. Native Nera clipboard remains the high-fidelity internal format.
 - Full-row/full-column range operations are still subject to existing materialization safety limits; sparse whole-axis style storage is not implemented yet.
 - Headers currently support selection/highlighting but not drag-resizing/reordering of rows or columns.
-- Freeze panes currently bypass the whole-frame translated tile cache. Correctness is complete; pane-aware retained/tile caching is the next performance step.
-- GPU paths are compile/test verified in CI; actual FPS/GPU behavior must still be measured on real target hardware with the sample diagnostics.
+- Pane-aware cache correctness/allocation are CI-gated; real GPU FPS still depends on target hardware and should be measured with the sample diagnostics.
 
 ## Next rendering/performance work
-- Pane-aware display-list/tile caching so frozen panes keep their fixed layers cached while only the scrolling body translates.
+- Header drag-resizing with shared freeze-aware resize-handle geometry and desktop pointer capture.
 - Additional runtime smoke/benchmark coverage for HWND Direct2D, DXGI flip-model and WPF shared-texture GPU paths on real Windows hardware.
 - Skia GPU surface + MAUI native handler/touch interaction.
 
 ## Not implemented yet
 - Split panes independent from freeze panes.
-- Header drag-resizing/reordering and sparse whole-axis styles.
+- Header drag-reordering and sparse whole-axis styles.
 - Structural row/column insert/delete with complete formula/reference rewriting.
 - Full XLSX styles, shared formulas, conditional formatting, validation, tables, drawings, charts, macros and unknown-part preservation.
 - Complete Excel-compatible formula/function surface and dynamic arrays.
@@ -124,7 +127,7 @@ Both samples exercise formulas, style interning, merged cells, in-cell editing a
 - GPU/advanced XLSX features are not marked implemented until there is executable code plus CI validation; runtime-only claims require a real runtime smoke test or benchmark.
 
 ## Latest validation milestone
-CI run #96 for commit `2b3dfc4da5a1f5c8fdf46de2f21ce622e62a6ba4` passed Core restore/build/tests/architecture verification and the full Windows restore/build/test job. This milestone includes GPU backends, frame-pacing diagnostics, end-to-end freeze panes, shared row/column headers and full-row/full-column/corner selection UI.
+CI run #111 for commit `3da6e8c5f4a41940edade512eb03204d7987bf3e` passed Core restore/build/tests/architecture verification and the full Windows restore/build/test job. This milestone includes GPU backends, end-to-end freeze panes, row/column headers, nested display-list reference semantics, pane-aware frozen viewport caching, allocation regression gates and frozen viewport BenchmarkDotNet coverage.
 
 ## Independence rule
 NeraSpreadSheet is a native independent spreadsheet SDK. Excel, LibreOffice and DevExpress may be used as external behavior/coverage references only. Their command identifiers, public types and runtime engines are not part of Nera's Core contracts.
