@@ -107,29 +107,26 @@ public sealed class SpreadsheetStructureController
         public void Execute()
         {
             CaptureBeforeStateIfNeeded();
-            Worksheet.ApplyStructuralChange(_change);
-            RewriteWorkbookFormulas();
-            RestoreMappedSelection();
-            ApplyMappedFreezeState();
+            var worksheetChanged = false;
+            try
+            {
+                Worksheet.ApplyStructuralChange(_change);
+                worksheetChanged = true;
+                RewriteWorkbookFormulas();
+                RestoreMappedSelection();
+                ApplyMappedFreezeState();
+            }
+            catch
+            {
+                if (worksheetChanged)
+                {
+                    RestoreBeforeState();
+                }
+                throw;
+            }
         }
 
-        public void Undo()
-        {
-            if (_worksheetBefore is null ||
-                _externalFormulaCellsBefore is null ||
-                _selectionBefore is null)
-            {
-                throw new InvalidOperationException("The structural operation has not been executed yet.");
-            }
-
-            Worksheet.RestoreStructuralState(_worksheetBefore, _change);
-            foreach (var (worksheet, formulas) in _externalFormulaCellsBefore)
-            {
-                worksheet.SetCells(formulas);
-            }
-            _session.View.SetFrozenPanes(_frozenRowsBefore, _frozenColumnsBefore);
-            _session.Selection.Restore(_selectionBefore);
-        }
+        public void Undo() => RestoreBeforeState();
 
         private void CaptureBeforeStateIfNeeded()
         {
@@ -157,6 +154,24 @@ public sealed class SpreadsheetStructureController
             _selectionBefore = _session.Selection.Capture();
             _frozenRowsBefore = _session.View.FrozenRows;
             _frozenColumnsBefore = _session.View.FrozenColumns;
+        }
+
+        private void RestoreBeforeState()
+        {
+            if (_worksheetBefore is null ||
+                _externalFormulaCellsBefore is null ||
+                _selectionBefore is null)
+            {
+                throw new InvalidOperationException("The structural operation has not been executed yet.");
+            }
+
+            Worksheet.RestoreStructuralState(_worksheetBefore, _change);
+            foreach (var (worksheet, formulas) in _externalFormulaCellsBefore)
+            {
+                worksheet.SetCells(formulas);
+            }
+            _session.View.SetFrozenPanes(_frozenRowsBefore, _frozenColumnsBefore);
+            _session.Selection.Restore(_selectionBefore);
         }
 
         private void RewriteWorkbookFormulas()
