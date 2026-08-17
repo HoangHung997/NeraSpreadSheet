@@ -1,3 +1,5 @@
+using System.Buffers;
+
 namespace NeraSpreadSheet.Core;
 
 public sealed class CellsChangedEventArgs : EventArgs
@@ -14,7 +16,7 @@ public sealed class CellsChangedEventArgs : EventArgs
 
 public sealed class Worksheet
 {
-    private static readonly char[] InvalidNameCharacters = ['[', ']', ':', '*', '?', '/', '\\'];
+    private static readonly SearchValues<char> InvalidNameCharacters = SearchValues.Create("[]:*?/\\");
     private readonly Dictionary<CellAddress, CellData> _cells = [];
 
     internal Worksheet(string name)
@@ -66,7 +68,7 @@ public sealed class Worksheet
                 $"Worksheet names cannot exceed {SpreadsheetLimits.MaxWorksheetNameLength} characters.",
                 nameof(name));
         }
-        if (normalized.IndexOfAny(InvalidNameCharacters) >= 0)
+        if (normalized.AsSpan().IndexOfAny(InvalidNameCharacters) >= 0)
         {
             throw new ArgumentException("Worksheet name contains an invalid character.", nameof(name));
         }
