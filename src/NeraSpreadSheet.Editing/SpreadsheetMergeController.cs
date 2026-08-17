@@ -28,7 +28,8 @@ public sealed class SpreadsheetMergeController
             var range = _session.Selection.Ranges[0];
             return (range.RowCount > 1 || range.ColumnCount > 1) &&
                 (long)range.RowCount * range.ColumnCount <= _maximumMergeCells &&
-                !_session.ActiveWorksheet.MergedCells.Intersects(range);
+                !_session.ActiveWorksheet.MergedCells.Intersects(range) &&
+                !CrossesFrozenBoundary(range);
         }
     }
 
@@ -60,6 +61,14 @@ public sealed class SpreadsheetMergeController
         _session.Selection.Select(range);
         _session.Selection.SetActiveCell(range.TopLeft, preserveRanges: true, preserveAnchor: true);
         return true;
+    }
+
+    private bool CrossesFrozenBoundary(CellRange range)
+    {
+        var frozenRows = _session.View.FrozenRows;
+        var frozenColumns = _session.View.FrozenColumns;
+        return (frozenRows > 0 && range.Top < frozenRows && range.Bottom >= frozenRows) ||
+            (frozenColumns > 0 && range.Left < frozenColumns && range.Right >= frozenColumns);
     }
 
     private sealed class MergeCellsOperation : ISpreadsheetEditOperation
