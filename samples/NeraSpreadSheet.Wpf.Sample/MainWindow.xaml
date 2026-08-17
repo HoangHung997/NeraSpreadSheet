@@ -18,6 +18,11 @@
             <Button Click="FreezeClick" Padding="10,3">Freeze</Button>
             <Button Click="UnfreezeClick" Padding="10,3">Unfreeze</Button>
             <Separator />
+            <Button Click="InsertRowsClick" Padding="10,3" ToolTip="Insert the selected whole row range, or one row at the active cell.">Insert Row</Button>
+            <Button Click="DeleteRowsClick" Padding="10,3" ToolTip="Delete the selected whole row range, or one row at the active cell.">Delete Row</Button>
+            <Button Click="InsertColumnsClick" Padding="10,3" ToolTip="Insert the selected whole column range, or one column at the active cell.">Insert Col</Button>
+            <Button Click="DeleteColumnsClick" Padding="10,3" ToolTip="Delete the selected whole column range, or one column at the active cell.">Delete Col</Button>
+            <Separator />
             <ToggleButton x:Name="GpuToggle" Click="GpuClick" Padding="10,3"
                           ToolTip="Bật Direct2D trên D3D11 shared texture/D3DImage; tắt để dùng DrawingContext fallback.">
                 WPF GPU
@@ -25,7 +30,7 @@
             <TextBlock x:Name="PerfText" Margin="10,0,0,0" VerticalAlignment="Center">Measuring…</TextBlock>
             <Separator />
             <TextBlock Margin="8,0,0,0" VerticalAlignment="Center">
-                F2/double-click = edit · Ctrl+C/X/V · Ctrl+B/I · wheel/Shift+wheel
+                Headers: click/select · drag-resize · structural commands follow whole-axis selection
             </TextBlock>
         </ToolBar>
         <Border BorderBrush="#D0D0D0" BorderThickness="1">
