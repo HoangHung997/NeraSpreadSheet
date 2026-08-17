@@ -11,8 +11,29 @@ public sealed class ViewportCacheAllocationTests
     public void CachedFractionalScrollAllocatesLessThanUncachedComposition()
     {
         var workbook = CreatePopulatedWorkbook();
+        var cached = CreateEngine(workbook, cacheEnabled: true);
+        var uncached = CreateEngine(workbook, cacheEnabled: false);
+
+        WarmUp(cached, uncached);
+
+        var uncachedBytes = MeasureAllocatedBytes(() => RunFrames(uncached, 32));
+        var cachedBytes = MeasureAllocatedBytes(() => RunFrames(cached, 32));
+
+        Assert.IsTrue(
+            cachedBytes < uncachedBytes,
+            $"Expected cached scrolling to allocate less memory. Cached={cachedBytes}, uncached={uncachedBytes}.");
+    }
+
+    [TestMethod]
+    public void CachedFrozenFractionalScrollAllocatesLessThanFreshPaneComposition()
+    {
+        var workbook = CreatePopulatedWorkbook();
+        var cachedSession = new SpreadsheetSession(workbook);
+        var uncachedSession = new SpreadsheetSession(workbook);
+        cachedSession.View.SetFrozenPanes(2, 2);
+        uncachedSession.View.SetFrozenPanes(2, 2);
         var cached = new SpreadsheetViewportEngine(
-            new SpreadsheetSession(workbook),
+            cachedSession,
             new SpreadsheetViewportCacheOptions
             {
                 Enabled = true,
@@ -20,22 +41,40 @@ public sealed class ViewportCacheAllocationTests
                 MaxEntries = 4,
             });
         var uncached = new SpreadsheetViewportEngine(
-            new SpreadsheetSession(workbook),
+            uncachedSession,
             new SpreadsheetViewportCacheOptions { Enabled = false });
 
-        cached.Compose(10d, 10d, 1000d, 700d);
-        uncached.Compose(10d, 10d, 1000d, 700d);
-        RunFrames(cached, 2);
-        RunFrames(uncached, 2);
+        WarmUp(cached, uncached);
 
-        cached.ClearDisplayListCache();
-        cached.Compose(10d, 10d, 1000d, 700d);
         var uncachedBytes = MeasureAllocatedBytes(() => RunFrames(uncached, 32));
         var cachedBytes = MeasureAllocatedBytes(() => RunFrames(cached, 32));
 
         Assert.IsTrue(
             cachedBytes < uncachedBytes,
-            $"Expected cached scrolling to allocate less memory. Cached={cachedBytes}, uncached={uncachedBytes}.");
+            $"Expected pane-aware cached frozen scrolling to allocate less memory. Cached={cachedBytes}, uncached={uncachedBytes}.");
+        Assert.IsTrue(cached.DisplayListCacheHitCount > 0L);
+    }
+
+    private static SpreadsheetViewportEngine CreateEngine(Workbook workbook, bool cacheEnabled) =>
+        new(
+            new SpreadsheetSession(workbook),
+            cacheEnabled
+                ? new SpreadsheetViewportCacheOptions
+                {
+                    Enabled = true,
+                    ScrollTileSize = 256d,
+                    MaxEntries = 4,
+                }
+                : new SpreadsheetViewportCacheOptions { Enabled = false });
+
+    private static void WarmUp(SpreadsheetViewportEngine cached, SpreadsheetViewportEngine uncached)
+    {
+        cached.Compose(10d, 10d, 1000d, 700d);
+        uncached.Compose(10d, 10d, 1000d, 700d);
+        RunFrames(cached, 2);
+        RunFrames(uncached, 2);
+        cached.ClearDisplayListCache();
+        cached.Compose(10d, 10d, 1000d, 700d);
     }
 
     private static Workbook CreatePopulatedWorkbook()
