@@ -19,7 +19,7 @@ public sealed class ScrollChangedEventArgs : EventArgs
     public ScrollSnapshot Snapshot { get; }
 }
 
-public sealed class NeraSpreadsheetControl : FrameworkElement
+public sealed class NeraSpreadsheetControl : FrameworkElement, IDisposable
 {
     private readonly ContinuousScrollController _scrollController = new();
     private readonly WpfDisplayListRenderer _displayListRenderer = new();
@@ -34,6 +34,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
     private TimeSpan? _lastRenderingTime;
     private bool _isFrameLoopAttached;
     private bool _sessionEventsAttached;
+    private bool _disposed;
     private Rect _editorBounds = Rect.Empty;
     private WpfRenderingBackend _renderingBackend;
 
@@ -87,6 +88,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
         get => _renderingBackend;
         set
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (_renderingBackend == value)
             {
                 return;
@@ -138,6 +140,10 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
     protected override void OnRender(DrawingContext drawingContext)
     {
         base.OnRender(drawingContext);
+        if (_disposed)
+        {
+            return;
+        }
         _framePacing.RecordFrame();
 
         if (_session is null || ActualWidth <= 0d || ActualHeight <= 0d)
@@ -171,6 +177,10 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
         base.OnMouseWheel(e);
+        if (_disposed)
+        {
+            return;
+        }
         var notches = e.Delta / 120d;
         var delta = -notches * WheelPixelsPerNotch;
         if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
@@ -188,7 +198,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
-        if (_session is null)
+        if (_disposed || _session is null)
         {
             return;
         }
@@ -228,7 +238,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (_session is null || IsEditing)
+        if (_disposed || _session is null || IsEditing)
         {
             return;
         }
@@ -313,7 +323,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
     protected override void OnTextInput(TextCompositionEventArgs e)
     {
         base.OnTextInput(e);
-        if (_session is null || IsEditing || string.IsNullOrEmpty(e.Text) || e.Text.Any(char.IsControl))
+        if (_disposed || _session is null || IsEditing || string.IsNullOrEmpty(e.Text) || e.Text.Any(char.IsControl))
         {
             return;
         }
@@ -323,6 +333,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     public void BeginEdit(string? replacementText = null)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_cellEditor is null)
         {
             return;
@@ -344,6 +355,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     public bool CommitEditor()
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_cellEditor is null || !_cellEditor.Commit(_editor.Text))
         {
             return false;
@@ -355,6 +367,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     public bool CancelEditor()
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_cellEditor is null || !_cellEditor.Cancel())
         {
             return false;
@@ -366,12 +379,14 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     public void QueuePrecisionScroll(double deltaX, double deltaY)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         _scrollController.QueueDelta(new ScrollDelta(deltaX, deltaY, ScrollInputKind.Precision));
         EnsureFrameLoop();
     }
 
     public void ScrollTo(double offsetX, double offsetY, bool animated = false)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         _scrollController.ScrollTo(offsetX, offsetY, animated);
         UpdateEditorBounds();
         InvalidateVisual();
@@ -381,11 +396,27 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
         }
     }
 
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+        DetachFrameLoop();
+        DetachSessionEvents();
+        Loaded -= OnLoaded;
+        Unloaded -= OnUnloaded;
+        _editor.KeyDown -= OnEditorKeyDown;
+        _gpuSurface.Dispose();
+        _disposed = true;
+    }
+
     private SpreadsheetViewportEngine EnsureViewport() => _viewport ??= new SpreadsheetViewportEngine(
         _session ?? throw new InvalidOperationException("A spreadsheet session is required."));
 
     private void SetSession(SpreadsheetSession? value)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (ReferenceEquals(_session, value))
         {
             return;
@@ -406,7 +437,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     private void AttachSessionEvents()
     {
-        if (_session is null || _sessionEventsAttached)
+        if (_session is null || _sessionEventsAttached || _disposed)
         {
             return;
         }
@@ -456,6 +487,10 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     private void OnActiveWorksheetChanged(object? sender, EventArgs e)
     {
+        if (_disposed)
+        {
+            return;
+        }
         CancelEditor();
         EnsureWorksheetSubscription();
         _viewport?.InvalidateMetrics();
@@ -466,14 +501,28 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     private void OnSelectionChanged(object? sender, NeraSelectionChangedEventArgs e)
     {
+        if (_disposed)
+        {
+            return;
+        }
         UpdateEditorBounds();
         InvalidateVisual();
     }
 
-    private void OnCellsChanged(object? sender, CellsChangedEventArgs e) => InvalidateVisual();
+    private void OnCellsChanged(object? sender, CellsChangedEventArgs e)
+    {
+        if (!_disposed)
+        {
+            InvalidateVisual();
+        }
+    }
 
     private void OnDimensionsChanged(object? sender, DimensionChangedEventArgs e)
     {
+        if (_disposed)
+        {
+            return;
+        }
         _viewport?.InvalidateMetrics();
         UpdateContentExtent();
         UpdateEditorBounds();
@@ -515,6 +564,10 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     private void OnEditorKeyDown(object sender, KeyEventArgs e)
     {
+        if (_disposed)
+        {
+            return;
+        }
         if (e.Key is Key.Enter or Key.Return)
         {
             if (CommitEditor())
@@ -566,7 +619,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     private void EnsureFrameLoop()
     {
-        if (_isFrameLoopAttached)
+        if (_isFrameLoopAttached || _disposed)
         {
             return;
         }
@@ -576,7 +629,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     private void OnRendering(object? sender, EventArgs e)
     {
-        if (e is not RenderingEventArgs renderingEventArgs)
+        if (_disposed || e is not RenderingEventArgs renderingEventArgs)
         {
             return;
         }
@@ -603,6 +656,10 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        if (_disposed)
+        {
+            return;
+        }
         AttachSessionEvents();
         UpdateGpuSurfaceVisibility();
         InvalidateVisual();
@@ -610,6 +667,10 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        if (_disposed)
+        {
+            return;
+        }
         DetachFrameLoop();
         DetachSessionEvents();
     }
@@ -628,7 +689,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
     private void UpdateGpuSurfaceVisibility()
     {
         _gpuSurface.Visibility =
-            _renderingBackend == WpfRenderingBackend.Direct2DD3DImage && _session is not null
+            !_disposed && _renderingBackend == WpfRenderingBackend.Direct2DD3DImage && _session is not null
                 ? Visibility.Visible
                 : Visibility.Collapsed;
     }
