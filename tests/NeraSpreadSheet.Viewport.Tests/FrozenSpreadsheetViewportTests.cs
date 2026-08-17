@@ -24,6 +24,24 @@ public sealed class FrozenSpreadsheetViewportTests
     }
 
     [TestMethod]
+    public void AxisHitTestsUseSameFreezeTransformAsCellHitTesting()
+    {
+        var session = new SpreadsheetSession(new Workbook());
+        session.View.SetFrozenPanes(1, 1);
+        var engine = new SpreadsheetViewportEngine(session);
+
+        Assert.IsTrue(engine.TryHitTestRow(10d, 40d, out var frozenRow));
+        Assert.IsTrue(engine.TryHitTestRow(30d, 40d, out var scrollingRow));
+        Assert.IsTrue(engine.TryHitTestColumn(10d, 100d, out var frozenColumn));
+        Assert.IsTrue(engine.TryHitTestColumn(90d, 100d, out var scrollingColumn));
+
+        Assert.AreEqual(0, frozenRow);
+        Assert.AreEqual(3, scrollingRow);
+        Assert.AreEqual(0, frozenColumn);
+        Assert.AreEqual(2, scrollingColumn);
+    }
+
+    [TestMethod]
     public void CellBoundsKeepFrozenCellFixedAndScrollableCellFractional()
     {
         var session = new SpreadsheetSession(new Workbook());
