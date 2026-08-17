@@ -443,6 +443,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement, IDisposable
         }
         _session.ActiveWorksheetChanged += OnActiveWorksheetChanged;
         _session.Selection.Changed += OnSelectionChanged;
+        _session.View.Changed += OnViewChanged;
         _sessionEventsAttached = true;
         EnsureWorksheetSubscription();
     }
@@ -453,6 +454,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement, IDisposable
         {
             _session.ActiveWorksheetChanged -= OnActiveWorksheetChanged;
             _session.Selection.Changed -= OnSelectionChanged;
+            _session.View.Changed -= OnViewChanged;
         }
         _sessionEventsAttached = false;
         DetachWorksheetSubscription();
@@ -496,6 +498,18 @@ public sealed class NeraSpreadsheetControl : FrameworkElement, IDisposable
         _viewport?.InvalidateMetrics();
         _scrollController.Reset();
         UpdateContentExtent();
+        InvalidateVisual();
+    }
+
+    private void OnViewChanged(object? sender, SpreadsheetViewChangedEventArgs e)
+    {
+        if (_disposed || _session is null || !ReferenceEquals(e.Worksheet, _session.ActiveWorksheet))
+        {
+            return;
+        }
+
+        _viewport?.ClearDisplayListCache();
+        UpdateEditorBounds();
         InvalidateVisual();
     }
 
@@ -593,7 +607,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement, IDisposable
 
     private void UpdateEditorBounds()
     {
-        if (_cellEditor?.State is not { } state || _viewport is null)
+        if (_cellEditor?.State is not { } state || _viewport is null || _session is null)
         {
             return;
         }
@@ -601,12 +615,38 @@ public sealed class NeraSpreadsheetControl : FrameworkElement, IDisposable
         if (!_viewport.TryGetCellBounds(state.Address, scroll.OffsetX, scroll.OffsetY, out var bounds))
         {
             _editor.Visibility = Visibility.Collapsed;
+            _editorBounds = Rect.Empty;
+            InvalidateArrange();
             return;
         }
+
         var viewportRect = new Rect(0d, 0d, Math.Max(0d, ActualWidth), Math.Max(0d, ActualHeight));
         var candidate = new Rect(bounds.X, bounds.Y, Math.Max(20d, bounds.Width), Math.Max(18d, bounds.Height));
-        _editor.Visibility = candidate.IntersectsWith(viewportRect) ? Visibility.Visible : Visibility.Collapsed;
-        _editorBounds = candidate;
+        var frozen = _viewport.GetFrozenPaneExtent();
+        var frozenWidth = Math.Clamp(frozen.Width, 0d, viewportRect.Width);
+        var frozenHeight = Math.Clamp(frozen.Height, 0d, viewportRect.Height);
+        var frozenColumn = state.Address.ColumnIndex < _session.View.FrozenColumns;
+        var frozenRow = state.Address.RowIndex < _session.View.FrozenRows;
+        var paneLeft = frozenColumn ? 0d : frozenWidth;
+        var paneTop = frozenRow ? 0d : frozenHeight;
+        var paneRight = frozenColumn ? frozenWidth : viewportRect.Width;
+        var paneBottom = frozenRow ? frozenHeight : viewportRect.Height;
+        var pane = new Rect(
+            paneLeft,
+            paneTop,
+            Math.Max(0d, paneRight - paneLeft),
+            Math.Max(0d, paneBottom - paneTop));
+        var visible = Rect.Intersect(Rect.Intersect(candidate, pane), viewportRect);
+        if (visible.IsEmpty || visible.Width <= 0d || visible.Height <= 0d)
+        {
+            _editor.Visibility = Visibility.Collapsed;
+            _editorBounds = Rect.Empty;
+            InvalidateArrange();
+            return;
+        }
+
+        _editor.Visibility = Visibility.Visible;
+        _editorBounds = visible;
         InvalidateArrange();
     }
 
