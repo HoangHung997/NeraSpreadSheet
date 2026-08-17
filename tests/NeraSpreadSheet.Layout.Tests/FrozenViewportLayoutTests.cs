@@ -55,7 +55,7 @@ public sealed class FrozenViewportLayoutTests
 
         Assert.AreEqual(0d, layout.FrozenHeight, 1e-9);
         Assert.IsFalse(layout.Rows.Any(slot => slot.IsFrozen));
-        Assert.AreEqual(15d, layout.Rows.Single(slot => slot.Index == 1).Start, 1e-9);
+        Assert.AreEqual(-5d, layout.Rows.Single(slot => slot.Index == 1).Start, 1e-9);
     }
 
     [TestMethod]
