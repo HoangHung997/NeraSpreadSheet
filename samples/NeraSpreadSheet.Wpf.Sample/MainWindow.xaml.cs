@@ -73,6 +73,29 @@ public partial class MainWindow : Window
     private void MergeClick(object sender, RoutedEventArgs e) => Spreadsheet.Session?.Merge.MergeSelection();
     private void UnmergeClick(object sender, RoutedEventArgs e) => Spreadsheet.Session?.Merge.UnmergeActiveCell();
 
+    private void FreezeClick(object sender, RoutedEventArgs e)
+    {
+        if (Spreadsheet.Session is not { } session)
+        {
+            return;
+        }
+        try
+        {
+            session.View.FreezeAtActiveCell();
+        }
+        catch (InvalidOperationException exception)
+        {
+            MessageBox.Show(this, exception.Message, "Cannot freeze panes", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        UpdateDiagnostics();
+    }
+
+    private void UnfreezeClick(object sender, RoutedEventArgs e)
+    {
+        Spreadsheet.Session?.View.Unfreeze();
+        UpdateDiagnostics();
+    }
+
     private void GpuClick(object sender, RoutedEventArgs e)
     {
         Spreadsheet.RenderingBackend = GpuToggle.IsChecked == true
@@ -86,17 +109,21 @@ public partial class MainWindow : Window
     private void UpdateDiagnostics()
     {
         var pacing = Spreadsheet.FramePacing;
+        var view = Spreadsheet.Session?.View;
+        var freeze = view is { HasFrozenPanes: true }
+            ? $" · freeze {view.FrozenRows}r/{view.FrozenColumns}c"
+            : string.Empty;
         if (Spreadsheet.GpuDiagnostics is { } gpu)
         {
             PerfText.Text = string.Create(
                 System.Globalization.CultureInfo.InvariantCulture,
-                $"{pacing.FramesPerSecond:F1} FPS · p95 {pacing.P95FrameIntervalMilliseconds:F2} ms · GPU {gpu.TextureWidth}×{gpu.TextureHeight} · layouts {gpu.CachedTextLayouts} · hit {gpu.TextLayoutCacheHits}/{gpu.TextLayoutCacheMisses}");
+                $"{pacing.FramesPerSecond:F1} FPS · p95 {pacing.P95FrameIntervalMilliseconds:F2} ms · GPU {gpu.TextureWidth}×{gpu.TextureHeight} · layouts {gpu.CachedTextLayouts} · hit {gpu.TextLayoutCacheHits}/{gpu.TextLayoutCacheMisses}{freeze}");
             return;
         }
 
         PerfText.Text = string.Create(
             System.Globalization.CultureInfo.InvariantCulture,
-            $"{pacing.FramesPerSecond:F1} FPS · p95 {pacing.P95FrameIntervalMilliseconds:F2} ms · DrawingContext");
+            $"{pacing.FramesPerSecond:F1} FPS · p95 {pacing.P95FrameIntervalMilliseconds:F2} ms · DrawingContext{freeze}");
     }
 
     private void OnClosed(object? sender, EventArgs e)
