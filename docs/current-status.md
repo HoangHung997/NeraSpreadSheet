@@ -20,8 +20,10 @@ This file is the handoff source of truth for the current development branch. It 
 - Basic cross-sheet references.
 - SUM, AVERAGE, MIN, MAX, COUNT and IF.
 - Dependency graph, circular-reference detection and affected-only recalculation.
+- Spreadsheet error literals such as `#REF!` are tokenized, parsed and evaluated as `CellValueKind.Error`, not plain text.
 - Structural reference rewriting for local and cross-sheet formulas, including absolute markers, reversed ranges, quoted/escaped sheet qualifiers and string-literal exclusion.
-- Insert expands or shifts references/ranges; delete shrinks partially intersected ranges and emits `#REF!` when the referenced cell/range is removed.
+- Insert expands or shifts references/ranges; delete shrinks partially intersected ranges and emits a standalone `#REF!` when the referenced cell/range is removed.
+- A deleted qualified reference is normalized to `=#REF!`; invalid forms such as `=Sheet1!#REF!` are not retained.
 - Workbook recalculation is rebuilt after structural operations and their undo/redo transitions.
 
 ### Editing, commands and view state
@@ -38,7 +40,7 @@ This file is the handoff source of truth for the current development branch. It 
 - Failed structural inserts do not enter undo history and do not mutate workbook formulas, selection or freeze state.
 - Structural operations roll back their captured worksheet/formula/selection/freeze state if a later phase throws after worksheet mutation.
 
-### Selection and viewport
+### Selection, viewport and split-pane foundation
 - Single, extended and multi-range selection.
 - Native whole-row, whole-column and whole-sheet selection primitives.
 - Selection snapshot restore with change suppression when the target snapshot already matches current state.
@@ -59,6 +61,13 @@ This file is the handoff source of truth for the current development branch. It 
 - BenchmarkDotNet coverage exists for normal viewport caching and frozen pane-aware caching.
 - Freeze panes preserve fractional scroll in the scrollable body while frozen rows/columns remain fixed.
 - Frozen hit-testing, cell/editor bounds and dirty-region calculations use pane-aware coordinates.
+- Platform-neutral split geometry supports unsplit, vertical split, horizontal split and four-pane layouts with configurable separator thickness and minimum pane extent.
+- Split separators use half-open hit-test regions so separator/intersection hits never leak into an adjacent pane.
+- Every visible split pane owns an independent `ContinuousScrollController`; X/Y offsets remain `double` and are clamped against that pane's own viewport bounds.
+- Hidden pane scroll state is retained when a split is temporarily removed and is restored if the same topology returns.
+- The active split pane falls back to `TopLeft` when a topology change removes the prior active pane.
+- Split viewport composition clips/translates one viewport frame per pane, routes pane-specific hit testing and returns cell bounds in shared body coordinates.
+- Split viewport tests cover independent fractional scrolling, targeted precision deltas, pane-local hit testing, translated cell bounds and topology fallback/persistence.
 
 ### Rendering and desktop hosts
 - Shared display-list composition; visible cells only; no UI control per cell.
@@ -68,6 +77,10 @@ This file is the handoff source of truth for the current development branch. It 
 - Frozen rendering is split into four independently clipped panes plus freeze separator lines.
 - Shared spreadsheet chrome compositor draws row/column headers and the top-left select-all corner outside the body viewport.
 - Header geometry is centralized and shared by WPF/WinForms; body coordinates remain local to the spreadsheet viewport.
+- Single-pane and split-pane chrome now share the same internal header renderer for labels, selection highlighting, borders and freeze separators.
+- Split-aware chrome takes column labels from panes touching the top edge and row labels from panes touching the left edge.
+- Vertical and horizontal split separators continue through the corresponding column-header and row-header bands.
+- Split chrome validates that every pane has exactly one matching viewport layout and rejects missing, duplicate or mismatched pane metadata.
 - Column labels use the native A..Z, AA.. sequence and row labels use one-based row numbers.
 - Header rendering uses freeze-aware `AxisSlot` geometry, so frozen headers remain fixed while scrolling headers move fractionally with the body.
 - Active row/column headers and whole-axis selections receive distinct header highlighting.
@@ -123,18 +136,24 @@ Both samples exercise formulas, style interning, merged cells, in-cell editing a
 - Full-row/full-column range operations are still subject to existing materialization safety limits; sparse whole-axis style storage is not implemented yet.
 - Header drag-reordering is not implemented yet; live row/column resizing is implemented.
 - Structural formula rewriting covers current A1 cell/range syntax; complete Excel table/structured-reference, shared-formula and dynamic-array semantics are not implemented yet.
+- Split geometry, per-pane scrolling, body composition, hit testing, cell bounds and shared header composition are platform-neutral and tested, but the public WPF/WinForms controls do not yet expose end-user split creation, separator dragging, pane activation, pane-specific wheel routing, editor routing or scrollbars.
+- Split state currently belongs to the split viewport controller; it is not yet persisted in workbook/view snapshots or included in undo/redo.
 - Pane-aware cache correctness/allocation and all three Windows desktop GPU paths are CI-gated for initialization/render/resize/shutdown.
 - Sustained FPS, input latency, power use and hardware-specific behavior still depend on target machines and should be measured with sample diagnostics/benchmarks.
 - WPF device-loss/front-buffer-loss recovery has lifecycle hooks but still needs dedicated injected-failure and long-running stress coverage.
 
 ## Next implementation work
-- Split panes independent from freeze panes, with per-pane scroll state and shared body/header geometry.
+- Integrate `SpreadsheetSplitViewportEngine` and split-aware chrome into the public WinForms control, then WPF, without regressing the existing single-pane path.
+- Add desktop separator drag/capture UX, pane activation, pane-specific wheel/precision scrolling, editor clipping, header interaction, dirty invalidation and per-pane scrollbar plumbing.
+- Decide and implement worksheet/view persistence plus structural-edit mapping rules for split positions and pane scroll snapshots.
+- Add desktop runtime smoke coverage for real split controls on GDI+/Direct2D/DXGI and DrawingContext/D3DImage paths.
 - Header drag-reordering and sparse whole-axis style storage.
 - Add longer-running frame/device-recovery stress coverage for HWND Direct2D, DXGI swap-chain and WPF shared-texture paths.
 - Skia GPU surface + MAUI native handler/touch interaction.
 
 ## Not implemented yet
-- Split panes independent from freeze panes.
+- End-user split-pane UX in the public WPF/WinForms controls, including draggable separators and per-pane scrollbars.
+- Split-pane persistence/undo semantics and structural mapping of split positions.
 - Header drag-reordering and sparse whole-axis styles.
 - Full XLSX styles, shared formulas, conditional formatting, validation, tables, drawings, charts, macros and unknown-part preservation.
 - Complete Excel-compatible formula/function surface and dynamic arrays.
@@ -145,6 +164,7 @@ Both samples exercise formulas, style interning, merged cells, in-cell editing a
 ## Validation policy
 - `NeraSpreadSheet.Core.slnx` must restore, build and test on the cross-platform CI job.
 - `NeraSpreadSheet.slnx` must restore/build on the Windows CI job and all test projects must pass.
+- Split-pane foundation changes must keep layout, per-pane viewport/scroll and split-chrome regression tests green.
 - `NeraSpreadSheet.Windows.Rendering.Tests` must execute on the Windows runner after the full build; compile success alone is insufficient for HWND Direct2D, DXGI swap-chain or WPF shared-texture implementation claims.
 - WPF runtime validation must include a real public control hosted in a `Window` and a clean `Window.Close()` lifecycle.
 - Architecture verification must remain green.
@@ -153,7 +173,11 @@ Both samples exercise formulas, style interning, merged cells, in-cell editing a
 - GPU/advanced XLSX features are not marked implemented until there is executable code plus CI validation; runtime-only claims require a real runtime smoke test or benchmark.
 
 ## Latest validation milestone
-CI run #160 for commit `f747e445e96d8b6c7619494b8bb082144dc73327` passed Core restore/build/tests/architecture verification, the full Windows restore/build/test job and all three Windows desktop GPU runtime smoke tests. On the Windows Server 2025 GitHub runner, Direct2D HWND, D3D11/DXGI flip-model and the public WPF shared-texture control all initialized, rendered, reused DirectWrite layouts and resized successfully; the WPF test also closed the host window without the previous double-cleanup exception.
+CI run #187 for commit `8808b2f6ee718eb1f3e59aabd57483254b69f30c` passed Core restore/build/tests/architecture verification, the full Windows restore/build/test job and the mandatory Windows desktop GPU runtime smoke gate. The run includes the structural `#REF!` semantics fixes, independent continuous per-pane split scrolling, pane-local hit testing/bounds and split-aware shared header/chrome regression coverage.
+
+## Detailed contracts
+- `docs/structural-editing-contract.md` locks structural insert/delete, formula rewrite and rollback semantics.
+- `docs/split-pane-contract.md` locks the platform-neutral split layout, per-pane scroll, hit-test and shared chrome semantics, and lists the desktop integration work that remains.
 
 ## Independence rule
 NeraSpreadSheet is a native independent spreadsheet SDK. Excel, LibreOffice and DevExpress may be used as external behavior/coverage references only. Their command identifiers, public types and runtime engines are not part of Nera's Core contracts.
