@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Interaction;
+using NeraSpreadSheet.Layout;
 using NeraSpreadSheet.Rendering;
 using NeraSpreadSheet.Rendering.Direct2D;
 using NeraSpreadSheet.Rendering.Spreadsheet;
@@ -38,6 +39,8 @@ public sealed class NeraSpreadsheetControl : Control
     private Worksheet? _subscribedWorksheet;
     private Direct2DHwndDisplayListRenderer? _direct2DRenderer;
     private Direct2DSwapChainDisplayListRenderer? _swapChainRenderer;
+    private ViewportLayout? _lastLayout;
+    private SpreadsheetHeaderResizeHandle? _headerResize;
     private DateTime _lastFrameUtc = DateTime.UtcNow;
     private WinFormsRenderingBackend _renderingBackend;
     private bool _swapChainVSync = true;
@@ -191,6 +194,11 @@ public sealed class NeraSpreadsheetControl : Control
         }
         Focus();
 
+        if (TryBeginHeaderResize(e.X, e.Y))
+        {
+            return;
+        }
+
         var hit = SpreadsheetChromeGeometry.HitTest(
             e.X,
             e.Y,
@@ -255,6 +263,43 @@ public sealed class NeraSpreadsheetControl : Control
         {
             BeginEdit();
         }
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (_headerResize is { } resize)
+        {
+            ApplyHeaderResize(resize, e.X, e.Y);
+            Cursor = GetResizeCursor(resize.Axis);
+            return;
+        }
+        UpdateHeaderResizeCursor(e.X, e.Y);
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        base.OnMouseUp(e);
+        if (e.Button != MouseButtons.Left || _headerResize is not { } resize)
+        {
+            return;
+        }
+
+        ApplyHeaderResize(resize, e.X, e.Y);
+        _headerResize = null;
+        Capture = false;
+        UpdateHeaderResizeCursor(e.X, e.Y);
+    }
+
+    protected override void OnMouseCaptureChanged(EventArgs e)
+    {
+        base.OnMouseCaptureChanged(e);
+        if (Capture || _headerResize is null)
+        {
+            return;
+        }
+        _headerResize = null;
+        Cursor = Cursors.Default;
     }
 
     protected override bool IsInputKey(Keys keyData)
@@ -372,6 +417,7 @@ public sealed class NeraSpreadsheetControl : Control
             var chrome = GetChromeMetrics();
             if (chrome.BodyWidth <= 0d || chrome.BodyHeight <= 0d)
             {
+                _lastLayout = null;
                 RenderEmptyBackground(e.Graphics);
                 base.OnPaint(e);
                 return;
@@ -385,6 +431,7 @@ public sealed class NeraSpreadsheetControl : Control
                 chrome.BodyHeight,
                 OverscanPixels,
                 RenderTheme);
+            _lastLayout = frame.Layout;
             ContentWidth = frame.Layout.ContentWidth;
             ContentHeight = frame.Layout.ContentHeight;
             var displayList = SpreadsheetChromeDisplayListComposer.Compose(
@@ -413,6 +460,7 @@ public sealed class NeraSpreadsheetControl : Control
         }
         else
         {
+            _lastLayout = null;
             RenderEmptyBackground(e.Graphics);
         }
 
@@ -422,6 +470,7 @@ public sealed class NeraSpreadsheetControl : Control
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
+        _lastLayout = null;
         if (ClientSize.Width > 0 && ClientSize.Height > 0)
         {
             _direct2DRenderer?.Resize(ClientSize.Width, ClientSize.Height);
@@ -512,6 +561,66 @@ public sealed class NeraSpreadsheetControl : Control
 
     private SpreadsheetChromeMetrics GetChromeMetrics() =>
         SpreadsheetChromeGeometry.Calculate(ClientSize.Width, ClientSize.Height, RenderTheme);
+
+    private bool TryBeginHeaderResize(double x, double y)
+    {
+        if (_lastLayout is null ||
+            !SpreadsheetHeaderResizeGeometry.TryHitResizeHandle(
+                x,
+                y,
+                ClientSize.Width,
+                ClientSize.Height,
+                RenderTheme,
+                _lastLayout,
+                out var resize))
+        {
+            return false;
+        }
+
+        _headerResize = resize;
+        Capture = true;
+        Cursor = GetResizeCursor(resize.Axis);
+        return true;
+    }
+
+    private void ApplyHeaderResize(SpreadsheetHeaderResizeHandle resize, double x, double y)
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        var size = SpreadsheetHeaderResizeGeometry.CalculateSize(resize, x, y);
+        if (resize.Axis == WorksheetAxis.Row)
+        {
+            _session.ActiveWorksheet.Dimensions.SetRowHeight(resize.Index, size);
+        }
+        else
+        {
+            _session.ActiveWorksheet.Dimensions.SetColumnWidth(resize.Index, size);
+        }
+    }
+
+    private void UpdateHeaderResizeCursor(double x, double y)
+    {
+        if (_lastLayout is not null &&
+            SpreadsheetHeaderResizeGeometry.TryHitResizeHandle(
+                x,
+                y,
+                ClientSize.Width,
+                ClientSize.Height,
+                RenderTheme,
+                _lastLayout,
+                out var resize))
+        {
+            Cursor = GetResizeCursor(resize.Axis);
+            return;
+        }
+        Cursor = Cursors.Default;
+    }
+
+    private static Cursor GetResizeCursor(WorksheetAxis axis) =>
+        axis == WorksheetAxis.Row ? Cursors.SizeNS : Cursors.SizeWE;
 
     private void EnsureSelectedGpuRenderer()
     {
@@ -635,6 +744,8 @@ public sealed class NeraSpreadsheetControl : Control
         _session = value;
         _viewport = value is null ? null : new SpreadsheetViewportEngine(value);
         _cellEditor = value?.Editor;
+        _lastLayout = null;
+        _headerResize = null;
         _scrollController.Reset();
         HideEditor();
         AttachSessionEvents();
@@ -697,6 +808,8 @@ public sealed class NeraSpreadsheetControl : Control
         CancelEditor();
         EnsureWorksheetSubscription();
         _viewport?.InvalidateMetrics();
+        _lastLayout = null;
+        _headerResize = null;
         _scrollController.Reset();
         UpdateContentExtent();
         Invalidate();
@@ -710,6 +823,7 @@ public sealed class NeraSpreadsheetControl : Control
         }
 
         _viewport?.ClearDisplayListCache();
+        _lastLayout = null;
         UpdateEditorBounds();
         Invalidate();
     }
@@ -733,6 +847,7 @@ public sealed class NeraSpreadsheetControl : Control
     private void OnDimensionsChanged(object? sender, DimensionChangedEventArgs e)
     {
         _viewport?.InvalidateMetrics();
+        _lastLayout = null;
         UpdateContentExtent();
         UpdateEditorBounds();
         Invalidate();
