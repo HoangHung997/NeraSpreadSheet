@@ -22,7 +22,9 @@ public sealed class SpreadsheetStructureDeleteTests
         session.Structure.DeleteRows(4, 1);
 
         Assert.AreEqual("=#REF!", sheet.GetFormula(default));
-        Assert.AreEqual("=Sheet1!#REF!", summary.GetFormula(default));
+        Assert.AreEqual("=#REF!", summary.GetFormula(default));
+        Assert.AreEqual(CellValueKind.Error, sheet.GetCell(default).Value.Kind);
+        Assert.AreEqual(CellValueKind.Error, summary.GetCell(default).Value.Kind);
     }
 
     [TestMethod]
