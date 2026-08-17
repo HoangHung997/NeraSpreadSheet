@@ -36,6 +36,7 @@ This file is the handoff source of truth for the current development branch. It 
 - Freeze boundaries reject merged ranges that would be split; new merges are also rejected when they would cross an active freeze boundary.
 - Structural edits map selection active/anchor/multi-range state and freeze boundaries; undo restores their exact snapshots.
 - Failed structural inserts do not enter undo history and do not mutate workbook formulas, selection or freeze state.
+- Structural operations roll back their captured worksheet/formula/selection/freeze state if a later phase throws after worksheet mutation.
 
 ### Selection and viewport
 - Single, extended and multi-range selection.
@@ -93,6 +94,10 @@ This file is the handoff source of truth for the current development branch. It 
 - F2, double-click and direct typing edit entry; Enter/Tab commit; Esc cancel.
 - Desktop shortcuts include Ctrl+Z/Y/C/X/V/B/I.
 - Both hosts subscribe to view changes, so freeze/unfreeze repaints immediately without application code manually invalidating the control.
+- `tests/NeraSpreadSheet.Windows.Rendering.Tests` is a Windows-only runtime smoke project, not a compile-only descriptor test.
+- CI creates a real off-screen STA WinForms HWND and executes both the Direct2D HWND renderer and D3D11/DXGI flip-model renderer.
+- Each runtime smoke test renders a nested display list twice, verifies DirectWrite layout reuse/diagnostics, resizes the native surface and renders again.
+- The Windows CI job has a mandatory `Windows Direct2D and DXGI runtime smoke` step; a backend that only compiles but cannot initialize/render/present causes CI failure.
 
 ### XLSX adapter
 - Basic cell values and formulas/cached values.
@@ -105,7 +110,7 @@ This file is the handoff source of truth for the current development branch. It 
 - `samples/NeraSpreadSheet.Wpf.Sample`
 - `samples/NeraSpreadSheet.WinForms.Sample`
 
-Both samples exercise formulas, style interning, merged cells, in-cell editing and XLSX open/save. They expose rendering-backend switching, live FPS/p95 diagnostics and Freeze/Unfreeze controls. Row/column headers are enabled by default, so whole-row/whole-column/corner selection and drag-resizing can be smoke-tested directly. The WinForms sample compares GDI+, HWND Direct2D and D3D11/DXGI flip-model; the WPF sample compares DrawingContext with the shared-texture Direct2D GPU path. Both samples are included in the full Windows solution so Windows CI compiles them.
+Both samples exercise formulas, style interning, merged cells, in-cell editing and XLSX open/save. They expose rendering-backend switching, live FPS/p95 diagnostics, Freeze/Unfreeze controls and Insert/Delete Row/Column controls routed through native command dispatch. Row/column headers are enabled by default, so whole-row/whole-column/corner selection, drag-resizing and structural command selection-count behavior can be smoke-tested directly. The WinForms sample compares GDI+, HWND Direct2D and D3D11/DXGI flip-model; the WPF sample compares DrawingContext with the shared-texture Direct2D GPU path. Both samples are included in the full Windows solution so Windows CI compiles them.
 
 ## Implemented but intentionally basic
 - Number formatting uses the current .NET formatting bridge; it is not a complete Excel-format-code engine.
@@ -114,12 +119,14 @@ Both samples exercise formulas, style interning, merged cells, in-cell editing a
 - Full-row/full-column range operations are still subject to existing materialization safety limits; sparse whole-axis style storage is not implemented yet.
 - Header drag-reordering is not implemented yet; live row/column resizing is implemented.
 - Structural formula rewriting covers current A1 cell/range syntax; complete Excel table/structured-reference, shared-formula and dynamic-array semantics are not implemented yet.
-- Pane-aware cache correctness/allocation are CI-gated; real GPU FPS still depends on target hardware and should be measured with the sample diagnostics.
+- Pane-aware cache correctness/allocation and HWND/DXGI renderer initialization/render/resize are CI-gated.
+- Sustained FPS, input latency, power use and hardware-specific behavior still depend on target machines and should be measured with sample diagnostics/benchmarks.
+- The WPF shared-texture `D3DImage` path is compile-tested but does not yet have the same native-surface runtime smoke gate as HWND Direct2D and DXGI swap-chain.
 
 ## Next implementation work
 - Split panes independent from freeze panes, with per-pane scroll state and shared body/header geometry.
 - Header drag-reordering and sparse whole-axis style storage.
-- Additional runtime smoke/benchmark coverage for HWND Direct2D, DXGI flip-model and WPF shared-texture GPU paths on real Windows hardware.
+- Add a WPF shared-texture/D3DImage runtime smoke harness and longer-running frame/device-recovery stress coverage.
 - Skia GPU surface + MAUI native handler/touch interaction.
 
 ## Not implemented yet
@@ -134,13 +141,14 @@ Both samples exercise formulas, style interning, merged cells, in-cell editing a
 ## Validation policy
 - `NeraSpreadSheet.Core.slnx` must restore, build and test on the cross-platform CI job.
 - `NeraSpreadSheet.slnx` must restore/build on the Windows CI job and all test projects must pass.
+- `NeraSpreadSheet.Windows.Rendering.Tests` must execute on the Windows runner after the full build; compile success alone is insufficient for HWND Direct2D/DXGI implementation claims.
 - Architecture verification must remain green.
 - Performance-sensitive caches keep correctness/allocation regression tests and BenchmarkDotNet coverage where practical.
 - The PR stays Draft and must not be merged while the latest-head CI is red or unknown.
 - GPU/advanced XLSX features are not marked implemented until there is executable code plus CI validation; runtime-only claims require a real runtime smoke test or benchmark.
 
 ## Latest validation milestone
-CI run #139 for commit `135617d61416e1bb64c9a8e1d9192e04c7d00b11` passed Core restore/build/tests/architecture verification and the full Windows restore/build/test job. This milestone includes GPU backends, freeze panes, headers and resize interaction, pane-aware caching, nested display lists, plus atomic structural row/column insert/delete with workbook-aware formula rewriting, selection/freeze mapping and undo/redo.
+CI run #149 for commit `5bad8b9cc3e88af8ff8dfcfe6626525a3514bd9b` passed Core restore/build/tests/architecture verification, the full Windows restore/build/test job and two Windows native renderer runtime smoke tests. The smoke tests ran on the Windows Server 2025 GitHub runner and successfully initialized/rendered/resized both Direct2D HWND and D3D11/DXGI flip-model backends, including nested display-list execution and DirectWrite layout-cache reuse.
 
 ## Independence rule
 NeraSpreadSheet is a native independent spreadsheet SDK. Excel, LibreOffice and DevExpress may be used as external behavior/coverage references only. Their command identifiers, public types and runtime engines are not part of Nera's Core contracts.
