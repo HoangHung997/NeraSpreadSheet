@@ -4,6 +4,7 @@ using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Layout;
 using NeraSpreadSheet.Rendering;
 using NeraSpreadSheet.Rendering.Spreadsheet;
+using NeraSpreadSheet.Scrolling;
 
 namespace NeraSpreadSheet.Viewport;
 
@@ -40,44 +41,57 @@ public sealed record SpreadsheetSplitViewportFrame(
 public sealed class SpreadsheetSplitViewportEngine
 {
     private readonly SpreadsheetViewportEngine _viewport;
-    private readonly Dictionary<SpreadsheetPaneId, PointD> _scrollOffsets = [];
     private SpreadsheetSplitViewportFrame? _lastFrame;
 
     public SpreadsheetSplitViewportEngine(
         SpreadsheetSession session,
-        SpreadsheetViewportCacheOptions? cacheOptions = null)
+        SpreadsheetViewportCacheOptions? cacheOptions = null,
+        ScrollPhysicsOptions? scrollPhysicsOptions = null)
     {
         _viewport = new SpreadsheetViewportEngine(
             session ?? throw new ArgumentNullException(nameof(session)),
             cacheOptions);
+        Scroll = new SpreadsheetSplitScrollController(scrollPhysicsOptions);
     }
 
     public SpreadsheetSession Session => _viewport.Session;
-    public SpreadsheetPaneId ActivePane { get; private set; } = SpreadsheetPaneId.TopLeft;
+    public SpreadsheetSplitScrollController Scroll { get; }
+    public SpreadsheetPaneId ActivePane => Scroll.ActivePane;
     public SpreadsheetSplitViewportFrame? LastFrame => _lastFrame;
+    public bool HasPendingScroll => Scroll.HasPendingMotion;
 
-    public PointD GetPaneScroll(SpreadsheetPaneId paneId) =>
-        _scrollOffsets.GetValueOrDefault(paneId);
+    public PointD GetPaneScroll(SpreadsheetPaneId paneId) => Scroll.GetOffset(paneId);
 
-    public void SetPaneScroll(SpreadsheetPaneId paneId, double scrollX, double scrollY)
+    public ScrollSnapshot GetPaneScrollSnapshot(SpreadsheetPaneId paneId) => Scroll.GetSnapshot(paneId);
+
+    public void SetPaneScroll(SpreadsheetPaneId paneId, double scrollX, double scrollY) =>
+        Scroll.ScrollTo(paneId, scrollX, scrollY, animated: false);
+
+    public void ScrollPaneTo(
+        SpreadsheetPaneId paneId,
+        double scrollX,
+        double scrollY,
+        bool animated = false) =>
+        Scroll.ScrollTo(paneId, scrollX, scrollY, animated);
+
+    public void QueuePaneScroll(SpreadsheetPaneId paneId, ScrollDelta delta) =>
+        Scroll.QueueDelta(paneId, delta);
+
+    public void QueueActivePaneScroll(ScrollDelta delta) => Scroll.QueueActivePaneDelta(delta);
+
+    public void SetActivePane(SpreadsheetPaneId paneId) => Scroll.SetActivePane(paneId);
+
+    public bool AdvanceScrollFrame(TimeSpan elapsed)
     {
-        ValidatePaneId(paneId);
-        if (!double.IsFinite(scrollX) || scrollX < 0d)
+        if (_lastFrame is null)
         {
-            throw new ArgumentOutOfRangeException(nameof(scrollX));
-        }
-        if (!double.IsFinite(scrollY) || scrollY < 0d)
-        {
-            throw new ArgumentOutOfRangeException(nameof(scrollY));
+            return false;
         }
 
-        _scrollOffsets[paneId] = new PointD(scrollX, scrollY);
-    }
-
-    public void SetActivePane(SpreadsheetPaneId paneId)
-    {
-        ValidatePaneId(paneId);
-        ActivePane = paneId;
+        return Scroll.AdvanceFrame(
+            elapsed,
+            _lastFrame.Layout,
+            _viewport.GetContentExtent()).Changed;
     }
 
     public SpreadsheetSplitViewportFrame Compose(
@@ -88,10 +102,8 @@ public sealed class SpreadsheetSplitViewportEngine
         theme ??= new SpreadsheetRenderTheme();
         ValidateTheme(theme);
         var splitLayout = SpreadsheetSplitLayoutEngine.Compute(request);
-        if (!splitLayout.TryGetPane(ActivePane, out _))
-        {
-            ActivePane = SpreadsheetPaneId.TopLeft;
-        }
+        var contentExtent = _viewport.GetContentExtent();
+        Scroll.AdvanceFrame(TimeSpan.Zero, splitLayout, contentExtent);
 
         var panes = new List<SpreadsheetSplitPaneFrame>(splitLayout.Panes.Count);
         var builder = new DisplayListBuilder();
@@ -105,17 +117,23 @@ public sealed class SpreadsheetSplitViewportEngine
 
         foreach (var pane in splitLayout.Panes)
         {
-            var requestedScroll = GetPaneScroll(pane.PaneId);
+            var requestedScroll = Scroll.GetSnapshot(pane.PaneId);
             var viewportFrame = _viewport.Compose(
-                requestedScroll.X,
-                requestedScroll.Y,
+                requestedScroll.OffsetX,
+                requestedScroll.OffsetY,
                 pane.Bounds.Width,
                 pane.Bounds.Height,
                 overscan,
                 theme);
-            _scrollOffsets[pane.PaneId] = new PointD(
-                viewportFrame.Layout.ScrollX,
-                viewportFrame.Layout.ScrollY);
+            if (viewportFrame.Layout.ScrollX != requestedScroll.OffsetX ||
+                viewportFrame.Layout.ScrollY != requestedScroll.OffsetY)
+            {
+                Scroll.ScrollTo(
+                    pane.PaneId,
+                    viewportFrame.Layout.ScrollX,
+                    viewportFrame.Layout.ScrollY,
+                    animated: false);
+            }
             panes.Add(new SpreadsheetSplitPaneFrame(pane, viewportFrame));
 
             builder.PushClip(pane.Bounds);
@@ -200,8 +218,7 @@ public sealed class SpreadsheetSplitViewportEngine
             return false;
         }
 
-        ActivePane = paneId;
-        return true;
+        return Scroll.SetActivePane(paneId);
     }
 
     public bool TryGetCellBounds(
@@ -228,6 +245,12 @@ public sealed class SpreadsheetSplitViewportEngine
     }
 
     public SizeD GetContentExtent() => _viewport.GetContentExtent();
+
+    public void ResetPaneScrolls()
+    {
+        Scroll.Reset();
+        _lastFrame = null;
+    }
 
     public void InvalidateMetrics()
     {
@@ -279,14 +302,6 @@ public sealed class SpreadsheetSplitViewportEngine
             new PointD(bounds.Right, bottom),
             theme.ActivePaneStrokeWidth,
             theme.ActivePaneBorder);
-    }
-
-    private static void ValidatePaneId(SpreadsheetPaneId paneId)
-    {
-        if (!Enum.IsDefined(paneId))
-        {
-            throw new ArgumentOutOfRangeException(nameof(paneId));
-        }
     }
 
     private static void ValidateTheme(SpreadsheetRenderTheme theme)
