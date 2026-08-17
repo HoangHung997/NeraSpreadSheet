@@ -38,6 +38,29 @@ public readonly record struct WorksheetStructuralChange
     public int AxisLength { get; }
     public int EndIndex => checked(Index + Count - 1);
 
+    public int MapBoundary(int boundary)
+    {
+        if (boundary < 0 || boundary >= AxisLength)
+        {
+            throw new ArgumentOutOfRangeException(nameof(boundary));
+        }
+
+        if (Kind == WorksheetStructuralChangeKind.Insert)
+        {
+            return Index < boundary
+                ? Math.Min(AxisLength - 1, checked(boundary + Count))
+                : boundary;
+        }
+
+        if (boundary <= Index)
+        {
+            return boundary;
+        }
+
+        var deletedBeforeBoundary = Math.Min(Count, boundary - Index);
+        return boundary - deletedBeforeBoundary;
+    }
+
     public bool TryMapIndex(int sourceIndex, out int targetIndex)
     {
         if (sourceIndex < 0 || sourceIndex >= AxisLength)
