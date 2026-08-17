@@ -75,6 +75,51 @@ public sealed class SelectionModel
         PublishIfChanged(changed);
     }
 
+    public void SelectRow(int rowIndex, bool additive = false) =>
+        Select(
+            new CellRange(
+                new CellAddress(rowIndex, 0),
+                new CellAddress(rowIndex, SpreadsheetLimits.MaxColumns - 1)),
+            additive);
+
+    public void SelectColumn(int columnIndex, bool additive = false) =>
+        Select(
+            new CellRange(
+                new CellAddress(0, columnIndex),
+                new CellAddress(SpreadsheetLimits.MaxRows - 1, columnIndex)),
+            additive);
+
+    public void SelectAll() =>
+        Select(new CellRange(
+            default,
+            new CellAddress(SpreadsheetLimits.MaxRows - 1, SpreadsheetLimits.MaxColumns - 1)));
+
+    public void ExtendRowsTo(int rowIndex)
+    {
+        var active = new CellAddress(rowIndex, 0);
+        var range = new CellRange(
+            new CellAddress(AnchorCell.RowIndex, 0),
+            new CellAddress(rowIndex, SpreadsheetLimits.MaxColumns - 1));
+        var changed = ActiveCell != active || _ranges.Count != 1 || _ranges[0] != range;
+        ActiveCell = active;
+        _ranges.Clear();
+        _ranges.Add(range);
+        PublishIfChanged(changed);
+    }
+
+    public void ExtendColumnsTo(int columnIndex)
+    {
+        var active = new CellAddress(0, columnIndex);
+        var range = new CellRange(
+            new CellAddress(0, AnchorCell.ColumnIndex),
+            new CellAddress(SpreadsheetLimits.MaxRows - 1, columnIndex));
+        var changed = ActiveCell != active || _ranges.Count != 1 || _ranges[0] != range;
+        ActiveCell = active;
+        _ranges.Clear();
+        _ranges.Add(range);
+        PublishIfChanged(changed);
+    }
+
     public void ExtendTo(CellAddress address)
     {
         var range = new CellRange(AnchorCell, address);
