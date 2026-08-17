@@ -46,53 +46,7 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
         var offsetY = 0d;
         try
         {
-            foreach (var command in displayList.Commands)
-            {
-                switch (command)
-                {
-                    case FillRectangleCommand fill:
-                        graphics.FillRectangle(GetBrush(fill.Color), ToRectangleF(fill.Bounds.Translate(offsetX, offsetY)));
-                        break;
-                    case DrawLineCommand line:
-                        graphics.DrawLine(
-                            GetPen(line.Color, line.StrokeWidth),
-                            ToPointF(line.Start, offsetX, offsetY),
-                            ToPointF(line.End, offsetX, offsetY));
-                        break;
-                    case DrawTextCommand text:
-                        DrawText(graphics, text, offsetX, offsetY);
-                        break;
-                    case PushClipCommand pushClip:
-                    {
-                        var graphicsState = graphics.Save();
-                        graphics.SetClip(ToRectangleF(pushClip.Bounds.Translate(offsetX, offsetY)), CombineMode.Intersect);
-                        states.Push(new RenderState(RenderStateKind.Clip, graphicsState, offsetX, offsetY));
-                        break;
-                    }
-                    case PopClipCommand:
-                    {
-                        var state = EnsureTopState(states, RenderStateKind.Clip);
-                        states.Pop();
-                        graphics.Restore(state.GraphicsState!);
-                        break;
-                    }
-                    case PushTranslationCommand translation:
-                        states.Push(new RenderState(RenderStateKind.Translation, null, offsetX, offsetY));
-                        offsetX += translation.DeltaX;
-                        offsetY += translation.DeltaY;
-                        break;
-                    case PopTranslationCommand:
-                    {
-                        var state = EnsureTopState(states, RenderStateKind.Translation);
-                        states.Pop();
-                        offsetX = state.PreviousOffsetX;
-                        offsetY = state.PreviousOffsetY;
-                        break;
-                    }
-                    default:
-                        throw new NotSupportedException($"Unsupported render command '{command.GetType().Name}'.");
-                }
-            }
+            ExecuteDisplayList(graphics, displayList, states, ref offsetX, ref offsetY);
         }
         finally
         {
@@ -123,6 +77,65 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
         _singleLineFormat.Dispose();
         _wrappedFormat.Dispose();
         _disposed = true;
+    }
+
+    private void ExecuteDisplayList(
+        Graphics graphics,
+        DisplayList displayList,
+        Stack<RenderState> states,
+        ref double offsetX,
+        ref double offsetY)
+    {
+        foreach (var command in displayList.Commands)
+        {
+            switch (command)
+            {
+                case FillRectangleCommand fill:
+                    graphics.FillRectangle(GetBrush(fill.Color), ToRectangleF(fill.Bounds.Translate(offsetX, offsetY)));
+                    break;
+                case DrawLineCommand line:
+                    graphics.DrawLine(
+                        GetPen(line.Color, line.StrokeWidth),
+                        ToPointF(line.Start, offsetX, offsetY),
+                        ToPointF(line.End, offsetX, offsetY));
+                    break;
+                case DrawTextCommand text:
+                    DrawText(graphics, text, offsetX, offsetY);
+                    break;
+                case DrawDisplayListCommand nested:
+                    ExecuteDisplayList(graphics, nested.DisplayList, states, ref offsetX, ref offsetY);
+                    break;
+                case PushClipCommand pushClip:
+                {
+                    var graphicsState = graphics.Save();
+                    graphics.SetClip(ToRectangleF(pushClip.Bounds.Translate(offsetX, offsetY)), CombineMode.Intersect);
+                    states.Push(new RenderState(RenderStateKind.Clip, graphicsState, offsetX, offsetY));
+                    break;
+                }
+                case PopClipCommand:
+                {
+                    var state = EnsureTopState(states, RenderStateKind.Clip);
+                    states.Pop();
+                    graphics.Restore(state.GraphicsState!);
+                    break;
+                }
+                case PushTranslationCommand translation:
+                    states.Push(new RenderState(RenderStateKind.Translation, null, offsetX, offsetY));
+                    offsetX += translation.DeltaX;
+                    offsetY += translation.DeltaY;
+                    break;
+                case PopTranslationCommand:
+                {
+                    var state = EnsureTopState(states, RenderStateKind.Translation);
+                    states.Pop();
+                    offsetX = state.PreviousOffsetX;
+                    offsetY = state.PreviousOffsetY;
+                    break;
+                }
+                default:
+                    throw new NotSupportedException($"Unsupported render command '{command.GetType().Name}'.");
+            }
+        }
     }
 
     private void DrawText(Graphics graphics, DrawTextCommand command, double offsetX, double offsetY)
