@@ -61,10 +61,7 @@ public sealed class SpreadsheetSplitScrollController
         SpreadsheetSplitLayout layout,
         SizeD contentExtent)
     {
-        if (elapsed < TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(nameof(elapsed));
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThan(elapsed, TimeSpan.Zero);
         ArgumentNullException.ThrowIfNull(layout);
 
         EnsureActivePane(layout);
