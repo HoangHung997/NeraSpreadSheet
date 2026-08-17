@@ -30,6 +30,30 @@ public sealed class SelectionModel
 
     public bool Contains(CellAddress address) => _ranges.Any(range => range.Contains(address));
 
+    public void Restore(SelectionSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        if (snapshot.Ranges.Count == 0)
+        {
+            throw new ArgumentException("A selection snapshot must contain at least one range.", nameof(snapshot));
+        }
+
+        var changed = ActiveCell != snapshot.ActiveCell ||
+            AnchorCell != snapshot.AnchorCell ||
+            _ranges.Count != snapshot.Ranges.Count ||
+            !_ranges.SequenceEqual(snapshot.Ranges);
+        if (!changed)
+        {
+            return;
+        }
+
+        ActiveCell = snapshot.ActiveCell;
+        AnchorCell = snapshot.AnchorCell;
+        _ranges.Clear();
+        _ranges.AddRange(snapshot.Ranges);
+        PublishIfChanged(true);
+    }
+
     public void SetActiveCell(CellAddress address, bool preserveRanges = false, bool preserveAnchor = false)
     {
         var keepRanges = preserveRanges || preserveAnchor;
