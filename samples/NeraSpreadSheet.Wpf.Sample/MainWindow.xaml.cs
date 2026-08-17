@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Threading;
+using NeraSpreadSheet.Commands;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
@@ -94,6 +95,51 @@ public partial class MainWindow : Window
     {
         Spreadsheet.Session?.View.Unfreeze();
         UpdateDiagnostics();
+    }
+
+    private async void InsertRowsClick(object sender, RoutedEventArgs e) =>
+        await ExecuteStructureCommandAsync(SpreadsheetStructureCommandIds.InsertRows);
+
+    private async void DeleteRowsClick(object sender, RoutedEventArgs e) =>
+        await ExecuteStructureCommandAsync(SpreadsheetStructureCommandIds.DeleteRows);
+
+    private async void InsertColumnsClick(object sender, RoutedEventArgs e) =>
+        await ExecuteStructureCommandAsync(SpreadsheetStructureCommandIds.InsertColumns);
+
+    private async void DeleteColumnsClick(object sender, RoutedEventArgs e) =>
+        await ExecuteStructureCommandAsync(SpreadsheetStructureCommandIds.DeleteColumns);
+
+    private async Task ExecuteStructureCommandAsync(CommandId commandId)
+    {
+        if (Spreadsheet.Session is not { } session)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await session.CommandDispatcher.TryExecuteAsync(commandId))
+            {
+                MessageBox.Show(
+                    this,
+                    "The structural command is not available for the current selection.",
+                    "Command unavailable",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+            Spreadsheet.Focus();
+            UpdateDiagnostics();
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentOutOfRangeException)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Cannot change worksheet structure",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
     }
 
     private void GpuClick(object sender, RoutedEventArgs e)
