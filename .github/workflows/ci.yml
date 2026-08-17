@@ -57,5 +57,5 @@ jobs:
       - name: Test
         run: dotnet test NeraSpreadSheet.Core.slnx -c Release --no-build --logger "trx;LogFileName=windows-tests.trx"
 
-      - name: Windows Direct2D and DXGI runtime smoke
+      - name: Windows desktop GPU runtime smoke
         run: dotnet test tests/NeraSpreadSheet.Windows.Rendering.Tests/NeraSpreadSheet.Windows.Rendering.Tests.csproj -c Release --no-build --logger "trx;LogFileName=windows-renderer-smoke.trx"
