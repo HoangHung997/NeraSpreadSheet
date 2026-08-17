@@ -53,6 +53,39 @@ public sealed class MergedCellRanges
 
     internal bool Remove(CellRange range) => _ranges.Remove(range);
 
+    internal CellRange[] CreateStructuralRanges(WorksheetStructuralChange change)
+    {
+        var transformed = new List<CellRange>(_ranges.Count);
+        foreach (var range in _ranges)
+        {
+            if (!change.TryMapRange(range, out var mapped))
+            {
+                if (change.Kind == WorksheetStructuralChangeKind.Insert)
+                {
+                    throw new InvalidOperationException(
+                        "Cannot insert because a merged range would move outside the worksheet bounds.");
+                }
+                continue;
+            }
+
+            if (mapped.RowCount == 1 && mapped.ColumnCount == 1)
+            {
+                continue;
+            }
+            transformed.Add(mapped);
+        }
+        return [.. transformed];
+    }
+
+    internal void ReplaceAll(IReadOnlyList<CellRange> ranges)
+    {
+        _ranges.Clear();
+        foreach (var range in ranges)
+        {
+            Add(range);
+        }
+    }
+
     private static bool Overlaps(CellRange first, CellRange second) =>
         first.Left <= second.Right &&
         first.Right >= second.Left &&
