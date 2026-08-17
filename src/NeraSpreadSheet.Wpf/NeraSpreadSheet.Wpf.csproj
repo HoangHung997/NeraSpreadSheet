@@ -7,7 +7,7 @@
     <PackageId>NeraSpreadSheet.Wpf</PackageId>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Vortice.Wpf" />
+    <PackageReference Include="Vortice.Direct3D9" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../NeraSpreadSheet.Core/NeraSpreadSheet.Core.csproj" />
