@@ -9,6 +9,7 @@ using WpfDispatcher = System.Windows.Threading.Dispatcher;
 using WpfDispatcherFrame = System.Windows.Threading.DispatcherFrame;
 using WpfDispatcherPriority = System.Windows.Threading.DispatcherPriority;
 using WpfDispatcherTimer = System.Windows.Threading.DispatcherTimer;
+using WpfGrid = System.Windows.Controls.Grid;
 using WpfResizeMode = System.Windows.ResizeMode;
 using WpfWindow = System.Windows.Window;
 using WpfWindowStartupLocation = System.Windows.WindowStartupLocation;
@@ -34,40 +35,14 @@ public sealed class WpfSharedTextureSmokeTests
             sheet.SetValue(default, "Nera WPF shared-texture runtime smoke");
             sheet.SetValue(new CellAddress(1, 1), 42d);
             var session = new SpreadsheetSession(workbook);
-            using var control = new NeraSpreadsheetControl
-            {
-                Background = WpfBrushes.White,
-                RenderingBackend = WpfRenderingBackend.Direct2DD3DImage,
-                Session = session,
-            };
-            var window = new WpfWindow
-            {
-                Background = WpfBrushes.White,
-                Content = control,
-                Height = 240d,
-                Left = -32_000d,
-                ResizeMode = WpfResizeMode.NoResize,
-                ShowActivated = false,
-                ShowInTaskbar = false,
-                Title = "NeraSpreadSheet WPF GPU smoke host",
-                Top = -32_000d,
-                Width = 360d,
-                WindowStartupLocation = WpfWindowStartupLocation.Manual,
-                WindowStyle = WpfWindowStyle.ToolWindow,
-            };
+            using var control = CreateGpuControl(session);
+            var window = CreateOffscreenWindow(control, 360d, 240d);
 
             try
             {
                 window.Show();
                 window.UpdateLayout();
-                PumpUntil(
-                    () => control.GpuDiagnostics is
-                    {
-                        TextureWidth: > 0,
-                        TextureHeight: > 0,
-                        CachedTextLayouts: > 0,
-                    },
-                    "The WPF shared-texture surface did not load and render a text layout.");
+                WaitForRenderedTexture(control);
 
                 var initial = control.GpuDiagnostics;
                 Assert.IsTrue(initial.HasValue);
@@ -97,6 +72,94 @@ public sealed class WpfSharedTextureSmokeTests
             }
         });
     }
+
+    [TestMethod]
+    [Timeout(60_000)]
+    public void SharedTextureControlRecreatesSurfaceAcrossRepeatedUnloadAndReload()
+    {
+        RunInSta(() =>
+        {
+            var workbook = new Workbook();
+            workbook.Worksheets[0].SetValue(default, "Nera WPF visual-tree reload smoke");
+            var session = new SpreadsheetSession(workbook);
+            using var control = CreateGpuControl(session);
+            var host = new WpfGrid();
+            host.Children.Add(control);
+            var window = CreateOffscreenWindow(host, 380d, 250d);
+
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                WaitForRenderedTexture(control);
+                var previousHits = control.GpuDiagnostics?.TextLayoutCacheHits ?? 0L;
+
+                for (var cycle = 0; cycle < 3; cycle++)
+                {
+                    Assert.IsTrue(host.Children.Remove(control));
+                    window.UpdateLayout();
+                    PumpUntil(
+                        () => control.GpuDiagnostics is { TextureWidth: 0, TextureHeight: 0 },
+                        $"The WPF GPU surface did not release its texture during unload cycle {cycle + 1}.");
+
+                    host.Children.Add(control);
+                    window.UpdateLayout();
+                    control.InvalidateVisual();
+                    PumpUntil(
+                        () => control.GpuDiagnostics is
+                        {
+                            TextureWidth: > 0,
+                            TextureHeight: > 0,
+                            CachedTextLayouts: > 0,
+                        },
+                        $"The WPF GPU surface did not recreate and render during reload cycle {cycle + 1}.");
+                    PumpUntil(
+                        () => control.GpuDiagnostics is { } diagnostics &&
+                            diagnostics.TextLayoutCacheHits > previousHits,
+                        $"The WPF GPU surface did not reuse text layouts during reload cycle {cycle + 1}.");
+                    previousHits = control.GpuDiagnostics?.TextLayoutCacheHits ?? previousHits;
+                }
+            }
+            finally
+            {
+                window.Close();
+                PumpFor(TimeSpan.FromMilliseconds(40d));
+            }
+        });
+    }
+
+    private static NeraSpreadsheetControl CreateGpuControl(SpreadsheetSession session) => new()
+    {
+        Background = WpfBrushes.White,
+        RenderingBackend = WpfRenderingBackend.Direct2DD3DImage,
+        Session = session,
+    };
+
+    private static WpfWindow CreateOffscreenWindow(object content, double width, double height) => new()
+    {
+        Background = WpfBrushes.White,
+        Content = content,
+        Height = height,
+        Left = -32_000d,
+        ResizeMode = WpfResizeMode.NoResize,
+        ShowActivated = false,
+        ShowInTaskbar = false,
+        Title = "NeraSpreadSheet WPF GPU smoke host",
+        Top = -32_000d,
+        Width = width,
+        WindowStartupLocation = WpfWindowStartupLocation.Manual,
+        WindowStyle = WpfWindowStyle.ToolWindow,
+    };
+
+    private static void WaitForRenderedTexture(NeraSpreadsheetControl control) =>
+        PumpUntil(
+            () => control.GpuDiagnostics is
+            {
+                TextureWidth: > 0,
+                TextureHeight: > 0,
+                CachedTextLayouts: > 0,
+            },
+            "The WPF shared-texture surface did not load and render a text layout.");
 
     private static void PumpUntil(Func<bool> condition, string failureMessage)
     {
