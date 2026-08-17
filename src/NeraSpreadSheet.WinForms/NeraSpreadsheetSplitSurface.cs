@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 using NeraSpreadSheet.Core;
@@ -61,6 +62,8 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
     internal double? SplitY => _splitY;
 
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     internal double SeparatorThickness
     {
         get => _separatorThickness;
@@ -77,6 +80,8 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         }
     }
 
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     internal double MinimumPaneExtent
     {
         get => _minimumPaneExtent;
@@ -215,5 +220,4 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             out paneId,
             out address);
     }
-
 }
