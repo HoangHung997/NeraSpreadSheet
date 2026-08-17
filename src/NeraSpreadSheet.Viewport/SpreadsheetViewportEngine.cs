@@ -58,8 +58,7 @@ public sealed class SpreadsheetViewportEngine
             _session.View.FrozenColumns));
         var worksheet = _session.ActiveWorksheet;
         var selection = _session.Selection.Capture();
-        var canUseTranslatedTileCache = _cacheOptions.Enabled && !_session.View.HasFrozenPanes;
-        var displayList = canUseTranslatedTileCache
+        var displayList = _cacheOptions.Enabled
             ? ComposeCachedDisplayList(layoutEngine, layout, worksheet, selection, theme, overscan)
             : ComposeFreshDisplayList(worksheet, layout, selection, theme);
 
@@ -251,11 +250,15 @@ public sealed class SpreadsheetViewportEngine
         var maximumCacheY = Math.Max(0d, _rows!.TotalExtent - expandedHeight);
         var cacheScrollX = Math.Min(requestedTileX, maximumCacheX);
         var cacheScrollY = Math.Min(requestedTileY, maximumCacheY);
+        var frozenRows = _session.View.FrozenRows;
+        var frozenColumns = _session.View.FrozenColumns;
         var key = new DisplayListCacheKey(
             worksheet,
             worksheet.Version,
             worksheet.Dimensions.Version,
             selection.Version,
+            frozenRows,
+            frozenColumns,
             cacheScrollX,
             cacheScrollY,
             actualLayout.ViewportSize.Width,
@@ -277,16 +280,30 @@ public sealed class SpreadsheetViewportEngine
                 cacheScrollX,
                 cacheScrollY,
                 new SizeD(expandedWidth, expandedHeight),
-                overscan));
+                overscan,
+                frozenRows,
+                frozenColumns));
             cachedDisplayList = SpreadsheetDisplayListComposer.Compose(
                 GetWorksheetSnapshot(worksheet),
                 cachedLayout,
                 selection,
                 theme,
-                _session.Workbook.Styles);
+                _session.Workbook.Styles,
+                includeFreezeSeparators: false);
             AddDisplayListCacheEntry(key, cachedDisplayList);
         }
 
+        return actualLayout.HasFrozenPanes
+            ? ReprojectFrozenCachedDisplayList(cachedDisplayList, actualLayout, cacheScrollX, cacheScrollY, theme)
+            : ReprojectCachedDisplayList(cachedDisplayList, actualLayout, cacheScrollX, cacheScrollY);
+    }
+
+    private static DisplayList ReprojectCachedDisplayList(
+        DisplayList cachedDisplayList,
+        ViewportLayout actualLayout,
+        double cacheScrollX,
+        double cacheScrollY)
+    {
         var builder = new DisplayListBuilder();
         builder.PushClip(new RectD(0d, 0d, actualLayout.ViewportSize.Width, actualLayout.ViewportSize.Height));
         builder.PushTranslation(cacheScrollX - actualLayout.ScrollX, cacheScrollY - actualLayout.ScrollY);
@@ -294,6 +311,76 @@ public sealed class SpreadsheetViewportEngine
         builder.PopTranslation();
         builder.PopClip();
         return builder.Build();
+    }
+
+    private static DisplayList ReprojectFrozenCachedDisplayList(
+        DisplayList cachedDisplayList,
+        ViewportLayout actualLayout,
+        double cacheScrollX,
+        double cacheScrollY,
+        SpreadsheetRenderTheme theme)
+    {
+        var width = actualLayout.ViewportSize.Width;
+        var height = actualLayout.ViewportSize.Height;
+        var frozenWidth = Math.Clamp(actualLayout.FrozenWidth, 0d, width);
+        var frozenHeight = Math.Clamp(actualLayout.FrozenHeight, 0d, height);
+        var deltaX = cacheScrollX - actualLayout.ScrollX;
+        var deltaY = cacheScrollY - actualLayout.ScrollY;
+        var builder = new DisplayListBuilder();
+        builder.PushClip(new RectD(0d, 0d, width, height));
+
+        AppendCachedPane(builder, cachedDisplayList, new RectD(0d, 0d, frozenWidth, frozenHeight), 0d, 0d);
+        AppendCachedPane(
+            builder,
+            cachedDisplayList,
+            new RectD(frozenWidth, 0d, Math.Max(0d, width - frozenWidth), frozenHeight),
+            deltaX,
+            0d);
+        AppendCachedPane(
+            builder,
+            cachedDisplayList,
+            new RectD(0d, frozenHeight, frozenWidth, Math.Max(0d, height - frozenHeight)),
+            0d,
+            deltaY);
+        AppendCachedPane(
+            builder,
+            cachedDisplayList,
+            new RectD(
+                frozenWidth,
+                frozenHeight,
+                Math.Max(0d, width - frozenWidth),
+                Math.Max(0d, height - frozenHeight)),
+            deltaX,
+            deltaY);
+
+        SpreadsheetDisplayListComposer.AppendFreezeSeparators(builder, actualLayout, theme);
+        builder.PopClip();
+        return builder.Build();
+    }
+
+    private static void AppendCachedPane(
+        DisplayListBuilder builder,
+        DisplayList cachedDisplayList,
+        RectD clip,
+        double deltaX,
+        double deltaY)
+    {
+        if (clip.Width <= 0d || clip.Height <= 0d)
+        {
+            return;
+        }
+
+        builder.PushClip(clip);
+        if (deltaX != 0d || deltaY != 0d)
+        {
+            builder.PushTranslation(deltaX, deltaY);
+        }
+        builder.Append(cachedDisplayList);
+        if (deltaX != 0d || deltaY != 0d)
+        {
+            builder.PopTranslation();
+        }
+        builder.PopClip();
     }
 
     private void AddDisplayListCacheEntry(DisplayListCacheKey key, DisplayList displayList)
@@ -386,6 +473,8 @@ public sealed class SpreadsheetViewportEngine
         long WorksheetVersion,
         long DimensionsVersion,
         long SelectionVersion,
+        int FrozenRows,
+        int FrozenColumns,
         double CacheScrollX,
         double CacheScrollY,
         double ViewportWidth,
