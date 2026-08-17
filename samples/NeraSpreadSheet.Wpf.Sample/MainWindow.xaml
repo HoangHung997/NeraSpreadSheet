@@ -15,6 +15,8 @@
             <Button Click="ItalicClick" Padding="10,3">Italic</Button>
             <Button Click="MergeClick" Padding="10,3">Merge</Button>
             <Button Click="UnmergeClick" Padding="10,3">Unmerge</Button>
+            <Button Click="FreezeClick" Padding="10,3">Freeze</Button>
+            <Button Click="UnfreezeClick" Padding="10,3">Unfreeze</Button>
             <Separator />
             <ToggleButton x:Name="GpuToggle" Click="GpuClick" Padding="10,3"
                           ToolTip="Bật Direct2D trên D3D11 shared texture/D3DImage; tắt để dùng DrawingContext fallback.">
