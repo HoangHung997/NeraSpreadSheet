@@ -3,6 +3,12 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Rendering;
 using NeraSpreadSheet.Rendering.Direct2D;
+using DrawingPoint = System.Drawing.Point;
+using DrawingSize = System.Drawing.Size;
+using WinFormsApplication = System.Windows.Forms.Application;
+using WinFormsForm = System.Windows.Forms.Form;
+using WinFormsFormBorderStyle = System.Windows.Forms.FormBorderStyle;
+using WinFormsFormStartPosition = System.Windows.Forms.FormStartPosition;
 
 namespace NeraSpreadSheet.Windows.Rendering.Tests;
 
@@ -37,8 +43,8 @@ public sealed class Direct2DRendererSmokeTests
                 diagnostics.TextLayoutCacheHits >= 1,
                 $"Expected a reused DirectWrite layout, but hits={diagnostics.TextLayoutCacheHits}.");
 
-            form.ClientSize = new Size(360, 200);
-            Application.DoEvents();
+            form.ClientSize = new DrawingSize(360, 200);
+            WinFormsApplication.DoEvents();
             renderer.Resize(360, 200);
             renderer.Render(displayList);
 
@@ -79,8 +85,8 @@ public sealed class Direct2DRendererSmokeTests
                 diagnostics.TextLayoutCacheHits >= 1,
                 $"Expected a reused DirectWrite layout, but hits={diagnostics.TextLayoutCacheHits}.");
 
-            form.ClientSize = new Size(360, 200);
-            Application.DoEvents();
+            form.ClientSize = new DrawingSize(360, 200);
+            WinFormsApplication.DoEvents();
             renderer.Resize(360, 200);
             renderer.Render(displayList);
 
@@ -90,19 +96,19 @@ public sealed class Direct2DRendererSmokeTests
         });
     }
 
-    private static Form CreateOffscreenHost(int width, int height)
+    private static WinFormsForm CreateOffscreenHost(int width, int height)
     {
-        var form = new Form
+        var form = new WinFormsForm
         {
-            ClientSize = new Size(width, height),
-            FormBorderStyle = FormBorderStyle.FixedToolWindow,
-            Location = new Point(-32_000, -32_000),
+            ClientSize = new DrawingSize(width, height),
+            FormBorderStyle = WinFormsFormBorderStyle.FixedToolWindow,
+            Location = new DrawingPoint(-32_000, -32_000),
             ShowInTaskbar = false,
-            StartPosition = FormStartPosition.Manual,
+            StartPosition = WinFormsFormStartPosition.Manual,
             Text = "NeraSpreadSheet renderer smoke host",
         };
         form.Show();
-        Application.DoEvents();
+        WinFormsApplication.DoEvents();
         Assert.AreNotEqual(IntPtr.Zero, form.Handle);
         return form;
     }
