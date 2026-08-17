@@ -2,6 +2,7 @@ using System.Numerics;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Foundation.Collections;
 using NeraSpreadSheet.Rendering;
+using SharpGen.Runtime;
 using Vortice;
 using Vortice.Direct2D1;
 using Vortice.DirectWrite;
@@ -63,6 +64,18 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
 
     public long TextLayoutCacheEvictions => _textLayouts.EvictionCount;
 
+    public long DeviceRecoveryCount { get; private set; }
+
+    public Direct2DRendererDiagnostics Diagnostics => new(
+        _pixelWidth,
+        _pixelHeight,
+        _textLayouts.Capacity,
+        _textLayouts.Count,
+        _textLayouts.HitCount,
+        _textLayouts.MissCount,
+        _textLayouts.EvictionCount,
+        DeviceRecoveryCount);
+
     public void Resize(int pixelWidth, int pixelHeight)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -82,6 +95,52 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(displayList);
+
+        try
+        {
+            RenderCore(displayList);
+        }
+        catch (SharpGenException)
+        {
+            DeviceRecoveryCount++;
+            CreateRenderTarget();
+            RenderCore(displayList);
+        }
+    }
+
+    public void RecreateDeviceResources()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        CreateRenderTarget();
+    }
+
+    public void ClearTextLayoutCache()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _textLayouts.Clear();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        DisposeTargetResources();
+        _textLayouts.Dispose();
+        foreach (var format in _textFormats.Values)
+        {
+            format.Dispose();
+        }
+        _textFormats.Clear();
+        _writeFactory.Dispose();
+        _d2dFactory.Dispose();
+        _disposed = true;
+    }
+
+    private void RenderCore(DisplayList displayList)
+    {
         var target = _renderTarget ?? throw new InvalidOperationException("Direct2D render target is not initialized.");
         var states = new Stack<RenderState>();
         var offsetX = 0d;
@@ -139,53 +198,14 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
                 throw new InvalidOperationException("Display-list render-state stack is unbalanced.");
             }
         }
-        finally
+        catch
         {
-            while (states.TryPop(out var state))
-            {
-                if (state.Kind == RenderStateKind.Clip)
-                {
-                    target.PopAxisAlignedClip();
-                }
-                else
-                {
-                    offsetX = state.PreviousOffsetX;
-                    offsetY = state.PreviousOffsetY;
-                }
-            }
+            UnwindRenderStates(target, states);
             target.EndDraw();
-        }
-    }
-
-    public void RecreateDeviceResources()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        CreateRenderTarget();
-    }
-
-    public void ClearTextLayoutCache()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _textLayouts.Clear();
-    }
-
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
+            throw;
         }
 
-        DisposeTargetResources();
-        _textLayouts.Dispose();
-        foreach (var format in _textFormats.Values)
-        {
-            format.Dispose();
-        }
-        _textFormats.Clear();
-        _writeFactory.Dispose();
-        _d2dFactory.Dispose();
-        _disposed = true;
+        target.EndDraw().CheckError();
     }
 
     private void CreateRenderTarget()
@@ -280,6 +300,17 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
             GetTextLayout(command),
             GetBrush(command.Style.Color),
             DrawTextOptions.Clip);
+    }
+
+    private static void UnwindRenderStates(ID2D1RenderTarget target, Stack<RenderState> states)
+    {
+        while (states.TryPop(out var state))
+        {
+            if (state.Kind == RenderStateKind.Clip)
+            {
+                target.PopAxisAlignedClip();
+            }
+        }
     }
 
     private static RenderState EnsureTopState(Stack<RenderState> states, RenderStateKind expected)

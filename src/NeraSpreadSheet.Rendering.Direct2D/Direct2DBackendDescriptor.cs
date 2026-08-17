@@ -7,5 +7,5 @@ public static class Direct2DBackendDescriptor
     public static bool IsPlatformSupported => OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041);
 
     public static string ImplementationStatus =>
-        "Executable HWND Direct2D/DirectWrite display-list renderer implemented; WinForms host integration, WPF composition, tile cache and advanced device management remain in progress.";
+        "Executable Direct2D/DirectWrite HWND renderer implemented with WinForms integration, translated viewport tile cache, retained dirty-region repaint, bounded DirectWrite text-layout caching and one-shot device recovery. WPF GPU composition and the D3D11/DXGI composition backend are not implemented yet.";
 }
