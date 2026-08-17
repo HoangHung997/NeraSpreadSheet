@@ -14,7 +14,8 @@ public static class SpreadsheetDisplayListComposer
         ViewportLayout layout,
         SelectionSnapshot? selection = null,
         SpreadsheetRenderTheme? theme = null,
-        CellStyleCatalog? styles = null)
+        CellStyleCatalog? styles = null,
+        bool includeFreezeSeparators = true)
     {
         ArgumentNullException.ThrowIfNull(worksheet);
         ArgumentNullException.ThrowIfNull(layout);
@@ -43,9 +44,29 @@ public static class SpreadsheetDisplayListComposer
             new RectD(frozenWidth, frozenHeight, Math.Max(0d, viewport.Width - frozenWidth), Math.Max(0d, viewport.Height - frozenHeight)),
             selection, theme, styles);
 
-        DrawFreezeSeparators(builder, viewport, frozenWidth, frozenHeight, theme);
+        if (includeFreezeSeparators)
+        {
+            AppendFreezeSeparators(builder, layout, theme);
+        }
         builder.PopClip();
         return builder.Build();
+    }
+
+    public static void AppendFreezeSeparators(
+        DisplayListBuilder builder,
+        ViewportLayout layout,
+        SpreadsheetRenderTheme theme)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(layout);
+        ArgumentNullException.ThrowIfNull(theme);
+        var viewport = new RectD(0d, 0d, layout.ViewportSize.Width, layout.ViewportSize.Height);
+        DrawFreezeSeparators(
+            builder,
+            viewport,
+            Math.Clamp(layout.FrozenWidth, 0d, viewport.Width),
+            Math.Clamp(layout.FrozenHeight, 0d, viewport.Height),
+            theme);
     }
 
     private static void DrawPane(
