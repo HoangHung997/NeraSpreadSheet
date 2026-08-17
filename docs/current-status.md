@@ -81,7 +81,10 @@ This file is the handoff source of truth for the current development branch. It 
 - Executable D3D11 + DXGI two-buffer `FlipDiscard` swap-chain backend feeding a Direct2D device context; `Present(1)`/VSync is the default.
 - D3D11 adapter selection prefers a high-performance hardware adapter and falls back to hardware/default then Microsoft WARP.
 - WinForms selectable rendering backend: `GdiPlus`, `Direct2D` or `Direct2DSwapChain`; GDI+ remains the conservative default.
-- WPF selectable rendering backend: `DrawingContext` or Direct2D on a shared D3D11 texture presented through `D3DImage`/`Vortice.Wpf.DrawingSurface`, avoiding child-HWND airspace.
+- WPF selectable rendering backend: `DrawingContext` or Direct2D on a Nera-owned shared D3D11 texture/D3DImage bridge, avoiding child-HWND airspace.
+- The WPF GPU host no longer depends at runtime on `Vortice.Wpf.DrawingSurface`; Nera owns the D3D11 device, D3D9Ex bridge, D3DImage back buffer, render subscription and unload/close lifecycle.
+- WPF GPU cleanup is idempotent across both `Unloaded` and `Window.Closed`; reload can create a fresh device/surface without double-disposal.
+- The Nera-owned WPF surface clears its dirty flag after a rendered frame, so `AlwaysRefresh=false` no longer causes continuous redundant rendering.
 - Direct2D display-list execution and DirectWrite caches are shared by HWND, DXGI swap-chain and WPF GPU surfaces rather than duplicated.
 - Direct2D brush and text-format caches.
 - Bounded DirectWrite `IDWriteTextLayout` LRU cache with hit/miss/eviction diagnostics.
@@ -95,9 +98,10 @@ This file is the handoff source of truth for the current development branch. It 
 - Desktop shortcuts include Ctrl+Z/Y/C/X/V/B/I.
 - Both hosts subscribe to view changes, so freeze/unfreeze repaints immediately without application code manually invalidating the control.
 - `tests/NeraSpreadSheet.Windows.Rendering.Tests` is a Windows-only runtime smoke project, not a compile-only descriptor test.
-- CI creates a real off-screen STA WinForms HWND and executes both the Direct2D HWND renderer and D3D11/DXGI flip-model renderer.
-- Each runtime smoke test renders a nested display list twice, verifies DirectWrite layout reuse/diagnostics, resizes the native surface and renders again.
-- The Windows CI job has a mandatory `Windows Direct2D and DXGI runtime smoke` step; a backend that only compiles but cannot initialize/render/present causes CI failure.
+- CI creates real off-screen STA WinForms HWNDs for the Direct2D HWND and D3D11/DXGI flip-model renderers.
+- CI also creates a real off-screen WPF `Window`, hosts the public `NeraSpreadsheetControl` with `Direct2DD3DImage`, waits for texture/text rendering, verifies DirectWrite cache reuse, resizes and closes the window.
+- The three runtime tests cover nested display-list execution, text-layout reuse, native surface resize and clean shutdown/unload.
+- The Windows CI job has a mandatory `Windows desktop GPU runtime smoke` step; a backend that only compiles but cannot initialize/render/present/resize/close causes CI failure.
 
 ### XLSX adapter
 - Basic cell values and formulas/cached values.
@@ -119,14 +123,14 @@ Both samples exercise formulas, style interning, merged cells, in-cell editing a
 - Full-row/full-column range operations are still subject to existing materialization safety limits; sparse whole-axis style storage is not implemented yet.
 - Header drag-reordering is not implemented yet; live row/column resizing is implemented.
 - Structural formula rewriting covers current A1 cell/range syntax; complete Excel table/structured-reference, shared-formula and dynamic-array semantics are not implemented yet.
-- Pane-aware cache correctness/allocation and HWND/DXGI renderer initialization/render/resize are CI-gated.
+- Pane-aware cache correctness/allocation and all three Windows desktop GPU paths are CI-gated for initialization/render/resize/shutdown.
 - Sustained FPS, input latency, power use and hardware-specific behavior still depend on target machines and should be measured with sample diagnostics/benchmarks.
-- The WPF shared-texture `D3DImage` path is compile-tested but does not yet have the same native-surface runtime smoke gate as HWND Direct2D and DXGI swap-chain.
+- WPF device-loss/front-buffer-loss recovery has lifecycle hooks but still needs dedicated injected-failure and long-running stress coverage.
 
 ## Next implementation work
 - Split panes independent from freeze panes, with per-pane scroll state and shared body/header geometry.
 - Header drag-reordering and sparse whole-axis style storage.
-- Add a WPF shared-texture/D3DImage runtime smoke harness and longer-running frame/device-recovery stress coverage.
+- Add longer-running frame/device-recovery stress coverage for HWND Direct2D, DXGI swap-chain and WPF shared-texture paths.
 - Skia GPU surface + MAUI native handler/touch interaction.
 
 ## Not implemented yet
@@ -141,14 +145,15 @@ Both samples exercise formulas, style interning, merged cells, in-cell editing a
 ## Validation policy
 - `NeraSpreadSheet.Core.slnx` must restore, build and test on the cross-platform CI job.
 - `NeraSpreadSheet.slnx` must restore/build on the Windows CI job and all test projects must pass.
-- `NeraSpreadSheet.Windows.Rendering.Tests` must execute on the Windows runner after the full build; compile success alone is insufficient for HWND Direct2D/DXGI implementation claims.
+- `NeraSpreadSheet.Windows.Rendering.Tests` must execute on the Windows runner after the full build; compile success alone is insufficient for HWND Direct2D, DXGI swap-chain or WPF shared-texture implementation claims.
+- WPF runtime validation must include a real public control hosted in a `Window` and a clean `Window.Close()` lifecycle.
 - Architecture verification must remain green.
 - Performance-sensitive caches keep correctness/allocation regression tests and BenchmarkDotNet coverage where practical.
 - The PR stays Draft and must not be merged while the latest-head CI is red or unknown.
 - GPU/advanced XLSX features are not marked implemented until there is executable code plus CI validation; runtime-only claims require a real runtime smoke test or benchmark.
 
 ## Latest validation milestone
-CI run #149 for commit `5bad8b9cc3e88af8ff8dfcfe6626525a3514bd9b` passed Core restore/build/tests/architecture verification, the full Windows restore/build/test job and two Windows native renderer runtime smoke tests. The smoke tests ran on the Windows Server 2025 GitHub runner and successfully initialized/rendered/resized both Direct2D HWND and D3D11/DXGI flip-model backends, including nested display-list execution and DirectWrite layout-cache reuse.
+CI run #160 for commit `f747e445e96d8b6c7619494b8bb082144dc73327` passed Core restore/build/tests/architecture verification, the full Windows restore/build/test job and all three Windows desktop GPU runtime smoke tests. On the Windows Server 2025 GitHub runner, Direct2D HWND, D3D11/DXGI flip-model and the public WPF shared-texture control all initialized, rendered, reused DirectWrite layouts and resized successfully; the WPF test also closed the host window without the previous double-cleanup exception.
 
 ## Independence rule
 NeraSpreadSheet is a native independent spreadsheet SDK. Excel, LibreOffice and DevExpress may be used as external behavior/coverage references only. Their command identifiers, public types and runtime engines are not part of Nera's Core contracts.
