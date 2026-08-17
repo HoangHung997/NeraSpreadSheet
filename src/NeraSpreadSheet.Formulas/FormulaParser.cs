@@ -6,48 +6,206 @@ internal sealed class FormulaParser
 {
     private readonly FormulaTokenizer _tokenizer;
     private FormulaToken _current;
-    public FormulaParser(string formula) { _tokenizer = new FormulaTokenizer(formula); _current = _tokenizer.Next(); }
-    public FormulaNode Parse() { var expression = ParseComparison(); Expect(FormulaTokenKind.End); return expression; }
-    private FormulaNode ParseComparison() { var left = ParseConcat(); while (_current.Kind is FormulaTokenKind.Equal or FormulaTokenKind.NotEqual or FormulaTokenKind.Less or FormulaTokenKind.LessOrEqual or FormulaTokenKind.Greater or FormulaTokenKind.GreaterOrEqual) { var operation = _current.Kind; MoveNext(); left = new BinaryNode(operation, left, ParseConcat()); } return left; }
-    private FormulaNode ParseConcat() { var left = ParseAdditive(); while (_current.Kind == FormulaTokenKind.Concat) { var operation = _current.Kind; MoveNext(); left = new BinaryNode(operation, left, ParseAdditive()); } return left; }
-    private FormulaNode ParseAdditive() { var left = ParseMultiplicative(); while (_current.Kind is FormulaTokenKind.Plus or FormulaTokenKind.Minus) { var operation = _current.Kind; MoveNext(); left = new BinaryNode(operation, left, ParseMultiplicative()); } return left; }
-    private FormulaNode ParseMultiplicative() { var left = ParsePower(); while (_current.Kind is FormulaTokenKind.Multiply or FormulaTokenKind.Divide) { var operation = _current.Kind; MoveNext(); left = new BinaryNode(operation, left, ParsePower()); } return left; }
-    private FormulaNode ParsePower() { var left = ParseUnary(); if (_current.Kind == FormulaTokenKind.Power) { var operation = _current.Kind; MoveNext(); return new BinaryNode(operation, left, ParsePower()); } return left; }
-    private FormulaNode ParseUnary() { if (_current.Kind is FormulaTokenKind.Plus or FormulaTokenKind.Minus) { var operation = _current.Kind; MoveNext(); return new UnaryNode(operation, ParseUnary()); } return ParsePrimary(); }
+
+    public FormulaParser(string formula)
+    {
+        _tokenizer = new FormulaTokenizer(formula);
+        _current = _tokenizer.Next();
+    }
+
+    public FormulaNode Parse()
+    {
+        var expression = ParseComparison();
+        Expect(FormulaTokenKind.End);
+        return expression;
+    }
+
+    private FormulaNode ParseComparison()
+    {
+        var left = ParseConcat();
+        while (_current.Kind is FormulaTokenKind.Equal or
+            FormulaTokenKind.NotEqual or
+            FormulaTokenKind.Less or
+            FormulaTokenKind.LessOrEqual or
+            FormulaTokenKind.Greater or
+            FormulaTokenKind.GreaterOrEqual)
+        {
+            var operation = _current.Kind;
+            MoveNext();
+            left = new BinaryNode(operation, left, ParseConcat());
+        }
+        return left;
+    }
+
+    private FormulaNode ParseConcat()
+    {
+        var left = ParseAdditive();
+        while (_current.Kind == FormulaTokenKind.Concat)
+        {
+            var operation = _current.Kind;
+            MoveNext();
+            left = new BinaryNode(operation, left, ParseAdditive());
+        }
+        return left;
+    }
+
+    private FormulaNode ParseAdditive()
+    {
+        var left = ParseMultiplicative();
+        while (_current.Kind is FormulaTokenKind.Plus or FormulaTokenKind.Minus)
+        {
+            var operation = _current.Kind;
+            MoveNext();
+            left = new BinaryNode(operation, left, ParseMultiplicative());
+        }
+        return left;
+    }
+
+    private FormulaNode ParseMultiplicative()
+    {
+        var left = ParsePower();
+        while (_current.Kind is FormulaTokenKind.Multiply or FormulaTokenKind.Divide)
+        {
+            var operation = _current.Kind;
+            MoveNext();
+            left = new BinaryNode(operation, left, ParsePower());
+        }
+        return left;
+    }
+
+    private FormulaNode ParsePower()
+    {
+        var left = ParseUnary();
+        if (_current.Kind == FormulaTokenKind.Power)
+        {
+            var operation = _current.Kind;
+            MoveNext();
+            return new BinaryNode(operation, left, ParsePower());
+        }
+        return left;
+    }
+
+    private FormulaNode ParseUnary()
+    {
+        if (_current.Kind is FormulaTokenKind.Plus or FormulaTokenKind.Minus)
+        {
+            var operation = _current.Kind;
+            MoveNext();
+            return new UnaryNode(operation, ParseUnary());
+        }
+        return ParsePrimary();
+    }
+
     private FormulaNode ParsePrimary()
     {
-        if (_current.Kind == FormulaTokenKind.Number) { var value = CellValue.FromNumber(_current.Number); MoveNext(); return new ConstantNode(value); }
-        if (_current.Kind == FormulaTokenKind.String) { var value = CellValue.FromText(_current.Text); MoveNext(); return new ConstantNode(value); }
-        if (_current.Kind == FormulaTokenKind.LeftParenthesis) { MoveNext(); var nested = ParseComparison(); Expect(FormulaTokenKind.RightParenthesis); MoveNext(); return nested; }
-        if (_current.Kind != FormulaTokenKind.Identifier) throw new FormatException($"Expected a value but found '{_current.Text}'.");
-        var identifier = _current.Text; MoveNext();
-        if (_current.Kind == FormulaTokenKind.LeftParenthesis) return ParseFunction(identifier);
-        if (string.Equals(identifier, "TRUE", StringComparison.OrdinalIgnoreCase)) return new ConstantNode(CellValue.FromBoolean(true));
-        if (string.Equals(identifier, "FALSE", StringComparison.OrdinalIgnoreCase)) return new ConstantNode(CellValue.FromBoolean(false));
-        string? worksheetName = null; var addressText = identifier;
+        if (_current.Kind == FormulaTokenKind.Number)
+        {
+            var value = CellValue.FromNumber(_current.Number);
+            MoveNext();
+            return new ConstantNode(value);
+        }
+        if (_current.Kind == FormulaTokenKind.String)
+        {
+            var value = CellValue.FromText(_current.Text);
+            MoveNext();
+            return new ConstantNode(value);
+        }
+        if (_current.Kind == FormulaTokenKind.Error)
+        {
+            var value = CellValue.FromText(_current.Text);
+            MoveNext();
+            return new ConstantNode(value);
+        }
+        if (_current.Kind == FormulaTokenKind.LeftParenthesis)
+        {
+            MoveNext();
+            var nested = ParseComparison();
+            Expect(FormulaTokenKind.RightParenthesis);
+            MoveNext();
+            return nested;
+        }
+        if (_current.Kind != FormulaTokenKind.Identifier)
+        {
+            throw new FormatException($"Expected a value but found '{_current.Text}'.");
+        }
+
+        var identifier = _current.Text;
+        MoveNext();
+        if (_current.Kind == FormulaTokenKind.LeftParenthesis)
+        {
+            return ParseFunction(identifier);
+        }
+        if (string.Equals(identifier, "TRUE", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ConstantNode(CellValue.FromBoolean(true));
+        }
+        if (string.Equals(identifier, "FALSE", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ConstantNode(CellValue.FromBoolean(false));
+        }
+
+        string? worksheetName = null;
+        var addressText = identifier;
         if (_current.Kind == FormulaTokenKind.Exclamation)
         {
-            worksheetName = identifier; MoveNext();
-            if (_current.Kind != FormulaTokenKind.Identifier) throw new FormatException("Expected a cell address after '!'.");
-            addressText = _current.Text; MoveNext();
+            worksheetName = identifier;
+            MoveNext();
+            if (_current.Kind != FormulaTokenKind.Identifier)
+            {
+                throw new FormatException("Expected a cell address after '!'.");
+            }
+            addressText = _current.Text;
+            MoveNext();
         }
-        if (!CellAddress.TryParseA1(addressText, out var firstAddress)) throw new FormatException($"Unknown name '{identifier}'.");
-        if (_current.Kind != FormulaTokenKind.Colon) return new CellNode(worksheetName, firstAddress);
+        if (!CellAddress.TryParseA1(addressText, out var firstAddress))
+        {
+            throw new FormatException($"Unknown name '{identifier}'.");
+        }
+        if (_current.Kind != FormulaTokenKind.Colon)
+        {
+            return new CellNode(worksheetName, firstAddress);
+        }
+
         MoveNext();
-        if (_current.Kind != FormulaTokenKind.Identifier || !CellAddress.TryParseA1(_current.Text, out var secondAddress)) throw new FormatException("Expected a valid cell address after ':'.");
-        MoveNext(); return new RangeNode(worksheetName, new CellRange(firstAddress, secondAddress));
+        if (_current.Kind != FormulaTokenKind.Identifier ||
+            !CellAddress.TryParseA1(_current.Text, out var secondAddress))
+        {
+            throw new FormatException("Expected a valid cell address after ':'.");
+        }
+        MoveNext();
+        return new RangeNode(worksheetName, new CellRange(firstAddress, secondAddress));
     }
+
     private FunctionNode ParseFunction(string name)
     {
-        MoveNext(); var arguments = new List<FormulaNode>();
-        if (_current.Kind == FormulaTokenKind.RightParenthesis) { MoveNext(); return new FunctionNode(name, arguments); }
+        MoveNext();
+        var arguments = new List<FormulaNode>();
+        if (_current.Kind == FormulaTokenKind.RightParenthesis)
+        {
+            MoveNext();
+            return new FunctionNode(name, arguments);
+        }
+
         while (true)
         {
             arguments.Add(ParseComparison());
-            if (_current.Kind == FormulaTokenKind.RightParenthesis) { MoveNext(); return new FunctionNode(name, arguments); }
-            Expect(FormulaTokenKind.Comma); MoveNext();
+            if (_current.Kind == FormulaTokenKind.RightParenthesis)
+            {
+                MoveNext();
+                return new FunctionNode(name, arguments);
+            }
+            Expect(FormulaTokenKind.Comma);
+            MoveNext();
         }
     }
-    private void Expect(FormulaTokenKind kind) { if (_current.Kind != kind) throw new FormatException($"Expected {kind} but found '{_current.Text}'."); }
+
+    private void Expect(FormulaTokenKind kind)
+    {
+        if (_current.Kind != kind)
+        {
+            throw new FormatException($"Expected {kind} but found '{_current.Text}'.");
+        }
+    }
+
     private void MoveNext() => _current = _tokenizer.Next();
 }
