@@ -39,46 +39,26 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
     protected override void OnPaint(PaintEventArgs e)
     {
-        SynchronizeSession();
-        SynchronizeBackend();
-
-        var frame = EnsureFrame();
-        if (frame is null)
-        {
-            RenderEmptyBackground(e.Graphics);
-            base.OnPaint(e);
-            return;
-        }
-
-        var paneLayouts = new List<SpreadsheetSplitPaneChromeLayout>(frame.Panes.Count);
-        foreach (var pane in frame.Panes)
-        {
-            paneLayouts.Add(new SpreadsheetSplitPaneChromeLayout(
-                pane.Pane.PaneId,
-                pane.Pane.Bounds,
-                pane.ViewportFrame.Layout));
-        }
-
-        var displayList = SpreadsheetSplitChromeDisplayListComposer.Compose(
-            frame.DisplayList,
-            frame.Layout,
-            paneLayouts,
-            _session!.Selection.Capture(),
-            _owner.RenderTheme);
-        switch (_activeBackend)
-        {
-            case WinFormsRenderingBackend.Direct2D:
-                EnsureDirect2DRenderer().Render(displayList);
-                break;
-            case WinFormsRenderingBackend.Direct2DSwapChain:
-                EnsureSwapChainRenderer().Render(displayList);
-                break;
-            default:
-                _displayListRenderer.Render(e.Graphics, displayList);
-                break;
-        }
-
+        RenderCurrentFrame(e.Graphics);
         base.OnPaint(e);
+    }
+
+    internal void RenderNow()
+    {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+
+        _owner.PerformLayout();
+        if (Bounds != _owner.ClientRectangle)
+        {
+            Bounds = _owner.ClientRectangle;
+        }
+        if (!IsHandleCreated)
+        {
+            CreateControl();
+        }
+
+        using var graphics = CreateGraphics();
+        RenderCurrentFrame(graphics);
     }
 
     protected override void OnResize(EventArgs e)
@@ -109,6 +89,48 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             _displayListRenderer.Dispose();
         }
         base.Dispose(disposing);
+    }
+
+    private void RenderCurrentFrame(Graphics graphics)
+    {
+        ArgumentNullException.ThrowIfNull(graphics);
+        SynchronizeSession();
+        SynchronizeBackend();
+
+        var frame = EnsureFrame();
+        if (frame is null)
+        {
+            RenderEmptyBackground(graphics);
+            return;
+        }
+
+        var paneLayouts = new List<SpreadsheetSplitPaneChromeLayout>(frame.Panes.Count);
+        foreach (var pane in frame.Panes)
+        {
+            paneLayouts.Add(new SpreadsheetSplitPaneChromeLayout(
+                pane.Pane.PaneId,
+                pane.Pane.Bounds,
+                pane.ViewportFrame.Layout));
+        }
+
+        var displayList = SpreadsheetSplitChromeDisplayListComposer.Compose(
+            frame.DisplayList,
+            frame.Layout,
+            paneLayouts,
+            _session!.Selection.Capture(),
+            _owner.RenderTheme);
+        switch (_activeBackend)
+        {
+            case WinFormsRenderingBackend.Direct2D:
+                EnsureDirect2DRenderer().Render(displayList);
+                break;
+            case WinFormsRenderingBackend.Direct2DSwapChain:
+                EnsureSwapChainRenderer().Render(displayList);
+                break;
+            default:
+                _displayListRenderer.Render(graphics, displayList);
+                break;
+        }
     }
 
     private void SynchronizeBackend()
@@ -250,5 +272,4 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             UpdateStyles();
         }
     }
-
 }
