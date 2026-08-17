@@ -131,6 +131,8 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
             ?? throw new InvalidOperationException("A loaded WPF Window is required for the shared-texture renderer.");
         ID3D11Device? temporaryDevice = null;
         ID3D11DeviceContext? temporaryContext = null;
+        ID3D11Device1 device;
+        ID3D11DeviceContext1 context;
         try
         {
             D3D11CreateDevice(
@@ -140,8 +142,14 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
                 FeatureLevel.Level_11_0,
                 out temporaryDevice,
                 out temporaryContext).CheckError();
-            _device = temporaryDevice.QueryInterface<ID3D11Device1>();
-            _deviceContext = temporaryContext.QueryInterface<ID3D11DeviceContext1>();
+            if (temporaryDevice is null || temporaryContext is null)
+            {
+                throw new InvalidOperationException("D3D11CreateDevice returned incomplete device resources.");
+            }
+            device = temporaryDevice.QueryInterface<ID3D11Device1>();
+            context = temporaryContext.QueryInterface<ID3D11DeviceContext1>();
+            _device = device;
+            _deviceContext = context;
         }
         finally
         {
@@ -159,7 +167,7 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
         {
             CreateAndBindRenderTarget(notifyTargetChange: false);
             Source = _imageSource;
-            OnDeviceCreated(_device, _deviceContext);
+            OnDeviceCreated(device, context);
             _contentNeedsRefresh = true;
             StartRendering();
         }
