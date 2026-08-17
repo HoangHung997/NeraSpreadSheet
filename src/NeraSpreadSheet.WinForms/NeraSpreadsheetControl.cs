@@ -590,6 +590,7 @@ public sealed class NeraSpreadsheetControl : Control
         }
         _session.ActiveWorksheetChanged += OnActiveWorksheetChanged;
         _session.Selection.Changed += OnSelectionChanged;
+        _session.View.Changed += OnViewChanged;
         EnsureWorksheetSubscription();
     }
 
@@ -599,6 +600,7 @@ public sealed class NeraSpreadsheetControl : Control
         {
             _session.ActiveWorksheetChanged -= OnActiveWorksheetChanged;
             _session.Selection.Changed -= OnSelectionChanged;
+            _session.View.Changed -= OnViewChanged;
         }
         DetachWorksheetSubscription();
     }
@@ -637,6 +639,18 @@ public sealed class NeraSpreadsheetControl : Control
         _viewport?.InvalidateMetrics();
         _scrollController.Reset();
         UpdateContentExtent();
+        Invalidate();
+    }
+
+    private void OnViewChanged(object? sender, SpreadsheetViewChangedEventArgs e)
+    {
+        if (_session is null || !ReferenceEquals(e.Worksheet, _session.ActiveWorksheet))
+        {
+            return;
+        }
+
+        _viewport?.ClearDisplayListCache();
+        UpdateEditorBounds();
         Invalidate();
     }
 
@@ -771,7 +785,7 @@ public sealed class NeraSpreadsheetControl : Control
 
     private void UpdateEditorBounds()
     {
-        if (_cellEditor?.State is not { } state || _viewport is null)
+        if (_cellEditor?.State is not { } state || _viewport is null || _session is null)
         {
             return;
         }
@@ -781,17 +795,32 @@ public sealed class NeraSpreadsheetControl : Control
             _editor.Visible = false;
             return;
         }
-        var rectangle = Rectangle.FromLTRB(
+
+        var raw = Rectangle.FromLTRB(
             (int)Math.Floor(bounds.Left),
             (int)Math.Floor(bounds.Top),
             (int)Math.Ceiling(bounds.Right),
             (int)Math.Ceiling(bounds.Bottom));
-        _editor.Bounds = rectangle;
-        _editor.Visible = rectangle.IntersectsWith(ClientRectangle);
-        if (_editor.Visible)
+        var frozen = _viewport.GetFrozenPaneExtent();
+        var frozenWidth = Math.Clamp((int)Math.Ceiling(frozen.Width), 0, ClientSize.Width);
+        var frozenHeight = Math.Clamp((int)Math.Ceiling(frozen.Height), 0, ClientSize.Height);
+        var frozenColumn = state.Address.ColumnIndex < _session.View.FrozenColumns;
+        var frozenRow = state.Address.RowIndex < _session.View.FrozenRows;
+        var pane = Rectangle.FromLTRB(
+            frozenColumn ? 0 : frozenWidth,
+            frozenRow ? 0 : frozenHeight,
+            frozenColumn ? frozenWidth : ClientSize.Width,
+            frozenRow ? frozenHeight : ClientSize.Height);
+        var visible = Rectangle.Intersect(Rectangle.Intersect(raw, pane), ClientRectangle);
+        if (visible.Width <= 0 || visible.Height <= 0)
         {
-            _editor.BringToFront();
+            _editor.Visible = false;
+            return;
         }
+
+        _editor.Bounds = visible;
+        _editor.Visible = true;
+        _editor.BringToFront();
     }
 
     private void HideEditor()
