@@ -3,6 +3,7 @@ using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Rendering;
+using NeraSpreadSheet.Rendering.Spreadsheet;
 
 namespace NeraSpreadSheet.Viewport.Tests;
 
@@ -58,20 +59,40 @@ public sealed class FrozenSpreadsheetViewportTests
     }
 
     [TestMethod]
-    public void FrozenViewportBypassesWholeFrameTranslationCache()
+    public void FrozenViewportUsesPaneAwareTranslationCache()
     {
         var workbook = new Workbook();
         workbook.Worksheets[0].SetValue(new CellAddress(1, 1), "Nera");
         var session = new SpreadsheetSession(workbook);
         session.View.SetFrozenPanes(1, 1);
         var engine = new SpreadsheetViewportEngine(session);
+        var theme = new SpreadsheetRenderTheme();
 
+        engine.Compose(10d, 5d, 400d, 240d, 0d, theme);
+        var second = engine.Compose(20d, 8d, 400d, 240d, 0d, theme);
+
+        Assert.AreEqual(1, engine.DisplayListCacheEntryCount);
+        Assert.AreEqual(1L, engine.DisplayListCacheHitCount);
+        Assert.AreEqual(1L, engine.DisplayListCacheMissCount);
+        Assert.IsTrue(second.DisplayList.Commands.OfType<PushTranslationCommand>().Any());
+        Assert.AreEqual(
+            2,
+            second.DisplayList.Commands.OfType<DrawLineCommand>().Count(command => command.Color == theme.FreezePaneLine));
+    }
+
+    [TestMethod]
+    public void FreezeConfigurationParticipatesInCacheIdentity()
+    {
+        var session = new SpreadsheetSession(new Workbook());
+        var engine = new SpreadsheetViewportEngine(session);
+
+        session.View.SetFrozenPanes(1, 1);
         engine.Compose(10d, 5d, 400d, 240d, 0d);
-        engine.Compose(20d, 8d, 400d, 240d, 0d);
+        session.View.SetFrozenPanes(2, 1);
+        engine.Compose(10d, 5d, 400d, 240d, 0d);
 
-        Assert.AreEqual(0, engine.DisplayListCacheEntryCount);
-        Assert.AreEqual(0L, engine.DisplayListCacheHitCount);
-        Assert.AreEqual(0L, engine.DisplayListCacheMissCount);
+        Assert.AreEqual(2L, engine.DisplayListCacheMissCount);
+        Assert.AreEqual(2, engine.DisplayListCacheEntryCount);
     }
 
     [TestMethod]
