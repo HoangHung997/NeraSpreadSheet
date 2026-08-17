@@ -10,6 +10,7 @@
     <PackageVersion Include="MSTest.TestAdapter" Version="4.3.2" />
     <PackageVersion Include="MSTest.TestFramework" Version="4.3.2" />
     <PackageVersion Include="Vortice.Direct2D1" Version="3.8.3" />
+    <PackageVersion Include="Vortice.Direct3D9" Version="3.8.3" />
     <PackageVersion Include="Vortice.Direct3D11" Version="3.8.3" />
     <PackageVersion Include="Vortice.Wpf" Version="3.8.3" />
   </ItemGroup>
