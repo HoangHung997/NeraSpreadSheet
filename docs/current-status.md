@@ -62,6 +62,8 @@ This file is the handoff source of truth for the current development branch. It 
 - Active row/column headers and whole-axis selections receive distinct header highlighting.
 - Desktop controls enable headers by default; theme settings can disable headers or customize header geometry/colors/font/strokes.
 - Clicking the row header selects the entire logical row, clicking the column header selects the entire logical column, and clicking the corner selects the whole logical worksheet.
+- Shared freeze-aware header resize geometry detects row/column boundaries from rendered `AxisSlot` edges, including fractional scroll and frozen panes.
+- WinForms and WPF support live row-height/column-width dragging with resize cursors and pointer/mouse capture; dimensions remain sparse and existing dimension-change invalidation updates viewport/cache/editor geometry during the drag.
 - WPF `DrawingContext` fallback display-list executor.
 - WinForms GDI+ fallback display-list executor.
 - Executable Windows Direct2D/DirectWrite HWND renderer using Vortice.
@@ -93,18 +95,18 @@ This file is the handoff source of truth for the current development branch. It 
 - `samples/NeraSpreadSheet.Wpf.Sample`
 - `samples/NeraSpreadSheet.WinForms.Sample`
 
-Both samples exercise formulas, style interning, merged cells, in-cell editing and XLSX open/save. They expose rendering-backend switching, live FPS/p95 diagnostics and Freeze/Unfreeze controls. Row/column headers are enabled by default, so whole-row/whole-column/corner selection can be smoke-tested directly. The WinForms sample compares GDI+, HWND Direct2D and D3D11/DXGI flip-model; the WPF sample compares DrawingContext with the shared-texture Direct2D GPU path. Both samples are included in the full Windows solution so Windows CI compiles them.
+Both samples exercise formulas, style interning, merged cells, in-cell editing and XLSX open/save. They expose rendering-backend switching, live FPS/p95 diagnostics and Freeze/Unfreeze controls. Row/column headers are enabled by default, so whole-row/whole-column/corner selection and drag-resizing can be smoke-tested directly. The WinForms sample compares GDI+, HWND Direct2D and D3D11/DXGI flip-model; the WPF sample compares DrawingContext with the shared-texture Direct2D GPU path. Both samples are included in the full Windows solution so Windows CI compiles them.
 
 ## Implemented but intentionally basic
 - Number formatting uses the current .NET formatting bridge; it is not a complete Excel-format-code engine.
 - Sort is an in-memory range sort with a materialization safety limit; merged ranges are rejected.
 - TSV clipboard is an interoperability fallback. Native Nera clipboard remains the high-fidelity internal format.
 - Full-row/full-column range operations are still subject to existing materialization safety limits; sparse whole-axis style storage is not implemented yet.
-- Headers currently support selection/highlighting but not drag-resizing/reordering of rows or columns.
+- Header drag-reordering is not implemented yet; live row/column resizing is implemented.
 - Pane-aware cache correctness/allocation are CI-gated; real GPU FPS still depends on target hardware and should be measured with the sample diagnostics.
 
-## Next rendering/performance work
-- Header drag-resizing with shared freeze-aware resize-handle geometry and desktop pointer capture.
+## Next implementation work
+- Structural row/column insert/delete with sparse-cell/dimension/merge transforms and complete formula/reference rewriting.
 - Additional runtime smoke/benchmark coverage for HWND Direct2D, DXGI flip-model and WPF shared-texture GPU paths on real Windows hardware.
 - Skia GPU surface + MAUI native handler/touch interaction.
 
@@ -127,7 +129,7 @@ Both samples exercise formulas, style interning, merged cells, in-cell editing a
 - GPU/advanced XLSX features are not marked implemented until there is executable code plus CI validation; runtime-only claims require a real runtime smoke test or benchmark.
 
 ## Latest validation milestone
-CI run #111 for commit `3da6e8c5f4a41940edade512eb03204d7987bf3e` passed Core restore/build/tests/architecture verification and the full Windows restore/build/test job. This milestone includes GPU backends, end-to-end freeze panes, row/column headers, nested display-list reference semantics, pane-aware frozen viewport caching, allocation regression gates and frozen viewport BenchmarkDotNet coverage.
+CI run #116 for commit `1548a9eac40fff4b88f5957c0aeba060680248f4` passed Core restore/build/tests/architecture verification and the full Windows restore/build/test job. This milestone includes GPU backends, freeze panes, row/column headers, pane-aware caching, nested display lists, allocation/benchmark gates and live WPF/WinForms row/column header resizing.
 
 ## Independence rule
 NeraSpreadSheet is a native independent spreadsheet SDK. Excel, LibreOffice and DevExpress may be used as external behavior/coverage references only. Their command identifiers, public types and runtime engines are not part of Nera's Core contracts.
