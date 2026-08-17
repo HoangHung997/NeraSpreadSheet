@@ -14,16 +14,15 @@ namespace NeraSpreadSheet.Wpf;
 /// <summary>
 /// WPF-native D3DImage surface backed by a shared D3D11 texture and a Direct2D device context.
 /// </summary>
-internal sealed class WpfDirect2DGpuSurface : DrawingSurface, IDisposable
+internal sealed class WpfDirect2DGpuSurface : DrawingSurface
 {
-    private readonly Direct2DDisplayListExecutor _executor = new(Direct2DHwndDisplayListRenderer.DefaultTextLayoutCacheCapacity);
+    private Direct2DDisplayListExecutor? _executor;
     private ID2D1Factory1? _d2dFactory;
     private ID2D1Device? _d2dDevice;
     private ID2D1DeviceContext? _d2dContext;
     private ID2D1Bitmap1? _targetBitmap;
     private nint _boundTexturePointer;
     private DisplayList? _displayList;
-    private bool _disposed;
 
     public WpfDirect2DGpuSurface()
     {
@@ -34,42 +33,23 @@ internal sealed class WpfDirect2DGpuSurface : DrawingSurface, IDisposable
         UnloadContent += OnUnloadContent;
     }
 
-    public int CachedTextLayoutCount => _executor.CachedTextLayoutCount;
-    public long TextLayoutCacheHits => _executor.TextLayoutCacheHits;
-    public long TextLayoutCacheMisses => _executor.TextLayoutCacheMisses;
-    public long TextLayoutCacheEvictions => _executor.TextLayoutCacheEvictions;
+    public int CachedTextLayoutCount => _executor?.CachedTextLayoutCount ?? 0;
+    public long TextLayoutCacheHits => _executor?.TextLayoutCacheHits ?? 0L;
+    public long TextLayoutCacheMisses => _executor?.TextLayoutCacheMisses ?? 0L;
+    public long TextLayoutCacheEvictions => _executor?.TextLayoutCacheEvictions ?? 0L;
 
     public void SetDisplayList(DisplayList? displayList)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
         _displayList = displayList;
         Invalidate();
     }
 
-    public void ClearTextLayoutCache()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _executor.ClearTextLayoutCache();
-    }
-
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        LoadContent -= OnLoadContent;
-        Draw -= OnDraw;
-        UnloadContent -= OnUnloadContent;
-        ReleaseD2DResources();
-        _executor.Dispose();
-        _disposed = true;
-    }
+    public void ClearTextLayoutCache() => _executor?.ClearTextLayoutCache();
 
     private void OnLoadContent(object? sender, DrawingSurfaceEventArgs e)
     {
-        ReleaseD2DResources();
+        ReleaseD2DResources(disposeExecutor: true);
+        _executor = new Direct2DDisplayListExecutor(Direct2DHwndDisplayListRenderer.DefaultTextLayoutCacheCapacity);
         _d2dFactory = D2D1CreateFactory<ID2D1Factory1>();
         using var dxgiDevice = e.Device.QueryInterface<IDXGIDevice>();
         _d2dDevice = _d2dFactory.CreateDevice(dxgiDevice);
@@ -79,16 +59,18 @@ internal sealed class WpfDirect2DGpuSurface : DrawingSurface, IDisposable
 
     private void OnDraw(object? sender, DrawEventArgs e)
     {
-        if (_displayList is null || _d2dContext is null)
+        var executor = _executor;
+        if (_displayList is null || _d2dContext is null || executor is null)
         {
             return;
         }
 
         EnsureTargetBitmap();
-        _executor.Render(_d2dContext, _displayList);
+        executor.Render(_d2dContext, _displayList);
     }
 
-    private void OnUnloadContent(object? sender, DrawingSurfaceEventArgs e) => ReleaseD2DResources();
+    private void OnUnloadContent(object? sender, DrawingSurfaceEventArgs e) =>
+        ReleaseD2DResources(disposeExecutor: true);
 
     private void EnsureTargetBitmap()
     {
@@ -128,9 +110,9 @@ internal sealed class WpfDirect2DGpuSurface : DrawingSurface, IDisposable
         _boundTexturePointer = 0;
     }
 
-    private void ReleaseD2DResources()
+    private void ReleaseD2DResources(bool disposeExecutor)
     {
-        _executor.InvalidateTargetResources();
+        _executor?.InvalidateTargetResources();
         ReleaseTargetBitmap();
         _d2dContext?.Dispose();
         _d2dContext = null;
@@ -138,5 +120,10 @@ internal sealed class WpfDirect2DGpuSurface : DrawingSurface, IDisposable
         _d2dDevice = null;
         _d2dFactory?.Dispose();
         _d2dFactory = null;
+        if (disposeExecutor)
+        {
+            _executor?.Dispose();
+            _executor = null;
+        }
     }
 }
