@@ -218,7 +218,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
     }
 
     private void PublishChangedPaneScrolls(
-        IReadOnlyDictionary<SpreadsheetPaneId, ScrollSnapshot> before)
+        Dictionary<SpreadsheetPaneId, ScrollSnapshot> before)
     {
         if (_engine is null || _lastFrame is null)
         {
