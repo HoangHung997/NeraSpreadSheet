@@ -75,11 +75,7 @@ public sealed class DisplayListBuilder
         _commands.Add(new PopTranslationCommand());
     }
 
-    public void Append(DisplayList displayList)
-    {
-        ArgumentNullException.ThrowIfNull(displayList);
-        _commands.AddRange(displayList.Commands);
-    }
+    public void Append(DisplayList displayList) => DrawDisplayList(displayList);
 
     public DisplayList Build()
     {
