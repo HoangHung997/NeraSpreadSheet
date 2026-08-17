@@ -121,20 +121,22 @@ public sealed class WinFormsSplitControlSmokeTests
             case WinFormsRenderingBackend.Direct2D:
             {
                 var diagnostics = split.Direct2DDiagnostics;
-                Assert.IsNotNull(diagnostics);
-                Assert.IsTrue(diagnostics.PixelWidth > 0);
-                Assert.IsTrue(diagnostics.PixelHeight > 0);
-                Assert.IsTrue(diagnostics.CachedTextLayouts > 0);
+                Assert.IsTrue(diagnostics.HasValue);
+                var value = diagnostics.Value;
+                Assert.IsTrue(value.PixelWidth > 0);
+                Assert.IsTrue(value.PixelHeight > 0);
+                Assert.IsTrue(value.CachedTextLayouts > 0);
                 break;
             }
             case WinFormsRenderingBackend.Direct2DSwapChain:
             {
                 var diagnostics = split.SwapChainDiagnostics;
-                Assert.IsNotNull(diagnostics);
-                Assert.IsTrue(diagnostics.PixelWidth > 0);
-                Assert.IsTrue(diagnostics.PixelHeight > 0);
-                Assert.IsFalse(string.IsNullOrWhiteSpace(diagnostics.AdapterName));
-                Assert.IsFalse(diagnostics.VSync);
+                Assert.IsTrue(diagnostics.HasValue);
+                var value = diagnostics.Value;
+                Assert.IsTrue(value.PixelWidth > 0);
+                Assert.IsTrue(value.PixelHeight > 0);
+                Assert.IsFalse(string.IsNullOrWhiteSpace(value.AdapterName));
+                Assert.IsFalse(value.VSync);
                 break;
             }
         }
