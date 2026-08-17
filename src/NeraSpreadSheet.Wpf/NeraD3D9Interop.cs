@@ -8,6 +8,10 @@ using Vortice.Direct3D9;
 using Vortice.DXGI;
 using static Vortice.Direct3D9.D3D9;
 using D3D9Format = Vortice.Direct3D9.Format;
+using D3D9PresentInterval = Vortice.Direct3D9.PresentInterval;
+using D3D9PresentParameters = Vortice.Direct3D9.PresentParameters;
+using D3D9SwapEffect = Vortice.Direct3D9.SwapEffect;
+using D3D9Usage = Vortice.Direct3D9.Usage;
 using DxgiFormat = Vortice.DXGI.Format;
 
 namespace NeraSpreadSheet.Wpf;
@@ -45,12 +49,12 @@ internal static class NeraD3D9DeviceService
             try
             {
                 _d3dContext = Direct3DCreate9Ex();
-                var presentParameters = new PresentParameters
+                var presentParameters = new D3D9PresentParameters
                 {
                     Windowed = true,
-                    SwapEffect = SwapEffect.Discard,
+                    SwapEffect = D3D9SwapEffect.Discard,
                     DeviceWindowHandle = new WindowInteropHelper(parentWindow).Handle,
-                    PresentationInterval = PresentInterval.Default,
+                    PresentationInterval = D3D9PresentInterval.Default,
                 };
                 _device = _d3dContext.CreateDeviceEx(
                     0,
@@ -178,7 +182,7 @@ internal sealed class NeraD3D11ImageSource : D3DImage, IDisposable
             renderTarget.Description.Width,
             renderTarget.Description.Height,
             1,
-            Usage.RenderTarget,
+            D3D9Usage.RenderTarget,
             format,
             Pool.Default,
             ref handle);
