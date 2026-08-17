@@ -15,6 +15,8 @@ public sealed class FormulaErrorLiteralTests
 
         engine.Recalculate(workbook);
 
-        Assert.AreEqual("#REF!", workbook.Worksheets[0].GetCell(default).Value.Text);
+        var value = workbook.Worksheets[0].GetCell(default).Value;
+        Assert.AreEqual(CellValueKind.Error, value.Kind);
+        Assert.AreEqual("#REF!", value.ToString());
     }
 }
