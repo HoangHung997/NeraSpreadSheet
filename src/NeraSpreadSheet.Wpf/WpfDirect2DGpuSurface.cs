@@ -4,7 +4,6 @@ using Vortice.DCommon;
 using Vortice.Direct2D1;
 using Vortice.Direct3D11;
 using Vortice.DXGI;
-using Vortice.Wpf;
 using static Vortice.Direct2D1.D2D1;
 using D2DAlphaMode = Vortice.DCommon.AlphaMode;
 using DxgiFormat = Vortice.DXGI.Format;
@@ -14,7 +13,7 @@ namespace NeraSpreadSheet.Wpf;
 /// <summary>
 /// WPF-native D3DImage surface backed by a shared D3D11 texture and a Direct2D device context.
 /// </summary>
-internal sealed class WpfDirect2DGpuSurface : DrawingSurface, IDisposable
+internal sealed class WpfDirect2DGpuSurface : NeraD3D11ImageSurface
 {
     private readonly Direct2DDisplayListExecutor _executor = new(Direct2DHwndDisplayListRenderer.DefaultTextLayoutCacheCapacity);
     private ID2D1Factory1? _d2dFactory;
@@ -23,15 +22,10 @@ internal sealed class WpfDirect2DGpuSurface : DrawingSurface, IDisposable
     private ID2D1Bitmap1? _targetBitmap;
     private nint _boundTexturePointer;
     private DisplayList? _displayList;
-    private bool _disposed;
 
     public WpfDirect2DGpuSurface()
     {
-        DepthStencilFormat = DxgiFormat.Unknown;
         AlwaysRefresh = false;
-        LoadContent += OnLoadContent;
-        Draw += OnDraw;
-        UnloadContent += OnUnloadContent;
     }
 
     public int CachedTextLayoutCount => _executor.CachedTextLayoutCount;
@@ -41,43 +35,32 @@ internal sealed class WpfDirect2DGpuSurface : DrawingSurface, IDisposable
 
     public void SetDisplayList(DisplayList? displayList)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
         _displayList = displayList;
-        Invalidate();
+        InvalidateSurface();
     }
 
     public void ClearTextLayoutCache()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
         _executor.ClearTextLayoutCache();
     }
 
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        LoadContent -= OnLoadContent;
-        Draw -= OnDraw;
-        UnloadContent -= OnUnloadContent;
-        ReleaseD2DResources();
-        _executor.Dispose();
-        _disposed = true;
-    }
-
-    private void OnLoadContent(object? sender, DrawingSurfaceEventArgs e)
+    protected override void OnDeviceCreated(ID3D11Device1 device, ID3D11DeviceContext1 context)
     {
         ReleaseD2DResources();
         _d2dFactory = D2D1CreateFactory<ID2D1Factory1>();
-        using var dxgiDevice = e.Device.QueryInterface<IDXGIDevice>();
+        using var dxgiDevice = device.QueryInterface<IDXGIDevice>();
         _d2dDevice = _d2dFactory.CreateDevice(dxgiDevice);
         _d2dContext = _d2dDevice.CreateDeviceContext(DeviceContextOptions.None);
         EnsureTargetBitmap();
     }
 
-    private void OnDraw(object? sender, DrawEventArgs e)
+    protected override void OnRenderTargetChanging() => ReleaseTargetBitmap();
+
+    protected override void OnRenderTargetChanged() => EnsureTargetBitmap();
+
+    protected override void OnRenderFrame(ID3D11Device1 device, ID3D11DeviceContext1 context)
     {
         if (_displayList is null || _d2dContext is null)
         {
@@ -88,7 +71,13 @@ internal sealed class WpfDirect2DGpuSurface : DrawingSurface, IDisposable
         _executor.Render(_d2dContext, _displayList);
     }
 
-    private void OnUnloadContent(object? sender, DrawingSurfaceEventArgs e) => ReleaseD2DResources();
+    protected override void OnDeviceDestroying() => ReleaseD2DResources();
+
+    protected override void DisposeManagedResources()
+    {
+        _displayList = null;
+        _executor.Dispose();
+    }
 
     private void EnsureTargetBitmap()
     {
