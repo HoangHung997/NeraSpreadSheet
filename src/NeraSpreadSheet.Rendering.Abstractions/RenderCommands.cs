@@ -17,6 +17,8 @@ public sealed record DrawTextCommand(
     RectD Bounds,
     TextStyle Style) : RenderCommand;
 
+public sealed record DrawDisplayListCommand(DisplayList DisplayList) : RenderCommand;
+
 public sealed record PushClipCommand(RectD Bounds) : RenderCommand;
 
 public sealed record PopClipCommand : RenderCommand;
