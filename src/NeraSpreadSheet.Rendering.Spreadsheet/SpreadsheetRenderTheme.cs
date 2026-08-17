@@ -11,6 +11,8 @@ public sealed record SpreadsheetRenderTheme
     public ColorRgba Selection { get; init; } = ColorRgba.Selection;
     public ColorRgba ActiveCell { get; init; } = new(16, 92, 52);
     public ColorRgba FreezePaneLine { get; init; } = new(128, 128, 128);
+    public ColorRgba SplitPaneSeparator { get; init; } = new(176, 176, 176);
+    public ColorRgba ActivePaneBorder { get; init; } = new(80, 120, 96);
     public ColorRgba HeaderBackground { get; init; } = new(245, 245, 245);
     public ColorRgba HeaderSelectedBackground { get; init; } = new(216, 235, 223);
     public ColorRgba HeaderActiveBackground { get; init; } = new(198, 225, 209);
@@ -21,6 +23,7 @@ public sealed record SpreadsheetRenderTheme
     public double SelectionStrokeWidth { get; init; } = 2d;
     public double GridStrokeWidth { get; init; } = 1d;
     public double FreezePaneStrokeWidth { get; init; } = 2d;
+    public double ActivePaneStrokeWidth { get; init; } = 1d;
     public bool ShowHeaders { get; init; }
     public double RowHeaderWidth { get; init; } = 48d;
     public double ColumnHeaderHeight { get; init; } = 24d;
