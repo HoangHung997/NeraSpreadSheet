@@ -241,6 +241,7 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
             (FontWeight)weightValue,
             FontStyle.Normal,
             (float)style.FontSize);
+        format.WordWrapping = style.Wrap ? WordWrapping.Wrap : WordWrapping.NoWrap;
         _textFormats.Add(style, format);
         return format;
     }
@@ -253,16 +254,12 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
         return _textLayouts.GetOrAdd(key, CreateTextLayout);
     }
 
-    private IDWriteTextLayout CreateTextLayout(TextLayoutKey key)
-    {
-        var layout = _writeFactory.CreateTextLayout(
+    private IDWriteTextLayout CreateTextLayout(TextLayoutKey key) =>
+        _writeFactory.CreateTextLayout(
             key.Text,
             GetTextFormat(key.Style),
             key.Width,
             key.Height);
-        layout.SetWordWrapping(key.Style.Wrap ? WordWrapping.Wrap : WordWrapping.NoWrap);
-        return layout;
-    }
 
     private void DrawText(
         ID2D1RenderTarget target,
