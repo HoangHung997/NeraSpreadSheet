@@ -33,13 +33,9 @@ public sealed class SpreadsheetViewportEngine
     }
 
     public SpreadsheetSession Session => _session;
-
     public long SnapshotRefreshCount { get; private set; }
-
     public long DisplayListCacheHitCount { get; private set; }
-
     public long DisplayListCacheMissCount { get; private set; }
-
     public int DisplayListCacheEntryCount => _displayListCache.Count;
 
     public SpreadsheetViewportFrame Compose(
@@ -53,11 +49,17 @@ public sealed class SpreadsheetViewportEngine
         EnsureMetrics();
         theme ??= new SpreadsheetRenderTheme();
         var layoutEngine = new ViewportLayoutEngine(_rows!, _columns!);
-        var layout = layoutEngine.Compute(
-            new ViewportRequest(scrollX, scrollY, new SizeD(viewportWidth, viewportHeight), overscan));
+        var layout = layoutEngine.Compute(new ViewportRequest(
+            scrollX,
+            scrollY,
+            new SizeD(viewportWidth, viewportHeight),
+            overscan,
+            _session.View.FrozenRows,
+            _session.View.FrozenColumns));
         var worksheet = _session.ActiveWorksheet;
         var selection = _session.Selection.Capture();
-        var displayList = _cacheOptions.Enabled
+        var canUseTranslatedTileCache = _cacheOptions.Enabled && !_session.View.HasFrozenPanes;
+        var displayList = canUseTranslatedTileCache
             ? ComposeCachedDisplayList(layoutEngine, layout, worksheet, selection, theme, overscan)
             : ComposeFreshDisplayList(worksheet, layout, selection, theme);
 
@@ -75,9 +77,11 @@ public sealed class SpreadsheetViewportEngine
         }
 
         EnsureMetrics();
-        var documentX = viewportX + scrollX;
-        var documentY = viewportY + scrollY;
-        if (documentX >= _columns!.TotalExtent || documentY >= _rows!.TotalExtent)
+        var frozenWidth = _columns!.GetOffset(_session.View.FrozenColumns);
+        var frozenHeight = _rows!.GetOffset(_session.View.FrozenRows);
+        var documentX = viewportX < frozenWidth ? viewportX : viewportX + scrollX;
+        var documentY = viewportY < frozenHeight ? viewportY : viewportY + scrollY;
+        if (documentX >= _columns.TotalExtent || documentY >= _rows.TotalExtent)
         {
             address = default;
             return false;
@@ -107,35 +111,22 @@ public sealed class SpreadsheetViewportEngine
         var worksheet = _session.ActiveWorksheet;
         if (worksheet.MergedCells.TryGetContaining(address, out var mergedRange))
         {
-            var left = _columns!.GetOffset(mergedRange.Left);
-            var right = _columns.GetOffset(mergedRange.Right + 1);
-            var top = _rows!.GetOffset(mergedRange.Top);
-            var bottom = _rows.GetOffset(mergedRange.Bottom + 1);
-            var width = right - left;
-            var height = bottom - top;
-            if (width <= 0d || height <= 0d)
-            {
-                bounds = RectD.Empty;
-                return false;
-            }
-
-            bounds = new RectD(left - scrollX, top - scrollY, width, height);
-            return true;
+            return TryGetRangeViewportBounds(mergedRange, scrollX, scrollY, out bounds);
         }
 
-        var cellWidth = _columns!.GetSize(address.ColumnIndex);
-        var cellHeight = _rows!.GetSize(address.RowIndex);
-        if (cellWidth <= 0d || cellHeight <= 0d)
+        var width = _columns!.GetSize(address.ColumnIndex);
+        var height = _rows!.GetSize(address.RowIndex);
+        if (width <= 0d || height <= 0d)
         {
             bounds = RectD.Empty;
             return false;
         }
 
         bounds = new RectD(
-            _columns.GetOffset(address.ColumnIndex) - scrollX,
-            _rows.GetOffset(address.RowIndex) - scrollY,
-            cellWidth,
-            cellHeight);
+            GetViewportCoordinate(_columns.GetOffset(address.ColumnIndex), address.ColumnIndex, _session.View.FrozenColumns, scrollX),
+            GetViewportCoordinate(_rows.GetOffset(address.RowIndex), address.RowIndex, _session.View.FrozenRows, scrollY),
+            width,
+            height);
         return true;
     }
 
@@ -164,6 +155,40 @@ public sealed class SpreadsheetViewportEngine
     }
 
     public void ClearDisplayListCache() => _displayListCache.Clear();
+
+    private bool TryGetRangeViewportBounds(CellRange range, double scrollX, double scrollY, out RectD bounds)
+    {
+        var left = _columns!.GetOffset(range.Left);
+        var right = _columns.GetOffset(range.Right + 1);
+        var top = _rows!.GetOffset(range.Top);
+        var bottom = _rows.GetOffset(range.Bottom + 1);
+        var width = right - left;
+        var height = bottom - top;
+        if (width <= 0d || height <= 0d)
+        {
+            bounds = RectD.Empty;
+            return false;
+        }
+
+        var frozenRows = _session.View.FrozenRows;
+        var frozenColumns = _session.View.FrozenColumns;
+        if ((range.Top < frozenRows && range.Bottom >= frozenRows) ||
+            (range.Left < frozenColumns && range.Right >= frozenColumns))
+        {
+            bounds = RectD.Empty;
+            return false;
+        }
+
+        bounds = new RectD(
+            GetViewportCoordinate(left, range.Left, frozenColumns, scrollX),
+            GetViewportCoordinate(top, range.Top, frozenRows, scrollY),
+            width,
+            height);
+        return true;
+    }
+
+    private static double GetViewportCoordinate(double absolute, int index, int frozenCount, double scrollOffset) =>
+        index < frozenCount ? absolute : absolute - scrollOffset;
 
     private DisplayList ComposeFreshDisplayList(
         Worksheet worksheet,
@@ -231,14 +256,8 @@ public sealed class SpreadsheetViewportEngine
         }
 
         var builder = new DisplayListBuilder();
-        builder.PushClip(new RectD(
-            0d,
-            0d,
-            actualLayout.ViewportSize.Width,
-            actualLayout.ViewportSize.Height));
-        builder.PushTranslation(
-            cacheScrollX - actualLayout.ScrollX,
-            cacheScrollY - actualLayout.ScrollY);
+        builder.PushClip(new RectD(0d, 0d, actualLayout.ViewportSize.Width, actualLayout.ViewportSize.Height));
+        builder.PushTranslation(cacheScrollX - actualLayout.ScrollX, cacheScrollY - actualLayout.ScrollY);
         builder.Append(cachedDisplayList);
         builder.PopTranslation();
         builder.PopClip();
@@ -351,7 +370,6 @@ public sealed class SpreadsheetViewportEngine
         }
 
         public DisplayList DisplayList { get; }
-
         public long LastAccess { get; set; }
     }
 }

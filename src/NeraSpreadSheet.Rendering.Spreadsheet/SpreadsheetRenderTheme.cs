@@ -10,10 +10,12 @@ public sealed record SpreadsheetRenderTheme
     public ColorRgba Text { get; init; } = ColorRgba.Black;
     public ColorRgba Selection { get; init; } = ColorRgba.Selection;
     public ColorRgba ActiveCell { get; init; } = new(16, 92, 52);
+    public ColorRgba FreezePaneLine { get; init; } = new(128, 128, 128);
     public string FontFamily { get; init; } = "Segoe UI";
     public double FontSize { get; init; } = 12d;
     public double SelectionStrokeWidth { get; init; } = 2d;
     public double GridStrokeWidth { get; init; } = 1d;
+    public double FreezePaneStrokeWidth { get; init; } = 2d;
 
     public TextStyle CreateTextStyle() => new(FontFamily, FontSize, 400, Text, false);
 }
