@@ -24,6 +24,7 @@ public sealed class SpreadsheetSession
         Sort = new SpreadsheetSortController(this);
         Editor = new SpreadsheetCellEditorController(this);
         View = new SpreadsheetViewController(this);
+        Structure = new SpreadsheetStructureController(this);
         Commands = new CommandRegistry();
         SpreadsheetCommandCatalog.Register(Commands, this);
         SpreadsheetClipboardCommandCatalog.Register(Commands, Clipboard);
@@ -31,6 +32,7 @@ public sealed class SpreadsheetSession
         SpreadsheetMergeCommandCatalog.Register(Commands, Merge);
         SpreadsheetSortCommandCatalog.Register(Commands, Sort);
         SpreadsheetViewCommandCatalog.Register(Commands, View);
+        SpreadsheetStructureCommandCatalog.Register(Commands, this, Structure);
         CommandDispatcher = new CommandDispatcher(Commands);
     }
 
@@ -45,6 +47,7 @@ public sealed class SpreadsheetSession
     public SpreadsheetSortController Sort { get; }
     public SpreadsheetCellEditorController Editor { get; }
     public SpreadsheetViewController View { get; }
+    public SpreadsheetStructureController Structure { get; }
     public CommandRegistry Commands { get; }
     public CommandDispatcher CommandDispatcher { get; }
 
