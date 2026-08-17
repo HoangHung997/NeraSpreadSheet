@@ -75,7 +75,7 @@ public static class FormulaStructuralReferenceRewriter
         {
             if (!TryMapReference(expression.FirstReference, change, out var mapped))
             {
-                return string.Concat(expression.FirstQualifier?.RawPrefix ?? string.Empty, "#REF!");
+                return "#REF!";
             }
             return string.Concat(
                 expression.FirstQualifier?.RawPrefix ?? string.Empty,
@@ -84,7 +84,7 @@ public static class FormulaStructuralReferenceRewriter
 
         if (!TryMapRange(expression.FirstReference, second, change, out var firstMapped, out var secondMapped))
         {
-            return string.Concat(expression.FirstQualifier?.RawPrefix ?? string.Empty, "#REF!");
+            return "#REF!";
         }
 
         return string.Concat(
