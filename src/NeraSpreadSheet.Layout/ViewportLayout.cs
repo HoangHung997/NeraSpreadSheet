@@ -84,7 +84,7 @@ public sealed class ViewportLayoutEngine
             BuildSlots(_columns, request.FrozenColumns, frozenWidth, scrollX, request.ViewportSize.Width, request.Overscan));
     }
 
-    private static IReadOnlyList<AxisSlot> BuildSlots(
+    private static List<AxisSlot> BuildSlots(
         SparseAxisMetricIndex index,
         int frozenCount,
         double frozenExtent,
