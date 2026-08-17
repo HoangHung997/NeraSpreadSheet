@@ -40,4 +40,16 @@ public sealed class DirtyRegionBoundsTests
         Assert.AreEqual(3d * 80d, bounds.Width, 1e-9);
         Assert.AreEqual(3d * 20d, bounds.Height, 1e-9);
     }
+
+    [TestMethod]
+    public void DirtyRangeCrossingFrozenBoundaryRequestsFullInvalidation()
+    {
+        var session = new SpreadsheetSession(new Workbook());
+        session.View.SetFrozenPanes(1, 1);
+        var engine = new SpreadsheetViewportEngine(session);
+        var range = new CellRange(new CellAddress(0, 0), new CellAddress(1, 1));
+
+        Assert.IsFalse(engine.TryGetRangeBounds(range, 13.5d, 7.25d, out var bounds));
+        Assert.AreEqual(NeraSpreadSheet.Foundation.RectD.Empty, bounds);
+    }
 }
