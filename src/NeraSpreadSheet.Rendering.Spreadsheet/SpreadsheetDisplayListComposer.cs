@@ -51,14 +51,14 @@ public static class SpreadsheetDisplayListComposer
     private static void DrawPane(
         DisplayListBuilder builder,
         WorksheetSnapshot worksheet,
-        IReadOnlyList<AxisSlot> rows,
-        IReadOnlyList<AxisSlot> columns,
+        AxisSlot[] rows,
+        AxisSlot[] columns,
         RectD pane,
         SelectionSnapshot? selection,
         SpreadsheetRenderTheme theme,
         CellStyleCatalog? styles)
     {
-        if (rows.Count == 0 || columns.Count == 0 || pane.Width <= 0d || pane.Height <= 0d)
+        if (rows.Length == 0 || columns.Length == 0 || pane.Width <= 0d || pane.Height <= 0d)
         {
             return;
         }
@@ -77,8 +77,8 @@ public static class SpreadsheetDisplayListComposer
     private static void DrawUnmergedCells(
         DisplayListBuilder builder,
         WorksheetSnapshot worksheet,
-        IReadOnlyList<AxisSlot> rows,
-        IReadOnlyList<AxisSlot> columns,
+        AxisSlot[] rows,
+        AxisSlot[] columns,
         RectD pane,
         CellStyleCatalog? styles)
     {
@@ -105,8 +105,8 @@ public static class SpreadsheetDisplayListComposer
     private static void DrawMergedCells(
         DisplayListBuilder builder,
         WorksheetSnapshot worksheet,
-        IReadOnlyList<AxisSlot> rows,
-        IReadOnlyList<AxisSlot> columns,
+        AxisSlot[] rows,
+        AxisSlot[] columns,
         RectD pane,
         SpreadsheetRenderTheme theme,
         CellStyleCatalog? styles)
@@ -200,8 +200,8 @@ public static class SpreadsheetDisplayListComposer
 
     private static void DrawGrid(
         DisplayListBuilder builder,
-        IReadOnlyList<AxisSlot> rows,
-        IReadOnlyList<AxisSlot> columns,
+        AxisSlot[] rows,
+        AxisSlot[] columns,
         RectD pane,
         SpreadsheetRenderTheme theme)
     {
@@ -226,8 +226,8 @@ public static class SpreadsheetDisplayListComposer
 
     private static void DrawSelection(
         DisplayListBuilder builder,
-        IReadOnlyList<AxisSlot> rows,
-        IReadOnlyList<AxisSlot> columns,
+        AxisSlot[] rows,
+        AxisSlot[] columns,
         WorksheetSnapshot worksheet,
         SelectionSnapshot selection,
         SpreadsheetRenderTheme theme)
@@ -250,8 +250,8 @@ public static class SpreadsheetDisplayListComposer
     }
 
     private static bool TryGetRangeBounds(
-        IReadOnlyList<AxisSlot> rows,
-        IReadOnlyList<AxisSlot> columns,
+        AxisSlot[] rows,
+        AxisSlot[] columns,
         CellRange range,
         out RectD bounds)
     {
