@@ -26,48 +26,7 @@ internal sealed class WpfDisplayListRenderer
         var offsetY = 0d;
         try
         {
-            foreach (var command in displayList.Commands)
-            {
-                switch (command)
-                {
-                    case FillRectangleCommand fill:
-                        drawingContext.DrawRectangle(GetBrush(fill.Color), null, ToRect(fill.Bounds.Translate(offsetX, offsetY)));
-                        break;
-                    case DrawLineCommand line:
-                        drawingContext.DrawLine(
-                            GetPen(line.Color, line.StrokeWidth),
-                            ToPoint(line.Start, offsetX, offsetY),
-                            ToPoint(line.End, offsetX, offsetY));
-                        break;
-                    case DrawTextCommand text:
-                        DrawText(drawingContext, text, pixelsPerDip, offsetX, offsetY);
-                        break;
-                    case PushClipCommand pushClip:
-                        drawingContext.PushClip(new RectangleGeometry(ToRect(pushClip.Bounds.Translate(offsetX, offsetY))));
-                        states.Push(new RenderState(RenderStateKind.Clip, offsetX, offsetY));
-                        break;
-                    case PopClipCommand:
-                        EnsureTopState(states, RenderStateKind.Clip);
-                        drawingContext.Pop();
-                        states.Pop();
-                        break;
-                    case PushTranslationCommand translation:
-                        states.Push(new RenderState(RenderStateKind.Translation, offsetX, offsetY));
-                        offsetX += translation.DeltaX;
-                        offsetY += translation.DeltaY;
-                        break;
-                    case PopTranslationCommand:
-                    {
-                        var state = EnsureTopState(states, RenderStateKind.Translation);
-                        states.Pop();
-                        offsetX = state.PreviousOffsetX;
-                        offsetY = state.PreviousOffsetY;
-                        break;
-                    }
-                    default:
-                        throw new NotSupportedException($"Unsupported render command '{command.GetType().Name}'.");
-                }
-            }
+            ExecuteDisplayList(drawingContext, displayList, pixelsPerDip, states, ref offsetX, ref offsetY);
         }
         finally
         {
@@ -82,6 +41,67 @@ internal sealed class WpfDisplayListRenderer
                     offsetX = state.PreviousOffsetX;
                     offsetY = state.PreviousOffsetY;
                 }
+            }
+        }
+    }
+
+    private void ExecuteDisplayList(
+        DrawingContext drawingContext,
+        DisplayList displayList,
+        double pixelsPerDip,
+        Stack<RenderState> states,
+        ref double offsetX,
+        ref double offsetY)
+    {
+        foreach (var command in displayList.Commands)
+        {
+            switch (command)
+            {
+                case FillRectangleCommand fill:
+                    drawingContext.DrawRectangle(GetBrush(fill.Color), null, ToRect(fill.Bounds.Translate(offsetX, offsetY)));
+                    break;
+                case DrawLineCommand line:
+                    drawingContext.DrawLine(
+                        GetPen(line.Color, line.StrokeWidth),
+                        ToPoint(line.Start, offsetX, offsetY),
+                        ToPoint(line.End, offsetX, offsetY));
+                    break;
+                case DrawTextCommand text:
+                    DrawText(drawingContext, text, pixelsPerDip, offsetX, offsetY);
+                    break;
+                case DrawDisplayListCommand nested:
+                    ExecuteDisplayList(
+                        drawingContext,
+                        nested.DisplayList,
+                        pixelsPerDip,
+                        states,
+                        ref offsetX,
+                        ref offsetY);
+                    break;
+                case PushClipCommand pushClip:
+                    drawingContext.PushClip(new RectangleGeometry(ToRect(pushClip.Bounds.Translate(offsetX, offsetY))));
+                    states.Push(new RenderState(RenderStateKind.Clip, offsetX, offsetY));
+                    break;
+                case PopClipCommand:
+                    EnsureTopState(states, RenderStateKind.Clip);
+                    drawingContext.Pop();
+                    states.Pop();
+                    break;
+                case PushTranslationCommand translation:
+                    states.Push(new RenderState(RenderStateKind.Translation, offsetX, offsetY));
+                    offsetX += translation.DeltaX;
+                    offsetY += translation.DeltaY;
+                    break;
+                case PopTranslationCommand:
+                {
+                    var state = EnsureTopState(states, RenderStateKind.Translation);
+                    states.Pop();
+                    offsetX = state.PreviousOffsetX;
+                    offsetY = state.PreviousOffsetY;
+                    break;
+                }
+                default:
+                    throw new NotSupportedException($"Unsupported render command '{command.GetType().Name}'.");
             }
         }
     }
