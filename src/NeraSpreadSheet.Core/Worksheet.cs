@@ -14,6 +14,7 @@ public sealed class CellsChangedEventArgs : EventArgs
 
 public sealed class Worksheet
 {
+    private static readonly char[] InvalidNameCharacters = ['[', ']', ':', '*', '?', '/', '\\'];
     private readonly Dictionary<CellAddress, CellData> _cells = [];
 
     internal Worksheet(string name)
@@ -32,6 +33,12 @@ public sealed class Worksheet
 
     public CellData GetCell(CellAddress address) => _cells.GetValueOrDefault(address, CellData.Empty);
 
+    public object? GetValue(CellAddress address) =>
+        GetCell(ResolveMergedAnchor(address)).Value.RawValue;
+
+    public string? GetFormula(CellAddress address) =>
+        GetCell(ResolveMergedAnchor(address)).Formula;
+
     public bool TryGetCell(CellAddress address, out CellData cellData)
     {
         if (_cells.TryGetValue(address, out var stored))
@@ -48,6 +55,28 @@ public sealed class Worksheet
 
     public CellAddress ResolveMergedAnchor(CellAddress address) =>
         MergedCells.TryGetContaining(address, out var range) ? range.TopLeft : address;
+
+    public void Rename(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        var normalized = name.Trim();
+        if (normalized.Length > SpreadsheetLimits.MaxWorksheetNameLength)
+        {
+            throw new ArgumentException(
+                $"Worksheet names cannot exceed {SpreadsheetLimits.MaxWorksheetNameLength} characters.",
+                nameof(name));
+        }
+        if (normalized.IndexOfAny(InvalidNameCharacters) >= 0)
+        {
+            throw new ArgumentException("Worksheet name contains an invalid character.", nameof(name));
+        }
+        if (normalized.StartsWith('\'') || normalized.EndsWith('\''))
+        {
+            throw new ArgumentException("Worksheet name cannot start or end with an apostrophe.", nameof(name));
+        }
+
+        Name = normalized;
+    }
 
     public void SetValue(CellAddress address, object? value)
     {
@@ -173,6 +202,76 @@ public sealed class Worksheet
 
         Version++;
         var range = new CellRange(new CellAddress(top, left), new CellAddress(bottom, right));
+        CellsChanged?.Invoke(this, new CellsChangedEventArgs(range, Version));
+    }
+
+    internal WorksheetStructuralState CaptureStructuralState() => new(
+        _cells.ToArray(),
+        Dimensions.GetRowOverrides().ToArray(),
+        Dimensions.GetColumnOverrides().ToArray(),
+        MergedCells.Ranges.ToArray());
+
+    internal void ApplyStructuralChange(WorksheetStructuralChange change)
+    {
+        var transformedCells = CreateStructuralCells(change);
+        var transformedDimensions = Dimensions.CreateStructuralOverrides(change);
+        var transformedMergedCells = MergedCells.CreateStructuralRanges(change);
+
+        _cells.Clear();
+        foreach (var (address, cell) in transformedCells)
+        {
+            _cells.Add(address, cell);
+        }
+        Dimensions.ReplaceStructuralOverrides(change, transformedDimensions);
+        MergedCells.ReplaceAll(transformedMergedCells);
+        PublishStructuralChange(change);
+    }
+
+    internal void RestoreStructuralState(
+        WorksheetStructuralState state,
+        WorksheetStructuralChange signalChange)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        _cells.Clear();
+        foreach (var (address, cell) in state.Cells)
+        {
+            _cells.Add(address, cell);
+        }
+        Dimensions.RestoreOverrides(state.RowHeights, state.ColumnWidths, signalChange);
+        MergedCells.ReplaceAll(state.MergedCells);
+        PublishStructuralChange(signalChange);
+    }
+
+    private Dictionary<CellAddress, CellData> CreateStructuralCells(WorksheetStructuralChange change)
+    {
+        var transformed = new Dictionary<CellAddress, CellData>(_cells.Count);
+        foreach (var (address, cell) in _cells)
+        {
+            if (!change.TryMapAddress(address, out var mappedAddress))
+            {
+                if (change.Kind == WorksheetStructuralChangeKind.Insert)
+                {
+                    throw new InvalidOperationException(
+                        "Cannot insert because a used cell would move outside the worksheet bounds.");
+                }
+                continue;
+            }
+            transformed.Add(mappedAddress, cell);
+        }
+        return transformed;
+    }
+
+    private void PublishStructuralChange(WorksheetStructuralChange change)
+    {
+        Version++;
+        var range = change.Axis == WorksheetAxis.Row
+            ? new CellRange(
+                new CellAddress(change.Index, 0),
+                new CellAddress(SpreadsheetLimits.MaxRows - 1, SpreadsheetLimits.MaxColumns - 1))
+            : new CellRange(
+                new CellAddress(0, change.Index),
+                new CellAddress(SpreadsheetLimits.MaxRows - 1, SpreadsheetLimits.MaxColumns - 1));
         CellsChanged?.Invoke(this, new CellsChangedEventArgs(range, Version));
     }
 }
