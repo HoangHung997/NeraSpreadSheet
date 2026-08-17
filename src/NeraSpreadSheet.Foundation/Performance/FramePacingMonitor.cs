@@ -43,10 +43,7 @@ public sealed class FramePacingMonitor
 
     public void RecordFrame(long timestamp)
     {
-        if (timestamp <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(timestamp));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timestamp);
 
         TotalFrames++;
         if (_lastTimestamp != 0 && timestamp > _lastTimestamp)
