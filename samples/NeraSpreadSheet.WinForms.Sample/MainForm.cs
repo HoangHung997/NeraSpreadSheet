@@ -1,3 +1,4 @@
+using NeraSpreadSheet.Commands;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
@@ -35,11 +36,16 @@ public sealed class MainForm : Form
         toolbar.Items.Add(CreateButton("Freeze", FreezeClick));
         toolbar.Items.Add(CreateButton("Unfreeze", UnfreezeClick));
         toolbar.Items.Add(new ToolStripSeparator());
+        toolbar.Items.Add(CreateButton("Insert Row", InsertRowsClick));
+        toolbar.Items.Add(CreateButton("Delete Row", DeleteRowsClick));
+        toolbar.Items.Add(CreateButton("Insert Col", InsertColumnsClick));
+        toolbar.Items.Add(CreateButton("Delete Col", DeleteColumnsClick));
+        toolbar.Items.Add(new ToolStripSeparator());
         ConfigureRendererMenu();
         toolbar.Items.Add(_rendererButton);
         toolbar.Items.Add(_rendererStatus);
         toolbar.Items.Add(new ToolStripSeparator());
-        toolbar.Items.Add(new ToolStripLabel("F2/double-click = edit · Ctrl+C/X/V · Ctrl+B/I · wheel/Shift+wheel"));
+        toolbar.Items.Add(new ToolStripLabel("Headers: click/select · drag-resize · structural commands follow whole-axis selection"));
 
         Controls.Add(_spreadsheet);
         Controls.Add(toolbar);
@@ -193,6 +199,51 @@ public sealed class MainForm : Form
     {
         _spreadsheet.Session?.View.Unfreeze();
         UpdateRendererStatus();
+    }
+
+    private async void InsertRowsClick(object? sender, EventArgs e) =>
+        await ExecuteStructureCommandAsync(SpreadsheetStructureCommandIds.InsertRows);
+
+    private async void DeleteRowsClick(object? sender, EventArgs e) =>
+        await ExecuteStructureCommandAsync(SpreadsheetStructureCommandIds.DeleteRows);
+
+    private async void InsertColumnsClick(object? sender, EventArgs e) =>
+        await ExecuteStructureCommandAsync(SpreadsheetStructureCommandIds.InsertColumns);
+
+    private async void DeleteColumnsClick(object? sender, EventArgs e) =>
+        await ExecuteStructureCommandAsync(SpreadsheetStructureCommandIds.DeleteColumns);
+
+    private async Task ExecuteStructureCommandAsync(CommandId commandId)
+    {
+        if (_spreadsheet.Session is not { } session)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await session.CommandDispatcher.TryExecuteAsync(commandId))
+            {
+                MessageBox.Show(
+                    this,
+                    "The structural command is not available for the current selection.",
+                    "Command unavailable",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+            _spreadsheet.Focus();
+            UpdateRendererStatus();
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentOutOfRangeException)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Cannot change worksheet structure",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
     }
 
     private static SpreadsheetSession CreateSampleSession()
