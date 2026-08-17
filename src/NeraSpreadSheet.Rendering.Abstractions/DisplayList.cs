@@ -43,6 +43,12 @@ public sealed class DisplayListBuilder
         _commands.Add(new DrawTextCommand(text, bounds, style));
     }
 
+    public void DrawDisplayList(DisplayList displayList)
+    {
+        ArgumentNullException.ThrowIfNull(displayList);
+        _commands.Add(new DrawDisplayListCommand(displayList));
+    }
+
     public void PushClip(RectD bounds)
     {
         _commands.Add(new PushClipCommand(bounds));
