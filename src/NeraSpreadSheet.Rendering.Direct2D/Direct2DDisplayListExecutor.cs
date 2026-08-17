@@ -48,50 +48,7 @@ internal sealed class Direct2DDisplayListExecutor : IDisposable
         target.BeginDraw();
         try
         {
-            foreach (var command in displayList.Commands)
-            {
-                switch (command)
-                {
-                    case FillRectangleCommand fill:
-                        target.FillRectangle(ToRawRect(fill.Bounds.Translate(offsetX, offsetY)), GetBrush(target, fill.Color));
-                        break;
-                    case DrawLineCommand line:
-                        target.DrawLine(
-                            new Vector2((float)(line.Start.X + offsetX), (float)(line.Start.Y + offsetY)),
-                            new Vector2((float)(line.End.X + offsetX), (float)(line.End.Y + offsetY)),
-                            GetBrush(target, line.Color),
-                            (float)line.StrokeWidth);
-                        break;
-                    case DrawTextCommand text:
-                        DrawText(target, text, offsetX, offsetY);
-                        break;
-                    case PushClipCommand pushClip:
-                        target.PushAxisAlignedClip(ToRawRect(pushClip.Bounds.Translate(offsetX, offsetY)), AntialiasMode.Aliased);
-                        states.Push(new RenderState(RenderStateKind.Clip, offsetX, offsetY));
-                        break;
-                    case PopClipCommand:
-                        EnsureTopState(states, RenderStateKind.Clip);
-                        target.PopAxisAlignedClip();
-                        states.Pop();
-                        break;
-                    case PushTranslationCommand translation:
-                        states.Push(new RenderState(RenderStateKind.Translation, offsetX, offsetY));
-                        offsetX += translation.DeltaX;
-                        offsetY += translation.DeltaY;
-                        break;
-                    case PopTranslationCommand:
-                    {
-                        var state = EnsureTopState(states, RenderStateKind.Translation);
-                        states.Pop();
-                        offsetX = state.PreviousOffsetX;
-                        offsetY = state.PreviousOffsetY;
-                        break;
-                    }
-                    default:
-                        throw new NotSupportedException($"Unsupported render command '{command.GetType().Name}'.");
-                }
-            }
-
+            ExecuteDisplayList(target, displayList, states, ref offsetX, ref offsetY);
             if (states.Count != 0)
             {
                 throw new InvalidOperationException("Display-list render-state stack is unbalanced.");
@@ -137,6 +94,61 @@ internal sealed class Direct2DDisplayListExecutor : IDisposable
         _textFormats.Clear();
         _writeFactory.Dispose();
         _disposed = true;
+    }
+
+    private void ExecuteDisplayList(
+        ID2D1RenderTarget target,
+        DisplayList displayList,
+        Stack<RenderState> states,
+        ref double offsetX,
+        ref double offsetY)
+    {
+        foreach (var command in displayList.Commands)
+        {
+            switch (command)
+            {
+                case FillRectangleCommand fill:
+                    target.FillRectangle(ToRawRect(fill.Bounds.Translate(offsetX, offsetY)), GetBrush(target, fill.Color));
+                    break;
+                case DrawLineCommand line:
+                    target.DrawLine(
+                        new Vector2((float)(line.Start.X + offsetX), (float)(line.Start.Y + offsetY)),
+                        new Vector2((float)(line.End.X + offsetX), (float)(line.End.Y + offsetY)),
+                        GetBrush(target, line.Color),
+                        (float)line.StrokeWidth);
+                    break;
+                case DrawTextCommand text:
+                    DrawText(target, text, offsetX, offsetY);
+                    break;
+                case DrawDisplayListCommand nested:
+                    ExecuteDisplayList(target, nested.DisplayList, states, ref offsetX, ref offsetY);
+                    break;
+                case PushClipCommand pushClip:
+                    target.PushAxisAlignedClip(ToRawRect(pushClip.Bounds.Translate(offsetX, offsetY)), AntialiasMode.Aliased);
+                    states.Push(new RenderState(RenderStateKind.Clip, offsetX, offsetY));
+                    break;
+                case PopClipCommand:
+                    EnsureTopState(states, RenderStateKind.Clip);
+                    target.PopAxisAlignedClip();
+                    states.Pop();
+                    break;
+                case PushTranslationCommand translation:
+                    states.Push(new RenderState(RenderStateKind.Translation, offsetX, offsetY));
+                    offsetX += translation.DeltaX;
+                    offsetY += translation.DeltaY;
+                    break;
+                case PopTranslationCommand:
+                {
+                    var state = EnsureTopState(states, RenderStateKind.Translation);
+                    states.Pop();
+                    offsetX = state.PreviousOffsetX;
+                    offsetY = state.PreviousOffsetY;
+                    break;
+                }
+                default:
+                    throw new NotSupportedException($"Unsupported render command '{command.GetType().Name}'.");
+            }
+        }
     }
 
     private void EnsureBrushTarget(ID2D1RenderTarget target)
