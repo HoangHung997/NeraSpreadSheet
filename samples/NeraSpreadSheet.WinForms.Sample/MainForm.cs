@@ -32,6 +32,8 @@ public sealed class MainForm : Form
         toolbar.Items.Add(CreateButton("Italic", ItalicClick));
         toolbar.Items.Add(CreateButton("Merge", MergeClick));
         toolbar.Items.Add(CreateButton("Unmerge", UnmergeClick));
+        toolbar.Items.Add(CreateButton("Freeze", FreezeClick));
+        toolbar.Items.Add(CreateButton("Unfreeze", UnfreezeClick));
         toolbar.Items.Add(new ToolStripSeparator());
         ConfigureRendererMenu();
         toolbar.Items.Add(_rendererButton);
@@ -89,20 +91,24 @@ public sealed class MainForm : Form
     private void UpdateRendererStatus()
     {
         var pacing = _framePacing.Capture();
+        var view = _spreadsheet.Session?.View;
+        var freeze = view is { HasFrozenPanes: true }
+            ? $" · freeze {view.FrozenRows}r/{view.FrozenColumns}c"
+            : string.Empty;
         var prefix = string.Create(
             System.Globalization.CultureInfo.InvariantCulture,
             $"{pacing.FramesPerSecond:F1} FPS · p95 {pacing.P95FrameIntervalMilliseconds:F2} ms · ");
         if (_spreadsheet.SwapChainDiagnostics is { } swapChain)
         {
-            _rendererStatus.Text = $"{prefix}{swapChain.AdapterName} · {swapChain.DeviceFeatureLevel} · VSync={swapChain.VSync} · layouts {swapChain.CachedTextLayouts}";
+            _rendererStatus.Text = $"{prefix}{swapChain.AdapterName} · {swapChain.DeviceFeatureLevel} · VSync={swapChain.VSync} · layouts {swapChain.CachedTextLayouts}{freeze}";
             return;
         }
         if (_spreadsheet.Direct2DDiagnostics is { } direct2D)
         {
-            _rendererStatus.Text = $"{prefix}Direct2D HWND · layouts {direct2D.CachedTextLayouts}/{direct2D.TextLayoutCacheCapacity}";
+            _rendererStatus.Text = $"{prefix}Direct2D HWND · layouts {direct2D.CachedTextLayouts}/{direct2D.TextLayoutCacheCapacity}{freeze}";
             return;
         }
-        _rendererStatus.Text = $"{prefix}GDI+ fallback";
+        _rendererStatus.Text = $"{prefix}GDI+ fallback{freeze}";
     }
 
     private void OnFormClosed(object? sender, FormClosedEventArgs e)
@@ -165,6 +171,29 @@ public sealed class MainForm : Form
     private void ItalicClick(object? sender, EventArgs e) => _spreadsheet.Session?.Styles.ToggleItalic();
     private void MergeClick(object? sender, EventArgs e) => _spreadsheet.Session?.Merge.MergeSelection();
     private void UnmergeClick(object? sender, EventArgs e) => _spreadsheet.Session?.Merge.UnmergeActiveCell();
+
+    private void FreezeClick(object? sender, EventArgs e)
+    {
+        if (_spreadsheet.Session is not { } session)
+        {
+            return;
+        }
+        try
+        {
+            session.View.FreezeAtActiveCell();
+        }
+        catch (InvalidOperationException exception)
+        {
+            MessageBox.Show(this, exception.Message, "Cannot freeze panes", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        UpdateRendererStatus();
+    }
+
+    private void UnfreezeClick(object? sender, EventArgs e)
+    {
+        _spreadsheet.Session?.View.Unfreeze();
+        UpdateRendererStatus();
+    }
 
     private static SpreadsheetSession CreateSampleSession()
     {
