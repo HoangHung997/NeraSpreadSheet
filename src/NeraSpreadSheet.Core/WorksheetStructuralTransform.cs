@@ -22,10 +22,7 @@ public readonly record struct WorksheetStructuralChange
             throw new ArgumentOutOfRangeException(nameof(index));
         }
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
-        if (count > axisLength - index)
-        {
-            throw new ArgumentOutOfRangeException(nameof(count));
-        }
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(count, axisLength - index);
 
         Axis = axis;
         Kind = kind;
