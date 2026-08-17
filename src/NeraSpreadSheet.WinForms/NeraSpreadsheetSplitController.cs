@@ -75,6 +75,9 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         owner.FontChanged += OnOwnerVisualChanged;
         owner.Disposed += OnOwnerDisposed;
         owner.Controls.Add(_surface);
+        owner.PerformLayout();
+        _surface.Bounds = owner.ClientRectangle;
+        _surface.CreateControl();
         _surface.BringToFront();
     }
 
@@ -143,7 +146,7 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         out CellAddress address) =>
         GetSurface().TryHitTest(clientX, clientY, out paneId, out address);
 
-    public void RenderNow() => GetSurface().Refresh();
+    public void RenderNow() => GetSurface().RenderNow();
 
     public void Focus() => GetSurface().Focus();
 
