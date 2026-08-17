@@ -16,11 +16,12 @@ namespace NeraSpreadSheet.Windows.Rendering.Tests;
 [DoNotParallelize]
 public sealed class Direct2DRendererSmokeTests
 {
+    private const int ResizeStressCycles = 20;
     private static readonly TimeSpan StaThreadTimeout = TimeSpan.FromSeconds(45d);
 
     [TestMethod]
     [Timeout(60_000)]
-    public void HwndRendererRendersNestedDisplayListAndReusesTextLayout()
+    public void HwndRendererRendersNestedDisplayListReusesLayoutsAndSurvivesResizeStress()
     {
         RunInSta(() =>
         {
@@ -43,20 +44,24 @@ public sealed class Direct2DRendererSmokeTests
                 diagnostics.TextLayoutCacheHits >= 1,
                 $"Expected a reused DirectWrite layout, but hits={diagnostics.TextLayoutCacheHits}.");
 
-            form.ClientSize = new DrawingSize(360, 200);
-            WinFormsApplication.DoEvents();
-            renderer.Resize(360, 200);
-            renderer.Render(displayList);
+            var finalSize = ExerciseResizeAndRenderCycles(
+                form,
+                renderer.Resize,
+                renderer.Render);
 
             diagnostics = renderer.Diagnostics;
-            Assert.AreEqual(360, diagnostics.PixelWidth);
-            Assert.AreEqual(200, diagnostics.PixelHeight);
+            Assert.AreEqual(finalSize.Width, diagnostics.PixelWidth);
+            Assert.AreEqual(finalSize.Height, diagnostics.PixelHeight);
+            Assert.AreEqual(0L, diagnostics.DeviceRecoveryCount);
+            Assert.IsTrue(
+                diagnostics.TextLayoutCacheHits >= ResizeStressCycles,
+                $"Expected layout reuse throughout resize stress, but hits={diagnostics.TextLayoutCacheHits}.");
         });
     }
 
     [TestMethod]
     [Timeout(60_000)]
-    public void SwapChainRendererPresentsNestedDisplayListAndReportsAdapter()
+    public void SwapChainRendererPresentsReportsAdapterAndSurvivesResizeStress()
     {
         RunInSta(() =>
         {
@@ -85,15 +90,42 @@ public sealed class Direct2DRendererSmokeTests
                 diagnostics.TextLayoutCacheHits >= 1,
                 $"Expected a reused DirectWrite layout, but hits={diagnostics.TextLayoutCacheHits}.");
 
-            form.ClientSize = new DrawingSize(360, 200);
-            WinFormsApplication.DoEvents();
-            renderer.Resize(360, 200);
-            renderer.Render(displayList);
+            var finalSize = ExerciseResizeAndRenderCycles(
+                form,
+                renderer.Resize,
+                renderer.Render);
 
             diagnostics = renderer.Diagnostics;
-            Assert.AreEqual(360, diagnostics.PixelWidth);
-            Assert.AreEqual(200, diagnostics.PixelHeight);
+            Assert.AreEqual(finalSize.Width, diagnostics.PixelWidth);
+            Assert.AreEqual(finalSize.Height, diagnostics.PixelHeight);
+            Assert.AreEqual(0L, diagnostics.DeviceRecoveryCount);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(diagnostics.AdapterName));
+            Assert.IsTrue(
+                diagnostics.TextLayoutCacheHits >= ResizeStressCycles,
+                $"Expected layout reuse throughout resize stress, but hits={diagnostics.TextLayoutCacheHits}.");
         });
+    }
+
+    private static DrawingSize ExerciseResizeAndRenderCycles(
+        WinFormsForm form,
+        Action<int, int> resize,
+        Action<DisplayList> render)
+    {
+        ArgumentNullException.ThrowIfNull(form);
+        ArgumentNullException.ThrowIfNull(resize);
+        ArgumentNullException.ThrowIfNull(render);
+        var finalSize = DrawingSize.Empty;
+        for (var cycle = 0; cycle < ResizeStressCycles; cycle++)
+        {
+            finalSize = new DrawingSize(
+                300 + ((cycle * 37) % 181),
+                170 + ((cycle * 29) % 121));
+            form.ClientSize = finalSize;
+            WinFormsApplication.DoEvents();
+            resize(finalSize.Width, finalSize.Height);
+            render(CreateNestedDisplayList(finalSize.Width, finalSize.Height));
+        }
+        return finalSize;
     }
 
     private static WinFormsForm CreateOffscreenHost(int width, int height)
