@@ -1,6 +1,7 @@
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
+using NeraSpreadSheet.Foundation.Performance;
 using NeraSpreadSheet.OpenXml;
 using NeraSpreadsheetControl = NeraSpreadSheet.WinForms.NeraSpreadsheetControl;
 using WinFormsRenderingBackend = NeraSpreadSheet.WinForms.WinFormsRenderingBackend;
@@ -13,6 +14,8 @@ public sealed class MainForm : Form
     private readonly NeraSpreadsheetControl _spreadsheet = new() { Dock = DockStyle.Fill };
     private readonly ToolStripDropDownButton _rendererButton = new("Renderer: GDI+");
     private readonly ToolStripLabel _rendererStatus = new("GDI+ fallback");
+    private readonly FramePacingMonitor _framePacing = new();
+    private readonly System.Windows.Forms.Timer _diagnosticsTimer;
 
     public MainForm()
     {
@@ -39,6 +42,12 @@ public sealed class MainForm : Form
         Controls.Add(_spreadsheet);
         Controls.Add(toolbar);
         _spreadsheet.Session = CreateSampleSession();
+        _spreadsheet.Paint += OnSpreadsheetPaint;
+        _diagnosticsTimer = new System.Windows.Forms.Timer { Interval = 500 };
+        _diagnosticsTimer.Tick += OnDiagnosticsTick;
+        _diagnosticsTimer.Start();
+        FormClosed += OnFormClosed;
+        UpdateRendererStatus();
     }
 
     private void ConfigureRendererMenu()
@@ -61,6 +70,7 @@ public sealed class MainForm : Form
         try
         {
             _spreadsheet.RenderingBackend = backend;
+            _framePacing.Reset();
             _rendererButton.Text = $"Renderer: {caption}";
             UpdateRendererStatus();
         }
@@ -72,19 +82,36 @@ public sealed class MainForm : Form
         }
     }
 
+    private void OnSpreadsheetPaint(object? sender, PaintEventArgs e) => _framePacing.RecordFrame();
+
+    private void OnDiagnosticsTick(object? sender, EventArgs e) => UpdateRendererStatus();
+
     private void UpdateRendererStatus()
     {
+        var pacing = _framePacing.Capture();
+        var prefix = string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"{pacing.FramesPerSecond:F1} FPS · p95 {pacing.P95FrameIntervalMilliseconds:F2} ms · ");
         if (_spreadsheet.SwapChainDiagnostics is { } swapChain)
         {
-            _rendererStatus.Text = $"{swapChain.AdapterName} · {swapChain.DeviceFeatureLevel} · VSync={swapChain.VSync}";
+            _rendererStatus.Text = $"{prefix}{swapChain.AdapterName} · {swapChain.DeviceFeatureLevel} · VSync={swapChain.VSync} · layouts {swapChain.CachedTextLayouts}";
             return;
         }
         if (_spreadsheet.Direct2DDiagnostics is { } direct2D)
         {
-            _rendererStatus.Text = $"Direct2D HWND · layouts {direct2D.CachedTextLayouts}/{direct2D.TextLayoutCacheCapacity}";
+            _rendererStatus.Text = $"{prefix}Direct2D HWND · layouts {direct2D.CachedTextLayouts}/{direct2D.TextLayoutCacheCapacity}";
             return;
         }
-        _rendererStatus.Text = "GDI+ fallback";
+        _rendererStatus.Text = $"{prefix}GDI+ fallback";
+    }
+
+    private void OnFormClosed(object? sender, FormClosedEventArgs e)
+    {
+        _diagnosticsTimer.Stop();
+        _diagnosticsTimer.Tick -= OnDiagnosticsTick;
+        _diagnosticsTimer.Dispose();
+        _spreadsheet.Paint -= OnSpreadsheetPaint;
+        FormClosed -= OnFormClosed;
     }
 
     private static ToolStripButton CreateButton(string text, EventHandler handler)

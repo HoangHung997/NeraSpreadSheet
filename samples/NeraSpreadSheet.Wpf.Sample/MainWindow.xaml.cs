@@ -1,20 +1,31 @@
 using Microsoft.Win32;
 using System.Windows;
+using System.Windows.Threading;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.OpenXml;
+using NeraSpreadSheet.Wpf;
 
 namespace NeraSpreadSheet.Wpf.Sample;
 
 public partial class MainWindow : Window
 {
     private readonly NeraOpenXmlWorkbookSerializer _serializer = new();
+    private readonly DispatcherTimer _diagnosticsTimer;
 
     public MainWindow()
     {
         InitializeComponent();
         Spreadsheet.Session = CreateSampleSession();
+        _diagnosticsTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(500d),
+        };
+        _diagnosticsTimer.Tick += OnDiagnosticsTick;
+        _diagnosticsTimer.Start();
+        Closed += OnClosed;
+        UpdateDiagnostics();
     }
 
     private async void OpenClick(object sender, RoutedEventArgs e)
@@ -61,6 +72,40 @@ public partial class MainWindow : Window
     private void ItalicClick(object sender, RoutedEventArgs e) => Spreadsheet.Session?.Styles.ToggleItalic();
     private void MergeClick(object sender, RoutedEventArgs e) => Spreadsheet.Session?.Merge.MergeSelection();
     private void UnmergeClick(object sender, RoutedEventArgs e) => Spreadsheet.Session?.Merge.UnmergeActiveCell();
+
+    private void GpuClick(object sender, RoutedEventArgs e)
+    {
+        Spreadsheet.RenderingBackend = GpuToggle.IsChecked == true
+            ? WpfRenderingBackend.Direct2DD3DImage
+            : WpfRenderingBackend.DrawingContext;
+        UpdateDiagnostics();
+    }
+
+    private void OnDiagnosticsTick(object? sender, EventArgs e) => UpdateDiagnostics();
+
+    private void UpdateDiagnostics()
+    {
+        var pacing = Spreadsheet.FramePacing;
+        if (Spreadsheet.GpuDiagnostics is { } gpu)
+        {
+            PerfText.Text = string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $"{pacing.FramesPerSecond:F1} FPS · p95 {pacing.P95FrameIntervalMilliseconds:F2} ms · GPU {gpu.TextureWidth}×{gpu.TextureHeight} · layouts {gpu.CachedTextLayouts} · hit {gpu.TextLayoutCacheHits}/{gpu.TextLayoutCacheMisses}");
+            return;
+        }
+
+        PerfText.Text = string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"{pacing.FramesPerSecond:F1} FPS · p95 {pacing.P95FrameIntervalMilliseconds:F2} ms · DrawingContext");
+    }
+
+    private void OnClosed(object? sender, EventArgs e)
+    {
+        _diagnosticsTimer.Stop();
+        _diagnosticsTimer.Tick -= OnDiagnosticsTick;
+        Closed -= OnClosed;
+        Spreadsheet.Dispose();
+    }
 
     private static SpreadsheetSession CreateSampleSession()
     {

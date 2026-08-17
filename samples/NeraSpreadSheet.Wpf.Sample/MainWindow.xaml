@@ -16,6 +16,12 @@
             <Button Click="MergeClick" Padding="10,3">Merge</Button>
             <Button Click="UnmergeClick" Padding="10,3">Unmerge</Button>
             <Separator />
+            <ToggleButton x:Name="GpuToggle" Click="GpuClick" Padding="10,3"
+                          ToolTip="Bật Direct2D trên D3D11 shared texture/D3DImage; tắt để dùng DrawingContext fallback.">
+                WPF GPU
+            </ToggleButton>
+            <TextBlock x:Name="PerfText" Margin="10,0,0,0" VerticalAlignment="Center">Measuring…</TextBlock>
+            <Separator />
             <TextBlock Margin="8,0,0,0" VerticalAlignment="Center">
                 F2/double-click = edit · Ctrl+C/X/V · Ctrl+B/I · wheel/Shift+wheel
             </TextBlock>
