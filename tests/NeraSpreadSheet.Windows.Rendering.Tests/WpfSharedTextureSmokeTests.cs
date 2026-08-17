@@ -96,7 +96,8 @@ public sealed class WpfSharedTextureSmokeTests
 
                 for (var cycle = 0; cycle < 3; cycle++)
                 {
-                    Assert.IsTrue(host.Children.Remove(control));
+                    host.Children.Remove(control);
+                    Assert.IsNull(control.Parent);
                     window.UpdateLayout();
                     PumpUntil(
                         () => control.GpuDiagnostics is { TextureWidth: 0, TextureHeight: 0 },
