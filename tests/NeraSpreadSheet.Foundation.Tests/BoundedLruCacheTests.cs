@@ -6,6 +6,9 @@ namespace NeraSpreadSheet.Foundation.Tests;
 [TestClass]
 public sealed class BoundedLruCacheTests
 {
+    private static readonly string[] ExpectedSingleEviction = ["two"];
+    private static readonly int[] ExpectedReleasedValues = [1, 2, 3];
+
     [TestMethod]
     public void GetOrAddEvictsLeastRecentlyUsedEntryAndReleasesIt()
     {
@@ -22,7 +25,7 @@ public sealed class BoundedLruCacheTests
         Assert.IsFalse(cache.TryGetValue(2, out _));
         Assert.IsTrue(cache.TryGetValue(3, out var three));
         Assert.AreEqual("three", three);
-        CollectionAssert.AreEqual(new[] { "two" }, released);
+        CollectionAssert.AreEqual(ExpectedSingleEviction, released);
         Assert.AreEqual(1L, cache.EvictionCount);
     }
 
@@ -55,7 +58,7 @@ public sealed class BoundedLruCacheTests
         cache.Dispose();
         cache.Dispose();
 
-        CollectionAssert.AreEquivalent(new[] { 1, 2, 3 }, released);
+        CollectionAssert.AreEquivalent(ExpectedReleasedValues, released);
         Assert.AreEqual(3, released.Count);
     }
 }
