@@ -23,12 +23,14 @@ public sealed class SpreadsheetSession
         Merge = new SpreadsheetMergeController(this);
         Sort = new SpreadsheetSortController(this);
         Editor = new SpreadsheetCellEditorController(this);
+        View = new SpreadsheetViewController(this);
         Commands = new CommandRegistry();
         SpreadsheetCommandCatalog.Register(Commands, this);
         SpreadsheetClipboardCommandCatalog.Register(Commands, Clipboard);
         SpreadsheetFormattingCommandCatalog.Register(Commands, Styles);
         SpreadsheetMergeCommandCatalog.Register(Commands, Merge);
         SpreadsheetSortCommandCatalog.Register(Commands, Sort);
+        SpreadsheetViewCommandCatalog.Register(Commands, View);
         CommandDispatcher = new CommandDispatcher(Commands);
     }
 
@@ -42,6 +44,7 @@ public sealed class SpreadsheetSession
     public SpreadsheetMergeController Merge { get; }
     public SpreadsheetSortController Sort { get; }
     public SpreadsheetCellEditorController Editor { get; }
+    public SpreadsheetViewController View { get; }
     public CommandRegistry Commands { get; }
     public CommandDispatcher CommandDispatcher { get; }
 
@@ -62,6 +65,7 @@ public sealed class SpreadsheetSession
         Editor.Cancel();
         ActiveWorksheet = worksheet;
         Selection.SetActiveCell(default);
+        View.NotifyActiveWorksheetChanged();
         ActiveWorksheetChanged?.Invoke(this, EventArgs.Empty);
     }
 
