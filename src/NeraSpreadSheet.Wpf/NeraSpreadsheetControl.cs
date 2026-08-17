@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
+using NeraSpreadSheet.Foundation.Performance;
 using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Rendering.Spreadsheet;
 using NeraSpreadSheet.Scrolling;
@@ -22,7 +23,9 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 {
     private readonly ContinuousScrollController _scrollController = new();
     private readonly WpfDisplayListRenderer _displayListRenderer = new();
+    private readonly FramePacingMonitor _framePacing = new();
     private readonly VisualCollection _visuals;
+    private readonly WpfDirect2DGpuSurface _gpuSurface;
     private readonly TextBox _editor;
     private SpreadsheetSession? _session;
     private SpreadsheetViewportEngine? _viewport;
@@ -30,12 +33,19 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
     private Worksheet? _subscribedWorksheet;
     private TimeSpan? _lastRenderingTime;
     private bool _isFrameLoopAttached;
+    private bool _sessionEventsAttached;
     private Rect _editorBounds = Rect.Empty;
+    private WpfRenderingBackend _renderingBackend;
 
     public NeraSpreadsheetControl()
     {
         Focusable = true;
         _visuals = new VisualCollection(this);
+        _gpuSurface = new WpfDirect2DGpuSurface
+        {
+            Visibility = Visibility.Collapsed,
+            IsHitTestVisible = false,
+        };
         _editor = new TextBox
         {
             Visibility = Visibility.Collapsed,
@@ -44,7 +54,9 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
             VerticalContentAlignment = VerticalAlignment.Center,
         };
         _editor.KeyDown += OnEditorKeyDown;
+        _visuals.Add(_gpuSurface);
         _visuals.Add(_editor);
+        Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
 
@@ -68,6 +80,33 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
     public double OverscanPixels { get; set; } = 128d;
     public ScrollSnapshot ScrollSnapshot => _scrollController.Snapshot;
     public bool IsEditing => _cellEditor?.IsEditing == true;
+    public FramePacingSnapshot FramePacing => _framePacing.Capture();
+
+    public WpfRenderingBackend RenderingBackend
+    {
+        get => _renderingBackend;
+        set
+        {
+            if (_renderingBackend == value)
+            {
+                return;
+            }
+            _renderingBackend = value;
+            UpdateGpuSurfaceVisibility();
+            InvalidateVisual();
+        }
+    }
+
+    public WpfGpuRendererDiagnostics? GpuDiagnostics =>
+        _renderingBackend == WpfRenderingBackend.Direct2DD3DImage
+            ? new WpfGpuRendererDiagnostics(
+                _gpuSurface.TextureWidth,
+                _gpuSurface.TextureHeight,
+                _gpuSurface.CachedTextLayoutCount,
+                _gpuSurface.TextLayoutCacheHits,
+                _gpuSurface.TextLayoutCacheMisses,
+                _gpuSurface.TextLayoutCacheEvictions)
+            : null;
 
     public event EventHandler<ScrollChangedEventArgs>? ScrollChanged;
 
@@ -77,12 +116,14 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     protected override Size MeasureOverride(Size availableSize)
     {
+        _gpuSurface.Measure(availableSize);
         _editor.Measure(availableSize);
         return new Size(0d, 0d);
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
+        _gpuSurface.Arrange(new Rect(0d, 0d, finalSize.Width, finalSize.Height));
         if (_editor.Visibility == Visibility.Visible && !_editorBounds.IsEmpty)
         {
             _editor.Arrange(_editorBounds);
@@ -97,9 +138,13 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
     protected override void OnRender(DrawingContext drawingContext)
     {
         base.OnRender(drawingContext);
-        drawingContext.DrawRectangle(Background, null, new Rect(0d, 0d, ActualWidth, ActualHeight));
+        _framePacing.RecordFrame();
+
         if (_session is null || ActualWidth <= 0d || ActualHeight <= 0d)
         {
+            _gpuSurface.SetDisplayList(null);
+            UpdateGpuSurfaceVisibility();
+            drawingContext.DrawRectangle(Background, null, new Rect(0d, 0d, ActualWidth, ActualHeight));
             return;
         }
 
@@ -109,6 +154,17 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
         var frame = viewport.Compose(snapshot.OffsetX, snapshot.OffsetY, ActualWidth, ActualHeight, OverscanPixels, RenderTheme);
         ContentWidth = frame.Layout.ContentWidth;
         ContentHeight = frame.Layout.ContentHeight;
+
+        if (_renderingBackend == WpfRenderingBackend.Direct2DD3DImage)
+        {
+            UpdateGpuSurfaceVisibility();
+            _gpuSurface.SetDisplayList(frame.DisplayList);
+            return;
+        }
+
+        _gpuSurface.SetDisplayList(null);
+        UpdateGpuSurfaceVisibility();
+        drawingContext.DrawRectangle(Background, null, new Rect(0d, 0d, ActualWidth, ActualHeight));
         _displayListRenderer.Render(drawingContext, frame.DisplayList, VisualTreeHelper.GetDpi(this).PixelsPerDip);
     }
 
@@ -178,16 +234,41 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
         }
 
         var control = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
-        if (control && e.Key == Key.Z)
+        if (control)
         {
-            e.Handled = _session.Undo();
-            return;
+            switch (e.Key)
+            {
+                case Key.Z:
+                    e.Handled = _session.Undo();
+                    break;
+                case Key.Y:
+                    e.Handled = _session.Redo();
+                    break;
+                case Key.C:
+                    _session.Clipboard.CopyPrimarySelection();
+                    e.Handled = true;
+                    break;
+                case Key.X:
+                    e.Handled = _session.Clipboard.CutPrimarySelection();
+                    break;
+                case Key.V:
+                    e.Handled = _session.Clipboard.PasteAtActiveCell();
+                    break;
+                case Key.B:
+                    _session.Styles.ToggleBold();
+                    e.Handled = true;
+                    break;
+                case Key.I:
+                    _session.Styles.ToggleItalic();
+                    e.Handled = true;
+                    break;
+            }
+            if (e.Handled)
+            {
+                return;
+            }
         }
-        if (control && e.Key == Key.Y)
-        {
-            e.Handled = _session.Redo();
-            return;
-        }
+
         if (e.Key == Key.Delete)
         {
             e.Handled = _session.ClearSelection();
@@ -313,32 +394,36 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
         DetachSessionEvents();
         _session = value;
         _viewport = value is null ? null : new SpreadsheetViewportEngine(value);
-        _cellEditor = value is null ? null : new SpreadsheetCellEditorController(value);
+        _cellEditor = value?.Editor;
         _scrollController.Reset();
+        _framePacing.Reset();
         HideEditor();
         AttachSessionEvents();
         UpdateContentExtent();
+        UpdateGpuSurfaceVisibility();
         InvalidateVisual();
     }
 
     private void AttachSessionEvents()
     {
-        if (_session is null)
+        if (_session is null || _sessionEventsAttached)
         {
             return;
         }
         _session.ActiveWorksheetChanged += OnActiveWorksheetChanged;
         _session.Selection.Changed += OnSelectionChanged;
+        _sessionEventsAttached = true;
         EnsureWorksheetSubscription();
     }
 
     private void DetachSessionEvents()
     {
-        if (_session is not null)
+        if (_session is not null && _sessionEventsAttached)
         {
             _session.ActiveWorksheetChanged -= OnActiveWorksheetChanged;
             _session.Selection.Changed -= OnSelectionChanged;
         }
+        _sessionEventsAttached = false;
         DetachWorksheetSubscription();
     }
 
@@ -481,18 +566,28 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     private void EnsureFrameLoop()
     {
-        if (_isFrameLoopAttached) return;
+        if (_isFrameLoopAttached)
+        {
+            return;
+        }
         CompositionTarget.Rendering += OnRendering;
         _isFrameLoopAttached = true;
     }
 
     private void OnRendering(object? sender, EventArgs e)
     {
-        if (e is not RenderingEventArgs renderingEventArgs) return;
+        if (e is not RenderingEventArgs renderingEventArgs)
+        {
+            return;
+        }
         var currentTime = renderingEventArgs.RenderingTime;
-        var elapsed = _lastRenderingTime is null ? TimeSpan.FromSeconds(1d / 60d) : currentTime - _lastRenderingTime.Value;
+        var elapsed = _lastRenderingTime is null
+            ? TimeSpan.FromSeconds(1d / 60d)
+            : currentTime - _lastRenderingTime.Value;
         _lastRenderingTime = currentTime;
-        var bounds = new ScrollBounds(Math.Max(0d, ContentWidth - ActualWidth), Math.Max(0d, ContentHeight - ActualHeight));
+        var bounds = new ScrollBounds(
+            Math.Max(0d, ContentWidth - ActualWidth),
+            Math.Max(0d, ContentHeight - ActualHeight));
         var result = _scrollController.AdvanceFrame(elapsed, bounds);
         if (result.Changed)
         {
@@ -500,7 +595,17 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
             UpdateEditorBounds();
             InvalidateVisual();
         }
-        if (!_scrollController.HasPendingMotion) DetachFrameLoop();
+        if (!_scrollController.HasPendingMotion)
+        {
+            DetachFrameLoop();
+        }
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        AttachSessionEvents();
+        UpdateGpuSurfaceVisibility();
+        InvalidateVisual();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
@@ -511,9 +616,20 @@ public sealed class NeraSpreadsheetControl : FrameworkElement
 
     private void DetachFrameLoop()
     {
-        if (!_isFrameLoopAttached) return;
+        if (!_isFrameLoopAttached)
+        {
+            return;
+        }
         CompositionTarget.Rendering -= OnRendering;
         _isFrameLoopAttached = false;
         _lastRenderingTime = null;
+    }
+
+    private void UpdateGpuSurfaceVisibility()
+    {
+        _gpuSurface.Visibility =
+            _renderingBackend == WpfRenderingBackend.Direct2DD3DImage && _session is not null
+                ? Visibility.Visible
+                : Visibility.Collapsed;
     }
 }
