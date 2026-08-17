@@ -14,7 +14,8 @@ public static class SpreadsheetViewportDirtyRegionExtensions
     {
         ArgumentNullException.ThrowIfNull(engine);
         var expanded = ExpandForMergedCells(engine.Session.ActiveWorksheet, range);
-        if (!engine.TryGetCellBounds(expanded.TopLeft, scrollX, scrollY, out var first) ||
+        if (CrossesFreezeBoundary(engine, expanded) ||
+            !engine.TryGetCellBounds(expanded.TopLeft, scrollX, scrollY, out var first) ||
             !engine.TryGetCellBounds(expanded.BottomRight, scrollX, scrollY, out var last))
         {
             bounds = RectD.Empty;
@@ -33,6 +34,14 @@ public static class SpreadsheetViewportDirtyRegionExtensions
 
         bounds = new RectD(left, top, right - left, bottom - top);
         return true;
+    }
+
+    private static bool CrossesFreezeBoundary(SpreadsheetViewportEngine engine, CellRange range)
+    {
+        var frozenRows = engine.Session.View.FrozenRows;
+        var frozenColumns = engine.Session.View.FrozenColumns;
+        return (frozenRows > 0 && range.Top < frozenRows && range.Bottom >= frozenRows) ||
+            (frozenColumns > 0 && range.Left < frozenColumns && range.Right >= frozenColumns);
     }
 
     private static CellRange ExpandForMergedCells(Worksheet worksheet, CellRange range)
