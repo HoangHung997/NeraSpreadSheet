@@ -112,7 +112,7 @@ internal sealed class FormulaParser
         }
         if (_current.Kind == FormulaTokenKind.Error)
         {
-            var value = CellValue.FromText(_current.Text);
+            var value = CellValue.FromError(_current.Text);
             MoveNext();
             return new ConstantNode(value);
         }
