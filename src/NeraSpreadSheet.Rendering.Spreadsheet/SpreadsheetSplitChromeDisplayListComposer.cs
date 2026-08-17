@@ -104,7 +104,7 @@ public static class SpreadsheetSplitChromeDisplayListComposer
         return builder.Build();
     }
 
-    private static IReadOnlyDictionary<SpreadsheetPaneId, SpreadsheetSplitPaneChromeLayout> ValidatePaneLayouts(
+    private static Dictionary<SpreadsheetPaneId, SpreadsheetSplitPaneChromeLayout> ValidatePaneLayouts(
         SpreadsheetSplitLayout splitLayout,
         IReadOnlyList<SpreadsheetSplitPaneChromeLayout> paneLayouts)
     {
