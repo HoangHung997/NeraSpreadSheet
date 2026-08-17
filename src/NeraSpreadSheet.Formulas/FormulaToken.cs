@@ -5,6 +5,7 @@ internal enum FormulaTokenKind
     End,
     Number,
     String,
+    Error,
     Identifier,
     LeftParenthesis,
     RightParenthesis,
