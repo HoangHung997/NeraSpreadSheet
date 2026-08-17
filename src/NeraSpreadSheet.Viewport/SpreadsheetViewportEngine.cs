@@ -68,28 +68,8 @@ public sealed class SpreadsheetViewportEngine
 
     public bool TryHitTest(double viewportX, double viewportY, double scrollX, double scrollY, out CellAddress address)
     {
-        if (!double.IsFinite(viewportX) || !double.IsFinite(viewportY) ||
-            !double.IsFinite(scrollX) || !double.IsFinite(scrollY) ||
-            viewportX < 0d || viewportY < 0d || scrollX < 0d || scrollY < 0d)
-        {
-            address = default;
-            return false;
-        }
-
-        EnsureMetrics();
-        var frozenWidth = _columns!.GetOffset(_session.View.FrozenColumns);
-        var frozenHeight = _rows!.GetOffset(_session.View.FrozenRows);
-        var documentX = viewportX < frozenWidth ? viewportX : viewportX + scrollX;
-        var documentY = viewportY < frozenHeight ? viewportY : viewportY + scrollY;
-        if (documentX >= _columns.TotalExtent || documentY >= _rows.TotalExtent)
-        {
-            address = default;
-            return false;
-        }
-
-        var columnIndex = _columns.FindIndexAtOffset(documentX);
-        var rowIndex = _rows.FindIndexAtOffset(documentY);
-        if (_columns.GetSize(columnIndex) <= 0d || _rows.GetSize(rowIndex) <= 0d)
+        if (!TryHitTestColumn(viewportX, scrollX, out var columnIndex) ||
+            !TryHitTestRow(viewportY, scrollY, out var rowIndex))
         {
             address = default;
             return false;
@@ -97,6 +77,30 @@ public sealed class SpreadsheetViewportEngine
 
         address = _session.ActiveWorksheet.ResolveMergedAnchor(new CellAddress(rowIndex, columnIndex));
         return true;
+    }
+
+    public bool TryHitTestRow(double viewportY, double scrollY, out int rowIndex)
+    {
+        if (!double.IsFinite(viewportY) || !double.IsFinite(scrollY) || viewportY < 0d || scrollY < 0d)
+        {
+            rowIndex = default;
+            return false;
+        }
+
+        EnsureMetrics();
+        return TryHitTestAxis(_rows!, viewportY, scrollY, _session.View.FrozenRows, out rowIndex);
+    }
+
+    public bool TryHitTestColumn(double viewportX, double scrollX, out int columnIndex)
+    {
+        if (!double.IsFinite(viewportX) || !double.IsFinite(scrollX) || viewportX < 0d || scrollX < 0d)
+        {
+            columnIndex = default;
+            return false;
+        }
+
+        EnsureMetrics();
+        return TryHitTestAxis(_columns!, viewportX, scrollX, _session.View.FrozenColumns, out columnIndex);
     }
 
     public bool TryGetCellBounds(CellAddress address, double scrollX, double scrollY, out RectD bounds)
@@ -155,6 +159,34 @@ public sealed class SpreadsheetViewportEngine
     }
 
     public void ClearDisplayListCache() => _displayListCache.Clear();
+
+    private static bool TryHitTestAxis(
+        SparseAxisMetricIndex axis,
+        double viewportCoordinate,
+        double scrollOffset,
+        int frozenCount,
+        out int index)
+    {
+        var frozenExtent = axis.GetOffset(frozenCount);
+        var documentCoordinate = viewportCoordinate < frozenExtent
+            ? viewportCoordinate
+            : viewportCoordinate + scrollOffset;
+        if (documentCoordinate >= axis.TotalExtent)
+        {
+            index = default;
+            return false;
+        }
+
+        var candidate = axis.FindIndexAtOffset(documentCoordinate);
+        if (axis.GetSize(candidate) <= 0d)
+        {
+            index = default;
+            return false;
+        }
+
+        index = candidate;
+        return true;
+    }
 
     private bool TryGetRangeViewportBounds(CellRange range, double scrollX, double scrollY, out RectD bounds)
     {
