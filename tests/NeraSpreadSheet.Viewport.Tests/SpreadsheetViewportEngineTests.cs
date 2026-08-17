@@ -19,7 +19,9 @@ public sealed class SpreadsheetViewportEngineTests
 
         Assert.AreEqual(13.25d, frame.Layout.ScrollX, 1e-9);
         Assert.AreEqual(7.75d, frame.Layout.ScrollY, 1e-9);
-        Assert.IsTrue(frame.DisplayList.Commands.OfType<DrawTextCommand>().Any(command => command.Text == "Nera"));
+        Assert.IsTrue(EnumerateCommands(frame.DisplayList)
+            .OfType<DrawTextCommand>()
+            .Any(command => command.Text == "Nera"));
     }
 
     [TestMethod]
@@ -49,5 +51,21 @@ public sealed class SpreadsheetViewportEngineTests
         var after = engine.GetContentExtent();
 
         Assert.AreEqual(before.Width + 25d, after.Width, 1e-9);
+    }
+
+    private static IEnumerable<RenderCommand> EnumerateCommands(DisplayList displayList)
+    {
+        foreach (var command in displayList.Commands)
+        {
+            yield return command;
+            if (command is not DrawDisplayListCommand nested)
+            {
+                continue;
+            }
+            foreach (var child in EnumerateCommands(nested.DisplayList))
+            {
+                yield return child;
+            }
+        }
     }
 }
