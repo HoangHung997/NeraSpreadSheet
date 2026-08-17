@@ -181,7 +181,7 @@ public static class SpreadsheetSplitLayoutEngine
         double? splitY,
         double separatorThickness)
     {
-        if (splitX is not { } x && splitY is not { } y)
+        if (splitX is null && splitY is null)
         {
             return [new SpreadsheetPaneLayout(
                 SpreadsheetPaneId.TopLeft,
@@ -222,8 +222,8 @@ public static class SpreadsheetSplitLayoutEngine
             ];
         }
 
-        var resolvedX = splitX!.Value;
-        var resolvedY = splitY!.Value;
+        var resolvedX = splitX.GetValueOrDefault();
+        var resolvedY = splitY.GetValueOrDefault();
         var rightWidth = Math.Max(0d, width - resolvedX - separatorThickness);
         var bottomHeight = Math.Max(0d, height - resolvedY - separatorThickness);
         return
