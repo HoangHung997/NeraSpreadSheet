@@ -74,7 +74,7 @@ public sealed class NeraSpreadsheetControl : FrameworkElement, IDisposable
     }
 
     public Brush Background { get; set; } = Brushes.White;
-    public SpreadsheetRenderTheme RenderTheme { get; set; } = new();
+    public SpreadsheetRenderTheme RenderTheme { get; set; } = new() { ShowHeaders = true };
     public double ContentWidth { get; private set; }
     public double ContentHeight { get; private set; }
     public double WheelPixelsPerNotch { get; set; } = 96d;
@@ -154,24 +154,43 @@ public sealed class NeraSpreadsheetControl : FrameworkElement, IDisposable
             return;
         }
 
+        var chrome = GetChromeMetrics();
+        if (chrome.BodyWidth <= 0d || chrome.BodyHeight <= 0d)
+        {
+            _gpuSurface.SetDisplayList(null);
+            drawingContext.DrawRectangle(Background, null, new Rect(0d, 0d, ActualWidth, ActualHeight));
+            return;
+        }
+
         EnsureWorksheetSubscription();
         var viewport = EnsureViewport();
         var snapshot = _scrollController.Snapshot;
-        var frame = viewport.Compose(snapshot.OffsetX, snapshot.OffsetY, ActualWidth, ActualHeight, OverscanPixels, RenderTheme);
+        var frame = viewport.Compose(
+            snapshot.OffsetX,
+            snapshot.OffsetY,
+            chrome.BodyWidth,
+            chrome.BodyHeight,
+            OverscanPixels,
+            RenderTheme);
         ContentWidth = frame.Layout.ContentWidth;
         ContentHeight = frame.Layout.ContentHeight;
+        var displayList = SpreadsheetChromeDisplayListComposer.Compose(
+            frame.DisplayList,
+            frame.Layout,
+            _session.Selection.Capture(),
+            RenderTheme);
 
         if (_renderingBackend == WpfRenderingBackend.Direct2DD3DImage)
         {
             UpdateGpuSurfaceVisibility();
-            _gpuSurface.SetDisplayList(frame.DisplayList);
+            _gpuSurface.SetDisplayList(displayList);
             return;
         }
 
         _gpuSurface.SetDisplayList(null);
         UpdateGpuSurfaceVisibility();
         drawingContext.DrawRectangle(Background, null, new Rect(0d, 0d, ActualWidth, ActualHeight));
-        _displayListRenderer.Render(drawingContext, frame.DisplayList, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        _displayListRenderer.Render(drawingContext, displayList, VisualTreeHelper.GetDpi(this).PixelsPerDip);
     }
 
     protected override void OnMouseWheel(MouseWheelEventArgs e)
@@ -209,8 +228,54 @@ public sealed class NeraSpreadsheetControl : FrameworkElement, IDisposable
         Focus();
 
         var point = e.GetPosition(this);
+        var hit = SpreadsheetChromeGeometry.HitTest(
+            point.X,
+            point.Y,
+            ActualWidth,
+            ActualHeight,
+            RenderTheme);
         var scroll = _scrollController.Snapshot;
-        if (!EnsureViewport().TryHitTest(point.X, point.Y, scroll.OffsetX, scroll.OffsetY, out var address))
+        switch (hit.Region)
+        {
+            case SpreadsheetChromeRegion.Corner:
+                _session.Selection.SelectAll();
+                e.Handled = true;
+                return;
+            case SpreadsheetChromeRegion.RowHeader:
+                if (EnsureViewport().TryHitTestRow(hit.BodyY, scroll.OffsetY, out var rowIndex))
+                {
+                    if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
+                    {
+                        _session.Selection.ExtendRowsTo(rowIndex);
+                    }
+                    else
+                    {
+                        _session.Selection.SelectRow(rowIndex, additive: (Keyboard.Modifiers & ModifierKeys.Control) != 0);
+                    }
+                }
+                e.Handled = true;
+                return;
+            case SpreadsheetChromeRegion.ColumnHeader:
+                if (EnsureViewport().TryHitTestColumn(hit.BodyX, scroll.OffsetX, out var columnIndex))
+                {
+                    if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
+                    {
+                        _session.Selection.ExtendColumnsTo(columnIndex);
+                    }
+                    else
+                    {
+                        _session.Selection.SelectColumn(columnIndex, additive: (Keyboard.Modifiers & ModifierKeys.Control) != 0);
+                    }
+                }
+                e.Handled = true;
+                return;
+            case SpreadsheetChromeRegion.Body:
+                break;
+            default:
+                return;
+        }
+
+        if (!EnsureViewport().TryHitTest(hit.BodyX, hit.BodyY, scroll.OffsetX, scroll.OffsetY, out var address))
         {
             return;
         }
@@ -410,6 +475,9 @@ public sealed class NeraSpreadsheetControl : FrameworkElement, IDisposable
         _gpuSurface.Dispose();
         _disposed = true;
     }
+
+    private SpreadsheetChromeMetrics GetChromeMetrics() =>
+        SpreadsheetChromeGeometry.Calculate(ActualWidth, ActualHeight, RenderTheme);
 
     private SpreadsheetViewportEngine EnsureViewport() => _viewport ??= new SpreadsheetViewportEngine(
         _session ?? throw new InvalidOperationException("A spreadsheet session is required."));
@@ -620,17 +688,22 @@ public sealed class NeraSpreadsheetControl : FrameworkElement, IDisposable
             return;
         }
 
+        var chrome = GetChromeMetrics();
         var viewportRect = new Rect(0d, 0d, Math.Max(0d, ActualWidth), Math.Max(0d, ActualHeight));
-        var candidate = new Rect(bounds.X, bounds.Y, Math.Max(20d, bounds.Width), Math.Max(18d, bounds.Height));
+        var candidate = new Rect(
+            chrome.RowHeaderWidth + bounds.X,
+            chrome.ColumnHeaderHeight + bounds.Y,
+            Math.Max(20d, bounds.Width),
+            Math.Max(18d, bounds.Height));
         var frozen = _viewport.GetFrozenPaneExtent();
-        var frozenWidth = Math.Clamp(frozen.Width, 0d, viewportRect.Width);
-        var frozenHeight = Math.Clamp(frozen.Height, 0d, viewportRect.Height);
+        var frozenWidth = Math.Clamp(frozen.Width, 0d, chrome.BodyWidth);
+        var frozenHeight = Math.Clamp(frozen.Height, 0d, chrome.BodyHeight);
         var frozenColumn = state.Address.ColumnIndex < _session.View.FrozenColumns;
         var frozenRow = state.Address.RowIndex < _session.View.FrozenRows;
-        var paneLeft = frozenColumn ? 0d : frozenWidth;
-        var paneTop = frozenRow ? 0d : frozenHeight;
-        var paneRight = frozenColumn ? frozenWidth : viewportRect.Width;
-        var paneBottom = frozenRow ? frozenHeight : viewportRect.Height;
+        var paneLeft = chrome.RowHeaderWidth + (frozenColumn ? 0d : frozenWidth);
+        var paneTop = chrome.ColumnHeaderHeight + (frozenRow ? 0d : frozenHeight);
+        var paneRight = chrome.RowHeaderWidth + (frozenColumn ? frozenWidth : chrome.BodyWidth);
+        var paneBottom = chrome.ColumnHeaderHeight + (frozenRow ? frozenHeight : chrome.BodyHeight);
         var pane = new Rect(
             paneLeft,
             paneTop,
@@ -678,9 +751,10 @@ public sealed class NeraSpreadsheetControl : FrameworkElement, IDisposable
             ? TimeSpan.FromSeconds(1d / 60d)
             : currentTime - _lastRenderingTime.Value;
         _lastRenderingTime = currentTime;
+        var chrome = GetChromeMetrics();
         var bounds = new ScrollBounds(
-            Math.Max(0d, ContentWidth - ActualWidth),
-            Math.Max(0d, ContentHeight - ActualHeight));
+            Math.Max(0d, ContentWidth - chrome.BodyWidth),
+            Math.Max(0d, ContentHeight - chrome.BodyHeight));
         var result = _scrollController.AdvanceFrame(elapsed, bounds);
         if (result.Changed)
         {
