@@ -32,6 +32,11 @@ internal sealed class FormulaTokenizer
             return ReadString();
         }
 
+        if (current == '#')
+        {
+            return ReadError();
+        }
+
         if (char.IsAsciiLetter(current) || current is '_' or '$')
         {
             return ReadIdentifier();
@@ -120,6 +125,23 @@ internal sealed class FormulaTokenizer
         throw new FormatException("Formula string literal is not terminated.");
     }
 
+    private FormulaToken ReadError()
+    {
+        var start = _position++;
+        while (_position < _text.Length && IsErrorCharacter(_text[_position]))
+        {
+            _position++;
+        }
+
+        var text = _text[start.._position];
+        if (text.Length < 2 || !text.Any(char.IsAsciiLetter))
+        {
+            throw new FormatException($"'{text}' is not a valid formula error literal.");
+        }
+
+        return new FormulaToken(FormulaTokenKind.Error, text.ToUpperInvariant());
+    }
+
     private FormulaToken ReadIdentifier()
     {
         var start = _position;
@@ -167,6 +189,9 @@ internal sealed class FormulaTokenizer
     }
 
     private bool PeekIsDigit() => _position + 1 < _text.Length && char.IsAsciiDigit(_text[_position + 1]);
+
+    private static bool IsErrorCharacter(char character) =>
+        char.IsAsciiLetterOrDigit(character) || character is '/' or '!' or '?' or '_' or '.';
 
     private void SkipWhitespace()
     {
