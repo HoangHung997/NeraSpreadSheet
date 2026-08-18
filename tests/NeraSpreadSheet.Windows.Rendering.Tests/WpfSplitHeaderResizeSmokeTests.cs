@@ -122,8 +122,9 @@ public sealed class WpfSplitHeaderResizeSmokeTests
                         TextureHeight: > 0,
                     },
                     "The WPF split resize smoke did not render its D3DImage surface.");
-                var diagnostics = controller.GpuDiagnostics;
-                Assert.IsNotNull(diagnostics);
+                var diagnostics = controller.GpuDiagnostics ??
+                    throw new AssertFailedException(
+                        "WPF GPU diagnostics were unavailable after rendering.");
                 Assert.IsTrue(diagnostics.TextureWidth > 0);
                 Assert.IsTrue(diagnostics.TextureHeight > 0);
             }
