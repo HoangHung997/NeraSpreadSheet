@@ -33,6 +33,7 @@ public enum SpreadsheetSplitViewChangeKind
     ActivePane,
     PaneScroll,
     ActiveWorksheet,
+    History,
 }
 
 public sealed class SpreadsheetSplitViewChangedEventArgs : EventArgs
@@ -62,7 +63,7 @@ public sealed class SpreadsheetSplitViewChangedEventArgs : EventArgs
     public long Version { get; }
 }
 
-public sealed class SpreadsheetViewController
+public sealed partial class SpreadsheetViewController
 {
     private readonly SpreadsheetSession _session;
     private readonly Dictionary<Worksheet, FreezeState> _freezeStates = [];
@@ -298,6 +299,12 @@ public static class SpreadsheetViewCommandIds
     public static CommandId FreezePanes { get; } = new("View.FreezePanes");
 
     public static CommandId UnfreezePanes { get; } = new("View.UnfreezePanes");
+
+    public static CommandId UndoSplitViewChange { get; } =
+        new("View.Split.Undo");
+
+    public static CommandId RedoSplitViewChange { get; } =
+        new("View.Split.Redo");
 }
 
 public static class SpreadsheetViewCommandCatalog
@@ -322,6 +329,20 @@ public static class SpreadsheetViewCommandCatalog
             new ViewCommandHandler(
                 () => new CommandState(view.HasFrozenPanes),
                 view.Unfreeze));
+        registry.Register(
+            new CommandDescriptor(
+                SpreadsheetViewCommandIds.UndoSplitViewChange,
+                "Undo split view change"),
+            new ViewCommandHandler(
+                () => new CommandState(view.CanUndoSplitViewChange),
+                view.UndoSplitViewChange));
+        registry.Register(
+            new CommandDescriptor(
+                SpreadsheetViewCommandIds.RedoSplitViewChange,
+                "Redo split view change"),
+            new ViewCommandHandler(
+                () => new CommandState(view.CanRedoSplitViewChange),
+                view.RedoSplitViewChange));
     }
 
     private sealed class ViewCommandHandler : IStatefulCommandHandler
