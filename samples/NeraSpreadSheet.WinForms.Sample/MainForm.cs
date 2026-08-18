@@ -326,7 +326,7 @@ public sealed class MainForm : Form
         }
         else
         {
-            _spreadsheet.Session?.View.ClearSplitState();
+            _spreadsheet.Session?.View.ClearSplitPanes();
         }
         UpdateRendererStatus();
     }
