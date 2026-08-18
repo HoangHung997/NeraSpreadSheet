@@ -33,10 +33,10 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             case WindowMessageMouseMove:
             {
                 var (clientX, clientY) = GetMouseCoordinates(message.LParam);
-                if (_headerResize is { } resize)
+                if (_headerResize is { } activeResize)
                 {
-                    ApplyHeaderResize(resize, clientX, clientY);
-                    Cursor = GetHeaderResizeCursor(resize.Axis);
+                    ApplyHeaderResize(activeResize, clientX, clientY);
+                    Cursor = GetHeaderResizeCursor(activeResize.Axis);
                     message.Result = IntPtr.Zero;
                     return;
                 }
@@ -51,10 +51,10 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                 break;
             }
             case WindowMessageLeftButtonUp:
-                if (_headerResize is { } resize)
+                if (_headerResize is { } releasedResize)
                 {
                     var (clientX, clientY) = GetMouseCoordinates(message.LParam);
-                    ApplyHeaderResize(resize, clientX, clientY);
+                    ApplyHeaderResize(releasedResize, clientX, clientY);
                     _headerResize = null;
                     Capture = false;
                     UpdatePointerCursor(clientX, clientY);
