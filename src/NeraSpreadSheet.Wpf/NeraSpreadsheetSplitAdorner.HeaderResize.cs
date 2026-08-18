@@ -19,6 +19,11 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         }
 
         var point = e.GetPosition(this);
+        if (TryBeginScrollBarInteraction(point.X, point.Y))
+        {
+            e.Handled = true;
+            return;
+        }
         if (HitTestSeparator(point.X, point.Y) is not null ||
             !TryGetHeaderResizeHandle(point.X, point.Y, out var handle))
         {
@@ -46,6 +51,20 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         }
 
         var point = e.GetPosition(this);
+        if (_scrollBarDrag is not null)
+        {
+            if (!IsMouseCaptured)
+            {
+                _scrollBarDrag = null;
+                UpdateHeaderPointerCursor(point.X, point.Y);
+                return;
+            }
+
+            UpdateScrollBarDrag(point.X, point.Y);
+            Cursor = Cursors.Hand;
+            e.Handled = true;
+            return;
+        }
         if (_headerResize is { } resize)
         {
             if (!IsMouseCaptured)
@@ -62,6 +81,18 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         }
 
         if (_splitDrag is null &&
+            TryGetScrollBarHit(
+                point.X,
+                point.Y,
+                out _,
+                out _,
+                out _))
+        {
+            Cursor = Cursors.Hand;
+            e.Handled = true;
+            return;
+        }
+        if (_splitDrag is null &&
             HitTestSeparator(point.X, point.Y) is null &&
             TryGetHeaderResizeHandle(point.X, point.Y, out var handle))
         {
@@ -73,12 +104,25 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
     protected override void OnPreviewMouseLeftButtonUp(MouseButtonEventArgs e)
     {
         base.OnPreviewMouseLeftButtonUp(e);
-        if (_disposed || _headerResize is not { } resize)
+        if (_disposed)
         {
             return;
         }
 
         var point = e.GetPosition(this);
+        if (_scrollBarDrag is not null)
+        {
+            UpdateScrollBarDrag(point.X, point.Y);
+            EndScrollBarDrag(persist: true);
+            UpdateHeaderPointerCursor(point.X, point.Y);
+            e.Handled = true;
+            return;
+        }
+        if (_headerResize is not { } resize)
+        {
+            return;
+        }
+
         ApplyHeaderResize(resize, point.X, point.Y);
         _headerResize = null;
         if (IsMouseCaptured)
@@ -137,6 +181,17 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 
     private void UpdateHeaderPointerCursor(double controlX, double controlY)
     {
+        if (TryGetScrollBarHit(
+            controlX,
+            controlY,
+            out _,
+            out _,
+            out _))
+        {
+            Cursor = Cursors.Hand;
+            return;
+        }
+
         var separator = HitTestSeparator(controlX, controlY);
         if (separator is { } split)
         {
