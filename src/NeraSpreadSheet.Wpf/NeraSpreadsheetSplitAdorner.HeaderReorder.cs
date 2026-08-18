@@ -145,7 +145,8 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 
     private void TryCaptureHeaderReorderMouse()
     {
-        if (_headerReorderOwnsMouseCapture)
+        if (_headerReorderOwnsMouseCapture ||
+            Mouse.LeftButton != MouseButtonState.Pressed)
         {
             return;
         }
