@@ -12,7 +12,7 @@ namespace NeraSpreadSheet.Wpf.Sample;
 
 public partial class MainWindow : Window
 {
-    private readonly NeraOpenXmlWorkbookSerializer _serializer = new();
+    private readonly NeraOpenXmlSpreadsheetSessionSerializer _serializer = new();
     private readonly DispatcherTimer _diagnosticsTimer;
 
     public MainWindow()
@@ -42,8 +42,9 @@ public partial class MainWindow : Window
         }
 
         await using var stream = File.OpenRead(dialog.FileName);
-        var workbook = await _serializer.LoadAsync(stream, new OpenXmlImportOptions());
-        Spreadsheet.Session = new SpreadsheetSession(workbook);
+        Spreadsheet.Session = await _serializer.LoadSessionAsync(
+            stream,
+            new OpenXmlImportOptions());
     }
 
     private async void SaveClick(object sender, RoutedEventArgs e)
@@ -66,7 +67,10 @@ public partial class MainWindow : Window
         }
 
         await using var stream = File.Create(dialog.FileName);
-        await _serializer.SaveAsync(session.Workbook, stream, new OpenXmlExportOptions());
+        await _serializer.SaveSessionAsync(
+            session,
+            stream,
+            new OpenXmlExportOptions());
     }
 
     private void BoldClick(object sender, RoutedEventArgs e) => Spreadsheet.Session?.Styles.ToggleBold();
