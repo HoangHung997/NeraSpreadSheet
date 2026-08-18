@@ -1,131 +1,228 @@
+using System.Windows;
+using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Rendering;
 using NeraSpreadSheet.Rendering.Direct2D;
-using Vortice.DCommon;
 using Vortice.Direct2D1;
 using Vortice.Direct3D11;
 using Vortice.DXGI;
-using static Vortice.Direct2D1.D2D1;
-using D2DAlphaMode = Vortice.DCommon.AlphaMode;
-using DxgiFormat = Vortice.DXGI.Format;
 
 namespace NeraSpreadSheet.Wpf;
 
-/// <summary>
-/// WPF-native D3DImage surface backed by a shared D3D11 texture and a Direct2D device context.
-/// </summary>
 internal sealed class WpfDirect2DGpuSurface : NeraD3D11ImageSurface
 {
-    private readonly Direct2DDisplayListExecutor _executor = new(Direct2DHwndDisplayListRenderer.DefaultTextLayoutCacheCapacity);
-    private ID2D1Factory1? _d2dFactory;
-    private ID2D1Device? _d2dDevice;
-    private ID2D1DeviceContext? _d2dContext;
+    private ID2D1Factory1? _factory;
+    private ID2D1Device? _direct2DDevice;
+    private ID2D1DeviceContext? _direct2DContext;
     private ID2D1Bitmap1? _targetBitmap;
-    private nint _boundTexturePointer;
+    private Direct2DDisplayListExecutor? _executor;
     private DisplayList? _displayList;
+    private RectD? _pendingRenderBounds;
+    private bool _fullRenderPending = true;
 
-    public WpfDirect2DGpuSurface()
-    {
-        AlwaysRefresh = false;
-    }
+    public int CachedTextLayoutCount => _executor?.CachedTextLayoutCount ?? 0;
 
-    public int CachedTextLayoutCount => _executor.CachedTextLayoutCount;
-    public long TextLayoutCacheHits => _executor.TextLayoutCacheHits;
-    public long TextLayoutCacheMisses => _executor.TextLayoutCacheMisses;
-    public long TextLayoutCacheEvictions => _executor.TextLayoutCacheEvictions;
+    public long TextLayoutCacheHits => _executor?.TextLayoutCacheHits ?? 0L;
+
+    public long TextLayoutCacheMisses => _executor?.TextLayoutCacheMisses ?? 0L;
+
+    public long TextLayoutCacheEvictions =>
+        _executor?.TextLayoutCacheEvictions ?? 0L;
 
     public void SetDisplayList(DisplayList? displayList)
     {
         ThrowIfDisposed();
-        _displayList = displayList;
-        InvalidateSurface();
-    }
-
-    public void ClearTextLayoutCache()
-    {
-        ThrowIfDisposed();
-        _executor.ClearTextLayoutCache();
-    }
-
-    protected override void OnDeviceCreated(ID3D11Device1 device, ID3D11DeviceContext1 context)
-    {
-        ReleaseD2DResources();
-        _d2dFactory = D2D1CreateFactory<ID2D1Factory1>();
-        using var dxgiDevice = device.QueryInterface<IDXGIDevice>();
-        _d2dDevice = _d2dFactory.CreateDevice(dxgiDevice);
-        _d2dContext = _d2dDevice.CreateDeviceContext(DeviceContextOptions.None);
-        EnsureTargetBitmap();
-    }
-
-    protected override void OnRenderTargetChanging() => ReleaseTargetBitmap();
-
-    protected override void OnRenderTargetChanged() => EnsureTargetBitmap();
-
-    protected override void OnRenderFrame(ID3D11Device1 device, ID3D11DeviceContext1 context)
-    {
-        if (_displayList is null || _d2dContext is null)
+        if (ReferenceEquals(_displayList, displayList) &&
+            _fullRenderPending)
         {
             return;
         }
 
-        EnsureTargetBitmap();
-        _executor.Render(_d2dContext, _displayList);
+        _displayList = displayList;
+        _pendingRenderBounds = null;
+        _fullRenderPending = true;
+        InvalidateSurface();
     }
 
-    protected override void OnDeviceDestroying() => ReleaseD2DResources();
+    public void SetDisplayList(
+        DisplayList? displayList,
+        RectD dirtyBounds)
+    {
+        ThrowIfDisposed();
+        if (displayList is null)
+        {
+            SetDisplayList(null);
+            return;
+        }
+        if (dirtyBounds.IsEmpty)
+        {
+            _displayList = displayList;
+            return;
+        }
+
+        _displayList = displayList;
+        if (_fullRenderPending)
+        {
+            InvalidateSurface();
+            return;
+        }
+
+        _pendingRenderBounds = _pendingRenderBounds is { } existing
+            ? Union(existing, dirtyBounds)
+            : dirtyBounds;
+        InvalidateSurface(ToInt32Rect(_pendingRenderBounds.Value));
+    }
+
+    protected override void OnDeviceCreated(
+        ID3D11Device1 device,
+        ID3D11DeviceContext1 context)
+    {
+        _factory = Direct2DFactoryFactory.CreateFactory();
+        using var dxgiDevice = device.QueryInterface<IDXGIDevice>();
+        _direct2DDevice = _factory.CreateDevice(dxgiDevice);
+        _direct2DContext = _direct2DDevice.CreateDeviceContext(
+            DeviceContextOptions.EnableMultithreadedOptimizations);
+        _executor = new Direct2DDisplayListExecutor(
+            _factory,
+            _direct2DContext);
+        _fullRenderPending = true;
+        _pendingRenderBounds = null;
+        EnsureTargetBitmap();
+    }
+
+    protected override void OnRenderTargetChanging()
+    {
+        _fullRenderPending = true;
+        _pendingRenderBounds = null;
+        DisposeTargetBitmap();
+    }
+
+    protected override void OnRenderTargetChanged()
+    {
+        _fullRenderPending = true;
+        _pendingRenderBounds = null;
+        EnsureTargetBitmap();
+    }
+
+    protected override void OnRenderFrame(
+        ID3D11Device1 device,
+        ID3D11DeviceContext1 context)
+    {
+        EnsureTargetBitmap();
+        var direct2DContext = _direct2DContext;
+        var executor = _executor;
+        var displayList = _displayList;
+        if (direct2DContext is null || executor is null || displayList is null)
+        {
+            return;
+        }
+
+        var renderList = !_fullRenderPending &&
+            _pendingRenderBounds is { } dirtyBounds
+                ? CreateDirtyClippedDisplayList(displayList, dirtyBounds)
+                : displayList;
+        direct2DContext.Target = _targetBitmap;
+        executor.Render(
+            renderList,
+            clearColor: new Color4(1f, 1f, 1f, 1f));
+        _fullRenderPending = false;
+        _pendingRenderBounds = null;
+    }
+
+    protected override void OnDeviceDestroying()
+    {
+        _fullRenderPending = true;
+        _pendingRenderBounds = null;
+        DisposeTargetBitmap();
+        _executor?.Dispose();
+        _executor = null;
+        _direct2DContext?.Dispose();
+        _direct2DContext = null;
+        _direct2DDevice?.Dispose();
+        _direct2DDevice = null;
+        _factory?.Dispose();
+        _factory = null;
+    }
 
     protected override void DisposeManagedResources()
     {
         _displayList = null;
-        _executor.Dispose();
+        _pendingRenderBounds = null;
+        _fullRenderPending = true;
     }
 
     private void EnsureTargetBitmap()
     {
+        if (_targetBitmap is not null)
+        {
+            return;
+        }
+        var direct2DContext = _direct2DContext;
         var texture = ColorTexture;
-        var context = _d2dContext;
-        if (texture is null || context is null)
+        if (direct2DContext is null || texture is null)
         {
             return;
         }
 
-        var texturePointer = texture.NativePointer;
-        if (_targetBitmap is not null && _boundTexturePointer == texturePointer)
-        {
-            return;
-        }
-
-        ReleaseTargetBitmap();
-        using var dxgiSurface = texture.QueryInterface<IDXGISurface>();
-        var properties = new BitmapProperties1(
-            new PixelFormat(DxgiFormat.B8G8R8A8_UNorm, D2DAlphaMode.Premultiplied),
-            96f,
-            96f,
-            BitmapOptions.Target | BitmapOptions.CannotDraw);
-        _targetBitmap = context.CreateBitmapFromDxgiSurface(dxgiSurface, properties);
-        context.Target = _targetBitmap;
-        _boundTexturePointer = texturePointer;
+        using var surface = texture.QueryInterface<IDXGISurface>();
+        _targetBitmap = direct2DContext.CreateBitmapFromDxgiSurface(
+            surface,
+            new BitmapProperties1(
+                new Vortice.DCommon.PixelFormat(
+                    Format.B8G8R8A8_UNorm,
+                    AlphaMode.Premultiplied),
+                dpiX: 96f,
+                dpiY: 96f,
+                BitmapOptions.Target | BitmapOptions.CannotDraw));
+        _fullRenderPending = true;
+        _pendingRenderBounds = null;
     }
 
-    private void ReleaseTargetBitmap()
+    private void DisposeTargetBitmap()
     {
-        if (_d2dContext is not null)
+        if (_direct2DContext is not null)
         {
-            _d2dContext.Target = null;
+            _direct2DContext.Target = null;
         }
         _targetBitmap?.Dispose();
         _targetBitmap = null;
-        _boundTexturePointer = 0;
     }
 
-    private void ReleaseD2DResources()
+    private static DisplayList CreateDirtyClippedDisplayList(
+        DisplayList displayList,
+        RectD dirtyBounds)
     {
-        _executor.InvalidateTargetResources();
-        ReleaseTargetBitmap();
-        _d2dContext?.Dispose();
-        _d2dContext = null;
-        _d2dDevice?.Dispose();
-        _d2dDevice = null;
-        _d2dFactory?.Dispose();
-        _d2dFactory = null;
+        var builder = new DisplayListBuilder();
+        builder.PushClip(dirtyBounds);
+        builder.DrawDisplayList(displayList);
+        builder.PopClip();
+        return builder.Build();
+    }
+
+    private static RectD Union(RectD first, RectD second)
+    {
+        var left = Math.Min(first.Left, second.Left);
+        var top = Math.Min(first.Top, second.Top);
+        var right = Math.Max(first.Right, second.Right);
+        var bottom = Math.Max(first.Bottom, second.Bottom);
+        return new RectD(
+            left,
+            top,
+            right - left,
+            bottom - top);
+    }
+
+    private static Int32Rect ToInt32Rect(RectD bounds)
+    {
+        var left = (int)Math.Floor(bounds.Left);
+        var top = (int)Math.Floor(bounds.Top);
+        var right = (int)Math.Ceiling(bounds.Right);
+        var bottom = (int)Math.Ceiling(bounds.Bottom);
+        return right <= left || bottom <= top
+            ? Int32Rect.Empty
+            : new Int32Rect(
+                left,
+                top,
+                right - left,
+                bottom - top);
     }
 }
