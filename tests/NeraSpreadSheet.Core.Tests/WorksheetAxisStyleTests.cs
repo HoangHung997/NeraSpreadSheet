@@ -110,6 +110,29 @@ public sealed class WorksheetAxisStyleTests
     }
 
     [TestMethod]
+    public void SnapshotReusesAxisStyleCompositionAcrossEquivalentCells()
+    {
+        var worksheet = new Worksheet("Sheet1");
+        var styles = new CellStyleCatalog();
+        worksheet.ApplyAxisStyle(
+            WorksheetAxis.Row,
+            9,
+            9,
+            CreateFillPatch(new ColorRgba(40, 160, 110)));
+        var snapshot = WorksheetSnapshot.Capture(worksheet);
+
+        var first = snapshot.GetEffectiveStyle(
+            new CellAddress(9, 1),
+            styles);
+        var second = snapshot.GetEffectiveStyle(
+            new CellAddress(9, 12_000),
+            styles);
+
+        Assert.AreSame(first, second);
+        Assert.AreEqual(1, snapshot.AxisStyleCacheEntryCount);
+    }
+
+    [TestMethod]
     public void StructuralInsertMovesSparseRowStyleSpan()
     {
         var worksheet = new Worksheet("Sheet1");
