@@ -1,8 +1,6 @@
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Interop;
-using System.Windows.Media;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
@@ -27,10 +25,8 @@ namespace NeraSpreadSheet.Windows.Rendering.Tests;
 [DoNotParallelize]
 public sealed class WpfSplitScrollBarWindowMessageSmokeTests
 {
-    private const uint WindowMessageMouseMove = 0x0200;
-    private const uint WindowMessageLeftButtonDown = 0x0201;
-    private const uint WindowMessageLeftButtonUp = 0x0202;
-    private const uint MouseKeyLeftButton = 0x0001;
+    private const uint MouseEventLeftDown = 0x0002;
+    private const uint MouseEventLeftUp = 0x0004;
     private static readonly TimeSpan StaThreadTimeout = TimeSpan.FromSeconds(90d);
     private static readonly TimeSpan RenderTimeout = TimeSpan.FromSeconds(15d);
 
@@ -40,6 +36,9 @@ public sealed class WpfSplitScrollBarWindowMessageSmokeTests
     {
         RunInSta(() =>
         {
+            Assert.IsTrue(
+                GetCursorPos(out var originalCursor),
+                "The native mouse cursor position could not be captured.");
             var workbook = new Workbook();
             var worksheet = workbook.Worksheets[0];
             worksheet.SetValue(default, "WPF split scrollbar smoke");
@@ -52,17 +51,18 @@ public sealed class WpfSplitScrollBarWindowMessageSmokeTests
                 RenderingBackend = WpfRenderingBackend.DrawingContext,
             };
             var decorator = new WpfAdornerDecorator { Child = control };
-            var window = CreateOffscreenWindow(decorator);
+            var window = CreateInputHostWindow(decorator);
 
             try
             {
                 window.Show();
-                window.Activate();
+                Assert.IsTrue(window.Activate());
                 window.UpdateLayout();
+                Assert.IsTrue(control.Focus());
 
                 using var split = control.EnableSplitPanes(
                     SpreadsheetSplitPaneMode.Both);
-                split.SetSplit(340d, 230d);
+                split.SetSplit(300d, 190d);
                 split.RenderNow();
                 using var scrollBars = control.EnableSplitPaneScrollBars();
                 scrollBars.Refresh();
@@ -91,31 +91,16 @@ public sealed class WpfSplitScrollBarWindowMessageSmokeTests
                 var targetBody = new PointD(
                     targetThumbStart + (horizontal.ThumbLength / 2d),
                     startBody.Y);
-                var start = ToWindowClientPixels(control, window, startBody);
-                var target = ToWindowClientPixels(control, window, targetBody);
-                var handle = new WindowInteropHelper(window).Handle;
-                Assert.AreNotEqual(IntPtr.Zero, handle);
+                var start = ToScreenPixels(control, startBody);
+                var target = ToScreenPixels(control, targetBody);
 
-                SendMouseMessage(
-                    handle,
-                    WindowMessageLeftButtonDown,
-                    MouseKeyLeftButton,
-                    start.X,
-                    start.Y);
+                Assert.IsTrue(SetCursorPos(start.X, start.Y));
                 PumpDispatcherOnce();
-                SendMouseMessage(
-                    handle,
-                    WindowMessageMouseMove,
-                    MouseKeyLeftButton,
-                    target.X,
-                    target.Y);
+                MouseEvent(MouseEventLeftDown, 0U, 0U, 0U, UIntPtr.Zero);
                 PumpDispatcherOnce();
-                SendMouseMessage(
-                    handle,
-                    WindowMessageLeftButtonUp,
-                    0U,
-                    target.X,
-                    target.Y);
+                Assert.IsTrue(SetCursorPos(target.X, target.Y));
+                PumpDispatcherOnce();
+                MouseEvent(MouseEventLeftUp, 0U, 0U, 0U, UIntPtr.Zero);
 
                 PumpUntil(
                     () => split.GetPaneScroll(SpreadsheetPaneId.BottomRight).X >
@@ -176,23 +161,27 @@ public sealed class WpfSplitScrollBarWindowMessageSmokeTests
             }
             finally
             {
+                MouseEvent(MouseEventLeftUp, 0U, 0U, 0U, UIntPtr.Zero);
+                _ = SetCursorPos(originalCursor.X, originalCursor.Y);
                 window.Close();
                 PumpDispatcherOnce();
             }
         });
     }
 
-    private static WpfWindow CreateOffscreenWindow(object content) => new()
+    private static WpfWindow CreateInputHostWindow(object content) => new()
     {
         Background = WpfBrushes.White,
         Content = content,
-        Height = 760d,
-        Left = -30_000d,
+        Height = 650d,
+        Left = 0d,
         ResizeMode = WpfResizeMode.NoResize,
+        ShowActivated = true,
         ShowInTaskbar = false,
-        Title = "Nera WPF split scrollbar smoke host",
-        Top = -30_000d,
-        Width = 1000d,
+        Title = "Nera WPF split scrollbar input smoke host",
+        Top = 0d,
+        Topmost = true,
+        Width = 900d,
         WindowStartupLocation = WpfWindowStartupLocation.Manual,
         WindowStyle = WpfWindowStyle.None,
     };
@@ -201,41 +190,16 @@ public sealed class WpfSplitScrollBarWindowMessageSmokeTests
         bounds.Left + (bounds.Width / 2d),
         bounds.Top + (bounds.Height / 2d));
 
-    private static DevicePoint ToWindowClientPixels(
+    private static DevicePoint ToScreenPixels(
         NeraSpreadsheetControl control,
-        WpfWindow window,
         PointD bodyPoint)
     {
-        var controlPoint = new WpfPoint(
+        var point = control.PointToScreen(new WpfPoint(
             control.RenderTheme.RowHeaderWidth + bodyPoint.X,
-            control.RenderTheme.ColumnHeaderHeight + bodyPoint.Y);
-        var windowPoint = control.TranslatePoint(controlPoint, window);
-        var source = PresentationSource.FromVisual(window) ??
-            throw new AssertFailedException(
-                "The WPF presentation source is unavailable.");
-        var pixels = source.CompositionTarget.TransformToDevice.Transform(windowPoint);
+            control.RenderTheme.ColumnHeaderHeight + bodyPoint.Y));
         return new DevicePoint(
-            (int)Math.Round(pixels.X),
-            (int)Math.Round(pixels.Y));
-    }
-
-    private static void SendMouseMessage(
-        IntPtr windowHandle,
-        uint message,
-        uint keyState,
-        int x,
-        int y)
-    {
-        Assert.IsTrue(x >= short.MinValue && x <= short.MaxValue);
-        Assert.IsTrue(y >= short.MinValue && y <= short.MaxValue);
-        var packed = unchecked(
-            ((y & 0xFFFF) << 16) |
-            (x & 0xFFFF));
-        _ = SendMessage(
-            windowHandle,
-            message,
-            new UIntPtr(keyState),
-            new IntPtr(packed));
+            (int)Math.Round(point.X),
+            (int)Math.Round(point.Y));
     }
 
     private static void PumpUntil(Func<bool> condition, string timeoutMessage)
@@ -283,23 +247,39 @@ public sealed class WpfSplitScrollBarWindowMessageSmokeTests
         })
         {
             IsBackground = true,
-            Name = "Nera WPF split scrollbar window-message smoke",
+            Name = "Nera WPF split scrollbar native-input smoke",
         };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
         if (!thread.Join(StaThreadTimeout))
         {
-            Assert.Fail("The WPF split scrollbar window-message smoke timed out.");
+            Assert.Fail("The WPF split scrollbar native-input smoke timed out.");
         }
         failure?.Throw();
     }
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr SendMessage(
-        IntPtr windowHandle,
-        uint message,
-        UIntPtr keyState,
-        IntPtr packedCoordinates);
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out NativePoint point);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetCursorPos(int x, int y);
+
+    [DllImport("user32.dll", EntryPoint = "mouse_event")]
+    private static extern void MouseEvent(
+        uint flags,
+        uint deltaX,
+        uint deltaY,
+        uint data,
+        UIntPtr extraInfo);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X;
+        public int Y;
+    }
 
     private readonly record struct DevicePoint(int X, int Y);
 }
