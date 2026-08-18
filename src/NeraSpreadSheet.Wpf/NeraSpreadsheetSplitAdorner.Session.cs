@@ -238,16 +238,8 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         ApplySplitViewState(e.State);
     }
 
-    private void OnCellsChanged(object? sender, CellsChangedEventArgs e)
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _lastFrame = null;
-        InvalidateVisual();
-    }
+    private void OnCellsChanged(object? sender, CellsChangedEventArgs e) =>
+        HandleCellsChanged(e);
 
     private void OnDimensionsChanged(object? sender, DimensionChangedEventArgs e)
     {
