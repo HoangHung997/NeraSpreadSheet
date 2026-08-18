@@ -11,10 +11,9 @@ internal sealed partial class NeraSpreadsheetSplitAdorner
 
     private long FullDirtyRenderCount { get; set; }
 
-    private int LastDirtyRegionCount => LastDirtyBounds.Count;
+    private int LastDirtyRegionCount => LastDirtyBounds.Length;
 
-    private IReadOnlyList<RectD> LastDirtyBounds { get; set; } =
-        Array.Empty<RectD>();
+    private RectD[] LastDirtyBounds { get; set; } = Array.Empty<RectD>();
 
     private IReadOnlyList<Int32Rect> LastPresentedDirtyRectangles =>
         _gpuSurface.LastPresentedDirtyRectangles;
