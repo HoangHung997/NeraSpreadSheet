@@ -25,16 +25,19 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             return;
         }
 
-        var paneId = ResolvePaneAtClientPoint(e.X, e.Y, frame) ?? frame.ActivePane;
+        var paneId = ResolvePaneAtClientPoint(e.X, e.Y, frame) ??
+            frame.ActivePane;
+        BeginSplitViewHistory(
+            "Scroll split pane",
+            SpreadsheetSplitViewChangeKind.PaneScroll);
         SetActivePaneCore(paneId);
         var notches = e.Delta / 120d;
         var delta = -notches * _owner.WheelPixelsPerNotch;
-        GetEngine().QueuePaneScroll(
+        QueuePaneScrollWithHistory(
             paneId,
             (ModifierKeys & Keys.Shift) != 0
                 ? new ScrollDelta(delta, 0d, ScrollInputKind.Wheel)
                 : new ScrollDelta(0d, delta, ScrollInputKind.Wheel));
-        StartFrameLoop();
     }
 
     protected override void OnMouseDown(MouseEventArgs e)
@@ -74,7 +77,11 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                 _session.Selection.SelectAll();
                 return;
             case SpreadsheetChromeRegion.RowHeader:
-                if (TryHitTestRowHeader(frame, chromeHit.BodyY, out var rowPane, out var rowIndex))
+                if (TryHitTestRowHeader(
+                    frame,
+                    chromeHit.BodyY,
+                    out var rowPane,
+                    out var rowIndex))
                 {
                     SetActivePaneCore(rowPane);
                     if ((ModifierKeys & Keys.Shift) != 0)
@@ -118,7 +125,8 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         var engine = GetEngine();
         if (engine.TryActivatePaneAt(chromeHit.BodyX, chromeHit.BodyY))
         {
-            PersistCurrentSplitState(SpreadsheetSplitViewChangeKind.ActivePane);
+            PersistCurrentSplitState(
+                SpreadsheetSplitViewChangeKind.ActivePane);
             _lastFrame = null;
             Invalidate();
         }
@@ -162,7 +170,9 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
         var separator = HitTestSeparator(e.X, e.Y);
         Cursor = separator.HasValue
-            ? GetSeparatorCursor(separator.Value.Vertical, separator.Value.Horizontal)
+            ? GetSeparatorCursor(
+                separator.Value.Vertical,
+                separator.Value.Horizontal)
             : Cursors.Default;
     }
 
@@ -177,9 +187,12 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         ApplySeparatorDrag(drag, e.X, e.Y);
         _splitDrag = null;
         Capture = false;
+        CommitSplitViewHistory();
         var separator = HitTestSeparator(e.X, e.Y);
         Cursor = separator.HasValue
-            ? GetSeparatorCursor(separator.Value.Vertical, separator.Value.Horizontal)
+            ? GetSeparatorCursor(
+                separator.Value.Vertical,
+                separator.Value.Horizontal)
             : Cursors.Default;
     }
 
@@ -192,6 +205,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         }
 
         _splitDrag = null;
+        CancelSplitViewHistory(restoreBeforeState: true);
         Cursor = Cursors.Default;
     }
 
@@ -209,16 +223,25 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             return false;
         }
 
+        BeginSplitViewHistory(
+            "Move split separator",
+            SpreadsheetSplitViewChangeKind.Topology);
         var chrome = GetChromeMetrics();
         var bodyX = clientX - chrome.RowHeaderWidth;
         var bodyY = clientY - chrome.ColumnHeaderHeight;
         _splitDrag = new SplitDragState(
             hit.Value.Vertical,
             hit.Value.Horizontal,
-            hit.Value.Vertical && frame.Layout.SplitX is { } splitX ? bodyX - splitX : 0d,
-            hit.Value.Horizontal && frame.Layout.SplitY is { } splitY ? bodyY - splitY : 0d);
+            hit.Value.Vertical && frame.Layout.SplitX is { } splitX
+                ? bodyX - splitX
+                : 0d,
+            hit.Value.Horizontal && frame.Layout.SplitY is { } splitY
+                ? bodyY - splitY
+                : 0d);
         Capture = true;
-        Cursor = GetSeparatorCursor(hit.Value.Vertical, hit.Value.Horizontal);
+        Cursor = GetSeparatorCursor(
+            hit.Value.Vertical,
+            hit.Value.Horizontal);
         return true;
     }
 
@@ -245,7 +268,9 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             clientX < chrome.FullWidth &&
             bodyY >= frame.Layout.HorizontalSeparator.Top &&
             bodyY < frame.Layout.HorizontalSeparator.Bottom;
-        return vertical || horizontal ? new SeparatorHit(vertical, horizontal) : null;
+        return vertical || horizontal
+            ? new SeparatorHit(vertical, horizontal)
+            : null;
     }
 
     private void ApplySeparatorDrag(
@@ -278,13 +303,26 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         {
             case SpreadsheetChromeRegion.Body:
             {
-                var hit = frame.Layout.HitTest(new PointD(chromeHit.BodyX, chromeHit.BodyY));
-                return hit.RegionKind == SpreadsheetSplitHitRegionKind.Pane ? hit.PaneId : null;
+                var hit = frame.Layout.HitTest(
+                    new PointD(chromeHit.BodyX, chromeHit.BodyY));
+                return hit.RegionKind == SpreadsheetSplitHitRegionKind.Pane
+                    ? hit.PaneId
+                    : null;
             }
             case SpreadsheetChromeRegion.RowHeader:
-                return TryResolveLeftPane(frame, chromeHit.BodyY, out var rowPane) ? rowPane.Pane.PaneId : null;
+                return TryResolveLeftPane(
+                    frame,
+                    chromeHit.BodyY,
+                    out var rowPane)
+                    ? rowPane.Pane.PaneId
+                    : null;
             case SpreadsheetChromeRegion.ColumnHeader:
-                return TryResolveTopPane(frame, chromeHit.BodyX, out var columnPane) ? columnPane.Pane.PaneId : null;
+                return TryResolveTopPane(
+                    frame,
+                    chromeHit.BodyX,
+                    out var columnPane)
+                    ? columnPane.Pane.PaneId
+                    : null;
             default:
                 return frame.ActivePane;
         }
@@ -390,7 +428,9 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         return false;
     }
 
-    private static Cursor GetSeparatorCursor(bool vertical, bool horizontal) =>
+    private static Cursor GetSeparatorCursor(
+        bool vertical,
+        bool horizontal) =>
         (vertical, horizontal) switch
         {
             (true, true) => Cursors.SizeAll,
