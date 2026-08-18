@@ -1,13 +1,18 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 
 namespace NeraSpreadSheet.Core;
 
 public sealed class WorksheetSnapshot
 {
+    private static readonly WorksheetAxisStyleOperation[]
+        EmptyAxisStyleOperations = [];
     private readonly IReadOnlyDictionary<CellAddress, CellData> _cells;
     private readonly CellRange[] _mergedCells;
     private readonly WorksheetAxisStyleSpan[] _rowStyleSpans;
     private readonly WorksheetAxisStyleSpan[] _columnStyleSpans;
+    private readonly ConcurrentDictionary<AxisStyleCacheKey, CellStyle>
+        _axisStyleCache = new();
 
     private WorksheetSnapshot(
         string name,
@@ -57,6 +62,8 @@ public sealed class WorksheetSnapshot
 
     public IReadOnlyList<CellRange> MergedCells => _mergedCells;
 
+    internal int AxisStyleCacheEntryCount => _axisStyleCache.Count;
+
     public CellData GetCell(CellAddress address) =>
         _cells.GetValueOrDefault(address, CellData.Empty);
 
@@ -72,9 +79,14 @@ public sealed class WorksheetSnapshot
             return styles.Get(cell.StyleId);
         }
 
-        return ComposeAxisStyle(
+        var key = new AxisStyleCacheKey(
             FindOperations(_rowStyleSpans, address.RowIndex),
             FindOperations(_columnStyleSpans, address.ColumnIndex));
+        return _axisStyleCache.GetOrAdd(
+            key,
+            static cacheKey => ComposeAxisStyle(
+                cacheKey.RowOperations,
+                cacheKey.ColumnOperations));
     }
 
     public IEnumerable<KeyValuePair<CellAddress, CellData>>
@@ -153,7 +165,7 @@ public sealed class WorksheetSnapshot
                 return span.Operations;
             }
         }
-        return [];
+        return EmptyAxisStyleOperations;
     }
 
     private static CellStyle ComposeAxisStyle(
@@ -182,4 +194,8 @@ public sealed class WorksheetSnapshot
         }
         return style;
     }
+
+    private readonly record struct AxisStyleCacheKey(
+        WorksheetAxisStyleOperation[] RowOperations,
+        WorksheetAxisStyleOperation[] ColumnOperations);
 }
