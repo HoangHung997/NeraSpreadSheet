@@ -15,6 +15,8 @@ namespace NeraSpreadSheet.WinForms;
 
 internal sealed partial class NeraSpreadsheetSplitSurface : Control
 {
+    private bool _applyingSplitViewState;
+
     private bool IsEditing => _cellEditor?.IsEditing == true;
 
     private SpreadsheetSplitViewportEngine GetEngine()
@@ -71,11 +73,105 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         _mode = mode;
         _splitX = splitX;
         _splitY = splitY;
+        PersistCurrentSplitState(SpreadsheetSplitViewChangeKind.Topology);
         InvalidateSplitLayout();
         SplitChanged?.Invoke(
             this,
             new SpreadsheetSplitChangedEventArgs(mode, splitX, splitY, _lastFrame?.Layout));
     }
+
+    private bool SetActivePaneCore(SpreadsheetPaneId paneId)
+    {
+        var engine = GetEngine();
+        var previous = engine.ActivePane;
+        engine.SetActivePane(paneId);
+        if (engine.ActivePane == previous)
+        {
+            return false;
+        }
+
+        PersistCurrentSplitState(SpreadsheetSplitViewChangeKind.ActivePane);
+        _lastFrame = null;
+        UpdateEditorBounds();
+        Invalidate();
+        return true;
+    }
+
+    private void PersistCurrentSplitState(SpreadsheetSplitViewChangeKind changeKind)
+    {
+        if (_applyingSplitViewState || _session is null || _engine is null)
+        {
+            return;
+        }
+
+        var state = SpreadsheetSplitViewStateAdapter.Capture(
+            _engine,
+            _splitX,
+            _splitY);
+        _session.View.SetSplitState(
+            _session.ActiveWorksheet,
+            state,
+            changeKind,
+            this);
+    }
+
+    private void ApplyStoredSplitState() =>
+        ApplySplitViewState(_session?.View.SplitState ?? default);
+
+    private void ApplySplitViewState(SpreadsheetSplitViewState state)
+    {
+        if (_engine is null)
+        {
+            return;
+        }
+
+        var nextMode = ToSurfaceMode(state.Mode);
+        var topologyChanged =
+            _mode != nextMode ||
+            _splitX != state.SplitX ||
+            _splitY != state.SplitY;
+        var engineStateChanged =
+            SpreadsheetSplitViewStateAdapter.Capture(_engine, _splitX, _splitY) != state;
+        if (!topologyChanged && !engineStateChanged)
+        {
+            return;
+        }
+
+        _applyingSplitViewState = true;
+        try
+        {
+            _mode = nextMode;
+            _splitX = state.SplitX;
+            _splitY = state.SplitY;
+            SpreadsheetSplitViewStateAdapter.Apply(_engine, state);
+        }
+        finally
+        {
+            _applyingSplitViewState = false;
+        }
+
+        InvalidateSplitLayout();
+        if (topologyChanged)
+        {
+            SplitChanged?.Invoke(
+                this,
+                new SpreadsheetSplitChangedEventArgs(
+                    _mode,
+                    _splitX,
+                    _splitY,
+                    _lastFrame?.Layout));
+        }
+    }
+
+    private static SpreadsheetSplitPaneMode ToSurfaceMode(
+        SpreadsheetSplitViewMode mode) => mode switch
+    {
+        SpreadsheetSplitViewMode.None => SpreadsheetSplitPaneMode.None,
+        SpreadsheetSplitViewMode.Vertical => SpreadsheetSplitPaneMode.Vertical,
+        SpreadsheetSplitViewMode.Horizontal => SpreadsheetSplitPaneMode.Horizontal,
+        SpreadsheetSplitViewMode.Both => SpreadsheetSplitPaneMode.Both,
+        _ => throw new ArgumentOutOfRangeException(nameof(mode)),
+    };
 
     private void InvalidateSplitLayout()
     {
@@ -100,6 +196,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         _cellEditor = next?.Editor;
         _lastFrame = null;
         HideEditor();
+        ApplyStoredSplitState();
         AttachSessionEvents();
     }
 
@@ -113,6 +210,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         _session.ActiveWorksheetChanged += OnActiveWorksheetChanged;
         _session.Selection.Changed += OnSelectionChanged;
         _session.View.Changed += OnViewChanged;
+        _session.View.SplitChanged += OnSplitViewChanged;
         EnsureWorksheetSubscription();
     }
 
@@ -123,6 +221,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             _session.ActiveWorksheetChanged -= OnActiveWorksheetChanged;
             _session.Selection.Changed -= OnSelectionChanged;
             _session.View.Changed -= OnViewChanged;
+            _session.View.SplitChanged -= OnSplitViewChanged;
         }
         DetachWorksheetSubscription();
     }
@@ -161,7 +260,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         CancelEditor();
         EnsureWorksheetSubscription();
         _engine?.InvalidateMetrics();
-        _engine?.ResetPaneScrolls();
+        ApplyStoredSplitState();
         _lastFrame = null;
         Invalidate();
     }
@@ -183,6 +282,18 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         _lastFrame = null;
         UpdateEditorBounds();
         Invalidate();
+    }
+
+    private void OnSplitViewChanged(object? sender, SpreadsheetSplitViewChangedEventArgs e)
+    {
+        if (_session is null ||
+            ReferenceEquals(e.Source, this) ||
+            !ReferenceEquals(e.Worksheet, _session.ActiveWorksheet))
+        {
+            return;
+        }
+
+        ApplySplitViewState(e.State);
     }
 
     private void OnCellsChanged(object? sender, CellsChangedEventArgs e)
@@ -220,6 +331,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         if (changed)
         {
             PublishChangedPaneScrolls(before);
+            PersistCurrentSplitState(SpreadsheetSplitViewChangeKind.PaneScroll);
             _lastFrame = null;
             UpdateEditorBounds();
             Invalidate();
@@ -277,5 +389,4 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                 "Split coordinates must be finite.");
         }
     }
-
 }
