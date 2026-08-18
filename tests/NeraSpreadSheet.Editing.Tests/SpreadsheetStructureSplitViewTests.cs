@@ -117,6 +117,6 @@ public sealed class SpreadsheetStructureSplitViewTests
             session.Structure.InsertRows(0));
 
         Assert.AreEqual(before, session.View.SplitState);
-        Assert.IsFalse(session.CanUndo);
+        Assert.IsFalse(session.History.CanUndo);
     }
 }
