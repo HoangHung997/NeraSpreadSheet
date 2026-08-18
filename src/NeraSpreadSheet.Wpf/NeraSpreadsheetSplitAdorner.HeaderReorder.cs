@@ -13,7 +13,11 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
     private HeaderReorderState? _headerReorder;
     private SpreadsheetSplitHeaderReorderDropTarget? _headerReorderDropTarget;
     private DrawingVisual? _headerReorderPreviewVisual;
+    private TimeSpan? _headerReorderLastAutoScrollRenderingTime;
     private bool _headerReorderOwnsMouseCapture;
+    private bool _headerReorderAutoScrollAttached;
+    private double _headerReorderPointerX;
+    private double _headerReorderPointerY;
 
     private bool TryBeginHeaderReorderCandidate(
         double controlX,
@@ -32,11 +36,14 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             source.Axis,
             source.Index);
         _headerReorder = new HeaderReorderState(
+            source.PaneId,
             source.Axis,
             sourceIndex,
             count,
             new PointD(controlX, controlY),
             IsActive: false);
+        _headerReorderPointerX = controlX;
+        _headerReorderPointerY = controlY;
         _headerReorderDropTarget = null;
         return true;
     }
@@ -46,6 +53,8 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         double controlY,
         bool leftButtonPressed)
     {
+        _headerReorderPointerX = controlX;
+        _headerReorderPointerY = controlY;
         if (_headerReorder is not { } state)
         {
             return false;
@@ -75,6 +84,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         {
             _headerReorderDropTarget = null;
             UpdateHeaderReorderPreviewVisual();
+            UpdateHeaderReorderAutoScrollSubscription();
             return true;
         }
 
@@ -100,6 +110,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 
         Cursor = Cursors.SizeAll;
         UpdateHeaderReorderPreviewVisual();
+        UpdateHeaderReorderAutoScrollSubscription();
         return true;
     }
 
@@ -171,6 +182,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         _headerReorder = null;
         _headerReorderDropTarget = null;
         RemoveHeaderReorderPreviewVisual();
+        DetachHeaderReorderAutoScroll();
         LostMouseCapture -= OnHeaderReorderLostMouseCapture;
         _headerReorderOwnsMouseCapture = false;
         if (releaseCapture && ownsCapture && IsMouseCaptured)
@@ -294,7 +306,109 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         _headerReorderPreviewVisual = null;
     }
 
+    private void UpdateHeaderReorderAutoScrollSubscription()
+    {
+        var velocity = GetHeaderReorderAutoScrollVelocity();
+        if (SpreadsheetHeaderReorderAutoScroll.IsZero(velocity))
+        {
+            DetachHeaderReorderAutoScroll();
+            return;
+        }
+        if (_headerReorderAutoScrollAttached)
+        {
+            return;
+        }
+
+        _headerReorderLastAutoScrollRenderingTime = null;
+        CompositionTarget.Rendering += OnHeaderReorderAutoScrollRendering;
+        _headerReorderAutoScrollAttached = true;
+    }
+
+    private PointD GetHeaderReorderAutoScrollVelocity()
+    {
+        if (_headerReorder is not { IsActive: true } state)
+        {
+            return default;
+        }
+
+        var frame = _lastFrame ?? EnsureFrame();
+        var paneId = _headerReorderDropTarget?.PaneId ?? state.SourcePaneId;
+        if (frame is null || !frame.TryGetPane(paneId, out var pane))
+        {
+            return default;
+        }
+
+        var chrome = GetChromeMetrics();
+        return SpreadsheetHeaderReorderAutoScroll.CalculateVelocity(
+            state.Axis,
+            new PointD(
+                _headerReorderPointerX,
+                _headerReorderPointerY),
+            new RectD(
+                chrome.RowHeaderWidth + pane.Pane.Bounds.Left,
+                chrome.ColumnHeaderHeight + pane.Pane.Bounds.Top,
+                pane.Pane.Bounds.Width,
+                pane.Pane.Bounds.Height));
+    }
+
+    private void OnHeaderReorderAutoScrollRendering(
+        object? sender,
+        EventArgs e)
+    {
+        if (_headerReorder is not { IsActive: true } state ||
+            e is not RenderingEventArgs rendering)
+        {
+            DetachHeaderReorderAutoScroll();
+            return;
+        }
+
+        var velocity = GetHeaderReorderAutoScrollVelocity();
+        if (SpreadsheetHeaderReorderAutoScroll.IsZero(velocity))
+        {
+            DetachHeaderReorderAutoScroll();
+            return;
+        }
+
+        var elapsed = _headerReorderLastAutoScrollRenderingTime is null
+            ? TimeSpan.FromSeconds(1d / 60d)
+            : rendering.RenderingTime -
+              _headerReorderLastAutoScrollRenderingTime.Value;
+        _headerReorderLastAutoScrollRenderingTime = rendering.RenderingTime;
+        if (elapsed > TimeSpan.FromMilliseconds(100d))
+        {
+            elapsed = TimeSpan.FromMilliseconds(100d);
+        }
+
+        var delta = SpreadsheetHeaderReorderAutoScroll.CalculateDelta(
+            velocity,
+            elapsed);
+        var paneId = _headerReorderDropTarget?.PaneId ?? state.SourcePaneId;
+        var current = GetPaneScroll(paneId);
+        ScrollPaneTo(
+            paneId,
+            current.X + delta.X,
+            current.Y + delta.Y,
+            animated: false);
+        UpdateHeaderReorder(
+            _headerReorderPointerX,
+            _headerReorderPointerY,
+            leftButtonPressed: true);
+    }
+
+    private void DetachHeaderReorderAutoScroll()
+    {
+        if (!_headerReorderAutoScrollAttached)
+        {
+            return;
+        }
+
+        CompositionTarget.Rendering -= OnHeaderReorderAutoScrollRendering;
+        _headerReorderAutoScrollAttached = false;
+        _headerReorderLastAutoScrollRenderingTime = null;
+    }
+
     private readonly record struct HeaderReorderState(
+        SpreadsheetPaneId SourcePaneId,
         WorksheetAxis Axis,
         int SourceIndex,
         int Count,
