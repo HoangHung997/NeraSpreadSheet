@@ -92,12 +92,18 @@ public sealed class WinFormsSplitScrollBarSmokeTests
                 (bottomRightVertical.TrackTravel * 0.72d);
             var targetClient = ToClientPoint(
                 control,
-                new NeraSpreadSheet.Foundation.PointD(
+                new PointD(
                     thumbCenter.X,
                     targetThumbStart +
                     (bottomRightVertical.ThumbBounds.Height / 2d)));
+            var actualDownBodyY =
+                downClient.Y - control.RenderTheme.ColumnHeaderHeight;
+            var actualGrabOffset =
+                actualDownBodyY - bottomRightVertical.ThumbBounds.Top;
+            var actualTargetBodyY =
+                targetClient.Y - control.RenderTheme.ColumnHeaderHeight;
             var expectedY = bottomRightVertical.GetOffsetForThumbStart(
-                targetThumbStart);
+                actualTargetBodyY - actualGrabOffset);
             var topRightBeforeDrag = split.GetPaneScroll(SpreadsheetPaneId.TopRight);
 
             DispatchMouseMessage(
@@ -119,7 +125,7 @@ public sealed class WinFormsSplitScrollBarSmokeTests
 
             var bottomRightAfterDrag = split.GetPaneScroll(
                 SpreadsheetPaneId.BottomRight);
-            Assert.AreEqual(expectedY, bottomRightAfterDrag.Y, 0.5d);
+            Assert.AreEqual(expectedY, bottomRightAfterDrag.Y, 0.01d);
             Assert.AreEqual(beforeBottomRight.X, bottomRightAfterDrag.X, 0.01d);
             Assert.AreEqual(
                 topRightBeforeDrag,
@@ -161,12 +167,11 @@ public sealed class WinFormsSplitScrollBarSmokeTests
 
     private static DrawingPoint ToClientPoint(
         NeraSpreadsheetControl control,
-        NeraSpreadSheet.Foundation.PointD bodyPoint) => new(
+        PointD bodyPoint) => new(
         (int)Math.Round(control.RenderTheme.RowHeaderWidth + bodyPoint.X),
         (int)Math.Round(control.RenderTheme.ColumnHeaderHeight + bodyPoint.Y));
 
-    private static NeraSpreadSheet.Foundation.PointD Center(
-        NeraSpreadSheet.Foundation.RectD bounds) => new(
+    private static PointD Center(RectD bounds) => new(
         bounds.Left + (bounds.Width / 2d),
         bounds.Top + (bounds.Height / 2d));
 
