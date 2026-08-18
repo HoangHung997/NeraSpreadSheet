@@ -195,11 +195,18 @@ internal sealed class SetWorksheetStylesOperation : ISpreadsheetEditOperation
 
         foreach (var range in _finiteRanges)
         {
-            foreach (var address in range.EnumerateCells())
+            for (var row = range.Top; row <= range.Bottom; row++)
             {
-                if (!IsCoveredByAxisMutation(address))
+                for (var column = range.Left;
+                     column <= range.Right;
+                     column++)
                 {
-                    addresses.Add(Worksheet.ResolveMergedAnchor(address));
+                    var address = new CellAddress(row, column);
+                    if (!IsCoveredByAxisMutation(address))
+                    {
+                        addresses.Add(
+                            Worksheet.ResolveMergedAnchor(address));
+                    }
                 }
             }
         }
