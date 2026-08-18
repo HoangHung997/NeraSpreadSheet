@@ -3,6 +3,7 @@ using System.Windows.Forms;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Rendering;
+using NeraSpreadSheet.Rendering.Spreadsheet;
 using NeraSpreadSheet.Viewport;
 
 namespace NeraSpreadSheet.WinForms;
