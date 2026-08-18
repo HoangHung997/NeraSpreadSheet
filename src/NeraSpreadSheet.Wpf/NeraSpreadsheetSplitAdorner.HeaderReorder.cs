@@ -13,6 +13,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
     private HeaderReorderState? _headerReorder;
     private SpreadsheetSplitHeaderReorderDropTarget? _headerReorderDropTarget;
     private DrawingVisual? _headerReorderPreviewVisual;
+    private bool _headerReorderOwnsMouseCapture;
 
     private bool TryBeginHeaderReorderCandidate(
         double controlX,
@@ -66,8 +67,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 
             state = state with { IsActive = true };
             _headerReorder = state;
-            LostMouseCapture += OnHeaderReorderLostMouseCapture;
-            CaptureMouse();
+            TryCaptureHeaderReorderMouse();
         }
 
         var frame = _lastFrame ?? EnsureFrame();
@@ -143,14 +143,32 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
     private void CancelHeaderReorder() =>
         ClearHeaderReorderState(releaseCapture: true);
 
+    private void TryCaptureHeaderReorderMouse()
+    {
+        if (_headerReorderOwnsMouseCapture || IsMouseCaptured)
+        {
+            _headerReorderOwnsMouseCapture = IsMouseCaptured;
+            return;
+        }
+
+        if (!CaptureMouse() || !IsMouseCaptured)
+        {
+            return;
+        }
+
+        _headerReorderOwnsMouseCapture = true;
+        LostMouseCapture += OnHeaderReorderLostMouseCapture;
+    }
+
     private void ClearHeaderReorderState(bool releaseCapture)
     {
-        var wasActive = _headerReorder is { IsActive: true };
+        var ownsCapture = _headerReorderOwnsMouseCapture;
         _headerReorder = null;
         _headerReorderDropTarget = null;
         RemoveHeaderReorderPreviewVisual();
         LostMouseCapture -= OnHeaderReorderLostMouseCapture;
-        if (releaseCapture && wasActive && IsMouseCaptured)
+        _headerReorderOwnsMouseCapture = false;
+        if (releaseCapture && ownsCapture && IsMouseCaptured)
         {
             ReleaseMouseCapture();
         }
@@ -160,7 +178,8 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         object sender,
         MouseEventArgs e)
     {
-        if (_headerReorder is not { IsActive: true })
+        if (!_headerReorderOwnsMouseCapture ||
+            _headerReorder is not { IsActive: true })
         {
             return;
         }
