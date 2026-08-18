@@ -14,201 +14,143 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 
 ## Implemented
 
-### Core workbook model
+### Core workbook, formula and editing
 
 - Sparse worksheet storage over an Excel-size logical address space.
-- Multiple worksheets with add, remove and rename operations.
-- Cell values, formulas, style IDs, row/column dimensions and versioned snapshots.
-- Workbook-owned immutable style interning.
-- Native merged ranges with overlap protection.
-- Structural insert/delete for complete logical row and column axes.
-- Structural preflight prevents cells, dimension overrides or merged ranges from moving outside worksheet limits.
-- Structural snapshots restore cells, dimensions and merged ranges for undo/redo.
-
-### Formula and calculation engine
-
-- Tokenizer, parser and AST.
-- Arithmetic, comparison, concatenation, references, ranges and basic cross-sheet references.
+- Multiple worksheets, versioned snapshots, cell values/formulas/style IDs, row/column dimensions and native merged ranges.
+- Structural insert/delete for complete row/column axes with overflow preflight and atomic rollback.
+- Tokenizer, parser and AST for arithmetic, comparison, concatenation, references, ranges and basic cross-sheet references.
 - `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT` and `IF`.
 - Dependency graph, circular-reference detection and affected-only recalculation.
-- Spreadsheet error literals such as `#REF!` remain `CellValueKind.Error`, not text.
-- Structural reference rewriting supports local/cross-sheet references, absolute markers, reversed ranges, quoted/escaped sheet names and string-literal exclusion.
-- Insert expands or shifts affected references/ranges.
-- Delete shrinks partial ranges and emits standalone `=#REF!` when a referenced cell/range is removed.
-- Recalculation state is rebuilt after structural execute, undo and redo.
-
-### Editing, commands and session ownership
-
-- Session-owned selection, history, calculation, clipboard, style, merge, sort, editor, view and structure controllers.
+- Structural formula rewriting for local/cross-sheet A1 references, absolute markers, reversed ranges and quoted/escaped sheet names.
+- Session-owned selection, undo/redo, calculation, clipboard, formatting, merge, sort, editor, view and structure controllers.
 - Single, extended, multi-range, whole-row, whole-column and whole-sheet selection.
-- Undo/redo for cell edits, paste, formatting, merge/unmerge, sort and structural operations.
-- Native Nera command registry/dispatcher.
-- Clear, recalculate, copy/cut/paste, bold/italic, merge/unmerge, sort and row/column insert/delete commands.
-- Native clipboard package plus TSV/quoted-text interoperability fallback.
-- Relative/absolute A1 reference translation during paste.
+- Native clipboard package plus TSV interoperability and relative/absolute reference translation during paste.
 - One reusable in-cell editor per desktop host.
-- Per-worksheet freeze-pane state with native freeze/unfreeze commands.
-- Merge/freeze safety prevents a merge from crossing an active freeze boundary and prevents a freeze boundary from splitting a merge.
-- Structural operations map selection and freeze boundaries, restore exact snapshots on undo and roll back atomically if a later phase fails.
+- Per-worksheet freeze-pane state; merge/freeze boundaries cannot split a merged range.
 
-### Continuous viewport, freeze panes and cache
+### Continuous viewport, freeze and cache
 
-- Sparse row/column metric index.
-- Fractional pixel scrolling without row/column snapping.
+- Sparse row/column metric index and fractional pixel scrolling without row/column snapping.
 - Pixel hit testing, content extent and merged-anchor resolution.
-- Worksheet snapshot cache keyed by worksheet/dimension versions.
-- Bounded translated viewport tile cache using 256-pixel scroll tiles.
-- Freeze panes compose through four clipped regions: frozen corner, frozen rows, frozen columns and scrolling body.
-- Pane-aware freeze cache replays one cached tile-origin body with axis-specific translation.
-- Freeze separators are appended after cached replay so they never inherit tile translation.
+- Worksheet snapshot cache and bounded translated viewport tile cache.
+- Freeze panes compose through frozen corner, frozen rows, frozen columns and scrolling body.
+- Pane-aware freeze cache replays a shared tile origin with axis-specific translation.
 - Display-list nesting stores immutable child references rather than flatten-copying command arrays.
-- GDI+, WPF and Direct2D executors share clip/translation semantics and recursively traverse nested display lists.
-- Allocation regression tests and BenchmarkDotNet coverage exist for normal and frozen scrolling caches.
+- GDI+, WPF and Direct2D executors share clip/translation semantics.
+- Allocation regression tests and BenchmarkDotNet coverage exist for normal and frozen scrolling.
 
 ### Split-pane foundation
 
-- Platform-neutral split topology supports one pane, vertical split, horizontal split and four panes.
-- Split coordinates, separator thickness and minimum pane extent are validated/clamped.
-- Hit testing uses half-open bounds and distinguishes pane, vertical separator, horizontal separator and separator intersection.
-- Each pane owns an independent `ContinuousScrollController` with `double` X/Y offsets and pane-specific bounds.
-- Precision, wheel, touch and programmatic deltas can target one pane without changing the others.
-- Hidden panes retain their scroll state; topology restoration reuses and re-clamps that state.
-- Active pane falls back to `TopLeft` when a topology no longer contains the previous pane.
-- Pane-local hit testing resolves merged anchors.
-- Cell bounds are translated back into common body coordinates.
-- A shared split-aware chrome compositor renders headers and separator continuation through header bands.
-- Top-edge panes provide column headers; left-edge panes provide row headers.
-- Split chrome rejects missing, duplicate or mismatched pane metadata.
+- Platform-neutral one-pane, vertical, horizontal and four-pane topology.
+- Validated/clamped split coordinates, separator thickness and minimum pane extent.
+- Half-open pane/separator hit regions, including separator intersection.
+- Each pane owns an independent `ContinuousScrollController` with `double` X/Y offsets and bounds.
+- Precision, wheel, touch and programmatic input can target one pane without moving the others.
+- Hidden panes retain scroll state; an unavailable active pane falls back to `TopLeft`.
+- Pane-local hit testing resolves merged anchors and returns common body-coordinate cell bounds.
+- Shared split chrome renders headers, selection, separator continuation and active-pane state.
 
-### Per-worksheet split view state
+### Per-worksheet split state and structural mapping
 
-- `SpreadsheetSplitViewState` stores topology, split X/Y coordinates, active pane and all four pane scroll offsets.
-- State is owned by `SpreadsheetViewController` and stored independently for each worksheet.
-- Hidden-pane offsets remain stored while their topology is absent.
-- Source-tagged split change events prevent WinForms/WPF hosts from feeding their own state changes back recursively.
-- The outgoing worksheet state is captured before `ActiveWorksheet` changes, and the incoming worksheet state is restored afterward.
-- Disabling and re-enabling a public split overlay restores the worksheet's previous split state rather than replacing it with defaults.
-- Direct view changes are not yet standalone undo-history commands; structural operations do include split-state snapshots in their undo/redo transaction.
-
-### Structural mapping of split state
-
-- Row insertion/deletion maps every pane's Y offset using the exact pre-mutation row metrics.
-- Column insertion/deletion maps every pane's X offset using the exact pre-mutation column metrics.
-- Insertion shifts offsets at or beyond the inserted interval by the inserted physical extent.
-- Deletion collapses offsets inside the removed interval to its leading edge and subtracts the exact removed extent from later offsets.
-- The unaffected axis, split topology, split coordinates and active pane remain unchanged.
-- Structural undo/redo restores the exact prior/mapped split state.
-- Failed structural preflight or rollback leaves split state unchanged and does not enter undo history.
+- `SpreadsheetSplitViewState` stores topology, split X/Y, active pane and all four pane offsets per worksheet.
+- Hidden-pane offsets remain stored.
+- Source-tagged events prevent feedback loops between the shared view controller and desktop hosts.
+- The outgoing worksheet state is captured before activation changes; the incoming worksheet state is restored afterward.
+- Disabling/re-enabling a public split overlay restores the stored state.
+- Row structural edits map pane Y offsets from exact pre-mutation row metrics.
+- Column structural edits map pane X offsets from exact pre-mutation column metrics.
+- Delete collapses offsets inside the removed interval and subtracts its exact physical extent from later offsets.
+- Structural undo/redo restores exact pre/post split snapshots; failed operations leave split state unchanged and do not enter history.
+- Direct split-view changes are not standalone undo-history commands yet.
 
 ### Per-pane split scrollbars
 
-- `SpreadsheetSplitScrollBarGeometry` creates an optional horizontal and vertical scrollbar for each visible pane whose content exceeds that pane's viewport.
-- Track, thumb, maximum offset and proportional thumb size are computed from pane-local bounds, content extent and continuous `double` offsets.
-- Shared hit testing distinguishes thumb, track before thumb and track after thumb with configurable hit slop.
-- Thumb dragging maps pointer position back to a continuous pane offset; track clicks apply a configurable page factor.
+- `SpreadsheetSplitScrollBarGeometry` creates optional horizontal/vertical bars for every visible pane whose content exceeds its viewport.
+- Track, proportional thumb, maximum offset and hit geometry use pane-local bounds and continuous offsets.
+- Hit testing distinguishes thumb, track-before and track-after with configurable hit slop.
+- Thumb drag maps pointer position to a continuous offset; track clicks apply a configurable page factor.
 - A request targets exactly one pane and one axis while preserving the other axis and every other pane.
-- The active-pane thumb has a distinct style, and the shared display-list composer can render the same scrollbar semantics through all desktop backends.
-- Public optional WinForms and WPF controllers expose enable/disable, visibility, style, layout, count, hit testing and explicit refresh.
-- Scrollbar changes are committed to the per-worksheet `SpreadsheetSplitViewState`.
-- WinForms runtime smoke uses real Windows mouse messages; WPF runtime smoke uses native OS cursor and button input so routed hit testing, mouse capture and pointer state follow the production path.
-- WPF scrollbar layout is rebuilt from a freshly rendered split frame after topology, offset and host-size changes, and remains valid across DrawingContext and D3DImage rendering.
+- Shared styling covers track, normal thumb, active-pane thumb, border, thickness, margins and minimum lengths.
+- Public WinForms and WPF controllers expose enable/disable, visibility, style, layout, count, hit testing and refresh.
+- Scrollbar changes persist through `SpreadsheetSplitViewState`.
+- WinForms runtime smoke uses real Windows mouse messages.
+- WPF runtime smoke uses native OS cursor/button input so routed hit testing, mouse capture and pointer state follow the production path.
+- WPF rebuilds scrollbar layout from a freshly rendered split frame after topology, offset and host-size changes and keeps it valid across DrawingContext/D3DImage switches.
 
-### Split-aware dirty-region projection
+### Split-aware dirty regions
 
-- `SpreadsheetSplitViewportDirtyRegionExtensions` projects a changed cell range into every visible pane using that pane's local scroll and common body coordinates.
-- Changed ranges expand to include intersecting merged cells and split at freeze-row/freeze-column boundaries before projection.
-- Each projected rectangle is clipped to the correct frozen or scrolling subregion inside its pane.
-- Missing frame data or an unprojectable range requests conservative full invalidation instead of silently dropping a repaint.
-- WinForms GDI+ and Direct2D HWND invalidate projected rectangles; the `FlipDiscard` swap-chain backend intentionally falls back to a full frame.
-- WPF D3DImage presents multiple native dirty rectangles; DrawingContext intentionally falls back to full visual invalidation.
-- Runtime diagnostics retain partial/full invalidation counts and the most recent dirty-region set for verification.
+- `SpreadsheetSplitViewportDirtyRegionExtensions` projects a changed range into every visible pane.
+- Projection expands across intersecting merged cells and splits at freeze-row/freeze-column boundaries.
+- Each rectangle is clipped to the correct frozen or scrolling pane subregion.
+- Missing frame data or unsafe projection requests conservative full invalidation.
+- WinForms GDI+ and Direct2D HWND use partial invalidation; `FlipDiscard` intentionally falls back to a full frame.
+- WPF D3DImage presents multiple dirty rectangles; DrawingContext intentionally falls back to full visual invalidation.
+- Runtime diagnostics expose partial/full counts and the most recent region set.
 
-### Public WinForms split panes
+### Public WinForms split host
 
-- Split panes are enabled on an existing public `NeraSpreadsheetControl` through `EnableSplitPanes` and disabled through `DisableSplitPanes`.
-- Public controller exposes split mode/coordinates, active pane, per-pane scroll state, targeted scroll input, hit testing and diagnostics.
-- Existing single-pane control remains unchanged underneath; split mode uses a Nera-owned child surface that shares the same `SpreadsheetSession` and render contracts.
-- Vertical/horizontal separators can be dragged, including the four-pane intersection.
-- Mouse wheel and Shift+wheel target the pane under the pointer.
-- Body, row-header and column-header interaction activate and select through the correct pane.
-- One reusable editor is positioned/clipped inside the active split pane and its freeze subregion.
-- Split-aware row-height and column-width resize handles work through the public child surface.
-- Row resize handles are supplied by left-edge panes; column resize handles are supplied by top-edge panes.
-- Split separator hit regions take priority over dimension resize handles.
-- Live dimension dragging updates shared sparse worksheet metrics, so every pane reflects the new size immediately.
-- Optional per-pane scrollbars use a transparent Nera-owned overlay whose hit-test region contains only scrollbar tracks/thumbs.
-- GDI+, Direct2D HWND and D3D11/DXGI `FlipDiscard` paths render the same split display-list semantics.
-- `RenderNow` explicitly performs layout, creates the child handle and invokes the selected renderer; it does not depend on nondeterministic WM_PAINT scheduling.
-- Real STA WinForms smoke tests cover four-pane render, fractional per-pane scroll, all three backends, lifecycle, actual mouse-message header resizing, actual mouse-message scrollbar interaction and dirty-region fallback rules.
+- `EnableSplitPanes` / `DisableSplitPanes` operate on the existing public `NeraSpreadsheetControl`.
+- The Nera-owned child surface shares session, theme and rendering contracts while leaving the underlying single-pane control intact.
+- Public controller exposes topology, split coordinates, active pane, pane scroll, hit testing and GPU diagnostics.
+- Separator drag, wheel/Shift+wheel, body/header selection and one reusable editor route through the resolved pane.
+- Split-aware row-height/column-width resize handles update shared sparse dimensions live; separator hit regions take priority.
+- Optional scrollbar overlay exposes hit regions only around tracks/thumbs.
+- GDI+, Direct2D HWND and D3D11/DXGI `FlipDiscard` consume the same split semantics.
+- STA runtime smoke covers all three backends, lifecycle, real mouse-message resizing, real mouse-message scrollbar interaction and dirty-region fallback rules.
 
-### Public WPF split panes
+### Public WPF split host
 
-- Split panes are enabled/disabled on the existing public WPF `NeraSpreadsheetControl` through extension APIs matching the WinForms lifecycle.
-- A Nera-owned `Adorner` overlays the existing single-pane control; the host must provide an `AdornerLayer` (normally through `AdornerDecorator`).
-- Public controller exposes session/backend forwarding, split topology/coordinates, active pane, per-pane scroll, hit testing and GPU diagnostics.
-- The adorner routes wheel, Shift+wheel, body selection, whole-axis header selection, keyboard shortcuts and text editing through the active pane.
-- Vertical/horizontal split separators are draggable.
-- One reusable WPF `TextBox` editor is arranged and clipped within the active pane/freeze subregion.
-- Split-aware row-height and column-width resize geometry is shared with WinForms and updates the same sparse worksheet dimensions.
-- Optional per-pane scrollbars use a second Nera-owned adorner with public lifecycle APIs and pane-specific mouse capture.
-- DrawingContext and Nera-owned D3D11 shared-texture/D3DImage backends consume the same split display-list semantics.
-- Real STA WPF smoke tests cover four-pane rendering, DirectWrite cache reuse, lifecycle, host resize, header resizing, native OS-input scrollbar dragging, per-worksheet state persistence, D3DImage rendering and dirty-rectangle presentation.
+- Public split lifecycle mirrors WinForms through a Nera-owned `Adorner` under an `AdornerLayer`/`AdornerDecorator`.
+- Public controller forwards session, backend and theme and exposes split state, hit testing and GPU diagnostics.
+- Wheel, selection, keyboard/text editing, separator drag and shared header-resize geometry route through the active pane.
+- One reusable `TextBox` editor is arranged/clipped inside the active pane/freeze subregion.
+- Optional scrollbars use a second Nera-owned adorner with pane-specific mouse capture.
+- DrawingContext and Nera-owned D3D11 shared-texture/D3DImage paths consume the same split semantics.
+- STA runtime smoke covers render, DirectWrite cache reuse, load/unload, host resize, header resize, native OS-input scrollbar drag, persisted pane state, D3DImage render and dirty-rectangle presentation.
 
 ### Desktop rendering backends
 
-- WPF DrawingContext fallback.
-- WinForms GDI+ fallback.
+- WPF DrawingContext and WinForms GDI+ fallbacks.
 - Direct2D/DirectWrite HWND renderer.
-- D3D11 + DXGI two-buffer `FlipDiscard` swap-chain renderer with optional VSync.
-- Hardware adapter preference with hardware/default and Microsoft WARP fallback.
-- Nera-owned WPF D3D11 shared texture, D3D9Ex bridge and D3DImage lifecycle; no child-HWND airspace.
-- Shared Direct2D display-list executor, brush/text-format caches and bounded `IDWriteTextLayout` LRU.
+- D3D11/DXGI two-buffer `FlipDiscard` swap-chain renderer with optional VSync.
+- Hardware adapter preference with default hardware and WARP fallback.
+- Nera-owned WPF D3D11 shared texture, D3D9Ex bridge and D3DImage lifecycle without child-HWND airspace.
+- Shared Direct2D executor, brush/text-format caches and bounded `IDWriteTextLayout` LRU.
 - One-shot renderer/device recovery and frame-pacing diagnostics.
-- Runtime tests cover Direct2D HWND, DXGI swap chain, WPF shared texture, repeated unload/reload and text-layout reuse independently from split-control tests.
+- Runtime tests cover repeated WPF unload/reload and explicit second-frame text-layout reuse.
 
-### Spreadsheet headers and desktop interaction
+### XLSX and split view metadata
 
-- Shared row/column headers and top-left select-all corner.
-- Labels use A..Z, AA.. and one-based row numbers.
-- Freeze-aware header clips preserve fractional movement for scrolling headers and fixed geometry for frozen headers.
-- Active/whole-axis selections receive header highlighting.
-- Single-pane and split-pane WPF/WinForms paths support live row-height/column-width resizing.
-- Header drag reordering is not implemented.
-
-### XLSX adapter and split view metadata
-
-- Basic cell values and formulas/cached values.
-- Multiple worksheets.
-- Row heights, column widths and merged ranges.
+- Basic values, formulas/cached values, multiple sheets, row heights, column widths and merged ranges.
 - `NeraOpenXmlSpreadsheetSessionSerializer` round-trips per-worksheet split state.
-- Standard SpreadsheetML `SheetView/Pane` metadata is written for compatible split topology, coordinates, active pane and top-left-cell behavior.
-- A Nera custom XML part preserves the full four-pane scroll state that standard SpreadsheetML cannot represent exactly.
-- If native metadata is absent, compatible standard split-pane metadata is imported into a Nera split state.
-- A default unsplit session emits neither native split metadata nor a standard split pane.
-- Unknown-part preservation is explicitly unsupported rather than silently claimed.
+- Compatible topology, coordinates, active pane and top-left-cell behavior are written to standard SpreadsheetML `SheetView/Pane` metadata.
+- A Nera custom XML part preserves the four independent pane offsets that standard SpreadsheetML cannot represent exactly.
+- Compatible standard pane metadata is imported when native metadata is absent.
+- A default unsplit session emits neither native nor standard split metadata.
+- Unknown-part preservation remains explicitly unsupported.
 
 ### Samples
 
 - `samples/NeraSpreadSheet.Wpf.Sample`
 - `samples/NeraSpreadSheet.WinForms.Sample`
 
-The samples exercise formulas, style interning, merged cells, editing, XLSX open/save, backend switching, FPS diagnostics, freeze panes and structural commands. Public split and scrollbar controllers are runtime-tested; sample toolbar exposure for split modes and scrollbars is still planned.
+Both samples expose `Split V`, `Split H`, `Split 4` and `Clear Split`, display split/active-pane status and use the session XLSX serializer so split state survives Open/Save. Optional scrollbar enable/disable controls are not exposed in the sample toolbars yet.
 
 ## Implemented but intentionally basic
 
-- Number formatting uses the current .NET formatting bridge, not a complete Excel format-code engine.
+- Number formatting uses the current .NET bridge rather than a complete Excel format-code engine.
 - Sort is in-memory, rejects merged ranges and uses a materialization safety limit.
-- Full-row/full-column operations remain subject to existing materialization limits; sparse whole-axis style storage is not implemented.
-- Structural rewriting currently covers A1 cell/range syntax, not tables, structured references, shared formulas or dynamic arrays.
-- Direct split topology/scroll changes are view state, not standalone undo/redo commands.
-- Dirty-region projection currently targets cell/range changes. Structural, dimension, topology, theme and device-lifecycle changes remain conservative full invalidations.
-- `FlipDiscard` and WPF DrawingContext remain full-frame fallback paths; partial native presentation is implemented for the backends that can consume dirty regions safely.
-- Scrollbars are optional overlays rather than permanently reserving worksheet viewport space, and the samples do not expose their controls yet.
-- Runtime smoke validates initialization, render, resize, cache reuse, native pointer interaction and shutdown. Sustained FPS/input-latency/power behavior still requires target-hardware benchmarks.
+- Sparse whole-axis style storage is not implemented.
+- Structural rewriting covers A1 cell/range syntax, not tables, structured references, shared formulas or dynamic arrays.
+- Dirty projection targets cell/range content changes. Structural, metric, topology, theme and device-lifecycle changes remain conservative full invalidations.
+- `FlipDiscard` and WPF DrawingContext remain explicit full-frame fallback paths.
+- Scrollbars are optional overlays rather than permanently reserving worksheet viewport space.
+- Sustained FPS/input-latency/power behavior still requires target-hardware benchmarks.
 
 ## Next implementation work
 
-1. Expose split modes and optional per-pane scrollbars in both desktop samples.
+1. Expose optional per-pane scrollbar controls in both desktop samples and add sample-level interaction coverage.
 2. Add header drag reordering and sparse whole-axis style storage.
 3. Add standalone undo/redo commands for direct split-view changes.
 4. Add longer-running injected device-loss/front-buffer-loss stress coverage.
@@ -233,11 +175,11 @@ The samples exercise formulas, style interning, merged cells, editing, XLSX open
 - `NeraSpreadSheet.slnx` must restore/build on Windows and all tests must pass.
 - Architecture verification must remain green.
 - Windows runtime smoke is mandatory; compile-only GPU/split implementations are not accepted.
-- Public WinForms split smoke must render GDI+, Direct2D HWND and DXGI.
-- Public WPF split smoke must render DrawingContext and D3DImage and verify DirectWrite layout reuse.
-- Split-aware resize must have shared geometry tests plus public-host runtime smoke.
-- Per-pane scrollbars must have shared geometry/interaction tests and public WinForms/WPF native-input runtime smoke.
-- Dirty-region projection must have platform-neutral projection tests plus WinForms/WPF runtime tests that verify partial paths and explicit full-frame fallbacks.
+- Public WinForms split smoke must cover GDI+, Direct2D HWND and DXGI.
+- Public WPF split smoke must cover DrawingContext, D3DImage and DirectWrite reuse.
+- Split-aware resize requires shared geometry tests plus public-host runtime smoke.
+- Per-pane scrollbars require shared geometry/interaction tests plus public WinForms/WPF native-input runtime smoke.
+- Dirty-region projection requires platform-neutral projection tests plus runtime verification of partial paths and explicit full-frame fallbacks.
 - PR #1 remains Draft and must not merge while latest-head CI is red or unknown.
 
 ## Latest validated implementation milestone
@@ -247,12 +189,12 @@ CI run #291 passed at implementation commit `472b6f62ef5f9328cd2344bc70770049cbb
 - Core restore/build/tests and architecture verification passed on Ubuntu.
 - Full Windows restore/build/test passed with zero blocking diagnostics.
 - Mandatory Windows desktop GPU/runtime smoke passed.
-- Per-worksheet split persistence, structural mapping and XLSX split-state round-trip tests passed.
-- Shared split-header resize geometry and public WinForms/WPF resize smoke passed.
-- Shared per-pane scrollbar geometry and interaction tests passed.
+- Split persistence, structural mapping and XLSX split-state round-trip tests passed.
+- Shared split-header resize and public WinForms/WPF resize smoke passed.
+- Shared per-pane scrollbar geometry/interaction tests passed.
 - Public WinForms scrollbar smoke passed through real Windows mouse messages.
-- Public WPF scrollbar smoke passed through native OS cursor/button input, persisted the target pane offset and rendered through D3DImage.
-- WinForms and WPF split dirty-region runtime tests passed, including explicit full-frame fallback semantics.
+- Public WPF scrollbar smoke passed through native OS pointer input, persisted only the target pane and rendered through D3DImage.
+- WinForms/WPF dirty-region smoke passed, including explicit full-frame fallback semantics.
 - WPF shared-texture unload/reload recreated resources and verified text-layout reuse on an explicit second frame.
 
 ## Independence rule
