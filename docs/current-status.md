@@ -1,6 +1,6 @@
 # NeraSpreadSheet current implementation status
 
-This file is the handoff source of truth for the current development branch. It distinguishes executable behavior from planned architecture. A feature is only listed as implemented when source, tests and the applicable runtime gate exist.
+This file is the handoff source of truth for the current development branch. It distinguishes executable behavior from planned architecture. A feature is listed as implemented only when source, tests and the applicable runtime gate exist.
 
 ## Product rules
 
@@ -55,7 +55,7 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 
 - Sparse row/column metric index.
 - Fractional pixel scrolling without row/column snapping.
-- Pixel hit-testing, content extent and merged-anchor resolution.
+- Pixel hit testing, content extent and merged-anchor resolution.
 - Worksheet snapshot cache keyed by worksheet/dimension versions.
 - Bounded translated viewport tile cache using 256-pixel scroll tiles.
 - Freeze panes compose through four clipped regions: frozen corner, frozen rows, frozen columns and scrolling body.
@@ -80,6 +80,26 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 - Top-edge panes provide column headers; left-edge panes provide row headers.
 - Split chrome rejects missing, duplicate or mismatched pane metadata.
 
+### Per-worksheet split view state
+
+- `SpreadsheetSplitViewState` stores topology, split X/Y coordinates, active pane and all four pane scroll offsets.
+- State is owned by `SpreadsheetViewController` and stored independently for each worksheet.
+- Hidden-pane offsets remain stored while their topology is absent.
+- Source-tagged split change events prevent WinForms/WPF hosts from feeding their own state changes back recursively.
+- The outgoing worksheet state is captured before `ActiveWorksheet` changes, and the incoming worksheet state is restored afterward.
+- Disabling and re-enabling a public split overlay restores the worksheet's previous split state rather than replacing it with defaults.
+- Direct view changes are not yet standalone undo-history commands; structural operations do include split-state snapshots in their undo/redo transaction.
+
+### Structural mapping of split state
+
+- Row insertion/deletion maps every pane's Y offset using the exact pre-mutation row metrics.
+- Column insertion/deletion maps every pane's X offset using the exact pre-mutation column metrics.
+- Insertion shifts offsets at or beyond the inserted interval by the inserted physical extent.
+- Deletion collapses offsets inside the removed interval to its leading edge and subtracts the exact removed extent from later offsets.
+- The unaffected axis, split topology, split coordinates and active pane remain unchanged.
+- Structural undo/redo restores the exact prior/mapped split state.
+- Failed structural preflight or rollback leaves split state unchanged and does not enter undo history.
+
 ### Public WinForms split panes
 
 - Split panes are enabled on an existing public `NeraSpreadsheetControl` through `EnableSplitPanes` and disabled through `DisableSplitPanes`.
@@ -89,9 +109,13 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 - Mouse wheel and Shift+wheel target the pane under the pointer.
 - Body, row-header and column-header interaction activate and select through the correct pane.
 - One reusable editor is positioned/clipped inside the active split pane and its freeze subregion.
+- Split-aware row-height and column-width resize handles work through the public child surface.
+- Row resize handles are supplied by left-edge panes; column resize handles are supplied by top-edge panes.
+- Split separator hit regions take priority over dimension resize handles.
+- Live dimension dragging updates shared sparse worksheet metrics, so every pane reflects the new size immediately.
 - GDI+, Direct2D HWND and D3D11/DXGI `FlipDiscard` paths render the same split display list.
 - `RenderNow` explicitly performs layout, creates the child handle and invokes the selected renderer; it does not depend on nondeterministic WM_PAINT scheduling.
-- A real off-screen STA WinForms runtime smoke creates the public control, enables four panes, applies fractional per-pane scroll, renders all three backends, resizes, hit-tests and shuts down cleanly.
+- Real off-screen STA WinForms smoke tests cover four-pane render, fractional per-pane scroll, all three backends, hit testing, lifecycle and actual mouse-message row/column resizing.
 
 ### Public WPF split panes
 
@@ -101,8 +125,9 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 - The adorner routes wheel, Shift+wheel, body selection, whole-axis header selection, keyboard shortcuts and text editing through the active pane.
 - Vertical/horizontal split separators are draggable.
 - One reusable WPF `TextBox` editor is arranged and clipped within the active pane/freeze subregion.
+- Split-aware row-height and column-width resize geometry is shared with WinForms and updates the same sparse worksheet dimensions.
 - DrawingContext and Nera-owned D3D11 shared-texture/D3DImage backends consume the same split display list.
-- A real off-screen STA WPF runtime smoke hosts the public control inside an `AdornerDecorator`, renders four panes in both backends, verifies DirectWrite layout reuse, resizes, hit-tests and closes cleanly.
+- Real off-screen STA WPF smoke tests cover four-pane render in both backends, DirectWrite layout reuse, hit testing, lifecycle, host resize application and post-resize D3DImage rendering.
 
 ### Desktop rendering backends
 
@@ -114,7 +139,7 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 - Nera-owned WPF D3D11 shared texture, D3D9Ex bridge and D3DImage lifecycle; no child-HWND airspace.
 - Shared Direct2D display-list executor, brush/text-format caches and bounded `IDWriteTextLayout` LRU.
 - One-shot renderer/device recovery and frame-pacing diagnostics.
-- Existing Windows runtime tests cover Direct2D HWND, DXGI swap chain and the public WPF shared-texture control independently from the split-control tests.
+- Existing Windows runtime tests cover Direct2D HWND, DXGI swap chain and the public WPF shared-texture control independently from split-control tests.
 
 ### Spreadsheet headers and desktop interaction
 
@@ -122,14 +147,19 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 - Labels use A..Z, AA.. and one-based row numbers.
 - Freeze-aware header clips preserve fractional movement for scrolling headers and fixed geometry for frozen headers.
 - Active/whole-axis selections receive header highlighting.
-- Single-pane WPF and WinForms controls support live row-height/column-width drag resizing.
-- Split-pane public controls currently support header selection; split-aware dimension resize handles remain a separate follow-up.
+- Single-pane and split-pane WPF/WinForms paths support live row-height/column-width resizing.
+- Header drag reordering is not implemented.
 
-### XLSX adapter
+### XLSX adapter and split view metadata
 
 - Basic cell values and formulas/cached values.
 - Multiple worksheets.
 - Row heights, column widths and merged ranges.
+- `NeraOpenXmlSpreadsheetSessionSerializer` round-trips per-worksheet split state.
+- Standard SpreadsheetML `SheetView/Pane` metadata is written for compatible split topology, coordinates, active pane and top-left-cell behavior.
+- A Nera custom XML part preserves the full four-pane scroll state that standard SpreadsheetML cannot represent exactly.
+- If native metadata is absent, compatible standard split-pane metadata is imported into a Nera split state.
+- A default unsplit session emits neither native split metadata nor a standard split pane.
 - Unknown-part preservation is explicitly unsupported rather than silently claimed.
 
 ### Samples
@@ -145,25 +175,25 @@ The samples exercise formulas, style interning, merged cells, editing, XLSX open
 - Sort is in-memory, rejects merged ranges and uses a materialization safety limit.
 - Full-row/full-column operations remain subject to existing materialization limits; sparse whole-axis style storage is not implemented.
 - Structural rewriting currently covers A1 cell/range syntax, not tables, structured references, shared formulas or dynamic arrays.
-- Split panes currently invalidate/recompose at control level after workbook/dimension changes; split-aware dirty-region optimization is not yet implemented.
-- Split state and pane scroll offsets live in the public split controller, not yet in worksheet/view persistence or undo history.
-- Per-pane scrollbars are not implemented; wheel/precision/programmatic scrolling is implemented.
-- Split-aware row/column resize handles are not implemented; separator dragging and header selection are implemented.
+- Public split hosts conservatively invalidate/recompose the overlay after workbook/dimension changes; split-aware dirty-region optimization is not implemented.
+- Direct split topology/scroll changes are view state, not standalone undo/redo commands.
+- Per-pane scrollbars are not implemented; wheel, precision and programmatic scrolling are implemented.
 - Runtime smoke validates initialization, render, resize, cache reuse and shutdown. Sustained FPS/input-latency/power behavior still requires target-hardware benchmarks.
 
 ## Next implementation work
 
-1. Persist split topology, coordinates, active pane and pane scroll snapshots per worksheet.
-2. Define undo/redo and structural row/column mapping semantics for persisted split state.
-3. Add split-aware row/column resize handles and dirty-region invalidation.
-4. Add optional per-pane scrollbars and expose split controls in both desktop samples.
-5. Add longer-running injected device-loss/front-buffer-loss stress coverage.
-6. Implement Skia GPU surface plus MAUI native handler/touch interaction.
+1. Add split-aware dirty-region projection and partial invalidation for cell/range changes.
+2. Add optional per-pane scrollbars and expose split controls in both desktop samples.
+3. Add header drag reordering and sparse whole-axis style storage.
+4. Add longer-running injected device-loss/front-buffer-loss stress coverage.
+5. Implement Skia GPU surface plus MAUI native handler/touch interaction.
+6. Expand XLSX styles, shared formulas, conditional formatting, validation, tables, drawings and unknown-part preservation.
 
 ## Not implemented yet
 
-- Split-state workbook/XLSX persistence, undo/redo and structural mapping.
-- Per-pane scrollbars and split-aware header resizing/reordering.
+- Split-aware dirty-region optimization.
+- Per-pane scrollbars and header drag reordering.
+- Standalone undo/redo commands for direct split-view changes.
 - Sparse whole-axis styles.
 - Full XLSX styles, shared formulas, conditional formatting, validation, tables, drawings, charts, macros and unknown-part preservation.
 - Complete Excel-compatible function surface and dynamic arrays.
@@ -180,18 +210,20 @@ The samples exercise formulas, style interning, merged cells, editing, XLSX open
 - Windows runtime smoke is mandatory; compile-only GPU/split implementations are not accepted.
 - Public WinForms split smoke must render GDI+, Direct2D HWND and DXGI.
 - Public WPF split smoke must render DrawingContext and D3DImage and verify DirectWrite layout reuse.
+- Split-aware resize must have shared geometry tests plus public-host runtime smoke.
 - PR #1 remains Draft and must not merge while latest-head CI is red or unknown.
 
 ## Latest validated implementation milestone
 
-CI run #196 passed at implementation commit `2be6a45451628f600fe1647e2bc47b9e55901f99`:
+CI run #230 passed at implementation commit `0862a9c297f0024c40563cd0f3ae40b2f5c32d9c`:
 
 - Core restore/build/tests and architecture verification passed on Ubuntu.
-- Full Windows restore/build/test passed with zero blocking diagnostics.
+- Full Windows restore/build/test passed.
 - Mandatory Windows desktop GPU runtime smoke passed.
-- Existing Direct2D HWND, DXGI and WPF shared-texture tests passed.
-- Public WinForms split smoke passed across GDI+, Direct2D HWND and DXGI.
-- Public WPF split smoke passed across DrawingContext and D3DImage, including DirectWrite cache reuse, resize, hit test and clean shutdown.
+- Per-worksheet split persistence, structural mapping and XLSX split-state round-trip tests passed.
+- Shared split-header resize geometry tests passed.
+- Public WinForms split resize smoke changed real row/column dimensions through mouse messages.
+- Public WPF split resize smoke changed dimensions and rendered the resized result through D3DImage.
 
 ## Independence rule
 
