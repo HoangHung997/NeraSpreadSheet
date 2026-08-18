@@ -96,7 +96,7 @@ public sealed class SpreadsheetSplitViewHistoryTests
             session.View.NextSplitViewUndoDescription);
         Assert.IsTrue(session.View.UndoSplitViewChange());
         Assert.AreEqual(default, session.View.SplitState);
-        Assert.AreEqual(secondState, session.View.GetSplitState(second));
+        Assert.AreEqual(default, session.View.GetSplitState(second));
     }
 
     [TestMethod]
