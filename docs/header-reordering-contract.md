@@ -1,6 +1,6 @@
 # Header reordering contract
 
-This document locks the first native NeraSpreadSheet row/column reorder semantics. The operation is a fixed-length permutation, not an insert/delete pair and not a clipboard move.
+This document locks NeraSpreadSheet row/column reorder semantics. The operation is a fixed-length permutation, not an insert/delete pair and not a clipboard move.
 
 ## 1. Request model
 
@@ -84,10 +84,11 @@ Any failure after mutation begins restores captured state. A failed operation ne
 
 ## 8. Shared header drag geometry
 
-`SpreadsheetSplitHeaderReorderGeometry` owns source/drop/threshold behavior.
+`SpreadsheetSplitHeaderReorderGeometry` owns source/drop/threshold behavior for both split and unsplit hosts.
 
-- Left-edge panes supply row headers.
-- Top-edge panes supply column headers.
+- Left-edge split panes supply row headers.
+- Top-edge split panes supply column headers.
+- An unsplit host supplies one synthetic `TopLeft` pane covering its body viewport.
 - Resize tolerance excludes edge hits from reorder.
 - Pane scrollbars and split separators have higher priority.
 - Drag activates only after a shared Euclidean threshold.
@@ -99,13 +100,15 @@ Any failure after mutation begins restores captured state. A failed operation ne
 
 ## 9. Desktop input priority
 
+For split hosts:
+
 1. pane scrollbar;
 2. split separator;
 3. dimension resize;
 4. header reorder;
 5. ordinary header selection.
 
-A candidate does not capture immediately. Capture starts only after threshold crossing.
+For unsplit hosts, dimension resize remains ahead of reorder. A candidate does not capture immediately; capture starts only after threshold crossing.
 
 ## 10. WinForms split host
 
@@ -119,18 +122,50 @@ A candidate does not capture immediately. Capture starts only after threshold cr
 ## 11. WPF split host
 
 - Starts candidates from preview routed input before ordinary header selection completes.
-- Uses the same threshold/drop geometry and one lightweight `DrawingVisual` preview above DrawingContext/D3DImage content.
+- Uses one lightweight `DrawingVisual` preview above DrawingContext/D3DImage content.
 - Attempts mouse capture only while the physical left button is pressed.
 - A valid transaction is retained if capture is unavailable; ordinary routed moves/releases can still finish while the pointer remains in the host.
 - Lost capture while the button is still pressed cancels safely; release-time capture loss is not mistaken for a stolen drag.
 - Commits via `SpreadsheetSession.Reorder` on release.
 
-The hosted Windows runner cannot reliably inject global WPF pointer state. Therefore the stable CI gate opens a real WPF `Window` with the public control/controller, then invokes the same production drag state machine deterministically. It verifies source acquisition, threshold activation, preview creation/removal, mapped selection, commit, undo and post-move D3DImage presentation. Production routed handlers remain the caller of that same state machine.
+The hosted Windows runner cannot reliably inject global WPF pointer state. Stable CI opens a real WPF `Window` with the public control/controller and drives the production state machine deterministically. Production routed handlers remain the caller of that state machine.
 
-## 12. Conservative exclusions
+## 12. WinForms unsplit host
 
-- unsplit public-control drag integration;
-- automatic edge scrolling during drag;
+The optional public controller is enabled through `EnableHeaderReordering` and removed through `DisableHeaderReordering`.
+
+- It subscribes to the existing public control input events without creating another workbook/viewport model.
+- It composes a one-pane layout from the current session and continuous scroll state.
+- It uses one hit-transparent preview child, not one control per cell.
+- It never starts while a split controller owns the control surface.
+- It commits through the same `SpreadsheetSession.Reorder` transaction and preserves selection/formula/undo behavior.
+
+## 13. WPF unsplit host
+
+The optional public controller mirrors the WinForms lifecycle.
+
+- It uses preview routed input and a lightweight preview adorner.
+- The preview attaches when an `AdornerLayer` is available; the model operation itself remains independent of visual attachment.
+- It never starts while a split controller owns the public control.
+- Completion, cancellation, unload and disposal detach preview, capture and frame subscriptions.
+- Post-move runtime coverage requires successful rendering through the existing D3DImage path.
+
+## 14. Drag-edge auto-scroll
+
+`SpreadsheetHeaderReorderAutoScroll` is the shared velocity contract.
+
+- It calculates velocity only on the moved axis.
+- Velocity is zero outside the configured activation zone.
+- Velocity increases quadratically toward the edge and is clamped to a maximum when the pointer leaves the viewport.
+- Elapsed time converts velocity to a fractional pixel delta; no row/column snapping is allowed.
+- Unsplit hosts use their complete body viewport.
+- Split hosts use the current source/target pane bounds and scroll exactly one pane.
+- Every scroll step recomposes visible slots and recalculates the drop boundary at the stationary pointer coordinate.
+- WinForms uses a drag-owned timer; WPF uses `CompositionTarget.Rendering`.
+- Completion, cancellation, unload and disposal must stop the timer/render subscription.
+
+## 15. Conservative exclusions
+
 - union-expression generation for discontiguous formula ranges;
 - special visible-only behavior for filtered/hidden/outlined axes;
 - structured/table/shared/dynamic-array reference rewriting;
@@ -138,7 +173,7 @@ The hosted Windows runner cannot reliably inject global WPF pointer state. There
 
 Programmatic reorder through `SpreadsheetSession.Reorder` is host-independent.
 
-## 13. Required gates
+## 16. Required gates
 
 - permutation/index/interval mapping tests;
 - sparse cell/dimension and merge mutation tests;
@@ -146,8 +181,11 @@ Programmatic reorder through `SpreadsheetSession.Reorder` is host-independent.
 - atomic discontiguous-range and merged/freeze rejection tests;
 - selection, split-offset, rollback, undo/redo and recalculation tests;
 - shared source/drop/threshold/preview geometry tests;
-- WinForms real-message row drag runtime smoke;
-- WinForms real-message column drag runtime smoke;
-- WPF loaded-window production state-machine and post-move D3DImage smoke;
+- WinForms real-message split row and column drag runtime smoke;
+- WPF loaded-window split state-machine and post-move D3DImage smoke;
+- public unsplit WinForms/WPF controller lifecycle, preview, commit and undo smoke;
+- platform-neutral auto-scroll velocity/boundary tests;
+- unsplit WinForms/WPF edge auto-scroll runtime smoke;
+- split WinForms/WPF targeted-pane auto-scroll runtime smoke;
 - full Windows build/tests/GPU runtime gate;
 - cross-platform Core build/tests and architecture verification.
