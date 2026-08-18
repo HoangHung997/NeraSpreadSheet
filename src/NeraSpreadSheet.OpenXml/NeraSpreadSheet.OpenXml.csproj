@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../NeraSpreadSheet.Core/NeraSpreadSheet.Core.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Editing/NeraSpreadSheet.Editing.csproj" />
     <PackageReference Include="DocumentFormat.OpenXml" />
   </ItemGroup>
 </Project>
