@@ -59,7 +59,7 @@ public sealed class NeraSpreadsheetSplitScrollBarController : IDisposable
         set
         {
             _style = value ?? throw new ArgumentNullException(nameof(value));
-            GetAdorner().Style = value;
+            GetAdorner().ScrollBarStyle = value;
         }
     }
 
@@ -280,7 +280,7 @@ internal sealed class NeraSpreadsheetSplitScrollBarAdorner : Adorner, IDisposabl
         _split.PaneScrollChanged += OnPaneScrollChanged;
     }
 
-    internal SpreadsheetSplitScrollBarStyle Style
+    internal SpreadsheetSplitScrollBarStyle ScrollBarStyle
     {
         get => _style;
         set
