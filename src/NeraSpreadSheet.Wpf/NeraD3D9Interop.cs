@@ -30,7 +30,8 @@ internal static class NeraD3D9DeviceService
             lock (SyncRoot)
             {
                 return _device
-                    ?? throw new InvalidOperationException("The shared Direct3D9Ex device is not initialized.");
+                    ?? throw new InvalidOperationException(
+                        "The shared Direct3D9Ex device is not initialized.");
             }
         }
     }
@@ -163,19 +164,25 @@ internal sealed class NeraD3D11ImageSource : D3DImage, IDisposable
         }
         if (!renderTarget.IsShareable())
         {
-            throw new ArgumentException("Texture must be created with ResourceOptionFlags.Shared.", nameof(renderTarget));
+            throw new ArgumentException(
+                "Texture must be created with ResourceOptionFlags.Shared.",
+                nameof(renderTarget));
         }
 
         var format = renderTarget.GetD3D9Format();
         if (format == D3D9Format.Unknown)
         {
-            throw new ArgumentException("Texture format is not compatible with the WPF D3D9 bridge.", nameof(renderTarget));
+            throw new ArgumentException(
+                "Texture format is not compatible with the WPF D3D9 bridge.",
+                nameof(renderTarget));
         }
 
         var handle = renderTarget.GetSharedHandle();
         if (handle == IntPtr.Zero)
         {
-            throw new ArgumentException("The shared texture handle could not be retrieved.", nameof(renderTarget));
+            throw new ArgumentException(
+                "The shared texture handle could not be retrieved.",
+                nameof(renderTarget));
         }
 
         _renderTarget = NeraD3D9DeviceService.Device.CreateTexture(
@@ -190,7 +197,9 @@ internal sealed class NeraD3D11ImageSource : D3DImage, IDisposable
         Lock();
         try
         {
-            SetBackBuffer(D3DResourceType.IDirect3DSurface9, surface.NativePointer);
+            SetBackBuffer(
+                D3DResourceType.IDirect3DSurface9,
+                surface.NativePointer);
         }
         finally
         {
@@ -198,23 +207,51 @@ internal sealed class NeraD3D11ImageSource : D3DImage, IDisposable
         }
     }
 
-    public void InvalidateImage()
+    public Int32Rect? InvalidateImage(Int32Rect? dirtyRectangle = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_renderTarget is null || !IsFrontBufferAvailable)
+        if (_renderTarget is null ||
+            !IsFrontBufferAvailable ||
+            PixelWidth <= 0 ||
+            PixelHeight <= 0)
         {
-            return;
+            return null;
+        }
+
+        var clipped = ClipToPixelBounds(
+            dirtyRectangle ?? new Int32Rect(0, 0, PixelWidth, PixelHeight));
+        if (clipped.IsEmpty)
+        {
+            return null;
         }
 
         Lock();
         try
         {
-            AddDirtyRect(new Int32Rect(0, 0, PixelWidth, PixelHeight));
+            AddDirtyRect(clipped);
         }
         finally
         {
             Unlock();
         }
+        return clipped;
+    }
+
+    private Int32Rect ClipToPixelBounds(Int32Rect rectangle)
+    {
+        var left = Math.Clamp(rectangle.X, 0, PixelWidth);
+        var top = Math.Clamp(rectangle.Y, 0, PixelHeight);
+        var right = Math.Clamp(
+            rectangle.X + Math.Max(0, rectangle.Width),
+            0,
+            PixelWidth);
+        var bottom = Math.Clamp(
+            rectangle.Y + Math.Max(0, rectangle.Height),
+            0,
+            PixelHeight);
+        return right <= left || bottom <= top
+            ? Int32Rect.Empty
+            : new Int32Rect(left, top, right - left, bottom - top);
     }
 
     private void ClearRenderTarget()
