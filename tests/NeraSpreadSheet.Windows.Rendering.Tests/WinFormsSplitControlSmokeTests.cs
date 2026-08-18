@@ -39,6 +39,7 @@ public sealed class WinFormsSplitControlSmokeTests
                 43.75d,
                 61.5d);
             RenderAndAssertSplitFrame(split);
+            AssertPerWorksheetStateRestoration(control, split);
 
             foreach (var backend in Enum.GetValues<WinFormsRenderingBackend>())
             {
@@ -74,6 +75,56 @@ public sealed class WinFormsSplitControlSmokeTests
         });
     }
 
+    private static void AssertPerWorksheetStateRestoration(
+        NeraSpreadsheetControl control,
+        NeraSpreadsheetSplitController split)
+    {
+        var session = control.Session;
+        Assert.IsNotNull(session);
+        var first = session.ActiveWorksheet;
+        var second = session.Workbook.Worksheets[1];
+
+        split.SetActivePane(SpreadsheetPaneId.BottomRight);
+        split.RenderNow();
+        Assert.AreEqual(SpreadsheetSplitViewMode.Both, session.View.SplitState.Mode);
+        Assert.AreEqual(SpreadsheetSplitViewPane.BottomRight, session.View.SplitState.ActivePane);
+        Assert.AreEqual(280.5d, session.View.SplitState.SplitX);
+        Assert.AreEqual(170.25d, session.View.SplitState.SplitY);
+        Assert.AreEqual(
+            new SpreadsheetPaneScrollOffset(43.75d, 61.5d),
+            session.View.SplitState.BottomRightScroll);
+
+        session.ActivateWorksheet(second);
+        WinFormsApplication.DoEvents();
+        split.RenderNow();
+        Assert.AreEqual(SpreadsheetSplitPaneMode.None, split.Mode);
+        Assert.AreEqual(1, split.LastFrame?.Panes.Count);
+        Assert.AreEqual(default, session.View.SplitState);
+
+        split.SetSplit(null, 190.75d);
+        split.SetActivePane(SpreadsheetPaneId.BottomLeft);
+        split.ScrollPaneTo(SpreadsheetPaneId.BottomLeft, 18.5d, 92.25d);
+        split.RenderNow();
+        Assert.AreEqual(SpreadsheetSplitViewMode.Horizontal, session.View.SplitState.Mode);
+        Assert.AreEqual(SpreadsheetSplitViewPane.BottomLeft, session.View.SplitState.ActivePane);
+        Assert.AreEqual(
+            new SpreadsheetPaneScrollOffset(18.5d, 92.25d),
+            session.View.SplitState.BottomLeftScroll);
+
+        session.ActivateWorksheet(first);
+        WinFormsApplication.DoEvents();
+        split.RenderNow();
+        Assert.AreEqual(SpreadsheetSplitPaneMode.Both, split.Mode);
+        Assert.AreEqual(SpreadsheetPaneId.BottomRight, split.ActivePane);
+        Assert.AreEqual(280.5d, split.SplitX);
+        Assert.AreEqual(170.25d, split.SplitY);
+        var restored = split.GetPaneScroll(SpreadsheetPaneId.BottomRight);
+        Assert.AreEqual(43.75d, restored.X, 0.001d);
+        Assert.AreEqual(61.5d, restored.Y, 0.001d);
+
+        split.SetActivePane(SpreadsheetPaneId.TopLeft);
+    }
+
     private static NeraSpreadsheetControl CreateSpreadsheetControl()
     {
         var workbook = new Workbook();
@@ -81,6 +132,9 @@ public sealed class WinFormsSplitControlSmokeTests
         sheet.SetValue(new CellAddress(0, 0), "Nera split runtime smoke");
         sheet.SetValue(new CellAddress(40, 12), 42d);
         sheet.SetFormula(new CellAddress(41, 12), "=M41*2");
+        var second = workbook.AddWorksheet("Second");
+        second.SetValue(default, "Second worksheet split state");
+        second.SetValue(new CellAddress(50, 10), 84d);
         var session = new SpreadsheetSession(workbook);
         session.Recalculate();
 
