@@ -119,21 +119,31 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
     public Direct2DSwapChainRendererDiagnostics? SwapChainDiagnostics =>
         GetSurface().SwapChainDiagnostics;
 
+    public bool CanUndoViewChange => GetSurface().CanUndoSplitViewChange;
+
+    public bool CanRedoViewChange => GetSurface().CanRedoSplitViewChange;
+
+    public string? NextViewUndoDescription =>
+        GetSurface().NextSplitViewUndoDescription;
+
+    public string? NextViewRedoDescription =>
+        GetSurface().NextSplitViewRedoDescription;
+
     public event EventHandler<SpreadsheetSplitChangedEventArgs>? SplitChanged;
 
     public event EventHandler<SpreadsheetPaneScrollChangedEventArgs>?
         PaneScrollChanged;
 
     public void SetMode(SpreadsheetSplitPaneMode mode) =>
-        GetSurface().SetMode(mode);
+        GetSurface().SetModeWithHistory(mode);
 
     public void SetSplit(double? splitX, double? splitY) =>
-        GetSurface().SetSplit(splitX, splitY);
+        GetSurface().SetSplitWithHistory(splitX, splitY);
 
     public void ClearSplit() => SetMode(SpreadsheetSplitPaneMode.None);
 
     public void SetActivePane(SpreadsheetPaneId paneId) =>
-        GetSurface().SetActivePane(paneId);
+        GetSurface().SetActivePaneWithHistory(paneId);
 
     public PointD GetPaneScroll(SpreadsheetPaneId paneId) =>
         GetSurface().GetPaneScroll(paneId);
@@ -146,15 +156,23 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         double offsetX,
         double offsetY,
         bool animated = false) =>
-        GetSurface().ScrollPaneTo(paneId, offsetX, offsetY, animated);
+        GetSurface().ScrollPaneToWithHistory(
+            paneId,
+            offsetX,
+            offsetY,
+            animated);
 
     public void QueuePaneScroll(
         SpreadsheetPaneId paneId,
         ScrollDelta delta) =>
-        GetSurface().QueuePaneScroll(paneId, delta);
+        GetSurface().QueuePaneScrollWithHistory(paneId, delta);
 
     public void QueueActivePaneScroll(ScrollDelta delta) =>
-        GetSurface().QueueActivePaneScroll(delta);
+        GetSurface().QueueActivePaneScrollWithHistory(delta);
+
+    public bool UndoViewChange() => GetSurface().UndoSplitViewChange();
+
+    public bool RedoViewChange() => GetSurface().RedoSplitViewChange();
 
     public bool TryHitTest(
         double clientX,
@@ -171,6 +189,17 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
 
     public void Focus() => GetSurface().Focus();
 
+    internal bool BeginViewHistory(
+        string description,
+        SpreadsheetSplitViewChangeKind changeKind) =>
+        GetSurface().BeginSplitViewHistory(description, changeKind);
+
+    internal bool CommitViewHistory() =>
+        GetSurface().CommitSplitViewHistory();
+
+    internal bool CancelViewHistory(bool restoreBeforeState = true) =>
+        GetSurface().CancelSplitViewHistory(restoreBeforeState);
+
     public void Dispose()
     {
         var owner = _owner;
@@ -180,6 +209,7 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
             return;
         }
 
+        surface.CancelSplitViewHistory(restoreBeforeState: true);
         _owner = null;
         _surface = null;
         surface.SplitChanged -= OnSurfaceSplitChanged;
