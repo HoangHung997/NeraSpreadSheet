@@ -14,6 +14,7 @@ public partial class MainWindow : Window
 {
     private readonly NeraOpenXmlSpreadsheetSessionSerializer _serializer = new();
     private readonly DispatcherTimer _diagnosticsTimer;
+    private NeraSpreadsheetSplitController? _splitController;
 
     public MainWindow()
     {
@@ -42,9 +43,12 @@ public partial class MainWindow : Window
         }
 
         await using var stream = File.OpenRead(dialog.FileName);
-        Spreadsheet.Session = await _serializer.LoadSessionAsync(
+        var session = await _serializer.LoadSessionAsync(
             stream,
             new OpenXmlImportOptions());
+        Spreadsheet.Session = session;
+        ApplyLoadedSplitState(session);
+        UpdateDiagnostics();
     }
 
     private async void SaveClick(object sender, RoutedEventArgs e)
@@ -99,6 +103,53 @@ public partial class MainWindow : Window
     {
         Spreadsheet.Session?.View.Unfreeze();
         UpdateDiagnostics();
+    }
+
+    private void SplitVerticalClick(object sender, RoutedEventArgs e) =>
+        SetSplitMode(SpreadsheetSplitPaneMode.Vertical);
+
+    private void SplitHorizontalClick(object sender, RoutedEventArgs e) =>
+        SetSplitMode(SpreadsheetSplitPaneMode.Horizontal);
+
+    private void SplitBothClick(object sender, RoutedEventArgs e) =>
+        SetSplitMode(SpreadsheetSplitPaneMode.Both);
+
+    private void ClearSplitClick(object sender, RoutedEventArgs e)
+    {
+        if (_splitController is { IsDisposed: false })
+        {
+            _splitController.ClearSplit();
+        }
+        else
+        {
+            Spreadsheet.Session?.View.ClearSplitState();
+        }
+        UpdateDiagnostics();
+    }
+
+    private void SetSplitMode(SpreadsheetSplitPaneMode mode)
+    {
+        _splitController = Spreadsheet.EnableSplitPanes(mode);
+        _splitController.SetMode(mode);
+        UpdateDiagnostics();
+    }
+
+    private void ApplyLoadedSplitState(SpreadsheetSession session)
+    {
+        var mode = session.View.SplitState.Mode switch
+        {
+            SpreadsheetSplitViewMode.Vertical => SpreadsheetSplitPaneMode.Vertical,
+            SpreadsheetSplitViewMode.Horizontal => SpreadsheetSplitPaneMode.Horizontal,
+            SpreadsheetSplitViewMode.Both => SpreadsheetSplitPaneMode.Both,
+            _ => SpreadsheetSplitPaneMode.None,
+        };
+        if (mode == SpreadsheetSplitPaneMode.None)
+        {
+            _splitController?.ClearSplit();
+            return;
+        }
+        _splitController = Spreadsheet.EnableSplitPanes(mode);
+        _splitController.SetMode(mode);
     }
 
     private async void InsertRowsClick(object sender, RoutedEventArgs e) =>
@@ -163,17 +214,20 @@ public partial class MainWindow : Window
         var freeze = view is { HasFrozenPanes: true }
             ? $" · freeze {view.FrozenRows}r/{view.FrozenColumns}c"
             : string.Empty;
+        var split = _splitController is { IsDisposed: false, Mode: not SpreadsheetSplitPaneMode.None }
+            ? $" · split {_splitController.Mode}/{_splitController.ActivePane}"
+            : string.Empty;
         if (Spreadsheet.GpuDiagnostics is { } gpu)
         {
             PerfText.Text = string.Create(
                 System.Globalization.CultureInfo.InvariantCulture,
-                $"{pacing.FramesPerSecond:F1} FPS · p95 {pacing.P95FrameIntervalMilliseconds:F2} ms · GPU {gpu.TextureWidth}×{gpu.TextureHeight} · layouts {gpu.CachedTextLayouts} · hit {gpu.TextLayoutCacheHits}/{gpu.TextLayoutCacheMisses}{freeze}");
+                $"{pacing.FramesPerSecond:F1} FPS · p95 {pacing.P95FrameIntervalMilliseconds:F2} ms · GPU {gpu.TextureWidth}×{gpu.TextureHeight} · layouts {gpu.CachedTextLayouts} · hit {gpu.TextLayoutCacheHits}/{gpu.TextLayoutCacheMisses}{freeze}{split}");
             return;
         }
 
         PerfText.Text = string.Create(
             System.Globalization.CultureInfo.InvariantCulture,
-            $"{pacing.FramesPerSecond:F1} FPS · p95 {pacing.P95FrameIntervalMilliseconds:F2} ms · DrawingContext{freeze}");
+            $"{pacing.FramesPerSecond:F1} FPS · p95 {pacing.P95FrameIntervalMilliseconds:F2} ms · DrawingContext{freeze}{split}");
     }
 
     private void OnClosed(object? sender, EventArgs e)
@@ -181,6 +235,8 @@ public partial class MainWindow : Window
         _diagnosticsTimer.Stop();
         _diagnosticsTimer.Tick -= OnDiagnosticsTick;
         Closed -= OnClosed;
+        _splitController?.Dispose();
+        _splitController = null;
         Spreadsheet.Dispose();
     }
 
