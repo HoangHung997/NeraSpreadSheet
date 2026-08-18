@@ -22,6 +22,13 @@
             <Button Click="SplitHorizontalClick" Padding="10,3">Split H</Button>
             <Button Click="SplitBothClick" Padding="10,3">Split 4</Button>
             <Button Click="ClearSplitClick" Padding="10,3">Clear Split</Button>
+            <ToggleButton x:Name="ScrollBarsToggle"
+                          IsChecked="True"
+                          Click="ScrollBarsClick"
+                          Padding="10,3"
+                          ToolTip="Bật hoặc tắt thanh cuộn riêng cho từng khung. Khi bật mà chưa chia khung, mẫu sẽ tự chuyển sang Split 4.">
+                Pane Scrollbars
+            </ToggleButton>
             <Separator />
             <Button Click="InsertRowsClick" Padding="10,3" ToolTip="Insert the selected whole row range, or one row at the active cell.">Insert Row</Button>
             <Button Click="DeleteRowsClick" Padding="10,3" ToolTip="Delete the selected whole row range, or one row at the active cell.">Delete Row</Button>
