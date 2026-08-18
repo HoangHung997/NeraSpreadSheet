@@ -238,10 +238,10 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             ? _owner.RenderTheme.HeaderBorder
             : _owner.RenderTheme.ActivePaneBorder;
         var brush = new SolidColorBrush(Color.FromArgb(
-            sourceColor.A,
-            sourceColor.R,
-            sourceColor.G,
-            sourceColor.B));
+            sourceColor.Alpha,
+            sourceColor.Red,
+            sourceColor.Green,
+            sourceColor.Blue));
         brush.Freeze();
         using var drawing = _headerReorderPreviewVisual.RenderOpen();
         drawing.DrawRectangle(
