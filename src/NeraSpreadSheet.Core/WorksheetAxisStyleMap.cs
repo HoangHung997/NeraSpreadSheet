@@ -1,23 +1,30 @@
 namespace NeraSpreadSheet.Core;
 
-internal readonly record struct WorksheetAxisStyleOperation(
-    long Sequence,
-    CellStylePatch Patch)
+internal readonly record struct WorksheetAxisStyleOperation
 {
-    public WorksheetAxisStyleOperation
+    public WorksheetAxisStyleOperation(
+        long sequence,
+        CellStylePatch patch)
     {
-        ArgumentNullException.ThrowIfNull(Patch);
-        if (Sequence <= 0L)
+        ArgumentNullException.ThrowIfNull(patch);
+        if (sequence <= 0L)
         {
-            throw new ArgumentOutOfRangeException(nameof(Sequence));
+            throw new ArgumentOutOfRangeException(nameof(sequence));
         }
-        if (Patch.IsEmpty)
+        if (patch.IsEmpty)
         {
             throw new ArgumentException(
                 "An axis style operation must change at least one property.",
-                nameof(Patch));
+                nameof(patch));
         }
+
+        Sequence = sequence;
+        Patch = patch;
     }
+
+    public long Sequence { get; }
+
+    public CellStylePatch Patch { get; }
 }
 
 internal sealed class WorksheetAxisStyleSpan
