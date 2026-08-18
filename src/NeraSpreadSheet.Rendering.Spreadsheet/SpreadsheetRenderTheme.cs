@@ -18,6 +18,14 @@ public sealed record SpreadsheetRenderTheme
     public ColorRgba HeaderActiveBackground { get; init; } = new(198, 225, 209);
     public ColorRgba HeaderText { get; init; } = new(64, 64, 64);
     public ColorRgba HeaderBorder { get; init; } = new(190, 190, 190);
+    public ColorRgba ScrollBarBackground { get; init; } = new(241, 241, 241);
+    public ColorRgba ScrollBarTrack { get; init; } = new(232, 232, 232);
+    public ColorRgba ScrollBarButtonBackground { get; init; } = new(239, 239, 239);
+    public ColorRgba ScrollBarThumb { get; init; } = new(174, 174, 174);
+    public ColorRgba ScrollBarActiveThumb { get; init; } = new(126, 154, 137);
+    public ColorRgba ScrollBarBorder { get; init; } = new(146, 146, 146);
+    public ColorRgba ScrollBarGlyph { get; init; } = new(70, 70, 70);
+    public ColorRgba ScrollBarCorner { get; init; } = new(224, 224, 224);
     public string FontFamily { get; init; } = "Segoe UI";
     public double FontSize { get; init; } = 12d;
     public double SelectionStrokeWidth { get; init; } = 2d;
@@ -29,6 +37,13 @@ public sealed record SpreadsheetRenderTheme
     public double ColumnHeaderHeight { get; init; } = 24d;
     public double HeaderFontSize { get; init; } = 11d;
     public double HeaderStrokeWidth { get; init; } = 1d;
+    public bool ShowSplitPaneScrollBars { get; init; } = true;
+    public double ScrollBarThickness { get; init; } = 14d;
+    public double ScrollBarButtonExtent { get; init; } = 14d;
+    public double ScrollBarMinimumThumbExtent { get; init; } = 24d;
+    public double ScrollBarLineStep { get; init; } = 48d;
+    public double ScrollBarPageFactor { get; init; } = 0.9d;
+    public double ScrollBarStrokeWidth { get; init; } = 1d;
 
     public TextStyle CreateTextStyle() => new(FontFamily, FontSize, 400, Text, false);
 
