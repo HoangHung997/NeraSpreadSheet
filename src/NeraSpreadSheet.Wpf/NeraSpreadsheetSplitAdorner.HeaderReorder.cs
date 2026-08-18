@@ -145,18 +145,22 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 
     private void TryCaptureHeaderReorderMouse()
     {
-        if (_headerReorderOwnsMouseCapture || IsMouseCaptured)
+        if (_headerReorderOwnsMouseCapture)
         {
-            _headerReorderOwnsMouseCapture = IsMouseCaptured;
             return;
         }
 
-        if (!CaptureMouse() || !IsMouseCaptured)
+        if (!IsMouseCaptured && !CaptureMouse())
+        {
+            return;
+        }
+        if (!IsMouseCaptured)
         {
             return;
         }
 
         _headerReorderOwnsMouseCapture = true;
+        LostMouseCapture -= OnHeaderReorderLostMouseCapture;
         LostMouseCapture += OnHeaderReorderLostMouseCapture;
     }
 
@@ -184,8 +188,13 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             return;
         }
 
-        ClearHeaderReorderState(releaseCapture: false);
-        Cursor = null;
+        LostMouseCapture -= OnHeaderReorderLostMouseCapture;
+        _headerReorderOwnsMouseCapture = false;
+        if (Mouse.LeftButton == MouseButtonState.Pressed)
+        {
+            ClearHeaderReorderState(releaseCapture: false);
+            Cursor = null;
+        }
     }
 
     private bool TryGetHeaderReorderSource(
