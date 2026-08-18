@@ -26,7 +26,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         }
 
         var paneId = ResolvePaneAtClientPoint(e.X, e.Y, frame) ?? frame.ActivePane;
-        GetEngine().SetActivePane(paneId);
+        SetActivePaneCore(paneId);
         var notches = e.Delta / 120d;
         var delta = -notches * _owner.WheelPixelsPerNotch;
         GetEngine().QueuePaneScroll(
@@ -76,7 +76,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             case SpreadsheetChromeRegion.RowHeader:
                 if (TryHitTestRowHeader(frame, chromeHit.BodyY, out var rowPane, out var rowIndex))
                 {
-                    GetEngine().SetActivePane(rowPane);
+                    SetActivePaneCore(rowPane);
                     if ((ModifierKeys & Keys.Shift) != 0)
                     {
                         _session.Selection.ExtendRowsTo(rowIndex);
@@ -96,7 +96,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                     out var columnPane,
                     out var columnIndex))
                 {
-                    GetEngine().SetActivePane(columnPane);
+                    SetActivePaneCore(columnPane);
                     if ((ModifierKeys & Keys.Shift) != 0)
                     {
                         _session.Selection.ExtendColumnsTo(columnIndex);
@@ -115,8 +115,14 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                 return;
         }
 
-        GetEngine().TryActivatePaneAt(chromeHit.BodyX, chromeHit.BodyY);
-        if (!GetEngine().TryHitTest(
+        var engine = GetEngine();
+        if (engine.TryActivatePaneAt(chromeHit.BodyX, chromeHit.BodyY))
+        {
+            PersistCurrentSplitState(SpreadsheetSplitViewChangeKind.ActivePane);
+            _lastFrame = null;
+            Invalidate();
+        }
+        if (!engine.TryHitTest(
             chromeHit.BodyX,
             chromeHit.BodyY,
             out _,
@@ -400,5 +406,4 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         bool Horizontal,
         double GrabOffsetX,
         double GrabOffsetY);
-
 }
