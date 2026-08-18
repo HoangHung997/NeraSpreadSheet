@@ -43,6 +43,33 @@ public sealed class UndoRedoManagerTests
     }
 
     [TestMethod]
+    public void RecordExecutedDoesNotInvokeExecuteAndClearsRedo()
+    {
+        var executeCount = 0;
+        var undoCount = 0;
+        var manager = new UndoRedoManager();
+        manager.Execute(new DelegateOperation(
+            "First",
+            () => executeCount++,
+            () => undoCount++));
+        Assert.IsTrue(manager.Undo());
+        var alreadyApplied = new DelegateOperation(
+            "Already applied",
+            () => executeCount++,
+            () => undoCount++);
+
+        manager.RecordExecuted(alreadyApplied);
+
+        Assert.AreEqual(1, executeCount);
+        Assert.IsFalse(manager.CanRedo);
+        Assert.AreEqual(1, manager.UndoCount);
+        Assert.AreEqual(alreadyApplied.Description, manager.NextUndoDescription);
+        Assert.IsTrue(manager.TryUndo(out var undone));
+        Assert.AreSame(alreadyApplied, undone);
+        Assert.AreEqual(2, undoCount);
+    }
+
+    [TestMethod]
     public void NewOperationClearsRedoHistory()
     {
         var value = 0;
