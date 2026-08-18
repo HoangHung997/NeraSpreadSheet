@@ -1,9 +1,11 @@
-using System.Windows.Forms;
 using System.Runtime.CompilerServices;
+using System.Windows.Forms;
 using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Layout;
 using NeraSpreadSheet.Rendering.Direct2D;
+using NeraSpreadSheet.Rendering.Spreadsheet;
 using NeraSpreadSheet.Scrolling;
 using NeraSpreadSheet.Viewport;
 
@@ -59,10 +61,16 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
 {
     private NeraSpreadsheetControl? _owner;
     private NeraSpreadsheetSplitSurface? _surface;
+    private SpreadsheetSession? _observedSession;
+    private SpreadsheetRenderTheme? _observedRenderTheme;
+    private WinFormsRenderingBackend _observedRenderingBackend;
+    private bool _observedSwapChainVSync;
+    private double _observedOverscanPixels;
 
     internal NeraSpreadsheetSplitController(NeraSpreadsheetControl owner)
     {
         _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+        CaptureOwnerPresentationState(owner);
         if (owner.IsEditing)
         {
             owner.CancelEditor();
@@ -105,23 +113,30 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
 
     public SpreadsheetSplitViewportFrame? LastFrame => GetSurface().LastFrame;
 
-    public Direct2DRendererDiagnostics? Direct2DDiagnostics => GetSurface().Direct2DDiagnostics;
+    public Direct2DRendererDiagnostics? Direct2DDiagnostics =>
+        GetSurface().Direct2DDiagnostics;
 
-    public Direct2DSwapChainRendererDiagnostics? SwapChainDiagnostics => GetSurface().SwapChainDiagnostics;
+    public Direct2DSwapChainRendererDiagnostics? SwapChainDiagnostics =>
+        GetSurface().SwapChainDiagnostics;
 
     public event EventHandler<SpreadsheetSplitChangedEventArgs>? SplitChanged;
 
-    public event EventHandler<SpreadsheetPaneScrollChangedEventArgs>? PaneScrollChanged;
+    public event EventHandler<SpreadsheetPaneScrollChangedEventArgs>?
+        PaneScrollChanged;
 
-    public void SetMode(SpreadsheetSplitPaneMode mode) => GetSurface().SetMode(mode);
+    public void SetMode(SpreadsheetSplitPaneMode mode) =>
+        GetSurface().SetMode(mode);
 
-    public void SetSplit(double? splitX, double? splitY) => GetSurface().SetSplit(splitX, splitY);
+    public void SetSplit(double? splitX, double? splitY) =>
+        GetSurface().SetSplit(splitX, splitY);
 
     public void ClearSplit() => SetMode(SpreadsheetSplitPaneMode.None);
 
-    public void SetActivePane(SpreadsheetPaneId paneId) => GetSurface().SetActivePane(paneId);
+    public void SetActivePane(SpreadsheetPaneId paneId) =>
+        GetSurface().SetActivePane(paneId);
 
-    public PointD GetPaneScroll(SpreadsheetPaneId paneId) => GetSurface().GetPaneScroll(paneId);
+    public PointD GetPaneScroll(SpreadsheetPaneId paneId) =>
+        GetSurface().GetPaneScroll(paneId);
 
     public ScrollSnapshot GetPaneScrollSnapshot(SpreadsheetPaneId paneId) =>
         GetSurface().GetPaneScrollSnapshot(paneId);
@@ -133,7 +148,9 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         bool animated = false) =>
         GetSurface().ScrollPaneTo(paneId, offsetX, offsetY, animated);
 
-    public void QueuePaneScroll(SpreadsheetPaneId paneId, ScrollDelta delta) =>
+    public void QueuePaneScroll(
+        SpreadsheetPaneId paneId,
+        ScrollDelta delta) =>
         GetSurface().QueuePaneScroll(paneId, delta);
 
     public void QueueActivePaneScroll(ScrollDelta delta) =>
@@ -144,7 +161,11 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         double clientY,
         out SpreadsheetPaneId paneId,
         out CellAddress address) =>
-        GetSurface().TryHitTest(clientX, clientY, out paneId, out address);
+        GetSurface().TryHitTest(
+            clientX,
+            clientY,
+            out paneId,
+            out address);
 
     public void RenderNow() => GetSurface().RenderNow();
 
@@ -183,22 +204,52 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         return _surface!;
     }
 
-    private void OnSurfaceSplitChanged(object? sender, SpreadsheetSplitChangedEventArgs e) =>
+    private bool CaptureOwnerPresentationState(NeraSpreadsheetControl owner)
+    {
+        var changed =
+            !ReferenceEquals(_observedSession, owner.Session) ||
+            !ReferenceEquals(_observedRenderTheme, owner.RenderTheme) ||
+            _observedRenderingBackend != owner.RenderingBackend ||
+            _observedSwapChainVSync != owner.SwapChainVSync ||
+            _observedOverscanPixels != owner.OverscanPixels;
+        _observedSession = owner.Session;
+        _observedRenderTheme = owner.RenderTheme;
+        _observedRenderingBackend = owner.RenderingBackend;
+        _observedSwapChainVSync = owner.SwapChainVSync;
+        _observedOverscanPixels = owner.OverscanPixels;
+        return changed;
+    }
+
+    private void OnSurfaceSplitChanged(
+        object? sender,
+        SpreadsheetSplitChangedEventArgs e) =>
         SplitChanged?.Invoke(this, e);
 
-    private void OnSurfacePaneScrollChanged(object? sender, SpreadsheetPaneScrollChangedEventArgs e) =>
+    private void OnSurfacePaneScrollChanged(
+        object? sender,
+        SpreadsheetPaneScrollChangedEventArgs e) =>
         PaneScrollChanged?.Invoke(this, e);
 
-    private void OnOwnerInvalidated(object? sender, InvalidateEventArgs e) => _surface?.Invalidate();
+    private void OnOwnerInvalidated(object? sender, InvalidateEventArgs e)
+    {
+        if (sender is NeraSpreadsheetControl owner &&
+            CaptureOwnerPresentationState(owner))
+        {
+            _surface?.Invalidate();
+        }
+    }
 
-    private void OnOwnerVisualChanged(object? sender, EventArgs e) => _surface?.Invalidate();
+    private void OnOwnerVisualChanged(object? sender, EventArgs e) =>
+        _surface?.Invalidate();
 
     private void OnOwnerDisposed(object? sender, EventArgs e) => Dispose();
 }
 
 public static class NeraSpreadsheetSplitExtensions
 {
-    private static readonly ConditionalWeakTable<NeraSpreadsheetControl, NeraSpreadsheetSplitController> Controllers = new();
+    private static readonly ConditionalWeakTable<
+        NeraSpreadsheetControl,
+        NeraSpreadsheetSplitController> Controllers = new();
     private static readonly object SyncRoot = new();
 
     public static NeraSpreadsheetSplitController EnableSplitPanes(
@@ -239,7 +290,8 @@ public static class NeraSpreadsheetSplitExtensions
         ArgumentNullException.ThrowIfNull(control);
         lock (SyncRoot)
         {
-            if (Controllers.TryGetValue(control, out var existing) && !existing.IsDisposed)
+            if (Controllers.TryGetValue(control, out var existing) &&
+                !existing.IsDisposed)
             {
                 controller = existing;
                 return true;
@@ -250,7 +302,8 @@ public static class NeraSpreadsheetSplitExtensions
         return false;
     }
 
-    public static bool DisableSplitPanes(this NeraSpreadsheetControl control)
+    public static bool DisableSplitPanes(
+        this NeraSpreadsheetControl control)
     {
         ArgumentNullException.ThrowIfNull(control);
         NeraSpreadsheetSplitController controller;
