@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Input;
 using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Layout;
 using NeraSpreadSheet.Rendering.Spreadsheet;
@@ -28,7 +29,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 
         var point = e.GetPosition(this);
         var paneId = ResolvePaneAtControlPoint(point.X, point.Y, frame) ?? frame.ActivePane;
-        GetEngine().SetActivePane(paneId);
+        SetActivePaneCore(paneId);
         var notches = e.Delta / 120d;
         var delta = -notches * _owner.WheelPixelsPerNotch;
         GetEngine().QueuePaneScroll(
@@ -83,7 +84,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             case SpreadsheetChromeRegion.RowHeader:
                 if (TryHitTestRowHeader(frame, chromeHit.BodyY, out var rowPane, out var rowIndex))
                 {
-                    GetEngine().SetActivePane(rowPane);
+                    SetActivePaneCore(rowPane);
                     if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
                     {
                         _session.Selection.ExtendRowsTo(rowIndex);
@@ -104,7 +105,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
                     out var columnPane,
                     out var columnIndex))
                 {
-                    GetEngine().SetActivePane(columnPane);
+                    SetActivePaneCore(columnPane);
                     if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
                     {
                         _session.Selection.ExtendColumnsTo(columnIndex);
@@ -124,8 +125,14 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
                 return;
         }
 
-        GetEngine().TryActivatePaneAt(chromeHit.BodyX, chromeHit.BodyY);
-        if (!GetEngine().TryHitTest(
+        var engine = GetEngine();
+        if (engine.TryActivatePaneAt(chromeHit.BodyX, chromeHit.BodyY))
+        {
+            PersistCurrentSplitState(SpreadsheetSplitViewChangeKind.ActivePane);
+            _lastFrame = null;
+            InvalidateVisual();
+        }
+        if (!engine.TryHitTest(
             chromeHit.BodyX,
             chromeHit.BodyY,
             out _,
