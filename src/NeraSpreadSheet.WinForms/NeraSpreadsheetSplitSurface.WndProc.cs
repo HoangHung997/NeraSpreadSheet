@@ -8,6 +8,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
     private const int WindowMessageLeftButtonDown = 0x0201;
     private const int WindowMessageLeftButtonUp = 0x0202;
     private const int WindowMessageCaptureChanged = 0x0215;
+    private const long MouseKeyLeftButton = 0x0001L;
 
     protected override void WndProc(ref Message message)
     {
@@ -58,8 +59,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                     UpdateHeaderReorder(
                         clientX,
                         clientY,
-                        (Control.MouseButtons &
-                         System.Windows.Forms.MouseButtons.Left) != 0))
+                        (message.WParam.ToInt64() & MouseKeyLeftButton) != 0L))
                 {
                     message.Result = IntPtr.Zero;
                     return;
