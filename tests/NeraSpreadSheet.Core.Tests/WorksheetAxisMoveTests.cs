@@ -6,6 +6,14 @@ namespace NeraSpreadSheet.Core.Tests;
 [TestClass]
 public sealed class WorksheetAxisMoveTests
 {
+    private static readonly int[] ExpectedMoveMapping = [0, 3, 4, 1, 2, 5];
+    private static readonly int[] NoOpBoundaries = [4, 5, 6, 7];
+    private static readonly WorksheetAxisInterval[] ExpectedSplitMapping =
+    [
+        new WorksheetAxisInterval(1, 1),
+        new WorksheetAxisInterval(4, 4),
+    ];
+
     [TestMethod]
     public void MoveUpMapsSourceAndInterveningIndexes()
     {
@@ -20,7 +28,7 @@ public sealed class WorksheetAxisMoveTests
         Assert.AreEqual(1, move.AffectedStartIndex);
         Assert.AreEqual(4, move.AffectedEndIndex);
         CollectionAssert.AreEqual(
-            new[] { 0, 3, 4, 1, 2, 5 },
+            ExpectedMoveMapping,
             Enumerable.Range(0, 6).Select(move.MapIndex).ToArray());
     }
 
@@ -35,14 +43,14 @@ public sealed class WorksheetAxisMoveTests
 
         Assert.AreEqual(3, move.InsertionIndex);
         CollectionAssert.AreEqual(
-            new[] { 0, 3, 4, 1, 2, 5 },
+            ExpectedMoveMapping,
             Enumerable.Range(0, 6).Select(move.MapIndex).ToArray());
     }
 
     [TestMethod]
     public void DestinationInsideOrAdjacentToSourceIsNoOp()
     {
-        foreach (var boundary in new[] { 4, 5, 6, 7 })
+        foreach (var boundary in NoOpBoundaries)
         {
             var move = new WorksheetAxisMove(
                 WorksheetAxis.Row,
@@ -65,13 +73,7 @@ public sealed class WorksheetAxisMoveTests
             destinationBoundary: 1);
 
         var split = move.MapInterval(2, 3);
-        CollectionAssert.AreEqual(
-            new[]
-            {
-                new WorksheetAxisInterval(1, 1),
-                new WorksheetAxisInterval(4, 4),
-            },
-            split);
+        CollectionAssert.AreEqual(ExpectedSplitMapping, split);
         Assert.IsFalse(move.TryMapContiguousInterval(2, 3, out _, out _));
 
         Assert.IsTrue(move.TryMapContiguousInterval(
