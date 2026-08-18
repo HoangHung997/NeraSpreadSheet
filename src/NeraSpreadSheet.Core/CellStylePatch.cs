@@ -72,7 +72,10 @@ public sealed record CellStylePatch
         };
         var numberFormat = NumberFormatCode is null
             ? source.NumberFormat
-            : new CellNumberFormatStyle(NumberFormatCode);
+            : new CellNumberFormatStyle
+            {
+                FormatCode = NumberFormatCode,
+            };
         return source with
         {
             Font = font,
