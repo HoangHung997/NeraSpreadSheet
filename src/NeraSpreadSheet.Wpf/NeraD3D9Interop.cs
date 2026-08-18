@@ -209,32 +209,54 @@ internal sealed class NeraD3D11ImageSource : D3DImage, IDisposable
 
     public Int32Rect? InvalidateImage(Int32Rect? dirtyRectangle = null)
     {
+        var requested = dirtyRectangle is { } rectangle
+            ? new[] { rectangle }
+            : new[] { new Int32Rect(0, 0, PixelWidth, PixelHeight) };
+        var presented = InvalidateImage(requested);
+        return presented.Length == 0 ? null : presented[0];
+    }
+
+    public Int32Rect[] InvalidateImage(
+        IReadOnlyList<Int32Rect> dirtyRectangles)
+    {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(dirtyRectangles);
         if (_renderTarget is null ||
             !IsFrontBufferAvailable ||
             PixelWidth <= 0 ||
-            PixelHeight <= 0)
+            PixelHeight <= 0 ||
+            dirtyRectangles.Count == 0)
         {
-            return null;
+            return [];
         }
 
-        var clipped = ClipToPixelBounds(
-            dirtyRectangle ?? new Int32Rect(0, 0, PixelWidth, PixelHeight));
-        if (clipped.IsEmpty)
+        var clippedRectangles = new List<Int32Rect>(dirtyRectangles.Count);
+        foreach (var dirtyRectangle in dirtyRectangles)
         {
-            return null;
+            var clipped = ClipToPixelBounds(dirtyRectangle);
+            if (!clipped.IsEmpty)
+            {
+                clippedRectangles.Add(clipped);
+            }
+        }
+        if (clippedRectangles.Count == 0)
+        {
+            return [];
         }
 
         Lock();
         try
         {
-            AddDirtyRect(clipped);
+            foreach (var clipped in clippedRectangles)
+            {
+                AddDirtyRect(clipped);
+            }
         }
         finally
         {
             Unlock();
         }
-        return clipped;
+        return [.. clippedRectangles];
     }
 
     private Int32Rect ClipToPixelBounds(Int32Rect rectangle)
