@@ -298,8 +298,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
     private void OnCellsChanged(object? sender, CellsChangedEventArgs e)
     {
-        _lastFrame = null;
-        Invalidate();
+        InvalidateDirtyRange(e.Range);
     }
 
     private void OnDimensionsChanged(object? sender, DimensionChangedEventArgs e)
