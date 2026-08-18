@@ -1,4 +1,5 @@
 using System.Windows.Forms;
+using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Rendering.Spreadsheet;
 
