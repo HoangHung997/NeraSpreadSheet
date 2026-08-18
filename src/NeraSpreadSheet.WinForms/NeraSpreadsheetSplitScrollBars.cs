@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.CompilerServices;
@@ -58,7 +59,7 @@ public sealed class NeraSpreadsheetSplitScrollBarController : IDisposable
         set
         {
             _style = value ?? throw new ArgumentNullException(nameof(value));
-            GetOverlay().Style = value;
+            GetOverlay().ScrollBarStyle = value;
         }
     }
 
@@ -230,7 +231,9 @@ internal sealed class NeraSpreadsheetSplitScrollBarOverlay : Control
         _owner.Disposed += OnOwnerDisposed;
     }
 
-    internal SpreadsheetSplitScrollBarStyle Style
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    internal SpreadsheetSplitScrollBarStyle ScrollBarStyle
     {
         get => _style;
         set
