@@ -125,8 +125,8 @@ public sealed class SpreadsheetSplitScrollBarInteractionTests
             45.25d);
         var frame = engine.Compose(new SpreadsheetSplitRequest(
             new SizeD(806d, 606d),
-            splitX: 400d,
-            splitY: 300d));
+            400d,
+            300d));
 
         var layout = frame.CreateScrollBarLayout(
             engine.GetContentExtent());
