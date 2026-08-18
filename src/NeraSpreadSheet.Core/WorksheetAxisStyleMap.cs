@@ -117,6 +117,7 @@ internal sealed class WorksheetAxisStyleState
 
 internal sealed class WorksheetAxisStyleMap
 {
+    private static readonly WorksheetAxisStyleOperation[] EmptyOperations = [];
     private readonly int _axisLength;
     private List<WorksheetAxisStyleSpan> _spans = [];
 
@@ -150,7 +151,7 @@ internal sealed class WorksheetAxisStyleMap
                 return span.Operations;
             }
         }
-        return [];
+        return EmptyOperations;
     }
 
     public WorksheetAxisStyleSpan[] Capture() =>
@@ -244,9 +245,10 @@ internal sealed class WorksheetAxisStyleMap
                 nameof(change));
         }
 
-        var next = new List<WorksheetAxisStyleSpan>(_spans.Count + 2);
+        var next = new List<WorksheetAxisStyleSpan>(_spans.Count + 3);
         if (change.Kind == WorksheetStructuralChangeKind.Insert)
         {
+            var inheritedOperations = GetOperations(change.Index);
             foreach (var span in _spans)
             {
                 if (span.EndIndex < change.Index)
@@ -279,6 +281,17 @@ internal sealed class WorksheetAxisStyleMap
                 {
                     next.Add(span.WithBounds(shiftedStart, shiftedEnd));
                 }
+            }
+
+            if (inheritedOperations.Length != 0)
+            {
+                var inheritedEnd = Math.Min(
+                    _axisLength - 1,
+                    checked(change.Index + change.Count - 1));
+                next.Add(new WorksheetAxisStyleSpan(
+                    change.Index,
+                    inheritedEnd,
+                    inheritedOperations));
             }
         }
         else
