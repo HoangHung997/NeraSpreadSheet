@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.CompilerServices;
+using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Layout;
 using NeraSpreadSheet.Rendering.Spreadsheet;
@@ -35,6 +36,9 @@ public sealed class NeraSpreadsheetSplitScrollBarController : IDisposable
             split,
             surface,
             _style);
+        _overlay.MouseDown += OnOverlayMouseDown;
+        _overlay.MouseUp += OnOverlayMouseUp;
+        _overlay.MouseCaptureChanged += OnOverlayMouseCaptureChanged;
         surface.Controls.Add(_overlay);
         _overlay.BringToFront();
         split.RenderNow();
@@ -86,6 +90,10 @@ public sealed class NeraSpreadsheetSplitScrollBarController : IDisposable
         }
 
         _overlay = null;
+        overlay.MouseDown -= OnOverlayMouseDown;
+        overlay.MouseUp -= OnOverlayMouseUp;
+        overlay.MouseCaptureChanged -= OnOverlayMouseCaptureChanged;
+        _split.CommitViewHistory();
         if (!overlay.Parent?.IsDisposed == true)
         {
             overlay.Parent?.Controls.Remove(overlay);
@@ -99,6 +107,32 @@ public sealed class NeraSpreadsheetSplitScrollBarController : IDisposable
     {
         ObjectDisposedException.ThrowIf(_overlay is null, this);
         return _overlay!;
+    }
+
+    private void OnOverlayMouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button == MouseButtons.Left)
+        {
+            _split.BeginViewHistory(
+                "Use pane scrollbar",
+                SpreadsheetSplitViewChangeKind.PaneScroll);
+        }
+    }
+
+    private void OnOverlayMouseUp(object? sender, MouseEventArgs e)
+    {
+        if (e.Button == MouseButtons.Left)
+        {
+            _split.CommitViewHistory();
+        }
+    }
+
+    private void OnOverlayMouseCaptureChanged(object? sender, EventArgs e)
+    {
+        if (sender is Control { Capture: false })
+        {
+            _split.CommitViewHistory();
+        }
     }
 }
 
