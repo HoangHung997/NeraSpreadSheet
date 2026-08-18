@@ -10,10 +10,12 @@ using NeraSpreadSheet.Layout;
 using NeraSpreadSheet.Rendering.Spreadsheet;
 using NeraSpreadSheet.Wpf;
 using WpfAdornerDecorator = System.Windows.Documents.AdornerDecorator;
+using WpfBrushes = System.Windows.Media.Brushes;
 using WpfDispatcher = System.Windows.Threading.Dispatcher;
 using WpfDispatcherFrame = System.Windows.Threading.DispatcherFrame;
 using WpfDispatcherPriority = System.Windows.Threading.DispatcherPriority;
 using WpfDispatcherTimer = System.Windows.Threading.DispatcherTimer;
+using WpfPoint = System.Windows.Point;
 using WpfResizeMode = System.Windows.ResizeMode;
 using WpfWindow = System.Windows.Window;
 using WpfWindowStartupLocation = System.Windows.WindowStartupLocation;
@@ -45,7 +47,7 @@ public sealed class WpfSplitScrollBarWindowMessageSmokeTests
             var session = new SpreadsheetSession(workbook);
             using var control = new NeraSpreadsheetControl
             {
-                Background = Brushes.White,
+                Background = WpfBrushes.White,
                 Session = session,
                 RenderingBackend = WpfRenderingBackend.DrawingContext,
             };
@@ -182,7 +184,7 @@ public sealed class WpfSplitScrollBarWindowMessageSmokeTests
 
     private static WpfWindow CreateOffscreenWindow(object content) => new()
     {
-        Background = Brushes.White,
+        Background = WpfBrushes.White,
         Content = content,
         Height = 760d,
         Left = -30_000d,
@@ -204,7 +206,7 @@ public sealed class WpfSplitScrollBarWindowMessageSmokeTests
         WpfWindow window,
         PointD bodyPoint)
     {
-        var controlPoint = new Point(
+        var controlPoint = new WpfPoint(
             control.RenderTheme.RowHeaderWidth + bodyPoint.X,
             control.RenderTheme.ColumnHeaderHeight + bodyPoint.Y);
         var windowPoint = control.TranslatePoint(controlPoint, window);
