@@ -24,10 +24,13 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             return;
         }
 
+        CancelSplitViewHistory(restoreBeforeState: true);
         DetachSessionEvents();
         _cellEditor?.Cancel();
         _session = next;
-        _engine = next is null ? null : new SpreadsheetSplitViewportEngine(next);
+        _engine = next is null
+            ? null
+            : new SpreadsheetSplitViewportEngine(next);
         _cellEditor = next?.Editor;
         _lastFrame = null;
         HideEditor();
@@ -38,7 +41,10 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 
     private void AttachSessionEvents()
     {
-        if (_session is null || _sessionEventsAttached || _disposed || !IsLoaded)
+        if (_session is null ||
+            _sessionEventsAttached ||
+            _disposed ||
+            !IsLoaded)
         {
             return;
         }
@@ -67,7 +73,8 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
     private void EnsureWorksheetSubscription()
     {
         var worksheet = _session?.ActiveWorksheet;
-        if (!_sessionEventsAttached || ReferenceEquals(_subscribedWorksheet, worksheet))
+        if (!_sessionEventsAttached ||
+            ReferenceEquals(_subscribedWorksheet, worksheet))
         {
             return;
         }
@@ -110,7 +117,8 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         return true;
     }
 
-    private void PersistCurrentSplitState(SpreadsheetSplitViewChangeKind changeKind)
+    private void PersistCurrentSplitState(
+        SpreadsheetSplitViewChangeKind changeKind)
     {
         if (_applyingSplitViewState || _session is null || _engine is null)
         {
@@ -144,7 +152,10 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             _splitX != state.SplitX ||
             _splitY != state.SplitY;
         var engineStateChanged =
-            SpreadsheetSplitViewStateAdapter.Capture(_engine, _splitX, _splitY) != state;
+            SpreadsheetSplitViewStateAdapter.Capture(
+                _engine,
+                _splitX,
+                _splitY) != state;
         if (!topologyChanged && !engineStateChanged)
         {
             return;
@@ -193,6 +204,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             return;
         }
 
+        CancelSplitViewHistory(restoreBeforeState: true);
         CancelEditor();
         EnsureWorksheetSubscription();
         _engine?.InvalidateMetrics();
@@ -201,7 +213,9 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         InvalidateVisual();
     }
 
-    private void OnSelectionChanged(object? sender, NeraSelectionChangedEventArgs e)
+    private void OnSelectionChanged(
+        object? sender,
+        NeraSelectionChangedEventArgs e)
     {
         if (_disposed)
         {
@@ -212,9 +226,13 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         InvalidateVisual();
     }
 
-    private void OnViewChanged(object? sender, SpreadsheetViewChangedEventArgs e)
+    private void OnViewChanged(
+        object? sender,
+        SpreadsheetViewChangedEventArgs e)
     {
-        if (_disposed || _session is null || !ReferenceEquals(e.Worksheet, _session.ActiveWorksheet))
+        if (_disposed ||
+            _session is null ||
+            !ReferenceEquals(e.Worksheet, _session.ActiveWorksheet))
         {
             return;
         }
@@ -225,7 +243,9 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         InvalidateVisual();
     }
 
-    private void OnSplitViewChanged(object? sender, SpreadsheetSplitViewChangedEventArgs e)
+    private void OnSplitViewChanged(
+        object? sender,
+        SpreadsheetSplitViewChangedEventArgs e)
     {
         if (_disposed ||
             _session is null ||
@@ -241,7 +261,9 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
     private void OnCellsChanged(object? sender, CellsChangedEventArgs e) =>
         HandleCellsChanged(e);
 
-    private void OnDimensionsChanged(object? sender, DimensionChangedEventArgs e)
+    private void OnDimensionsChanged(
+        object? sender,
+        DimensionChangedEventArgs e)
     {
         if (_disposed)
         {
@@ -279,7 +301,9 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 
     private void OnRendering(object? sender, EventArgs e)
     {
-        if (_disposed || _engine is null || e is not RenderingEventArgs renderingEventArgs)
+        if (_disposed ||
+            _engine is null ||
+            e is not RenderingEventArgs renderingEventArgs)
         {
             return;
         }
@@ -294,7 +318,8 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         if (changed)
         {
             PublishChangedPaneScrolls(before);
-            PersistCurrentSplitState(SpreadsheetSplitViewChangeKind.PaneScroll);
+            PersistCurrentSplitState(
+                SpreadsheetSplitViewChangeKind.PaneScroll);
             _lastFrame = null;
             UpdateEditorBounds();
             InvalidateVisual();
@@ -303,10 +328,12 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         if (!_engine.HasPendingScroll)
         {
             DetachFrameLoop();
+            CommitSplitViewHistoryWhenFrameSettles();
         }
     }
 
-    private Dictionary<SpreadsheetPaneId, ScrollSnapshot> CaptureVisiblePaneScrolls()
+    private Dictionary<SpreadsheetPaneId, ScrollSnapshot>
+        CaptureVisiblePaneScrolls()
     {
         var snapshots = new Dictionary<SpreadsheetPaneId, ScrollSnapshot>();
         if (_lastFrame is null || _engine is null)
@@ -316,7 +343,8 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 
         foreach (var pane in _lastFrame.Panes)
         {
-            snapshots[pane.Pane.PaneId] = _engine.GetPaneScrollSnapshot(pane.Pane.PaneId);
+            snapshots[pane.Pane.PaneId] =
+                _engine.GetPaneScrollSnapshot(pane.Pane.PaneId);
         }
         return snapshots;
     }
@@ -333,11 +361,14 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         {
             var paneId = pane.Pane.PaneId;
             var current = _engine.GetPaneScrollSnapshot(paneId);
-            if (!before.TryGetValue(paneId, out var previous) || previous != current)
+            if (!before.TryGetValue(paneId, out var previous) ||
+                previous != current)
             {
                 PaneScrollChanged?.Invoke(
                     this,
-                    new SpreadsheetPaneScrollChangedEventArgs(paneId, current));
+                    new SpreadsheetPaneScrollChangedEventArgs(
+                        paneId,
+                        current));
             }
         }
     }
@@ -362,6 +393,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             return;
         }
 
+        CommitSplitViewHistory();
         DetachFrameLoop();
         DetachSessionEvents();
     }
