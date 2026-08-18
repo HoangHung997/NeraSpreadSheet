@@ -20,6 +20,7 @@ public sealed record SpreadsheetSplitViewportFrame(
     SpreadsheetSplitLayout Layout,
     IReadOnlyList<SpreadsheetSplitPaneFrame> Panes,
     SpreadsheetPaneId ActivePane,
+    SpreadsheetPaneScrollBarSet ScrollBars,
     DisplayList DisplayList)
 {
     public bool TryGetPane(SpreadsheetPaneId paneId, out SpreadsheetSplitPaneFrame pane)
@@ -157,11 +158,34 @@ public sealed class SpreadsheetSplitViewportEngine
         }
 
         builder.PopClip();
+        var bodyDisplayList = builder.Build();
+        var scrollBarStates = new SpreadsheetPaneScrollBarState[panes.Count];
+        for (var index = 0; index < panes.Count; index++)
+        {
+            var pane = panes[index];
+            scrollBarStates[index] = new SpreadsheetPaneScrollBarState(
+                pane.Pane.PaneId,
+                pane.Pane.Bounds,
+                pane.ScrollX,
+                pane.ScrollY,
+                pane.ViewportFrame.Layout.ContentWidth,
+                pane.ViewportFrame.Layout.ContentHeight);
+        }
+        var scrollBars = SpreadsheetPaneScrollBarLayoutEngine.Compute(
+            splitLayout,
+            scrollBarStates,
+            theme);
+        var displayList = SpreadsheetPaneScrollBarDisplayListComposer.Compose(
+            bodyDisplayList,
+            scrollBars,
+            ActivePane,
+            theme);
         _lastFrame = new SpreadsheetSplitViewportFrame(
             splitLayout,
             panes,
             ActivePane,
-            builder.Build());
+            scrollBars,
+            displayList);
         return _lastFrame;
     }
 
@@ -199,6 +223,24 @@ public sealed class SpreadsheetSplitViewportEngine
 
         paneId = resolvedPane;
         return true;
+    }
+
+    public bool TryHitScrollBar(
+        double viewportX,
+        double viewportY,
+        out SpreadsheetPaneScrollBarHit hit)
+    {
+        if (_lastFrame is null ||
+            !double.IsFinite(viewportX) ||
+            !double.IsFinite(viewportY))
+        {
+            hit = SpreadsheetPaneScrollBarHit.None;
+            return false;
+        }
+
+        return _lastFrame.ScrollBars.TryHitTest(
+            new PointD(viewportX, viewportY),
+            out hit);
     }
 
     public bool TryActivatePaneAt(double viewportX, double viewportY)
