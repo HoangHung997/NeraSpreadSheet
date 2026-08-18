@@ -1,89 +1,84 @@
 # Current Work Handoff
 
-- Ngày cập nhật: 2026-08-18
+- Ngày cập nhật: 2026-08-19
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` vào `develop` — Draft, chưa merge
-- Implementation commit đã xác minh: `d498d6ed7c9eab04fd2a0d8edc6ceae9f62e59b9`
-- GitHub Actions implementation gate: run `32158925404`, CI `#338`, kết luận `success`
+- Implementation commit đã xác minh: `56e232ec928cf36db8a9497a78e2986b0b65a818`
+- GitHub Actions: run `32197270157`, CI `#377`, kết luận `success`
 - Tài liệu nguồn sự thật: `docs/current-status.md`
-- Contract: `docs/header-reordering-contract.md`
+- Contract mới nhất: `docs/whole-axis-style-contract.md`
 
-## Đã hoàn thành trong mốc header reorder + edge auto-scroll
+## Đã hoàn thành trong mốc hiện tại
 
-### Model và transaction
+### Sparse whole-axis style model
 
-- `WorksheetAxisMove` cho fixed-length row/column permutation.
-- Di chuyển sparse cells, row-height/column-width overrides và merged ranges mà không materialize toàn axis.
-- Formula local/cross-sheet theo logical cell identity; giữ `$`, quoted sheet names và string literals.
-- Từ chối nguyên tử formula range có image discontiguous và merge bị split/reverse/vượt freeze boundary.
-- Map active/anchor, whole-axis/multi-range selection và per-pane split offsets bằng exact sparse metrics.
-- Undo/redo và rollback phục hồi exact worksheet/formula/selection/view snapshots rồi recalculate workbook.
+- Thêm `CellStylePatch` cho thay đổi property-level.
+- Thêm sparse interval maps riêng cho hàng và cột.
+- Ghép row/column patches theo một global sequence của worksheet.
+- Giữ direct cell style là complete override và patch direct cells khi whole-axis command phủ lên chúng.
+- Whole-row, whole-column và whole-sheet formatting không materialize blank cells.
+- Whole-sheet dùng một full row-axis span.
+- Finite range vẫn chịu materialization safety limit.
 
-### Split hosts
+### Merge, structure và reorder
 
-- Shared source/drop/threshold/preview geometry.
-- Row source từ left-edge panes; column source từ top-edge panes.
-- Priority: scrollbar → split separator → dimension resize → reorder → selection.
-- WinForms dùng actual child-HWND message path, pointer capture và shared display-list preview.
-- WPF dùng preview routed input, optional capture và `DrawingVisual` preview trên DrawingContext/D3DImage.
+- Whole-axis formatting cắt qua merged range ngoài anchor sẽ cập nhật đúng top-left anchor tối thiểu.
+- Inserted axes thừa hưởng style tại insertion index.
+- Shifted spans được clip tại fixed worksheet boundary.
+- Delete và `WorksheetAxisMove` map style spans theo cùng identity transform với cells/dimensions/merges.
+- `WorksheetStructuralState` lưu row spans, column spans và next style sequence.
+- Rollback, undo và redo phục hồi exact axis/cell state.
 
-### Unsplit public controllers
+### Snapshot, renderer và hiệu năng
 
-- WinForms và WPF có `EnableHeaderReordering`, `TryGetHeaderReorderController`, `DisableHeaderReordering`.
-- Cả hai tái sử dụng `WorksheetAxisMove`, `SpreadsheetAxisReorderController`, shared geometry và public viewport/session contracts.
-- WinForms dùng một preview child hit-transparent.
-- WPF dùng một preview adorner dưới `AdornerLayer`.
-- Behavior không khởi động khi split controller đang sở hữu control.
+- `WorksheetSnapshot` deep-copy sparse axis styles.
+- Effective style cache dùng row/column operation identity.
+- Renderer áp dụng fill/border/font cho cả blank visible cells mà không tạo `CellData`.
+- Style-only execute/undo/redo không gọi formula calculation engine.
+- `UndoRedoManager.TryUndo/TryRedo` trả về operation và bảo toàn stack khi operation ném lỗi.
+- Có BenchmarkDotNet coverage cho whole-row style và snapshot lookup.
 
-### Edge auto-scroll
+## Kết quả xác minh
 
-- Thêm `SpreadsheetHeaderReorderAutoScroll` dùng chung.
-- Velocity chỉ trên trục đang kéo, tăng quadratic trong edge zone và bị clamp ở maximum speed.
-- Delta giữ pixel lẻ, không snap hàng/cột.
-- Unsplit WinForms dùng timer; unsplit WPF dùng `CompositionTarget.Rendering`.
-- Split WinForms/WPF tính velocity theo pane nguồn/đích và chỉ cuộn đúng pane đó.
-- Sau mỗi scroll step, layout/drop boundary được tính lại tại pointer coordinate không đổi.
-- Timer/render subscription được dọn khi complete/cancel/unload/dispose.
+CI `#377` xanh toàn bộ tại implementation commit `56e232ec928cf36db8a9497a78e2986b0b65a818`:
 
-### Runtime gates
-
-- Shared velocity, boundary, invalid configuration và elapsed-delta tests.
-- Unsplit WinForms commit/preview/formula/selection/undo smoke.
-- Unsplit WinForms edge auto-scroll smoke.
-- Unsplit WPF commit/undo và post-move D3DImage smoke.
-- Unsplit WPF edge auto-scroll smoke.
-- Split WinForms/WPF auto-scroll smoke xác minh chỉ pane nguồn/đích dịch chuyển.
-- Existing split row/column reorder, GPU lifecycle, scrollbar, dirty-region và sample gates vẫn xanh.
-
-## CI đã xác minh
-
-CI `#338` xanh tại exact head `d498d6ed7c9eab04fd2a0d8edc6ceae9f62e59b9`:
-
-- `Core build and tests`: restore, build, tests, architecture verification thành công.
-- `Windows hosts build`: restore, full solution build, tests, mandatory Windows desktop GPU/runtime smoke thành công.
-
-Hosted Windows runner không cung cấp global WPF pointer injection ổn định. Gate WPF mở Window/control/controller thật và gọi cùng production state machine một cách deterministic. Không mô tả gate này là global native pointer injection.
+- Core restore/build/tests và architecture verification thành công.
+- Full Windows restore/build/test thành công.
+- Mandatory Windows desktop GPU/runtime smoke thành công.
+- No-materialization, direct override, merged anchor, insert/delete/reorder, exact history, snapshot cache và renderer gates đều xanh.
+- Existing split/header-reorder/auto-scroll/dirty-region/GPU lifecycle gates vẫn xanh.
 
 ## Giới hạn có chủ ý
 
-- Unsplit behavior là optional controller lifecycle, không được tạo UI control riêng cho từng ô.
-- Không sinh union expression cho formula range discontiguous.
-- Chưa có structured/table/shared/dynamic-array reference rewrite.
-- Chưa có sparse whole-axis style storage.
-- Direct split-view changes chưa có standalone undo/redo commands.
-- PR tiếp tục Draft; không merge khi exact-head CI đỏ hoặc chưa xác định.
+- Basic XLSX chưa round-trip full style table hoặc sparse axis-style metadata.
+- Direct cell style là complete override, không phải partial style layer.
+- Merged anchor có thể trở thành một explicit styled cell khi action chỉ cắt qua phần không chứa anchor.
+- PR tiếp tục Draft; không merge nếu exact-head CI đỏ hoặc chưa xác định.
 
-## File trọng tâm vừa hoàn thành
+## File trọng tâm
 
-- `src/NeraSpreadSheet.Rendering.Spreadsheet/SpreadsheetHeaderReorderAutoScroll.cs`
-- `src/NeraSpreadSheet.WinForms/NeraSpreadsheetHeaderReorderController.cs`
-- `src/NeraSpreadSheet.Wpf/NeraSpreadsheetHeaderReorderController.cs`
-- `src/NeraSpreadSheet.WinForms/NeraSpreadsheetSplitSurface.HeaderReorder.cs`
-- `src/NeraSpreadSheet.Wpf/NeraSpreadsheetSplitAdorner.HeaderReorder.cs`
-- `tests/NeraSpreadSheet.Windows.Rendering.Tests/DesktopUnsplitHeaderReorderSmokeTests.cs`
-- `tests/NeraSpreadSheet.Windows.Rendering.Tests/DesktopSplitHeaderReorderAutoScrollSmokeTests.cs`
+- `src/NeraSpreadSheet.Core/CellStylePatch.cs`
+- `src/NeraSpreadSheet.Core/WorksheetAxisStyleMap.cs`
+- `src/NeraSpreadSheet.Core/Worksheet.cs`
+- `src/NeraSpreadSheet.Core/WorksheetSnapshot.cs`
+- `src/NeraSpreadSheet.Core/WorksheetStructuralState.cs`
+- `src/NeraSpreadSheet.Editing/SpreadsheetStyleController.cs`
+- `src/NeraSpreadSheet.Editing/SetWorksheetStylesOperation.cs`
+- `src/NeraSpreadSheet.Rendering.Spreadsheet/SpreadsheetDisplayListComposer.cs`
+- `tests/NeraSpreadSheet.Core.Tests/WorksheetAxisStyleTests.cs`
+- `tests/NeraSpreadSheet.Editing.Tests/SparseWholeAxisStyleTests.cs`
+- `tests/NeraSpreadSheet.Editing.Tests/MergedWholeAxisStyleTests.cs`
+- `tests/NeraSpreadSheet.Rendering.Spreadsheet.Tests/SpreadsheetAxisStyleRenderingTests.cs`
+- `benchmarks/NeraSpreadSheet.Benchmarks/SparseWholeAxisStyleBenchmarks.cs`
 
 ## Bước tiếp theo duy nhất
 
-Triển khai **sparse whole-axis style storage** và effective style composition. Whole-row/whole-column/whole-sheet formatting không được materialize hàng triệu ô. Phải hỗ trợ row/column patch layering, direct-cell override, structural insert/delete/reorder mapping, exact undo/redo, snapshot/render và test hiệu năng/sparsity.
+Triển khai **standalone undo/redo commands cho direct split-view changes**:
+
+1. khóa view-operation contract cho topology, split coordinates, active pane và four-pane offsets;
+2. đưa direct split mutations vào history mà không làm scrollbar/wheel frame spam history;
+3. hỗ trợ command IDs, `CanExecute`, exact undo/redo và per-worksheet isolation;
+4. nối WPF/WinForms public controllers;
+5. thêm Core tests và Windows runtime smoke;
+6. giữ split state persistence/XLSX hiện hành tương thích.
