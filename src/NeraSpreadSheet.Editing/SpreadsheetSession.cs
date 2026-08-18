@@ -163,32 +163,48 @@ public sealed class SpreadsheetSession
         }
 
         History.Execute(operation);
-        Calculation.RecalculateAffected(
-            Workbook,
-            operation.Worksheet,
-            operation.AffectedRange);
+        if (operation.AffectsCalculation)
+        {
+            Calculation.RecalculateAffected(
+                Workbook,
+                operation.Worksheet,
+                operation.AffectedRange);
+        }
     }
 
     public bool Undo()
     {
-        if (!History.Undo())
+        if (!History.TryUndo(out var operation))
         {
             return false;
         }
-        Calculation.Recalculate(Workbook);
+        RecalculateAfterHistoryOperation(operation);
         return true;
     }
 
     public bool Redo()
     {
-        if (!History.Redo())
+        if (!History.TryRedo(out var operation))
         {
             return false;
         }
-        Calculation.Recalculate(Workbook);
+        RecalculateAfterHistoryOperation(operation);
         return true;
     }
 
     public WorkbookCalculationResult Recalculate() =>
         Calculation.Recalculate(Workbook);
+
+    private void RecalculateAfterHistoryOperation(
+        IUndoableOperation? operation)
+    {
+        if (operation is ISpreadsheetEditOperation
+            {
+                AffectsCalculation: false,
+            })
+        {
+            return;
+        }
+        Calculation.Recalculate(Workbook);
+    }
 }
