@@ -36,6 +36,9 @@ public sealed class WpfSplitControlSmokeTests
             sheet.SetValue(default, "Nera WPF split runtime smoke");
             sheet.SetValue(new CellAddress(40, 12), 42d);
             sheet.SetFormula(new CellAddress(41, 12), "=M41*2");
+            var second = workbook.AddWorksheet("Second");
+            second.SetValue(default, "Second WPF worksheet split state");
+            second.SetValue(new CellAddress(50, 10), 84d);
             var session = new SpreadsheetSession(workbook);
             session.Recalculate();
             using var control = new NeraSpreadsheetControl
@@ -62,6 +65,7 @@ public sealed class WpfSplitControlSmokeTests
                     () => split.LastFrame is { Panes.Count: 4 },
                     "The WPF split adorner did not compose its four-pane frame.");
                 AssertSplitFrame(split);
+                AssertPerWorksheetStateRestoration(session, split, sheet, second);
 
                 split.RenderingBackend = WpfRenderingBackend.Direct2DD3DImage;
                 split.RenderNow();
@@ -109,6 +113,56 @@ public sealed class WpfSplitControlSmokeTests
                 PumpFor(TimeSpan.FromMilliseconds(40d));
             }
         });
+    }
+
+    private static void AssertPerWorksheetStateRestoration(
+        SpreadsheetSession session,
+        NeraSpreadsheetSplitController split,
+        Worksheet first,
+        Worksheet second)
+    {
+        split.SetActivePane(SpreadsheetPaneId.BottomRight);
+        split.RenderNow();
+        Assert.AreEqual(SpreadsheetSplitViewMode.Both, session.View.SplitState.Mode);
+        Assert.AreEqual(SpreadsheetSplitViewPane.BottomRight, session.View.SplitState.ActivePane);
+        Assert.AreEqual(280.5d, session.View.SplitState.SplitX);
+        Assert.AreEqual(170.25d, session.View.SplitState.SplitY);
+        Assert.AreEqual(
+            new SpreadsheetPaneScrollOffset(43.75d, 61.5d),
+            session.View.SplitState.BottomRightScroll);
+
+        session.ActivateWorksheet(second);
+        split.RenderNow();
+        PumpUntil(
+            () => split.Mode == SpreadsheetSplitPaneMode.None &&
+                split.LastFrame is { Panes.Count: 1 },
+            "The WPF split host did not apply the second worksheet's default view state.");
+        Assert.AreEqual(default, session.View.SplitState);
+
+        split.SetSplit(null, 190.75d);
+        split.SetActivePane(SpreadsheetPaneId.BottomLeft);
+        split.ScrollPaneTo(SpreadsheetPaneId.BottomLeft, 18.5d, 92.25d);
+        split.RenderNow();
+        Assert.AreEqual(SpreadsheetSplitViewMode.Horizontal, session.View.SplitState.Mode);
+        Assert.AreEqual(SpreadsheetSplitViewPane.BottomLeft, session.View.SplitState.ActivePane);
+        Assert.AreEqual(
+            new SpreadsheetPaneScrollOffset(18.5d, 92.25d),
+            session.View.SplitState.BottomLeftScroll);
+
+        session.ActivateWorksheet(first);
+        split.RenderNow();
+        PumpUntil(
+            () => split.Mode == SpreadsheetSplitPaneMode.Both &&
+                split.ActivePane == SpreadsheetPaneId.BottomRight &&
+                split.LastFrame is { Panes.Count: 4 },
+            "The WPF split host did not restore the first worksheet's split state.");
+        Assert.AreEqual(280.5d, split.SplitX);
+        Assert.AreEqual(170.25d, split.SplitY);
+        var restored = split.GetPaneScroll(SpreadsheetPaneId.BottomRight);
+        Assert.AreEqual(43.75d, restored.X, 0.001d);
+        Assert.AreEqual(61.5d, restored.Y, 0.001d);
+
+        split.SetActivePane(SpreadsheetPaneId.TopLeft);
     }
 
     private static void AssertSplitFrame(NeraSpreadsheetSplitController split)
