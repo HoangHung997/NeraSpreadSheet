@@ -497,18 +497,18 @@ public sealed class Worksheet
     }
 
     private static CellStyle ComposeAxisStyle(
-        IReadOnlyList<WorksheetAxisStyleOperation> rowOperations,
-        IReadOnlyList<WorksheetAxisStyleOperation> columnOperations)
+        WorksheetAxisStyleOperation[] rowOperations,
+        WorksheetAxisStyleOperation[] columnOperations)
     {
         var style = CellStyle.Default;
         var rowIndex = 0;
         var columnIndex = 0;
-        while (rowIndex < rowOperations.Count ||
-               columnIndex < columnOperations.Count)
+        while (rowIndex < rowOperations.Length ||
+               columnIndex < columnOperations.Length)
         {
             WorksheetAxisStyleOperation operation;
-            if (columnIndex >= columnOperations.Count ||
-                (rowIndex < rowOperations.Count &&
+            if (columnIndex >= columnOperations.Length ||
+                (rowIndex < rowOperations.Length &&
                  rowOperations[rowIndex].Sequence <
                  columnOperations[columnIndex].Sequence))
             {
