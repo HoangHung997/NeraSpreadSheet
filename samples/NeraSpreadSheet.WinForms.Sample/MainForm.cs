@@ -5,6 +5,9 @@ using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Foundation.Performance;
 using NeraSpreadSheet.OpenXml;
 using NeraSpreadsheetControl = NeraSpreadSheet.WinForms.NeraSpreadsheetControl;
+using NeraSpreadsheetSplitController = NeraSpreadSheet.WinForms.NeraSpreadsheetSplitController;
+using NeraSpreadsheetSplitExtensions = NeraSpreadSheet.WinForms.NeraSpreadsheetSplitExtensions;
+using SpreadsheetSplitPaneMode = NeraSpreadSheet.WinForms.SpreadsheetSplitPaneMode;
 using WinFormsRenderingBackend = NeraSpreadSheet.WinForms.WinFormsRenderingBackend;
 
 namespace NeraSpreadSheet.WinForms.Sample;
@@ -17,6 +20,7 @@ public sealed class MainForm : Form
     private readonly ToolStripLabel _rendererStatus = new("GDI+ fallback");
     private readonly FramePacingMonitor _framePacing = new();
     private readonly System.Windows.Forms.Timer _diagnosticsTimer;
+    private NeraSpreadsheetSplitController? _splitController;
 
     public MainForm()
     {
@@ -35,6 +39,11 @@ public sealed class MainForm : Form
         toolbar.Items.Add(CreateButton("Unmerge", UnmergeClick));
         toolbar.Items.Add(CreateButton("Freeze", FreezeClick));
         toolbar.Items.Add(CreateButton("Unfreeze", UnfreezeClick));
+        toolbar.Items.Add(new ToolStripSeparator());
+        toolbar.Items.Add(CreateButton("Split V", SplitVerticalClick));
+        toolbar.Items.Add(CreateButton("Split H", SplitHorizontalClick));
+        toolbar.Items.Add(CreateButton("Split 4", SplitBothClick));
+        toolbar.Items.Add(CreateButton("Clear Split", ClearSplitClick));
         toolbar.Items.Add(new ToolStripSeparator());
         toolbar.Items.Add(CreateButton("Insert Row", InsertRowsClick));
         toolbar.Items.Add(CreateButton("Delete Row", DeleteRowsClick));
@@ -101,20 +110,23 @@ public sealed class MainForm : Form
         var freeze = view is { HasFrozenPanes: true }
             ? $" · freeze {view.FrozenRows}r/{view.FrozenColumns}c"
             : string.Empty;
+        var split = _splitController is { IsDisposed: false, Mode: not SpreadsheetSplitPaneMode.None }
+            ? $" · split {_splitController.Mode}/{_splitController.ActivePane}"
+            : string.Empty;
         var prefix = string.Create(
             System.Globalization.CultureInfo.InvariantCulture,
             $"{pacing.FramesPerSecond:F1} FPS · p95 {pacing.P95FrameIntervalMilliseconds:F2} ms · ");
         if (_spreadsheet.SwapChainDiagnostics is { } swapChain)
         {
-            _rendererStatus.Text = $"{prefix}{swapChain.AdapterName} · {swapChain.DeviceFeatureLevel} · VSync={swapChain.VSync} · layouts {swapChain.CachedTextLayouts}{freeze}";
+            _rendererStatus.Text = $"{prefix}{swapChain.AdapterName} · {swapChain.DeviceFeatureLevel} · VSync={swapChain.VSync} · layouts {swapChain.CachedTextLayouts}{freeze}{split}";
             return;
         }
         if (_spreadsheet.Direct2DDiagnostics is { } direct2D)
         {
-            _rendererStatus.Text = $"{prefix}Direct2D HWND · layouts {direct2D.CachedTextLayouts}/{direct2D.TextLayoutCacheCapacity}{freeze}";
+            _rendererStatus.Text = $"{prefix}Direct2D HWND · layouts {direct2D.CachedTextLayouts}/{direct2D.TextLayoutCacheCapacity}{freeze}{split}";
             return;
         }
-        _rendererStatus.Text = $"{prefix}GDI+ fallback{freeze}";
+        _rendererStatus.Text = $"{prefix}GDI+ fallback{freeze}{split}";
     }
 
     private void OnFormClosed(object? sender, FormClosedEventArgs e)
@@ -122,6 +134,8 @@ public sealed class MainForm : Form
         _diagnosticsTimer.Stop();
         _diagnosticsTimer.Tick -= OnDiagnosticsTick;
         _diagnosticsTimer.Dispose();
+        _splitController?.Dispose();
+        _splitController = null;
         _spreadsheet.Paint -= OnSpreadsheetPaint;
         FormClosed -= OnFormClosed;
     }
@@ -146,9 +160,12 @@ public sealed class MainForm : Form
         }
 
         await using var stream = File.OpenRead(dialog.FileName);
-        _spreadsheet.Session = await _serializer.LoadSessionAsync(
+        var session = await _serializer.LoadSessionAsync(
             stream,
             new OpenXmlImportOptions());
+        _spreadsheet.Session = session;
+        ApplyLoadedSplitState(session);
+        UpdateRendererStatus();
     }
 
     private async void SaveClick(object? sender, EventArgs e)
@@ -203,6 +220,53 @@ public sealed class MainForm : Form
     {
         _spreadsheet.Session?.View.Unfreeze();
         UpdateRendererStatus();
+    }
+
+    private void SplitVerticalClick(object? sender, EventArgs e) =>
+        SetSplitMode(SpreadsheetSplitPaneMode.Vertical);
+
+    private void SplitHorizontalClick(object? sender, EventArgs e) =>
+        SetSplitMode(SpreadsheetSplitPaneMode.Horizontal);
+
+    private void SplitBothClick(object? sender, EventArgs e) =>
+        SetSplitMode(SpreadsheetSplitPaneMode.Both);
+
+    private void ClearSplitClick(object? sender, EventArgs e)
+    {
+        if (_splitController is { IsDisposed: false })
+        {
+            _splitController.ClearSplit();
+        }
+        else
+        {
+            _spreadsheet.Session?.View.ClearSplitState();
+        }
+        UpdateRendererStatus();
+    }
+
+    private void SetSplitMode(SpreadsheetSplitPaneMode mode)
+    {
+        _splitController = NeraSpreadsheetSplitExtensions.EnableSplitPanes(_spreadsheet, mode);
+        _splitController.SetMode(mode);
+        UpdateRendererStatus();
+    }
+
+    private void ApplyLoadedSplitState(SpreadsheetSession session)
+    {
+        var mode = session.View.SplitState.Mode switch
+        {
+            SpreadsheetSplitViewMode.Vertical => SpreadsheetSplitPaneMode.Vertical,
+            SpreadsheetSplitViewMode.Horizontal => SpreadsheetSplitPaneMode.Horizontal,
+            SpreadsheetSplitViewMode.Both => SpreadsheetSplitPaneMode.Both,
+            _ => SpreadsheetSplitPaneMode.None,
+        };
+        if (mode == SpreadsheetSplitPaneMode.None)
+        {
+            _splitController?.ClearSplit();
+            return;
+        }
+        _splitController = NeraSpreadsheetSplitExtensions.EnableSplitPanes(_spreadsheet, mode);
+        _splitController.SetMode(mode);
     }
 
     private async void InsertRowsClick(object? sender, EventArgs e) =>
