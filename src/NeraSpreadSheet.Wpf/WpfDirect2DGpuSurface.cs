@@ -5,6 +5,7 @@ using NeraSpreadSheet.Rendering.Direct2D;
 using Vortice.Direct2D1;
 using Vortice.Direct3D11;
 using Vortice.DXGI;
+using static Vortice.Direct2D1.D2D1;
 
 namespace NeraSpreadSheet.Wpf;
 
@@ -76,14 +77,13 @@ internal sealed class WpfDirect2DGpuSurface : NeraD3D11ImageSurface
         ID3D11Device1 device,
         ID3D11DeviceContext1 context)
     {
-        _factory = Direct2DFactoryFactory.CreateFactory();
+        _factory = D2D1CreateFactory<ID2D1Factory1>();
         using var dxgiDevice = device.QueryInterface<IDXGIDevice>();
         _direct2DDevice = _factory.CreateDevice(dxgiDevice);
         _direct2DContext = _direct2DDevice.CreateDeviceContext(
             DeviceContextOptions.EnableMultithreadedOptimizations);
         _executor = new Direct2DDisplayListExecutor(
-            _factory,
-            _direct2DContext);
+            Direct2DHwndDisplayListRenderer.DefaultTextLayoutCacheCapacity);
         _fullRenderPending = true;
         _pendingRenderBounds = null;
         EnsureTargetBitmap();
@@ -121,9 +121,7 @@ internal sealed class WpfDirect2DGpuSurface : NeraD3D11ImageSurface
                 ? CreateDirtyClippedDisplayList(displayList, dirtyBounds)
                 : displayList;
         direct2DContext.Target = _targetBitmap;
-        executor.Render(
-            renderList,
-            clearColor: new Color4(1f, 1f, 1f, 1f));
+        executor.Render(direct2DContext, renderList);
         _fullRenderPending = false;
         _pendingRenderBounds = null;
     }
@@ -169,7 +167,7 @@ internal sealed class WpfDirect2DGpuSurface : NeraD3D11ImageSurface
             new BitmapProperties1(
                 new Vortice.DCommon.PixelFormat(
                     Format.B8G8R8A8_UNorm,
-                    AlphaMode.Premultiplied),
+                    Vortice.DCommon.AlphaMode.Premultiplied),
                 dpiX: 96f,
                 dpiY: 96f,
                 BitmapOptions.Target | BitmapOptions.CannotDraw));
