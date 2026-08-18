@@ -45,9 +45,9 @@ public sealed class DesktopSampleScrollBarSmokeTests
             var toolbar = form.Controls.OfType<WinFormsToolStrip>().Single();
             var toggle = toolbar.Items
                 .OfType<WinFormsToolStripButton>()
-                .Single(item => item.Text.StartsWith(
+                .Single(item => item.Text?.StartsWith(
                     "Pane Scrollbars",
-                    StringComparison.Ordinal));
+                    StringComparison.Ordinal) == true);
 
             Assert.IsTrue(toggle.Checked);
             Assert.IsTrue(spreadsheet.RenderTheme.ShowSplitPaneScrollBars);
@@ -68,9 +68,11 @@ public sealed class DesktopSampleScrollBarSmokeTests
                 NeraSpreadSheet.WinForms.SpreadsheetSplitPaneMode.Both,
                 split.Mode);
             split.RenderNow();
-            Assert.IsNotNull(split.LastFrame);
-            Assert.AreEqual(4, split.LastFrame.Panes.Count);
-            Assert.IsTrue(split.LastFrame.ScrollBars.Bars.Count >= 8);
+            var frame = split.LastFrame ??
+                throw new AssertFailedException(
+                    "The WinForms sample did not compose a split frame.");
+            Assert.AreEqual(4, frame.Panes.Count);
+            Assert.IsTrue(frame.ScrollBars.Bars.Count >= 8);
 
             form.Close();
             WinFormsApplication.DoEvents();
@@ -97,12 +99,14 @@ public sealed class DesktopSampleScrollBarSmokeTests
                 window.UpdateLayout();
                 PumpFor(TimeSpan.FromMilliseconds(80d));
 
-                var spreadsheet = (NeraSpreadSheet.Wpf.NeraSpreadsheetControl?)
-                    window.FindName("Spreadsheet");
-                var toggle = (WpfToggleButton?)
-                    window.FindName("ScrollBarsToggle");
-                Assert.IsNotNull(spreadsheet);
-                Assert.IsNotNull(toggle);
+                var spreadsheet = window.FindName("Spreadsheet") as
+                    NeraSpreadSheet.Wpf.NeraSpreadsheetControl ??
+                    throw new AssertFailedException(
+                        "The WPF sample spreadsheet control is unavailable.");
+                var toggle = window.FindName("ScrollBarsToggle") as
+                    WpfToggleButton ??
+                    throw new AssertFailedException(
+                        "The WPF sample scrollbar toggle is unavailable.");
                 Assert.AreEqual(true, toggle.IsChecked);
                 Assert.IsTrue(
                     spreadsheet.RenderTheme.ShowSplitPaneScrollBars);
@@ -129,9 +133,11 @@ public sealed class DesktopSampleScrollBarSmokeTests
                     NeraSpreadSheet.Wpf.SpreadsheetSplitPaneMode.Both,
                     split.Mode);
                 split.RenderNow();
-                Assert.IsNotNull(split.LastFrame);
-                Assert.AreEqual(4, split.LastFrame.Panes.Count);
-                Assert.IsTrue(split.LastFrame.ScrollBars.Bars.Count >= 8);
+                var frame = split.LastFrame ??
+                    throw new AssertFailedException(
+                        "The WPF sample did not compose a split frame.");
+                Assert.AreEqual(4, frame.Panes.Count);
+                Assert.IsTrue(frame.ScrollBars.Bars.Count >= 8);
             }
             finally
             {
