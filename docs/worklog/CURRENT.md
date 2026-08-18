@@ -4,58 +4,61 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` vào `develop` — Draft, chưa merge
-- Implementation commit đã được xác minh: `44a5f37368dcf41dd89f5c33ba05bb15108d54dc`
-- GitHub Actions: run `32125901319`, CI `#311`, kết luận `success`
+- Implementation commit đã xác minh: `16e034189328385b16e7c6b567c4b4b2a094c974`
+- GitHub Actions implementation gate: run `32129937837`, CI `#322`, kết luận `success`
 - Tài liệu nguồn sự thật: `docs/current-status.md`
-- Contract mới nhất: `docs/header-reordering-contract.md`
+- Contract: `docs/header-reordering-contract.md`
 
-## Đã hoàn thành trong mốc hiện tại
+## Đã hoàn thành trong mốc header reordering
 
-### Model và transaction reorder
+### Model và transaction
 
-- Thêm `WorksheetAxisMove` cho fixed-length row/column permutation.
+- `WorksheetAxisMove` cho fixed-length row/column permutation.
 - Di chuyển sparse cells, row-height/column-width overrides và merged ranges mà không materialize toàn axis.
-- Thêm `SpreadsheetAxisReorderController` vào `SpreadsheetSession`.
-- Map formula local/cross-sheet theo logical cell identity; giữ `$` markers, quoted sheet names và string literals.
+- `SpreadsheetAxisReorderController` trong `SpreadsheetSession`.
+- Formula local/cross-sheet theo logical cell identity; giữ `$`, quoted sheet names và string literals.
 - Từ chối nguyên tử formula range có image discontiguous.
-- Từ chối merged range bị split/reverse hoặc vượt freeze boundary.
-- Map active cell, anchor, whole-axis/multi-range selection và per-pane split offsets bằng exact sparse metrics.
+- Từ chối merge bị split/reverse hoặc vượt freeze boundary.
+- Map active/anchor, whole-axis/multi-range selection và per-pane split offsets bằng exact sparse metrics.
 - Undo/redo và rollback phục hồi exact worksheet/formula/selection/view snapshots rồi recalculate workbook.
 
-### Shared drag geometry và desktop split hosts
+### Shared drag geometry và split hosts
 
-- Thêm shared source/drop/threshold/preview geometry.
-- Row source lấy từ left-edge panes; column source lấy từ top-edge panes.
-- Input priority: scrollbar → split separator → dimension resize → reorder → selection.
+- Shared source/drop/threshold/preview geometry.
+- Row source từ left-edge panes; column source từ top-edge panes.
+- Priority: scrollbar → split separator → dimension resize → reorder → selection.
 - WinForms đọc `MK_LBUTTON` từ `wParam`, dùng pointer capture và shared display-list preview.
-- WPF dùng preview routed input, mouse capture và `DrawingVisual` preview trên DrawingContext/D3DImage.
-- Một selected contiguous whole-row/whole-column range được kéo như một block; nếu không thì kéo một axis item.
+- WPF dùng preview routed handlers, physical-button-gated optional capture và `DrawingVisual` preview trên DrawingContext/D3DImage.
+- WPF không hủy transaction chỉ vì capture unavailable; lost capture khi vẫn đang giữ nút trái vẫn cancel an toàn.
+- Selected contiguous whole-row/whole-column range được kéo như một block; nếu không thì kéo một axis item.
 
 ### Runtime gates
 
 - Core permutation/mutation tests.
 - Formula identity/discontiguous rejection tests.
-- Transaction, split offset, selection, rollback, undo/redo và recalculation tests.
+- Transaction, split-offset, selection, rollback, undo/redo và recalculation tests.
 - Shared reorder geometry/preview tests.
-- WinForms real-message row drag smoke.
-- WinForms real-message column drag smoke.
-- WPF native OS pointer row drag smoke và post-move D3DImage render.
+- WinForms actual surface-message row drag smoke.
+- WinForms actual surface-message column drag smoke.
+- WPF real loaded-window production state-machine smoke: source, threshold, preview lifecycle, selection, commit/undo và post-move D3DImage render.
 - Full Windows build/tests/GPU runtime gate.
 - Cross-platform Core tests và architecture verification.
 
-## Kết quả CI đã xác minh
+## CI đã xác minh
 
-CI `#311` xanh toàn bộ tại implementation commit `44a5f37368dcf41dd89f5c33ba05bb15108d54dc`:
+CI `#322` xanh tại implementation commit `16e034189328385b16e7c6b567c4b4b2a094c974`:
 
-- `Core build and tests`: restore, build, tests và architecture verification thành công.
-- `Windows hosts build`: restore, full solution build, tests và mandatory Windows desktop GPU runtime smoke thành công.
-- Row/column reorder source, model, formula, selection, split view, preview và desktop input đều nằm trong gate này.
+- `Core build and tests`: restore, build, tests, architecture verification thành công.
+- `Windows hosts build`: restore, full solution build, tests, mandatory Windows desktop GPU/runtime smoke thành công.
+
+Hosted Windows runner không cung cấp global WPF pointer injection ổn định. Gate WPF vì vậy mở Window/control/controller thật và gọi cùng production drag state machine một cách deterministic. Không được mô tả gate này là global native pointer injection.
 
 ## Giới hạn có chủ ý
 
-- Native header drag hiện được nối vào public split hosts; unsplit public-control drag path chưa nối.
-- Chưa auto-scroll khi kéo header tới mép viewport.
-- Không sinh union expression khi formula range trở thành discontiguous; thao tác bị từ chối.
+- Native drag UI hiện chỉ nối vào public split hosts.
+- Chưa có unsplit-control header drag.
+- Chưa auto-scroll khi kéo tới mép viewport.
+- Không sinh union expression cho formula range discontiguous.
 - Chưa có structured/table/shared/dynamic-array reference rewrite.
 - Chưa có sparse whole-axis style storage.
 - PR tiếp tục Draft; không merge khi exact-head CI đỏ hoặc chưa xác định.
@@ -73,4 +76,4 @@ CI `#311` xanh toàn bộ tại implementation commit `44a5f37368dcf41dd89f5c33b
 
 ## Bước tiếp theo duy nhất
 
-Nối cùng contract header drag-reorder vào **unsplit** public WPF/WinForms controls, sau đó thêm drag-edge auto-scroll. Không viết một permutation/model thứ hai; bắt buộc tái sử dụng `WorksheetAxisMove`, `SpreadsheetAxisReorderController` và shared header reorder geometry hiện có.
+Nối cùng contract header drag-reorder vào **unsplit** public WPF/WinForms controls, sau đó bổ sung drag-edge auto-scroll. Không tạo permutation/model thứ hai; bắt buộc tái sử dụng `WorksheetAxisMove`, `SpreadsheetAxisReorderController` và shared reorder geometry hiện có.

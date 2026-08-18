@@ -2,205 +2,152 @@
 
 This document locks the first native NeraSpreadSheet row/column reorder semantics. The operation is a fixed-length permutation, not an insert/delete pair and not a clipboard move.
 
-## 1. Scope and terminology
+## 1. Request model
 
-A reorder request is represented by `WorksheetAxisMove`:
+`WorksheetAxisMove` contains:
 
 - `Axis`: row or column.
-- `SourceIndex`: first source row/column in the original worksheet coordinates.
+- `SourceIndex`: first source item in original coordinates.
 - `Count`: length of the contiguous source interval.
-- `DestinationBoundary`: insertion boundary in the original coordinate system, from `0` through the logical axis length.
+- `DestinationBoundary`: insertion boundary in original coordinates, from `0` through the logical axis length.
 
-The source interval is inclusive: `[SourceIndex, SourceIndex + Count - 1]`.
-
-A destination inside `[SourceIndex, SourceEnd + 1]` is a no-op. It neither mutates the worksheet nor creates undo history.
+The source interval is inclusive. A destination inside the source interval or at either adjacent boundary is a no-op and creates no history entry.
 
 ## 2. Permutation semantics
 
-A reorder keeps the logical axis length unchanged.
-
-- No logical row or column is created or destroyed.
+- Logical axis length does not change.
+- No row/column is created or deleted.
 - The source interval preserves internal order.
 - The intervening interval shifts by exactly `Count` positions.
-- Every valid source index maps to exactly one target index.
-- Every target index has exactly one source index.
-- `InsertionIndex` is the target start after source removal; it equals `DestinationBoundary` for upward/leftward moves and `DestinationBoundary - Count` for downward/rightward moves.
+- Every valid source index maps to exactly one target index and vice versa.
+- `WorksheetAxisMove.MapIndex`, `MapAddress` and `MapInterval` are the shared mapping source; hosts must not reimplement them.
 
-`WorksheetAxisMove.MapIndex`, `MapAddress` and `MapInterval` are the shared mapping source. Hosts and higher layers must not reimplement the permutation independently.
-
-## 3. Sparse workbook mutation
+## 3. Sparse model mutation
 
 `Worksheet.ApplyAxisMove` transforms only stored state:
 
 - sparse used cells;
-- row-height or column-width overrides on the moved axis;
+- row-height/column-width overrides on the moved axis;
 - merged ranges.
 
-Default-sized empty rows/columns remain implicit. A move must not materialize the full logical worksheet.
-
-The operation publishes one affected full-axis band from the minimum source/target index through the maximum source/target index.
+Default-sized empty axes remain implicit. The operation publishes one affected full-axis band spanning source and target.
 
 ## 4. Formula identity
 
-Reordering follows logical cell identity.
+References follow logical cell identity.
 
-- A reference to a moved cell follows that cell to its new address.
-- A reference to an intervening shifted cell follows that shifted cell.
-- Formulas located on the moved worksheet move with their containing cells and are rewritten from their mapped addresses.
+- A reference to a moved cell follows that cell.
+- A reference to an intervening shifted cell follows that cell.
+- Formulas located on the moved worksheet move with their cells and rewrite from mapped addresses.
 - Formulas on other worksheets keep their own addresses but rewrite references to the moved worksheet.
-- `$` absolute markers are formatting/translation markers and remain present; they do not prevent identity mapping during structural reorder.
-- Quoted and escaped worksheet names are preserved.
-- Text inside string literals is never parsed as a cell reference.
+- `$` markers and quoted/escaped sheet names are preserved.
+- String literals are never parsed as references.
 
-A rectangular A1 range may be rewritten only when its image remains one contiguous interval on the moved axis. If its image would be a union/discontiguous set, preflight rejects the complete reorder with `InvalidOperationException`.
-
-The initial implementation does not synthesize union expressions or rewrite structured/table/shared/dynamic-array references.
+A rectangular A1 range may be rewritten only if its image remains one contiguous interval on the moved axis. Otherwise preflight rejects the reorder atomically. The implementation does not synthesize union expressions or structured/shared/dynamic-array reference forms.
 
 ## 5. Merged cells and freeze boundaries
 
-Merged ranges must remain one contiguous rectangle and retain normal top-left anchor ordering.
+A reorder is rejected before mutation if it would:
 
-A reorder is rejected before mutation when it would:
+- split one merged range;
+- reverse mapped merge endpoint/anchor order;
+- move a merged range across the active frozen-row boundary;
+- move a merged range across the active frozen-column boundary.
 
-- split one merged range into multiple axis intervals;
-- reverse the mapped order of a merged range endpoint/anchor;
-- move a merged range so it crosses the current frozen-row boundary;
-- move a merged range so it crosses the current frozen-column boundary.
+Moving a complete merged block is valid and preserves its anchor value/style and dimensions.
 
-Moving a complete merged block is valid. Its anchor cell, stored value/style and dimensions move through the same permutation.
+## 6. Selection and split-view mapping
 
-## 6. Selection mapping
+- Active and anchor cells map through `MapAddress`.
+- Selection ranges map through `MapInterval`; disjoint images remain a multi-range selection.
+- A selected contiguous whole-axis block remains selected after moving.
+- Every split-pane offset preserves the identity of its top-left row/column plus the fractional local pixel offset.
+- Offset mapping uses exact sparse metrics before and after the move, not a fixed delta.
+- The unaffected axis, topology, split coordinates and active pane remain unchanged.
+- Undo/redo restores exact pre/post selection and split snapshots.
 
-The selection is part of the edit transaction.
+## 7. Transaction, rollback and history
 
-- Active cell and anchor cell map through `MapAddress`.
-- Each selected range maps through `MapInterval` on the moved axis.
-- If one selected rectangle maps into multiple disjoint rectangles, all resulting ranges are retained as a multi-range selection.
-- A contiguous whole-row or whole-column selection remains an axis selection when the selected block itself moves.
-- Undo restores the exact previous selection snapshot; redo restores the exact mapped snapshot.
+`SpreadsheetAxisReorderController` owns:
 
-## 7. Split-pane scroll mapping
+1. worksheet structural snapshot;
+2. external formula snapshot;
+3. full-workbook formula rewrite preflight;
+4. merged/freeze validation;
+5. selection mapping;
+6. split-offset mapping;
+7. atomic execution/rollback;
+8. full-workbook recalculation;
+9. exact undo/redo.
 
-`SpreadsheetSplitViewState` remains per worksheet and participates in the reorder transaction.
+Any failure after mutation begins restores captured state. A failed operation never enters history.
 
-For every pane, the moved axis offset is mapped by:
+## 8. Shared header drag geometry
 
-1. Resolving the source top-left row/column containing the current pixel offset using exact pre-move sparse metrics.
-2. Preserving the local fractional pixel offset inside that row/column.
-3. Mapping the row/column identity through `WorksheetAxisMove`.
-4. Computing its post-move pixel start using exact mapped sparse metrics.
-5. Adding the preserved local offset.
-
-The unaffected axis, split topology, split coordinates and active pane remain unchanged.
-
-This is intentionally different from mapping an offset by a fixed pixel delta; rows and columns may have non-uniform sizes.
-
-## 8. Transaction, rollback and history
-
-`SpreadsheetAxisReorderController` owns the edit transaction.
-
-Preflight captures and validates:
-
-- target worksheet structural state;
-- formula cells on other worksheets;
-- formula rewrites for the entire workbook;
-- merged/freeze safety;
-- selection snapshot;
-- split-view snapshot and mapped target state.
-
-Only after every preflight step succeeds may mutation start.
-
-Execution order:
-
-1. Apply worksheet axis permutation.
-2. Apply local and external formula rewrites.
-3. Restore unchanged freeze coordinates after merged-range validation.
-4. Publish mapped split state.
-5. Restore mapped selection.
-6. Recalculate the workbook.
-
-Any exception after mutation begins restores the captured state. A failed operation does not enter undo history.
-
-Undo/redo restore exact pre/post snapshots and trigger workbook recalculation.
-
-## 9. Shared header drag geometry
-
-`SpreadsheetSplitHeaderReorderGeometry` owns platform-neutral source/drop semantics.
+`SpreadsheetSplitHeaderReorderGeometry` owns source/drop/threshold behavior.
 
 - Left-edge panes supply row headers.
 - Top-edge panes supply column headers.
-- A pointer within resize tolerance of a header edge is not a reorder source.
-- Drag activation requires the shared Euclidean movement threshold.
-- Drop before/after is selected from the nearest half of the target axis slot.
-- Drop target carries the original-coordinate `DestinationBoundary` and the complete `WorksheetAxisMove`.
-- A preview line spans the full perpendicular control extent.
-- Valid targets use active styling; no-op targets use neutral header-border styling.
-- Split separator gaps resolve to the nearest eligible edge pane instead of producing an arbitrary worksheet index.
+- Resize tolerance excludes edge hits from reorder.
+- Pane scrollbars and split separators have higher priority.
+- Drag activates only after a shared Euclidean threshold.
+- Drop before/after is selected from the nearest half of the target slot.
+- Drop carries the original-coordinate `DestinationBoundary` and complete `WorksheetAxisMove`.
+- Preview spans the full perpendicular control extent.
+- Valid targets use active styling; no-op targets use neutral styling.
+- If pointer-down belongs to the sole selected contiguous whole-axis range, the whole range moves; otherwise one row/column moves.
 
-If the pointer-down header belongs to the sole selected contiguous whole-axis range, the whole range is the source. Otherwise, only the hit row/column is the source.
+## 9. Desktop input priority
 
-## 10. Input priority
+1. pane scrollbar;
+2. split separator;
+3. dimension resize;
+4. header reorder;
+5. ordinary header selection.
 
-Desktop hosts apply this priority order:
+A candidate does not capture immediately. Capture starts only after threshold crossing.
 
-1. Pane scrollbar interaction.
-2. Split separator drag.
-3. Row-height/column-width resize handle.
-4. Header reorder candidate.
-5. Ordinary row/column selection.
+## 10. WinForms split host
 
-A reorder candidate does not capture input immediately. Capture begins only after the drag threshold is crossed, allowing a normal click to remain a selection action.
+- Reads `MK_LBUTTON` from the actual `wParam`.
+- Uses the Nera-owned child HWND and pointer capture.
+- Renders preview through `SpreadsheetHeaderReorderPreviewDisplayListComposer`, shared by GDI+, Direct2D HWND and DXGI.
+- Commits via `SpreadsheetSession.Reorder` on release.
+- Clears state on cancellation or `WM_CAPTURECHANGED`.
+- Runtime tests dispatch the actual surface message path for both row and column moves and verify formula identity, selection and undo.
 
-## 11. WinForms split host
+## 11. WPF split host
 
-The public WinForms split surface:
+- Starts candidates from preview routed input before ordinary header selection completes.
+- Uses the same threshold/drop geometry and one lightweight `DrawingVisual` preview above DrawingContext/D3DImage content.
+- Attempts mouse capture only while the physical left button is pressed.
+- A valid transaction is retained if capture is unavailable; ordinary routed moves/releases can still finish while the pointer remains in the host.
+- Lost capture while the button is still pressed cancels safely; release-time capture loss is not mistaken for a stolen drag.
+- Commits via `SpreadsheetSession.Reorder` on release.
 
-- reads `MK_LBUTTON` from the actual Windows message `wParam`;
-- uses the existing child HWND and pointer capture;
-- keeps resize/scrollbar/separator priority;
-- appends preview geometry through `SpreadsheetHeaderReorderPreviewDisplayListComposer`, so GDI+, Direct2D HWND and DXGI share preview semantics;
-- commits through `SpreadsheetSession.Reorder` on button release;
-- clears capture/preview on cancellation or `WM_CAPTURECHANGED`.
+The hosted Windows runner cannot reliably inject global WPF pointer state. Therefore the stable CI gate opens a real WPF `Window` with the public control/controller, then invokes the same production drag state machine deterministically. It verifies source acquisition, threshold activation, preview creation/removal, mapped selection, commit, undo and post-move D3DImage presentation. Production routed handlers remain the caller of that same state machine.
 
-Runtime tests dispatch the actual surface message path for both row and column movement, verify selection/formula identity and exercise undo.
+## 12. Conservative exclusions
 
-## 12. WPF split host
-
-The public WPF split adorner:
-
-- starts candidates in preview routed input before the ordinary header selection handler;
-- captures the mouse only after the shared threshold;
-- uses a lightweight `DrawingVisual` preview above both DrawingContext and shared-texture D3DImage content;
-- clears state on lost capture;
-- commits through `SpreadsheetSession.Reorder` on mouse release.
-
-Runtime coverage uses native OS cursor/button input, verifies the target row and selection/history, switches to D3DImage after the move and requires successful GPU presentation.
-
-## 13. Conservative exclusions
-
-The following are not part of this milestone:
-
-- automatic scrolling while dragging near a viewport edge;
-- direct drag integration in the unsplit public WinForms/WPF control paths;
+- unsplit public-control drag integration;
+- automatic edge scrolling during drag;
 - union-expression generation for discontiguous formula ranges;
-- reordering filtered/hidden/outlined axes with special visible-only semantics;
-- table/structured-reference, shared-formula or dynamic-array structural rewriting;
-- standalone public command arguments or keyboard-only reorder UI.
+- special visible-only behavior for filtered/hidden/outlined axes;
+- structured/table/shared/dynamic-array reference rewriting;
+- standalone command arguments or keyboard-only reorder UI.
 
-Programmatic reorder through `SpreadsheetSession.Reorder` is host-independent even while the unsplit drag UI remains pending.
+Programmatic reorder through `SpreadsheetSession.Reorder` is host-independent.
 
-## 14. Required gates
-
-A reorder milestone is accepted only when all of the following pass:
+## 13. Required gates
 
 - permutation/index/interval mapping tests;
-- sparse cell/dimension and merged-range mutation tests;
-- local/cross-sheet formula identity and string-literal tests;
-- discontiguous formula-range and merged/freeze atomic rejection tests;
+- sparse cell/dimension and merge mutation tests;
+- local/cross-sheet formula identity tests;
+- atomic discontiguous-range and merged/freeze rejection tests;
 - selection, split-offset, rollback, undo/redo and recalculation tests;
 - shared source/drop/threshold/preview geometry tests;
 - WinForms real-message row drag runtime smoke;
 - WinForms real-message column drag runtime smoke;
-- WPF native-pointer row drag and post-move D3DImage runtime smoke;
-- full Windows build/tests/GPU gate;
+- WPF loaded-window production state-machine and post-move D3DImage smoke;
+- full Windows build/tests/GPU runtime gate;
 - cross-platform Core build/tests and architecture verification.

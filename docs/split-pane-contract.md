@@ -1,150 +1,84 @@
 # Split-pane contract
 
-This document locks native NeraSpreadSheet split-pane semantics shared by layout, viewport, session state, XLSX serialization, WinForms and WPF. Split panes are independent from freeze panes: a split creates multiple independently scrolled views of one worksheet, while freeze panes pin leading rows/columns inside each view.
+This document locks NeraSpreadSheet split-pane semantics shared by layout, viewport, session state, XLSX serialization, WinForms and WPF. Split panes create independently scrolled views of one worksheet; freeze panes pin leading rows/columns inside each view.
 
 ## 1. Topology and geometry
-
-Supported modes:
 
 - `None`: `TopLeft` only.
 - `Vertical`: `TopLeft`, `TopRight`.
 - `Horizontal`: `TopLeft`, `BottomLeft`.
 - `Both`: all four stable pane IDs.
-
-Rules:
-
-- Split coordinates are body-local `double` pixel coordinates.
+- Split coordinates are body-local `double` pixels.
 - Separator thickness and minimum pane extent must be finite and positive.
-- Requested coordinates are clamped so both panes meet minimum extent.
-- An axis is disabled when its viewport cannot contain two minimum panes and a separator.
-- Pane/separator hit testing uses half-open bounds and distinguishes vertical separator, horizontal separator and their intersection.
-- Header bands lie outside the body viewport and translate body geometry by row-header width/column-header height.
+- Requested coordinates are clamped; an axis is disabled when it cannot fit two minimum panes plus separator.
+- Pane/separator hit testing uses half-open bounds and distinguishes separator intersection.
+- Header bands are outside the body viewport.
 
-## 2. Independent continuous scrolling
+## 2. Independent scrolling and composition
 
-Every pane owns one `ContinuousScrollController`.
-
-- X/Y offsets and targets remain `double`.
-- No row/column snapping is introduced.
-- Precision/touch input applies pixel deltas; wheel/programmatic animation uses shared frame physics.
-- Bounds are computed independently from content extent minus that pane's viewport extent.
-- Scrolling one pane cannot mutate another.
-- Hidden pane offsets remain stored and are re-clamped when topology restores them.
-- If the active pane disappears, active pane falls back to `TopLeft`.
-
-## 3. Composition and freeze panes
-
-`SpreadsheetSplitViewportEngine` composes each visible pane through the shared `SpreadsheetViewportEngine`.
-
-- Panes share one `SpreadsheetSession`, worksheet, selection and style catalog.
-- Each pane receives its own offsets and viewport size.
-- Pane display lists are clipped and translated into common body coordinates.
+- Every pane owns one `ContinuousScrollController`.
+- Offsets remain continuous `double`; no row/column snapping.
+- Precision/touch, wheel and programmatic inputs can target one pane without moving another.
+- Hidden pane offsets remain stored and re-clamp when topology restores them.
+- Unavailable active panes fall back to `TopLeft`.
+- Each pane composes through the shared `SpreadsheetViewportEngine` with its own offsets and viewport size.
 - Freeze corner/rows/columns/body composition remains internal to each pane.
-- Separators, active-pane border and integrated pane scrollbars are appended after pane content.
-- Nested display lists retain immutable child references and must not be flatten-copied.
+- Pane lists are clipped/translated into common body coordinates; nested display lists are retained, not flatten-copied.
 
-## 4. Hit testing, bounds and shared chrome
+## 3. Hit testing, headers and resizing
 
-- Body hit testing resolves topology first, then runs pane-local worksheet hit testing with that pane's offsets.
+- Body hit testing resolves pane topology before worksheet hit testing.
 - Merged-cell hits resolve to the merged top-left anchor.
-- Cell/editor bounds are calculated pane-locally and translated into common body/control coordinates.
-- Separators never resolve to worksheet cells.
 - Top-edge panes supply column headers; left-edge panes supply row headers.
 - Vertical separators continue through column headers; horizontal separators continue through row headers.
-- Split chrome validates unique pane metadata, matching IDs/bounds and matching viewport sizes.
+- `SpreadsheetSplitHeaderResizeGeometry` is shared by desktop hosts.
+- Pane scrollbars and split separators take priority over resize handles.
+- Live row/column resize updates shared sparse metrics and conservatively recomposes the host.
 
-## 5. Row/column dimension resizing
+## 4. Per-worksheet split state
 
-`SpreadsheetSplitHeaderResizeGeometry` is shared by WinForms and WPF.
+`SpreadsheetSplitViewState` stores topology, split X/Y, active pane and all four pane offsets per worksheet.
 
-- Left-edge panes expose row resize handles.
-- Top-edge panes expose column resize handles.
-- Separator continuation through a header band is not a resize handle.
-- Separator and scrollbar hit regions take priority.
-- Returned edge coordinates use full-control coordinates.
-- Starting resize activates the source pane.
-- Live drag updates shared sparse worksheet dimensions; every pane observes the same metric.
-- Dimension changes conservatively recompose the host because later row/column edges may move.
+- Hidden-pane offsets remain stored.
+- Source-tagged events prevent desktop feedback loops.
+- Disable/re-enable restores stored state.
+- Structural insert/delete and axis reorder include split-state snapshots in their transactions.
+- Direct split-view changes are not standalone undo-history commands yet.
 
-## 6. Per-worksheet split state
+## 5. Structural and reorder mapping
 
-`SpreadsheetSplitViewState` stores:
+Insert/delete mapping uses exact pre-mutation sparse metrics and affects only the changed axis.
 
-- topology;
-- split X/Y;
-- active pane;
-- offsets for all four pane IDs.
+Axis reorder mapping preserves the identity of each pane's top-left row/column plus its fractional local pixel offset, using exact metrics before and after the permutation. The unaffected axis, topology, split coordinates and active pane remain unchanged.
 
-State is independent per worksheet. Hidden-pane offsets remain stored. Source-tagged change events prevent desktop feedback loops. Disabling/re-enabling a split overlay restores the stored state rather than replacing it with defaults.
+Detailed reorder semantics are in `docs/header-reordering-contract.md`.
 
-Direct split-view changes are not standalone undo-history operations yet. Structural edits and axis reorders include split snapshots in their transactions.
+## 6. XLSX representation
 
-## 7. Structural insert/delete mapping
-
-- Row insertion/deletion maps pane Y offsets.
-- Column insertion/deletion maps pane X offsets.
-- Mapping uses exact pre-mutation sparse metrics.
-- Insert shifts offsets at/after the insertion boundary by inserted physical extent.
-- Delete collapses offsets inside the deleted interval and subtracts deleted extent from later offsets.
-- The unaffected axis, topology, split coordinates and active pane remain unchanged.
-- Undo/redo restores exact pre/post split snapshots.
-- Failed preflight/rollback leaves split state unchanged and creates no history entry.
-
-## 8. Axis reorder mapping
-
-A fixed-length row/column reorder is a permutation, not insert/delete.
-
-For every pane, the affected offset preserves the identity of the top-left row/column and its fractional local pixel offset. Exact sparse metrics before and after the move are used. The unaffected axis, topology, split coordinates and active pane remain unchanged.
-
-Complete semantics, formula mapping, merged/freeze rules, selection mapping and desktop drag behavior are locked in `docs/header-reordering-contract.md`.
-
-## 9. XLSX representation
-
-`NeraOpenXmlSpreadsheetSessionSerializer` serializes per-worksheet split state.
-
-- Compatible topology, coordinates, active pane and top-left-cell behavior are written to standard SpreadsheetML `SheetView/Pane` metadata.
-- Standard SpreadsheetML cannot represent four independent pane offsets exactly.
-- A Nera custom XML part preserves the complete state.
-- Valid native metadata is the high-fidelity Nera source.
-- Compatible standard metadata is imported when native metadata is absent.
-- A default unsplit session emits neither native nor standard pane metadata.
+- Compatible topology, coordinates, active pane and top-left-cell behavior use standard SpreadsheetML `SheetView/Pane` metadata.
+- A Nera custom XML part preserves all four independent pane offsets.
+- Native metadata is the high-fidelity source; compatible standard metadata is imported when native data is absent.
+- Default unsplit sessions emit neither native nor standard pane metadata.
 - Unknown-part preservation remains unsupported.
 
-## 10. Integrated and optional pane scrollbars
+## 7. Pane scrollbars
 
-Integrated scrollbars are composed into the split display list when `SpreadsheetRenderTheme.ShowSplitPaneScrollBars` is enabled.
+- Integrated pane scrollbars are composed when `SpreadsheetRenderTheme.ShowSplitPaneScrollBars` is enabled.
+- Horizontal/vertical bars are emitted only when content exceeds pane extent.
+- Buttons, track, proportional thumb and active style are pane-local.
+- Input supports line, page and continuous thumb drag and targets exactly one pane/axis.
+- Optional public WinForms/WPF overlay controllers also expose lifecycle, style, layout, hit testing and refresh.
 
-- Each scrollable pane may receive horizontal and/or vertical bars.
-- Buttons, track, proportional thumb, maximum offset and active styling are pane-local.
-- Input supports line steps, page steps and continuous thumb drag.
-- A request targets exactly one pane and one axis.
-- Horizontal/vertical bars reserve their shared bottom-right corner.
+## 8. Dirty regions
 
-Optional public overlay controllers also exist for WinForms and WPF and expose enable/disable, visibility, style, layout, hit testing and refresh. They must not be enabled simultaneously with an indistinguishable duplicate integrated presentation in product UI.
-
-## 11. Split-aware dirty regions
-
-`SpreadsheetSplitViewportDirtyRegionExtensions.ProjectDirtyRange` maps changed cell/range content into body-local rectangles.
-
-- A current split frame is required; otherwise full invalidation is requested.
-- Ranges expand transitively through intersecting merges.
-- Ranges split at freeze-row/freeze-column boundaries.
-- Every subrange projects through each pane's local offsets and clips to its correct freeze subregion.
-- Empty offscreen results are omitted.
-- Unsafe/unprojectable cases request conservative full invalidation.
-
-Backend policy:
-
-- WinForms GDI+ and Direct2D HWND consume partial invalidation.
-- DXGI `FlipDiscard` uses a full frame.
+- Changed cell/range content projects through each pane's offsets.
+- Projection expands through merges and splits at freeze boundaries.
+- Empty offscreen regions are omitted; unsafe projection requests full invalidation.
+- WinForms GDI+/Direct2D HWND use partial invalidation.
+- DXGI `FlipDiscard` and WPF DrawingContext use full-frame fallback.
 - WPF D3DImage accepts multiple native dirty rectangles.
-- WPF DrawingContext uses full visual invalidation.
 
-## 12. Header drag reordering in split hosts
-
-Shared source/drop/threshold geometry is implemented through `SpreadsheetSplitHeaderReorderGeometry`.
-
-Input priority:
+## 9. Header reorder input priority
 
 1. pane scrollbar;
 2. split separator;
@@ -152,51 +86,43 @@ Input priority:
 4. header reorder;
 5. ordinary header selection.
 
-WinForms uses actual message `wParam` button state, pointer capture and display-list preview. WPF uses preview routed input, mouse capture and a lightweight `DrawingVisual` preview above DrawingContext/D3DImage content. Both commit through `SpreadsheetSession.Reorder` and preserve atomic undo/redo semantics.
+WinForms uses actual message button state and capture. WPF uses preview routed handlers, optional capture and a `DrawingVisual` preview. Both call the same `SpreadsheetSession.Reorder` transaction.
 
-The unsplit public-control drag path and drag-edge auto-scroll remain separate follow-up work; programmatic reorder is host-independent.
+WPF hosted CI validates a real loaded public split host and the production drag state machine deterministically; it does not claim reliable global OS pointer injection on a hosted desktop.
 
-## 13. Public WinForms lifecycle
+## 10. Public host lifecycle
+
+### WinForms
 
 - `EnableSplitPanes` creates/reuses a Nera-owned child surface.
-- `DisableSplitPanes` removes/disposes it and reveals the unchanged single-pane control.
-- The child shares session, theme and selected rendering backend.
-- `RenderNow` performs layout, creates the child handle and invokes the selected renderer explicitly.
-- Wheel/Shift+wheel, selection, editor, separator drag, dimension resize, pane scrollbar and header reorder route through resolved pane geometry.
-- GDI+, Direct2D HWND and D3D11/DXGI consume the same split semantics.
+- `DisableSplitPanes` removes it and reveals the unchanged single-pane control.
+- GDI+, Direct2D HWND and DXGI consume shared split semantics.
 
-## 14. Public WPF lifecycle
+### WPF
 
-- `EnableSplitPanes` creates/reuses a Nera-owned split `Adorner`.
-- The host supplies an `AdornerLayer`, normally through `AdornerDecorator`.
-- The controller attaches on load, detaches on unload and reattaches on reload.
-- `DisableSplitPanes` removes/disposes the split adorner.
-- DrawingContext and Nera-owned shared-texture D3DImage consume the same split semantics.
-- Wheel, selection, keyboard editing, editor, separator drag, dimension resize, pane scrollbar and header reorder route through active/resolved pane geometry.
+- `EnableSplitPanes` creates/reuses a Nera-owned split `Adorner` under an `AdornerLayer`/`AdornerDecorator`.
+- The controller attaches/detaches across load/unload.
+- DrawingContext and shared-texture D3DImage consume shared split semantics.
 
-## 15. Runtime gates
+## 11. Required runtime gates
 
-Split functionality is not accepted on compile-only evidence. Required gates include:
-
-- topology/clamping/separator hit tests;
-- independent fractional pane scrolling and hidden-pane persistence;
+- topology, clamping and separator hit tests;
+- independent pane scrolling and hidden-state persistence;
 - pane-local cell hit/bounds and merge-anchor tests;
-- shared chrome metadata/translation tests;
 - split-state persistence, structural mapping and XLSX round trip;
-- resize geometry and real desktop input tests;
-- scrollbar geometry/interaction plus WinForms/WPF native-input tests;
-- dirty-region projection plus backend partial/full runtime tests;
+- shared resize and real desktop input tests;
+- scrollbar geometry/interaction and desktop runtime tests;
+- dirty-region partial/full backend tests;
 - axis-reorder permutation/formula/transaction tests;
 - shared reorder geometry/preview tests;
 - WinForms real-message row and column reorder tests;
-- WPF native-pointer reorder plus post-move D3DImage presentation;
-- full Windows build/tests/GPU runtime gate;
-- cross-platform Core build/tests and architecture verification.
+- WPF loaded-window drag-state/preview/commit/undo and D3DImage test;
+- full Windows GPU/runtime gate and cross-platform architecture verification.
 
-## 16. Current exclusions
+## 12. Current exclusions
 
-- Unsplit-control header drag UI.
-- Auto-scroll during header reorder drag.
-- Standalone undo/redo commands for direct split-view changes.
-- Production MAUI/Skia split host.
-- Structured/shared/dynamic-array formula rewrite semantics.
+- unsplit-control header drag UI;
+- drag-edge auto-scroll;
+- standalone undo/redo commands for direct split-view changes;
+- production MAUI/Skia split host;
+- structured/shared/dynamic-array formula rewrite semantics.
