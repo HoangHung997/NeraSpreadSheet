@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Layout;
 using NeraSpreadSheet.Rendering.Spreadsheet;
@@ -46,10 +47,18 @@ public sealed class NeraSpreadsheetSplitScrollBarController : IDisposable
         get => GetAdorner().Visibility == Visibility.Visible;
         set
         {
-            GetAdorner().Visibility = value
+            var adorner = GetAdorner();
+            adorner.Visibility = value
                 ? Visibility.Visible
                 : Visibility.Collapsed;
-            GetAdorner().RefreshFromSplitFrame();
+            if (value && _owner.IsLoaded)
+            {
+                Refresh();
+            }
+            else
+            {
+                adorner.RefreshFromSplitFrame();
+            }
         }
     }
 
@@ -120,6 +129,7 @@ public sealed class NeraSpreadsheetSplitScrollBarController : IDisposable
 
         layer.Add(_adorner);
         _adornerLayer = layer;
+        _split.RenderNow();
         _adorner.RefreshFromSplitFrame();
         layer.UpdateLayout();
     }
@@ -145,6 +155,23 @@ public sealed class NeraSpreadsheetSplitScrollBarController : IDisposable
         }
     }
 
+    private void QueueRefresh()
+    {
+        _owner.Dispatcher.BeginInvoke(
+            DispatcherPriority.Render,
+            new Action(() =>
+            {
+                var adorner = _adorner;
+                if (adorner is null || !_owner.IsLoaded)
+                {
+                    return;
+                }
+
+                _split.RenderNow();
+                adorner.RefreshFromSplitFrame();
+            }));
+    }
+
     private void OnOwnerLoaded(object sender, RoutedEventArgs e) =>
         AttachIfPossible();
 
@@ -152,7 +179,7 @@ public sealed class NeraSpreadsheetSplitScrollBarController : IDisposable
         DetachAdorner();
 
     private void OnOwnerSizeChanged(object sender, SizeChangedEventArgs e) =>
-        _adorner?.RefreshFromSplitFrame();
+        QueueRefresh();
 }
 
 public static class NeraSpreadsheetSplitScrollBarExtensions
@@ -286,7 +313,7 @@ internal sealed class NeraSpreadsheetSplitScrollBarAdorner : Adorner, IDisposabl
         set
         {
             _style = value;
-            RefreshFromSplitFrame();
+            RefreshFromSplitState();
         }
     }
 
@@ -426,6 +453,7 @@ internal sealed class NeraSpreadsheetSplitScrollBarAdorner : Adorner, IDisposabl
         {
             ReleaseMouseCapture();
         }
+        RefreshFromSplitState();
         Cursor = _layout?.HitTest(ToBodyPoint(e.GetPosition(this))).IsHit == true
             ? Cursors.Hand
             : null;
@@ -484,7 +512,33 @@ internal sealed class NeraSpreadsheetSplitScrollBarAdorner : Adorner, IDisposabl
                 ? request.Offset
                 : current.Y,
             animated: false);
+        RefreshFromSplitState();
+    }
+
+    private void RefreshFromSplitState()
+    {
+        if (_disposed || Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        if (_owner.IsLoaded)
+        {
+            _split.RenderNow();
+        }
         RefreshFromSplitFrame();
+    }
+
+    private void QueueRefreshFromSplitState()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Render,
+            new Action(RefreshFromSplitState));
     }
 
     private PointD ToBodyPoint(Point point)
@@ -501,12 +555,12 @@ internal sealed class NeraSpreadsheetSplitScrollBarAdorner : Adorner, IDisposabl
     private void OnSplitChanged(
         object? sender,
         SpreadsheetSplitChangedEventArgs e) =>
-        RefreshFromSplitFrame();
+        QueueRefreshFromSplitState();
 
     private void OnPaneScrollChanged(
         object? sender,
         SpreadsheetPaneScrollChangedEventArgs e) =>
-        RefreshFromSplitFrame();
+        QueueRefreshFromSplitState();
 
     private static SizeD GetContentExtent(
         SpreadsheetSplitViewportFrame frame)
