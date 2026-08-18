@@ -92,7 +92,6 @@ public sealed class WpfSharedTextureSmokeTests
                 window.Show();
                 window.UpdateLayout();
                 WaitForRenderedTexture(control);
-                var previousHits = control.GpuDiagnostics?.TextLayoutCacheHits ?? 0L;
 
                 for (var cycle = 0; cycle < 3; cycle++)
                 {
@@ -114,11 +113,14 @@ public sealed class WpfSharedTextureSmokeTests
                             CachedTextLayouts: > 0,
                         },
                         $"The WPF GPU surface did not recreate and render during reload cycle {cycle + 1}.");
+
+                    var hitsBeforeReuse =
+                        control.GpuDiagnostics?.TextLayoutCacheHits ?? 0L;
+                    control.InvalidateVisual();
                     PumpUntil(
                         () => control.GpuDiagnostics is { } diagnostics &&
-                            diagnostics.TextLayoutCacheHits > previousHits,
+                            diagnostics.TextLayoutCacheHits > hitsBeforeReuse,
                         $"The WPF GPU surface did not reuse text layouts during reload cycle {cycle + 1}.");
-                    previousHits = control.GpuDiagnostics?.TextLayoutCacheHits ?? previousHits;
                 }
             }
             finally
