@@ -21,5 +21,7 @@
     <ProjectReference Include="../../src/NeraSpreadSheet.Rendering.Direct2D/NeraSpreadSheet.Rendering.Direct2D.csproj" />
     <ProjectReference Include="../../src/NeraSpreadSheet.WinForms/NeraSpreadSheet.WinForms.csproj" />
     <ProjectReference Include="../../src/NeraSpreadSheet.Wpf/NeraSpreadSheet.Wpf.csproj" />
+    <ProjectReference Include="../../samples/NeraSpreadSheet.WinForms.Sample/NeraSpreadSheet.WinForms.Sample.csproj" />
+    <ProjectReference Include="../../samples/NeraSpreadSheet.Wpf.Sample/NeraSpreadSheet.Wpf.Sample.csproj" />
   </ItemGroup>
 </Project>
