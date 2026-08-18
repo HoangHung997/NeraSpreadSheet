@@ -252,21 +252,32 @@ internal sealed class WorksheetAxisStyleMap
                 if (span.EndIndex < change.Index)
                 {
                     next.Add(span);
+                    continue;
                 }
-                else if (span.StartIndex >= change.Index)
-                {
-                    next.Add(span.WithBounds(
-                        checked(span.StartIndex + change.Count),
-                        checked(span.EndIndex + change.Count)));
-                }
-                else
+
+                if (span.StartIndex < change.Index)
                 {
                     next.Add(span.WithBounds(
                         span.StartIndex,
                         change.Index - 1));
-                    next.Add(span.WithBounds(
-                        checked(change.Index + change.Count),
-                        checked(span.EndIndex + change.Count)));
+                }
+
+                var shiftedSourceStart = Math.Max(
+                    span.StartIndex,
+                    change.Index);
+                var shiftedStart = checked(
+                    shiftedSourceStart + change.Count);
+                if (shiftedStart >= _axisLength)
+                {
+                    continue;
+                }
+
+                var shiftedEnd = Math.Min(
+                    _axisLength - 1,
+                    checked(span.EndIndex + change.Count));
+                if (shiftedEnd >= shiftedStart)
+                {
+                    next.Add(span.WithBounds(shiftedStart, shiftedEnd));
                 }
             }
         }
