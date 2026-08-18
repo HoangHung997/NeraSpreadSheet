@@ -53,6 +53,11 @@ internal readonly record struct WorksheetAxisStyleMutation
             ? address.RowIndex >= StartIndex && address.RowIndex <= EndIndex
             : address.ColumnIndex >= StartIndex &&
               address.ColumnIndex <= EndIndex;
+
+    public bool Intersects(CellRange range) =>
+        Axis == WorksheetAxis.Row
+            ? StartIndex <= range.Bottom && EndIndex >= range.Top
+            : StartIndex <= range.Right && EndIndex >= range.Left;
 }
 
 internal sealed class SetWorksheetStylesOperation : ISpreadsheetEditOperation
@@ -186,9 +191,17 @@ internal sealed class SetWorksheetStylesOperation : ISpreadsheetEditOperation
             foreach (var (address, cell) in Worksheet.EnumerateUsedCells())
             {
                 if (cell.StyleId != CellStyleCatalog.DefaultStyleId &&
-                    IsCoveredByAxisMutation(address))
+                    HasApplicableAxisMutation(GetStyleTargetRange(address)))
                 {
-                    addresses.Add(address);
+                    addresses.Add(Worksheet.ResolveMergedAnchor(address));
+                }
+            }
+
+            foreach (var mergedRange in Worksheet.MergedCells.Ranges)
+            {
+                if (RequiresMergedAnchorOverride(mergedRange))
+                {
+                    addresses.Add(mergedRange.TopLeft);
                 }
             }
         }
@@ -201,11 +214,12 @@ internal sealed class SetWorksheetStylesOperation : ISpreadsheetEditOperation
                      column <= range.Right;
                      column++)
                 {
-                    var address = new CellAddress(row, column);
-                    if (!IsCoveredByAxisMutation(address))
+                    var address = Worksheet.ResolveMergedAnchor(
+                        new CellAddress(row, column));
+                    if (!HasApplicableAxisMutation(
+                        GetStyleTargetRange(address)))
                     {
-                        addresses.Add(
-                            Worksheet.ResolveMergedAnchor(address));
+                        addresses.Add(address);
                     }
                 }
             }
@@ -231,18 +245,15 @@ internal sealed class SetWorksheetStylesOperation : ISpreadsheetEditOperation
         foreach (var address in addresses)
         {
             var current = Worksheet.GetCell(address);
+            var targetRange = GetStyleTargetRange(address);
             CellStyle nextStyle;
-            if (current.StyleId != CellStyleCatalog.DefaultStyleId &&
-                IsCoveredByAxisMutation(address))
+            if (HasApplicableAxisMutation(targetRange))
             {
-                nextStyle = _styles.Get(current.StyleId);
-                foreach (var mutation in _axisMutations)
-                {
-                    if (mutation.Contains(address))
-                    {
-                        nextStyle = mutation.Patch.Apply(nextStyle);
-                    }
-                }
+                nextStyle = current.StyleId !=
+                    CellStyleCatalog.DefaultStyleId
+                        ? _styles.Get(current.StyleId)
+                        : Worksheet.GetEffectiveStyle(address, _styles);
+                nextStyle = ApplyAxisMutations(nextStyle, targetRange);
             }
             else
             {
@@ -267,16 +278,48 @@ internal sealed class SetWorksheetStylesOperation : ISpreadsheetEditOperation
         return updates.ToArray();
     }
 
-    private bool IsCoveredByAxisMutation(CellAddress address)
+    private CellRange GetStyleTargetRange(CellAddress address) =>
+        Worksheet.MergedCells.TryGetContaining(address, out var mergedRange)
+            ? mergedRange
+            : new CellRange(address, address);
+
+    private bool HasApplicableAxisMutation(CellRange targetRange)
     {
         foreach (var mutation in _axisMutations)
         {
-            if (mutation.Contains(address))
+            if (mutation.Intersects(targetRange))
             {
                 return true;
             }
         }
         return false;
+    }
+
+    private bool RequiresMergedAnchorOverride(CellRange mergedRange)
+    {
+        foreach (var mutation in _axisMutations)
+        {
+            if (mutation.Intersects(mergedRange) &&
+                !mutation.Contains(mergedRange.TopLeft))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private CellStyle ApplyAxisMutations(
+        CellStyle style,
+        CellRange targetRange)
+    {
+        foreach (var mutation in _axisMutations)
+        {
+            if (mutation.Intersects(targetRange))
+            {
+                style = mutation.Patch.Apply(style);
+            }
+        }
+        return style;
     }
 
     private static CellRange CreateBoundingRange(CellRange[] ranges)
