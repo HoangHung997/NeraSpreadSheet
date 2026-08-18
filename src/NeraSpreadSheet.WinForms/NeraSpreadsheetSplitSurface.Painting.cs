@@ -39,7 +39,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
     protected override void OnPaint(PaintEventArgs e)
     {
-        RenderCurrentFrame(e.Graphics);
+        RenderCurrentFrame(e.Graphics, e.ClipRectangle);
         base.OnPaint(e);
     }
 
@@ -58,7 +58,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         }
 
         using var graphics = CreateGraphics();
-        RenderCurrentFrame(graphics);
+        RenderCurrentFrame(graphics, ClientRectangle);
     }
 
     protected override void OnResize(EventArgs e)
@@ -91,7 +91,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         base.Dispose(disposing);
     }
 
-    private void RenderCurrentFrame(Graphics graphics)
+    private void RenderCurrentFrame(Graphics graphics, Rectangle clipRectangle)
     {
         ArgumentNullException.ThrowIfNull(graphics);
         SynchronizeSession();
@@ -119,11 +119,24 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             paneLayouts,
             _session!.Selection.Capture(),
             _owner.RenderTheme);
+        var partialClip =
+            !clipRectangle.IsEmpty &&
+            clipRectangle != ClientRectangle;
         switch (_activeBackend)
         {
             case WinFormsRenderingBackend.Direct2D:
-                EnsureDirect2DRenderer().Render(displayList);
+            {
+                var renderer = EnsureDirect2DRenderer();
+                var recoveryCount = renderer.DeviceRecoveryCount;
+                renderer.Render(partialClip
+                    ? CreateDirtyClippedDisplayList(displayList, clipRectangle)
+                    : displayList);
+                if (partialClip && renderer.DeviceRecoveryCount != recoveryCount)
+                {
+                    renderer.Render(displayList);
+                }
                 break;
+            }
             case WinFormsRenderingBackend.Direct2DSwapChain:
                 EnsureSwapChainRenderer().Render(displayList);
                 break;
