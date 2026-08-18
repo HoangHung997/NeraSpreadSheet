@@ -437,15 +437,15 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
         }
     }
 
-    private static Int32Rect? UnionAll(IReadOnlyList<Int32Rect> rectangles)
+    private static Int32Rect? UnionAll(Int32Rect[] rectangles)
     {
-        if (rectangles.Count == 0)
+        if (rectangles.Length == 0)
         {
             return null;
         }
 
         var union = rectangles[0];
-        for (var index = 1; index < rectangles.Count; index++)
+        for (var index = 1; index < rectangles.Length; index++)
         {
             union = Union(union, rectangles[index]);
         }
