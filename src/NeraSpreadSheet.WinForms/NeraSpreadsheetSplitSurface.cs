@@ -144,13 +144,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         SetSplitCore(mode, splitX, splitY);
     }
 
-    internal void SetActivePane(SpreadsheetPaneId paneId)
-    {
-        var engine = GetEngine();
-        engine.SetActivePane(paneId);
-        _lastFrame = null;
-        Invalidate();
-    }
+    internal void SetActivePane(SpreadsheetPaneId paneId) => SetActivePaneCore(paneId);
 
     internal PointD GetPaneScroll(SpreadsheetPaneId paneId) =>
         _engine?.GetPaneScroll(paneId) ?? default;
@@ -166,6 +160,15 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
     {
         var engine = GetEngine();
         engine.ScrollPaneTo(paneId, offsetX, offsetY, animated);
+        if (!animated)
+        {
+            PersistCurrentSplitState(SpreadsheetSplitViewChangeKind.PaneScroll);
+            PaneScrollChanged?.Invoke(
+                this,
+                new SpreadsheetPaneScrollChangedEventArgs(
+                    paneId,
+                    engine.GetPaneScrollSnapshot(paneId)));
+        }
         _lastFrame = null;
         UpdateEditorBounds();
         Invalidate();
