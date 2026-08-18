@@ -151,6 +151,9 @@ public sealed class WorksheetAxisStyleTests
             count: 2));
 
         Assert.IsFalse(worksheet.GetEffectiveStyle(
+            new CellAddress(3, 0),
+            styles).Fill.IsVisible);
+        Assert.IsFalse(worksheet.GetEffectiveStyle(
             new CellAddress(5, 0),
             styles).Fill.IsVisible);
         Assert.AreEqual(
@@ -162,7 +165,7 @@ public sealed class WorksheetAxisStyleTests
     }
 
     [TestMethod]
-    public void FullAxisStyleIsClippedInsteadOfOverflowingOnInsert()
+    public void FullAxisStyleIsInheritedAndClippedOnInsert()
     {
         var worksheet = new Worksheet("Sheet1");
         var styles = new CellStyleCatalog();
@@ -179,18 +182,22 @@ public sealed class WorksheetAxisStyleTests
             index: 2,
             count: 3));
 
-        Assert.AreEqual(2, worksheet.RowStyleSpanCount);
+        Assert.AreEqual(1, worksheet.RowStyleSpanCount);
         Assert.AreEqual(
             fill,
             worksheet.GetEffectiveStyle(
                 new CellAddress(1, 0),
                 styles).Fill.Color);
-        Assert.IsFalse(worksheet.GetEffectiveStyle(
-            new CellAddress(2, 0),
-            styles).Fill.IsVisible);
-        Assert.IsFalse(worksheet.GetEffectiveStyle(
-            new CellAddress(4, 0),
-            styles).Fill.IsVisible);
+        Assert.AreEqual(
+            fill,
+            worksheet.GetEffectiveStyle(
+                new CellAddress(2, 0),
+                styles).Fill.Color);
+        Assert.AreEqual(
+            fill,
+            worksheet.GetEffectiveStyle(
+                new CellAddress(4, 0),
+                styles).Fill.Color);
         Assert.AreEqual(
             fill,
             worksheet.GetEffectiveStyle(
