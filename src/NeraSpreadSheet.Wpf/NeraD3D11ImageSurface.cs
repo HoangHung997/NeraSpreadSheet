@@ -14,14 +14,15 @@ namespace NeraSpreadSheet.Wpf;
 /// </summary>
 internal abstract class NeraD3D11ImageSurface : Image, IDisposable
 {
+    private readonly List<Int32Rect> _pendingDirtyRectangles = [];
     private ID3D11Device1? _device;
     private ID3D11DeviceContext1? _deviceContext;
     private NeraD3D11ImageSource? _imageSource;
     private Window? _attachedWindow;
-    private Int32Rect? _pendingDirtyRectangle;
     private bool _isD3DStarted;
     private bool _renderingSubscribed;
     private bool _contentNeedsRefresh;
+    private bool _fullRefreshPending = true;
     private bool _disposed;
 
     protected NeraD3D11ImageSurface()
@@ -39,6 +40,9 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
 
     public Int32Rect? LastPresentedDirtyRectangle { get; private set; }
 
+    public IReadOnlyList<Int32Rect> LastPresentedDirtyRectangles { get; private set; } =
+        Array.Empty<Int32Rect>();
+
     protected ID3D11Texture2D? ColorTexture { get; private set; }
 
     protected ID3D11RenderTargetView? ColorTextureView { get; private set; }
@@ -47,26 +51,41 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
     {
         ThrowIfDisposed();
         _contentNeedsRefresh = true;
-        _pendingDirtyRectangle = null;
+        _fullRefreshPending = true;
+        _pendingDirtyRectangles.Clear();
+        RequestCompositionFrame();
     }
 
-    public void InvalidateSurface(Int32Rect dirtyRectangle)
+    public void InvalidateSurface(Int32Rect dirtyRectangle) =>
+        InvalidateSurface(new[] { dirtyRectangle });
+
+    public void InvalidateSurface(
+        IReadOnlyList<Int32Rect> dirtyRectangles)
     {
         ThrowIfDisposed();
-        if (dirtyRectangle.IsEmpty)
+        ArgumentNullException.ThrowIfNull(dirtyRectangles);
+        if (dirtyRectangles.Count == 0)
         {
             return;
         }
 
-        if (!_contentNeedsRefresh)
+        if (!_fullRefreshPending)
         {
-            _pendingDirtyRectangle = dirtyRectangle;
+            foreach (var dirtyRectangle in dirtyRectangles)
+            {
+                if (!dirtyRectangle.IsEmpty)
+                {
+                    _pendingDirtyRectangles.Add(dirtyRectangle);
+                }
+            }
+            if (_pendingDirtyRectangles.Count == 0)
+            {
+                return;
+            }
         }
-        else if (_pendingDirtyRectangle is { } existing)
-        {
-            _pendingDirtyRectangle = Union(existing, dirtyRectangle);
-        }
+
         _contentNeedsRefresh = true;
+        RequestCompositionFrame();
     }
 
     public void Dispose()
@@ -126,7 +145,9 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
 
         CreateAndBindRenderTarget(notifyTargetChange: true);
         _contentNeedsRefresh = true;
-        _pendingDirtyRectangle = null;
+        _fullRefreshPending = true;
+        _pendingDirtyRectangles.Clear();
+        RequestCompositionFrame();
     }
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
@@ -204,8 +225,10 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
             Source = _imageSource;
             OnDeviceCreated(device, context);
             _contentNeedsRefresh = true;
-            _pendingDirtyRectangle = null;
+            _fullRefreshPending = true;
+            _pendingDirtyRectangles.Clear();
             StartRendering();
+            InvalidateVisual();
         }
         catch
         {
@@ -257,8 +280,10 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
             TextureWidth = 0;
             TextureHeight = 0;
             _contentNeedsRefresh = false;
-            _pendingDirtyRectangle = null;
+            _fullRefreshPending = true;
+            _pendingDirtyRectangles.Clear();
             LastPresentedDirtyRectangle = null;
+            LastPresentedDirtyRectangles = Array.Empty<Int32Rect>();
         }
     }
 
@@ -295,7 +320,8 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
         });
         ColorTextureView = device.CreateRenderTargetView(ColorTexture);
         imageSource.SetRenderTarget(ColorTexture);
-        _pendingDirtyRectangle = null;
+        _fullRefreshPending = true;
+        _pendingDirtyRectangles.Clear();
         if (notifyTargetChange)
         {
             OnRenderTargetChanged();
@@ -332,6 +358,15 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
         _renderingSubscribed = false;
     }
 
+    private void RequestCompositionFrame()
+    {
+        if (_isD3DStarted)
+        {
+            StartRendering();
+        }
+        InvalidateVisual();
+    }
+
     private void OnRendering(object? sender, EventArgs e)
     {
         if (!_isD3DStarted ||
@@ -348,16 +383,34 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
             return;
         }
 
-        var dirtyRectangle = _pendingDirtyRectangle;
+        var renderFullSurface =
+            _fullRefreshPending ||
+            _pendingDirtyRectangles.Count == 0 ||
+            (!_contentNeedsRefresh && AlwaysRefresh);
+        var requestedDirtyRectangles = renderFullSurface
+            ? Array.Empty<Int32Rect>()
+            : [.. _pendingDirtyRectangles];
         context.OMSetRenderTargets(targetView, null);
         context.RSSetViewport(0, 0, TextureWidth, TextureHeight);
         context.RSSetScissorRect(0, 0, TextureWidth, TextureHeight);
         OnRenderFrame(device, context);
         context.Flush();
-        LastPresentedDirtyRectangle =
-            _imageSource?.InvalidateImage(dirtyRectangle);
+
+        Int32Rect[] presented;
+        if (renderFullSurface)
+        {
+            var full = _imageSource?.InvalidateImage();
+            presented = full is { } rectangle ? [rectangle] : [];
+        }
+        else
+        {
+            presented = _imageSource?.InvalidateImage(requestedDirtyRectangles) ?? [];
+        }
+        LastPresentedDirtyRectangles = presented;
+        LastPresentedDirtyRectangle = UnionAll(presented);
         _contentNeedsRefresh = false;
-        _pendingDirtyRectangle = null;
+        _fullRefreshPending = false;
+        _pendingDirtyRectangles.Clear();
     }
 
     private void OnFrontBufferAvailableChanged(
@@ -373,13 +426,30 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
         {
             CreateAndBindRenderTarget(notifyTargetChange: true);
             _contentNeedsRefresh = true;
-            _pendingDirtyRectangle = null;
+            _fullRefreshPending = true;
+            _pendingDirtyRectangles.Clear();
             StartRendering();
+            InvalidateVisual();
         }
         else
         {
             StopRendering();
         }
+    }
+
+    private static Int32Rect? UnionAll(IReadOnlyList<Int32Rect> rectangles)
+    {
+        if (rectangles.Count == 0)
+        {
+            return null;
+        }
+
+        var union = rectangles[0];
+        for (var index = 1; index < rectangles.Count; index++)
+        {
+            union = Union(union, rectangles[index]);
+        }
+        return union;
     }
 
     private static Int32Rect Union(Int32Rect first, Int32Rect second)
