@@ -5,10 +5,7 @@ public readonly record struct WorksheetAxisInterval
     public WorksheetAxisInterval(int start, int end)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(start);
-        if (end < start)
-        {
-            throw new ArgumentOutOfRangeException(nameof(end));
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThan(end, start);
 
         Start = start;
         End = end;
@@ -37,18 +34,18 @@ public readonly record struct WorksheetAxisMove
         var axisLength = axis == WorksheetAxis.Row
             ? SpreadsheetLimits.MaxRows
             : SpreadsheetLimits.MaxColumns;
-        if (sourceIndex < 0 || sourceIndex >= axisLength)
-        {
-            throw new ArgumentOutOfRangeException(nameof(sourceIndex));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(sourceIndex);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(
+            sourceIndex,
+            axisLength);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(
             count,
             axisLength - sourceIndex);
-        if (destinationBoundary < 0 || destinationBoundary > axisLength)
-        {
-            throw new ArgumentOutOfRangeException(nameof(destinationBoundary));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(destinationBoundary);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(
+            destinationBoundary,
+            axisLength);
 
         Axis = axis;
         SourceIndex = sourceIndex;
@@ -87,10 +84,10 @@ public readonly record struct WorksheetAxisMove
 
     public int MapIndex(int sourceIndex)
     {
-        if (sourceIndex < 0 || sourceIndex >= AxisLength)
-        {
-            throw new ArgumentOutOfRangeException(nameof(sourceIndex));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(sourceIndex);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(
+            sourceIndex,
+            AxisLength);
         if (IsNoOp)
         {
             return sourceIndex;
@@ -127,10 +124,9 @@ public readonly record struct WorksheetAxisMove
 
     public WorksheetAxisInterval[] MapInterval(int start, int end)
     {
-        if (start < 0 || end < start || end >= AxisLength)
-        {
-            throw new ArgumentOutOfRangeException(nameof(start));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(start);
+        ArgumentOutOfRangeException.ThrowIfLessThan(end, start);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(end, AxisLength);
         if (IsNoOp)
         {
             return [new WorksheetAxisInterval(start, end)];
@@ -237,7 +233,11 @@ public readonly record struct WorksheetAxisMove
     {
         var start = Axis == WorksheetAxis.Row ? source.Top : source.Left;
         var end = Axis == WorksheetAxis.Row ? source.Bottom : source.Right;
-        if (!TryMapContiguousInterval(start, end, out var mappedStart, out var mappedEnd))
+        if (!TryMapContiguousInterval(
+                start,
+                end,
+                out var mappedStart,
+                out var mappedEnd))
         {
             target = default;
             return false;

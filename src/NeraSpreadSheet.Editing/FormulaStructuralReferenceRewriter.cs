@@ -9,11 +9,52 @@ public static class FormulaStructuralReferenceRewriter
         string formula,
         string formulaWorksheetName,
         string changedWorksheetName,
-        WorksheetStructuralChange change)
+        WorksheetStructuralChange change) =>
+        RewriteCore(
+            formula,
+            formulaWorksheetName,
+            changedWorksheetName,
+            change.Axis,
+            change.TryMapIndex,
+            change.TryMapInterval,
+            throwOnDiscontiguousRange: false);
+
+    public static string Rewrite(
+        string formula,
+        string formulaWorksheetName,
+        string changedWorksheetName,
+        WorksheetAxisMove move)
+    {
+        bool TryMapMoveIndex(int sourceIndex, out int targetIndex)
+        {
+            targetIndex = move.MapIndex(sourceIndex);
+            return true;
+        }
+
+        return RewriteCore(
+            formula,
+            formulaWorksheetName,
+            changedWorksheetName,
+            move.Axis,
+            TryMapMoveIndex,
+            move.TryMapContiguousInterval,
+            throwOnDiscontiguousRange: true);
+    }
+
+    private static string RewriteCore(
+        string formula,
+        string formulaWorksheetName,
+        string changedWorksheetName,
+        WorksheetAxis axis,
+        TryMapIndexDelegate tryMapIndex,
+        TryMapIntervalDelegate tryMapInterval,
+        bool throwOnDiscontiguousRange)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(formula);
         ArgumentException.ThrowIfNullOrWhiteSpace(formulaWorksheetName);
         ArgumentException.ThrowIfNullOrWhiteSpace(changedWorksheetName);
+        ArgumentNullException.ThrowIfNull(tryMapIndex);
+        ArgumentNullException.ThrowIfNull(tryMapInterval);
 
         var builder = new StringBuilder(formula.Length + 16);
         var inString = false;
@@ -24,7 +65,9 @@ public static class FormulaStructuralReferenceRewriter
             {
                 builder.Append(character);
                 index++;
-                if (inString && index < formula.Length && formula[index] == '"')
+                if (inString &&
+                    index < formula.Length &&
+                    formula[index] == '"')
                 {
                     builder.Append('"');
                     index++;
@@ -36,13 +79,20 @@ public static class FormulaStructuralReferenceRewriter
 
             if (!inString &&
                 IsReferenceBoundaryBefore(formula, index) &&
-                TryReadReferenceExpression(formula, index, out var consumed, out var expression))
+                TryReadReferenceExpression(
+                    formula,
+                    index,
+                    out var consumed,
+                    out var expression))
             {
                 builder.Append(RewriteExpression(
                     expression,
                     formulaWorksheetName,
                     changedWorksheetName,
-                    change));
+                    axis,
+                    tryMapIndex,
+                    tryMapInterval,
+                    throwOnDiscontiguousRange));
                 index += consumed;
                 continue;
             }
@@ -58,22 +108,36 @@ public static class FormulaStructuralReferenceRewriter
         ParsedReferenceExpression expression,
         string formulaWorksheetName,
         string changedWorksheetName,
-        WorksheetStructuralChange change)
+        WorksheetAxis axis,
+        TryMapIndexDelegate tryMapIndex,
+        TryMapIntervalDelegate tryMapInterval,
+        bool throwOnDiscontiguousRange)
     {
-        var firstSheet = expression.FirstQualifier?.SheetName ?? formulaWorksheetName;
+        var firstSheet = expression.FirstQualifier?.SheetName ??
+            formulaWorksheetName;
         var secondSheet = expression.SecondQualifier?.SheetName ??
             expression.FirstQualifier?.SheetName ??
             formulaWorksheetName;
 
-        if (!string.Equals(firstSheet, changedWorksheetName, StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(secondSheet, changedWorksheetName, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(
+                firstSheet,
+                changedWorksheetName,
+                StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(
+                secondSheet,
+                changedWorksheetName,
+                StringComparison.OrdinalIgnoreCase))
         {
             return expression.RawText;
         }
 
         if (expression.SecondReference is not { } second)
         {
-            if (!TryMapReference(expression.FirstReference, change, out var mapped))
+            if (!TryMapReference(
+                    expression.FirstReference,
+                    axis,
+                    tryMapIndex,
+                    out var mapped))
             {
                 return "#REF!";
             }
@@ -82,8 +146,19 @@ public static class FormulaStructuralReferenceRewriter
                 FormatReference(mapped));
         }
 
-        if (!TryMapRange(expression.FirstReference, second, change, out var firstMapped, out var secondMapped))
+        if (!TryMapRange(
+                expression.FirstReference,
+                second,
+                axis,
+                tryMapInterval,
+                out var firstMapped,
+                out var secondMapped))
         {
+            if (throwOnDiscontiguousRange)
+            {
+                throw new InvalidOperationException(
+                    "Cannot reorder because a formula range would become discontiguous.");
+            }
             return "#REF!";
         }
 
@@ -97,19 +172,20 @@ public static class FormulaStructuralReferenceRewriter
 
     private static bool TryMapReference(
         ParsedReference reference,
-        WorksheetStructuralChange change,
+        WorksheetAxis axis,
+        TryMapIndexDelegate tryMapIndex,
         out ParsedReference mapped)
     {
-        var sourceIndex = change.Axis == WorksheetAxis.Row
+        var sourceIndex = axis == WorksheetAxis.Row
             ? reference.Address.RowIndex
             : reference.Address.ColumnIndex;
-        if (!change.TryMapIndex(sourceIndex, out var targetIndex))
+        if (!tryMapIndex(sourceIndex, out var targetIndex))
         {
             mapped = default;
             return false;
         }
 
-        var address = change.Axis == WorksheetAxis.Row
+        var address = axis == WorksheetAxis.Row
             ? new CellAddress(targetIndex, reference.Address.ColumnIndex)
             : new CellAddress(reference.Address.RowIndex, targetIndex);
         mapped = reference with { Address = address };
@@ -119,20 +195,25 @@ public static class FormulaStructuralReferenceRewriter
     private static bool TryMapRange(
         ParsedReference first,
         ParsedReference second,
-        WorksheetStructuralChange change,
+        WorksheetAxis axis,
+        TryMapIntervalDelegate tryMapInterval,
         out ParsedReference firstMapped,
         out ParsedReference secondMapped)
     {
-        var firstIndex = change.Axis == WorksheetAxis.Row
+        var firstIndex = axis == WorksheetAxis.Row
             ? first.Address.RowIndex
             : first.Address.ColumnIndex;
-        var secondIndex = change.Axis == WorksheetAxis.Row
+        var secondIndex = axis == WorksheetAxis.Row
             ? second.Address.RowIndex
             : second.Address.ColumnIndex;
         var ascending = firstIndex <= secondIndex;
         var start = Math.Min(firstIndex, secondIndex);
         var end = Math.Max(firstIndex, secondIndex);
-        if (!change.TryMapInterval(start, end, out var mappedStart, out var mappedEnd))
+        if (!tryMapInterval(
+                start,
+                end,
+                out var mappedStart,
+                out var mappedEnd))
         {
             firstMapped = default;
             secondMapped = default;
@@ -143,15 +224,23 @@ public static class FormulaStructuralReferenceRewriter
         var mappedSecondIndex = ascending ? mappedEnd : mappedStart;
         firstMapped = first with
         {
-            Address = change.Axis == WorksheetAxis.Row
-                ? new CellAddress(mappedFirstIndex, first.Address.ColumnIndex)
-                : new CellAddress(first.Address.RowIndex, mappedFirstIndex),
+            Address = axis == WorksheetAxis.Row
+                ? new CellAddress(
+                    mappedFirstIndex,
+                    first.Address.ColumnIndex)
+                : new CellAddress(
+                    first.Address.RowIndex,
+                    mappedFirstIndex),
         };
         secondMapped = second with
         {
-            Address = change.Axis == WorksheetAxis.Row
-                ? new CellAddress(mappedSecondIndex, second.Address.ColumnIndex)
-                : new CellAddress(second.Address.RowIndex, mappedSecondIndex),
+            Address = axis == WorksheetAxis.Row
+                ? new CellAddress(
+                    mappedSecondIndex,
+                    second.Address.ColumnIndex)
+                : new CellAddress(
+                    second.Address.RowIndex,
+                    mappedSecondIndex),
         };
         return true;
     }
@@ -238,22 +327,29 @@ public static class FormulaStructuralReferenceRewriter
                 break;
             }
 
-            if (!closed || index >= text.Length || text[index] != '!')
+            if (!closed ||
+                index >= text.Length ||
+                text[index] != '!')
             {
                 index = start;
                 return false;
             }
 
             index++;
-            qualifier = new ParsedSheetQualifier(text[start..index], logical.ToString());
+            qualifier = new ParsedSheetQualifier(
+                text[start..index],
+                logical.ToString());
             return true;
         }
 
-        while (index < text.Length && IsUnquotedSheetCharacter(text[index]))
+        while (index < text.Length &&
+               IsUnquotedSheetCharacter(text[index]))
         {
             index++;
         }
-        if (index == start || index >= text.Length || text[index] != '!')
+        if (index == start ||
+            index >= text.Length ||
+            text[index] != '!')
         {
             index = start;
             return false;
@@ -261,11 +357,16 @@ public static class FormulaStructuralReferenceRewriter
 
         var sheetName = text[start..index];
         index++;
-        qualifier = new ParsedSheetQualifier(text[start..index], sheetName);
+        qualifier = new ParsedSheetQualifier(
+            text[start..index],
+            sheetName);
         return true;
     }
 
-    private static bool TryReadReference(string text, ref int index, out ParsedReference reference)
+    private static bool TryReadReference(
+        string text,
+        ref int index,
+        out ParsedReference reference)
     {
         reference = default;
         var start = index;
@@ -279,11 +380,14 @@ public static class FormulaStructuralReferenceRewriter
         }
 
         var columnStart = index;
-        while (index < text.Length && char.IsAsciiLetter(text[index]) && index - columnStart < 3)
+        while (index < text.Length &&
+               char.IsAsciiLetter(text[index]) &&
+               index - columnStart < 3)
         {
             index++;
         }
-        if (index == columnStart || index < text.Length && char.IsAsciiLetter(text[index]))
+        if (index == columnStart ||
+            index < text.Length && char.IsAsciiLetter(text[index]))
         {
             index = start;
             return false;
@@ -313,7 +417,10 @@ public static class FormulaStructuralReferenceRewriter
             return false;
         }
 
-        reference = new ParsedReference(address, absoluteRow, absoluteColumn);
+        reference = new ParsedReference(
+            address,
+            absoluteRow,
+            absoluteColumn);
         return true;
     }
 
@@ -339,7 +446,8 @@ public static class FormulaStructuralReferenceRewriter
             return true;
         }
         var previous = text[index - 1];
-        return !char.IsAsciiLetterOrDigit(previous) && previous is not '_' and not '.';
+        return !char.IsAsciiLetterOrDigit(previous) &&
+            previous is not '_' and not '.';
     }
 
     private static bool IsReferenceBoundaryAfter(string text, int index)
@@ -349,11 +457,23 @@ public static class FormulaStructuralReferenceRewriter
             return true;
         }
         var next = text[index];
-        return !char.IsAsciiLetterOrDigit(next) && next is not '_' and not '.';
+        return !char.IsAsciiLetterOrDigit(next) &&
+            next is not '_' and not '.';
     }
 
     private static bool IsUnquotedSheetCharacter(char character) =>
-        char.IsAsciiLetterOrDigit(character) || character is '_' or '.';
+        char.IsAsciiLetterOrDigit(character) ||
+        character is '_' or '.';
+
+    private delegate bool TryMapIndexDelegate(
+        int sourceIndex,
+        out int targetIndex);
+
+    private delegate bool TryMapIntervalDelegate(
+        int start,
+        int end,
+        out int mappedStart,
+        out int mappedEnd);
 
     private readonly record struct ParsedReference(
         CellAddress Address,
