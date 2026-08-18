@@ -33,6 +33,8 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                     message.Result = IntPtr.Zero;
                     return;
                 }
+
+                _ = TryBeginHeaderReorderCandidate(clientX, clientY);
                 break;
             }
             case WindowMessageMouseMove:
@@ -52,6 +54,16 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                     message.Result = IntPtr.Zero;
                     return;
                 }
+                if (_headerReorder is not null &&
+                    UpdateHeaderReorder(
+                        clientX,
+                        clientY,
+                        (Control.MouseButtons &
+                         System.Windows.Forms.MouseButtons.Left) != 0))
+                {
+                    message.Result = IntPtr.Zero;
+                    return;
+                }
                 if (_splitDrag is null &&
                     TryGetScrollBarHit(
                         clientX,
@@ -66,7 +78,10 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                 }
                 if (_splitDrag is null &&
                     HitTestSeparator(clientX, clientY) is null &&
-                    TryGetHeaderResizeHandle(clientX, clientY, out var handle))
+                    TryGetHeaderResizeHandle(
+                        clientX,
+                        clientY,
+                        out var handle))
                 {
                     Cursor = GetHeaderResizeCursor(handle.Axis);
                     message.Result = IntPtr.Zero;
@@ -75,9 +90,10 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                 break;
             }
             case WindowMessageLeftButtonUp:
+            {
+                var (clientX, clientY) = GetMouseCoordinates(message.LParam);
                 if (_scrollBarDrag is not null)
                 {
-                    var (clientX, clientY) = GetMouseCoordinates(message.LParam);
                     UpdateScrollBarDrag(clientX, clientY);
                     EndScrollBarDrag(persist: true);
                     UpdatePointerCursor(clientX, clientY);
@@ -86,7 +102,6 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                 }
                 if (_headerResize is { } releasedResize)
                 {
-                    var (clientX, clientY) = GetMouseCoordinates(message.LParam);
                     ApplyHeaderResize(releasedResize, clientX, clientY);
                     _headerResize = null;
                     Capture = false;
@@ -94,7 +109,15 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                     message.Result = IntPtr.Zero;
                     return;
                 }
+                if (_headerReorder is not null &&
+                    CompleteHeaderReorder(clientX, clientY))
+                {
+                    UpdatePointerCursor(clientX, clientY);
+                    message.Result = IntPtr.Zero;
+                    return;
+                }
                 break;
+            }
             case WindowMessageCaptureChanged:
                 if (_scrollBarDrag is not null)
                 {
@@ -104,6 +127,11 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                 if (_headerResize is not null)
                 {
                     _headerResize = null;
+                    Cursor = Cursors.Default;
+                }
+                if (_headerReorder is not null)
+                {
+                    CancelHeaderReorder();
                     Cursor = Cursors.Default;
                 }
                 break;

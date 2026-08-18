@@ -61,16 +61,25 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             clientY);
         if (handle.Axis == WorksheetAxis.Row)
         {
-            _session.ActiveWorksheet.Dimensions.SetRowHeight(handle.Index, size);
+            _session.ActiveWorksheet.Dimensions.SetRowHeight(
+                handle.Index,
+                size);
         }
         else
         {
-            _session.ActiveWorksheet.Dimensions.SetColumnWidth(handle.Index, size);
+            _session.ActiveWorksheet.Dimensions.SetColumnWidth(
+                handle.Index,
+                size);
         }
     }
 
     private void UpdatePointerCursor(double clientX, double clientY)
     {
+        if (_headerReorder is { IsActive: true })
+        {
+            Cursor = Cursors.SizeAll;
+            return;
+        }
         if (TryGetScrollBarHit(
             clientX,
             clientY,
@@ -85,22 +94,36 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         var separator = HitTestSeparator(clientX, clientY);
         if (separator is { } split)
         {
-            Cursor = GetSeparatorCursor(split.Vertical, split.Horizontal);
+            Cursor = GetSeparatorCursor(
+                split.Vertical,
+                split.Horizontal);
             return;
         }
 
-        Cursor = TryGetHeaderResizeHandle(clientX, clientY, out var handle)
-            ? GetHeaderResizeCursor(handle.Axis)
+        if (TryGetHeaderResizeHandle(
+                clientX,
+                clientY,
+                out var resize))
+        {
+            Cursor = GetHeaderResizeCursor(resize.Axis);
+            return;
+        }
+        Cursor = TryGetHeaderReorderSource(
+            clientX,
+            clientY,
+            out _)
+            ? Cursors.SizeAll
             : Cursors.Default;
     }
 
     private static Cursor GetHeaderResizeCursor(WorksheetAxis axis) =>
         axis == WorksheetAxis.Row ? Cursors.SizeNS : Cursors.SizeWE;
 
-    private static SpreadsheetSplitPaneChromeLayout[] CreatePaneChromeLayouts(
-        SpreadsheetSplitViewportFrame frame)
+    private static SpreadsheetSplitPaneChromeLayout[]
+        CreatePaneChromeLayouts(SpreadsheetSplitViewportFrame frame)
     {
-        var paneLayouts = new SpreadsheetSplitPaneChromeLayout[frame.Panes.Count];
+        var paneLayouts = new SpreadsheetSplitPaneChromeLayout[
+            frame.Panes.Count];
         for (var index = 0; index < frame.Panes.Count; index++)
         {
             var pane = frame.Panes[index];

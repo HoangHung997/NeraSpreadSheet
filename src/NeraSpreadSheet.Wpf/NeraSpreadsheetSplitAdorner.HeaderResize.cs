@@ -24,22 +24,26 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             e.Handled = true;
             return;
         }
-        if (HitTestSeparator(point.X, point.Y) is not null ||
-            !TryGetHeaderResizeHandle(point.X, point.Y, out var handle))
+        if (HitTestSeparator(point.X, point.Y) is not null)
         {
             return;
         }
-
-        if (IsEditing)
+        if (TryGetHeaderResizeHandle(point.X, point.Y, out var resize))
         {
-            CommitEditor();
+            if (IsEditing)
+            {
+                CommitEditor();
+            }
+            Focus();
+            _headerResize = resize;
+            SetActivePaneCore(resize.PaneId);
+            CaptureMouse();
+            Cursor = GetHeaderResizeCursor(resize.Axis);
+            e.Handled = true;
+            return;
         }
-        Focus();
-        _headerResize = handle;
-        SetActivePaneCore(handle.PaneId);
-        CaptureMouse();
-        Cursor = GetHeaderResizeCursor(handle.Axis);
-        e.Handled = true;
+
+        _ = TryBeginHeaderReorderCandidate(point.X, point.Y);
     }
 
     protected override void OnPreviewMouseMove(MouseEventArgs e)
@@ -79,26 +83,17 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             e.Handled = true;
             return;
         }
-
-        if (_splitDrag is null &&
-            TryGetScrollBarHit(
+        if (_headerReorder is not null &&
+            UpdateHeaderReorder(
                 point.X,
                 point.Y,
-                out _,
-                out _,
-                out _))
+                e.LeftButton == MouseButtonState.Pressed))
         {
-            Cursor = Cursors.Hand;
             e.Handled = true;
             return;
         }
-        if (_splitDrag is null &&
-            HitTestSeparator(point.X, point.Y) is null &&
-            TryGetHeaderResizeHandle(point.X, point.Y, out var handle))
-        {
-            Cursor = GetHeaderResizeCursor(handle.Axis);
-            e.Handled = true;
-        }
+
+        UpdateHeaderPointerCursor(point.X, point.Y);
     }
 
     protected override void OnPreviewMouseLeftButtonUp(MouseButtonEventArgs e)
@@ -118,19 +113,24 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             e.Handled = true;
             return;
         }
-        if (_headerResize is not { } resize)
+        if (_headerResize is { } resize)
         {
+            ApplyHeaderResize(resize, point.X, point.Y);
+            _headerResize = null;
+            if (IsMouseCaptured)
+            {
+                ReleaseMouseCapture();
+            }
+            UpdateHeaderPointerCursor(point.X, point.Y);
+            e.Handled = true;
             return;
         }
-
-        ApplyHeaderResize(resize, point.X, point.Y);
-        _headerResize = null;
-        if (IsMouseCaptured)
+        if (_headerReorder is not null)
         {
-            ReleaseMouseCapture();
+            var reordered = CompleteHeaderReorder(point.X, point.Y);
+            UpdateHeaderPointerCursor(point.X, point.Y);
+            e.Handled = reordered;
         }
-        UpdateHeaderPointerCursor(point.X, point.Y);
-        e.Handled = true;
     }
 
     private bool TryGetHeaderResizeHandle(
@@ -171,16 +171,27 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             controlY);
         if (handle.Axis == WorksheetAxis.Row)
         {
-            _session.ActiveWorksheet.Dimensions.SetRowHeight(handle.Index, size);
+            _session.ActiveWorksheet.Dimensions.SetRowHeight(
+                handle.Index,
+                size);
         }
         else
         {
-            _session.ActiveWorksheet.Dimensions.SetColumnWidth(handle.Index, size);
+            _session.ActiveWorksheet.Dimensions.SetColumnWidth(
+                handle.Index,
+                size);
         }
     }
 
-    private void UpdateHeaderPointerCursor(double controlX, double controlY)
+    private void UpdateHeaderPointerCursor(
+        double controlX,
+        double controlY)
     {
+        if (_headerReorder is { IsActive: true })
+        {
+            Cursor = Cursors.SizeAll;
+            return;
+        }
         if (TryGetScrollBarHit(
             controlX,
             controlY,
@@ -195,22 +206,36 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         var separator = HitTestSeparator(controlX, controlY);
         if (separator is { } split)
         {
-            Cursor = GetSeparatorCursor(split.Vertical, split.Horizontal);
+            Cursor = GetSeparatorCursor(
+                split.Vertical,
+                split.Horizontal);
             return;
         }
 
-        Cursor = TryGetHeaderResizeHandle(controlX, controlY, out var handle)
-            ? GetHeaderResizeCursor(handle.Axis)
+        if (TryGetHeaderResizeHandle(
+                controlX,
+                controlY,
+                out var resize))
+        {
+            Cursor = GetHeaderResizeCursor(resize.Axis);
+            return;
+        }
+        Cursor = TryGetHeaderReorderSource(
+            controlX,
+            controlY,
+            out _)
+            ? Cursors.SizeAll
             : null;
     }
 
     private static Cursor GetHeaderResizeCursor(WorksheetAxis axis) =>
         axis == WorksheetAxis.Row ? Cursors.SizeNS : Cursors.SizeWE;
 
-    private static SpreadsheetSplitPaneChromeLayout[] CreatePaneChromeLayouts(
-        SpreadsheetSplitViewportFrame frame)
+    private static SpreadsheetSplitPaneChromeLayout[]
+        CreatePaneChromeLayouts(SpreadsheetSplitViewportFrame frame)
     {
-        var paneLayouts = new SpreadsheetSplitPaneChromeLayout[frame.Panes.Count];
+        var paneLayouts = new SpreadsheetSplitPaneChromeLayout[
+            frame.Panes.Count];
         for (var index = 0; index < frame.Panes.Count; index++)
         {
             var pane = frame.Panes[index];

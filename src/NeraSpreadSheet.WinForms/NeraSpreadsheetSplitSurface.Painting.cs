@@ -78,6 +78,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
     {
         if (disposing)
         {
+            CancelHeaderReorder();
             _cellEditor?.Cancel();
             HideEditor();
             DetachSessionEvents();
@@ -91,7 +92,9 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         base.Dispose(disposing);
     }
 
-    private void RenderCurrentFrame(Graphics graphics, Rectangle clipRectangle)
+    private void RenderCurrentFrame(
+        Graphics graphics,
+        Rectangle clipRectangle)
     {
         ArgumentNullException.ThrowIfNull(graphics);
         SynchronizeSession();
@@ -104,7 +107,8 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             return;
         }
 
-        var paneLayouts = new List<SpreadsheetSplitPaneChromeLayout>(frame.Panes.Count);
+        var paneLayouts = new List<SpreadsheetSplitPaneChromeLayout>(
+            frame.Panes.Count);
         foreach (var pane in frame.Panes)
         {
             paneLayouts.Add(new SpreadsheetSplitPaneChromeLayout(
@@ -119,6 +123,11 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             paneLayouts,
             _session!.Selection.Capture(),
             _owner.RenderTheme);
+        displayList =
+            SpreadsheetHeaderReorderPreviewDisplayListComposer.Compose(
+                displayList,
+                _headerReorderDropTarget,
+                _owner.RenderTheme);
         var partialClip =
             !clipRectangle.IsEmpty &&
             clipRectangle != ClientRectangle;
@@ -129,9 +138,12 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                 var renderer = EnsureDirect2DRenderer();
                 var recoveryCount = renderer.DeviceRecoveryCount;
                 renderer.Render(partialClip
-                    ? CreateDirtyClippedDisplayList(displayList, clipRectangle)
+                    ? CreateDirtyClippedDisplayList(
+                        displayList,
+                        clipRectangle)
                     : displayList);
-                if (partialClip && renderer.DeviceRecoveryCount != recoveryCount)
+                if (partialClip &&
+                    renderer.DeviceRecoveryCount != recoveryCount)
                 {
                     renderer.Render(displayList);
                 }
@@ -153,7 +165,8 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         {
             _activeBackend = requested;
             DisposeGpuRenderers();
-            SetGdiPaintingStyles(requested == WinFormsRenderingBackend.GdiPlus);
+            SetGdiPaintingStyles(
+                requested == WinFormsRenderingBackend.GdiPlus);
         }
 
         if (_swapChainRenderer is not null)
@@ -255,7 +268,11 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
         var builder = new DisplayListBuilder();
         builder.FillRectangle(
-            new RectD(0d, 0d, ClientSize.Width, ClientSize.Height),
+            new RectD(
+                0d,
+                0d,
+                ClientSize.Width,
+                ClientSize.Height),
             new ColorRgba(
                 _owner.BackColor.R,
                 _owner.BackColor.G,
