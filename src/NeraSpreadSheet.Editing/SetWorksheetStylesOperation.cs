@@ -210,7 +210,10 @@ internal sealed class SetWorksheetStylesOperation : ISpreadsheetEditOperation
                 }
             }
         }
-        return addresses.OrderBy(static address => address).ToArray();
+        return addresses
+            .OrderBy(static address => address.RowIndex)
+            .ThenBy(static address => address.ColumnIndex)
+            .ToArray();
     }
 
     private KeyValuePair<CellAddress, CellData>[] CaptureCells(
