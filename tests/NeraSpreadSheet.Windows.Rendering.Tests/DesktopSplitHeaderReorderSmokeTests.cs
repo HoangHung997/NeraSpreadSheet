@@ -258,7 +258,9 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
         }
         worksheet.SetValue(new CellAddress(120, 30), "extent");
         worksheet.SetFormula(new CellAddress(0, 1), "=A3");
-        return new SpreadsheetSession(workbook);
+        var session = new SpreadsheetSession(workbook);
+        session.Selection.SelectRow(2);
+        return session;
     }
 
     private static void AssertRowMoveCommitted(SpreadsheetSession session)
