@@ -18,6 +18,11 @@
             <Button Click="FreezeClick" Padding="10,3">Freeze</Button>
             <Button Click="UnfreezeClick" Padding="10,3">Unfreeze</Button>
             <Separator />
+            <Button Click="SplitVerticalClick" Padding="10,3">Split V</Button>
+            <Button Click="SplitHorizontalClick" Padding="10,3">Split H</Button>
+            <Button Click="SplitBothClick" Padding="10,3">Split 4</Button>
+            <Button Click="ClearSplitClick" Padding="10,3">Clear Split</Button>
+            <Separator />
             <Button Click="InsertRowsClick" Padding="10,3" ToolTip="Insert the selected whole row range, or one row at the active cell.">Insert Row</Button>
             <Button Click="DeleteRowsClick" Padding="10,3" ToolTip="Delete the selected whole row range, or one row at the active cell.">Delete Row</Button>
             <Button Click="InsertColumnsClick" Padding="10,3" ToolTip="Insert the selected whole column range, or one column at the active cell.">Insert Col</Button>
@@ -34,7 +39,9 @@
             </TextBlock>
         </ToolBar>
         <Border BorderBrush="#D0D0D0" BorderThickness="1">
-            <nera:NeraSpreadsheetControl x:Name="Spreadsheet" />
+            <AdornerDecorator>
+                <nera:NeraSpreadsheetControl x:Name="Spreadsheet" />
+            </AdornerDecorator>
         </Border>
     </DockPanel>
 </Window>
