@@ -16,6 +16,11 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             case WindowMessageLeftButtonDown:
             {
                 var (clientX, clientY) = GetMouseCoordinates(message.LParam);
+                if (TryBeginScrollBarInteraction(clientX, clientY))
+                {
+                    message.Result = IntPtr.Zero;
+                    return;
+                }
                 if (HitTestSeparator(clientX, clientY) is null &&
                     TryGetHeaderResizeHandle(clientX, clientY, out _))
                 {
@@ -33,10 +38,29 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             case WindowMessageMouseMove:
             {
                 var (clientX, clientY) = GetMouseCoordinates(message.LParam);
+                if (_scrollBarDrag is not null)
+                {
+                    UpdateScrollBarDrag(clientX, clientY);
+                    Cursor = Cursors.Hand;
+                    message.Result = IntPtr.Zero;
+                    return;
+                }
                 if (_headerResize is { } activeResize)
                 {
                     ApplyHeaderResize(activeResize, clientX, clientY);
                     Cursor = GetHeaderResizeCursor(activeResize.Axis);
+                    message.Result = IntPtr.Zero;
+                    return;
+                }
+                if (_splitDrag is null &&
+                    TryGetScrollBarHit(
+                        clientX,
+                        clientY,
+                        out _,
+                        out _,
+                        out _))
+                {
+                    Cursor = Cursors.Hand;
                     message.Result = IntPtr.Zero;
                     return;
                 }
@@ -51,6 +75,15 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                 break;
             }
             case WindowMessageLeftButtonUp:
+                if (_scrollBarDrag is not null)
+                {
+                    var (clientX, clientY) = GetMouseCoordinates(message.LParam);
+                    UpdateScrollBarDrag(clientX, clientY);
+                    EndScrollBarDrag(persist: true);
+                    UpdatePointerCursor(clientX, clientY);
+                    message.Result = IntPtr.Zero;
+                    return;
+                }
                 if (_headerResize is { } releasedResize)
                 {
                     var (clientX, clientY) = GetMouseCoordinates(message.LParam);
@@ -63,6 +96,11 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                 }
                 break;
             case WindowMessageCaptureChanged:
+                if (_scrollBarDrag is not null)
+                {
+                    EndScrollBarDrag(persist: true);
+                    Cursor = Cursors.Default;
+                }
                 if (_headerResize is not null)
                 {
                     _headerResize = null;
