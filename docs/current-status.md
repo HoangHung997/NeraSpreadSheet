@@ -1,6 +1,6 @@
 # NeraSpreadSheet current implementation status
 
-This file is the handoff source of truth for the current development branch. It distinguishes executable behavior from planned architecture. A feature is listed as implemented only when source, tests and the applicable runtime gate exist.
+This file is the handoff source of truth for the current development branch. A capability is listed as implemented only when executable source, automated tests and the applicable desktop/runtime gate exist.
 
 ## Product rules
 
@@ -8,24 +8,24 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 
 - No runtime dependency on Microsoft Excel, LibreOffice or DevExpress.
 - No UNO/Excel command identifiers in Nera public contracts.
-- No UI element per cell.
-- Workbook, formula, layout, scrolling and command projects remain independent from WPF, WinForms and MAUI.
-- Viewports use continuous `double` offsets and may stop between row/column boundaries.
+- No UI control per cell.
+- Workbook, formula, editing, layout, scrolling and command projects remain independent from WPF, WinForms and MAUI.
+- Viewports use continuous `double` pixel offsets and may stop between row/column boundaries.
+- WPF, WinForms and GPU/fallback hosts consume shared viewport/display-list semantics rather than implementing separate workbook engines.
 
 ## Implemented
 
 ### Core workbook, formula and editing
 
-- Sparse worksheet storage over an Excel-size logical address space.
-- Multiple worksheets, versioned snapshots, cell values/formulas/style IDs, row/column dimensions and native merged ranges.
-- Structural insert/delete for complete row/column axes with overflow preflight and atomic rollback.
-- Tokenizer, parser and AST for arithmetic, comparison, concatenation, references, ranges and basic cross-sheet references.
+- Sparse worksheets over an Excel-size logical address space.
+- Multiple worksheets, versioned snapshots, values, formulas, style IDs, row/column dimensions and native merged ranges.
+- Structural insert/delete for complete row/column axes with overflow preflight, formula/reference mapping and atomic rollback.
+- Formula tokenizer, parser and AST for arithmetic, comparison, concatenation, references, ranges and basic cross-sheet references.
 - `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT` and `IF`.
 - Dependency graph, circular-reference detection and affected-only recalculation.
-- Structural formula rewriting for local/cross-sheet A1 references, absolute markers, reversed ranges and quoted/escaped sheet names.
 - Session-owned selection, undo/redo, calculation, clipboard, formatting, merge, sort, editor, view and structure controllers.
 - Single, extended, multi-range, whole-row, whole-column and whole-sheet selection.
-- Native clipboard package plus TSV interoperability and relative/absolute reference translation during paste.
+- Native clipboard package plus TSV interoperability and relative/absolute A1 translation during paste.
 - One reusable in-cell editor per desktop host.
 - Per-worksheet freeze-pane state; merge/freeze boundaries cannot split a merged range.
 
@@ -36,7 +36,7 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 - Worksheet snapshot cache and bounded translated viewport tile cache.
 - Freeze panes compose through frozen corner, frozen rows, frozen columns and scrolling body.
 - Pane-aware freeze cache replays a shared tile origin with axis-specific translation.
-- Display-list nesting stores immutable child references rather than flatten-copying command arrays.
+- Nested display lists retain immutable child references rather than flatten-copying command arrays.
 - GDI+, WPF and Direct2D executors share clip/translation semantics.
 - Allocation regression tests and BenchmarkDotNet coverage exist for normal and frozen scrolling.
 
@@ -45,7 +45,7 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 - Platform-neutral one-pane, vertical, horizontal and four-pane topology.
 - Validated/clamped split coordinates, separator thickness and minimum pane extent.
 - Half-open pane/separator hit regions, including separator intersection.
-- Each pane owns an independent `ContinuousScrollController` with `double` X/Y offsets and bounds.
+- Every pane owns an independent `ContinuousScrollController` with `double` X/Y offsets and bounds.
 - Precision, wheel, touch and programmatic input can target one pane without moving the others.
 - Hidden panes retain scroll state; an unavailable active pane falls back to `TopLeft`.
 - Pane-local hit testing resolves merged anchors and returns common body-coordinate cell bounds.
@@ -66,13 +66,14 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 
 ### Per-pane split scrollbars
 
-- `SpreadsheetSplitScrollBarGeometry` creates optional horizontal/vertical bars for every visible pane whose content exceeds its viewport.
+- Shared geometry creates horizontal/vertical bars for every visible pane whose content exceeds its viewport.
 - Track, proportional thumb, maximum offset and hit geometry use pane-local bounds and continuous offsets.
-- Hit testing distinguishes thumb, track-before and track-after with configurable hit slop.
-- Thumb drag maps pointer position to a continuous offset; track clicks apply a configurable page factor.
+- Hit testing distinguishes arrow/button, thumb, track-before and track-after behavior in the integrated host path; the optional overlay contract supports thumb and paged track interaction.
+- Thumb drag maps pointer position to a continuous offset without row/column snapping.
 - A request targets exactly one pane and one axis while preserving the other axis and every other pane.
-- Shared styling covers track, normal thumb, active-pane thumb, border, thickness, margins and minimum lengths.
-- Public WinForms and WPF controllers expose enable/disable, visibility, style, layout, count, hit testing and refresh.
+- Shared styling covers background, track, buttons, normal thumb, active-pane thumb, border, glyphs, thickness and minimum lengths.
+- Integrated split-frame scrollbars are controlled by `SpreadsheetRenderTheme.ShowSplitPaneScrollBars` and render through the same display-list semantics as the worksheet.
+- Public optional WinForms and WPF overlay controllers expose enable/disable, visibility, style, layout, count, hit testing and refresh.
 - Scrollbar changes persist through `SpreadsheetSplitViewState`.
 - WinForms runtime smoke uses real Windows mouse messages.
 - WPF runtime smoke uses native OS cursor/button input so routed hit testing, mouse capture and pointer state follow the production path.
@@ -92,20 +93,20 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 
 - `EnableSplitPanes` / `DisableSplitPanes` operate on the existing public `NeraSpreadsheetControl`.
 - The Nera-owned child surface shares session, theme and rendering contracts while leaving the underlying single-pane control intact.
-- Public controller exposes topology, split coordinates, active pane, pane scroll, hit testing and GPU diagnostics.
+- The public controller exposes topology, split coordinates, active pane, pane scroll, hit testing and GPU diagnostics.
 - Separator drag, wheel/Shift+wheel, body/header selection and one reusable editor route through the resolved pane.
 - Split-aware row-height/column-width resize handles update shared sparse dimensions live; separator hit regions take priority.
-- Optional scrollbar overlay exposes hit regions only around tracks/thumbs.
+- Integrated pane scrollbars render in the shared split frame; the optional transparent overlay exposes hit regions only around its own tracks/thumbs.
 - GDI+, Direct2D HWND and D3D11/DXGI `FlipDiscard` consume the same split semantics.
 - STA runtime smoke covers all three backends, lifecycle, real mouse-message resizing, real mouse-message scrollbar interaction and dirty-region fallback rules.
 
 ### Public WPF split host
 
 - Public split lifecycle mirrors WinForms through a Nera-owned `Adorner` under an `AdornerLayer`/`AdornerDecorator`.
-- Public controller forwards session, backend and theme and exposes split state, hit testing and GPU diagnostics.
+- The public controller forwards session, backend and theme and exposes split state, hit testing and GPU diagnostics.
 - Wheel, selection, keyboard/text editing, separator drag and shared header-resize geometry route through the active pane.
 - One reusable `TextBox` editor is arranged/clipped inside the active pane/freeze subregion.
-- Optional scrollbars use a second Nera-owned adorner with pane-specific mouse capture.
+- Integrated pane scrollbars render in the split display list; optional scrollbars can also use a second Nera-owned adorner with pane-specific mouse capture.
 - DrawingContext and Nera-owned D3D11 shared-texture/D3DImage paths consume the same split semantics.
 - STA runtime smoke covers render, DirectWrite cache reuse, load/unload, host resize, header resize, native OS-input scrollbar drag, persisted pane state, D3DImage render and dirty-rectangle presentation.
 
@@ -130,12 +131,21 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 - A default unsplit session emits neither native nor standard split metadata.
 - Unknown-part preservation remains explicitly unsupported.
 
-### Samples
+### Desktop samples
 
 - `samples/NeraSpreadSheet.Wpf.Sample`
 - `samples/NeraSpreadSheet.WinForms.Sample`
 
-Both samples expose `Split V`, `Split H`, `Split 4` and `Clear Split`, display split/active-pane status and use the session XLSX serializer so split state survives Open/Save. Optional scrollbar enable/disable controls are not exposed in the sample toolbars yet.
+Both samples now expose:
+
+- `Split V`, `Split H`, `Split 4` and `Clear Split`.
+- A checkable `Pane Scrollbars` control backed by `SpreadsheetRenderTheme.ShowSplitPaneScrollBars`.
+- Automatic transition to `Split 4` when pane scrollbars are enabled while no split topology is active.
+- Live diagnostics showing active split pane and the number of composed pane scrollbars.
+- A sparse demonstration extent at row 181/column 41 so horizontal and vertical pane scrolling is visible without materializing a dense sheet.
+- XLSX Open/Save through the session serializer so per-worksheet split state survives round trip.
+
+A dedicated STA runtime smoke opens the real WinForms and WPF sample windows, operates the real toolbar/toggle controls, verifies scrollbar visibility, confirms automatic four-pane topology and requires at least eight composed bars for the demonstration extent.
 
 ## Implemented but intentionally basic
 
@@ -145,13 +155,13 @@ Both samples expose `Split V`, `Split H`, `Split 4` and `Clear Split`, display s
 - Structural rewriting covers A1 cell/range syntax, not tables, structured references, shared formulas or dynamic arrays.
 - Dirty projection targets cell/range content changes. Structural, metric, topology, theme and device-lifecycle changes remain conservative full invalidations.
 - `FlipDiscard` and WPF DrawingContext remain explicit full-frame fallback paths.
-- Scrollbars are optional overlays rather than permanently reserving worksheet viewport space.
+- Scrollbars are overlays rather than permanently reserving worksheet viewport space.
 - Sustained FPS/input-latency/power behavior still requires target-hardware benchmarks.
 
 ## Next implementation work
 
-1. Expose optional per-pane scrollbar controls in both desktop samples and add sample-level interaction coverage.
-2. Add header drag reordering and sparse whole-axis style storage.
+1. Implement native header drag reordering with shared preview/drop geometry, model-safe column/row moves and desktop runtime gates.
+2. Add sparse whole-axis style storage so whole-row/whole-column formatting does not materialize every cell.
 3. Add standalone undo/redo commands for direct split-view changes.
 4. Add longer-running injected device-loss/front-buffer-loss stress coverage.
 5. Implement a production Skia GPU surface plus MAUI native handler/touch interaction.
@@ -180,22 +190,21 @@ Both samples expose `Split V`, `Split H`, `Split 4` and `Clear Split`, display s
 - Split-aware resize requires shared geometry tests plus public-host runtime smoke.
 - Per-pane scrollbars require shared geometry/interaction tests plus public WinForms/WPF native-input runtime smoke.
 - Dirty-region projection requires platform-neutral projection tests plus runtime verification of partial paths and explicit full-frame fallbacks.
+- Desktop sample exposure requires both sample projects in the Windows test dependency graph and a real-window/form interaction smoke for their scrollbar controls.
 - PR #1 remains Draft and must not merge while latest-head CI is red or unknown.
 
 ## Latest validated implementation milestone
 
-CI run #291 passed at implementation commit `472b6f62ef5f9328cd2344bc70770049cbbedd4c`:
+CI run #299 passed at implementation commit `9b98def8144c82c7d708daae0279451cb5af9ac3`:
 
 - Core restore/build/tests and architecture verification passed on Ubuntu.
 - Full Windows restore/build/test passed with zero blocking diagnostics.
 - Mandatory Windows desktop GPU/runtime smoke passed.
-- Split persistence, structural mapping and XLSX split-state round-trip tests passed.
-- Shared split-header resize and public WinForms/WPF resize smoke passed.
-- Shared per-pane scrollbar geometry/interaction tests passed.
-- Public WinForms scrollbar smoke passed through real Windows mouse messages.
-- Public WPF scrollbar smoke passed through native OS pointer input, persisted only the target pane and rendered through D3DImage.
-- WinForms/WPF dirty-region smoke passed, including explicit full-frame fallback semantics.
-- WPF shared-texture unload/reload recreated resources and verified text-layout reuse on an explicit second frame.
+- Both sample projects compiled as dependencies of the Windows runtime-test project.
+- The real WinForms sample toggle disabled and re-enabled pane scrollbars, then produced `Split 4` with at least eight bars.
+- The real WPF sample toggle performed the equivalent routed interaction under an `AdornerDecorator` and produced the same verified topology/bar count.
+- The new gate exposed and corrected stale sample API usage (`ClearSplitState` -> `ClearSplitPanes`), a missing WPF `System.IO` import and nullable test diagnostics before the milestone was accepted.
+- Existing split persistence, structural mapping, XLSX, resize, scrollbar, dirty-region and GPU lifecycle gates remained green.
 
 ## Independence rule
 
