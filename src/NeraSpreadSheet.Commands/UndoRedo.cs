@@ -94,6 +94,12 @@ public sealed class UndoRedoManager
     {
         ArgumentNullException.ThrowIfNull(operation);
         operation.Execute();
+        RecordExecuted(operation);
+    }
+
+    public void RecordExecuted(IUndoableOperation operation)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
         _undo.Push(operation);
         _redo.Clear();
         TrimUndoHistory();
