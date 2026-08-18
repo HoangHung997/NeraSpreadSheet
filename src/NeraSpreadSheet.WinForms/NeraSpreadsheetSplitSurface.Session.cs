@@ -77,7 +77,11 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         InvalidateSplitLayout();
         SplitChanged?.Invoke(
             this,
-            new SpreadsheetSplitChangedEventArgs(mode, splitX, splitY, _lastFrame?.Layout));
+            new SpreadsheetSplitChangedEventArgs(
+                mode,
+                splitX,
+                splitY,
+                _lastFrame?.Layout));
     }
 
     private bool SetActivePaneCore(SpreadsheetPaneId paneId)
@@ -97,7 +101,8 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         return true;
     }
 
-    private void PersistCurrentSplitState(SpreadsheetSplitViewChangeKind changeKind)
+    private void PersistCurrentSplitState(
+        SpreadsheetSplitViewChangeKind changeKind)
     {
         if (_applyingSplitViewState || _session is null || _engine is null)
         {
@@ -131,7 +136,10 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             _splitX != state.SplitX ||
             _splitY != state.SplitY;
         var engineStateChanged =
-            SpreadsheetSplitViewStateAdapter.Capture(_engine, _splitX, _splitY) != state;
+            SpreadsheetSplitViewStateAdapter.Capture(
+                _engine,
+                _splitX,
+                _splitY) != state;
         if (!topologyChanged && !engineStateChanged)
         {
             return;
@@ -189,10 +197,13 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             return;
         }
 
+        CancelSplitViewHistory(restoreBeforeState: true);
         DetachSessionEvents();
         _cellEditor?.Cancel();
         _session = next;
-        _engine = next is null ? null : new SpreadsheetSplitViewportEngine(next);
+        _engine = next is null
+            ? null
+            : new SpreadsheetSplitViewportEngine(next);
         _cellEditor = next?.Editor;
         _lastFrame = null;
         HideEditor();
@@ -257,6 +268,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
     private void OnActiveWorksheetChanged(object? sender, EventArgs e)
     {
+        CancelSplitViewHistory(restoreBeforeState: true);
         CancelEditor();
         EnsureWorksheetSubscription();
         _engine?.InvalidateMetrics();
@@ -265,15 +277,20 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         Invalidate();
     }
 
-    private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void OnSelectionChanged(
+        object? sender,
+        SelectionChangedEventArgs e)
     {
         UpdateEditorBounds();
         Invalidate();
     }
 
-    private void OnViewChanged(object? sender, SpreadsheetViewChangedEventArgs e)
+    private void OnViewChanged(
+        object? sender,
+        SpreadsheetViewChangedEventArgs e)
     {
-        if (_session is null || !ReferenceEquals(e.Worksheet, _session.ActiveWorksheet))
+        if (_session is null ||
+            !ReferenceEquals(e.Worksheet, _session.ActiveWorksheet))
         {
             return;
         }
@@ -284,7 +301,9 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         Invalidate();
     }
 
-    private void OnSplitViewChanged(object? sender, SpreadsheetSplitViewChangedEventArgs e)
+    private void OnSplitViewChanged(
+        object? sender,
+        SpreadsheetSplitViewChangedEventArgs e)
     {
         if (_session is null ||
             ReferenceEquals(e.Source, this) ||
@@ -301,7 +320,9 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         InvalidateDirtyRange(e.Range);
     }
 
-    private void OnDimensionsChanged(object? sender, DimensionChangedEventArgs e)
+    private void OnDimensionsChanged(
+        object? sender,
+        DimensionChangedEventArgs e)
     {
         _engine?.InvalidateMetrics();
         _lastFrame = null;
@@ -320,6 +341,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         if (_engine is null)
         {
             _frameTimer.Stop();
+            CancelSplitViewHistory(restoreBeforeState: true);
             return;
         }
 
@@ -330,7 +352,8 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         if (changed)
         {
             PublishChangedPaneScrolls(before);
-            PersistCurrentSplitState(SpreadsheetSplitViewChangeKind.PaneScroll);
+            PersistCurrentSplitState(
+                SpreadsheetSplitViewChangeKind.PaneScroll);
             _lastFrame = null;
             UpdateEditorBounds();
             Invalidate();
@@ -339,10 +362,12 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         if (!_engine.HasPendingScroll)
         {
             _frameTimer.Stop();
+            CommitSplitViewHistoryWhenFrameSettles();
         }
     }
 
-    private Dictionary<SpreadsheetPaneId, ScrollSnapshot> CaptureVisiblePaneScrolls()
+    private Dictionary<SpreadsheetPaneId, ScrollSnapshot>
+        CaptureVisiblePaneScrolls()
     {
         var snapshots = new Dictionary<SpreadsheetPaneId, ScrollSnapshot>();
         if (_lastFrame is null || _engine is null)
@@ -352,7 +377,8 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
         foreach (var pane in _lastFrame.Panes)
         {
-            snapshots[pane.Pane.PaneId] = _engine.GetPaneScrollSnapshot(pane.Pane.PaneId);
+            snapshots[pane.Pane.PaneId] =
+                _engine.GetPaneScrollSnapshot(pane.Pane.PaneId);
         }
         return snapshots;
     }
@@ -369,16 +395,21 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         {
             var paneId = pane.Pane.PaneId;
             var current = _engine.GetPaneScrollSnapshot(paneId);
-            if (!before.TryGetValue(paneId, out var previous) || previous != current)
+            if (!before.TryGetValue(paneId, out var previous) ||
+                previous != current)
             {
                 PaneScrollChanged?.Invoke(
                     this,
-                    new SpreadsheetPaneScrollChangedEventArgs(paneId, current));
+                    new SpreadsheetPaneScrollChangedEventArgs(
+                        paneId,
+                        current));
             }
         }
     }
 
-    private static void ValidateSplitCoordinate(double? value, string parameterName)
+    private static void ValidateSplitCoordinate(
+        double? value,
+        string parameterName)
     {
         if (value is { } coordinate && !double.IsFinite(coordinate))
         {
