@@ -45,7 +45,7 @@ public static class SpreadsheetHeaderReorderAutoScroll
 
     public static PointD CalculateVelocity(
         WorksheetAxis axis,
-        PointD pointer,
+        PointD location,
         RectD viewportBounds,
         double edgeZone = DefaultEdgeZone,
         double maximumSpeed = DefaultMaximumSpeed)
@@ -54,7 +54,7 @@ public static class SpreadsheetHeaderReorderAutoScroll
         {
             throw new ArgumentOutOfRangeException(nameof(axis));
         }
-        ValidateFinite(pointer, nameof(pointer));
+        ValidateFinite(location, nameof(location));
         ValidateFinite(viewportBounds, nameof(viewportBounds));
         if (!double.IsFinite(edgeZone) || edgeZone <= 0d)
         {
@@ -74,14 +74,14 @@ public static class SpreadsheetHeaderReorderAutoScroll
             ? new PointD(
                 0d,
                 CalculateAxisVelocity(
-                    pointer.Y,
+                    location.Y,
                     viewportBounds.Top,
                     viewportBounds.Bottom,
                     edgeZone,
                     maximumSpeed))
             : new PointD(
                 CalculateAxisVelocity(
-                    pointer.X,
+                    location.X,
                     viewportBounds.Left,
                     viewportBounds.Right,
                     edgeZone,
@@ -92,10 +92,9 @@ public static class SpreadsheetHeaderReorderAutoScroll
     public static PointD CalculateDelta(PointD velocity, TimeSpan elapsed)
     {
         ValidateFinite(velocity, nameof(velocity));
-        if (elapsed < TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(nameof(elapsed));
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThan(
+            elapsed,
+            TimeSpan.Zero);
 
         var seconds = elapsed.TotalSeconds;
         if (!double.IsFinite(seconds))
