@@ -11,7 +11,7 @@ namespace NeraSpreadSheet.WinForms.Sample;
 
 public sealed class MainForm : Form
 {
-    private readonly NeraOpenXmlWorkbookSerializer _serializer = new();
+    private readonly NeraOpenXmlSpreadsheetSessionSerializer _serializer = new();
     private readonly NeraSpreadsheetControl _spreadsheet = new() { Dock = DockStyle.Fill };
     private readonly ToolStripDropDownButton _rendererButton = new("Renderer: GDI+");
     private readonly ToolStripLabel _rendererStatus = new("GDI+ fallback");
@@ -146,8 +146,9 @@ public sealed class MainForm : Form
         }
 
         await using var stream = File.OpenRead(dialog.FileName);
-        var workbook = await _serializer.LoadAsync(stream, new OpenXmlImportOptions());
-        _spreadsheet.Session = new SpreadsheetSession(workbook);
+        _spreadsheet.Session = await _serializer.LoadSessionAsync(
+            stream,
+            new OpenXmlImportOptions());
     }
 
     private async void SaveClick(object? sender, EventArgs e)
@@ -170,7 +171,10 @@ public sealed class MainForm : Form
         }
 
         await using var stream = File.Create(dialog.FileName);
-        await _serializer.SaveAsync(session.Workbook, stream, new OpenXmlExportOptions());
+        await _serializer.SaveSessionAsync(
+            session,
+            stream,
+            new OpenXmlExportOptions());
     }
 
     private void BoldClick(object? sender, EventArgs e) => _spreadsheet.Session?.Styles.ToggleBold();
