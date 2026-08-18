@@ -116,6 +116,8 @@ internal sealed class SetWorksheetStylesOperation : ISpreadsheetEditOperation
 
     public IReadOnlyList<CellRange> AffectedRanges { get; }
 
+    public bool AffectsCalculation => false;
+
     public void Execute()
     {
         if (_afterAxisState is not null && _afterCells is not null)
