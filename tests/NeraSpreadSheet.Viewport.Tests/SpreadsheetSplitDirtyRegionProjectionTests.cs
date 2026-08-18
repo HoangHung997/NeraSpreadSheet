@@ -76,7 +76,7 @@ public sealed class SpreadsheetSplitDirtyRegionProjectionTests
     public void DirtyCellExpandsToItsCompleteMergedRange()
     {
         var engine = CreateEngine();
-        engine.Session.ActiveWorksheet.MergedCells.Merge(new CellRange(
+        engine.Session.ActiveWorksheet.MergeCells(new CellRange(
             new CellAddress(1, 1),
             new CellAddress(2, 2)));
         engine.Compose(new SpreadsheetSplitRequest(new SizeD(400d, 200d)));
