@@ -41,7 +41,6 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
     private const string NeraViewStateContentType = "application/vnd.neraspreadsheet.view-state+xml";
     private const string NeraViewStateNamespace = "urn:neraspreadsheet:view-state:1";
     private const double TwipsPerPixel = 15d;
-    private const double GeometryEpsilon = 1e-9;
     private static readonly XNamespace NeraNamespace = NeraViewStateNamespace;
     private readonly NeraOpenXmlWorkbookSerializer _workbookSerializer;
 
@@ -236,15 +235,25 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         var sheetViews = worksheetPart.Worksheet?.GetFirstChild<SheetViews>();
         var sheetView = sheetViews?.Elements<SheetView>().LastOrDefault();
         var pane = sheetView?.GetFirstChild<Pane>();
-        if (pane is null || pane.State?.Value is PaneStateValues.Frozen or PaneStateValues.FrozenSplit)
+        if (pane is null)
+        {
+            return default;
+        }
+        var paneState = pane.State?.Value;
+        if (paneState == PaneStateValues.Frozen ||
+            paneState == PaneStateValues.FrozenSplit)
         {
             return default;
         }
 
         var splitXTwips = pane.HorizontalSplit?.Value;
         var splitYTwips = pane.VerticalSplit?.Value;
-        var splitX = splitXTwips is > 0d ? splitXTwips.Value / TwipsPerPixel : null;
-        var splitY = splitYTwips is > 0d ? splitYTwips.Value / TwipsPerPixel : null;
+        double? splitX = splitXTwips is > 0d
+            ? splitXTwips.Value / TwipsPerPixel
+            : null;
+        double? splitY = splitYTwips is > 0d
+            ? splitYTwips.Value / TwipsPerPixel
+            : null;
         var mode = ResolveMode(splitX, splitY);
         if (mode == SpreadsheetSplitViewMode.None)
         {
@@ -539,13 +548,19 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         PaneValues? pane,
         SpreadsheetSplitViewMode mode)
     {
-        var result = pane switch
+        var result = SpreadsheetSplitViewPane.TopLeft;
+        if (pane == PaneValues.TopRight)
         {
-            PaneValues.TopRight => SpreadsheetSplitViewPane.TopRight,
-            PaneValues.BottomLeft => SpreadsheetSplitViewPane.BottomLeft,
-            PaneValues.BottomRight => SpreadsheetSplitViewPane.BottomRight,
-            _ => SpreadsheetSplitViewPane.TopLeft,
-        };
+            result = SpreadsheetSplitViewPane.TopRight;
+        }
+        else if (pane == PaneValues.BottomLeft)
+        {
+            result = SpreadsheetSplitViewPane.BottomLeft;
+        }
+        else if (pane == PaneValues.BottomRight)
+        {
+            result = SpreadsheetSplitViewPane.BottomRight;
+        }
         return SpreadsheetSplitViewState.IsPaneVisible(mode, result)
             ? result
             : SpreadsheetSplitViewPane.TopLeft;
