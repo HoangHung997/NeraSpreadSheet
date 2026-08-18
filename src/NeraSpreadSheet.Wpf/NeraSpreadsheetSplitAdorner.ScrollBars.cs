@@ -1,5 +1,6 @@
 using System.Windows.Documents;
 using System.Windows.Input;
+using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Rendering.Spreadsheet;
 
