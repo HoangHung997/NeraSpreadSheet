@@ -112,6 +112,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
     internal void SetMode(SpreadsheetSplitPaneMode mode)
     {
+        SynchronizeSession();
         if (!Enum.IsDefined(mode))
         {
             throw new ArgumentOutOfRangeException(nameof(mode));
@@ -132,6 +133,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
     internal void SetSplit(double? splitX, double? splitY)
     {
+        SynchronizeSession();
         ValidateSplitCoordinate(splitX, nameof(splitX));
         ValidateSplitCoordinate(splitY, nameof(splitY));
         var mode = (splitX, splitY) switch
