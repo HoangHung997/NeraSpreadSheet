@@ -243,12 +243,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner, IDisposable
         SetSplitCore(mode, splitX, splitY);
     }
 
-    internal void SetActivePane(SpreadsheetPaneId paneId)
-    {
-        GetEngine().SetActivePane(paneId);
-        _lastFrame = null;
-        InvalidateVisual();
-    }
+    internal void SetActivePane(SpreadsheetPaneId paneId) => SetActivePaneCore(paneId);
 
     internal PointD GetPaneScroll(SpreadsheetPaneId paneId) =>
         _engine?.GetPaneScroll(paneId) ?? default;
@@ -262,7 +257,17 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner, IDisposable
         double offsetY,
         bool animated)
     {
-        GetEngine().ScrollPaneTo(paneId, offsetX, offsetY, animated);
+        var engine = GetEngine();
+        engine.ScrollPaneTo(paneId, offsetX, offsetY, animated);
+        if (!animated)
+        {
+            PersistCurrentSplitState(SpreadsheetSplitViewChangeKind.PaneScroll);
+            PaneScrollChanged?.Invoke(
+                this,
+                new SpreadsheetPaneScrollChangedEventArgs(
+                    paneId,
+                    engine.GetPaneScrollSnapshot(paneId)));
+        }
         _lastFrame = null;
         UpdateEditorBounds();
         InvalidateVisual();
@@ -428,6 +433,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner, IDisposable
         _mode = mode;
         _splitX = splitX;
         _splitY = splitY;
+        PersistCurrentSplitState(SpreadsheetSplitViewChangeKind.Topology);
         InvalidateSplitLayout();
         SplitChanged?.Invoke(
             this,
