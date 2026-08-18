@@ -7,10 +7,7 @@ internal readonly record struct WorksheetAxisStyleOperation
         CellStylePatch patch)
     {
         ArgumentNullException.ThrowIfNull(patch);
-        if (sequence <= 0L)
-        {
-            throw new ArgumentOutOfRangeException(nameof(sequence));
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(sequence, 0L);
         if (patch.IsEmpty)
         {
             throw new ArgumentException(
@@ -35,14 +32,8 @@ internal sealed class WorksheetAxisStyleSpan
         IEnumerable<WorksheetAxisStyleOperation> operations)
     {
         ArgumentNullException.ThrowIfNull(operations);
-        if (startIndex < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(startIndex));
-        }
-        if (endIndex < startIndex)
-        {
-            throw new ArgumentOutOfRangeException(nameof(endIndex));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(startIndex);
+        ArgumentOutOfRangeException.ThrowIfLessThan(endIndex, startIndex);
 
         StartIndex = startIndex;
         EndIndex = endIndex;
@@ -108,10 +99,9 @@ internal sealed class WorksheetAxisStyleState
     {
         ArgumentNullException.ThrowIfNull(rowSpans);
         ArgumentNullException.ThrowIfNull(columnSpans);
-        if (nextSequence <= 0L)
-        {
-            throw new ArgumentOutOfRangeException(nameof(nextSequence));
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(
+            nextSequence,
+            0L);
 
         RowSpans = rowSpans.Select(static span => span.Clone()).ToArray();
         ColumnSpans = columnSpans.Select(static span => span.Clone()).ToArray();
@@ -132,10 +122,7 @@ internal sealed class WorksheetAxisStyleMap
 
     public WorksheetAxisStyleMap(int axisLength)
     {
-        if (axisLength <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(axisLength));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(axisLength);
         _axisLength = axisLength;
     }
 
@@ -341,8 +328,8 @@ internal sealed class WorksheetAxisStyleMap
                 span.EndIndex))
             {
                 next.Add(new WorksheetAxisStyleSpan(
-                    interval.StartIndex,
-                    interval.EndIndex,
+                    interval.Start,
+                    interval.End,
                     span.Operations));
             }
         }
@@ -388,21 +375,19 @@ internal sealed class WorksheetAxisStyleMap
     {
         ValidateIndex(startIndex, nameof(startIndex));
         ValidateIndex(endIndex, nameof(endIndex));
-        if (endIndex < startIndex)
-        {
-            throw new ArgumentOutOfRangeException(nameof(endIndex));
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThan(endIndex, startIndex);
     }
 
     private void ValidateIndex(int index, string parameterName)
     {
-        if (index < 0 || index >= _axisLength)
-        {
-            throw new ArgumentOutOfRangeException(parameterName);
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(index, parameterName);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(
+            index,
+            _axisLength,
+            parameterName);
     }
 
-    private void ValidateSpans(IReadOnlyList<WorksheetAxisStyleSpan> spans)
+    private void ValidateSpans(List<WorksheetAxisStyleSpan> spans)
     {
         for (var index = 0; index < spans.Count; index++)
         {
