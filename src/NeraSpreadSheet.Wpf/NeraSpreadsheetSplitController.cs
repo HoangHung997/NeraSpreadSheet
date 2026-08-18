@@ -109,7 +109,8 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         get => GetOwner().RenderTheme;
         set
         {
-            GetOwner().RenderTheme = value ?? throw new ArgumentNullException(nameof(value));
+            GetOwner().RenderTheme = value ??
+                throw new ArgumentNullException(nameof(value));
             GetAdorner().NotifyOwnerStateChanged();
         }
     }
@@ -136,21 +137,37 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
 
     public SpreadsheetSplitViewportFrame? LastFrame => GetAdorner().LastFrame;
 
-    public WpfGpuRendererDiagnostics? GpuDiagnostics => GetAdorner().GpuDiagnostics;
+    public WpfGpuRendererDiagnostics? GpuDiagnostics =>
+        GetAdorner().GpuDiagnostics;
+
+    public bool CanUndoViewChange => GetAdorner().CanUndoSplitViewChange;
+
+    public bool CanRedoViewChange => GetAdorner().CanRedoSplitViewChange;
+
+    public string? NextViewUndoDescription =>
+        GetAdorner().NextSplitViewUndoDescription;
+
+    public string? NextViewRedoDescription =>
+        GetAdorner().NextSplitViewRedoDescription;
 
     public event EventHandler<SpreadsheetSplitChangedEventArgs>? SplitChanged;
 
-    public event EventHandler<SpreadsheetPaneScrollChangedEventArgs>? PaneScrollChanged;
+    public event EventHandler<SpreadsheetPaneScrollChangedEventArgs>?
+        PaneScrollChanged;
 
-    public void SetMode(SpreadsheetSplitPaneMode mode) => GetAdorner().SetMode(mode);
+    public void SetMode(SpreadsheetSplitPaneMode mode) =>
+        GetAdorner().SetModeWithHistory(mode);
 
-    public void SetSplit(double? splitX, double? splitY) => GetAdorner().SetSplit(splitX, splitY);
+    public void SetSplit(double? splitX, double? splitY) =>
+        GetAdorner().SetSplitWithHistory(splitX, splitY);
 
     public void ClearSplit() => SetMode(SpreadsheetSplitPaneMode.None);
 
-    public void SetActivePane(SpreadsheetPaneId paneId) => GetAdorner().SetActivePane(paneId);
+    public void SetActivePane(SpreadsheetPaneId paneId) =>
+        GetAdorner().SetActivePaneWithHistory(paneId);
 
-    public PointD GetPaneScroll(SpreadsheetPaneId paneId) => GetAdorner().GetPaneScroll(paneId);
+    public PointD GetPaneScroll(SpreadsheetPaneId paneId) =>
+        GetAdorner().GetPaneScroll(paneId);
 
     public ScrollSnapshot GetPaneScrollSnapshot(SpreadsheetPaneId paneId) =>
         GetAdorner().GetPaneScrollSnapshot(paneId);
@@ -160,20 +177,34 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         double offsetX,
         double offsetY,
         bool animated = false) =>
-        GetAdorner().ScrollPaneTo(paneId, offsetX, offsetY, animated);
+        GetAdorner().ScrollPaneToWithHistory(
+            paneId,
+            offsetX,
+            offsetY,
+            animated);
 
-    public void QueuePaneScroll(SpreadsheetPaneId paneId, ScrollDelta delta) =>
-        GetAdorner().QueuePaneScroll(paneId, delta);
+    public void QueuePaneScroll(
+        SpreadsheetPaneId paneId,
+        ScrollDelta delta) =>
+        GetAdorner().QueuePaneScrollWithHistory(paneId, delta);
 
     public void QueueActivePaneScroll(ScrollDelta delta) =>
-        GetAdorner().QueueActivePaneScroll(delta);
+        GetAdorner().QueueActivePaneScrollWithHistory(delta);
+
+    public bool UndoViewChange() => GetAdorner().UndoSplitViewChange();
+
+    public bool RedoViewChange() => GetAdorner().RedoSplitViewChange();
 
     public bool TryHitTest(
         double controlX,
         double controlY,
         out SpreadsheetPaneId paneId,
         out CellAddress address) =>
-        GetAdorner().TryHitTest(controlX, controlY, out paneId, out address);
+        GetAdorner().TryHitTest(
+            controlX,
+            controlY,
+            out paneId,
+            out address);
 
     public void RenderNow()
     {
@@ -187,6 +218,17 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         return GetAdorner().Focus();
     }
 
+    internal bool BeginViewHistory(
+        string description,
+        SpreadsheetSplitViewChangeKind changeKind) =>
+        GetAdorner().BeginSplitViewHistory(description, changeKind);
+
+    internal bool CommitViewHistory() =>
+        GetAdorner().CommitSplitViewHistory();
+
+    internal bool CancelViewHistory(bool restoreBeforeState = true) =>
+        GetAdorner().CancelSplitViewHistory(restoreBeforeState);
+
     public void Dispose()
     {
         var owner = _owner;
@@ -196,6 +238,7 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
             return;
         }
 
+        adorner.CancelSplitViewHistory(restoreBeforeState: true);
         owner.Loaded -= OnOwnerLoaded;
         owner.Unloaded -= OnOwnerUnloaded;
         owner.SizeChanged -= OnOwnerSizeChanged;
@@ -223,7 +266,10 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
 
     private void AttachIfPossible()
     {
-        if (_adornerLayer is not null || _owner is null || _adorner is null || !_owner.IsLoaded)
+        if (_adornerLayer is not null ||
+            _owner is null ||
+            _adorner is null ||
+            !_owner.IsLoaded)
         {
             return;
         }
@@ -261,23 +307,31 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         }
     }
 
-    private void OnOwnerLoaded(object sender, RoutedEventArgs e) => AttachIfPossible();
+    private void OnOwnerLoaded(object sender, RoutedEventArgs e) =>
+        AttachIfPossible();
 
-    private void OnOwnerUnloaded(object sender, RoutedEventArgs e) => DetachAdorner();
+    private void OnOwnerUnloaded(object sender, RoutedEventArgs e) =>
+        DetachAdorner();
 
     private void OnOwnerSizeChanged(object sender, SizeChangedEventArgs e) =>
         _adorner?.NotifyOwnerStateChanged();
 
-    private void OnAdornerSplitChanged(object? sender, SpreadsheetSplitChangedEventArgs e) =>
+    private void OnAdornerSplitChanged(
+        object? sender,
+        SpreadsheetSplitChangedEventArgs e) =>
         SplitChanged?.Invoke(this, e);
 
-    private void OnAdornerPaneScrollChanged(object? sender, SpreadsheetPaneScrollChangedEventArgs e) =>
+    private void OnAdornerPaneScrollChanged(
+        object? sender,
+        SpreadsheetPaneScrollChangedEventArgs e) =>
         PaneScrollChanged?.Invoke(this, e);
 }
 
 public static class NeraSpreadsheetSplitExtensions
 {
-    private static readonly ConditionalWeakTable<NeraSpreadsheetControl, NeraSpreadsheetSplitController> Controllers = new();
+    private static readonly ConditionalWeakTable<
+        NeraSpreadsheetControl,
+        NeraSpreadsheetSplitController> Controllers = new();
     private static readonly object SyncRoot = new();
 
     public static NeraSpreadsheetSplitController EnableSplitPanes(
@@ -315,7 +369,8 @@ public static class NeraSpreadsheetSplitExtensions
         ArgumentNullException.ThrowIfNull(control);
         lock (SyncRoot)
         {
-            if (Controllers.TryGetValue(control, out var existing) && !existing.IsDisposed)
+            if (Controllers.TryGetValue(control, out var existing) &&
+                !existing.IsDisposed)
             {
                 controller = existing;
                 return true;
@@ -326,7 +381,8 @@ public static class NeraSpreadsheetSplitExtensions
         return false;
     }
 
-    public static bool DisableSplitPanes(this NeraSpreadsheetControl control)
+    public static bool DisableSplitPanes(
+        this NeraSpreadsheetControl control)
     {
         ArgumentNullException.ThrowIfNull(control);
         NeraSpreadsheetSplitController controller;
@@ -350,7 +406,8 @@ public static class NeraSpreadsheetSplitExtensions
     {
         lock (SyncRoot)
         {
-            if (Controllers.TryGetValue(control, out var current) && ReferenceEquals(current, controller))
+            if (Controllers.TryGetValue(control, out var current) &&
+                ReferenceEquals(current, controller))
             {
                 Controllers.Remove(control);
             }
