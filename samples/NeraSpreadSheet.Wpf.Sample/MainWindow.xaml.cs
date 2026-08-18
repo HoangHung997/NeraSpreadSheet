@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using NeraSpreadSheet.Commands;
@@ -77,10 +78,17 @@ public partial class MainWindow : Window
             new OpenXmlExportOptions());
     }
 
-    private void BoldClick(object sender, RoutedEventArgs e) => Spreadsheet.Session?.Styles.ToggleBold();
-    private void ItalicClick(object sender, RoutedEventArgs e) => Spreadsheet.Session?.Styles.ToggleItalic();
-    private void MergeClick(object sender, RoutedEventArgs e) => Spreadsheet.Session?.Merge.MergeSelection();
-    private void UnmergeClick(object sender, RoutedEventArgs e) => Spreadsheet.Session?.Merge.UnmergeActiveCell();
+    private void BoldClick(object sender, RoutedEventArgs e) =>
+        Spreadsheet.Session?.Styles.ToggleBold();
+
+    private void ItalicClick(object sender, RoutedEventArgs e) =>
+        Spreadsheet.Session?.Styles.ToggleItalic();
+
+    private void MergeClick(object sender, RoutedEventArgs e) =>
+        Spreadsheet.Session?.Merge.MergeSelection();
+
+    private void UnmergeClick(object sender, RoutedEventArgs e) =>
+        Spreadsheet.Session?.Merge.UnmergeActiveCell();
 
     private void FreezeClick(object sender, RoutedEventArgs e)
     {
@@ -94,7 +102,12 @@ public partial class MainWindow : Window
         }
         catch (InvalidOperationException exception)
         {
-            MessageBox.Show(this, exception.Message, "Cannot freeze panes", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Cannot freeze panes",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
         UpdateDiagnostics();
     }
@@ -122,7 +135,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            Spreadsheet.Session?.View.ClearSplitState();
+            Spreadsheet.Session?.View.ClearSplitPanes();
         }
         UpdateDiagnostics();
     }
@@ -153,16 +166,20 @@ public partial class MainWindow : Window
     }
 
     private async void InsertRowsClick(object sender, RoutedEventArgs e) =>
-        await ExecuteStructureCommandAsync(SpreadsheetStructureCommandIds.InsertRows);
+        await ExecuteStructureCommandAsync(
+            SpreadsheetStructureCommandIds.InsertRows);
 
     private async void DeleteRowsClick(object sender, RoutedEventArgs e) =>
-        await ExecuteStructureCommandAsync(SpreadsheetStructureCommandIds.DeleteRows);
+        await ExecuteStructureCommandAsync(
+            SpreadsheetStructureCommandIds.DeleteRows);
 
     private async void InsertColumnsClick(object sender, RoutedEventArgs e) =>
-        await ExecuteStructureCommandAsync(SpreadsheetStructureCommandIds.InsertColumns);
+        await ExecuteStructureCommandAsync(
+            SpreadsheetStructureCommandIds.InsertColumns);
 
     private async void DeleteColumnsClick(object sender, RoutedEventArgs e) =>
-        await ExecuteStructureCommandAsync(SpreadsheetStructureCommandIds.DeleteColumns);
+        await ExecuteStructureCommandAsync(
+            SpreadsheetStructureCommandIds.DeleteColumns);
 
     private async Task ExecuteStructureCommandAsync(CommandId commandId)
     {
@@ -186,7 +203,8 @@ public partial class MainWindow : Window
             Spreadsheet.Focus();
             UpdateDiagnostics();
         }
-        catch (Exception exception) when (exception is InvalidOperationException or ArgumentOutOfRangeException)
+        catch (Exception exception) when (
+            exception is InvalidOperationException or ArgumentOutOfRangeException)
         {
             MessageBox.Show(
                 this,
@@ -205,7 +223,8 @@ public partial class MainWindow : Window
         UpdateDiagnostics();
     }
 
-    private void OnDiagnosticsTick(object? sender, EventArgs e) => UpdateDiagnostics();
+    private void OnDiagnosticsTick(object? sender, EventArgs e) =>
+        UpdateDiagnostics();
 
     private void UpdateDiagnostics()
     {
@@ -214,7 +233,11 @@ public partial class MainWindow : Window
         var freeze = view is { HasFrozenPanes: true }
             ? $" · freeze {view.FrozenRows}r/{view.FrozenColumns}c"
             : string.Empty;
-        var split = _splitController is { IsDisposed: false, Mode: not SpreadsheetSplitPaneMode.None }
+        var split = _splitController is
+            {
+                IsDisposed: false,
+                Mode: not SpreadsheetSplitPaneMode.None,
+            }
             ? $" · split {_splitController.Mode}/{_splitController.ActivePane}"
             : string.Empty;
         if (Spreadsheet.GpuDiagnostics is { } gpu)
@@ -244,8 +267,12 @@ public partial class MainWindow : Window
     {
         var workbook = new Workbook();
         var sheet = workbook.Worksheets[0];
-        sheet.SetValue(new CellAddress(0, 0), "NeraSpreadSheet — native spreadsheet SDK");
-        sheet.MergeCells(new CellRange(new CellAddress(0, 0), new CellAddress(0, 4)));
+        sheet.SetValue(
+            new CellAddress(0, 0),
+            "NeraSpreadSheet — native spreadsheet SDK");
+        sheet.MergeCells(new CellRange(
+            new CellAddress(0, 0),
+            new CellAddress(0, 4)));
         sheet.Dimensions.SetRowHeight(0, 34d);
         sheet.Dimensions.SetColumnWidth(0, 180d);
         for (var column = 1; column <= 4; column++)
@@ -270,15 +297,28 @@ public partial class MainWindow : Window
 
         var titleStyleId = workbook.Styles.Intern(CellStyle.Default with
         {
-            Font = CellStyle.Default.Font with { Size = 18d, Weight = 700, Color = new ColorRgba(25, 70, 130) },
-            Fill = new CellFillStyle { IsVisible = true, Color = new ColorRgba(225, 236, 250) },
+            Font = CellStyle.Default.Font with
+            {
+                Size = 18d,
+                Weight = 700,
+                Color = new ColorRgba(25, 70, 130),
+            },
+            Fill = new CellFillStyle
+            {
+                IsVisible = true,
+                Color = new ColorRgba(225, 236, 250),
+            },
         });
         sheet.SetStyle(new CellAddress(0, 0), titleStyleId);
 
         var headerStyleId = workbook.Styles.Intern(CellStyle.Default with
         {
             Font = CellStyle.Default.Font with { Weight = 700 },
-            Fill = new CellFillStyle { IsVisible = true, Color = new ColorRgba(235, 235, 235) },
+            Fill = new CellFillStyle
+            {
+                IsVisible = true,
+                Color = new ColorRgba(235, 235, 235),
+            },
         });
         for (var column = 0; column <= 3; column++)
         {
