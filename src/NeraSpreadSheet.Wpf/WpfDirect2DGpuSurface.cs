@@ -11,13 +11,13 @@ namespace NeraSpreadSheet.Wpf;
 
 internal sealed class WpfDirect2DGpuSurface : NeraD3D11ImageSurface
 {
+    private readonly List<RectD> _pendingRenderBounds = [];
     private ID2D1Factory1? _factory;
     private ID2D1Device? _direct2DDevice;
     private ID2D1DeviceContext? _direct2DContext;
     private ID2D1Bitmap1? _targetBitmap;
     private Direct2DDisplayListExecutor? _executor;
     private DisplayList? _displayList;
-    private RectD? _pendingRenderBounds;
     private bool _fullRenderPending = true;
 
     public int CachedTextLayoutCount => _executor?.CachedTextLayoutCount ?? 0;
@@ -32,31 +32,27 @@ internal sealed class WpfDirect2DGpuSurface : NeraD3D11ImageSurface
     public void SetDisplayList(DisplayList? displayList)
     {
         ThrowIfDisposed();
-        if (ReferenceEquals(_displayList, displayList) &&
-            _fullRenderPending)
-        {
-            return;
-        }
-
         _displayList = displayList;
-        _pendingRenderBounds = null;
+        _pendingRenderBounds.Clear();
         _fullRenderPending = true;
         InvalidateSurface();
+        InvalidateVisual();
     }
 
     public void SetDisplayList(
         DisplayList? displayList,
-        RectD dirtyBounds)
+        RectD dirtyBounds) =>
+        SetDisplayList(displayList, new[] { dirtyBounds });
+
+    public void SetDisplayList(
+        DisplayList? displayList,
+        IReadOnlyList<RectD> dirtyBounds)
     {
         ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(dirtyBounds);
         if (displayList is null)
         {
             SetDisplayList(null);
-            return;
-        }
-        if (dirtyBounds.IsEmpty)
-        {
-            _displayList = displayList;
             return;
         }
 
@@ -64,13 +60,32 @@ internal sealed class WpfDirect2DGpuSurface : NeraD3D11ImageSurface
         if (_fullRenderPending)
         {
             InvalidateSurface();
+            InvalidateVisual();
             return;
         }
 
-        _pendingRenderBounds = _pendingRenderBounds is { } existing
-            ? Union(existing, dirtyBounds)
-            : dirtyBounds;
-        InvalidateSurface(ToInt32Rect(_pendingRenderBounds.Value));
+        var newDirtyRectangles = new List<Int32Rect>(dirtyBounds.Count);
+        foreach (var bounds in dirtyBounds)
+        {
+            if (bounds.IsEmpty)
+            {
+                continue;
+            }
+
+            _pendingRenderBounds.Add(bounds);
+            var rectangle = ToInt32Rect(bounds);
+            if (!rectangle.IsEmpty)
+            {
+                newDirtyRectangles.Add(rectangle);
+            }
+        }
+        if (newDirtyRectangles.Count == 0)
+        {
+            return;
+        }
+
+        InvalidateSurface(newDirtyRectangles);
+        InvalidateVisual();
     }
 
     protected override void OnDeviceCreated(
@@ -85,21 +100,21 @@ internal sealed class WpfDirect2DGpuSurface : NeraD3D11ImageSurface
         _executor = new Direct2DDisplayListExecutor(
             Direct2DHwndDisplayListRenderer.DefaultTextLayoutCacheCapacity);
         _fullRenderPending = true;
-        _pendingRenderBounds = null;
+        _pendingRenderBounds.Clear();
         EnsureTargetBitmap();
     }
 
     protected override void OnRenderTargetChanging()
     {
         _fullRenderPending = true;
-        _pendingRenderBounds = null;
+        _pendingRenderBounds.Clear();
         DisposeTargetBitmap();
     }
 
     protected override void OnRenderTargetChanged()
     {
         _fullRenderPending = true;
-        _pendingRenderBounds = null;
+        _pendingRenderBounds.Clear();
         EnsureTargetBitmap();
     }
 
@@ -117,19 +132,21 @@ internal sealed class WpfDirect2DGpuSurface : NeraD3D11ImageSurface
         }
 
         var renderList = !_fullRenderPending &&
-            _pendingRenderBounds is { } dirtyBounds
-                ? CreateDirtyClippedDisplayList(displayList, dirtyBounds)
+            _pendingRenderBounds.Count > 0
+                ? CreateDirtyClippedDisplayList(
+                    displayList,
+                    _pendingRenderBounds)
                 : displayList;
         direct2DContext.Target = _targetBitmap;
         executor.Render(direct2DContext, renderList);
         _fullRenderPending = false;
-        _pendingRenderBounds = null;
+        _pendingRenderBounds.Clear();
     }
 
     protected override void OnDeviceDestroying()
     {
         _fullRenderPending = true;
-        _pendingRenderBounds = null;
+        _pendingRenderBounds.Clear();
         DisposeTargetBitmap();
         _executor?.Dispose();
         _executor = null;
@@ -144,7 +161,7 @@ internal sealed class WpfDirect2DGpuSurface : NeraD3D11ImageSurface
     protected override void DisposeManagedResources()
     {
         _displayList = null;
-        _pendingRenderBounds = null;
+        _pendingRenderBounds.Clear();
         _fullRenderPending = true;
     }
 
@@ -172,7 +189,7 @@ internal sealed class WpfDirect2DGpuSurface : NeraD3D11ImageSurface
                 dpiY: 96f,
                 BitmapOptions.Target | BitmapOptions.CannotDraw));
         _fullRenderPending = true;
-        _pendingRenderBounds = null;
+        _pendingRenderBounds.Clear();
     }
 
     private void DisposeTargetBitmap()
@@ -187,26 +204,21 @@ internal sealed class WpfDirect2DGpuSurface : NeraD3D11ImageSurface
 
     private static DisplayList CreateDirtyClippedDisplayList(
         DisplayList displayList,
-        RectD dirtyBounds)
+        IReadOnlyList<RectD> dirtyBounds)
     {
         var builder = new DisplayListBuilder();
-        builder.PushClip(dirtyBounds);
-        builder.DrawDisplayList(displayList);
-        builder.PopClip();
-        return builder.Build();
-    }
+        foreach (var bounds in dirtyBounds)
+        {
+            if (bounds.IsEmpty)
+            {
+                continue;
+            }
 
-    private static RectD Union(RectD first, RectD second)
-    {
-        var left = Math.Min(first.Left, second.Left);
-        var top = Math.Min(first.Top, second.Top);
-        var right = Math.Max(first.Right, second.Right);
-        var bottom = Math.Max(first.Bottom, second.Bottom);
-        return new RectD(
-            left,
-            top,
-            right - left,
-            bottom - top);
+            builder.PushClip(bounds);
+            builder.DrawDisplayList(displayList);
+            builder.PopClip();
+        }
+        return builder.Build();
     }
 
     private static Int32Rect ToInt32Rect(RectD bounds)
