@@ -40,12 +40,15 @@ public sealed class MergedCellRanges
     {
         if (range.RowCount == 1 && range.ColumnCount == 1)
         {
-            throw new ArgumentException("A merged range must contain more than one cell.", nameof(range));
+            throw new ArgumentException(
+                "A merged range must contain more than one cell.",
+                nameof(range));
         }
 
         if (Intersects(range))
         {
-            throw new InvalidOperationException("Merged cell ranges cannot overlap.");
+            throw new InvalidOperationException(
+                "Merged cell ranges cannot overlap.");
         }
 
         _ranges.Add(range);
@@ -53,7 +56,8 @@ public sealed class MergedCellRanges
 
     internal bool Remove(CellRange range) => _ranges.Remove(range);
 
-    internal CellRange[] CreateStructuralRanges(WorksheetStructuralChange change)
+    internal CellRange[] CreateStructuralRanges(
+        WorksheetStructuralChange change)
     {
         var transformed = new List<CellRange>(_ranges.Count);
         foreach (var range in _ranges)
@@ -73,6 +77,40 @@ public sealed class MergedCellRanges
                 continue;
             }
             transformed.Add(mapped);
+        }
+        return [.. transformed];
+    }
+
+    internal CellRange[] CreateAxisMoveRanges(WorksheetAxisMove move)
+    {
+        var transformed = new List<CellRange>(_ranges.Count);
+        foreach (var range in _ranges)
+        {
+            var start = move.Axis == WorksheetAxis.Row
+                ? range.Top
+                : range.Left;
+            var end = move.Axis == WorksheetAxis.Row
+                ? range.Bottom
+                : range.Right;
+            if (!move.TryMapContiguousInterval(
+                    start,
+                    end,
+                    out var mappedStart,
+                    out var mappedEnd) ||
+                move.MapIndex(start) != mappedStart ||
+                move.MapIndex(end) != mappedEnd)
+            {
+                throw new InvalidOperationException(
+                    "Cannot reorder because the move would split or reverse a merged range.");
+            }
+
+            transformed.Add(move.Axis == WorksheetAxis.Row
+                ? new CellRange(
+                    new CellAddress(mappedStart, range.Left),
+                    new CellAddress(mappedEnd, range.Right))
+                : new CellRange(
+                    new CellAddress(range.Top, mappedStart),
+                    new CellAddress(range.Bottom, mappedEnd)));
         }
         return [.. transformed];
     }

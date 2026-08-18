@@ -10,7 +10,11 @@ public enum WorksheetAxis
 
 public sealed class DimensionChangedEventArgs : EventArgs
 {
-    public DimensionChangedEventArgs(WorksheetAxis axis, int index, double oldSize, double newSize)
+    public DimensionChangedEventArgs(
+        WorksheetAxis axis,
+        int index,
+        double oldSize,
+        double newSize)
     {
         Axis = axis;
         Index = index;
@@ -32,10 +36,16 @@ public sealed class WorksheetDimensions
     private readonly Dictionary<int, double> _rowHeights = [];
     private readonly Dictionary<int, double> _columnWidths = [];
 
-    public WorksheetDimensions(double defaultRowHeight = 20d, double defaultColumnWidth = 80d)
+    public WorksheetDimensions(
+        double defaultRowHeight = 20d,
+        double defaultColumnWidth = 80d)
     {
-        DefaultRowHeight = Guard.PositiveFinite(defaultRowHeight, nameof(defaultRowHeight));
-        DefaultColumnWidth = Guard.PositiveFinite(defaultColumnWidth, nameof(defaultColumnWidth));
+        DefaultRowHeight = Guard.PositiveFinite(
+            defaultRowHeight,
+            nameof(defaultRowHeight));
+        DefaultColumnWidth = Guard.PositiveFinite(
+            defaultColumnWidth,
+            nameof(defaultColumnWidth));
     }
 
     public double DefaultRowHeight { get; }
@@ -61,22 +71,35 @@ public sealed class WorksheetDimensions
     public void SetRowHeight(int rowIndex, double height)
     {
         ValidateRow(rowIndex);
-        SetSize(_rowHeights, WorksheetAxis.Row, rowIndex, height, DefaultRowHeight);
+        SetSize(
+            _rowHeights,
+            WorksheetAxis.Row,
+            rowIndex,
+            height,
+            DefaultRowHeight);
     }
 
     public void SetColumnWidth(int columnIndex, double width)
     {
         ValidateColumn(columnIndex);
-        SetSize(_columnWidths, WorksheetAxis.Column, columnIndex, width, DefaultColumnWidth);
+        SetSize(
+            _columnWidths,
+            WorksheetAxis.Column,
+            columnIndex,
+            width,
+            DefaultColumnWidth);
     }
 
     public IReadOnlyDictionary<int, double> GetRowOverrides() => _rowHeights;
 
     public IReadOnlyDictionary<int, double> GetColumnOverrides() => _columnWidths;
 
-    internal KeyValuePair<int, double>[] CreateStructuralOverrides(WorksheetStructuralChange change)
+    internal KeyValuePair<int, double>[] CreateStructuralOverrides(
+        WorksheetStructuralChange change)
     {
-        var source = change.Axis == WorksheetAxis.Row ? _rowHeights : _columnWidths;
+        var source = change.Axis == WorksheetAxis.Row
+            ? _rowHeights
+            : _columnWidths;
         var transformed = new List<KeyValuePair<int, double>>(source.Count);
         foreach (var (index, size) in source)
         {
@@ -94,24 +117,46 @@ public sealed class WorksheetDimensions
         return [.. transformed];
     }
 
+    internal KeyValuePair<int, double>[] CreateAxisMoveOverrides(
+        WorksheetAxisMove move)
+    {
+        var source = move.Axis == WorksheetAxis.Row
+            ? _rowHeights
+            : _columnWidths;
+        var transformed = new KeyValuePair<int, double>[source.Count];
+        var position = 0;
+        foreach (var (index, size) in source)
+        {
+            transformed[position++] = new KeyValuePair<int, double>(
+                move.MapIndex(index),
+                size);
+        }
+        Array.Sort(
+            transformed,
+            static (left, right) => left.Key.CompareTo(right.Key));
+        return transformed;
+    }
+
     internal void ReplaceStructuralOverrides(
         WorksheetStructuralChange change,
         IReadOnlyList<KeyValuePair<int, double>> transformed)
     {
-        var target = change.Axis == WorksheetAxis.Row ? _rowHeights : _columnWidths;
-        target.Clear();
-        foreach (var (index, size) in transformed)
-        {
-            target.Add(index, size);
-        }
+        var target = change.Axis == WorksheetAxis.Row
+            ? _rowHeights
+            : _columnWidths;
+        ReplaceOverrides(target, transformed);
+        PublishAxisChange(change.Axis, change.Index);
+    }
 
-        Version++;
-        var defaultSize = change.Axis == WorksheetAxis.Row ? DefaultRowHeight : DefaultColumnWidth;
-        Changed?.Invoke(this, new DimensionChangedEventArgs(
-            change.Axis,
-            change.Index,
-            defaultSize,
-            defaultSize));
+    internal void ReplaceAxisMoveOverrides(
+        WorksheetAxisMove move,
+        IReadOnlyList<KeyValuePair<int, double>> transformed)
+    {
+        var target = move.Axis == WorksheetAxis.Row
+            ? _rowHeights
+            : _columnWidths;
+        ReplaceOverrides(target, transformed);
+        PublishAxisChange(move.Axis, move.AffectedStartIndex);
     }
 
     internal void RestoreOverrides(
@@ -119,24 +164,51 @@ public sealed class WorksheetDimensions
         IReadOnlyList<KeyValuePair<int, double>> columnWidths,
         WorksheetStructuralChange signalChange)
     {
-        _rowHeights.Clear();
-        foreach (var (index, size) in rowHeights)
-        {
-            _rowHeights.Add(index, size);
-        }
-        _columnWidths.Clear();
-        foreach (var (index, size) in columnWidths)
-        {
-            _columnWidths.Add(index, size);
-        }
+        RestoreOverrideDictionaries(rowHeights, columnWidths);
+        PublishAxisChange(signalChange.Axis, signalChange.Index);
+    }
 
+    internal void RestoreOverrides(
+        IReadOnlyList<KeyValuePair<int, double>> rowHeights,
+        IReadOnlyList<KeyValuePair<int, double>> columnWidths,
+        WorksheetAxisMove signalMove)
+    {
+        RestoreOverrideDictionaries(rowHeights, columnWidths);
+        PublishAxisChange(signalMove.Axis, signalMove.AffectedStartIndex);
+    }
+
+    private static void ReplaceOverrides(
+        Dictionary<int, double> target,
+        IReadOnlyList<KeyValuePair<int, double>> transformed)
+    {
+        target.Clear();
+        foreach (var (index, size) in transformed)
+        {
+            target.Add(index, size);
+        }
+    }
+
+    private void RestoreOverrideDictionaries(
+        IReadOnlyList<KeyValuePair<int, double>> rowHeights,
+        IReadOnlyList<KeyValuePair<int, double>> columnWidths)
+    {
+        ReplaceOverrides(_rowHeights, rowHeights);
+        ReplaceOverrides(_columnWidths, columnWidths);
+    }
+
+    private void PublishAxisChange(WorksheetAxis axis, int index)
+    {
         Version++;
-        var defaultSize = signalChange.Axis == WorksheetAxis.Row ? DefaultRowHeight : DefaultColumnWidth;
-        Changed?.Invoke(this, new DimensionChangedEventArgs(
-            signalChange.Axis,
-            signalChange.Index,
-            defaultSize,
-            defaultSize));
+        var defaultSize = axis == WorksheetAxis.Row
+            ? DefaultRowHeight
+            : DefaultColumnWidth;
+        Changed?.Invoke(
+            this,
+            new DimensionChangedEventArgs(
+                axis,
+                index,
+                defaultSize,
+                defaultSize));
     }
 
     private void SetSize(
@@ -164,12 +236,26 @@ public sealed class WorksheetDimensions
         }
 
         Version++;
-        Changed?.Invoke(this, new DimensionChangedEventArgs(axis, index, oldSize, newSize));
+        Changed?.Invoke(
+            this,
+            new DimensionChangedEventArgs(
+                axis,
+                index,
+                oldSize,
+                newSize));
     }
 
     private static void ValidateRow(int rowIndex) =>
-        Guard.InRange(rowIndex, 0, SpreadsheetLimits.MaxRows - 1, nameof(rowIndex));
+        Guard.InRange(
+            rowIndex,
+            0,
+            SpreadsheetLimits.MaxRows - 1,
+            nameof(rowIndex));
 
     private static void ValidateColumn(int columnIndex) =>
-        Guard.InRange(columnIndex, 0, SpreadsheetLimits.MaxColumns - 1, nameof(columnIndex));
+        Guard.InRange(
+            columnIndex,
+            0,
+            SpreadsheetLimits.MaxColumns - 1,
+            nameof(columnIndex));
 }

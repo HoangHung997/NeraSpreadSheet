@@ -11,12 +11,14 @@ public sealed class CellsChangedEventArgs : EventArgs
     }
 
     public CellRange Range { get; }
+
     public long WorksheetVersion { get; }
 }
 
 public sealed class Worksheet
 {
-    private static readonly SearchValues<char> InvalidNameCharacters = SearchValues.Create("[]:*?/\\");
+    private static readonly SearchValues<char> InvalidNameCharacters =
+        SearchValues.Create("[]:*?/\\");
     private readonly Dictionary<CellAddress, CellData> _cells = [];
 
     internal Worksheet(string name)
@@ -27,13 +29,19 @@ public sealed class Worksheet
     }
 
     public string Name { get; internal set; }
+
     public WorksheetDimensions Dimensions { get; }
+
     public MergedCellRanges MergedCells { get; }
+
     public long Version { get; private set; }
+
     public int UsedCellCount => _cells.Count;
+
     public event EventHandler<CellsChangedEventArgs>? CellsChanged;
 
-    public CellData GetCell(CellAddress address) => _cells.GetValueOrDefault(address, CellData.Empty);
+    public CellData GetCell(CellAddress address) =>
+        _cells.GetValueOrDefault(address, CellData.Empty);
 
     public object? GetValue(CellAddress address) =>
         GetCell(ResolveMergedAnchor(address)).Value.RawValue;
@@ -53,10 +61,13 @@ public sealed class Worksheet
         return false;
     }
 
-    public IEnumerable<KeyValuePair<CellAddress, CellData>> EnumerateUsedCells() => _cells;
+    public IEnumerable<KeyValuePair<CellAddress, CellData>> EnumerateUsedCells() =>
+        _cells;
 
     public CellAddress ResolveMergedAnchor(CellAddress address) =>
-        MergedCells.TryGetContaining(address, out var range) ? range.TopLeft : address;
+        MergedCells.TryGetContaining(address, out var range)
+            ? range.TopLeft
+            : address;
 
     public void Rename(string name)
     {
@@ -70,11 +81,15 @@ public sealed class Worksheet
         }
         if (normalized.AsSpan().IndexOfAny(InvalidNameCharacters) >= 0)
         {
-            throw new ArgumentException("Worksheet name contains an invalid character.", nameof(name));
+            throw new ArgumentException(
+                "Worksheet name contains an invalid character.",
+                nameof(name));
         }
         if (normalized.StartsWith('\'') || normalized.EndsWith('\''))
         {
-            throw new ArgumentException("Worksheet name cannot start or end with an apostrophe.", nameof(name));
+            throw new ArgumentException(
+                "Worksheet name cannot start or end with an apostrophe.",
+                nameof(name));
         }
 
         Name = normalized;
@@ -84,7 +99,11 @@ public sealed class Worksheet
     {
         address = ResolveMergedAnchor(address);
         var current = GetCell(address);
-        SetCell(address, new CellData(CellValue.FromObject(value), styleId: current.StyleId));
+        SetCell(
+            address,
+            new CellData(
+                CellValue.FromObject(value),
+                styleId: current.StyleId));
     }
 
     public void SetFormula(CellAddress address, string formula)
@@ -93,26 +112,35 @@ public sealed class Worksheet
         address = ResolveMergedAnchor(address);
         var normalized = formula.StartsWith('=') ? formula : $"={formula}";
         var current = GetCell(address);
-        SetCell(address, new CellData(current.Value, normalized, current.StyleId));
+        SetCell(
+            address,
+            new CellData(current.Value, normalized, current.StyleId));
     }
 
     public void SetStyle(CellAddress address, int styleId)
     {
         address = ResolveMergedAnchor(address);
         var current = GetCell(address);
-        SetCell(address, new CellData(current.Value, current.Formula, styleId));
+        SetCell(
+            address,
+            new CellData(current.Value, current.Formula, styleId));
     }
 
-    public void Clear(CellAddress address) => SetCell(ResolveMergedAnchor(address), CellData.Empty);
+    public void Clear(CellAddress address) =>
+        SetCell(ResolveMergedAnchor(address), CellData.Empty);
 
-    public void MergeCells(CellRange range, bool clearNonTopLeftCells = true)
+    public void MergeCells(
+        CellRange range,
+        bool clearNonTopLeftCells = true)
     {
         MergedCells.Add(range);
 
         if (clearNonTopLeftCells)
         {
             var addressesToRemove = _cells.Keys
-                .Where(address => address != range.TopLeft && range.Contains(address))
+                .Where(address =>
+                    address != range.TopLeft &&
+                    range.Contains(address))
                 .ToArray();
             foreach (var address in addressesToRemove)
             {
@@ -121,7 +149,9 @@ public sealed class Worksheet
         }
 
         Version++;
-        CellsChanged?.Invoke(this, new CellsChangedEventArgs(range, Version));
+        CellsChanged?.Invoke(
+            this,
+            new CellsChangedEventArgs(range, Version));
     }
 
     public bool UnmergeCells(CellRange range)
@@ -132,7 +162,9 @@ public sealed class Worksheet
         }
 
         Version++;
-        CellsChanged?.Invoke(this, new CellsChangedEventArgs(range, Version));
+        CellsChanged?.Invoke(
+            this,
+            new CellsChangedEventArgs(range, Version));
         return true;
     }
 
@@ -150,10 +182,13 @@ public sealed class Worksheet
     {
         ArgumentNullException.ThrowIfNull(cellData);
         address = ResolveMergedAnchor(address);
-        SetCells([new KeyValuePair<CellAddress, CellData>(address, cellData)]);
+        SetCells([
+            new KeyValuePair<CellAddress, CellData>(address, cellData),
+        ]);
     }
 
-    public void SetCells(IEnumerable<KeyValuePair<CellAddress, CellData>> changes)
+    public void SetCells(
+        IEnumerable<KeyValuePair<CellAddress, CellData>> changes)
     {
         ArgumentNullException.ThrowIfNull(changes);
         var requested = new Dictionary<CellAddress, CellData>();
@@ -203,8 +238,12 @@ public sealed class Worksheet
         }
 
         Version++;
-        var range = new CellRange(new CellAddress(top, left), new CellAddress(bottom, right));
-        CellsChanged?.Invoke(this, new CellsChangedEventArgs(range, Version));
+        var range = new CellRange(
+            new CellAddress(top, left),
+            new CellAddress(bottom, right));
+        CellsChanged?.Invoke(
+            this,
+            new CellsChangedEventArgs(range, Version));
     }
 
     internal WorksheetStructuralState CaptureStructuralState() => new(
@@ -216,17 +255,38 @@ public sealed class Worksheet
     internal void ApplyStructuralChange(WorksheetStructuralChange change)
     {
         var transformedCells = CreateStructuralCells(change);
-        var transformedDimensions = Dimensions.CreateStructuralOverrides(change);
-        var transformedMergedCells = MergedCells.CreateStructuralRanges(change);
+        var transformedDimensions =
+            Dimensions.CreateStructuralOverrides(change);
+        var transformedMergedCells =
+            MergedCells.CreateStructuralRanges(change);
 
-        _cells.Clear();
-        foreach (var (address, cell) in transformedCells)
-        {
-            _cells.Add(address, cell);
-        }
-        Dimensions.ReplaceStructuralOverrides(change, transformedDimensions);
+        ReplaceCells(transformedCells);
+        Dimensions.ReplaceStructuralOverrides(
+            change,
+            transformedDimensions);
         MergedCells.ReplaceAll(transformedMergedCells);
         PublishStructuralChange(change);
+    }
+
+    internal void ApplyAxisMove(WorksheetAxisMove move)
+    {
+        if (move.IsNoOp)
+        {
+            return;
+        }
+
+        var transformedCells = CreateAxisMoveCells(move);
+        var transformedDimensions =
+            Dimensions.CreateAxisMoveOverrides(move);
+        var transformedMergedCells =
+            MergedCells.CreateAxisMoveRanges(move);
+
+        ReplaceCells(transformedCells);
+        Dimensions.ReplaceAxisMoveOverrides(
+            move,
+            transformedDimensions);
+        MergedCells.ReplaceAll(transformedMergedCells);
+        PublishAxisMove(move);
     }
 
     internal void RestoreStructuralState(
@@ -235,17 +295,32 @@ public sealed class Worksheet
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        _cells.Clear();
-        foreach (var (address, cell) in state.Cells)
-        {
-            _cells.Add(address, cell);
-        }
-        Dimensions.RestoreOverrides(state.RowHeights, state.ColumnWidths, signalChange);
+        ReplaceCells(state.Cells);
+        Dimensions.RestoreOverrides(
+            state.RowHeights,
+            state.ColumnWidths,
+            signalChange);
         MergedCells.ReplaceAll(state.MergedCells);
         PublishStructuralChange(signalChange);
     }
 
-    private Dictionary<CellAddress, CellData> CreateStructuralCells(WorksheetStructuralChange change)
+    internal void RestoreAxisMoveState(
+        WorksheetStructuralState state,
+        WorksheetAxisMove signalMove)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        ReplaceCells(state.Cells);
+        Dimensions.RestoreOverrides(
+            state.RowHeights,
+            state.ColumnWidths,
+            signalMove);
+        MergedCells.ReplaceAll(state.MergedCells);
+        PublishAxisMove(signalMove);
+    }
+
+    private Dictionary<CellAddress, CellData> CreateStructuralCells(
+        WorksheetStructuralChange change)
     {
         var transformed = new Dictionary<CellAddress, CellData>(_cells.Count);
         foreach (var (address, cell) in _cells)
@@ -264,16 +339,62 @@ public sealed class Worksheet
         return transformed;
     }
 
+    private Dictionary<CellAddress, CellData> CreateAxisMoveCells(
+        WorksheetAxisMove move)
+    {
+        var transformed = new Dictionary<CellAddress, CellData>(_cells.Count);
+        foreach (var (address, cell) in _cells)
+        {
+            transformed.Add(move.MapAddress(address), cell);
+        }
+        return transformed;
+    }
+
+    private void ReplaceCells(
+        IEnumerable<KeyValuePair<CellAddress, CellData>> cells)
+    {
+        _cells.Clear();
+        foreach (var (address, cell) in cells)
+        {
+            _cells.Add(address, cell);
+        }
+    }
+
     private void PublishStructuralChange(WorksheetStructuralChange change)
     {
         Version++;
         var range = change.Axis == WorksheetAxis.Row
             ? new CellRange(
                 new CellAddress(change.Index, 0),
-                new CellAddress(SpreadsheetLimits.MaxRows - 1, SpreadsheetLimits.MaxColumns - 1))
+                new CellAddress(
+                    SpreadsheetLimits.MaxRows - 1,
+                    SpreadsheetLimits.MaxColumns - 1))
             : new CellRange(
                 new CellAddress(0, change.Index),
-                new CellAddress(SpreadsheetLimits.MaxRows - 1, SpreadsheetLimits.MaxColumns - 1));
-        CellsChanged?.Invoke(this, new CellsChangedEventArgs(range, Version));
+                new CellAddress(
+                    SpreadsheetLimits.MaxRows - 1,
+                    SpreadsheetLimits.MaxColumns - 1));
+        CellsChanged?.Invoke(
+            this,
+            new CellsChangedEventArgs(range, Version));
+    }
+
+    private void PublishAxisMove(WorksheetAxisMove move)
+    {
+        Version++;
+        var range = move.Axis == WorksheetAxis.Row
+            ? new CellRange(
+                new CellAddress(move.AffectedStartIndex, 0),
+                new CellAddress(
+                    move.AffectedEndIndex,
+                    SpreadsheetLimits.MaxColumns - 1))
+            : new CellRange(
+                new CellAddress(0, move.AffectedStartIndex),
+                new CellAddress(
+                    SpreadsheetLimits.MaxRows - 1,
+                    move.AffectedEndIndex));
+        CellsChanged?.Invoke(
+            this,
+            new CellsChangedEventArgs(range, Version));
     }
 }
