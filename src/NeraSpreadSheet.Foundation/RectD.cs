@@ -43,6 +43,12 @@ public readonly record struct RectD
     public bool Contains(PointD point) =>
         point.X >= Left && point.X <= Right && point.Y >= Top && point.Y <= Bottom;
 
+    public bool Contains(RectD other) =>
+        other.Left >= Left &&
+        other.Top >= Top &&
+        other.Right <= Right &&
+        other.Bottom <= Bottom;
+
     public bool IntersectsWith(RectD other) =>
         other.Left < Right && other.Right > Left && other.Top < Bottom && other.Bottom > Top;
 
