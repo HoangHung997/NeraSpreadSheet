@@ -20,6 +20,11 @@ public sealed class Worksheet
     private static readonly SearchValues<char> InvalidNameCharacters =
         SearchValues.Create("[]:*?/\\");
     private readonly Dictionary<CellAddress, CellData> _cells = [];
+    private readonly WorksheetAxisStyleMap _rowStyles = new(
+        SpreadsheetLimits.MaxRows);
+    private readonly WorksheetAxisStyleMap _columnStyles = new(
+        SpreadsheetLimits.MaxColumns);
+    private long _nextAxisStyleSequence = 1L;
 
     internal Worksheet(string name)
     {
@@ -38,6 +43,10 @@ public sealed class Worksheet
 
     public int UsedCellCount => _cells.Count;
 
+    public int RowStyleSpanCount => _rowStyles.SpanCount;
+
+    public int ColumnStyleSpanCount => _columnStyles.SpanCount;
+
     public event EventHandler<CellsChangedEventArgs>? CellsChanged;
 
     public CellData GetCell(CellAddress address) =>
@@ -48,6 +57,23 @@ public sealed class Worksheet
 
     public string? GetFormula(CellAddress address) =>
         GetCell(ResolveMergedAnchor(address)).Formula;
+
+    public CellStyle GetEffectiveStyle(
+        CellAddress address,
+        CellStyleCatalog styles)
+    {
+        ArgumentNullException.ThrowIfNull(styles);
+        address = ResolveMergedAnchor(address);
+        var cell = GetCell(address);
+        if (cell.StyleId != CellStyleCatalog.DefaultStyleId)
+        {
+            return styles.Get(cell.StyleId);
+        }
+
+        return ComposeAxisStyle(
+            _rowStyles.GetOperations(address.RowIndex),
+            _columnStyles.GetOperations(address.ColumnIndex));
+    }
 
     public bool TryGetCell(CellAddress address, out CellData cellData)
     {
@@ -246,11 +272,65 @@ public sealed class Worksheet
             new CellsChangedEventArgs(range, Version));
     }
 
+    internal WorksheetAxisStyleState CaptureAxisStyleState() => new(
+        _rowStyles.Capture(),
+        _columnStyles.Capture(),
+        _nextAxisStyleSequence);
+
+    internal void ApplyAxisStyle(
+        WorksheetAxis axis,
+        int startIndex,
+        int endIndex,
+        CellStylePatch patch)
+    {
+        ArgumentNullException.ThrowIfNull(patch);
+        if (!Enum.IsDefined(axis))
+        {
+            throw new ArgumentOutOfRangeException(nameof(axis));
+        }
+        if (patch.IsEmpty)
+        {
+            return;
+        }
+        if (_nextAxisStyleSequence == long.MaxValue)
+        {
+            throw new InvalidOperationException(
+                "The worksheet axis-style sequence is exhausted.");
+        }
+
+        var operation = new WorksheetAxisStyleOperation(
+            _nextAxisStyleSequence++,
+            patch);
+        if (axis == WorksheetAxis.Row)
+        {
+            _rowStyles.Apply(startIndex, endIndex, operation);
+        }
+        else
+        {
+            _columnStyles.Apply(startIndex, endIndex, operation);
+        }
+        PublishAxisStyle(axis, startIndex, endIndex);
+    }
+
+    internal void RestoreAxisStyleState(
+        WorksheetAxisStyleState state,
+        CellRange signalRange)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        _rowStyles.Restore(state.RowSpans);
+        _columnStyles.Restore(state.ColumnSpans);
+        _nextAxisStyleSequence = state.NextSequence;
+        PublishChange(signalRange);
+    }
+
     internal WorksheetStructuralState CaptureStructuralState() => new(
         _cells.ToArray(),
         Dimensions.GetRowOverrides().ToArray(),
         Dimensions.GetColumnOverrides().ToArray(),
-        MergedCells.Ranges.ToArray());
+        MergedCells.Ranges.ToArray(),
+        _rowStyles.Capture(),
+        _columnStyles.Capture(),
+        _nextAxisStyleSequence);
 
     internal void ApplyStructuralChange(WorksheetStructuralChange change)
     {
@@ -259,12 +339,14 @@ public sealed class Worksheet
             Dimensions.CreateStructuralOverrides(change);
         var transformedMergedCells =
             MergedCells.CreateStructuralRanges(change);
+        var transformedStyles = CreateStructuralStyles(change);
 
         ReplaceCells(transformedCells);
         Dimensions.ReplaceStructuralOverrides(
             change,
             transformedDimensions);
         MergedCells.ReplaceAll(transformedMergedCells);
+        RestoreAxisStylesWithoutPublish(transformedStyles);
         PublishStructuralChange(change);
     }
 
@@ -280,12 +362,14 @@ public sealed class Worksheet
             Dimensions.CreateAxisMoveOverrides(move);
         var transformedMergedCells =
             MergedCells.CreateAxisMoveRanges(move);
+        var transformedStyles = CreateAxisMoveStyles(move);
 
         ReplaceCells(transformedCells);
         Dimensions.ReplaceAxisMoveOverrides(
             move,
             transformedDimensions);
         MergedCells.ReplaceAll(transformedMergedCells);
+        RestoreAxisStylesWithoutPublish(transformedStyles);
         PublishAxisMove(move);
     }
 
@@ -301,6 +385,10 @@ public sealed class Worksheet
             state.ColumnWidths,
             signalChange);
         MergedCells.ReplaceAll(state.MergedCells);
+        RestoreAxisStylesWithoutPublish(new WorksheetAxisStyleState(
+            state.RowStyleSpans,
+            state.ColumnStyleSpans,
+            state.NextAxisStyleSequence));
         PublishStructuralChange(signalChange);
     }
 
@@ -316,6 +404,10 @@ public sealed class Worksheet
             state.ColumnWidths,
             signalMove);
         MergedCells.ReplaceAll(state.MergedCells);
+        RestoreAxisStylesWithoutPublish(new WorksheetAxisStyleState(
+            state.RowStyleSpans,
+            state.ColumnStyleSpans,
+            state.NextAxisStyleSequence));
         PublishAxisMove(signalMove);
     }
 
@@ -350,6 +442,87 @@ public sealed class Worksheet
         return transformed;
     }
 
+    private WorksheetAxisStyleState CreateStructuralStyles(
+        WorksheetStructuralChange change)
+    {
+        var rowStyles = new WorksheetAxisStyleMap(
+            SpreadsheetLimits.MaxRows);
+        var columnStyles = new WorksheetAxisStyleMap(
+            SpreadsheetLimits.MaxColumns);
+        rowStyles.Restore(_rowStyles.Capture());
+        columnStyles.Restore(_columnStyles.Capture());
+        if (change.Axis == WorksheetAxis.Row)
+        {
+            rowStyles.ApplyStructuralChange(change);
+        }
+        else
+        {
+            columnStyles.ApplyStructuralChange(change);
+        }
+        return new WorksheetAxisStyleState(
+            rowStyles.Capture(),
+            columnStyles.Capture(),
+            _nextAxisStyleSequence);
+    }
+
+    private WorksheetAxisStyleState CreateAxisMoveStyles(
+        WorksheetAxisMove move)
+    {
+        var rowStyles = new WorksheetAxisStyleMap(
+            SpreadsheetLimits.MaxRows);
+        var columnStyles = new WorksheetAxisStyleMap(
+            SpreadsheetLimits.MaxColumns);
+        rowStyles.Restore(_rowStyles.Capture());
+        columnStyles.Restore(_columnStyles.Capture());
+        if (move.Axis == WorksheetAxis.Row)
+        {
+            rowStyles.ApplyAxisMove(move);
+        }
+        else
+        {
+            columnStyles.ApplyAxisMove(move);
+        }
+        return new WorksheetAxisStyleState(
+            rowStyles.Capture(),
+            columnStyles.Capture(),
+            _nextAxisStyleSequence);
+    }
+
+    private void RestoreAxisStylesWithoutPublish(
+        WorksheetAxisStyleState state)
+    {
+        _rowStyles.Restore(state.RowSpans);
+        _columnStyles.Restore(state.ColumnSpans);
+        _nextAxisStyleSequence = state.NextSequence;
+    }
+
+    private static CellStyle ComposeAxisStyle(
+        IReadOnlyList<WorksheetAxisStyleOperation> rowOperations,
+        IReadOnlyList<WorksheetAxisStyleOperation> columnOperations)
+    {
+        var style = CellStyle.Default;
+        var rowIndex = 0;
+        var columnIndex = 0;
+        while (rowIndex < rowOperations.Count ||
+               columnIndex < columnOperations.Count)
+        {
+            WorksheetAxisStyleOperation operation;
+            if (columnIndex >= columnOperations.Count ||
+                (rowIndex < rowOperations.Count &&
+                 rowOperations[rowIndex].Sequence <
+                 columnOperations[columnIndex].Sequence))
+            {
+                operation = rowOperations[rowIndex++];
+            }
+            else
+            {
+                operation = columnOperations[columnIndex++];
+            }
+            style = operation.Patch.Apply(style);
+        }
+        return style;
+    }
+
     private void ReplaceCells(
         IEnumerable<KeyValuePair<CellAddress, CellData>> cells)
     {
@@ -362,7 +535,6 @@ public sealed class Worksheet
 
     private void PublishStructuralChange(WorksheetStructuralChange change)
     {
-        Version++;
         var range = change.Axis == WorksheetAxis.Row
             ? new CellRange(
                 new CellAddress(change.Index, 0),
@@ -374,14 +546,11 @@ public sealed class Worksheet
                 new CellAddress(
                     SpreadsheetLimits.MaxRows - 1,
                     SpreadsheetLimits.MaxColumns - 1));
-        CellsChanged?.Invoke(
-            this,
-            new CellsChangedEventArgs(range, Version));
+        PublishChange(range);
     }
 
     private void PublishAxisMove(WorksheetAxisMove move)
     {
-        Version++;
         var range = move.Axis == WorksheetAxis.Row
             ? new CellRange(
                 new CellAddress(move.AffectedStartIndex, 0),
@@ -393,6 +562,31 @@ public sealed class Worksheet
                 new CellAddress(
                     SpreadsheetLimits.MaxRows - 1,
                     move.AffectedEndIndex));
+        PublishChange(range);
+    }
+
+    private void PublishAxisStyle(
+        WorksheetAxis axis,
+        int startIndex,
+        int endIndex)
+    {
+        var range = axis == WorksheetAxis.Row
+            ? new CellRange(
+                new CellAddress(startIndex, 0),
+                new CellAddress(
+                    endIndex,
+                    SpreadsheetLimits.MaxColumns - 1))
+            : new CellRange(
+                new CellAddress(0, startIndex),
+                new CellAddress(
+                    SpreadsheetLimits.MaxRows - 1,
+                    endIndex));
+        PublishChange(range);
+    }
+
+    private void PublishChange(CellRange range)
+    {
+        Version++;
         CellsChanged?.Invoke(
             this,
             new CellsChangedEventArgs(range, Version));
