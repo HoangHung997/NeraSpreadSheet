@@ -81,6 +81,7 @@ public sealed class SpreadsheetStructureController
         private SelectionSnapshot? _selectionBefore;
         private int _frozenRowsBefore;
         private int _frozenColumnsBefore;
+        private SpreadsheetSplitViewState _splitStateBefore;
 
         public StructuralWorksheetOperation(
             SpreadsheetSession session,
@@ -115,6 +116,7 @@ public sealed class SpreadsheetStructureController
                 RewriteWorkbookFormulas();
                 RestoreMappedSelection();
                 ApplyMappedFreezeState();
+                ApplyMappedSplitState();
             }
             catch
             {
@@ -154,6 +156,7 @@ public sealed class SpreadsheetStructureController
             _selectionBefore = _session.Selection.Capture();
             _frozenRowsBefore = _session.View.FrozenRows;
             _frozenColumnsBefore = _session.View.FrozenColumns;
+            _splitStateBefore = _session.View.SplitState;
         }
 
         private void RestoreBeforeState()
@@ -171,6 +174,11 @@ public sealed class SpreadsheetStructureController
                 worksheet.SetCells(formulas);
             }
             _session.View.SetFrozenPanes(_frozenRowsBefore, _frozenColumnsBefore);
+            _session.View.SetSplitState(
+                Worksheet,
+                _splitStateBefore,
+                SpreadsheetSplitViewChangeKind.State,
+                this);
             _session.Selection.Restore(_selectionBefore);
         }
 
@@ -235,6 +243,81 @@ public sealed class SpreadsheetStructureController
                 ? _change.MapBoundary(_frozenColumnsBefore)
                 : _frozenColumnsBefore;
             _session.View.SetFrozenPanes(rows, columns);
+        }
+
+        private void ApplyMappedSplitState()
+        {
+            var mapped = _splitStateBefore;
+            foreach (var pane in Enum.GetValues<SpreadsheetSplitViewPane>())
+            {
+                var scroll = _splitStateBefore.GetPaneScroll(pane);
+                var offsetX = _change.Axis == WorksheetAxis.Column
+                    ? MapScrollOffset(scroll.OffsetX)
+                    : scroll.OffsetX;
+                var offsetY = _change.Axis == WorksheetAxis.Row
+                    ? MapScrollOffset(scroll.OffsetY)
+                    : scroll.OffsetY;
+                mapped = mapped.WithPaneScroll(pane, offsetX, offsetY);
+            }
+
+            _session.View.SetSplitState(
+                Worksheet,
+                mapped,
+                SpreadsheetSplitViewChangeKind.PaneScroll,
+                this);
+        }
+
+        private double MapScrollOffset(double offset)
+        {
+            var before = _worksheetBefore
+                ?? throw new InvalidOperationException("Worksheet state was not captured.");
+            var overrides = _change.Axis == WorksheetAxis.Row
+                ? before.RowHeights
+                : before.ColumnWidths;
+            var defaultSize = _change.Axis == WorksheetAxis.Row
+                ? Worksheet.Dimensions.DefaultRowHeight
+                : Worksheet.Dimensions.DefaultColumnWidth;
+            var changeStart = GetAxisOffset(
+                _change.Index,
+                defaultSize,
+                overrides);
+            if (_change.Kind == WorksheetStructuralChangeKind.Insert)
+            {
+                return offset < changeStart
+                    ? offset
+                    : offset + (_change.Count * defaultSize);
+            }
+
+            var changeEnd = GetAxisOffset(
+                _change.Index + _change.Count,
+                defaultSize,
+                overrides);
+            if (offset < changeStart)
+            {
+                return offset;
+            }
+            if (offset >= changeEnd)
+            {
+                return offset - (changeEnd - changeStart);
+            }
+            return changeStart;
+        }
+
+        private static double GetAxisOffset(
+            int index,
+            double defaultSize,
+            IReadOnlyList<KeyValuePair<int, double>> overrides)
+        {
+            var offset = index * defaultSize;
+            foreach (var (overrideIndex, size) in overrides)
+            {
+                if (overrideIndex >= index)
+                {
+                    continue;
+                }
+                offset += size - defaultSize;
+            }
+            return offset;
         }
 
         private CellAddress MapSelectionAddress(CellAddress source)
