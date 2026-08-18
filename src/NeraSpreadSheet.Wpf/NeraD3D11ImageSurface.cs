@@ -18,6 +18,7 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
     private ID3D11DeviceContext1? _deviceContext;
     private NeraD3D11ImageSource? _imageSource;
     private Window? _attachedWindow;
+    private Int32Rect? _pendingDirtyRectangle;
     private bool _isD3DStarted;
     private bool _renderingSubscribed;
     private bool _contentNeedsRefresh;
@@ -31,15 +32,40 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
     }
 
     public bool AlwaysRefresh { get; set; }
+
     public int TextureWidth { get; private set; }
+
     public int TextureHeight { get; private set; }
 
+    public Int32Rect? LastPresentedDirtyRectangle { get; private set; }
+
     protected ID3D11Texture2D? ColorTexture { get; private set; }
+
     protected ID3D11RenderTargetView? ColorTextureView { get; private set; }
 
     public void InvalidateSurface()
     {
         ThrowIfDisposed();
+        _contentNeedsRefresh = true;
+        _pendingDirtyRectangle = null;
+    }
+
+    public void InvalidateSurface(Int32Rect dirtyRectangle)
+    {
+        ThrowIfDisposed();
+        if (dirtyRectangle.IsEmpty)
+        {
+            return;
+        }
+
+        if (!_contentNeedsRefresh)
+        {
+            _pendingDirtyRectangle = dirtyRectangle;
+        }
+        else if (_pendingDirtyRectangle is { } existing)
+        {
+            _pendingDirtyRectangle = Union(existing, dirtyRectangle);
+        }
         _contentNeedsRefresh = true;
     }
 
@@ -59,9 +85,12 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    protected void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
+    protected void ThrowIfDisposed() =>
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
-    protected virtual void OnDeviceCreated(ID3D11Device1 device, ID3D11DeviceContext1 context)
+    protected virtual void OnDeviceCreated(
+        ID3D11Device1 device,
+        ID3D11DeviceContext1 context)
     {
     }
 
@@ -73,7 +102,9 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
     {
     }
 
-    protected virtual void OnRenderFrame(ID3D11Device1 device, ID3D11DeviceContext1 context)
+    protected virtual void OnRenderFrame(
+        ID3D11Device1 device,
+        ID3D11DeviceContext1 context)
     {
     }
 
@@ -95,6 +126,7 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
 
         CreateAndBindRenderTarget(notifyTargetChange: true);
         _contentNeedsRefresh = true;
+        _pendingDirtyRectangle = null;
     }
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
@@ -128,7 +160,8 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
         }
 
         var window = Window.GetWindow(this)
-            ?? throw new InvalidOperationException("A loaded WPF Window is required for the shared-texture renderer.");
+            ?? throw new InvalidOperationException(
+                "A loaded WPF Window is required for the shared-texture renderer.");
         ID3D11Device? temporaryDevice = null;
         ID3D11DeviceContext? temporaryContext = null;
         ID3D11Device1 device;
@@ -144,7 +177,8 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
                 out temporaryContext).CheckError();
             if (temporaryDevice is null || temporaryContext is null)
             {
-                throw new InvalidOperationException("D3D11CreateDevice returned incomplete device resources.");
+                throw new InvalidOperationException(
+                    "D3D11CreateDevice returned incomplete device resources.");
             }
             device = temporaryDevice.QueryInterface<ID3D11Device1>();
             context = temporaryContext.QueryInterface<ID3D11DeviceContext1>();
@@ -159,7 +193,8 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
 
         _attachedWindow = window;
         _imageSource = new NeraD3D11ImageSource(window);
-        _imageSource.IsFrontBufferAvailableChanged += OnFrontBufferAvailableChanged;
+        _imageSource.IsFrontBufferAvailableChanged +=
+            OnFrontBufferAvailableChanged;
         window.Closed += OnWindowClosed;
         _isD3DStarted = true;
 
@@ -169,6 +204,7 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
             Source = _imageSource;
             OnDeviceCreated(device, context);
             _contentNeedsRefresh = true;
+            _pendingDirtyRectangle = null;
             StartRendering();
         }
         catch
@@ -194,7 +230,8 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
         }
         if (_imageSource is not null)
         {
-            _imageSource.IsFrontBufferAvailableChanged -= OnFrontBufferAvailableChanged;
+            _imageSource.IsFrontBufferAvailableChanged -=
+                OnFrontBufferAvailableChanged;
         }
 
         try
@@ -220,6 +257,8 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
             TextureWidth = 0;
             TextureHeight = 0;
             _contentNeedsRefresh = false;
+            _pendingDirtyRectangle = null;
+            LastPresentedDirtyRectangle = null;
         }
     }
 
@@ -256,6 +295,7 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
         });
         ColorTextureView = device.CreateRenderTargetView(ColorTexture);
         imageSource.SetRenderTarget(ColorTexture);
+        _pendingDirtyRectangle = null;
         if (notifyTargetChange)
         {
             OnRenderTargetChanged();
@@ -294,7 +334,8 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
 
     private void OnRendering(object? sender, EventArgs e)
     {
-        if (!_isD3DStarted || (!_contentNeedsRefresh && !AlwaysRefresh))
+        if (!_isD3DStarted ||
+            (!_contentNeedsRefresh && !AlwaysRefresh))
         {
             return;
         }
@@ -307,16 +348,21 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
             return;
         }
 
+        var dirtyRectangle = _pendingDirtyRectangle;
         context.OMSetRenderTargets(targetView, null);
         context.RSSetViewport(0, 0, TextureWidth, TextureHeight);
         context.RSSetScissorRect(0, 0, TextureWidth, TextureHeight);
         OnRenderFrame(device, context);
         context.Flush();
-        _imageSource?.InvalidateImage();
+        LastPresentedDirtyRectangle =
+            _imageSource?.InvalidateImage(dirtyRectangle);
         _contentNeedsRefresh = false;
+        _pendingDirtyRectangle = null;
     }
 
-    private void OnFrontBufferAvailableChanged(object? sender, DependencyPropertyChangedEventArgs e)
+    private void OnFrontBufferAvailableChanged(
+        object? sender,
+        DependencyPropertyChangedEventArgs e)
     {
         if (!_isD3DStarted || _imageSource is null)
         {
@@ -327,11 +373,29 @@ internal abstract class NeraD3D11ImageSurface : Image, IDisposable
         {
             CreateAndBindRenderTarget(notifyTargetChange: true);
             _contentNeedsRefresh = true;
+            _pendingDirtyRectangle = null;
             StartRendering();
         }
         else
         {
             StopRendering();
         }
+    }
+
+    private static Int32Rect Union(Int32Rect first, Int32Rect second)
+    {
+        var left = Math.Min(first.X, second.X);
+        var top = Math.Min(first.Y, second.Y);
+        var right = Math.Max(
+            first.X + first.Width,
+            second.X + second.Width);
+        var bottom = Math.Max(
+            first.Y + first.Height,
+            second.Y + second.Height);
+        return new Int32Rect(
+            left,
+            top,
+            right - left,
+            bottom - top);
     }
 }
