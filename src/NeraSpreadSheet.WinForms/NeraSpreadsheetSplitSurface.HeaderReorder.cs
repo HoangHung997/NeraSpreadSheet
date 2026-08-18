@@ -10,6 +10,10 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 {
     private HeaderReorderState? _headerReorder;
     private SpreadsheetSplitHeaderReorderDropTarget? _headerReorderDropTarget;
+    private System.Windows.Forms.Timer? _headerReorderAutoScrollTimer;
+    private DateTime _headerReorderLastAutoScrollUtc;
+    private double _headerReorderPointerX;
+    private double _headerReorderPointerY;
 
     private bool TryBeginHeaderReorderCandidate(double clientX, double clientY)
     {
@@ -26,11 +30,14 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             source.Axis,
             source.Index);
         _headerReorder = new HeaderReorderState(
+            source.PaneId,
             source.Axis,
             sourceIndex,
             count,
             new PointD(clientX, clientY),
             IsActive: false);
+        _headerReorderPointerX = clientX;
+        _headerReorderPointerY = clientY;
         _headerReorderDropTarget = null;
         return true;
     }
@@ -40,6 +47,8 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         double clientY,
         bool leftButtonPressed)
     {
+        _headerReorderPointerX = clientX;
+        _headerReorderPointerY = clientY;
         if (_headerReorder is not { } state)
         {
             return false;
@@ -68,6 +77,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         if (frame is null)
         {
             _headerReorderDropTarget = null;
+            UpdateHeaderReorderAutoScrollTimer();
             return true;
         }
 
@@ -92,6 +102,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         }
 
         Cursor = Cursors.SizeAll;
+        UpdateHeaderReorderAutoScrollTimer();
         Invalidate();
         return true;
     }
@@ -112,12 +123,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
                 leftButtonPressed: true);
         }
         var target = _headerReorderDropTarget;
-        _headerReorder = null;
-        _headerReorderDropTarget = null;
-        if (Capture)
-        {
-            Capture = false;
-        }
+        ClearHeaderReorderState(releaseCapture: true);
         Invalidate();
 
         if (wasActive && target is { IsNoOp: false } && _session is not null)
@@ -138,15 +144,22 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
     private void CancelHeaderReorder()
     {
         var wasActive = _headerReorder is { IsActive: true };
-        _headerReorder = null;
-        _headerReorderDropTarget = null;
-        if (wasActive && Capture)
-        {
-            Capture = false;
-        }
+        ClearHeaderReorderState(releaseCapture: true);
         if (wasActive)
         {
             Invalidate();
+        }
+    }
+
+    private void ClearHeaderReorderState(bool releaseCapture)
+    {
+        var wasActive = _headerReorder is { IsActive: true };
+        _headerReorder = null;
+        _headerReorderDropTarget = null;
+        DisposeHeaderReorderAutoScrollTimer();
+        if (releaseCapture && wasActive && Capture)
+        {
+            Capture = false;
         }
     }
 
@@ -201,7 +214,117 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         return (hitIndex, 1);
     }
 
+    private void UpdateHeaderReorderAutoScrollTimer()
+    {
+        var velocity = GetHeaderReorderAutoScrollVelocity();
+        if (SpreadsheetHeaderReorderAutoScroll.IsZero(velocity))
+        {
+            _headerReorderAutoScrollTimer?.Stop();
+            return;
+        }
+
+        if (_headerReorderAutoScrollTimer is null)
+        {
+            _headerReorderAutoScrollTimer = new System.Windows.Forms.Timer
+            {
+                Interval = 16,
+            };
+            _headerReorderAutoScrollTimer.Tick +=
+                OnHeaderReorderAutoScrollTick;
+        }
+        if (_headerReorderAutoScrollTimer.Enabled)
+        {
+            return;
+        }
+
+        _headerReorderLastAutoScrollUtc = DateTime.UtcNow;
+        _headerReorderAutoScrollTimer.Start();
+    }
+
+    private PointD GetHeaderReorderAutoScrollVelocity()
+    {
+        if (_headerReorder is not { IsActive: true } state)
+        {
+            return default;
+        }
+
+        var frame = _lastFrame ?? EnsureFrame();
+        var paneId = _headerReorderDropTarget?.PaneId ?? state.SourcePaneId;
+        if (frame is null || !frame.TryGetPane(paneId, out var pane))
+        {
+            return default;
+        }
+
+        var chrome = GetChromeMetrics();
+        return SpreadsheetHeaderReorderAutoScroll.CalculateVelocity(
+            state.Axis,
+            new PointD(
+                _headerReorderPointerX,
+                _headerReorderPointerY),
+            new RectD(
+                chrome.RowHeaderWidth + pane.Pane.Bounds.Left,
+                chrome.ColumnHeaderHeight + pane.Pane.Bounds.Top,
+                pane.Pane.Bounds.Width,
+                pane.Pane.Bounds.Height));
+    }
+
+    private void OnHeaderReorderAutoScrollTick(
+        object? sender,
+        EventArgs e)
+    {
+        if (_headerReorder is not { IsActive: true } state)
+        {
+            DisposeHeaderReorderAutoScrollTimer();
+            return;
+        }
+
+        var velocity = GetHeaderReorderAutoScrollVelocity();
+        if (SpreadsheetHeaderReorderAutoScroll.IsZero(velocity))
+        {
+            _headerReorderAutoScrollTimer?.Stop();
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var elapsed = now - _headerReorderLastAutoScrollUtc;
+        _headerReorderLastAutoScrollUtc = now;
+        if (elapsed > TimeSpan.FromMilliseconds(100d))
+        {
+            elapsed = TimeSpan.FromMilliseconds(100d);
+        }
+
+        var delta = SpreadsheetHeaderReorderAutoScroll.CalculateDelta(
+            velocity,
+            elapsed);
+        var paneId = _headerReorderDropTarget?.PaneId ?? state.SourcePaneId;
+        var current = GetPaneScroll(paneId);
+        ScrollPaneTo(
+            paneId,
+            current.X + delta.X,
+            current.Y + delta.Y,
+            animated: false);
+        UpdateHeaderReorder(
+            _headerReorderPointerX,
+            _headerReorderPointerY,
+            leftButtonPressed: true);
+    }
+
+    private void DisposeHeaderReorderAutoScrollTimer()
+    {
+        var timer = _headerReorderAutoScrollTimer;
+        _headerReorderAutoScrollTimer = null;
+        if (timer is null)
+        {
+            return;
+        }
+
+        timer.Stop();
+        timer.Tick -= OnHeaderReorderAutoScrollTick;
+        timer.Dispose();
+    }
+
     private readonly record struct HeaderReorderState(
+        SpreadsheetPaneId SourcePaneId,
         WorksheetAxis Axis,
         int SourceIndex,
         int Count,
