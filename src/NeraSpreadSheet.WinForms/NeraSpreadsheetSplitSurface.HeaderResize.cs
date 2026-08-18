@@ -71,6 +71,17 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
     private void UpdatePointerCursor(double clientX, double clientY)
     {
+        if (TryGetScrollBarHit(
+            clientX,
+            clientY,
+            out _,
+            out _,
+            out _))
+        {
+            Cursor = Cursors.Hand;
+            return;
+        }
+
         var separator = HitTestSeparator(clientX, clientY);
         if (separator is { } split)
         {
