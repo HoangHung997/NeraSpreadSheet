@@ -49,18 +49,27 @@ public sealed class SpreadsheetSessionViewRoundTripTests
         stream.Position = 0L;
         using (var document = SpreadsheetDocument.Open(stream, false))
         {
-            var workbookPart = document.WorkbookPart;
-            Assert.IsNotNull(workbookPart);
-            var sheets = workbookPart.Workbook.GetFirstChild<Sheets>()?.Elements<Sheet>().ToArray();
-            Assert.IsNotNull(sheets);
+            var workbookPart = document.WorkbookPart ??
+                throw new AssertFailedException("The XLSX package does not contain a workbook part.");
+            var workbookXml = workbookPart.Workbook ??
+                throw new AssertFailedException("The workbook part does not contain workbook XML.");
+            var sheets = workbookXml
+                .GetFirstChild<Sheets>()?
+                .Elements<Sheet>()
+                .ToArray() ??
+                throw new AssertFailedException("The workbook does not contain a sheets collection.");
             Assert.AreEqual(2, sheets.Length);
-            var firstPart = (WorksheetPart)workbookPart.GetPartById(sheets[0].Id!.Value!);
-            var pane = firstPart.Worksheet
+            var firstSheetId = sheets[0].Id?.Value ??
+                throw new AssertFailedException("The first worksheet relationship ID is missing.");
+            var firstPart = (WorksheetPart)workbookPart.GetPartById(firstSheetId);
+            var firstWorksheet = firstPart.Worksheet ??
+                throw new AssertFailedException("The first worksheet XML is missing.");
+            var pane = firstWorksheet
                 .GetFirstChild<SheetViews>()?
                 .Elements<SheetView>()
                 .Single()
-                .GetFirstChild<Pane>();
-            Assert.IsNotNull(pane);
+                .GetFirstChild<Pane>() ??
+                throw new AssertFailedException("The first worksheet split pane is missing.");
             Assert.AreEqual(PaneStateValues.Split, pane.State?.Value);
             Assert.AreEqual(PaneValues.BottomRight, pane.ActivePane?.Value);
             Assert.AreEqual(280.5d * 15d, pane.HorizontalSplit?.Value ?? 0d, 1e-9);
@@ -95,11 +104,20 @@ public sealed class SpreadsheetSessionViewRoundTripTests
         stream.Position = 0L;
         using (var document = SpreadsheetDocument.Open(stream, true))
         {
-            var workbookPart = document.WorkbookPart;
-            Assert.IsNotNull(workbookPart);
-            var sheet = workbookPart.Workbook.GetFirstChild<Sheets>()?.Elements<Sheet>().Single();
-            Assert.IsNotNull(sheet);
-            var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id!.Value!);
+            var workbookPart = document.WorkbookPart ??
+                throw new AssertFailedException("The XLSX package does not contain a workbook part.");
+            var workbookXml = workbookPart.Workbook ??
+                throw new AssertFailedException("The workbook part does not contain workbook XML.");
+            var sheet = workbookXml
+                .GetFirstChild<Sheets>()?
+                .Elements<Sheet>()
+                .Single() ??
+                throw new AssertFailedException("The workbook does not contain exactly one sheet.");
+            var sheetId = sheet.Id?.Value ??
+                throw new AssertFailedException("The worksheet relationship ID is missing.");
+            var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheetId);
+            var worksheetXml = worksheetPart.Worksheet ??
+                throw new AssertFailedException("The worksheet XML is missing.");
             var pane = new Pane
             {
                 State = PaneStateValues.Split,
@@ -110,8 +128,8 @@ public sealed class SpreadsheetSessionViewRoundTripTests
             };
             var sheetView = new SheetView { WorkbookViewId = 0U };
             sheetView.Append(pane);
-            worksheetPart.Worksheet.PrependChild(new SheetViews(sheetView));
-            worksheetPart.Worksheet.Save();
+            worksheetXml.PrependChild(new SheetViews(sheetView));
+            worksheetXml.Save();
         }
 
         stream.Position = 0L;
@@ -147,15 +165,24 @@ public sealed class SpreadsheetSessionViewRoundTripTests
 
         stream.Position = 0L;
         using var document = SpreadsheetDocument.Open(stream, false);
-        var workbookPart = document.WorkbookPart;
-        Assert.IsNotNull(workbookPart);
+        var workbookPart = document.WorkbookPart ??
+            throw new AssertFailedException("The XLSX package does not contain a workbook part.");
+        var workbookXml = workbookPart.Workbook ??
+            throw new AssertFailedException("The workbook part does not contain workbook XML.");
         Assert.IsFalse(workbookPart.CustomXmlParts.Any(part => string.Equals(
             part.ContentType,
             NeraViewStateContentType,
             StringComparison.OrdinalIgnoreCase)));
-        var sheet = workbookPart.Workbook.GetFirstChild<Sheets>()?.Elements<Sheet>().Single();
-        Assert.IsNotNull(sheet);
-        var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id!.Value!);
-        Assert.IsNull(worksheetPart.Worksheet.GetFirstChild<SheetViews>());
+        var sheet = workbookXml
+            .GetFirstChild<Sheets>()?
+            .Elements<Sheet>()
+            .Single() ??
+            throw new AssertFailedException("The workbook does not contain exactly one sheet.");
+        var sheetId = sheet.Id?.Value ??
+            throw new AssertFailedException("The worksheet relationship ID is missing.");
+        var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheetId);
+        var worksheetXml = worksheetPart.Worksheet ??
+            throw new AssertFailedException("The worksheet XML is missing.");
+        Assert.IsNull(worksheetXml.GetFirstChild<SheetViews>());
     }
 }
