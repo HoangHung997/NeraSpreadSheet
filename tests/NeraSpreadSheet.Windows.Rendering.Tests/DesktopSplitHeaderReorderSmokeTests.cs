@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
+using System.Windows.Interop;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
@@ -19,6 +20,7 @@ using WpfDispatcherFrame = System.Windows.Threading.DispatcherFrame;
 using WpfDispatcherPriority = System.Windows.Threading.DispatcherPriority;
 using WpfDispatcherTimer = System.Windows.Threading.DispatcherTimer;
 using WpfPoint = System.Windows.Point;
+using WpfPresentationSource = System.Windows.PresentationSource;
 using WpfResizeMode = System.Windows.ResizeMode;
 using WpfWindow = System.Windows.Window;
 using WpfWindowStartupLocation = System.Windows.WindowStartupLocation;
@@ -30,12 +32,10 @@ namespace NeraSpreadSheet.Windows.Rendering.Tests;
 [DoNotParallelize]
 public sealed class DesktopSplitHeaderReorderSmokeTests
 {
-    private const int WindowMessageMouseMove = 0x0200;
-    private const int WindowMessageLeftButtonDown = 0x0201;
-    private const int WindowMessageLeftButtonUp = 0x0202;
-    private const int MouseKeyLeftButton = 0x0001;
-    private const uint MouseEventLeftDown = 0x0002;
-    private const uint MouseEventLeftUp = 0x0004;
+    private const uint WindowMessageMouseMove = 0x0200;
+    private const uint WindowMessageLeftButtonDown = 0x0201;
+    private const uint WindowMessageLeftButtonUp = 0x0202;
+    private const uint MouseKeyLeftButton = 0x0001;
     private static readonly TimeSpan StaThreadTimeout = TimeSpan.FromSeconds(90d);
     private static readonly TimeSpan WpfInputTimeout = TimeSpan.FromSeconds(15d);
 
@@ -73,13 +73,15 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
             split.SetSplit(340d, 230d);
             split.RenderNow();
             var frame = split.LastFrame ??
-                throw new AssertFailedException("The WinForms split frame is unavailable.");
+                throw new AssertFailedException(
+                    "The WinForms split frame is unavailable.");
             Assert.IsTrue(frame.TryGetPane(
                 SpreadsheetPaneId.TopLeft,
                 out var topLeft));
             var sourceSlot = FindRow(topLeft, 2);
             var targetSlot = FindRow(topLeft, 5);
-            var sourceX = (int)Math.Round(control.RenderTheme.RowHeaderWidth / 2d);
+            var sourceX = (int)Math.Round(
+                control.RenderTheme.RowHeaderWidth / 2d);
             var sourceY = (int)Math.Round(
                 control.RenderTheme.ColumnHeaderHeight +
                 topLeft.Pane.Bounds.Top +
@@ -93,7 +95,8 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
             var surface = control.Controls
                 .Cast<WinFormsControl>()
                 .Single(candidate =>
-                    candidate.GetType().Name == "NeraSpreadsheetSplitSurface");
+                    candidate.GetType().Name ==
+                    "NeraSpreadsheetSplitSurface");
 
             DispatchMouseMessage(
                 surface,
@@ -113,14 +116,18 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
             DispatchMouseMessage(
                 surface,
                 WindowMessageLeftButtonUp,
-                0,
+                0U,
                 sourceX,
                 targetY);
             WinFormsApplication.DoEvents();
 
             AssertRowMoveCommitted(session);
-            Assert.IsNull(GetPrivateField(surface, "_headerReorderDropTarget"));
-            Assert.AreEqual("Reorder rows", session.History.NextUndoDescription);
+            Assert.IsNull(GetPrivateField(
+                surface,
+                "_headerReorderDropTarget"));
+            Assert.AreEqual(
+                "Reorder rows",
+                session.History.NextUndoDescription);
             Assert.IsTrue(session.Undo());
             Assert.AreEqual(
                 "row-2",
@@ -134,13 +141,10 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
 
     [TestMethod]
     [Timeout(120_000)]
-    public void WpfSplitHeaderDragUsesNativePointerAndRendersAfterReorder()
+    public void WpfSplitHeaderDragUsesNativeWindowMessagesAndRendersAfterReorder()
     {
         RunInSta(() =>
         {
-            Assert.IsTrue(
-                GetCursorPos(out var originalCursor),
-                "The native cursor position could not be captured.");
             var session = CreateRowReorderSession();
             using var control = new NeraSpreadSheet.Wpf.NeraSpreadsheetControl
             {
@@ -150,6 +154,7 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
             };
             var decorator = new WpfAdornerDecorator { Child = control };
             var window = CreateWpfInputHost(decorator);
+            var windowHandle = IntPtr.Zero;
 
             try
             {
@@ -157,6 +162,8 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
                 Assert.IsTrue(window.Activate());
                 window.UpdateLayout();
                 Assert.IsTrue(control.Focus());
+                windowHandle = new WindowInteropHelper(window).Handle;
+                Assert.AreNotEqual(IntPtr.Zero, windowHandle);
 
                 using var split = control.EnableSplitPanes(
                     NeraSpreadSheet.Wpf.SpreadsheetSplitPaneMode.Both);
@@ -166,7 +173,8 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
                     () => split.LastFrame is { Panes.Count: 4 },
                     "The WPF split frame was not composed.");
                 var frame = split.LastFrame ??
-                    throw new AssertFailedException("The WPF split frame is unavailable.");
+                    throw new AssertFailedException(
+                        "The WPF split frame is unavailable.");
                 Assert.IsTrue(frame.TryGetPane(
                     SpreadsheetPaneId.TopLeft,
                     out var topLeft));
@@ -182,28 +190,67 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
                     topLeft.Pane.Bounds.Top +
                     targetSlot.Start +
                     (targetSlot.Size / 4d));
-                var source = ToScreenPixels(control, sourceBody);
-                var target = ToScreenPixels(control, targetBody);
+                var source = ToWindowClientPixels(
+                    control,
+                    window,
+                    sourceBody);
+                var activation = new DevicePoint(
+                    source.X,
+                    source.Y + 8);
+                var target = ToWindowClientPixels(
+                    control,
+                    window,
+                    targetBody);
+                var adorner = GetSplitAdorner(split);
 
-                Assert.IsTrue(SetCursorPos(source.X, source.Y));
+                SendMouseMessage(
+                    windowHandle,
+                    WindowMessageLeftButtonDown,
+                    MouseKeyLeftButton,
+                    source.X,
+                    source.Y);
                 PumpDispatcherOnce();
-                MouseEvent(MouseEventLeftDown, 0U, 0U, 0U, UIntPtr.Zero);
+                SendMouseMessage(
+                    windowHandle,
+                    WindowMessageMouseMove,
+                    MouseKeyLeftButton,
+                    activation.X,
+                    activation.Y);
+                PumpUntil(
+                    () => GetPrivateField(
+                        adorner,
+                        "_headerReorderDropTarget") is not null,
+                    "The WPF header drag did not cross the activation threshold.");
+                SendMouseMessage(
+                    windowHandle,
+                    WindowMessageMouseMove,
+                    MouseKeyLeftButton,
+                    target.X,
+                    target.Y);
                 PumpDispatcherOnce();
-                Assert.IsTrue(SetCursorPos(target.X, target.Y));
-                PumpDispatcherOnce();
-                MouseEvent(MouseEventLeftUp, 0U, 0U, 0U, UIntPtr.Zero);
+                SendMouseMessage(
+                    windowHandle,
+                    WindowMessageLeftButtonUp,
+                    0U,
+                    target.X,
+                    target.Y);
 
                 PumpUntil(
                     () => Equals(
                         "row-2",
-                        session.ActiveWorksheet.GetValue(new CellAddress(4, 0))),
+                        session.ActiveWorksheet.GetValue(
+                            new CellAddress(4, 0))),
                     "The native WPF header drag did not commit the row reorder.");
                 AssertRowMoveCommitted(session);
                 Assert.AreEqual(
                     "Reorder rows",
                     session.History.NextUndoDescription);
+                Assert.IsNull(GetPrivateField(
+                    adorner,
+                    "_headerReorderDropTarget"));
 
-                split.RenderingBackend = WpfRenderingBackend.Direct2DD3DImage;
+                split.RenderingBackend =
+                    WpfRenderingBackend.Direct2DD3DImage;
                 split.RenderNow();
                 PumpUntil(
                     () => split.GpuDiagnostics is
@@ -219,8 +266,15 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
             }
             finally
             {
-                MouseEvent(MouseEventLeftUp, 0U, 0U, 0U, UIntPtr.Zero);
-                _ = SetCursorPos(originalCursor.X, originalCursor.Y);
+                if (windowHandle != IntPtr.Zero)
+                {
+                    SendMouseMessage(
+                        windowHandle,
+                        WindowMessageLeftButtonUp,
+                        0U,
+                        0,
+                        0);
+                }
                 window.Close();
                 PumpDispatcherOnce();
             }
@@ -245,23 +299,48 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
     private static void AssertRowMoveCommitted(SpreadsheetSession session)
     {
         var worksheet = session.ActiveWorksheet;
-        Assert.AreEqual("row-3", worksheet.GetValue(new CellAddress(2, 0)));
-        Assert.AreEqual("row-4", worksheet.GetValue(new CellAddress(3, 0)));
-        Assert.AreEqual("row-2", worksheet.GetValue(new CellAddress(4, 0)));
-        Assert.AreEqual("=A5", worksheet.GetFormula(new CellAddress(0, 1)));
+        Assert.AreEqual(
+            "row-3",
+            worksheet.GetValue(new CellAddress(2, 0)));
+        Assert.AreEqual(
+            "row-4",
+            worksheet.GetValue(new CellAddress(3, 0)));
+        Assert.AreEqual(
+            "row-2",
+            worksheet.GetValue(new CellAddress(4, 0)));
+        Assert.AreEqual(
+            "=A5",
+            worksheet.GetFormula(new CellAddress(0, 1)));
         Assert.AreEqual(
             new CellRange(
                 new CellAddress(4, 0),
-                new CellAddress(4, SpreadsheetLimits.MaxColumns - 1)),
+                new CellAddress(
+                    4,
+                    SpreadsheetLimits.MaxColumns - 1)),
             session.Selection.Ranges.Single());
     }
 
     private static AxisSlot FindRow(
         SpreadsheetSplitPaneFrame pane,
         int rowIndex) =>
-        pane.ViewportFrame.Layout.Rows.Single(slot => slot.Index == rowIndex);
+        pane.ViewportFrame.Layout.Rows.Single(
+            slot => slot.Index == rowIndex);
 
-    private static object? GetPrivateField(object target, string fieldName)
+    private static object GetSplitAdorner(
+        NeraSpreadSheet.Wpf.NeraSpreadsheetSplitController controller)
+    {
+        var field = controller.GetType().GetField(
+            "_adorner",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(field);
+        return field.GetValue(controller) ??
+            throw new AssertFailedException(
+                "The WPF split adorner is unavailable.");
+    }
+
+    private static object? GetPrivateField(
+        object target,
+        string fieldName)
     {
         var field = target.GetType().GetField(
             fieldName,
@@ -272,8 +351,8 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
 
     private static void DispatchMouseMessage(
         WinFormsControl surface,
-        int messageId,
-        int keyState,
+        uint messageId,
+        uint keyState,
         int x,
         int y)
     {
@@ -281,13 +360,15 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
             "WndProc",
             BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.IsNotNull(method);
-        var packed = unchecked((y << 16) | (x & 0xFFFF));
+        var packed = PackCoordinates(x, y);
         object?[] arguments =
         [
             WinFormsMessage.Create(
                 surface.Handle,
-                messageId,
-                new IntPtr(keyState),
+                checked((int)messageId),
+                new UIntPtr(keyState).ToUInt64() <= long.MaxValue
+                    ? new IntPtr(checked((long)keyState))
+                    : IntPtr.Zero,
                 new IntPtr(packed)),
         ];
         method.Invoke(surface, arguments);
@@ -310,19 +391,47 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
         WindowStyle = WpfWindowStyle.None,
     };
 
-    private static DevicePoint ToScreenPixels(
+    private static DevicePoint ToWindowClientPixels(
         NeraSpreadSheet.Wpf.NeraSpreadsheetControl control,
+        WpfWindow window,
         NeraSpreadSheet.Foundation.PointD bodyPoint)
     {
-        var point = control.PointToScreen(new WpfPoint(
+        var controlPoint = new WpfPoint(
             control.RenderTheme.RowHeaderWidth + bodyPoint.X,
-            control.RenderTheme.ColumnHeaderHeight + bodyPoint.Y));
+            control.RenderTheme.ColumnHeaderHeight + bodyPoint.Y);
+        var windowPoint = control.TranslatePoint(controlPoint, window);
+        var source = WpfPresentationSource.FromVisual(window) ??
+            throw new AssertFailedException(
+                "The WPF presentation source is unavailable.");
+        var pixels = source.CompositionTarget.TransformToDevice.Transform(
+            windowPoint);
         return new DevicePoint(
-            (int)Math.Round(point.X),
-            (int)Math.Round(point.Y));
+            (int)Math.Round(pixels.X),
+            (int)Math.Round(pixels.Y));
     }
 
-    private static void PumpUntil(Func<bool> condition, string timeoutMessage)
+    private static void SendMouseMessage(
+        IntPtr windowHandle,
+        uint message,
+        uint keyState,
+        int x,
+        int y)
+    {
+        Assert.IsTrue(x >= short.MinValue && x <= short.MaxValue);
+        Assert.IsTrue(y >= short.MinValue && y <= short.MaxValue);
+        _ = SendMessage(
+            windowHandle,
+            message,
+            new UIntPtr(keyState),
+            new IntPtr(PackCoordinates(x, y)));
+    }
+
+    private static int PackCoordinates(int x, int y) =>
+        unchecked(((y & 0xFFFF) << 16) | (x & 0xFFFF));
+
+    private static void PumpUntil(
+        Func<bool> condition,
+        string timeoutMessage)
     {
         ArgumentNullException.ThrowIfNull(condition);
         var deadline = DateTime.UtcNow + WpfInputTimeout;
@@ -378,28 +487,12 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
         failure?.Throw();
     }
 
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetCursorPos(out NativePoint point);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetCursorPos(int x, int y);
-
-    [DllImport("user32.dll", EntryPoint = "mouse_event")]
-    private static extern void MouseEvent(
-        uint flags,
-        uint deltaX,
-        uint deltaY,
-        uint data,
-        UIntPtr extraInfo);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct NativePoint
-    {
-        public int X;
-        public int Y;
-    }
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(
+        IntPtr windowHandle,
+        uint message,
+        UIntPtr keyState,
+        IntPtr packedCoordinates);
 
     private readonly record struct DevicePoint(int X, int Y);
 }
