@@ -150,6 +150,77 @@ public sealed class SparseWholeAxisStyleTests
     }
 
     [TestMethod]
+    public void StructuralInsertAndUndoMapSparseRowStyleExactly()
+    {
+        var workbook = new Workbook();
+        var session = new SpreadsheetSession(workbook);
+        var worksheet = session.ActiveWorksheet;
+        var fill = new ColorRgba(55, 155, 195);
+        session.Selection.SelectRow(5);
+        session.Styles.SetFill(fill);
+
+        session.Structure.InsertRows(3, 2);
+
+        Assert.IsFalse(worksheet.GetEffectiveStyle(
+            new CellAddress(5, 0),
+            workbook.Styles).Fill.IsVisible);
+        Assert.AreEqual(
+            fill,
+            worksheet.GetEffectiveStyle(
+                new CellAddress(7, 0),
+                workbook.Styles).Fill.Color);
+        Assert.IsTrue(session.Undo());
+        Assert.AreEqual(
+            fill,
+            worksheet.GetEffectiveStyle(
+                new CellAddress(5, 0),
+                workbook.Styles).Fill.Color);
+        Assert.IsFalse(worksheet.GetEffectiveStyle(
+            new CellAddress(7, 0),
+            workbook.Styles).Fill.IsVisible);
+        Assert.IsTrue(session.Redo());
+        Assert.AreEqual(
+            fill,
+            worksheet.GetEffectiveStyle(
+                new CellAddress(7, 0),
+                workbook.Styles).Fill.Color);
+    }
+
+    [TestMethod]
+    public void AxisReorderAndUndoMapSparseColumnStyleExactly()
+    {
+        var workbook = new Workbook();
+        var session = new SpreadsheetSession(workbook);
+        var worksheet = session.ActiveWorksheet;
+        var fill = new ColorRgba(135, 85, 205);
+        session.Selection.SelectColumn(2);
+        session.Styles.SetFill(fill);
+
+        Assert.IsTrue(session.Reorder.MoveColumns(
+            sourceIndex: 2,
+            count: 1,
+            destinationBoundary: 6));
+
+        Assert.IsFalse(worksheet.GetEffectiveStyle(
+            new CellAddress(0, 2),
+            workbook.Styles).Fill.IsVisible);
+        Assert.AreEqual(
+            fill,
+            worksheet.GetEffectiveStyle(
+                new CellAddress(0, 5),
+                workbook.Styles).Fill.Color);
+        Assert.IsTrue(session.Undo());
+        Assert.AreEqual(
+            fill,
+            worksheet.GetEffectiveStyle(
+                new CellAddress(0, 2),
+                workbook.Styles).Fill.Color);
+        Assert.IsFalse(worksheet.GetEffectiveStyle(
+            new CellAddress(0, 5),
+            workbook.Styles).Fill.IsVisible);
+    }
+
+    [TestMethod]
     public void FiniteRangeStillEnforcesMaterializationLimit()
     {
         var session = new SpreadsheetSession(new Workbook());
