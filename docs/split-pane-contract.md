@@ -85,7 +85,7 @@ Each pane owns an independent `ContinuousScrollController`.
 - Live drag writes to shared sparse worksheet dimensions; all panes observe the same updated row height/column width.
 - WinForms uses pointer capture and real Windows mouse messages on the child surface.
 - WPF uses preview mouse routing and adorner mouse capture.
-- Current dimension changes conservatively invalidate/recompose the split overlay; partial dirty projection is a separate optimization.
+- Dimension and metric changes conservatively invalidate/recompose the affected host because they can move every later row/column edge.
 
 ## 8. Per-worksheet split state
 
@@ -133,7 +133,67 @@ Persisted pane offsets participate in structural edit transactions.
 - An unsplit default session emits neither a native split custom part nor a standard split pane.
 - Unknown-part preservation is still unsupported and must not be implied by split-state support.
 
-## 11. Public WinForms lifecycle
+## 11. Per-pane scrollbar geometry and interaction
+
+`SpreadsheetSplitScrollBarGeometry` and `SpreadsheetSplitScrollBarInteractionController` are platform-neutral.
+
+- A visible pane receives a horizontal bar only when content width exceeds that pane's width and a vertical bar only when content height exceeds that pane's height.
+- Scrollbar coordinates are body-local and expressed as `double`.
+- Track length, proportional thumb length, minimum thumb length, margin, thickness and hit slop come from `SpreadsheetSplitScrollBarStyle`.
+- Horizontal and vertical bars reserve the bottom-right corner from one another when both are present.
+- Thumb hit testing has priority over track hit testing.
+- Track hits distinguish before-thumb and after-thumb paging.
+- Thumb dragging stores its grab offset so the thumb does not jump when capture begins.
+- Pointer-to-offset mapping clamps continuously to `[0, MaximumOffset]` and never snaps to row/column boundaries.
+- A scrollbar request contains one pane ID, one axis and one offset. Applying it must preserve the other axis and every other pane.
+- The active pane uses the active-thumb style; activating or dragging a scrollbar makes its pane active.
+- Hidden/non-scrollable/too-short tracks are omitted rather than exposing inert geometry.
+- Scrollbar input publishes the resulting pane offset into the per-worksheet split view state.
+
+## 12. Public optional scrollbar lifecycle
+
+Scrollbars are optional Nera-owned overlays and do not alter the split topology or permanently reserve worksheet viewport space.
+
+### WinForms
+
+- `EnableSplitPaneScrollBars` creates or reuses one public controller associated with the spreadsheet control.
+- The overlay is parented to the Nera split child surface and exposes hit-test regions only around scrollbar tracks/thumbs.
+- `DisableSplitPaneScrollBars` removes/disposes the overlay without disabling split panes.
+- The public controller exposes visibility, style, layout, count, body-local hit testing and explicit refresh.
+- Pointer capture supports thumb drag; track click and wheel input target the resolved pane.
+- The overlay refreshes after split render, scroll, topology and host resize changes.
+
+### WPF
+
+- `EnableSplitPaneScrollBars` creates or reuses a separate Nera-owned `Adorner` above the split adorner.
+- The host must provide an `AdornerLayer` through an `AdornerDecorator` or equivalent.
+- `DisableSplitPaneScrollBars` removes/disposes only the scrollbar adorner.
+- The public controller exposes the same visibility/style/layout/count/hit-test/refresh concepts as WinForms.
+- WPF routed input and mouse capture own the drag; the adorner rebuilds from a freshly rendered split frame after topology, offset and size changes.
+- Scrollbar geometry remains available after DrawingContext/D3DImage backend switches and across load/unload lifecycle.
+
+## 13. Split-aware dirty-region projection
+
+`SpreadsheetSplitViewportDirtyRegionExtensions.ProjectDirtyRange` maps a worksheet range to body-local rectangles.
+
+- Projection requires a current split frame; absent frame data requests full invalidation.
+- The input range expands transitively across every intersecting merged range.
+- A range crossing frozen rows or frozen columns is divided at those boundaries before projection.
+- Every subrange is projected separately into every visible pane using that pane's scroll state.
+- Each rectangle is clipped to the correct frozen corner, frozen-row, frozen-column or scrolling-body subregion.
+- Empty offscreen results are omitted.
+- If any required endpoint cannot be projected safely, the whole request becomes conservative full invalidation.
+- Projection represents cell/range content changes only. Structural, metric, topology, theme and device-lifecycle changes remain full invalidations.
+
+Backend policy:
+
+- WinForms GDI+ and Direct2D HWND consume projected rectangles through partial control invalidation.
+- D3D11/DXGI `FlipDiscard` intentionally presents a full frame because partial Windows invalidation does not define partial swap-chain presentation semantics.
+- WPF D3DImage forwards multiple native dirty rectangles to the shared-texture surface.
+- WPF DrawingContext intentionally uses full visual invalidation.
+- Hosts expose diagnostic counts and the last projected region set so runtime tests can verify partial/full behavior.
+
+## 14. Public WinForms split lifecycle
 
 `NeraSpreadSheet.WinForms.NeraSpreadsheetSplitExtensions` overlays a Nera-owned child surface on the existing public control.
 
@@ -143,23 +203,23 @@ Persisted pane offsets participate in structural edit transactions.
 - `RenderNow` explicitly performs layout, creates the child handle and calls the selected renderer.
 - Wheel and Shift+wheel target the pane under the pointer.
 - Separator dragging uses pointer capture.
-- Row/column header selection, dimension resizing and body selection activate the resolved pane.
+- Row/column header selection, dimension resizing, scrollbar input and body selection activate the resolved pane.
 - The reusable editor is clipped to the active pane and its freeze subregion.
 - Backend switching supports GDI+, Direct2D HWND and D3D11/DXGI swap chain.
 
-## 12. Public WPF lifecycle
+## 15. Public WPF split lifecycle
 
-`NeraSpreadSheet.Wpf.NeraSpreadsheetSplitExtensions` overlays a Nera-owned `Adorner`.
+`NeraSpreadSheet.Wpf.NeraSpreadsheetSplitExtensions` overlays a Nera-owned split `Adorner`.
 
 - The spreadsheet must be loaded under an `AdornerLayer`, normally provided by `AdornerDecorator`.
 - The controller attaches on load, detaches on unload and can reattach on reload.
-- `DisableSplitPanes` removes/disposes the adorner and restores the unchanged single-pane view.
+- `DisableSplitPanes` removes/disposes the split adorner and restores the unchanged single-pane view.
 - Session/backend/theme forwarding through the controller invalidates the split overlay.
-- DrawingContext and Nera-owned shared-texture D3DImage render the same split display list.
-- Wheel, Shift+wheel, selection, keyboard editing, separator drag and header resizing route through the active pane.
+- DrawingContext and Nera-owned shared-texture D3DImage render the same split display-list semantics.
+- Wheel, Shift+wheel, selection, keyboard editing, separator drag, header resizing and optional scrollbar input route through the active pane.
 - The reusable WPF editor is arranged/clipped within active pane and freeze geometry.
 
-## 13. Runtime gates
+## 16. Runtime gates
 
 Split panes are not considered implemented solely because layout tests compile.
 
@@ -174,17 +234,23 @@ Required tests include:
 - Structural insert/delete mapping, exact undo/redo and failed-operation invariance.
 - Standard/native XLSX split-state round trip and default-session metadata absence.
 - Shared split-header resize geometry, separator precedence and invalid metadata rejection.
+- Shared scrollbar geometry, style validation, thumb mapping, track paging, targeted request application and other-pane invariance.
+- Public WinForms scrollbar smoke through real Windows mouse messages.
+- Public WPF scrollbar smoke through native OS cursor/button input, routed hit testing and mouse capture; it must persist only the target pane and survive D3DImage rendering.
+- Dirty-range merged/freeze projection, offscreen omission and conservative full fallback.
+- WinForms dirty-region runtime smoke proving partial GDI+/Direct2D invalidation and full `FlipDiscard` fallback.
+- WPF dirty-region runtime smoke proving D3DImage dirty rectangles and full DrawingContext fallback.
 - Public WinForms STA smoke across GDI+, Direct2D HWND and DXGI, including render, hit test, disposal and real mouse-message dimension resizing.
-- Public WPF STA smoke inside an `AdornerDecorator` across DrawingContext and D3DImage, including DirectWrite cache reuse, host resize application and clean shutdown.
+- Public WPF STA smoke inside an `AdornerDecorator` across DrawingContext and D3DImage, including DirectWrite cache reuse, host resize application, repeated unload/reload and clean shutdown.
 
-## 14. Current exclusions
+## 17. Current exclusions
 
 The following are deliberately not claimed yet:
 
-- Per-pane scrollbars.
 - Header drag reordering.
-- Split-aware dirty-region projection/partial invalidation.
 - Standalone undo/redo commands for direct split-view changes.
-- MAUI/Skia split host.
+- Sparse whole-axis styles.
+- Split/scrollbar controls exposed in the desktop sample toolbars.
+- Production MAUI/Skia split host.
 
 These exclusions must remain visible in status and PR documents until executable code and the relevant CI/runtime gates exist.
