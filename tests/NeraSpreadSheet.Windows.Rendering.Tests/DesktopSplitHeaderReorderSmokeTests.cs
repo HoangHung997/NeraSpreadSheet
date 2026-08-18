@@ -145,6 +145,9 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
     {
         RunInSta(() =>
         {
+            Assert.IsTrue(
+                GetCursorPos(out var originalCursor),
+                "The native cursor position could not be captured.");
             var session = CreateRowReorderSession();
             using var control = new NeraSpreadSheet.Wpf.NeraSpreadsheetControl
             {
@@ -164,6 +167,9 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
                 Assert.IsTrue(control.Focus());
                 windowHandle = new WindowInteropHelper(window).Handle;
                 Assert.AreNotEqual(IntPtr.Zero, windowHandle);
+                _ = SetActiveWindow(windowHandle);
+                _ = SetForegroundWindow(windowHandle);
+                PumpDispatcherOnce();
 
                 using var split = control.EnableSplitPanes(
                     NeraSpreadSheet.Wpf.SpreadsheetSplitPaneMode.Both);
@@ -275,6 +281,7 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
                         0,
                         0);
                 }
+                _ = SetCursorPos(originalCursor.X, originalCursor.Y);
                 window.Close();
                 PumpDispatcherOnce();
             }
@@ -360,16 +367,13 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
             "WndProc",
             BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.IsNotNull(method);
-        var packed = PackCoordinates(x, y);
         object?[] arguments =
         [
             WinFormsMessage.Create(
                 surface.Handle,
                 checked((int)messageId),
-                new UIntPtr(keyState).ToUInt64() <= long.MaxValue
-                    ? new IntPtr(checked((long)keyState))
-                    : IntPtr.Zero,
-                new IntPtr(packed)),
+                new IntPtr(checked((int)keyState)),
+                new IntPtr(PackCoordinates(x, y))),
         ];
         method.Invoke(surface, arguments);
     }
@@ -419,6 +423,13 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
     {
         Assert.IsTrue(x >= short.MinValue && x <= short.MaxValue);
         Assert.IsTrue(y >= short.MinValue && y <= short.MaxValue);
+        var screenPoint = new NativePoint { X = x, Y = y };
+        Assert.IsTrue(
+            ClientToScreen(windowHandle, ref screenPoint),
+            "The WPF client point could not be converted to screen coordinates.");
+        Assert.IsTrue(
+            SetCursorPos(screenPoint.X, screenPoint.Y),
+            "The native cursor could not be synchronized with the WPF input message.");
         _ = SendMessage(
             windowHandle,
             message,
@@ -493,6 +504,34 @@ public sealed class DesktopSplitHeaderReorderSmokeTests
         uint message,
         UIntPtr keyState,
         IntPtr packedCoordinates);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ClientToScreen(
+        IntPtr windowHandle,
+        ref NativePoint point);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out NativePoint point);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetCursorPos(int x, int y);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetActiveWindow(IntPtr windowHandle);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr windowHandle);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X;
+        public int Y;
+    }
 
     private readonly record struct DevicePoint(int X, int Y);
 }
