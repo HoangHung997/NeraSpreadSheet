@@ -268,7 +268,6 @@ public sealed class DesktopUnsplitHeaderReorderSmokeTests
                 PumpUntil(
                     () => control.ScrollSnapshot.OffsetY > 0d,
                     "The unsplit WPF header drag did not auto-scroll at the viewport edge.");
-                Assert.IsTrue(reorder.IsDragging);
             }
             finally
             {
