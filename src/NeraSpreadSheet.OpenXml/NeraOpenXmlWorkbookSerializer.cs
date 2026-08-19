@@ -59,7 +59,10 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         {
             NeraOpenXmlStyleStateCodec.RestoreCatalog(workbook, exactStyleState);
         }
-        var styleTable = OpenXmlStyleTable.Read(workbookPart, workbook.Styles);
+        var styleTable = OpenXmlStyleTable.Read(
+            workbookPart,
+            workbook.Styles,
+            exactStyleState?.Catalog);
         var sharedStrings = workbookPart.SharedStringTablePart?.SharedStringTable;
         foreach (var sheet in sheets.Elements<Sheet>())
         {
