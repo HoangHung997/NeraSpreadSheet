@@ -4,6 +4,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
+using NeraCellStyle = NeraSpreadSheet.Core.CellStyle;
 
 namespace NeraSpreadSheet.OpenXml.Tests;
 
@@ -21,7 +22,7 @@ public sealed class StyleRoundTripTests
             Color = new ColorRgba(25, 90, 160),
             Width = 2.25d,
         };
-        var style = new CellStyle
+        var style = new NeraCellStyle
         {
             Font = new CellFontStyle
             {
