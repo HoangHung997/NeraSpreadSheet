@@ -59,3 +59,24 @@ jobs:
 
       - name: Windows desktop GPU runtime smoke
         run: dotnet test tests/NeraSpreadSheet.Windows.Rendering.Tests/NeraSpreadSheet.Windows.Rendering.Tests.csproj -c Release --no-build --logger "trx;LogFileName=windows-renderer-smoke.trx"
+
+  maui-windows:
+    name: MAUI Windows GPU host build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Install MAUI Windows workload
+        run: dotnet workload install maui-windows --skip-manifest-update
+
+      - name: Restore MAUI Windows target
+        run: dotnet restore src/NeraSpreadSheet.Maui/NeraSpreadSheet.Maui.csproj -p:TargetFramework=net10.0-windows10.0.19041.0
+
+      - name: Build MAUI Windows target
+        run: dotnet build src/NeraSpreadSheet.Maui/NeraSpreadSheet.Maui.csproj -c Release -f net10.0-windows10.0.19041.0 --no-restore
