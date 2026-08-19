@@ -13,10 +13,10 @@ public sealed class MauiHandlerRegistrationTests
     [TestMethod]
     public void DerivedSpreadsheetViewResolvesThroughSkiaGpuBaseHandler()
     {
-        using var app = MauiApp.CreateBuilder()
-            .UseNeraSpreadSheet()
-            .Build();
-        var handlers = app.Services.GetRequiredService<IMauiHandlersFactory>();
+        var builder = MauiApp.CreateBuilder(useDefaults: false)
+            .UseNeraSpreadSheet();
+        using var services = builder.Services.BuildServiceProvider();
+        var handlers = services.GetRequiredService<IMauiHandlersFactory>();
 
         Assert.AreEqual(
             typeof(SKGLViewHandler),
