@@ -96,10 +96,14 @@ Full semantics: `docs/whole-axis-style-contract.md`.
 - Failed frames are rethrown, counted and prevented from corrupting the next frame.
 - Linux raster tests and the full Windows suite verify pixels, nested transforms, clipping, text reuse, cache eviction, DPI mapping and exception-state recovery.
 
-### XLSX and desktop samples
+### XLSX style fidelity and desktop samples
 
 - Basic values, formulas/cached values, multiple sheets, row heights, column widths and merged ranges.
-- Per-worksheet split state through standard SpreadsheetML pane metadata plus a Nera custom XML part.
+- The complete current Nera style model round-trips fonts, fills, borders, alignment, number formats and direct cell style IDs through a deduplicated standard SpreadsheetML style table.
+- Standard cell, row and column style indexes provide external XLSX interoperability.
+- A versioned Nera custom XML part preserves exact sparse row/column style spans, worksheet-global chronological operation sequence and stable catalog identifiers without materializing blank cells.
+- Generated packages pass the OpenXml schema validator; huge-axis tests gate direct-style fidelity and no-flattening behavior.
+- Per-worksheet split state uses standard SpreadsheetML pane metadata plus a Nera custom XML part.
 - WPF and WinForms samples expose split modes, pane-scrollbar visibility, diagnostics and session Open/Save.
 
 ## Source-complete baseline awaiting runtime validation
@@ -113,13 +117,20 @@ Full semantics: `docs/whole-axis-style-contract.md`.
 - The Windows MAUI target restores and compiles in CI with the real MAUI workload and package graph.
 - A loaded native Window/device runtime smoke, GL-context recreation gate and Android/iOS/Mac Catalyst build/lifecycle matrix are still required before this host is classified as production-validated.
 
+### Exact XLSX style-state malformed-input hardening
+
+- The branch contains validation for duplicate catalogs, invalid sequence bounds, overlapping spans, empty patches and multiple Nera style-state parts.
+- XML, base64 and JSON failures are normalized to `InvalidDataException` before workbook state restoration.
+- Payload, catalog, worksheet and span counts are bounded to prevent unbounded allocation from malformed packages.
+- This hardening is counted as validated only after its exact-head Core/Windows/MAUI CI run is green.
+
 ## Implemented but intentionally conservative
 
 - Direct cell styles are complete overrides; Nera does not introduce a second partial-cell inheritance layer.
 - Formula ranges that become discontiguous and merged ranges that split/reverse are rejected rather than converted into unions.
 - Number formatting currently uses a .NET bridge rather than a complete Excel format-code engine.
 - Sort is in-memory and uses a materialization limit.
-- Basic XLSX does not yet round-trip the complete style table or sparse row/column style metadata.
+- XLSX style fidelity covers the current Nera style model; themes, named styles, differential styles, conditional formats and complete Excel format-code semantics remain outside this milestone.
 - Structural/formula rewriting covers A1 syntax, not tables, structured references, shared formulas or dynamic arrays.
 - Structural, metric, topology, theme and device-lifecycle changes use conservative full invalidation where retained correctness is not yet proven.
 - The Skia renderer is caller-owned-canvas and thread-affine; GPU context ownership/recovery belongs to each platform host.
@@ -128,16 +139,15 @@ Full semantics: `docs/whole-axis-style-contract.md`.
 
 ## Next implementation work
 
-1. Complete XLSX style-table and exact sparse row/column style round-trip without flattening logical axes or losing chronological composition.
-2. Add a loaded MAUI Windows runtime smoke and Android/iOS/Mac Catalyst build/lifecycle gates, including first frame, resize, pan/pinch/tap and GL-context recreation.
-3. Shared formulas, conditional formatting, validation, tables, drawings and unknown-part preservation.
-4. Filters and advanced sorting.
-5. Printing, page layout, preview and PDF export.
-6. Charts, pivot/slicers, accessibility, packaging and production hardening.
+1. Add a loaded MAUI Windows runtime smoke and Android/iOS/Mac Catalyst build/lifecycle gates, including first frame, resize, pan/pinch/tap and GL-context recreation.
+2. Shared formulas, conditional formatting, validation, tables, drawings and unknown-part preservation.
+3. Filters and advanced sorting.
+4. Printing, page layout, preview and PDF export.
+5. Charts, pivot/slicers, accessibility, packaging and production hardening.
 
 ## Not implemented yet
 
-- Complete XLSX style fidelity and exact sparse axis-style round-trip.
+- Excel themes, named styles, differential/conditional styles and unknown-part preservation.
 - MAUI native runtime/device lifecycle validation across supported platforms.
 - Shared formulas, conditional formatting, validation, tables, drawings, charts, macros and unknown-part preservation.
 - Complete Excel-compatible function surface and dynamic arrays.
@@ -155,19 +165,21 @@ Full semantics: `docs/whole-axis-style-contract.md`.
 - Whole-axis style requires no-materialization, chronological composition, direct override, merged anchor, structural mapping, exact history, snapshot cache and renderer tests.
 - Split-view history must remain isolated per worksheet and from data history; desktop public-controller runtime smoke is mandatory.
 - Recovery stress must exercise repeated HWND, DXGI and WPF device-stack lifecycle recreation without resource or rendering regression.
+- XLSX style-state must pass standard schema validation, direct-style round-trip, sparse no-flattening and malformed-input rejection gates.
 - PR #1 remains Draft and must not merge while exact-head CI is red or unknown.
 
 ## Latest validated implementation milestone
 
-CI run #406 (`32230805548`) passed at implementation commit `5ce73280c2a7cbb4aee4563b7c1597781fc1cdc5`:
+CI run #420 (`32234154347`) passed at implementation commit `4dd4068d7bf0cc319f9862d8a85082d2c7dce980`:
 
 - Core restore/build/tests and architecture verification passed.
 - Full Windows restore/build/test and mandatory desktop GPU/runtime smoke passed.
-- The real MAUI Windows target compiled after removing the restore-time TFM override that had corrupted referenced project assets.
-- Skia raster tests passed on Linux and Windows, including nested transforms/clips, text, bounded cache reuse/eviction, DPI mapping and exception-state restoration.
-- Existing whole-axis styles, split panes/history, header reorder, edge auto-scroll, dirty-region and desktop recovery gates remained green.
+- The real MAUI Windows target compiled with the installed MAUI workload.
+- Standard OpenXml styles round-trip direct cell styles and sparse row/column styles without flattening logical worksheet axes.
+- The versioned exact Nera style-state preserves stable catalog IDs and chronological composition.
+- Generated style packages pass the OpenXml schema validator; huge sparse-axis, renderer, split/history and recovery gates remain green.
 
-The current branch also contains preparatory OpenXml internal access for exact sparse style serialization. That preparatory commit is not counted as completed XLSX fidelity until serializer, reader, round-trip tests and exact-head CI are present.
+The branch contains a newer malformed-input hardening slice. It is intentionally not promoted into this milestone until its exact-head CI result is recorded.
 
 ## Independence rule
 
