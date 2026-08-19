@@ -79,6 +79,9 @@ jobs:
       - name: Build MAUI Windows target
         run: dotnet build src/NeraSpreadSheet.Maui/NeraSpreadSheet.Maui.csproj -c Release -f net10.0-windows10.0.19041.0 -p:NeraMauiTargetFrameworks=net10.0-windows10.0.19041.0
 
+      - name: Verify MAUI handler resolution
+        run: dotnet test tests/NeraSpreadSheet.Maui.Tests/NeraSpreadSheet.Maui.Tests.csproj -c Release -p:NeraMauiTargetFrameworks=net10.0-windows10.0.19041.0 --logger "trx;LogFileName=maui-handler-tests.trx"
+
   maui-android:
     name: MAUI Android GPU host build
     runs-on: ubuntu-latest
