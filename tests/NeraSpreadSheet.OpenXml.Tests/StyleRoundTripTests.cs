@@ -5,6 +5,9 @@ using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
 using NeraCellStyle = NeraSpreadSheet.Core.CellStyle;
+using NeraCellValue = NeraSpreadSheet.Core.CellValue;
+using NeraWorkbook = NeraSpreadSheet.Core.Workbook;
+using OpenXmlCell = DocumentFormat.OpenXml.Spreadsheet.Cell;
 
 namespace NeraSpreadSheet.OpenXml.Tests;
 
@@ -14,7 +17,7 @@ public sealed class StyleRoundTripTests
     [TestMethod]
     public async Task DirectCellStyleWritesStandardStyleIndexAndRoundTripsExactNeraStyle()
     {
-        var workbook = new Workbook();
+        var workbook = new NeraWorkbook();
         var worksheet = workbook.Worksheets[0];
         var border = new CellBorderSide
         {
@@ -60,7 +63,7 @@ public sealed class StyleRoundTripTests
         var styleId = workbook.Styles.Intern(style);
         worksheet.SetCell(
             new CellAddress(2, 3),
-            new CellData(CellValue.FromNumber(1234.5d), styleId: styleId));
+            new CellData(NeraCellValue.FromNumber(1234.5d), styleId: styleId));
 
         var serializer = new NeraOpenXmlWorkbookSerializer();
         await using var stream = new MemoryStream();
@@ -69,13 +72,13 @@ public sealed class StyleRoundTripTests
         stream.Position = 0L;
         using (var document = SpreadsheetDocument.Open(stream, false))
         {
-            var workbookPart = document.WorkbookPart;
-            Assert.IsNotNull(workbookPart);
+            var workbookPart = document.WorkbookPart
+                ?? throw new AssertFailedException("Workbook part was not written.");
             Assert.IsNotNull(workbookPart.WorkbookStylesPart?.Stylesheet);
             var cell = workbookPart.WorksheetParts
                 .Single()
                 .Worksheet
-                .Descendants<Cell>()
+                .Descendants<OpenXmlCell>()
                 .Single(candidate => candidate.CellReference?.Value == "D3");
             Assert.IsTrue((cell.StyleIndex?.Value ?? 0U) > 0U);
             Assert.IsTrue(workbookPart.CustomXmlParts.Any(part =>
@@ -91,7 +94,7 @@ public sealed class StyleRoundTripTests
     [TestMethod]
     public async Task HugeSparseRowAndColumnStylesRoundTripWithoutMaterializingBlankCells()
     {
-        var workbook = new Workbook();
+        var workbook = new NeraWorkbook();
         var session = new SpreadsheetSession(workbook);
         var worksheet = workbook.Worksheets[0];
         worksheet.SetValue(default, "anchor");
@@ -130,14 +133,17 @@ public sealed class StyleRoundTripTests
         stream.Position = 0L;
         using (var document = SpreadsheetDocument.Open(stream, false))
         {
-            var worksheetPart = document.WorkbookPart!.WorksheetParts.Single();
-            Assert.IsTrue(worksheetPart.Worksheet.Elements<Columns>()
+            var workbookPart = document.WorkbookPart
+                ?? throw new AssertFailedException("Workbook part was not written.");
+            var worksheetPart = workbookPart.WorksheetParts.Single();
+            var openXmlWorksheet = worksheetPart.Worksheet
+                ?? throw new AssertFailedException("Worksheet markup was not written.");
+            Assert.IsTrue(openXmlWorksheet.Elements<Columns>()
                 .SelectMany(static columns => columns.Elements<Column>())
                 .Any(column => column.Style?.Value is > 0U));
-            Assert.IsTrue(worksheetPart.Worksheet
-                .GetFirstChild<SheetData>()!
-                .Elements<Row>()
-                .Count() < 20);
+            var sheetData = openXmlWorksheet.GetFirstChild<SheetData>()
+                ?? throw new AssertFailedException("SheetData was not written.");
+            Assert.IsTrue(sheetData.Elements<Row>().Count() < 20);
         }
 
         stream.Position = 0L;
