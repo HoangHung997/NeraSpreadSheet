@@ -8,6 +8,7 @@ using NeraBorderStyle = NeraSpreadSheet.Core.CellBorderStyle;
 using NeraBorderSide = NeraSpreadSheet.Core.CellBorderSide;
 using NeraCellStyle = NeraSpreadSheet.Core.CellStyle;
 using OpenXmlBorder = DocumentFormat.OpenXml.Spreadsheet.Border;
+using OpenXmlCellStyle = DocumentFormat.OpenXml.Spreadsheet.CellStyle;
 using OpenXmlFill = DocumentFormat.OpenXml.Spreadsheet.Fill;
 using OpenXmlFont = DocumentFormat.OpenXml.Spreadsheet.Font;
 
@@ -21,10 +22,11 @@ internal sealed class OpenXmlStyleTable
 
     private OpenXmlStyleTable(IEnumerable<NeraCellStyle> styles)
     {
+        ArgumentNullException.ThrowIfNull(styles);
         _styles = styles.ToList();
-        if (_styles.Count == 0 || _styles[0] != NeraCellStyle.Default)
+        if (_styles.Count == 0)
         {
-            throw new InvalidDataException("The first Nera style must be the default style.");
+            throw new InvalidDataException("An OpenXml style table must contain at least one cell format.");
         }
         _styleIndexes = new Dictionary<NeraCellStyle, uint>();
         for (var index = 0; index < _styles.Count; index++)
@@ -56,7 +58,13 @@ internal sealed class OpenXmlStyleTable
     public static OpenXmlStyleTable CreateForExport(Workbook workbook)
     {
         ArgumentNullException.ThrowIfNull(workbook);
-        var table = new OpenXmlStyleTable(workbook.Styles.Snapshot());
+        var styles = workbook.Styles.Snapshot();
+        if (styles.Count == 0 || styles[0] != NeraCellStyle.Default)
+        {
+            throw new InvalidDataException("The first exported Nera style must be the default style.");
+        }
+
+        var table = new OpenXmlStyleTable(styles);
         foreach (var worksheet in workbook.Worksheets)
         {
             var state = worksheet.CaptureAxisStyleState();
@@ -74,33 +82,39 @@ internal sealed class OpenXmlStyleTable
 
     public static OpenXmlStyleTable Read(
         WorkbookPart workbookPart,
-        CellStyleCatalog catalog)
+        CellStyleCatalog catalog,
+        IReadOnlyList<NeraCellStyle>? exactCatalog = null)
     {
         ArgumentNullException.ThrowIfNull(workbookPart);
         ArgumentNullException.ThrowIfNull(catalog);
         var stylesheet = workbookPart.WorkbookStylesPart?.Stylesheet;
-        if (stylesheet?.CellFormats is not CellFormats cellFormats ||
-            cellFormats.Count?.Value is 0U ||
-            !cellFormats.Elements<CellFormat>().Any())
+        var cellFormatElements = stylesheet?.CellFormats?
+            .Elements<CellFormat>()
+            .ToArray() ?? [];
+        if (cellFormatElements.Length == 0)
         {
+            if (exactCatalog is { Count: > 0 })
+            {
+                return new OpenXmlStyleTable(exactCatalog);
+            }
             return new OpenXmlStyleTable([NeraCellStyle.Default]);
         }
 
-        var numberFormats = ReadNumberFormats(stylesheet);
-        var styles = new List<NeraCellStyle>();
-        foreach (var cellFormat in cellFormats.Elements<CellFormat>())
+        if (exactCatalog is not null && exactCatalog.Count > cellFormatElements.Length)
         {
-            var style = ReadCellStyle(stylesheet, cellFormat, numberFormats);
+            throw new InvalidDataException(
+                "The exact Nera style catalog contains more entries than the XLSX cell-format table.");
+        }
+
+        var numberFormats = ReadNumberFormats(stylesheet!);
+        var styles = new List<NeraCellStyle>(cellFormatElements.Length);
+        for (var index = 0; index < cellFormatElements.Length; index++)
+        {
+            var style = exactCatalog is not null && index < exactCatalog.Count
+                ? exactCatalog[index]
+                : ReadCellStyle(stylesheet!, cellFormatElements[index], numberFormats);
             styles.Add(style);
             catalog.Intern(style);
-        }
-        if (styles.Count == 0)
-        {
-            styles.Add(NeraCellStyle.Default);
-        }
-        if (styles[0] != NeraCellStyle.Default)
-        {
-            styles.Insert(0, NeraCellStyle.Default);
         }
         return new OpenXmlStyleTable(styles);
     }
@@ -172,7 +186,7 @@ internal sealed class OpenXmlStyleTable
             Count = 1U,
         };
         var cellStyles = new CellStyles(
-            new CellStyle
+            new OpenXmlCellStyle
             {
                 Name = "Normal",
                 FormatId = 0U,
@@ -310,15 +324,33 @@ internal sealed class OpenXmlStyleTable
         {
             return new NeraBorderSide();
         }
-        var (style, width) = styleValue switch
+
+        var style = CellBorderLineStyle.Thin;
+        var width = 1d;
+        if (styleValue.Equals(BorderStyleValues.Medium))
         {
-            BorderStyleValues.Medium => (CellBorderLineStyle.Medium, 2d),
-            BorderStyleValues.Thick => (CellBorderLineStyle.Thick, 3d),
-            BorderStyleValues.Dashed => (CellBorderLineStyle.Dashed, 1d),
-            BorderStyleValues.Dotted => (CellBorderLineStyle.Dotted, 1d),
-            BorderStyleValues.Double => (CellBorderLineStyle.DoubleLine, 2d),
-            _ => (CellBorderLineStyle.Thin, 1d),
-        };
+            style = CellBorderLineStyle.Medium;
+            width = 2d;
+        }
+        else if (styleValue.Equals(BorderStyleValues.Thick))
+        {
+            style = CellBorderLineStyle.Thick;
+            width = 3d;
+        }
+        else if (styleValue.Equals(BorderStyleValues.Dashed))
+        {
+            style = CellBorderLineStyle.Dashed;
+        }
+        else if (styleValue.Equals(BorderStyleValues.Dotted))
+        {
+            style = CellBorderLineStyle.Dotted;
+        }
+        else if (styleValue.Equals(BorderStyleValues.Double))
+        {
+            style = CellBorderLineStyle.DoubleLine;
+            width = 2d;
+        }
+
         return new NeraBorderSide
         {
             Style = style,
@@ -340,21 +372,22 @@ internal sealed class OpenXmlStyleTable
                     ? 90 - (int)rawRotation
                     : 0
             : 0;
+        var horizontal = alignment.Horizontal?.Value;
+        var vertical = alignment.Vertical?.Value;
         return new CellAlignmentStyle
         {
-            Horizontal = alignment.Horizontal?.Value switch
-            {
-                HorizontalAlignmentValues.Left => CellHorizontalAlignment.Left,
-                HorizontalAlignmentValues.Center => CellHorizontalAlignment.Center,
-                HorizontalAlignmentValues.Right => CellHorizontalAlignment.Right,
-                _ => CellHorizontalAlignment.General,
-            },
-            Vertical = alignment.Vertical?.Value switch
-            {
-                VerticalAlignmentValues.Top => CellVerticalAlignment.Top,
-                VerticalAlignmentValues.Center => CellVerticalAlignment.Center,
-                _ => CellVerticalAlignment.Bottom,
-            },
+            Horizontal = horizontal?.Equals(HorizontalAlignmentValues.Left) == true
+                ? CellHorizontalAlignment.Left
+                : horizontal?.Equals(HorizontalAlignmentValues.Center) == true
+                    ? CellHorizontalAlignment.Center
+                    : horizontal?.Equals(HorizontalAlignmentValues.Right) == true
+                        ? CellHorizontalAlignment.Right
+                        : CellHorizontalAlignment.General,
+            Vertical = vertical?.Equals(VerticalAlignmentValues.Top) == true
+                ? CellVerticalAlignment.Top
+                : vertical?.Equals(VerticalAlignmentValues.Center) == true
+                    ? CellVerticalAlignment.Center
+                    : CellVerticalAlignment.Bottom,
             WrapText = alignment.WrapText?.Value ?? false,
             TextRotationDegrees = rotation,
         };
@@ -568,9 +601,34 @@ internal sealed class OpenXmlStyleTable
             0U => "General",
             1U => "0",
             2U => "0.00",
+            3U => "#,##0",
+            4U => "#,##0.00",
+            5U => "$#,##0_);($#,##0)",
+            6U => "$#,##0_);[Red]($#,##0)",
+            7U => "$#,##0.00_);($#,##0.00)",
+            8U => "$#,##0.00_);[Red]($#,##0.00)",
             9U => "0%",
             10U => "0.00%",
+            11U => "0.00E+00",
+            12U => "# ?/?",
+            13U => "# ??/??",
             14U => "m/d/yyyy",
+            15U => "d-mmm-yy",
+            16U => "d-mmm",
+            17U => "mmm-yy",
+            18U => "h:mm AM/PM",
+            19U => "h:mm:ss AM/PM",
+            20U => "h:mm",
+            21U => "h:mm:ss",
+            22U => "m/d/yy h:mm",
+            37U => "#,##0 ;(#,##0)",
+            38U => "#,##0 ;[Red](#,##0)",
+            39U => "#,##0.00;(#,##0.00)",
+            40U => "#,##0.00;[Red](#,##0.00)",
+            45U => "mm:ss",
+            46U => "[h]:mm:ss",
+            47U => "mmss.0",
+            48U => "##0.0E+0",
             49U => "@",
             _ => "General",
         };
