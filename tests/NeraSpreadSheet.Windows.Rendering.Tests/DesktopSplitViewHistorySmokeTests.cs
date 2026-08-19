@@ -156,9 +156,11 @@ public sealed class DesktopSplitViewHistorySmokeTests
                 PumpDispatcher();
 
                 Assert.AreEqual(afterScroll, session.View.SplitState);
-                Assert.IsNotNull(split.GpuDiagnostics);
-                Assert.IsTrue(split.GpuDiagnostics.TextureWidth > 0);
-                Assert.IsTrue(split.GpuDiagnostics.TextureHeight > 0);
+                var gpu = split.GpuDiagnostics;
+                Assert.IsTrue(gpu.HasValue);
+                var gpuDiagnostics = gpu.GetValueOrDefault();
+                Assert.IsTrue(gpuDiagnostics.TextureWidth > 0);
+                Assert.IsTrue(gpuDiagnostics.TextureHeight > 0);
                 Assert.AreEqual(0, session.History.UndoCount);
             }
             finally
