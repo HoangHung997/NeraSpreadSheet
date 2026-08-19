@@ -12,13 +12,16 @@ namespace NeraSpreadSheet.Maui.Windows.Smoke;
 internal sealed class SmokePage : ContentPage
 {
     private static readonly TimeSpan SmokeTimeout = TimeSpan.FromSeconds(45d);
+    private static readonly JsonSerializerOptions ResultJsonOptions = new()
+    {
+        WriteIndented = true,
+    };
     private const double ExpectedZoom = 1.375d;
     private const double ExpectedOffsetX = 17.25d;
     private const double ExpectedOffsetY = 31.75d;
 
     private readonly Grid _host = new();
     private readonly Workbook _workbook = CreateWorkbook();
-    private readonly CancellationTokenSource _timeoutCancellation = new();
     private NeraSpreadsheetView? _view;
     private IElementHandler? _firstHandler;
     private object? _firstPlatformView;
@@ -38,7 +41,7 @@ internal sealed class SmokePage : ContentPage
     private void OnLoaded(object? sender, EventArgs e)
     {
         Loaded -= OnLoaded;
-        _ = MonitorTimeoutAsync(_timeoutCancellation.Token);
+        _ = MonitorTimeoutAsync();
         _view = CreateView();
         _host.Children.Add(_view);
     }
@@ -210,7 +213,6 @@ internal sealed class SmokePage : ContentPage
             return;
         }
 
-        _timeoutCancellation.Cancel();
         WriteResult(new
         {
             status = "success",
@@ -236,7 +238,6 @@ internal sealed class SmokePage : ContentPage
             return;
         }
 
-        _timeoutCancellation.Cancel();
         try
         {
             WriteResult(new
@@ -252,18 +253,22 @@ internal sealed class SmokePage : ContentPage
         }
     }
 
-    private async Task MonitorTimeoutAsync(CancellationToken cancellationToken)
+    private async Task MonitorTimeoutAsync()
     {
-        try
+        await Task.Delay(SmokeTimeout).ConfigureAwait(false);
+        if (Volatile.Read(ref _finished) != 0)
         {
-            await Task.Delay(SmokeTimeout, cancellationToken).ConfigureAwait(false);
-            Dispatcher.Dispatch(() =>
+            return;
+        }
+
+        Dispatcher.Dispatch(() =>
+        {
+            if (Volatile.Read(ref _finished) == 0)
+            {
                 Fail(new TimeoutException(
-                    $"The loaded MAUI GPU smoke did not complete within {SmokeTimeout}.")));
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-        }
+                    $"The loaded MAUI GPU smoke did not complete within {SmokeTimeout}."));
+            }
+        });
     }
 
     private static void WriteResult(object result)
@@ -282,9 +287,7 @@ internal sealed class SmokePage : ContentPage
                 "The smoke result file has no parent directory."));
         File.WriteAllText(
             fullPath,
-            JsonSerializer.Serialize(
-                result,
-                new JsonSerializerOptions { WriteIndented = true }));
+            JsonSerializer.Serialize(result, ResultJsonOptions));
     }
 
     private static Workbook CreateWorkbook()
