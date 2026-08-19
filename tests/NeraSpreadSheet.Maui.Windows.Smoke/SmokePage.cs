@@ -105,12 +105,14 @@ internal sealed class SmokePage : ContentPage
     {
         Require(e.Info.Width > 0 && e.Info.Height > 0,
             "The native GPU surface reported an empty frame.");
-        Require(view.Handler is not null,
-            "The Nera view did not receive a platform handler.");
-        Require(view.Handler.PlatformView is not null,
+        var handler = view.Handler
+            ?? throw new InvalidOperationException(
+                "The Nera view did not receive a platform handler.");
+        Require(handler.PlatformView is not null,
             "The Nera handler did not create a native platform view.");
-        Require(view.GRContext is not null,
-            "The Nera GPU surface did not expose a live Skia GRContext.");
+        _ = view.GRContext
+            ?? throw new InvalidOperationException(
+                "The Nera GPU surface did not expose a live Skia GRContext.");
         Require(view.Session is not null,
             "The workbook did not create a spreadsheet session.");
         Require(view.CachedTypefaceCount > 0,
