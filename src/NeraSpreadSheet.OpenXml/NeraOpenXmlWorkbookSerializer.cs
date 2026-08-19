@@ -53,6 +53,12 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             ?? throw new InvalidDataException("The XLSX workbook does not contain a sheets collection.");
 
         var workbook = new NeraWorkbook(createDefaultWorksheet: false);
+        var exactStyleState = NeraOpenXmlStyleStateCodec.Read(workbookPart);
+        if (exactStyleState is not null)
+        {
+            NeraOpenXmlStyleStateCodec.RestoreCatalog(workbook, exactStyleState);
+        }
+        var styleTable = OpenXmlStyleTable.Read(workbookPart, workbook.Styles);
         var sharedStrings = workbookPart.SharedStringTablePart?.SharedStringTable;
         foreach (var sheet in sheets.Elements<Sheet>())
         {
@@ -71,9 +77,27 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 ? $"Sheet{workbook.Worksheets.Count + 1}"
                 : sheet.Name!.Value!;
             var worksheet = workbook.AddWorksheet(name);
-            ImportDimensions(worksheetPart, worksheet);
-            ImportCells(worksheetPart, worksheet, sharedStrings, options, cancellationToken);
+            ImportDimensions(
+                worksheetPart,
+                worksheet,
+                styleTable,
+                workbook.Styles,
+                importAxisStyles: exactStyleState is null);
+            ImportCells(
+                worksheetPart,
+                worksheet,
+                sharedStrings,
+                styleTable,
+                workbook.Styles,
+                options,
+                cancellationToken);
             ImportMergedCells(worksheetPart, worksheet, cancellationToken);
+            if (exactStyleState is not null)
+            {
+                NeraOpenXmlStyleStateCodec.RestoreWorksheet(
+                    worksheet,
+                    exactStyleState);
+            }
         }
 
         if (workbook.Worksheets.Count == 0)
@@ -107,13 +131,20 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         var openXmlWorkbook = new OpenXmlWorkbook();
         workbookPart.Workbook = openXmlWorkbook;
         var sheets = openXmlWorkbook.AppendChild(new Sheets());
+        var styleTable = OpenXmlStyleTable.CreateForExport(workbook);
+        styleTable.Write(workbookPart);
         uint sheetId = 1;
 
         foreach (var worksheet in workbook.Worksheets)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
-            worksheetPart.Worksheet = BuildWorksheet(worksheet, options, cancellationToken);
+            worksheetPart.Worksheet = BuildWorksheet(
+                worksheet,
+                workbook.Styles,
+                styleTable,
+                options,
+                cancellationToken);
             worksheetPart.Worksheet.Save();
             sheets.Append(new Sheet
             {
@@ -123,6 +154,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             });
         }
 
+        NeraOpenXmlStyleStateCodec.Write(workbookPart, workbook);
         openXmlWorkbook.Save();
         return Task.CompletedTask;
     }
@@ -131,6 +163,8 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         WorksheetPart worksheetPart,
         NeraWorksheet worksheet,
         SharedStringTable? sharedStrings,
+        OpenXmlStyleTable styleTable,
+        CellStyleCatalog catalog,
         OpenXmlImportOptions options,
         CancellationToken cancellationToken)
     {
@@ -162,7 +196,10 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 var value = formula is not null && !options.LoadCachedFormulaValues
                     ? NeraCellValue.Blank
                     : ReadValue(cell, sharedStrings);
-                var data = new CellData(value, formula);
+                var styleId = cell.StyleIndex?.Value is uint styleIndex
+                    ? catalog.Intern(styleTable.GetStyle(styleIndex))
+                    : CellStyleCatalog.DefaultStyleId;
+                var data = new CellData(value, formula, styleId);
                 if (!data.IsEmpty)
                 {
                     changes.Add(new KeyValuePair<CellAddress, CellData>(address, data));
@@ -240,7 +277,12 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             : NeraCellValue.FromText(raw);
     }
 
-    private static void ImportDimensions(WorksheetPart worksheetPart, NeraWorksheet worksheet)
+    private static void ImportDimensions(
+        WorksheetPart worksheetPart,
+        NeraWorksheet worksheet,
+        OpenXmlStyleTable styleTable,
+        CellStyleCatalog catalog,
+        bool importAxisStyles)
     {
         var openXmlWorksheet = worksheetPart.Worksheet;
         if (openXmlWorksheet is null)
@@ -258,15 +300,33 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                     continue;
                 }
 
+                var first = Math.Max(1, (int)minimum.Value) - 1;
+                var last = Math.Min((int)maximum.Value, SpreadsheetLimits.MaxColumns) - 1;
+                if (last < first)
+                {
+                    continue;
+                }
                 var size = column.Hidden?.Value == true
                     ? 0d
                     : column.Width?.Value is double width
                         ? ExcelColumnWidthToPixels(width)
                         : worksheet.Dimensions.DefaultColumnWidth;
-                var last = Math.Min((int)maximum.Value, SpreadsheetLimits.MaxColumns);
-                for (var oneBased = Math.Max(1, (int)minimum.Value); oneBased <= last; oneBased++)
+                for (var index = first; index <= last; index++)
                 {
-                    worksheet.Dimensions.SetColumnWidth(oneBased - 1, size);
+                    if (column.Width is not null || column.Hidden?.Value == true)
+                    {
+                        worksheet.Dimensions.SetColumnWidth(index, size);
+                    }
+                }
+                if (importAxisStyles && column.Style?.Value is uint styleIndex)
+                {
+                    var style = styleTable.GetStyle(styleIndex);
+                    catalog.Intern(style);
+                    worksheet.ApplyAxisStyle(
+                        WorksheetAxis.Column,
+                        first,
+                        last,
+                        CellStylePatch.FromDifference(CellStyle.Default, style));
                 }
             }
         }
@@ -282,24 +342,38 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             {
                 continue;
             }
+            var rowIndex = (int)oneBased - 1;
             if (row.Hidden?.Value == true)
             {
-                worksheet.Dimensions.SetRowHeight((int)oneBased - 1, 0d);
+                worksheet.Dimensions.SetRowHeight(rowIndex, 0d);
             }
             else if (row.Height?.Value is double points)
             {
-                worksheet.Dimensions.SetRowHeight((int)oneBased - 1, points * PixelsPerPoint);
+                worksheet.Dimensions.SetRowHeight(rowIndex, points * PixelsPerPoint);
+            }
+            if (importAxisStyles && row.StyleIndex?.Value is uint styleIndex)
+            {
+                var style = styleTable.GetStyle(styleIndex);
+                catalog.Intern(style);
+                worksheet.ApplyAxisStyle(
+                    WorksheetAxis.Row,
+                    rowIndex,
+                    rowIndex,
+                    CellStylePatch.FromDifference(CellStyle.Default, style));
             }
         }
     }
 
     private static OpenXmlWorksheet BuildWorksheet(
         NeraWorksheet worksheet,
+        CellStyleCatalog catalog,
+        OpenXmlStyleTable styleTable,
         OpenXmlExportOptions options,
         CancellationToken cancellationToken)
     {
         var result = new OpenXmlWorksheet();
-        var columns = BuildColumns(worksheet);
+        var axisState = worksheet.CaptureAxisStyleState();
+        var columns = BuildColumns(worksheet, axisState, styleTable);
         if (columns.HasChildren)
         {
             result.Append(columns);
@@ -330,11 +404,22 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                     row.CustomHeight = true;
                 }
             }
+            var rowOperations = FindAxisOperations(axisState.RowSpans, rowIndex);
+            if (rowOperations.Length > 0)
+            {
+                row.StyleIndex = styleTable.GetOrAddStyle(ComposeAxisOperations(rowOperations));
+                row.CustomFormat = true;
+            }
             if (usedByRow.TryGetValue(rowIndex, out var cells))
             {
                 foreach (var pair in cells)
                 {
-                    row.Append(BuildCell(pair.Key, pair.Value, options));
+                    row.Append(BuildCell(
+                        pair.Key,
+                        pair.Value,
+                        catalog,
+                        styleTable,
+                        options));
                 }
             }
             sheetData.Append(row);
@@ -360,13 +445,34 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         result.Append(mergeCells);
     }
 
-    private static Columns BuildColumns(NeraWorksheet worksheet)
+    private static Columns BuildColumns(
+        NeraWorksheet worksheet,
+        WorksheetAxisStyleState axisState,
+        OpenXmlStyleTable styleTable)
     {
         var columns = new Columns();
+        foreach (var span in axisState.ColumnSpans)
+        {
+            columns.Append(new Column
+            {
+                Min = checked((uint)(span.StartIndex + 1)),
+                Max = checked((uint)(span.EndIndex + 1)),
+                Style = styleTable.GetOrAddStyle(ComposeAxisOperations(span.Operations)),
+            });
+        }
         foreach (var pair in worksheet.Dimensions.GetColumnOverrides().OrderBy(pair => pair.Key))
         {
-            var oneBased = (uint)(pair.Key + 1);
-            var column = new Column { Min = oneBased, Max = oneBased, CustomWidth = true };
+            var oneBased = checked((uint)(pair.Key + 1));
+            var operations = FindAxisOperations(axisState.ColumnSpans, pair.Key);
+            var column = new Column
+            {
+                Min = oneBased,
+                Max = oneBased,
+                CustomWidth = true,
+                Style = operations.Length > 0
+                    ? styleTable.GetOrAddStyle(ComposeAxisOperations(operations))
+                    : null,
+            };
             if (pair.Value <= 0d)
             {
                 column.Hidden = true;
@@ -381,9 +487,18 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         return columns;
     }
 
-    private static Cell BuildCell(CellAddress address, CellData data, OpenXmlExportOptions options)
+    private static Cell BuildCell(
+        CellAddress address,
+        CellData data,
+        CellStyleCatalog catalog,
+        OpenXmlStyleTable styleTable,
+        OpenXmlExportOptions options)
     {
         var cell = new Cell { CellReference = address.ToA1() };
+        if (data.StyleId != CellStyleCatalog.DefaultStyleId)
+        {
+            cell.StyleIndex = styleTable.GetOrAddStyle(catalog.Get(data.StyleId));
+        }
         if (data.Formula is not null)
         {
             cell.CellFormula = new CellFormula(data.Formula.StartsWith('=') ? data.Formula[1..] : data.Formula);
@@ -395,6 +510,43 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         }
         ApplyValue(cell, data.Value, isFormulaResult: false);
         return cell;
+    }
+
+    private static WorksheetAxisStyleOperation[] FindAxisOperations(
+        WorksheetAxisStyleSpan[] spans,
+        int index)
+    {
+        var low = 0;
+        var high = spans.Length - 1;
+        while (low <= high)
+        {
+            var middle = low + ((high - low) / 2);
+            var span = spans[middle];
+            if (index < span.StartIndex)
+            {
+                high = middle - 1;
+            }
+            else if (index > span.EndIndex)
+            {
+                low = middle + 1;
+            }
+            else
+            {
+                return span.Operations;
+            }
+        }
+        return [];
+    }
+
+    private static CellStyle ComposeAxisOperations(
+        WorksheetAxisStyleOperation[] operations)
+    {
+        var style = CellStyle.Default;
+        foreach (var operation in operations)
+        {
+            style = operation.Patch.Apply(style);
+        }
+        return style;
     }
 
     private static void ApplyValue(Cell cell, NeraCellValue value, bool isFormulaResult)
