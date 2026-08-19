@@ -11,11 +11,12 @@ namespace NeraSpreadSheet.Rendering.Skia;
 public sealed class SkiaDisplayListRenderer : IDisposable
 {
     private readonly Dictionary<TypefaceKey, SKTypeface> _typefaces = [];
+    private readonly HashSet<TypefaceKey> _defaultTypefaceKeys = [];
     private readonly SKPaint _paint = new() { IsAntialias = true };
     private readonly SKFont _font = new();
     private bool _disposed;
 
-    public int CachedTypefaceCount => _typefaces.Count;
+    public int CachedTypefaceCount => _typefaces.Count + _defaultTypefaceKeys.Count;
 
     public void Render(SKCanvas canvas, DisplayList displayList)
     {
@@ -33,6 +34,7 @@ public sealed class SkiaDisplayListRenderer : IDisposable
             typeface.Dispose();
         }
         _typefaces.Clear();
+        _defaultTypefaceKeys.Clear();
     }
 
     public void Dispose()
@@ -219,18 +221,26 @@ public sealed class SkiaDisplayListRenderer : IDisposable
     private SKTypeface ResolveTypeface(TextStyle style)
     {
         var key = new TypefaceKey(style.FontFamily, style.FontWeight);
-        if (_typefaces.TryGetValue(key, out var typeface))
+        if (_typefaces.TryGetValue(key, out var cachedTypeface))
         {
-            return typeface;
+            return cachedTypeface;
+        }
+        if (_defaultTypefaceKeys.Contains(key))
+        {
+            return SKTypeface.Default;
         }
 
         var fontStyle = new SKFontStyle(
             Math.Clamp(style.FontWeight, 1, 1000),
             (int)SKFontStyleWidth.Normal,
             SKFontStyleSlant.Upright);
-        typeface = SKTypeface.FromFamilyName(style.FontFamily, fontStyle)
+        var typeface = SKTypeface.FromFamilyName(style.FontFamily, fontStyle)
             ?? SKTypeface.Default;
-        if (!ReferenceEquals(typeface, SKTypeface.Default))
+        if (ReferenceEquals(typeface, SKTypeface.Default))
+        {
+            _defaultTypefaceKeys.Add(key);
+        }
+        else
         {
             _typefaces.Add(key, typeface);
         }
