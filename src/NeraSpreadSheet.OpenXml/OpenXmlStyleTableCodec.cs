@@ -423,9 +423,7 @@ internal sealed class OpenXmlStyleTable
             return existing;
         }
         var id = checked((uint)ids.Count);
-        var element = new OpenXmlFont(
-            new FontName { Val = font.Family },
-            new FontSize { Val = font.Size });
+        var element = new OpenXmlFont();
         if (font.Weight >= 600)
         {
             element.Append(new Bold());
@@ -438,7 +436,9 @@ internal sealed class OpenXmlStyleTable
         {
             element.Append(new Underline());
         }
+        element.Append(new FontSize { Val = font.Size });
         element.Append(new Color { Rgb = ToArgb(font.Color) });
+        element.Append(new FontName { Val = font.Family });
         fonts.Append(element);
         ids.Add(font, id);
         return id;
