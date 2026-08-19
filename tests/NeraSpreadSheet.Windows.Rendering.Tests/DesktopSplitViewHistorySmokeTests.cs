@@ -48,7 +48,8 @@ public sealed class DesktopSplitViewHistorySmokeTests
             form.Show();
             WinFormsApplication.DoEvents();
 
-            using var split = control.EnableSplitPanes(
+            using var split = NeraSpreadSheet.WinForms.NeraSpreadsheetSplitExtensions.EnableSplitPanes(
+                control,
                 NeraSpreadSheet.WinForms.SpreadsheetSplitPaneMode.Both);
             split.RenderNow();
             session.View.ClearSplitViewHistory();
@@ -119,7 +120,8 @@ public sealed class DesktopSplitViewHistorySmokeTests
             {
                 window.Show();
                 PumpDispatcher();
-                using var split = control.EnableSplitPanes(
+                using var split = NeraSpreadSheet.Wpf.NeraSpreadsheetSplitExtensions.EnableSplitPanes(
+                    control,
                     NeraSpreadSheet.Wpf.SpreadsheetSplitPaneMode.Both);
                 split.RenderNow();
                 session.View.ClearSplitViewHistory();
