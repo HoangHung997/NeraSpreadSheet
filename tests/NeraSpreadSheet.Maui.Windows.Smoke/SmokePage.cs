@@ -26,6 +26,8 @@ internal sealed class SmokePage : ContentPage
     private IElementHandler? _firstHandler;
     private object? _firstPlatformView;
     private GRContext? _firstContext;
+    private NeraGpuContextDiagnostics _firstGpuDiagnostics;
+    private NeraGpuContextDiagnostics _lostGpuDiagnostics;
     private int _stage;
     private int _frameCount;
     private int _finished;
@@ -120,6 +122,26 @@ internal sealed class SmokePage : ContentPage
             "The workbook did not create a spreadsheet session.");
         Require(view.CachedTypefaceCount > 0,
             "The rendered spreadsheet did not exercise the Skia typeface cache.");
+
+        var diagnostics = view.GpuContextDiagnostics;
+        Require(diagnostics.HasActiveContext,
+            "The production view did not retain its active GPU context.");
+        Require(!diagnostics.HasActiveFrame,
+            "The production view leaked an active GPU frame after PaintSurface.");
+        Require(diagnostics.ContextGeneration > 0L,
+            "The production view did not create a GPU context generation.");
+        Require(diagnostics.FramesCompleted > 0L,
+            "The production view did not complete a tracked GPU frame.");
+        Require(diagnostics.FramesFailed == 0L,
+            "The production view reported a failed GPU frame.");
+        Require(diagnostics.StaleFrameTransitionsRejected == 0L,
+            "The production view rejected a stale GPU frame transition.");
+        Require(
+            diagnostics.FramesStarted ==
+            diagnostics.FramesCompleted +
+            diagnostics.FramesFailed +
+            diagnostics.FramesAbandoned,
+            "The production GPU frame accounting is unbalanced.");
     }
 
     private void CaptureFirstFrame(NeraSpreadsheetView view)
@@ -127,6 +149,7 @@ internal sealed class SmokePage : ContentPage
         _firstHandler = view.Handler;
         _firstPlatformView = view.Handler?.PlatformView;
         _firstContext = view.GRContext;
+        _firstGpuDiagnostics = view.GpuContextDiagnostics;
         _stage = 1;
     }
 
@@ -161,23 +184,26 @@ internal sealed class SmokePage : ContentPage
             $"Fractional vertical scroll did not reach {ExpectedOffsetY}.");
     }
 
-    private void QueueSurfaceRecreation(NeraSpreadsheetView oldView)
+    private void QueueSurfaceRecreation(NeraSpreadsheetView view)
     {
         _stage = 2;
-        _view = null;
         Dispatcher.Dispatch(() =>
         {
             try
             {
-                oldView.PaintSurface -= OnPaintSurface;
-                oldView.Loaded -= OnViewLoaded;
-                _host.Children.Remove(oldView);
-                oldView.Handler?.DisconnectHandler();
-                oldView.Dispose();
+                _host.Children.Remove(view);
+                view.Handler = null!;
+                _lostGpuDiagnostics = view.GpuContextDiagnostics;
+                Require(!_lostGpuDiagnostics.HasActiveContext,
+                    "The detached view retained a stale GPU context.");
+                Require(!_lostGpuDiagnostics.HasActiveFrame,
+                    "The detached view retained a stale GPU frame.");
+                Require(
+                    _lostGpuDiagnostics.ContextLostCount >
+                    _firstGpuDiagnostics.ContextLostCount,
+                    "Handler detachment did not record GPU context loss.");
 
-                var replacement = CreateView();
-                _view = replacement;
-                _host.Children.Add(replacement);
+                _host.Children.Add(view);
             }
             catch (Exception exception)
             {
@@ -190,18 +216,36 @@ internal sealed class SmokePage : ContentPage
     {
         Require(_firstHandler is not null &&
                 !ReferenceEquals(_firstHandler, view.Handler),
-            "The replacement view reused the disconnected MAUI handler.");
+            "The same view reused its disconnected MAUI handler.");
         Require(_firstPlatformView is not null &&
                 !ReferenceEquals(_firstPlatformView, view.Handler?.PlatformView),
-            "The replacement view reused the disconnected native surface.");
+            "The same view reused its disconnected native surface.");
         Require(_firstContext is not null &&
                 !ReferenceEquals(_firstContext, view.GRContext),
-            "The replacement native surface did not create a new Skia GRContext.");
-        Require(Math.Abs(view.Zoom - 1d) <= 1e-9,
-            "The replacement view did not start with an independent zoom state.");
-        Require(Math.Abs(view.ScrollSnapshot.OffsetX) <= 1e-9 &&
-                Math.Abs(view.ScrollSnapshot.OffsetY) <= 1e-9,
-            "The replacement view did not start with independent scroll state.");
+            "The same view did not receive a recreated Skia GRContext.");
+
+        var diagnostics = view.GpuContextDiagnostics;
+        Require(
+            diagnostics.ContextGeneration >
+            _firstGpuDiagnostics.ContextGeneration,
+            "The recreated context did not advance its generation.");
+        Require(
+            diagnostics.ContextCreatedCount >
+            _firstGpuDiagnostics.ContextCreatedCount,
+            "The recreated context was not counted as a new context.");
+        Require(
+            diagnostics.ContextRecreatedCount >
+            _firstGpuDiagnostics.ContextRecreatedCount,
+            "The production lifecycle did not record context recreation.");
+        Require(
+            diagnostics.ContextLostCount >=
+            _lostGpuDiagnostics.ContextLostCount,
+            "The recreated view lost its recorded context-loss history.");
+        Require(Math.Abs(view.Zoom - ExpectedZoom) <= 1e-9,
+            "The same view lost its zoom state during handler recreation.");
+        Require(Math.Abs(view.ScrollSnapshot.OffsetX - ExpectedOffsetX) <= 1e-6 &&
+                Math.Abs(view.ScrollSnapshot.OffsetY - ExpectedOffsetY) <= 1e-6,
+            "The same view lost its fractional scroll state during handler recreation.");
     }
 
     private void CompleteSuccessfully(
@@ -223,9 +267,21 @@ internal sealed class SmokePage : ContentPage
             offsetX = ExpectedOffsetX,
             offsetY = ExpectedOffsetY,
             firstHandler = RuntimeHelpers.GetHashCode(_firstHandler!),
-            replacementHandler = RuntimeHelpers.GetHashCode(view.Handler!),
+            recreatedHandler = RuntimeHelpers.GetHashCode(view.Handler!),
             firstContext = RuntimeHelpers.GetHashCode(_firstContext!),
-            replacementContext = RuntimeHelpers.GetHashCode(view.GRContext!),
+            recreatedContext = RuntimeHelpers.GetHashCode(view.GRContext!),
+            firstContextGeneration = _firstGpuDiagnostics.ContextGeneration,
+            recreatedContextGeneration =
+                view.GpuContextDiagnostics.ContextGeneration,
+            contextCreatedCount =
+                view.GpuContextDiagnostics.ContextCreatedCount,
+            contextLostCount =
+                view.GpuContextDiagnostics.ContextLostCount,
+            contextRecreatedCount =
+                view.GpuContextDiagnostics.ContextRecreatedCount,
+            framesStarted = view.GpuContextDiagnostics.FramesStarted,
+            framesCompleted = view.GpuContextDiagnostics.FramesCompleted,
+            framesAbandoned = view.GpuContextDiagnostics.FramesAbandoned,
             cachedTypefaces = view.CachedTypefaceCount,
         });
         Environment.Exit(0);

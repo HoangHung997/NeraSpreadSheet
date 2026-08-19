@@ -32,6 +32,7 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
 
     private readonly ContinuousScrollController _scroll = new();
     private readonly SkiaDisplayListRenderer _renderer = new();
+    private readonly NeraGpuContextLifecycle _gpuLifecycle = new();
     private readonly Dictionary<long, SKPoint> _touches = [];
     private SpreadsheetSession? _session;
     private SpreadsheetViewportEngine? _viewport;
@@ -92,6 +93,9 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
     }
 
     public int CachedTypefaceCount => _renderer.CachedTypefaceCount;
+
+    public NeraGpuContextDiagnostics GpuContextDiagnostics =>
+        _gpuLifecycle.Diagnostics;
 
     public event EventHandler? ZoomChanged;
 
@@ -190,55 +194,101 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
 
     protected override void OnPaintSurface(SKPaintGLSurfaceEventArgs e)
     {
-        var canvas = e.Surface.Canvas;
-        canvas.Clear(ToSkColor(_renderTheme.Background));
-        _lastSurfaceWidth = e.Info.Width;
-        _lastSurfaceHeight = e.Info.Height;
-
-        if (!_disposed && _session is not null && e.Info.Width > 0 && e.Info.Height > 0)
+        var context = GRContext;
+        var gpuFrame = default(NeraGpuFrameToken);
+        if (!_disposed)
         {
-            EnsureWorksheetSubscription();
-            var fullWidth = e.Info.Width / _zoom;
-            var fullHeight = e.Info.Height / _zoom;
-            var chrome = SpreadsheetChromeGeometry.Calculate(
-                fullWidth,
-                fullHeight,
-                _renderTheme);
-            _lastBodyWidth = chrome.BodyWidth;
-            _lastBodyHeight = chrome.BodyHeight;
-            AdvanceAnimatedScroll();
-
-            if (chrome.BodyWidth > 0d && chrome.BodyHeight > 0d)
+            if (context is null)
             {
-                var viewport = EnsureViewport();
-                var scroll = _scroll.Snapshot;
-                var frame = viewport.Compose(
-                    scroll.OffsetX,
-                    scroll.OffsetY,
-                    chrome.BodyWidth,
-                    chrome.BodyHeight,
-                    ValidateOverscan(OverscanPixels),
-                    _renderTheme);
-                var displayList = SpreadsheetChromeDisplayListComposer.Compose(
-                    frame.DisplayList,
-                    frame.Layout,
-                    _session.Selection.Capture(),
-                    _renderTheme);
+                _gpuLifecycle.NotifyContextLost();
+            }
+            else
+            {
+                gpuFrame = _gpuLifecycle.BeginFrame(context);
+            }
+        }
 
-                canvas.Save();
-                canvas.Scale((float)_zoom);
-                try
+        var renderSucceeded = false;
+        try
+        {
+            var canvas = e.Surface.Canvas;
+            canvas.Clear(ToSkColor(_renderTheme.Background));
+            _lastSurfaceWidth = e.Info.Width;
+            _lastSurfaceHeight = e.Info.Height;
+
+            if (!_disposed &&
+                _session is not null &&
+                e.Info.Width > 0 &&
+                e.Info.Height > 0)
+            {
+                EnsureWorksheetSubscription();
+                var fullWidth = e.Info.Width / _zoom;
+                var fullHeight = e.Info.Height / _zoom;
+                var chrome = SpreadsheetChromeGeometry.Calculate(
+                    fullWidth,
+                    fullHeight,
+                    _renderTheme);
+                _lastBodyWidth = chrome.BodyWidth;
+                _lastBodyHeight = chrome.BodyHeight;
+                AdvanceAnimatedScroll();
+
+                if (chrome.BodyWidth > 0d && chrome.BodyHeight > 0d)
                 {
-                    _renderer.Render(canvas, displayList);
+                    var viewport = EnsureViewport();
+                    var scroll = _scroll.Snapshot;
+                    var frame = viewport.Compose(
+                        scroll.OffsetX,
+                        scroll.OffsetY,
+                        chrome.BodyWidth,
+                        chrome.BodyHeight,
+                        ValidateOverscan(OverscanPixels),
+                        _renderTheme);
+                    var displayList = SpreadsheetChromeDisplayListComposer.Compose(
+                        frame.DisplayList,
+                        frame.Layout,
+                        _session.Selection.Capture(),
+                        _renderTheme);
+
+                    canvas.Save();
+                    canvas.Scale((float)_zoom);
+                    try
+                    {
+                        _renderer.Render(canvas, displayList);
+                    }
+                    finally
+                    {
+                        canvas.Restore();
+                    }
                 }
-                finally
+            }
+            renderSucceeded = true;
+        }
+        finally
+        {
+            if (gpuFrame.IsValid)
+            {
+                var transitioned = renderSucceeded
+                    ? _gpuLifecycle.TryCompleteFrame(gpuFrame)
+                    : _gpuLifecycle.TryFailFrame(gpuFrame);
+                if (renderSucceeded && !transitioned)
                 {
-                    canvas.Restore();
+                    throw new InvalidOperationException(
+                        "The MAUI GPU context changed before the Nera frame completed.");
                 }
             }
         }
 
         base.OnPaintSurface(e);
+    }
+
+    protected override void OnHandlerChanging(HandlerChangingEventArgs args)
+    {
+        if (args.OldHandler is not null &&
+            !ReferenceEquals(args.OldHandler, args.NewHandler))
+        {
+            _gpuLifecycle.NotifyContextLost();
+        }
+        base.OnHandlerChanging(args);
     }
 
     protected override void OnTouch(SKTouchEventArgs e)
@@ -277,6 +327,7 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
         }
 
         _disposed = true;
+        _gpuLifecycle.Dispose();
         DetachSession();
         _renderer.Dispose();
         _touches.Clear();
