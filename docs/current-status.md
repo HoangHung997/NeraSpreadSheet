@@ -90,22 +90,68 @@ Full semantics: `docs/whole-axis-style-contract.md`.
 - XML, base64 and JSON failures are normalized to `InvalidDataException` before workbook restoration.
 - Payload, catalog, worksheet and span counts are bounded against malformed-package allocation attacks.
 
-### MAUI native GPU/touch host and context lifecycle
+### MAUI native GPU/touch host, production input and context lifecycle
 
 - `NeraSpreadsheetView` is one public `SKGLView`; it never creates a native control per cell.
 - The control binds a Nera `Workbook`, owns a `SpreadsheetSession`/viewport engine and consumes the same spreadsheet display-list composer as desktop hosts.
-- It provides continuous pan/wheel scrolling, anchored pinch zoom, tap selection, hit testing, configurable overscan/theme and renderer diagnostics.
 - `UseNeraSpreadSheet()` registers SkiaSharp's platform-owned `SKGLView` handler graph.
 - Windows, Android, iOS and Mac Catalyst targets compile against their real MAUI workloads in CI.
+
+#### GPU context and frame lifecycle
+
 - `NeraGpuContextLifecycle` serializes context/frame transitions per view with monotonically increasing context generations.
 - Every production paint starts a frame lease bound to the current `GRContext`; completion from a stale generation is rejected.
 - Handler detach/replacement records context loss before the old native surface is released.
 - Context replacement abandons any still-active old frame; successful, failed, abandoned and stale transitions are independently diagnosed.
 - Dispose is idempotent and prevents new frame leases.
-- A loaded unpackaged MAUI Windows application validates a real native `SKGLView`/SwapChain surface and live `GRContext`.
-- The runtime gate mutates workbook/view state, detaches the handler from the same `NeraSpreadsheetView`, then reattaches that same control.
-- It verifies new handler, platform surface and `GRContext` identities; generation `1 -> 2`; created/lost/recreated counts `2/1/1`; six started and six completed frames; zero abandoned frames; preserved zoom `1.375`; and preserved fractional offsets `17.25 / 31.75`.
 - Production `PaintSurface` observers run only after the lifecycle has completed the tracked frame, so diagnostics cannot report a leaked active frame.
+
+#### Production pointer state machine
+
+- `NeraSpreadsheetInputController` owns the touch/wheel state used directly by `NeraSpreadsheetView.OnTouch`.
+- Platform events and deterministic tests enter through the same `Process(SKTouchEventArgs)` method; there is no second gesture model for tests.
+- The controller implements continuous fractional-pixel pan, anchored pinch zoom, wheel scaling by current zoom, tap selection, cancellation and explicit gesture reset.
+- Pointer identity and press order are stable without creating LINQ arrays on every move.
+- When one pointer leaves a three-pointer gesture and two remain, pinch is rebased to the remaining pair instead of reusing a stale anchor.
+- Duplicate/unknown pointer transitions are ignored and diagnosed rather than mutating active gesture state.
+- Handler changes, workbook changes, worksheet changes and view reset clear in-progress gestures before the affected state changes.
+- Public diagnostics expose event counts, pan/pinch/tap counts, ignored events, resets and current active-touch state.
+
+#### Automated input tests
+
+- Tap below movement threshold selects the release point.
+- Pan preserves fractional offsets and suppresses tap.
+- Pinch preserves its document anchor.
+- Wheel delta is normalized by current zoom.
+- Cancelled pinch transitions the remaining pointer into pan without a false tap.
+- A remaining two-pointer gesture is rebased after one of three pointers is released.
+- `CancelAll` and dispose clear state and reject later input as specified.
+- The MAUI Windows test assembly currently contains 14 passing tests: two handler tests, five GPU lifecycle tests and seven input-controller tests.
+
+#### Loaded native MAUI Windows runtime gate
+
+A loaded unpackaged MAUI Windows application validates the public view, native surface, production input path, resize and same-view context recreation together.
+
+The gate:
+
+1. opens a real native `SKGLView`/SwapChain surface with a live `GRContext`;
+2. sends deterministic `SKTouchEventArgs` through `NeraSpreadsheetView.ProcessTouchInput`, which is also the path used by `OnTouch`;
+3. performs pinch to zoom `1.375`, pan to fractional offsets `17.25 / 31.75` and a corner tap selection;
+4. mutates workbook data and renders the result;
+5. resizes the native surface from `944 x 600` to `784 x 480`;
+6. detaches the handler from the same `NeraSpreadsheetView`, verifies context loss/no active frame and reattaches that same control;
+7. verifies a new handler, platform surface and `GRContext`, context generation `1 -> 2`, and the resized surface remains `784 x 480`;
+8. verifies zoom, fractional offsets, workbook/session state and cleared pointer state survive recreation.
+
+Validated runtime diagnostics:
+
+- frames started/completed/abandoned: `9 / 9 / 0`;
+- context created/lost/recreated: `2 / 1 / 1`;
+- input press/move/release: `4 / 2 / 4`;
+- input pan/pinch/tap updates: `1 / 1 / 1`;
+- active touches after the sequence: `0`;
+- stale GPU-frame transitions: `0`;
+- cached typefaces: `1`.
 
 ## Implemented but intentionally conservative
 
@@ -118,21 +164,23 @@ Full semantics: `docs/whole-axis-style-contract.md`.
 - Conservative full invalidation remains where retained correctness is not yet proven.
 - The Skia renderer is caller-owned-canvas and thread-affine; each platform host owns its GPU context lifecycle.
 - Hosted CI deterministically exercises context/device recreation, but cannot guarantee physical driver removal or every OS-controlled loss mode.
-- Sustained FPS, input latency, touch-device behavior and power use still require target-hardware benchmarks.
-- The loaded Windows smoke invokes public viewport methods and real rendering/lifecycle paths; deterministic native pointer injection for pan/pinch/tap remains a separate gate.
+- Sustained FPS, input latency, physical touch-device behavior and power use still require target-hardware benchmarks.
+- The loaded Windows smoke uses the real production input state machine and native rendering, but it is not global OS pointer injection.
 
 ## Next implementation work
 
-1. Add deterministic production input-state-machine gates for MAUI pan, pinch, wheel and tap, then device/emulator runtime execution where hosted infrastructure is reliable.
-2. Add resize/DPI/orientation stress around repeated MAUI handler and context recreation.
-3. Preserve unknown OpenXml parts and extend XLSX support for shared formulas, conditional formatting, validation, tables and drawings.
-4. Add filters, advanced sorting, printing, page layout, preview and PDF export.
-5. Add charts, pivot/slicers, accessibility, packaging and sustained-performance hardening.
+1. Extend the loaded MAUI gate with wheel animation completion and repeated resize/context-recreation cycles.
+2. Add DPI/display-scale and orientation/size-class transitions around context recreation.
+3. Add real device/emulator execution and native pointer injection where hosted infrastructure is reliable.
+4. Preserve unknown OpenXml parts and extend XLSX support for shared formulas, conditional formatting, validation, tables and drawings.
+5. Add filters, advanced sorting, printing, page layout, preview and PDF export.
+6. Add charts, pivot/slicers, accessibility, packaging and sustained-performance hardening.
 
 ## Not implemented yet
 
 - Complete Excel themes, named styles, differential/conditional styles and unknown-part preservation.
-- Deterministic native MAUI pointer injection/device execution across all supported platforms.
+- Global native MAUI pointer injection/device execution across all supported platforms.
+- Repeated MAUI resize/DPI/orientation stress across multiple context generations.
 - Shared formulas, validation, tables, drawings, charts, macros and complete dynamic arrays.
 - Complete Excel-compatible function and format-code surfaces.
 - AutoFilter/filter UI, advanced sort, printing, page layout, preview and PDF export.
@@ -144,8 +192,10 @@ Full semantics: `docs/whole-axis-style-contract.md`.
 - `NeraSpreadSheet.slnx` must restore/build on Windows and all tests must pass.
 - Architecture verification and Windows desktop GPU/runtime smoke are mandatory.
 - Skia rendering requires cross-platform raster, bounded-resource, DPI and failure-recovery gates.
-- MAUI changes require real platform builds; production lifecycle claims additionally require a loaded native runtime gate.
+- MAUI changes require real platform builds; production lifecycle/input claims additionally require the loaded native runtime gate.
 - MAUI context diagnostics must finish every started frame exactly once as completed, failed or abandoned, and stale transitions must never mutate the active generation.
+- Production pointer tests must call the same controller used by `OnTouch`; test-only gesture implementations are prohibited.
+- Loaded input gates must finish with zero active touches and no stale pinch/tap state before handler recreation.
 - Whole-axis style requires no-materialization, chronological composition, direct override, structural mapping, exact history, snapshot cache and renderer tests.
 - Split-view history must remain isolated per worksheet and from data history.
 - XLSX style-state must pass schema validation, direct-style round-trip, sparse no-flattening and malformed-input rejection gates.
@@ -153,13 +203,13 @@ Full semantics: `docs/whole-axis-style-contract.md`.
 
 ## Latest validated implementation milestone
 
-CI run #435 (`32265344228`) passed at exact-head commit `61c871fe3eeccbe0189ac862a4f4c473b8a1cf00` on August 19, 2026:
+CI run #438 (`32270133783`) passed at implementation commit `a4174b54acea452cf312a2741680947a38a60139` on August 19, 2026:
 
 - Core restore/build/tests and architecture verification passed.
 - Full Windows restore/build/test and mandatory desktop GPU/runtime smoke passed.
 - MAUI Android, iOS and Mac Catalyst real-target builds passed.
-- MAUI Windows real-target build and seven lifecycle/handler unit tests passed.
-- The loaded native MAUI Windows runtime smoke passed after same-view handler and `GRContext` recreation.
+- MAUI Windows real-target build and all 14 MAUI tests passed.
+- The loaded native MAUI Windows runtime gate passed production pinch, pan, tap, resize and same-view handler/`GRContext` recreation.
 - Exact sparse XLSX style fidelity and malformed-input hardening remained green.
 
 The PR remains Draft and has not been merged into `develop`.
