@@ -1,5 +1,7 @@
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Validation;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
@@ -72,6 +74,7 @@ public sealed class StyleRoundTripTests
         stream.Position = 0L;
         using (var document = SpreadsheetDocument.Open(stream, false))
         {
+            AssertSchemaValid(document);
             var workbookPart = document.WorkbookPart
                 ?? throw new AssertFailedException("Workbook part was not written.");
             Assert.IsNotNull(workbookPart.WorkbookStylesPart?.Stylesheet);
@@ -135,6 +138,7 @@ public sealed class StyleRoundTripTests
         stream.Position = 0L;
         using (var document = SpreadsheetDocument.Open(stream, false))
         {
+            AssertSchemaValid(document);
             var workbookPart = document.WorkbookPart
                 ?? throw new AssertFailedException("Workbook part was not written.");
             var worksheetPart = workbookPart.WorksheetParts.Single();
@@ -160,5 +164,16 @@ public sealed class StyleRoundTripTests
         Assert.AreEqual(
             expectedColumnOnly,
             loadedSheet.GetEffectiveStyle(new CellAddress(5, 3), loaded.Styles));
+    }
+
+    private static void AssertSchemaValid(SpreadsheetDocument document)
+    {
+        var errors = new OpenXmlValidator(FileFormatVersions.Office2013)
+            .Validate(document)
+            .ToArray();
+        Assert.AreEqual(
+            0,
+            errors.Length,
+            string.Join(Environment.NewLine, errors.Select(static error => error.Description)));
     }
 }
