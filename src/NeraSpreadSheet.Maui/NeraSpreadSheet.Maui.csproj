@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
-    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows')) and '$(NeraMauiTargetFrameworks)' == ''">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(NeraMauiTargetFrameworks)' != ''">$(NeraMauiTargetFrameworks)</TargetFrameworks>
     <UseMaui>true</UseMaui>
     <Description>.NET MAUI GPU/touch host for NeraSpreadSheet.</Description>
     <PackageId>NeraSpreadSheet.Maui</PackageId>
