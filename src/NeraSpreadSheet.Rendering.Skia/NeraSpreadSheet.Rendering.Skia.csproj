@@ -1,10 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <Description>Skia GPU backend boundary for NeraSpreadSheet.</Description>
+    <Description>Skia display-list renderer for NeraSpreadSheet.</Description>
     <PackageId>NeraSpreadSheet.Rendering.Skia</PackageId>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
     <ProjectReference Include="../NeraSpreadSheet.Rendering.Abstractions/NeraSpreadSheet.Rendering.Abstractions.csproj" />
   </ItemGroup>
 </Project>
