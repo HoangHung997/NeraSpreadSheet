@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using NeraSpreadSheet.Core;
+using NeraCellStyle = NeraSpreadSheet.Core.CellStyle;
 using NeraCellValue = NeraSpreadSheet.Core.CellValue;
 using NeraWorkbook = NeraSpreadSheet.Core.Workbook;
 using NeraWorksheet = NeraSpreadSheet.Core.Worksheet;
@@ -326,7 +327,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                         WorksheetAxis.Column,
                         first,
                         last,
-                        CellStylePatch.FromDifference(CellStyle.Default, style));
+                        CellStylePatch.FromDifference(NeraCellStyle.Default, style));
                 }
             }
         }
@@ -359,7 +360,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                     WorksheetAxis.Row,
                     rowIndex,
                     rowIndex,
-                    CellStylePatch.FromDifference(CellStyle.Default, style));
+                    CellStylePatch.FromDifference(NeraCellStyle.Default, style));
             }
         }
     }
@@ -538,10 +539,10 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         return [];
     }
 
-    private static CellStyle ComposeAxisOperations(
+    private static NeraCellStyle ComposeAxisOperations(
         WorksheetAxisStyleOperation[] operations)
     {
-        var style = CellStyle.Default;
+        var style = NeraCellStyle.Default;
         foreach (var operation in operations)
         {
             style = operation.Patch.Apply(style);
