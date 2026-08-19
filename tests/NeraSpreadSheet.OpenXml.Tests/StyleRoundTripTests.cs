@@ -75,9 +75,11 @@ public sealed class StyleRoundTripTests
             var workbookPart = document.WorkbookPart
                 ?? throw new AssertFailedException("Workbook part was not written.");
             Assert.IsNotNull(workbookPart.WorkbookStylesPart?.Stylesheet);
-            var cell = workbookPart.WorksheetParts
+            var openXmlWorksheet = workbookPart.WorksheetParts
                 .Single()
                 .Worksheet
+                ?? throw new AssertFailedException("Worksheet markup was not written.");
+            var cell = openXmlWorksheet
                 .Descendants<OpenXmlCell>()
                 .Single(candidate => candidate.CellReference?.Value == "D3");
             Assert.IsTrue((cell.StyleIndex?.Value ?? 0U) > 0U);
