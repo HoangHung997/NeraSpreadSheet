@@ -33,29 +33,31 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
     private readonly ContinuousScrollController _scroll = new();
     private readonly SkiaDisplayListRenderer _renderer = new();
     private readonly NeraGpuContextLifecycle _gpuLifecycle = new();
-    private readonly Dictionary<long, SKPoint> _touches = [];
+    private readonly NeraSpreadsheetInputController _input;
     private SpreadsheetSession? _session;
     private SpreadsheetViewportEngine? _viewport;
     private Worksheet? _subscribedWorksheet;
     private SpreadsheetRenderTheme _renderTheme = new() { ShowHeaders = true };
-    private ScrollSnapshot _panStartScroll;
-    private SKPoint _panStartPoint;
-    private double _pinchStartDistance;
-    private double _pinchStartZoom = 1d;
-    private double _pinchAnchorDocumentX;
-    private double _pinchAnchorDocumentY;
     private double _lastSurfaceWidth;
     private double _lastSurfaceHeight;
     private double _lastBodyWidth;
     private double _lastBodyHeight;
     private double _zoom = 1d;
     private long _lastPaintTimestamp = Stopwatch.GetTimestamp();
-    private bool _pinching;
-    private bool _tapEligible;
     private bool _disposed;
 
     public NeraSpreadsheetView()
     {
+        _input = new NeraSpreadsheetInputController(
+            CaptureInputState,
+            GetInputChrome,
+            () => WheelPixelsPerNotch,
+            (offsetX, offsetY) => ScrollTo(offsetX, offsetY, animated: false),
+            ApplyInputZoom,
+            QueueInputWheel,
+            SelectAt,
+            MinimumZoom,
+            MaximumZoom);
         IgnorePixelScaling = true;
         EnableTouchEvents = true;
         HasRenderLoop = false;
@@ -96,6 +98,9 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
 
     public NeraGpuContextDiagnostics GpuContextDiagnostics =>
         _gpuLifecycle.Diagnostics;
+
+    public NeraSpreadsheetInputDiagnostics InputDiagnostics =>
+        _input.Diagnostics;
 
     public event EventHandler? ZoomChanged;
 
@@ -152,6 +157,7 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
     public void ResetView()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        _input.CancelAll();
         _zoom = 1d;
         _scroll.Reset();
         HasRenderLoop = false;
@@ -209,6 +215,7 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
         }
 
         var renderSucceeded = false;
+        var successfulFrameTransitionRejected = false;
         try
         {
             var canvas = e.Surface.Canvas;
@@ -270,12 +277,15 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
                 var transitioned = renderSucceeded
                     ? _gpuLifecycle.TryCompleteFrame(gpuFrame)
                     : _gpuLifecycle.TryFailFrame(gpuFrame);
-                if (renderSucceeded && !transitioned)
-                {
-                    throw new InvalidOperationException(
-                        "The MAUI GPU context changed before the Nera frame completed.");
-                }
+                successfulFrameTransitionRejected =
+                    renderSucceeded && !transitioned;
             }
+        }
+
+        if (successfulFrameTransitionRejected)
+        {
+            throw new InvalidOperationException(
+                "The MAUI GPU context changed before the Nera frame completed.");
         }
 
         base.OnPaintSurface(e);
@@ -283,6 +293,7 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
 
     protected override void OnHandlerChanging(HandlerChangingEventArgs args)
     {
+        _input.CancelAll();
         if (args.OldHandler is not null &&
             !ReferenceEquals(args.OldHandler, args.NewHandler))
         {
@@ -295,28 +306,17 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
     {
         if (!_disposed)
         {
-            switch (e.ActionType)
-            {
-                case SKTouchAction.Pressed:
-                    HandlePressed(e);
-                    break;
-                case SKTouchAction.Moved:
-                    HandleMoved(e);
-                    break;
-                case SKTouchAction.Released:
-                    HandleReleased(e);
-                    break;
-                case SKTouchAction.Cancelled:
-                case SKTouchAction.Exited:
-                    HandleCancelled(e.Id);
-                    break;
-                case SKTouchAction.WheelChanged:
-                    HandleWheel(e.WheelDelta);
-                    break;
-            }
-            e.Handled = true;
+            ProcessTouchInput(e);
         }
         base.OnTouch(e);
+    }
+
+    internal void ProcessTouchInput(SKTouchEventArgs input)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(input);
+        _input.Process(input);
+        input.Handled = true;
     }
 
     public void Dispose()
@@ -327,10 +327,10 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
         }
 
         _disposed = true;
+        _input.Dispose();
         _gpuLifecycle.Dispose();
         DetachSession();
         _renderer.Dispose();
-        _touches.Clear();
         HasRenderLoop = false;
         GC.SuppressFinalize(this);
     }
@@ -346,6 +346,7 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
     private void SetWorkbookCore(Workbook? workbook)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        _input.CancelAll();
         if (ReferenceEquals(_session?.Workbook, workbook))
         {
             return;
@@ -408,6 +409,7 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
 
     private void OnActiveWorksheetChanged(object? sender, EventArgs e)
     {
+        _input.CancelAll();
         EnsureWorksheetSubscription();
         _viewport?.InvalidateMetrics();
         _scroll.Reset();
@@ -475,164 +477,42 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
             _renderTheme);
     }
 
-    private void HandlePressed(SKTouchEventArgs e)
+    private NeraSpreadsheetInputState CaptureInputState()
     {
-        _touches[e.Id] = e.Location;
-        if (_touches.Count == 1)
-        {
-            BeginPan(e.Location);
-            _tapEligible = true;
-        }
-        else if (_touches.Count == 2)
-        {
-            _tapEligible = false;
-            BeginPinch();
-        }
-        else
-        {
-            _tapEligible = false;
-        }
+        var scroll = _scroll.Snapshot;
+        return new NeraSpreadsheetInputState(
+            _zoom,
+            scroll.OffsetX,
+            scroll.OffsetY);
     }
 
-    private void HandleMoved(SKTouchEventArgs e)
+    private NeraSpreadsheetInputChrome GetInputChrome(double zoom)
     {
-        if (!_touches.ContainsKey(e.Id))
-        {
-            return;
-        }
-        _touches[e.Id] = e.Location;
-        if (_touches.Count >= 2)
-        {
-            UpdatePinch();
-        }
-        else
-        {
-            UpdatePan(e.Location);
-        }
+        var chrome = GetChromeMetrics(zoom);
+        return new NeraSpreadsheetInputChrome(
+            chrome.RowHeaderWidth,
+            chrome.ColumnHeaderHeight);
     }
 
-    private void HandleReleased(SKTouchEventArgs e)
+    private void ApplyInputZoom(
+        double zoom,
+        double offsetX,
+        double offsetY)
     {
-        if (!_touches.ContainsKey(e.Id))
-        {
-            return;
-        }
-
-        _touches[e.Id] = e.Location;
-        var shouldTap = _touches.Count == 1 && _tapEligible && !_pinching;
-        if (shouldTap)
-        {
-            SelectAt(e.Location);
-        }
-        _touches.Remove(e.Id);
-
-        if (_touches.Count == 1)
-        {
-            _pinching = false;
-            BeginPan(_touches.Values.First());
-            _tapEligible = false;
-        }
-        else if (_touches.Count == 0)
-        {
-            _pinching = false;
-            _tapEligible = false;
-        }
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _zoom = zoom;
+        ScrollTo(offsetX, offsetY, animated: false);
+        ZoomChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private void HandleCancelled(long id)
+    private void QueueInputWheel(double delta)
     {
-        _touches.Remove(id);
-        if (_touches.Count == 1)
-        {
-            _pinching = false;
-            BeginPan(_touches.Values.First());
-        }
-        else if (_touches.Count == 0)
-        {
-            _pinching = false;
-        }
-        _tapEligible = false;
-    }
-
-    private void HandleWheel(int wheelDelta)
-    {
-        if (wheelDelta == 0)
-        {
-            return;
-        }
-        var delta = -(wheelDelta / 120d) * ValidateWheelPixels(WheelPixelsPerNotch) / _zoom;
-        _scroll.QueueDelta(new ScrollDelta(0d, delta, ScrollInputKind.Wheel));
+        _scroll.QueueDelta(new ScrollDelta(
+            0d,
+            delta,
+            ScrollInputKind.Wheel));
         HasRenderLoop = true;
         InvalidateSurface();
-    }
-
-    private void BeginPan(SKPoint point)
-    {
-        _panStartPoint = point;
-        _panStartScroll = _scroll.Snapshot;
-    }
-
-    private void UpdatePan(SKPoint point)
-    {
-        var deltaX = point.X - _panStartPoint.X;
-        var deltaY = point.Y - _panStartPoint.Y;
-        if ((deltaX * deltaX) + (deltaY * deltaY) > 9f)
-        {
-            _tapEligible = false;
-        }
-        ScrollTo(
-            _panStartScroll.OffsetX - (deltaX / _zoom),
-            _panStartScroll.OffsetY - (deltaY / _zoom),
-            animated: false);
-    }
-
-    private void BeginPinch()
-    {
-        var points = _touches.Values.Take(2).ToArray();
-        if (points.Length < 2)
-        {
-            return;
-        }
-
-        _pinching = true;
-        _pinchStartDistance = Math.Max(1d, Distance(points[0], points[1]));
-        _pinchStartZoom = _zoom;
-        var midpoint = Midpoint(points[0], points[1]);
-        var chrome = GetChromeMetrics(_zoom);
-        var scroll = _scroll.Snapshot;
-        _pinchAnchorDocumentX = scroll.OffsetX +
-            Math.Max(0d, (midpoint.X / _zoom) - chrome.RowHeaderWidth);
-        _pinchAnchorDocumentY = scroll.OffsetY +
-            Math.Max(0d, (midpoint.Y / _zoom) - chrome.ColumnHeaderHeight);
-    }
-
-    private void UpdatePinch()
-    {
-        var points = _touches.Values.Take(2).ToArray();
-        if (points.Length < 2)
-        {
-            return;
-        }
-        if (!_pinching)
-        {
-            BeginPinch();
-        }
-
-        var distance = Math.Max(1d, Distance(points[0], points[1]));
-        var nextZoom = Math.Clamp(
-            _pinchStartZoom * (distance / _pinchStartDistance),
-            MinimumZoom,
-            MaximumZoom);
-        var midpoint = Midpoint(points[0], points[1]);
-        _zoom = nextZoom;
-        var chrome = GetChromeMetrics(nextZoom);
-        var nextX = _pinchAnchorDocumentX -
-            Math.Max(0d, (midpoint.X / nextZoom) - chrome.RowHeaderWidth);
-        var nextY = _pinchAnchorDocumentY -
-            Math.Max(0d, (midpoint.Y / nextZoom) - chrome.ColumnHeaderHeight);
-        ScrollTo(Math.Max(0d, nextX), Math.Max(0d, nextY), animated: false);
-        ZoomChanged?.Invoke(this, EventArgs.Empty);
-        _tapEligible = false;
     }
 
     private void SelectAt(SKPoint screenPoint)
@@ -682,30 +562,11 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
         }
     }
 
-    private static double Distance(SKPoint first, SKPoint second)
-    {
-        var deltaX = second.X - first.X;
-        var deltaY = second.Y - first.Y;
-        return Math.Sqrt((deltaX * deltaX) + (deltaY * deltaY));
-    }
-
-    private static SKPoint Midpoint(SKPoint first, SKPoint second) =>
-        new((first.X + second.X) / 2f, (first.Y + second.Y) / 2f);
-
     private static double ValidateOverscan(double value)
     {
         if (!double.IsFinite(value) || value < 0d)
         {
             throw new InvalidOperationException("OverscanPixels must be finite and non-negative.");
-        }
-        return value;
-    }
-
-    private static double ValidateWheelPixels(double value)
-    {
-        if (!double.IsFinite(value) || value <= 0d)
-        {
-            throw new InvalidOperationException("WheelPixelsPerNotch must be finite and positive.");
         }
         return value;
     }

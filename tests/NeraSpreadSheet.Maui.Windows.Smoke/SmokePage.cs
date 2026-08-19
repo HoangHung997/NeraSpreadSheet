@@ -28,10 +28,16 @@ internal sealed class SmokePage : ContentPage
     private GRContext? _firstContext;
     private NeraGpuContextDiagnostics _firstGpuDiagnostics;
     private NeraGpuContextDiagnostics _lostGpuDiagnostics;
+    private int _firstFrameWidth;
+    private int _firstFrameHeight;
+    private int _resizedFrameWidth;
+    private int _resizedFrameHeight;
     private int _stage;
     private int _frameCount;
     private int _finished;
-    private bool _mutationApplied;
+    private bool _inputApplied;
+    private bool _resizeApplied;
+    private bool _recreationApplied;
 
     public SmokePage()
     {
@@ -85,15 +91,19 @@ internal sealed class SmokePage : ContentPage
             switch (_stage)
             {
                 case 0:
-                    CaptureFirstFrame(view);
-                    QueueViewportMutation(view);
+                    CaptureFirstFrame(view, e);
+                    QueueInputMutation(view);
                     break;
-                case 1 when _mutationApplied:
-                    ValidateViewportMutation(view);
+                case 1 when _inputApplied:
+                    ValidateInputMutation(view);
+                    QueueResize(view);
+                    break;
+                case 2 when _resizeApplied && IsResizedFrame(e):
+                    ValidateResizedFrame(e);
                     QueueSurfaceRecreation(view);
                     break;
-                case 2:
-                    ValidateRecreatedSurface(view);
+                case 3 when _recreationApplied && IsRecreatedResizedFrame(e):
+                    ValidateRecreatedSurface(view, e);
                     CompleteSuccessfully(view, e);
                     break;
             }
@@ -144,27 +154,32 @@ internal sealed class SmokePage : ContentPage
             "The production GPU frame accounting is unbalanced.");
     }
 
-    private void CaptureFirstFrame(NeraSpreadsheetView view)
+    private void CaptureFirstFrame(
+        NeraSpreadsheetView view,
+        SKPaintGLSurfaceEventArgs e)
     {
         _firstHandler = view.Handler;
         _firstPlatformView = view.Handler?.PlatformView;
         _firstContext = view.GRContext;
         _firstGpuDiagnostics = view.GpuContextDiagnostics;
+        _firstFrameWidth = e.Info.Width;
+        _firstFrameHeight = e.Info.Height;
         _stage = 1;
     }
 
-    private void QueueViewportMutation(NeraSpreadsheetView view)
+    private void QueueInputMutation(NeraSpreadsheetView view)
     {
         Dispatcher.Dispatch(() =>
         {
             try
             {
-                view.ZoomTo(ExpectedZoom, 320d, 220d);
-                view.ScrollTo(ExpectedOffsetX, ExpectedOffsetY, animated: false);
+                ApplyPinch(view);
+                ApplyPanTo(view, ExpectedOffsetX, ExpectedOffsetY);
+                ApplyCornerTap(view);
                 _workbook.Worksheets[0].SetValue(
                     new CellAddress(0, 0),
-                    "Nera MAUI mutation rendered");
-                _mutationApplied = true;
+                    "Nera MAUI production input rendered");
+                _inputApplied = true;
                 view.InvalidateSurface();
             }
             catch (Exception exception)
@@ -174,19 +189,131 @@ internal sealed class SmokePage : ContentPage
         });
     }
 
-    private static void ValidateViewportMutation(NeraSpreadsheetView view)
+    private static void ValidateInputMutation(NeraSpreadsheetView view)
     {
-        Require(Math.Abs(view.Zoom - ExpectedZoom) <= 1e-9,
-            $"Anchored zoom did not reach {ExpectedZoom}.");
-        Require(Math.Abs(view.ScrollSnapshot.OffsetX - ExpectedOffsetX) <= 1e-6,
-            $"Fractional horizontal scroll did not reach {ExpectedOffsetX}.");
-        Require(Math.Abs(view.ScrollSnapshot.OffsetY - ExpectedOffsetY) <= 1e-6,
-            $"Fractional vertical scroll did not reach {ExpectedOffsetY}.");
+        Require(Math.Abs(view.Zoom - ExpectedZoom) <= 1e-6,
+            $"Production pinch did not reach {ExpectedZoom}.");
+        Require(Math.Abs(view.ScrollSnapshot.OffsetX - ExpectedOffsetX) <= 1e-4,
+            $"Production pan did not reach horizontal offset {ExpectedOffsetX}.");
+        Require(Math.Abs(view.ScrollSnapshot.OffsetY - ExpectedOffsetY) <= 1e-4,
+            $"Production pan did not reach vertical offset {ExpectedOffsetY}.");
+
+        var diagnostics = view.InputDiagnostics;
+        Require(diagnostics.PressedEvents >= 4L,
+            "Production input did not receive all deterministic presses.");
+        Require(diagnostics.MovedEvents >= 2L,
+            "Production input did not receive deterministic pan/pinch movement.");
+        Require(diagnostics.ReleasedEvents >= 4L,
+            "Production input did not receive all deterministic releases.");
+        Require(diagnostics.PanUpdates >= 1L,
+            "Production input did not execute a pan update.");
+        Require(diagnostics.PinchUpdates >= 1L,
+            "Production input did not execute a pinch update.");
+        Require(diagnostics.TapSelections >= 1L,
+            "Production input did not execute tap selection.");
+        Require(diagnostics.ActiveTouchCount == 0,
+            "Production input retained active pointers after release.");
+        Require(!diagnostics.IsPinching && !diagnostics.IsTapEligible,
+            "Production input retained stale gesture state.");
+    }
+
+    private static void ApplyPinch(NeraSpreadsheetView view)
+    {
+        var first = new SKPoint(200f, 220f);
+        var second = new SKPoint(300f, 220f);
+        var expandedSecond = new SKPoint(
+            first.X + (float)(100d * ExpectedZoom),
+            second.Y);
+
+        ProcessTouch(view, 101L, SKTouchAction.Pressed, first, true);
+        ProcessTouch(view, 102L, SKTouchAction.Pressed, second, true);
+        ProcessTouch(view, 102L, SKTouchAction.Moved, expandedSecond, true);
+        ProcessTouch(view, 102L, SKTouchAction.Released, expandedSecond, false);
+        ProcessTouch(view, 101L, SKTouchAction.Released, first, false);
+    }
+
+    private static void ApplyPanTo(
+        NeraSpreadsheetView view,
+        double targetX,
+        double targetY)
+    {
+        var before = view.ScrollSnapshot;
+        var start = new SKPoint(500f, 400f);
+        var end = new SKPoint(
+            start.X + (float)((before.OffsetX - targetX) * view.Zoom),
+            start.Y + (float)((before.OffsetY - targetY) * view.Zoom));
+
+        ProcessTouch(view, 103L, SKTouchAction.Pressed, start, true);
+        ProcessTouch(view, 103L, SKTouchAction.Moved, end, true);
+        ProcessTouch(view, 103L, SKTouchAction.Released, end, false);
+    }
+
+    private static void ApplyCornerTap(NeraSpreadsheetView view)
+    {
+        var point = new SKPoint(5f, 5f);
+        ProcessTouch(view, 104L, SKTouchAction.Pressed, point, true);
+        ProcessTouch(view, 104L, SKTouchAction.Released, point, false);
+    }
+
+    private static void ProcessTouch(
+        NeraSpreadsheetView view,
+        long id,
+        SKTouchAction action,
+        SKPoint point,
+        bool inContact)
+    {
+        var input = new SKTouchEventArgs(
+            id,
+            action,
+            SKMouseButton.Left,
+            SKTouchDeviceType.Touch,
+            point,
+            inContact);
+        view.ProcessTouchInput(input);
+        Require(input.Handled,
+            "The production input path did not mark the pointer event handled.");
+    }
+
+    private void QueueResize(NeraSpreadsheetView view)
+    {
+        _stage = 2;
+        Dispatcher.Dispatch(() =>
+        {
+            try
+            {
+                view.HorizontalOptions = LayoutOptions.Start;
+                view.VerticalOptions = LayoutOptions.Start;
+                view.WidthRequest = Math.Max(360d, _firstFrameWidth - 160d);
+                view.HeightRequest = Math.Max(260d, _firstFrameHeight - 120d);
+                _resizeApplied = true;
+                view.InvalidateSurface();
+            }
+            catch (Exception exception)
+            {
+                Fail(exception);
+            }
+        });
+    }
+
+    private bool IsResizedFrame(SKPaintGLSurfaceEventArgs e) =>
+        e.Info.Width > 0 &&
+        e.Info.Height > 0 &&
+        e.Info.Width < _firstFrameWidth &&
+        e.Info.Height < _firstFrameHeight;
+
+    private void ValidateResizedFrame(SKPaintGLSurfaceEventArgs e)
+    {
+        _resizedFrameWidth = e.Info.Width;
+        _resizedFrameHeight = e.Info.Height;
+        Require(_resizedFrameWidth >= 360,
+            "The resized native surface became unexpectedly narrow.");
+        Require(_resizedFrameHeight >= 260,
+            "The resized native surface became unexpectedly short.");
     }
 
     private void QueueSurfaceRecreation(NeraSpreadsheetView view)
     {
-        _stage = 2;
+        _stage = 3;
         Dispatcher.Dispatch(() =>
         {
             try
@@ -203,6 +330,7 @@ internal sealed class SmokePage : ContentPage
                     _firstGpuDiagnostics.ContextLostCount,
                     "Handler detachment did not record GPU context loss.");
 
+                _recreationApplied = true;
                 _host.Children.Add(view);
             }
             catch (Exception exception)
@@ -212,7 +340,13 @@ internal sealed class SmokePage : ContentPage
         });
     }
 
-    private void ValidateRecreatedSurface(NeraSpreadsheetView view)
+    private bool IsRecreatedResizedFrame(SKPaintGLSurfaceEventArgs e) =>
+        Math.Abs(e.Info.Width - _resizedFrameWidth) <= 1 &&
+        Math.Abs(e.Info.Height - _resizedFrameHeight) <= 1;
+
+    private void ValidateRecreatedSurface(
+        NeraSpreadsheetView view,
+        SKPaintGLSurfaceEventArgs e)
     {
         Require(_firstHandler is not null &&
                 !ReferenceEquals(_firstHandler, view.Handler),
@@ -243,9 +377,16 @@ internal sealed class SmokePage : ContentPage
             "The recreated view lost its recorded context-loss history.");
         Require(Math.Abs(view.Zoom - ExpectedZoom) <= 1e-9,
             "The same view lost its zoom state during handler recreation.");
-        Require(Math.Abs(view.ScrollSnapshot.OffsetX - ExpectedOffsetX) <= 1e-6 &&
-                Math.Abs(view.ScrollSnapshot.OffsetY - ExpectedOffsetY) <= 1e-6,
+        Require(Math.Abs(view.ScrollSnapshot.OffsetX - ExpectedOffsetX) <= 1e-4 &&
+                Math.Abs(view.ScrollSnapshot.OffsetY - ExpectedOffsetY) <= 1e-4,
             "The same view lost its fractional scroll state during handler recreation.");
+        Require(Math.Abs(e.Info.Width - _resizedFrameWidth) <= 1 &&
+                Math.Abs(e.Info.Height - _resizedFrameHeight) <= 1,
+            "The recreated native surface lost its resized dimensions.");
+
+        var input = view.InputDiagnostics;
+        Require(input.ActiveTouchCount == 0 && !input.IsPinching,
+            "Handler recreation restored stale production input state.");
     }
 
     private void CompleteSuccessfully(
@@ -261,8 +402,12 @@ internal sealed class SmokePage : ContentPage
         {
             status = "success",
             frameCount = _frameCount,
-            width = e.Info.Width,
-            height = e.Info.Height,
+            firstWidth = _firstFrameWidth,
+            firstHeight = _firstFrameHeight,
+            resizedWidth = _resizedFrameWidth,
+            resizedHeight = _resizedFrameHeight,
+            recreatedWidth = e.Info.Width,
+            recreatedHeight = e.Info.Height,
             zoom = ExpectedZoom,
             offsetX = ExpectedOffsetX,
             offsetY = ExpectedOffsetY,
@@ -282,6 +427,13 @@ internal sealed class SmokePage : ContentPage
             framesStarted = view.GpuContextDiagnostics.FramesStarted,
             framesCompleted = view.GpuContextDiagnostics.FramesCompleted,
             framesAbandoned = view.GpuContextDiagnostics.FramesAbandoned,
+            inputPressed = view.InputDiagnostics.PressedEvents,
+            inputMoved = view.InputDiagnostics.MovedEvents,
+            inputReleased = view.InputDiagnostics.ReleasedEvents,
+            inputPanUpdates = view.InputDiagnostics.PanUpdates,
+            inputPinchUpdates = view.InputDiagnostics.PinchUpdates,
+            inputTapSelections = view.InputDiagnostics.TapSelections,
+            inputGestureResets = view.InputDiagnostics.GestureResetCount,
             cachedTypefaces = view.CachedTypefaceCount,
         });
         Environment.Exit(0);
