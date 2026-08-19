@@ -170,7 +170,13 @@ public sealed class SkiaDisplayListRenderer : IDisposable
                 var candidate = line.Length == 0 ? word : $"{line} {word}";
                 if (line.Length > 0 && _font.MeasureText(candidate) > maxWidth)
                 {
-                    canvas.DrawText(line, (float)bounds.Left, baselineY, _font, _paint);
+                    canvas.DrawText(
+                        line,
+                        (float)bounds.Left,
+                        baselineY,
+                        SKTextAlign.Left,
+                        _font,
+                        _paint);
                     baselineY += lineHeight;
                     if (baselineY > maxY)
                     {
@@ -186,7 +192,13 @@ public sealed class SkiaDisplayListRenderer : IDisposable
 
             if (line.Length > 0 && baselineY <= maxY)
             {
-                canvas.DrawText(line, (float)bounds.Left, baselineY, _font, _paint);
+                canvas.DrawText(
+                    line,
+                    (float)bounds.Left,
+                    baselineY,
+                    SKTextAlign.Left,
+                    _font,
+                    _paint);
                 baselineY += lineHeight;
             }
         }
@@ -195,7 +207,13 @@ public sealed class SkiaDisplayListRenderer : IDisposable
     private void DrawTextLine(SKCanvas canvas, string text, double x, double y)
     {
         var baseline = checked((float)y) - _font.Metrics.Ascent;
-        canvas.DrawText(text, checked((float)x), baseline, _font, _paint);
+        canvas.DrawText(
+            text,
+            checked((float)x),
+            baseline,
+            SKTextAlign.Left,
+            _font,
+            _paint);
     }
 
     private SKTypeface ResolveTypeface(TextStyle style)
