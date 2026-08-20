@@ -253,10 +253,7 @@ public sealed class Worksheet
             }
         }
 
-        Version++;
-        CellsChanged?.Invoke(
-            this,
-            new CellsChangedEventArgs(range, Version));
+        PublishChange(range);
     }
 
     public bool UnmergeCells(CellRange range)
@@ -266,10 +263,7 @@ public sealed class Worksheet
             return false;
         }
 
-        Version++;
-        CellsChanged?.Invoke(
-            this,
-            new CellsChangedEventArgs(range, Version));
+        PublishChange(range);
         return true;
     }
 
@@ -350,13 +344,9 @@ public sealed class Worksheet
             return;
         }
 
-        Version++;
-        var range = new CellRange(
+        PublishChange(new CellRange(
             new CellAddress(top, left),
-            new CellAddress(bottom, right));
-        CellsChanged?.Invoke(
-            this,
-            new CellsChangedEventArgs(range, Version));
+            new CellAddress(bottom, right)));
     }
 
     internal WorksheetAxisStyleState
@@ -773,6 +763,7 @@ public sealed class Worksheet
 
     private void PublishChange(CellRange range)
     {
+        range = _conditionalFormatting.ExpandSignalRange(range);
         Version++;
         CellsChanged?.Invoke(
             this,

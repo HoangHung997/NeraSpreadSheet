@@ -18,11 +18,6 @@ public enum ConditionalFormattingOperator
     NotBetween,
 }
 
-/// <summary>
-/// A workbook-independent conditional-formatting rule. Formula text is stored
-/// in Nera form with a leading '=' and is anchored to the top-left cell of the
-/// first range.
-/// </summary>
 public sealed record ConditionalFormattingRule
 {
     public const int MaxRangesPerRule = 1_024;
@@ -194,10 +189,6 @@ public sealed record ConditionalFormattingRule
     }
 }
 
-/// <summary>
-/// Per-worksheet differential-style catalog. XLSX export deduplicates these
-/// local patches again into the workbook-wide dxfs table.
-/// </summary>
 public sealed class DifferentialStyleCatalog
 {
     private readonly List<CellStylePatch> _styles = [];
@@ -350,6 +341,33 @@ internal sealed class WorksheetConditionalFormattingCollection
         {
             Add(rule, differentialStyles);
         }
+    }
+
+    public CellRange ExpandSignalRange(CellRange source)
+    {
+        if (_rules.Count == 0)
+        {
+            return source;
+        }
+
+        var top = source.Top;
+        var left = source.Left;
+        var bottom = source.Bottom;
+        var right = source.Right;
+        foreach (var rule in _rules)
+        {
+            foreach (var range in rule.Ranges)
+            {
+                top = Math.Min(top, range.Top);
+                left = Math.Min(left, range.Left);
+                bottom = Math.Max(bottom, range.Bottom);
+                right = Math.Max(right, range.Right);
+            }
+        }
+
+        return new CellRange(
+            new CellAddress(top, left),
+            new CellAddress(bottom, right));
     }
 
     public ConditionalFormattingRule[] CreateStructuralRules(
