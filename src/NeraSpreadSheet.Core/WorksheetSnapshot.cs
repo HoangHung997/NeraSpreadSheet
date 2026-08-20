@@ -11,6 +11,9 @@ public sealed class WorksheetSnapshot
     private readonly CellRange[] _mergedCells;
     private readonly WorksheetAxisStyleSpan[] _rowStyleSpans;
     private readonly WorksheetAxisStyleSpan[] _columnStyleSpans;
+    private readonly ConditionalFormattingRule[]
+        _conditionalFormattingRules;
+    private readonly CellStylePatch[] _differentialStyles;
     private readonly ConcurrentDictionary<AxisStyleCacheKey, CellStyle>
         _axisStyleCache = new();
 
@@ -24,7 +27,9 @@ public sealed class WorksheetSnapshot
         IReadOnlyDictionary<int, double> columnWidths,
         CellRange[] mergedCells,
         WorksheetAxisStyleSpan[] rowStyleSpans,
-        WorksheetAxisStyleSpan[] columnStyleSpans)
+        WorksheetAxisStyleSpan[] columnStyleSpans,
+        ConditionalFormattingRule[] conditionalFormattingRules,
+        CellStylePatch[] differentialStyles)
     {
         Name = name;
         Version = version;
@@ -40,6 +45,11 @@ public sealed class WorksheetSnapshot
         _columnStyleSpans = columnStyleSpans
             .Select(static span => span.Clone())
             .ToArray();
+        _conditionalFormattingRules = conditionalFormattingRules
+            .Select(static rule => rule.Clone())
+            .OrderBy(static rule => rule.Priority)
+            .ToArray();
+        _differentialStyles = [.. differentialStyles];
     }
 
     public string Name { get; }
@@ -52,6 +62,12 @@ public sealed class WorksheetSnapshot
 
     public int ColumnStyleSpanCount => _columnStyleSpans.Length;
 
+    public int ConditionalFormattingRuleCount =>
+        _conditionalFormattingRules.Length;
+
+    public int DifferentialStyleCount =>
+        _differentialStyles.Length;
+
     public double DefaultRowHeight { get; }
 
     public double DefaultColumnWidth { get; }
@@ -62,7 +78,12 @@ public sealed class WorksheetSnapshot
 
     public IReadOnlyList<CellRange> MergedCells => _mergedCells;
 
-    internal int AxisStyleCacheEntryCount => _axisStyleCache.Count;
+    public IReadOnlyList<ConditionalFormattingRule>
+        ConditionalFormattingRules =>
+        _conditionalFormattingRules;
+
+    internal int AxisStyleCacheEntryCount =>
+        _axisStyleCache.Count;
 
     public CellData GetCell(CellAddress address) =>
         _cells.GetValueOrDefault(address, CellData.Empty);
@@ -80,8 +101,12 @@ public sealed class WorksheetSnapshot
         }
 
         var key = new AxisStyleCacheKey(
-            FindOperations(_rowStyleSpans, address.RowIndex),
-            FindOperations(_columnStyleSpans, address.ColumnIndex));
+            FindOperations(
+                _rowStyleSpans,
+                address.RowIndex),
+            FindOperations(
+                _columnStyleSpans,
+                address.ColumnIndex));
         return _axisStyleCache.GetOrAdd(
             key,
             static cacheKey => ComposeAxisStyle(
@@ -89,10 +114,39 @@ public sealed class WorksheetSnapshot
                 cacheKey.ColumnOperations));
     }
 
-    public IEnumerable<KeyValuePair<CellAddress, CellData>>
-        EnumerateUsedCells() => _cells;
+    public CellStylePatch GetDifferentialStyle(
+        int styleId)
+    {
+        if ((uint)styleId >=
+            (uint)_differentialStyles.Length)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(styleId));
+        }
 
-    public bool TryGetMergedRange(CellAddress address, out CellRange range)
+        return _differentialStyles[styleId];
+    }
+
+    public IEnumerable<ConditionalFormattingRule>
+        EnumerateConditionalFormattingRules(
+            CellAddress address)
+    {
+        foreach (var rule in _conditionalFormattingRules)
+        {
+            if (rule.AppliesTo(address))
+            {
+                yield return rule;
+            }
+        }
+    }
+
+    public IEnumerable<KeyValuePair<CellAddress, CellData>>
+        EnumerateUsedCells() =>
+        _cells;
+
+    public bool TryGetMergedRange(
+        CellAddress address,
+        out CellRange range)
     {
         foreach (var candidate in _mergedCells)
         {
@@ -107,22 +161,33 @@ public sealed class WorksheetSnapshot
         return false;
     }
 
-    public static WorksheetSnapshot Capture(Worksheet worksheet)
+    public static WorksheetSnapshot Capture(
+        Worksheet worksheet)
     {
         ArgumentNullException.ThrowIfNull(worksheet);
-        var cells = new ReadOnlyDictionary<CellAddress, CellData>(
-            worksheet.EnumerateUsedCells().ToDictionary(
-                static pair => pair.Key,
-                static pair => pair.Value));
-        var rows = new ReadOnlyDictionary<int, double>(
-            worksheet.Dimensions.GetRowOverrides().ToDictionary(
-                static pair => pair.Key,
-                static pair => pair.Value));
-        var columns = new ReadOnlyDictionary<int, double>(
-            worksheet.Dimensions.GetColumnOverrides().ToDictionary(
-                static pair => pair.Key,
-                static pair => pair.Value));
-        var axisStyles = worksheet.CaptureAxisStyleState();
+        var cells =
+            new ReadOnlyDictionary<CellAddress, CellData>(
+                worksheet
+                    .EnumerateUsedCells()
+                    .ToDictionary(
+                        static pair => pair.Key,
+                        static pair => pair.Value));
+        var rows =
+            new ReadOnlyDictionary<int, double>(
+                worksheet.Dimensions
+                    .GetRowOverrides()
+                    .ToDictionary(
+                        static pair => pair.Key,
+                        static pair => pair.Value));
+        var columns =
+            new ReadOnlyDictionary<int, double>(
+                worksheet.Dimensions
+                    .GetColumnOverrides()
+                    .ToDictionary(
+                        static pair => pair.Key,
+                        static pair => pair.Value));
+        var axisStyles =
+            worksheet.CaptureAxisStyleState();
 
         return new WorksheetSnapshot(
             worksheet.Name,
@@ -134,23 +199,28 @@ public sealed class WorksheetSnapshot
             columns,
             [.. worksheet.MergedCells.Ranges],
             axisStyles.RowSpans,
-            axisStyles.ColumnSpans);
+            axisStyles.ColumnSpans,
+            [.. worksheet.ConditionalFormattingRules],
+            [.. worksheet.DifferentialStyles.Snapshot()]);
     }
 
-    private CellAddress ResolveMergedAnchor(CellAddress address) =>
+    private CellAddress ResolveMergedAnchor(
+        CellAddress address) =>
         TryGetMergedRange(address, out var range)
             ? range.TopLeft
             : address;
 
-    private static WorksheetAxisStyleOperation[] FindOperations(
-        WorksheetAxisStyleSpan[] spans,
-        int index)
+    private static WorksheetAxisStyleOperation[]
+        FindOperations(
+            WorksheetAxisStyleSpan[] spans,
+            int index)
     {
         var low = 0;
         var high = spans.Length - 1;
         while (low <= high)
         {
-            var middle = low + ((high - low) / 2);
+            var middle =
+                low + ((high - low) / 2);
             var span = spans[middle];
             if (index < span.StartIndex)
             {
@@ -165,6 +235,7 @@ public sealed class WorksheetSnapshot
                 return span.Operations;
             }
         }
+
         return EmptyAxisStyleOperations;
     }
 
@@ -190,8 +261,10 @@ public sealed class WorksheetSnapshot
             {
                 operation = columnOperations[columnIndex++];
             }
+
             style = operation.Patch.Apply(style);
         }
+
         return style;
     }
 

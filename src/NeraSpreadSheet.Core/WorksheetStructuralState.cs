@@ -7,4 +7,5 @@ internal sealed record WorksheetStructuralState(
     CellRange[] MergedCells,
     WorksheetAxisStyleSpan[] RowStyleSpans,
     WorksheetAxisStyleSpan[] ColumnStyleSpans,
-    long NextAxisStyleSequence);
+    long NextAxisStyleSequence,
+    ConditionalFormattingRule[] ConditionalFormattingRules);

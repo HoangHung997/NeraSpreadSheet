@@ -4,7 +4,9 @@ namespace NeraSpreadSheet.Core;
 
 public sealed class CellsChangedEventArgs : EventArgs
 {
-    public CellsChangedEventArgs(CellRange range, long worksheetVersion)
+    public CellsChangedEventArgs(
+        CellRange range,
+        long worksheetVersion)
     {
         Range = range;
         WorksheetVersion = worksheetVersion;
@@ -24,6 +26,8 @@ public sealed class Worksheet
         SpreadsheetLimits.MaxRows);
     private readonly WorksheetAxisStyleMap _columnStyles = new(
         SpreadsheetLimits.MaxColumns);
+    private readonly WorksheetConditionalFormattingCollection
+        _conditionalFormatting = new();
     private long _nextAxisStyleSequence = 1L;
 
     internal Worksheet(string name)
@@ -31,6 +35,7 @@ public sealed class Worksheet
         Name = name;
         Dimensions = new WorksheetDimensions();
         MergedCells = new MergedCellRanges();
+        DifferentialStyles = new DifferentialStyleCatalog();
     }
 
     public string Name { get; internal set; }
@@ -39,6 +44,8 @@ public sealed class Worksheet
 
     public MergedCellRanges MergedCells { get; }
 
+    public DifferentialStyleCatalog DifferentialStyles { get; }
+
     public long Version { get; private set; }
 
     public int UsedCellCount => _cells.Count;
@@ -46,6 +53,13 @@ public sealed class Worksheet
     public int RowStyleSpanCount => _rowStyles.SpanCount;
 
     public int ColumnStyleSpanCount => _columnStyles.SpanCount;
+
+    public int ConditionalFormattingRuleCount =>
+        _conditionalFormatting.Count;
+
+    public IReadOnlyList<ConditionalFormattingRule>
+        ConditionalFormattingRules =>
+        _conditionalFormatting.Rules;
 
     public event EventHandler<CellsChangedEventArgs>? CellsChanged;
 
@@ -75,7 +89,9 @@ public sealed class Worksheet
             _columnStyles.GetOperations(address.ColumnIndex));
     }
 
-    public bool TryGetCell(CellAddress address, out CellData cellData)
+    public bool TryGetCell(
+        CellAddress address,
+        out CellData cellData)
     {
         if (_cells.TryGetValue(address, out var stored))
         {
@@ -87,10 +103,12 @@ public sealed class Worksheet
         return false;
     }
 
-    public IEnumerable<KeyValuePair<CellAddress, CellData>> EnumerateUsedCells() =>
+    public IEnumerable<KeyValuePair<CellAddress, CellData>>
+        EnumerateUsedCells() =>
         _cells;
 
-    public CellAddress ResolveMergedAnchor(CellAddress address) =>
+    public CellAddress ResolveMergedAnchor(
+        CellAddress address) =>
         MergedCells.TryGetContaining(address, out var range)
             ? range.TopLeft
             : address;
@@ -99,19 +117,25 @@ public sealed class Worksheet
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         var normalized = name.Trim();
-        if (normalized.Length > SpreadsheetLimits.MaxWorksheetNameLength)
+        if (normalized.Length >
+            SpreadsheetLimits.MaxWorksheetNameLength)
         {
             throw new ArgumentException(
-                $"Worksheet names cannot exceed {SpreadsheetLimits.MaxWorksheetNameLength} characters.",
+                $"Worksheet names cannot exceed " +
+                $"{SpreadsheetLimits.MaxWorksheetNameLength} characters.",
                 nameof(name));
         }
-        if (normalized.AsSpan().IndexOfAny(InvalidNameCharacters) >= 0)
+
+        if (normalized.AsSpan()
+            .IndexOfAny(InvalidNameCharacters) >= 0)
         {
             throw new ArgumentException(
                 "Worksheet name contains an invalid character.",
                 nameof(name));
         }
-        if (normalized.StartsWith('\'') || normalized.EndsWith('\''))
+
+        if (normalized.StartsWith('\'') ||
+            normalized.EndsWith('\''))
         {
             throw new ArgumentException(
                 "Worksheet name cannot start or end with an apostrophe.",
@@ -121,7 +145,9 @@ public sealed class Worksheet
         Name = normalized;
     }
 
-    public void SetValue(CellAddress address, object? value)
+    public void SetValue(
+        CellAddress address,
+        object? value)
     {
         address = ResolveMergedAnchor(address);
         var current = GetCell(address);
@@ -132,28 +158,81 @@ public sealed class Worksheet
                 styleId: current.StyleId));
     }
 
-    public void SetFormula(CellAddress address, string formula)
+    public void SetFormula(
+        CellAddress address,
+        string formula)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(formula);
         address = ResolveMergedAnchor(address);
-        var normalized = formula.StartsWith('=') ? formula : $"={formula}";
+        var normalized = formula.StartsWith('=')
+            ? formula
+            : $"={formula}";
         var current = GetCell(address);
         SetCell(
             address,
-            new CellData(current.Value, normalized, current.StyleId));
+            new CellData(
+                current.Value,
+                normalized,
+                current.StyleId));
     }
 
-    public void SetStyle(CellAddress address, int styleId)
+    public void SetStyle(
+        CellAddress address,
+        int styleId)
     {
         address = ResolveMergedAnchor(address);
         var current = GetCell(address);
         SetCell(
             address,
-            new CellData(current.Value, current.Formula, styleId));
+            new CellData(
+                current.Value,
+                current.Formula,
+                styleId));
     }
 
     public void Clear(CellAddress address) =>
-        SetCell(ResolveMergedAnchor(address), CellData.Empty);
+        SetCell(
+            ResolveMergedAnchor(address),
+            CellData.Empty);
+
+    public void AddConditionalFormattingRule(
+        ConditionalFormattingRule rule)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+        _conditionalFormatting.Add(
+            rule,
+            DifferentialStyles);
+        PublishConditionalFormattingChange(rule.Ranges);
+    }
+
+    public bool RemoveConditionalFormattingRule(Guid ruleId)
+    {
+        if (!_conditionalFormatting.Remove(
+                ruleId,
+                out var removed) ||
+            removed is null)
+        {
+            return false;
+        }
+
+        PublishConditionalFormattingChange(removed.Ranges);
+        return true;
+    }
+
+    public void ClearConditionalFormattingRules()
+    {
+        var existing = _conditionalFormatting.Capture();
+        if (existing.Length == 0)
+        {
+            return;
+        }
+
+        _conditionalFormatting.Restore(
+            [],
+            DifferentialStyles);
+        PublishConditionalFormattingChange(
+            existing.SelectMany(static rule => rule.Ranges));
+    }
 
     public void MergeCells(
         CellRange range,
@@ -196,7 +275,9 @@ public sealed class Worksheet
 
     public bool UnmergeCell(CellAddress address)
     {
-        if (!MergedCells.TryGetContaining(address, out var range))
+        if (!MergedCells.TryGetContaining(
+                address,
+                out var range))
         {
             return false;
         }
@@ -204,12 +285,16 @@ public sealed class Worksheet
         return UnmergeCells(range);
     }
 
-    public void SetCell(CellAddress address, CellData cellData)
+    public void SetCell(
+        CellAddress address,
+        CellData cellData)
     {
         ArgumentNullException.ThrowIfNull(cellData);
         address = ResolveMergedAnchor(address);
         SetCells([
-            new KeyValuePair<CellAddress, CellData>(address, cellData),
+            new KeyValuePair<CellAddress, CellData>(
+                address,
+                cellData),
         ]);
     }
 
@@ -217,11 +302,13 @@ public sealed class Worksheet
         IEnumerable<KeyValuePair<CellAddress, CellData>> changes)
     {
         ArgumentNullException.ThrowIfNull(changes);
-        var requested = new Dictionary<CellAddress, CellData>();
+        var requested =
+            new Dictionary<CellAddress, CellData>();
         foreach (var pair in changes)
         {
             ArgumentNullException.ThrowIfNull(pair.Value);
-            requested[ResolveMergedAnchor(pair.Key)] = pair.Value;
+            requested[ResolveMergedAnchor(pair.Key)] =
+                pair.Value;
         }
 
         if (requested.Count == 0)
@@ -272,10 +359,11 @@ public sealed class Worksheet
             new CellsChangedEventArgs(range, Version));
     }
 
-    internal WorksheetAxisStyleState CaptureAxisStyleState() => new(
-        _rowStyles.Capture(),
-        _columnStyles.Capture(),
-        _nextAxisStyleSequence);
+    internal WorksheetAxisStyleState
+        CaptureAxisStyleState() => new(
+            _rowStyles.Capture(),
+            _columnStyles.Capture(),
+            _nextAxisStyleSequence);
 
     internal void ApplyAxisStyle(
         WorksheetAxis axis,
@@ -286,12 +374,15 @@ public sealed class Worksheet
         ArgumentNullException.ThrowIfNull(patch);
         if (!Enum.IsDefined(axis))
         {
-            throw new ArgumentOutOfRangeException(nameof(axis));
+            throw new ArgumentOutOfRangeException(
+                nameof(axis));
         }
+
         if (patch.IsEmpty)
         {
             return;
         }
+
         if (_nextAxisStyleSequence == long.MaxValue)
         {
             throw new InvalidOperationException(
@@ -303,13 +394,23 @@ public sealed class Worksheet
             patch);
         if (axis == WorksheetAxis.Row)
         {
-            _rowStyles.Apply(startIndex, endIndex, operation);
+            _rowStyles.Apply(
+                startIndex,
+                endIndex,
+                operation);
         }
         else
         {
-            _columnStyles.Apply(startIndex, endIndex, operation);
+            _columnStyles.Apply(
+                startIndex,
+                endIndex,
+                operation);
         }
-        PublishAxisStyle(axis, startIndex, endIndex);
+
+        PublishAxisStyle(
+            axis,
+            startIndex,
+            endIndex);
     }
 
     internal void RestoreAxisStyleState(
@@ -323,23 +424,30 @@ public sealed class Worksheet
         PublishChange(signalRange);
     }
 
-    internal WorksheetStructuralState CaptureStructuralState() => new(
-        _cells.ToArray(),
-        Dimensions.GetRowOverrides().ToArray(),
-        Dimensions.GetColumnOverrides().ToArray(),
-        MergedCells.Ranges.ToArray(),
-        _rowStyles.Capture(),
-        _columnStyles.Capture(),
-        _nextAxisStyleSequence);
+    internal WorksheetStructuralState
+        CaptureStructuralState() => new(
+            _cells.ToArray(),
+            Dimensions.GetRowOverrides().ToArray(),
+            Dimensions.GetColumnOverrides().ToArray(),
+            MergedCells.Ranges.ToArray(),
+            _rowStyles.Capture(),
+            _columnStyles.Capture(),
+            _nextAxisStyleSequence,
+            _conditionalFormatting.Capture());
 
-    internal void ApplyStructuralChange(WorksheetStructuralChange change)
+    internal void ApplyStructuralChange(
+        WorksheetStructuralChange change)
     {
-        var transformedCells = CreateStructuralCells(change);
+        var transformedCells =
+            CreateStructuralCells(change);
         var transformedDimensions =
             Dimensions.CreateStructuralOverrides(change);
         var transformedMergedCells =
             MergedCells.CreateStructuralRanges(change);
-        var transformedStyles = CreateStructuralStyles(change);
+        var transformedStyles =
+            CreateStructuralStyles(change);
+        var transformedConditionalFormatting =
+            _conditionalFormatting.CreateStructuralRules(change);
 
         ReplaceCells(transformedCells);
         Dimensions.ReplaceStructuralOverrides(
@@ -347,22 +455,30 @@ public sealed class Worksheet
             transformedDimensions);
         MergedCells.ReplaceAll(transformedMergedCells);
         RestoreAxisStylesWithoutPublish(transformedStyles);
+        _conditionalFormatting.Restore(
+            transformedConditionalFormatting,
+            DifferentialStyles);
         PublishStructuralChange(change);
     }
 
-    internal void ApplyAxisMove(WorksheetAxisMove move)
+    internal void ApplyAxisMove(
+        WorksheetAxisMove move)
     {
         if (move.IsNoOp)
         {
             return;
         }
 
-        var transformedCells = CreateAxisMoveCells(move);
+        var transformedCells =
+            CreateAxisMoveCells(move);
         var transformedDimensions =
             Dimensions.CreateAxisMoveOverrides(move);
         var transformedMergedCells =
             MergedCells.CreateAxisMoveRanges(move);
-        var transformedStyles = CreateAxisMoveStyles(move);
+        var transformedStyles =
+            CreateAxisMoveStyles(move);
+        var transformedConditionalFormatting =
+            _conditionalFormatting.CreateAxisMoveRules(move);
 
         ReplaceCells(transformedCells);
         Dimensions.ReplaceAxisMoveOverrides(
@@ -370,6 +486,9 @@ public sealed class Worksheet
             transformedDimensions);
         MergedCells.ReplaceAll(transformedMergedCells);
         RestoreAxisStylesWithoutPublish(transformedStyles);
+        _conditionalFormatting.Restore(
+            transformedConditionalFormatting,
+            DifferentialStyles);
         PublishAxisMove(move);
     }
 
@@ -385,10 +504,14 @@ public sealed class Worksheet
             state.ColumnWidths,
             signalChange);
         MergedCells.ReplaceAll(state.MergedCells);
-        RestoreAxisStylesWithoutPublish(new WorksheetAxisStyleState(
-            state.RowStyleSpans,
-            state.ColumnStyleSpans,
-            state.NextAxisStyleSequence));
+        RestoreAxisStylesWithoutPublish(
+            new WorksheetAxisStyleState(
+                state.RowStyleSpans,
+                state.ColumnStyleSpans,
+                state.NextAxisStyleSequence));
+        _conditionalFormatting.Restore(
+            state.ConditionalFormattingRules,
+            DifferentialStyles);
         PublishStructuralChange(signalChange);
     }
 
@@ -404,46 +527,77 @@ public sealed class Worksheet
             state.ColumnWidths,
             signalMove);
         MergedCells.ReplaceAll(state.MergedCells);
-        RestoreAxisStylesWithoutPublish(new WorksheetAxisStyleState(
-            state.RowStyleSpans,
-            state.ColumnStyleSpans,
-            state.NextAxisStyleSequence));
+        RestoreAxisStylesWithoutPublish(
+            new WorksheetAxisStyleState(
+                state.RowStyleSpans,
+                state.ColumnStyleSpans,
+                state.NextAxisStyleSequence));
+        _conditionalFormatting.Restore(
+            state.ConditionalFormattingRules,
+            DifferentialStyles);
         PublishAxisMove(signalMove);
     }
 
-    private Dictionary<CellAddress, CellData> CreateStructuralCells(
-        WorksheetStructuralChange change)
+    internal void RestoreConditionalFormatting(
+        IEnumerable<ConditionalFormattingRule> rules,
+        CellRange signalRange)
     {
-        var transformed = new Dictionary<CellAddress, CellData>(_cells.Count);
+        _conditionalFormatting.Restore(
+            rules,
+            DifferentialStyles);
+        PublishChange(signalRange);
+    }
+
+    private Dictionary<CellAddress, CellData>
+        CreateStructuralCells(
+            WorksheetStructuralChange change)
+    {
+        var transformed =
+            new Dictionary<CellAddress, CellData>(
+                _cells.Count);
         foreach (var (address, cell) in _cells)
         {
-            if (!change.TryMapAddress(address, out var mappedAddress))
+            if (!change.TryMapAddress(
+                    address,
+                    out var mappedAddress))
             {
-                if (change.Kind == WorksheetStructuralChangeKind.Insert)
+                if (change.Kind ==
+                    WorksheetStructuralChangeKind.Insert)
                 {
                     throw new InvalidOperationException(
-                        "Cannot insert because a used cell would move outside the worksheet bounds.");
+                        "Cannot insert because a used cell would move " +
+                        "outside the worksheet bounds.");
                 }
+
                 continue;
             }
+
             transformed.Add(mappedAddress, cell);
         }
+
         return transformed;
     }
 
-    private Dictionary<CellAddress, CellData> CreateAxisMoveCells(
-        WorksheetAxisMove move)
+    private Dictionary<CellAddress, CellData>
+        CreateAxisMoveCells(
+            WorksheetAxisMove move)
     {
-        var transformed = new Dictionary<CellAddress, CellData>(_cells.Count);
+        var transformed =
+            new Dictionary<CellAddress, CellData>(
+                _cells.Count);
         foreach (var (address, cell) in _cells)
         {
-            transformed.Add(move.MapAddress(address), cell);
+            transformed.Add(
+                move.MapAddress(address),
+                cell);
         }
+
         return transformed;
     }
 
-    private WorksheetAxisStyleState CreateStructuralStyles(
-        WorksheetStructuralChange change)
+    private WorksheetAxisStyleState
+        CreateStructuralStyles(
+            WorksheetStructuralChange change)
     {
         var rowStyles = new WorksheetAxisStyleMap(
             SpreadsheetLimits.MaxRows);
@@ -459,6 +613,7 @@ public sealed class Worksheet
         {
             columnStyles.ApplyStructuralChange(change);
         }
+
         return new WorksheetAxisStyleState(
             rowStyles.Capture(),
             columnStyles.Capture(),
@@ -482,6 +637,7 @@ public sealed class Worksheet
         {
             columnStyles.ApplyAxisMove(move);
         }
+
         return new WorksheetAxisStyleState(
             rowStyles.Capture(),
             columnStyles.Capture(),
@@ -518,8 +674,10 @@ public sealed class Worksheet
             {
                 operation = columnOperations[columnIndex++];
             }
+
             style = operation.Patch.Apply(style);
         }
+
         return style;
     }
 
@@ -533,7 +691,8 @@ public sealed class Worksheet
         }
     }
 
-    private void PublishStructuralChange(WorksheetStructuralChange change)
+    private void PublishStructuralChange(
+        WorksheetStructuralChange change)
     {
         var range = change.Axis == WorksheetAxis.Row
             ? new CellRange(
@@ -549,16 +708,21 @@ public sealed class Worksheet
         PublishChange(range);
     }
 
-    private void PublishAxisMove(WorksheetAxisMove move)
+    private void PublishAxisMove(
+        WorksheetAxisMove move)
     {
         var range = move.Axis == WorksheetAxis.Row
             ? new CellRange(
-                new CellAddress(move.AffectedStartIndex, 0),
+                new CellAddress(
+                    move.AffectedStartIndex,
+                    0),
                 new CellAddress(
                     move.AffectedEndIndex,
                     SpreadsheetLimits.MaxColumns - 1))
             : new CellRange(
-                new CellAddress(0, move.AffectedStartIndex),
+                new CellAddress(
+                    0,
+                    move.AffectedStartIndex),
                 new CellAddress(
                     SpreadsheetLimits.MaxRows - 1,
                     move.AffectedEndIndex));
@@ -582,6 +746,29 @@ public sealed class Worksheet
                     SpreadsheetLimits.MaxRows - 1,
                     endIndex));
         PublishChange(range);
+    }
+
+    private void PublishConditionalFormattingChange(
+        IEnumerable<CellRange> ranges)
+    {
+        ArgumentNullException.ThrowIfNull(ranges);
+        var materialized = ranges.ToArray();
+        if (materialized.Length == 0)
+        {
+            return;
+        }
+
+        var top = materialized.Min(
+            static range => range.Top);
+        var left = materialized.Min(
+            static range => range.Left);
+        var bottom = materialized.Max(
+            static range => range.Bottom);
+        var right = materialized.Max(
+            static range => range.Right);
+        PublishChange(new CellRange(
+            new CellAddress(top, left),
+            new CellAddress(bottom, right)));
     }
 
     private void PublishChange(CellRange range)

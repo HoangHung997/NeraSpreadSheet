@@ -1,5 +1,6 @@
 using System.Globalization;
 using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Formulas;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Layout;
@@ -57,7 +58,11 @@ public static class SpreadsheetDisplayListComposer
             worksheet,
             frozenRows,
             frozenColumns,
-            new RectD(0d, 0d, frozenWidth, frozenHeight),
+            new RectD(
+                0d,
+                0d,
+                frozenWidth,
+                frozenHeight),
             selection,
             theme,
             styles);
@@ -69,7 +74,9 @@ public static class SpreadsheetDisplayListComposer
             new RectD(
                 frozenWidth,
                 0d,
-                Math.Max(0d, viewport.Width - frozenWidth),
+                Math.Max(
+                    0d,
+                    viewport.Width - frozenWidth),
                 frozenHeight),
             selection,
             theme,
@@ -83,7 +90,9 @@ public static class SpreadsheetDisplayListComposer
                 0d,
                 frozenHeight,
                 frozenWidth,
-                Math.Max(0d, viewport.Height - frozenHeight)),
+                Math.Max(
+                    0d,
+                    viewport.Height - frozenHeight)),
             selection,
             theme,
             styles);
@@ -95,16 +104,24 @@ public static class SpreadsheetDisplayListComposer
             new RectD(
                 frozenWidth,
                 frozenHeight,
-                Math.Max(0d, viewport.Width - frozenWidth),
-                Math.Max(0d, viewport.Height - frozenHeight)),
+                Math.Max(
+                    0d,
+                    viewport.Width - frozenWidth),
+                Math.Max(
+                    0d,
+                    viewport.Height - frozenHeight)),
             selection,
             theme,
             styles);
 
         if (includeFreezeSeparators)
         {
-            AppendFreezeSeparators(builder, layout, theme);
+            AppendFreezeSeparators(
+                builder,
+                layout,
+                theme);
         }
+
         builder.PopClip();
         return builder.Build();
     }
@@ -125,8 +142,14 @@ public static class SpreadsheetDisplayListComposer
         DrawFreezeSeparators(
             builder,
             viewport,
-            Math.Clamp(layout.FrozenWidth, 0d, viewport.Width),
-            Math.Clamp(layout.FrozenHeight, 0d, viewport.Height),
+            Math.Clamp(
+                layout.FrozenWidth,
+                0d,
+                viewport.Width),
+            Math.Clamp(
+                layout.FrozenHeight,
+                0d,
+                viewport.Height),
             theme);
     }
 
@@ -156,7 +179,12 @@ public static class SpreadsheetDisplayListComposer
             columns,
             pane,
             styles);
-        DrawGrid(builder, rows, columns, pane, theme);
+        DrawGrid(
+            builder,
+            rows,
+            columns,
+            pane,
+            theme);
         DrawMergedCells(
             builder,
             worksheet,
@@ -175,6 +203,7 @@ public static class SpreadsheetDisplayListComposer
                 selection,
                 theme);
         }
+
         builder.PopClip();
     }
 
@@ -190,8 +219,12 @@ public static class SpreadsheetDisplayListComposer
         {
             foreach (var column in columns)
             {
-                var address = new CellAddress(row.Index, column.Index);
-                if (worksheet.TryGetMergedRange(address, out _))
+                var address = new CellAddress(
+                    row.Index,
+                    column.Index);
+                if (worksheet.TryGetMergedRange(
+                        address,
+                        out _))
                 {
                     continue;
                 }
@@ -205,6 +238,7 @@ public static class SpreadsheetDisplayListComposer
                 {
                     continue;
                 }
+
                 DrawCell(
                     builder,
                     worksheet,
@@ -228,11 +262,16 @@ public static class SpreadsheetDisplayListComposer
     {
         foreach (var range in worksheet.MergedCells)
         {
-            if (!TryGetRangeBounds(rows, columns, range, out var bounds) ||
+            if (!TryGetRangeBounds(
+                    rows,
+                    columns,
+                    range,
+                    out var bounds) ||
                 !bounds.IntersectsWith(pane))
             {
                 continue;
             }
+
             DrawCell(
                 builder,
                 worksheet,
@@ -253,14 +292,26 @@ public static class SpreadsheetDisplayListComposer
         CellStyleCatalog? styles,
         ColorRgba? backgroundFallback)
     {
-        var style = ResolveStyle(worksheet, address, styles);
+        var style = ResolveStyle(
+            worksheet,
+            address,
+            styles);
+        style = ConditionalFormattingEvaluator.ResolveStyle(
+            worksheet,
+            address,
+            style);
+
         if (style.Fill.IsVisible)
         {
-            builder.FillRectangle(bounds, style.Fill.Color);
+            builder.FillRectangle(
+                bounds,
+                style.Fill.Color);
         }
         else if (backgroundFallback is { } fallback)
         {
-            builder.FillRectangle(bounds, fallback);
+            builder.FillRectangle(
+                bounds,
+                fallback);
         }
 
         if (!cell.Value.IsBlank)
@@ -268,8 +319,12 @@ public static class SpreadsheetDisplayListComposer
             var textBounds = new RectD(
                 bounds.X + 4d,
                 bounds.Y + 1d,
-                Math.Max(0d, bounds.Width - 8d),
-                Math.Max(0d, bounds.Height - 2d));
+                Math.Max(
+                    0d,
+                    bounds.Width - 8d),
+                Math.Max(
+                    0d,
+                    bounds.Height - 2d));
             builder.DrawText(
                 FormatCellValue(
                     cell.Value,
@@ -282,7 +337,11 @@ public static class SpreadsheetDisplayListComposer
                     style.Font.Color,
                     style.Alignment.WrapText));
         }
-        DrawCellBorders(builder, bounds, style.Border);
+
+        DrawCellBorders(
+            builder,
+            bounds,
+            style.Border);
     }
 
     private static CellStyle ResolveStyle(
@@ -291,16 +350,18 @@ public static class SpreadsheetDisplayListComposer
         CellStyleCatalog? styles) =>
         styles is null
             ? CellStyle.Default
-            : worksheet.GetEffectiveStyle(address, styles);
+            : worksheet.GetEffectiveStyle(
+                address,
+                styles);
 
     private static string FormatCellValue(
         CellValue value,
         string formatCode)
     {
         if (string.Equals(
-            formatCode,
-            "General",
-            StringComparison.OrdinalIgnoreCase))
+                formatCode,
+                "General",
+                StringComparison.OrdinalIgnoreCase))
         {
             return value.ToString();
         }
@@ -332,23 +393,39 @@ public static class SpreadsheetDisplayListComposer
         DrawBorder(
             builder,
             border.Top,
-            new PointD(bounds.Left, bounds.Top),
-            new PointD(bounds.Right, bounds.Top));
+            new PointD(
+                bounds.Left,
+                bounds.Top),
+            new PointD(
+                bounds.Right,
+                bounds.Top));
         DrawBorder(
             builder,
             border.Right,
-            new PointD(bounds.Right, bounds.Top),
-            new PointD(bounds.Right, bounds.Bottom));
+            new PointD(
+                bounds.Right,
+                bounds.Top),
+            new PointD(
+                bounds.Right,
+                bounds.Bottom));
         DrawBorder(
             builder,
             border.Bottom,
-            new PointD(bounds.Right, bounds.Bottom),
-            new PointD(bounds.Left, bounds.Bottom));
+            new PointD(
+                bounds.Right,
+                bounds.Bottom),
+            new PointD(
+                bounds.Left,
+                bounds.Bottom));
         DrawBorder(
             builder,
             border.Left,
-            new PointD(bounds.Left, bounds.Bottom),
-            new PointD(bounds.Left, bounds.Top));
+            new PointD(
+                bounds.Left,
+                bounds.Bottom),
+            new PointD(
+                bounds.Left,
+                bounds.Top));
     }
 
     private static void DrawBorder(
@@ -357,7 +434,8 @@ public static class SpreadsheetDisplayListComposer
         PointD start,
         PointD end)
     {
-        if (border.Style == CellBorderLineStyle.None)
+        if (border.Style ==
+            CellBorderLineStyle.None)
         {
             return;
         }
@@ -386,11 +464,16 @@ public static class SpreadsheetDisplayListComposer
         foreach (var column in columns)
         {
             var x = column.End;
-            if (x >= pane.Left && x <= pane.Right)
+            if (x >= pane.Left &&
+                x <= pane.Right)
             {
                 builder.DrawLine(
-                    new PointD(x, pane.Top),
-                    new PointD(x, pane.Bottom),
+                    new PointD(
+                        x,
+                        pane.Top),
+                    new PointD(
+                        x,
+                        pane.Bottom),
                     theme.GridStrokeWidth,
                     theme.GridLine);
             }
@@ -399,11 +482,16 @@ public static class SpreadsheetDisplayListComposer
         foreach (var row in rows)
         {
             var y = row.End;
-            if (y >= pane.Top && y <= pane.Bottom)
+            if (y >= pane.Top &&
+                y <= pane.Bottom)
             {
                 builder.DrawLine(
-                    new PointD(pane.Left, y),
-                    new PointD(pane.Right, y),
+                    new PointD(
+                        pane.Left,
+                        y),
+                    new PointD(
+                        pane.Right,
+                        y),
                     theme.GridStrokeWidth,
                     theme.GridLine);
             }
@@ -420,7 +508,11 @@ public static class SpreadsheetDisplayListComposer
     {
         foreach (var range in selection.Ranges)
         {
-            if (TryGetRangeBounds(rows, columns, range, out var bounds))
+            if (TryGetRangeBounds(
+                    rows,
+                    columns,
+                    range,
+                    out var bounds))
             {
                 DrawRectangleOutline(
                     builder,
@@ -438,10 +530,10 @@ public static class SpreadsheetDisplayListComposer
                 selection.ActiveCell,
                 selection.ActiveCell);
         if (TryGetRangeBounds(
-            rows,
-            columns,
-            activeRange,
-            out var activeBounds))
+                rows,
+                columns,
+                activeRange,
+                out var activeBounds))
         {
             DrawRectangleOutline(
                 builder,
@@ -467,7 +559,8 @@ public static class SpreadsheetDisplayListComposer
                 slot.Index >= range.Left &&
                 slot.Index <= range.Right)
             .ToArray();
-        if (matchingRows.Length == 0 || matchingColumns.Length == 0)
+        if (matchingRows.Length == 0 ||
+            matchingColumns.Length == 0)
         {
             bounds = RectD.Empty;
             return false;
@@ -501,19 +594,30 @@ public static class SpreadsheetDisplayListComposer
         double frozenHeight,
         SpreadsheetRenderTheme theme)
     {
-        if (frozenWidth > 0d && frozenWidth < viewport.Width)
+        if (frozenWidth > 0d &&
+            frozenWidth < viewport.Width)
         {
             builder.DrawLine(
-                new PointD(frozenWidth, viewport.Top),
-                new PointD(frozenWidth, viewport.Bottom),
+                new PointD(
+                    frozenWidth,
+                    viewport.Top),
+                new PointD(
+                    frozenWidth,
+                    viewport.Bottom),
                 theme.FreezePaneStrokeWidth,
                 theme.FreezePaneLine);
         }
-        if (frozenHeight > 0d && frozenHeight < viewport.Height)
+
+        if (frozenHeight > 0d &&
+            frozenHeight < viewport.Height)
         {
             builder.DrawLine(
-                new PointD(viewport.Left, frozenHeight),
-                new PointD(viewport.Right, frozenHeight),
+                new PointD(
+                    viewport.Left,
+                    frozenHeight),
+                new PointD(
+                    viewport.Right,
+                    frozenHeight),
                 theme.FreezePaneStrokeWidth,
                 theme.FreezePaneLine);
         }
@@ -526,42 +630,63 @@ public static class SpreadsheetDisplayListComposer
         ColorRgba color)
     {
         builder.DrawLine(
-            new PointD(bounds.Left, bounds.Top),
-            new PointD(bounds.Right, bounds.Top),
+            new PointD(
+                bounds.Left,
+                bounds.Top),
+            new PointD(
+                bounds.Right,
+                bounds.Top),
             strokeWidth,
             color);
         builder.DrawLine(
-            new PointD(bounds.Right, bounds.Top),
-            new PointD(bounds.Right, bounds.Bottom),
+            new PointD(
+                bounds.Right,
+                bounds.Top),
+            new PointD(
+                bounds.Right,
+                bounds.Bottom),
             strokeWidth,
             color);
         builder.DrawLine(
-            new PointD(bounds.Right, bounds.Bottom),
-            new PointD(bounds.Left, bounds.Bottom),
+            new PointD(
+                bounds.Right,
+                bounds.Bottom),
+            new PointD(
+                bounds.Left,
+                bounds.Bottom),
             strokeWidth,
             color);
         builder.DrawLine(
-            new PointD(bounds.Left, bounds.Bottom),
-            new PointD(bounds.Left, bounds.Top),
+            new PointD(
+                bounds.Left,
+                bounds.Bottom),
+            new PointD(
+                bounds.Left,
+                bounds.Top),
             strokeWidth,
             color);
     }
 
-    private static void ValidateTheme(SpreadsheetRenderTheme theme)
+    private static void ValidateTheme(
+        SpreadsheetRenderTheme theme)
     {
-        if (!double.IsFinite(theme.FontSize) || theme.FontSize <= 0d)
+        if (!double.IsFinite(theme.FontSize) ||
+            theme.FontSize <= 0d)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(theme),
                 "FontSize must be finite and positive.");
         }
-        if (!double.IsFinite(theme.SelectionStrokeWidth) ||
+
+        if (!double.IsFinite(
+                theme.SelectionStrokeWidth) ||
             theme.SelectionStrokeWidth <= 0d)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(theme),
                 "SelectionStrokeWidth must be finite and positive.");
         }
+
         if (!double.IsFinite(theme.GridStrokeWidth) ||
             theme.GridStrokeWidth <= 0d)
         {
@@ -569,7 +694,9 @@ public static class SpreadsheetDisplayListComposer
                 nameof(theme),
                 "GridStrokeWidth must be finite and positive.");
         }
-        if (!double.IsFinite(theme.FreezePaneStrokeWidth) ||
+
+        if (!double.IsFinite(
+                theme.FreezePaneStrokeWidth) ||
             theme.FreezePaneStrokeWidth <= 0d)
         {
             throw new ArgumentOutOfRangeException(

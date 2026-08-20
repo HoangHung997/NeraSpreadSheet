@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../NeraSpreadSheet.Core/NeraSpreadSheet.Core.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Formulas/NeraSpreadSheet.Formulas.csproj" />
     <ProjectReference Include="../NeraSpreadSheet.Foundation/NeraSpreadSheet.Foundation.csproj" />
     <ProjectReference Include="../NeraSpreadSheet.Interaction/NeraSpreadSheet.Interaction.csproj" />
     <ProjectReference Include="../NeraSpreadSheet.Layout/NeraSpreadSheet.Layout.csproj" />
