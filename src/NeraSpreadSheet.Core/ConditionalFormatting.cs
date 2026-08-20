@@ -167,19 +167,9 @@ public sealed record ConditionalFormattingRule
 
     internal ConditionalFormattingRule WithMappedState(
         IEnumerable<CellRange> ranges,
-        CellAddress newAnchor)
-    {
-        var formula1 = TranslateFormula(
-            Formula1,
-            Anchor,
-            newAnchor);
-        var formula2 = Formula2 is null
-            ? null
-            : TranslateFormula(
-                Formula2,
-                Anchor,
-                newAnchor);
-        return new ConditionalFormattingRule(
+        string formula1,
+        string? formula2) =>
+        new(
             Id,
             ranges,
             Type,
@@ -189,7 +179,6 @@ public sealed record ConditionalFormattingRule
             DifferentialStyleId,
             Priority,
             StopIfTrue);
-    }
 
     private static string NormalizeFormula(
         string? formula,
@@ -202,27 +191,6 @@ public sealed record ConditionalFormattingRule
         return trimmed.StartsWith('=')
             ? trimmed
             : $"={trimmed}";
-    }
-
-    private static string TranslateFormula(
-        string formula,
-        CellAddress oldAnchor,
-        CellAddress newAnchor)
-    {
-        var translated = A1FormulaReferenceTranslator.Translate(
-            formula,
-            oldAnchor,
-            newAnchor);
-        if (translated.Contains(
-                "#REF!",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException(
-                "Cannot transform conditional formatting because its " +
-                "formula would contain an invalid reference.");
-        }
-
-        return translated;
     }
 }
 
@@ -405,9 +373,19 @@ internal sealed class WorksheetConditionalFormattingCollection
             }
 
             var orderedRanges = OrderRanges(ranges);
+            var formula1 =
+                FormulaStructuralReferenceRewriter.RewriteLocal(
+                    rule.Formula1,
+                    change);
+            var formula2 = rule.Formula2 is null
+                ? null
+                : FormulaStructuralReferenceRewriter.RewriteLocal(
+                    rule.Formula2,
+                    change);
             mapped.Add(rule.WithMappedState(
                 orderedRanges,
-                orderedRanges[0].TopLeft));
+                formula1,
+                formula2));
         }
 
         return [.. mapped];
@@ -422,22 +400,32 @@ internal sealed class WorksheetConditionalFormattingCollection
             var ranges = new List<CellRange>(rule.Ranges.Count);
             foreach (var range in rule.Ranges)
             {
-                if (!move.TryMapContiguousRange(
+                if (!move.TryMapUniformRange(
                         range,
                         out var target))
                 {
                     throw new InvalidOperationException(
                         "Cannot reorder because a conditional-formatting " +
-                        "range would become discontiguous.");
+                        "range is not one uniform translation.");
                 }
 
                 ranges.Add(target);
             }
 
             var orderedRanges = OrderRanges(ranges);
+            var formula1 =
+                FormulaStructuralReferenceRewriter.RewriteLocal(
+                    rule.Formula1,
+                    move);
+            var formula2 = rule.Formula2 is null
+                ? null
+                : FormulaStructuralReferenceRewriter.RewriteLocal(
+                    rule.Formula2,
+                    move);
             mapped.Add(rule.WithMappedState(
                 orderedRanges,
-                orderedRanges[0].TopLeft));
+                formula1,
+                formula2));
         }
 
         return [.. mapped];

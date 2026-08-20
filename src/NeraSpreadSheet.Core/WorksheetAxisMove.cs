@@ -95,38 +95,56 @@ public readonly record struct WorksheetAxisMove
 
         if (DestinationBoundary < SourceIndex)
         {
-            if (sourceIndex >= SourceIndex && sourceIndex <= SourceEndIndex)
+            if (sourceIndex >= SourceIndex &&
+                sourceIndex <= SourceEndIndex)
             {
-                return DestinationBoundary + (sourceIndex - SourceIndex);
+                return DestinationBoundary +
+                       (sourceIndex - SourceIndex);
             }
-            if (sourceIndex >= DestinationBoundary && sourceIndex < SourceIndex)
+
+            if (sourceIndex >= DestinationBoundary &&
+                sourceIndex < SourceIndex)
             {
                 return sourceIndex + Count;
             }
+
             return sourceIndex;
         }
 
-        if (sourceIndex >= SourceIndex && sourceIndex <= SourceEndIndex)
+        if (sourceIndex >= SourceIndex &&
+            sourceIndex <= SourceEndIndex)
         {
-            return InsertionIndex + (sourceIndex - SourceIndex);
+            return InsertionIndex +
+                   (sourceIndex - SourceIndex);
         }
-        if (sourceIndex > SourceEndIndex && sourceIndex < DestinationBoundary)
+
+        if (sourceIndex > SourceEndIndex &&
+            sourceIndex < DestinationBoundary)
         {
             return sourceIndex - Count;
         }
+
         return sourceIndex;
     }
 
     public CellAddress MapAddress(CellAddress source) =>
         Axis == WorksheetAxis.Row
-            ? new CellAddress(MapIndex(source.RowIndex), source.ColumnIndex)
-            : new CellAddress(source.RowIndex, MapIndex(source.ColumnIndex));
+            ? new CellAddress(
+                MapIndex(source.RowIndex),
+                source.ColumnIndex)
+            : new CellAddress(
+                source.RowIndex,
+                MapIndex(source.ColumnIndex));
 
-    public WorksheetAxisInterval[] MapInterval(int start, int end)
+    public WorksheetAxisInterval[] MapInterval(
+        int start,
+        int end)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(start);
         ArgumentOutOfRangeException.ThrowIfLessThan(end, start);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(end, AxisLength);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(
+            end,
+            AxisLength);
         if (IsNoOp)
         {
             return [new WorksheetAxisInterval(start, end)];
@@ -135,7 +153,13 @@ public readonly record struct WorksheetAxisMove
         var mapped = new List<WorksheetAxisInterval>(4);
         if (DestinationBoundary < SourceIndex)
         {
-            AddMappedSegment(mapped, start, end, 0, DestinationBoundary - 1, 0);
+            AddMappedSegment(
+                mapped,
+                start,
+                end,
+                0,
+                DestinationBoundary - 1,
+                0);
             AddMappedSegment(
                 mapped,
                 start,
@@ -160,7 +184,13 @@ public readonly record struct WorksheetAxisMove
         }
         else
         {
-            AddMappedSegment(mapped, start, end, 0, SourceIndex - 1, 0);
+            AddMappedSegment(
+                mapped,
+                start,
+                end,
+                0,
+                SourceIndex - 1,
+                0);
             AddMappedSegment(
                 mapped,
                 start,
@@ -184,7 +214,8 @@ public readonly record struct WorksheetAxisMove
                 0);
         }
 
-        mapped.Sort(static (left, right) => left.Start.CompareTo(right.Start));
+        mapped.Sort(static (left, right) =>
+            left.Start.CompareTo(right.Start));
         if (mapped.Count <= 1)
         {
             return [.. mapped];
@@ -206,6 +237,7 @@ public readonly record struct WorksheetAxisMove
             merged.Add(current);
             current = next;
         }
+
         merged.Add(current);
         return [.. merged];
     }
@@ -229,10 +261,16 @@ public readonly record struct WorksheetAxisMove
         return true;
     }
 
-    public bool TryMapContiguousRange(CellRange source, out CellRange target)
+    public bool TryMapContiguousRange(
+        CellRange source,
+        out CellRange target)
     {
-        var start = Axis == WorksheetAxis.Row ? source.Top : source.Left;
-        var end = Axis == WorksheetAxis.Row ? source.Bottom : source.Right;
+        var start = Axis == WorksheetAxis.Row
+            ? source.Top
+            : source.Left;
+        var end = Axis == WorksheetAxis.Row
+            ? source.Bottom
+            : source.Right;
         if (!TryMapContiguousInterval(
                 start,
                 end,
@@ -253,6 +291,109 @@ public readonly record struct WorksheetAxisMove
         return true;
     }
 
+    /// <summary>
+    /// Maps a range only when every source index in the moved axis is shifted
+    /// by one identical delta. This is stronger than contiguous-image proof:
+    /// a reordered interval may remain contiguous while its internal order has
+    /// changed, which is unsafe for anchor-relative worksheet metadata.
+    /// </summary>
+    public bool TryMapUniformRange(
+        CellRange source,
+        out CellRange target)
+    {
+        var start = Axis == WorksheetAxis.Row
+            ? source.Top
+            : source.Left;
+        var end = Axis == WorksheetAxis.Row
+            ? source.Bottom
+            : source.Right;
+        if (!TryGetUniformDelta(start, end, out var delta))
+        {
+            target = default;
+            return false;
+        }
+
+        var mappedStart = checked(start + delta);
+        var mappedEnd = checked(end + delta);
+        target = Axis == WorksheetAxis.Row
+            ? new CellRange(
+                new CellAddress(mappedStart, source.Left),
+                new CellAddress(mappedEnd, source.Right))
+            : new CellRange(
+                new CellAddress(source.Top, mappedStart),
+                new CellAddress(source.Bottom, mappedEnd));
+        return true;
+    }
+
+    private bool TryGetUniformDelta(
+        int start,
+        int end,
+        out int uniformDelta)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(start);
+        ArgumentOutOfRangeException.ThrowIfLessThan(end, start);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(
+            end,
+            AxisLength);
+        if (IsNoOp)
+        {
+            uniformDelta = 0;
+            return true;
+        }
+
+        (int Start, int End, int Delta)[] segments =
+            DestinationBoundary < SourceIndex
+                ?
+                [
+                    (0, DestinationBoundary - 1, 0),
+                    (DestinationBoundary, SourceIndex - 1, Count),
+                    (
+                        SourceIndex,
+                        SourceEndIndex,
+                        DestinationBoundary - SourceIndex),
+                    (SourceEndIndex + 1, AxisLength - 1, 0),
+                ]
+                :
+                [
+                    (0, SourceIndex - 1, 0),
+                    (
+                        SourceIndex,
+                        SourceEndIndex,
+                        InsertionIndex - SourceIndex),
+                    (
+                        SourceEndIndex + 1,
+                        DestinationBoundary - 1,
+                        -Count),
+                    (DestinationBoundary, AxisLength - 1, 0),
+                ];
+
+        int? candidate = null;
+        foreach (var segment in segments)
+        {
+            if (segment.Start > segment.End ||
+                Math.Max(start, segment.Start) >
+                Math.Min(end, segment.End))
+            {
+                continue;
+            }
+
+            if (candidate is null)
+            {
+                candidate = segment.Delta;
+                continue;
+            }
+
+            if (candidate.Value != segment.Delta)
+            {
+                uniformDelta = default;
+                return false;
+            }
+        }
+
+        uniformDelta = candidate ?? 0;
+        return true;
+    }
+
     private static void AddMappedSegment(
         List<WorksheetAxisInterval> result,
         int requestedStart,
@@ -266,8 +407,12 @@ public readonly record struct WorksheetAxisMove
             return;
         }
 
-        var intersectionStart = Math.Max(requestedStart, segmentStart);
-        var intersectionEnd = Math.Min(requestedEnd, segmentEnd);
+        var intersectionStart = Math.Max(
+            requestedStart,
+            segmentStart);
+        var intersectionEnd = Math.Min(
+            requestedEnd,
+            segmentEnd);
         if (intersectionStart > intersectionEnd)
         {
             return;
