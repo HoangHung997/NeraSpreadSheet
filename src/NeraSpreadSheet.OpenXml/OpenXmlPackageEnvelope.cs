@@ -33,6 +33,7 @@ internal sealed class OpenXmlPackageEnvelope
             packageBytes,
             writable: false);
         using var document = SpreadsheetDocument.Open(stream, false);
+        OpenXmlPackageGraphValidator.Validate(document);
         var workbookPart = document.WorkbookPart
             ?? throw new InvalidDataException(
                 "The preserved XLSX package does not contain a workbook part.");
@@ -69,7 +70,8 @@ internal sealed class OpenXmlPackageEnvelope
                     "Unknown-part preservation supports worksheet parts only; chart and dialog sheet topology is not yet supported.");
             }
 
-            var partUri = ValidatePartUri(worksheetPart.Uri);
+            var partUri = OpenXmlPackageGraphValidator.ValidatePartUri(
+                worksheetPart.Uri);
             if (!partUris.Add(partUri))
             {
                 throw new InvalidDataException(
@@ -122,7 +124,8 @@ internal sealed class OpenXmlPackageEnvelope
         }
 
         var expected = _worksheets[index];
-        var actualPartUri = ValidatePartUri(partUri);
+        var actualPartUri = OpenXmlPackageGraphValidator.ValidatePartUri(
+            partUri);
         if (!string.Equals(
                 expected.RelationshipId,
                 relationshipId,
@@ -135,25 +138,6 @@ internal sealed class OpenXmlPackageEnvelope
             throw new InvalidDataException(
                 "The preserved XLSX worksheet relationship graph no longer matches its captured envelope.");
         }
-    }
-
-    private static string ValidatePartUri(Uri partUri)
-    {
-        ArgumentNullException.ThrowIfNull(partUri);
-        var value = partUri.OriginalString;
-        if (string.IsNullOrWhiteSpace(value) ||
-            !value.StartsWith('/') ||
-            value.Contains('\\') ||
-            value.Contains("/../", StringComparison.Ordinal) ||
-            value.Contains("/./", StringComparison.Ordinal) ||
-            value.EndsWith("/..", StringComparison.Ordinal) ||
-            value.EndsWith("/.", StringComparison.Ordinal))
-        {
-            throw new InvalidDataException(
-                "The XLSX package contains an unsafe worksheet part URI.");
-        }
-
-        return value;
     }
 
     internal sealed record WorksheetBinding(
