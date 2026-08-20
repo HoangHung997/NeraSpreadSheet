@@ -10,7 +10,7 @@ public sealed class WorksheetAxisStyleTests
     [TestMethod]
     public void RowStyleAffectsBlankCellsWithoutMaterializingThem()
     {
-        var worksheet = new Worksheet("Sheet1");
+        var worksheet = new Workbook().Worksheets[0];
         var styles = new CellStyleCatalog();
         var fill = new ColorRgba(24, 96, 180);
 
@@ -35,7 +35,7 @@ public sealed class WorksheetAxisStyleTests
     [TestMethod]
     public void RowAndColumnStylesComposeInGlobalApplicationOrder()
     {
-        var worksheet = new Worksheet("Sheet1");
+        var worksheet = new Workbook().Worksheets[0];
         var styles = new CellStyleCatalog();
         var red = new ColorRgba(210, 30, 30);
         var blue = new ColorRgba(30, 80, 210);
@@ -79,7 +79,7 @@ public sealed class WorksheetAxisStyleTests
     [TestMethod]
     public void SnapshotRetainsIndependentAxisStyleState()
     {
-        var worksheet = new Worksheet("Sheet1");
+        var worksheet = new Workbook().Worksheets[0];
         var styles = new CellStyleCatalog();
         var original = new ColorRgba(220, 180, 40);
         var replacement = new ColorRgba(120, 40, 190);
@@ -112,7 +112,7 @@ public sealed class WorksheetAxisStyleTests
     [TestMethod]
     public void SnapshotReusesAxisStyleCompositionAcrossEquivalentCells()
     {
-        var worksheet = new Worksheet("Sheet1");
+        var worksheet = new Workbook().Worksheets[0];
         var styles = new CellStyleCatalog();
         worksheet.ApplyAxisStyle(
             WorksheetAxis.Row,
@@ -135,7 +135,7 @@ public sealed class WorksheetAxisStyleTests
     [TestMethod]
     public void StructuralInsertMovesSparseRowStyleSpan()
     {
-        var worksheet = new Worksheet("Sheet1");
+        var worksheet = new Workbook().Worksheets[0];
         var styles = new CellStyleCatalog();
         var fill = new ColorRgba(18, 140, 160);
         worksheet.ApplyAxisStyle(
@@ -167,7 +167,7 @@ public sealed class WorksheetAxisStyleTests
     [TestMethod]
     public void FullAxisStyleIsInheritedAndClippedOnInsert()
     {
-        var worksheet = new Worksheet("Sheet1");
+        var worksheet = new Workbook().Worksheets[0];
         var styles = new CellStyleCatalog();
         var fill = new ColorRgba(75, 115, 185);
         worksheet.ApplyAxisStyle(
@@ -206,14 +206,16 @@ public sealed class WorksheetAxisStyleTests
         Assert.AreEqual(
             fill,
             worksheet.GetEffectiveStyle(
-                new CellAddress(SpreadsheetLimits.MaxRows - 1, 0),
+                new CellAddress(
+                    SpreadsheetLimits.MaxRows - 1,
+                    0),
                 styles).Fill.Color);
     }
 
     [TestMethod]
     public void AxisMoveMapsStyleSpanWithoutMaterializingCells()
     {
-        var worksheet = new Worksheet("Sheet1");
+        var worksheet = new Workbook().Worksheets[0];
         var styles = new CellStyleCatalog();
         var fill = new ColorRgba(90, 130, 220);
         worksheet.ApplyAxisStyle(
@@ -239,7 +241,8 @@ public sealed class WorksheetAxisStyleTests
         Assert.AreEqual(0, worksheet.UsedCellCount);
     }
 
-    private static CellStylePatch CreateFillPatch(ColorRgba color) => new()
+    private static CellStylePatch CreateFillPatch(
+        ColorRgba color) => new()
     {
         Fill = new CellFillStyle
         {
