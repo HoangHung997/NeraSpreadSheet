@@ -9,13 +9,14 @@ internal static class OpenXmlPackageGraphValidator
     private const int MaxRelationshipsPerContainer = 100_000;
     private const int MaxPartUriCharacters = 32 * 1024;
     private const int MaxRelationshipIdCharacters = 1024;
-    private const int MaxExternalTargetCharacters = 64 * 1024;
+    private const int MaxRelationshipTypeCharacters = 64 * 1024;
+    private const int MaxReferenceTargetCharacters = 64 * 1024;
 
     public static void Validate(OpenXmlPackage package)
     {
         ArgumentNullException.ThrowIfNull(package);
 
-        var partsByUri = new Dictionary<string, OpenXmlPart>(
+        var packagePartsByUri = new Dictionary<string, object>(
             StringComparer.OrdinalIgnoreCase);
         var pending = new Stack<OpenXmlPartContainer>();
         pending.Push(package);
@@ -29,37 +30,51 @@ internal static class OpenXmlPackageGraphValidator
             {
                 RegisterRelationship(
                     pair.RelationshipId,
+                    pair.OpenXmlPart.RelationshipType,
                     relationshipIds,
                     ref relationshipCount);
 
                 var part = pair.OpenXmlPart;
-                var partUri = ValidatePartUri(part.Uri);
-                if (partsByUri.TryGetValue(partUri, out var existingPart))
+                if (RegisterPackagePart(
+                        part.Uri,
+                        part,
+                        packagePartsByUri))
                 {
-                    if (!ReferenceEquals(existingPart, part))
-                    {
-                        throw new InvalidDataException(
-                            "The XLSX package contains multiple parts with the same package URI.");
-                    }
-                    continue;
+                    pending.Push(part);
                 }
-
-                partsByUri.Add(partUri, part);
-                if (partsByUri.Count > MaxPartCount)
-                {
-                    throw new InvalidDataException(
-                        "The XLSX package relationship graph exceeds the supported part-count limit.");
-                }
-                pending.Push(part);
             }
 
             foreach (var relationship in container.ExternalRelationships)
             {
                 RegisterRelationship(
                     relationship.Id,
+                    relationship.RelationshipType,
                     relationshipIds,
                     ref relationshipCount);
-                ValidateExternalTarget(relationship.Uri);
+                ValidateReferenceTarget(relationship.Uri);
+            }
+
+            foreach (var relationship in container.HyperlinkRelationships)
+            {
+                RegisterRelationship(
+                    relationship.Id,
+                    relationship.RelationshipType,
+                    relationshipIds,
+                    ref relationshipCount);
+                ValidateReferenceTarget(relationship.Uri);
+            }
+
+            foreach (var relationship in container.DataPartReferenceRelationships)
+            {
+                RegisterRelationship(
+                    relationship.Id,
+                    relationship.RelationshipType,
+                    relationshipIds,
+                    ref relationshipCount);
+                RegisterPackagePart(
+                    relationship.DataPart.Uri,
+                    relationship.DataPart,
+                    packagePartsByUri);
             }
         }
     }
@@ -148,21 +163,68 @@ internal static class OpenXmlPackageGraphValidator
         }
     }
 
-    internal static void ValidateExternalTarget(Uri targetUri)
+    internal static void ValidateRelationshipType(string relationshipType)
+    {
+        if (string.IsNullOrWhiteSpace(relationshipType) ||
+            relationshipType.Length > MaxRelationshipTypeCharacters ||
+            ContainsControlCharacter(relationshipType) ||
+            !Uri.TryCreate(
+                relationshipType,
+                UriKind.Absolute,
+                out var relationshipTypeUri) ||
+            string.IsNullOrWhiteSpace(relationshipTypeUri.Scheme))
+        {
+            throw new InvalidDataException(
+                "The XLSX package contains an invalid relationship type URI.");
+        }
+    }
+
+    internal static void ValidateExternalTarget(Uri targetUri) =>
+        ValidateReferenceTarget(targetUri);
+
+    internal static void ValidateReferenceTarget(Uri targetUri)
     {
         ArgumentNullException.ThrowIfNull(targetUri);
         var value = targetUri.OriginalString;
         if (string.IsNullOrWhiteSpace(value) ||
-            value.Length > MaxExternalTargetCharacters ||
+            value.Length > MaxReferenceTargetCharacters ||
             ContainsControlCharacter(value))
         {
             throw new InvalidDataException(
-                "The XLSX package contains an invalid external relationship target.");
+                "The XLSX package contains an invalid reference relationship target.");
         }
+    }
+
+    private static bool RegisterPackagePart(
+        Uri partUri,
+        object part,
+        IDictionary<string, object> packagePartsByUri)
+    {
+        var validatedUri = ValidatePartUri(partUri);
+        if (packagePartsByUri.TryGetValue(
+                validatedUri,
+                out var existingPart))
+        {
+            if (!ReferenceEquals(existingPart, part))
+            {
+                throw new InvalidDataException(
+                    "The XLSX package contains multiple parts with the same package URI.");
+            }
+            return false;
+        }
+
+        packagePartsByUri.Add(validatedUri, part);
+        if (packagePartsByUri.Count > MaxPartCount)
+        {
+            throw new InvalidDataException(
+                "The XLSX package relationship graph exceeds the supported part-count limit.");
+        }
+        return true;
     }
 
     private static void RegisterRelationship(
         string relationshipId,
+        string relationshipType,
         ISet<string> relationshipIds,
         ref int relationshipCount)
     {
@@ -173,6 +235,7 @@ internal static class OpenXmlPackageGraphValidator
                 "An XLSX relationship container exceeds the supported relationship-count limit.");
         }
         ValidateRelationshipId(relationshipId, relationshipIds);
+        ValidateRelationshipType(relationshipType);
     }
 
     private static bool ContainsControlCharacter(string value)
