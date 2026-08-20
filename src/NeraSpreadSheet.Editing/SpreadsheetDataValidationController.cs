@@ -21,6 +21,29 @@ public sealed class SpreadsheetDataValidationController
         _session = session ?? throw new ArgumentNullException(nameof(session));
     }
 
+    public void AddRule(DataValidationRule rule)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+        _session.Execute(new AddDataValidationRuleOperation(
+            _session.ActiveWorksheet,
+            rule));
+    }
+
+    public bool RemoveRule(Guid ruleId)
+    {
+        var rule = _session.ActiveWorksheet.DataValidationRules
+            .FirstOrDefault(candidate => candidate.Id == ruleId);
+        if (rule is null)
+        {
+            return false;
+        }
+
+        _session.Execute(new RemoveDataValidationRuleOperation(
+            _session.ActiveWorksheet,
+            rule));
+        return true;
+    }
+
     public DataValidationRule? GetRule(CellAddress address)
     {
         address = _session.ActiveWorksheet.ResolveMergedAnchor(address);
@@ -117,6 +140,87 @@ public sealed class SpreadsheetDataValidationController
         }
 
         return diagnostics;
+    }
+
+    private static CellRange CalculateRange(DataValidationRule rule)
+    {
+        var top = rule.Ranges.Min(static range => range.Top);
+        var left = rule.Ranges.Min(static range => range.Left);
+        var bottom = rule.Ranges.Max(static range => range.Bottom);
+        var right = rule.Ranges.Max(static range => range.Right);
+        return new CellRange(
+            new CellAddress(top, left),
+            new CellAddress(bottom, right));
+    }
+
+    private sealed class AddDataValidationRuleOperation
+        : ISpreadsheetEditOperation
+    {
+        private readonly DataValidationRule _rule;
+
+        public AddDataValidationRuleOperation(
+            Worksheet worksheet,
+            DataValidationRule rule)
+        {
+            Worksheet = worksheet;
+            _rule = rule.Copy();
+            AffectedRange = CalculateRange(rule);
+        }
+
+        public string Description => "Add data validation";
+
+        public Worksheet Worksheet { get; }
+
+        public CellRange AffectedRange { get; }
+
+        public bool AffectsCalculation => false;
+
+        public void Execute() =>
+            Worksheet.AddDataValidationRule(_rule);
+
+        public void Undo()
+        {
+            if (!Worksheet.RemoveDataValidationRule(_rule.Id))
+            {
+                throw new InvalidOperationException(
+                    "The data-validation rule could not be removed during undo.");
+            }
+        }
+    }
+
+    private sealed class RemoveDataValidationRuleOperation
+        : ISpreadsheetEditOperation
+    {
+        private readonly DataValidationRule _rule;
+
+        public RemoveDataValidationRuleOperation(
+            Worksheet worksheet,
+            DataValidationRule rule)
+        {
+            Worksheet = worksheet;
+            _rule = rule.Copy();
+            AffectedRange = CalculateRange(rule);
+        }
+
+        public string Description => "Remove data validation";
+
+        public Worksheet Worksheet { get; }
+
+        public CellRange AffectedRange { get; }
+
+        public bool AffectsCalculation => false;
+
+        public void Execute()
+        {
+            if (!Worksheet.RemoveDataValidationRule(_rule.Id))
+            {
+                throw new InvalidOperationException(
+                    "The data-validation rule does not exist.");
+            }
+        }
+
+        public void Undo() =>
+            Worksheet.AddDataValidationRule(_rule);
     }
 
     private sealed class WorkbookEvaluationContext
