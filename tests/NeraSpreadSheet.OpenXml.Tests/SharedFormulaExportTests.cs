@@ -30,12 +30,14 @@ public sealed class SharedFormulaExportTests
     {
         var workbook = CreateWorkbook();
         var worksheet = workbook.Worksheets[0];
-        var anchor = new CellAddress(1, 1);
+        var range = new CellRange(
+            new CellAddress(1, 1),
+            new CellAddress(2, 2));
         SetFormulaRectangle(
             worksheet,
-            anchor,
-            rowCount: 2,
-            columnCount: 2,
+            range.TopLeft,
+            range.RowCount,
+            range.ColumnCount,
             AnchorFormula);
 
         var serializer = new NeraOpenXmlWorkbookSerializer();
@@ -49,7 +51,7 @@ public sealed class SharedFormulaExportTests
         AssertSharedRectangle(
             stream,
             "Data",
-            new CellRange(anchor, new CellAddress(2, 2)),
+            range,
             expectedSharedIndex: 0U,
             AnchorFormula);
 
@@ -60,7 +62,7 @@ public sealed class SharedFormulaExportTests
         AssertFormulaRectangleEqual(
             worksheet,
             loaded.Worksheets[0],
-            new CellRange(anchor, new CellAddress(2, 2)),
+            range,
             expectCachedValues: true);
     }
 
@@ -69,17 +71,23 @@ public sealed class SharedFormulaExportTests
     {
         var workbook = CreateWorkbook();
         var worksheet = workbook.Worksheets[0];
+        var firstRange = new CellRange(
+            new CellAddress(1, 0),
+            new CellAddress(1, 1));
+        var secondRange = new CellRange(
+            new CellAddress(4, 4),
+            new CellAddress(5, 4));
         SetFormulaRectangle(
             worksheet,
-            new CellAddress(1, 0),
-            rowCount: 1,
-            columnCount: 2,
+            firstRange.TopLeft,
+            firstRange.RowCount,
+            firstRange.ColumnCount,
             "=A1+1");
         SetFormulaRectangle(
             worksheet,
-            new CellAddress(4, 4),
-            rowCount: 2,
-            columnCount: 1,
+            secondRange.TopLeft,
+            secondRange.RowCount,
+            secondRange.ColumnCount,
             "=D4+1");
 
         var serializer = new NeraOpenXmlWorkbookSerializer();
@@ -92,17 +100,13 @@ public sealed class SharedFormulaExportTests
         AssertSharedRectangle(
             stream,
             "Data",
-            new CellRange(
-                new CellAddress(1, 0),
-                new CellAddress(1, 1)),
+            firstRange,
             expectedSharedIndex: 0U,
             "=A1+1");
         AssertSharedRectangle(
             stream,
             "Data",
-            new CellRange(
-                new CellAddress(4, 4),
-                new CellAddress(5, 4)),
+            secondRange,
             expectedSharedIndex: 1U,
             "=D4+1");
     }
@@ -163,8 +167,8 @@ public sealed class SharedFormulaExportTests
         SetFormulaRectangle(
             worksheet,
             range.TopLeft,
-            rowCount: 1,
-            columnCount: 2,
+            range.RowCount,
+            range.ColumnCount,
             "=A1+1");
 
         var serializer = new NeraOpenXmlWorkbookSerializer();
@@ -204,7 +208,51 @@ public sealed class SharedFormulaExportTests
     }
 
     [TestMethod]
-    public async Task StructuralInsertDeleteAndReorderRegroupCurrentLogicalFormulas()
+    public async Task StructuralInsertAndDeleteRegroupCurrentLogicalFormulas()
+    {
+        var workbook = CreateWorkbook();
+        var worksheet = workbook.Worksheets[0];
+        var range = new CellRange(
+            new CellAddress(1, 1),
+            new CellAddress(2, 2));
+        SetFormulaRectangle(
+            worksheet,
+            range.TopLeft,
+            range.RowCount,
+            range.ColumnCount,
+            "=A1+1");
+        var session = new SpreadsheetSession(workbook);
+        var structure = new SpreadsheetStructureController(session);
+
+        structure.InsertRows(0);
+        structure.InsertColumns(0);
+        structure.DeleteRows(0);
+        structure.DeleteColumns(0);
+
+        var formulasBefore = CaptureFormulas(worksheet);
+        Assert.AreEqual(4, formulasBefore.Count);
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        await using var stream = new MemoryStream();
+        await serializer.SaveAsync(
+            workbook,
+            stream,
+            new OpenXmlExportOptions());
+        AssertSharedRectangle(
+            stream,
+            "Data",
+            range,
+            expectedSharedIndex: 0U,
+            formulasBefore[range.TopLeft]);
+
+        stream.Position = 0L;
+        var loaded = await serializer.LoadAsync(
+            stream,
+            new OpenXmlImportOptions());
+        AssertFormulasEqual(formulasBefore, loaded.Worksheets[0]);
+    }
+
+    [TestMethod]
+    public async Task AxisReorderFallsBackWithoutChangingFormulaIdentity()
     {
         var workbook = CreateWorkbook();
         var worksheet = workbook.Worksheets[0];
@@ -215,31 +263,12 @@ public sealed class SharedFormulaExportTests
             columnCount: 2,
             "=A1+1");
         var session = new SpreadsheetSession(workbook);
-        var structure = new SpreadsheetStructureController(session);
         var reorder = new SpreadsheetAxisReorderController(session);
 
-        structure.InsertRows(0);
-        structure.InsertColumns(0);
-        Assert.IsTrue(reorder.MoveRows(2, 2, 6));
-        Assert.IsTrue(reorder.MoveColumns(2, 2, 6));
-        structure.DeleteRows(0);
-        structure.DeleteColumns(0);
-
-        var formulaCells = worksheet.EnumerateUsedCells()
-            .Where(static pair => pair.Value.Formula is not null)
-            .OrderBy(static pair => pair.Key.RowIndex)
-            .ThenBy(static pair => pair.Key.ColumnIndex)
-            .ToArray();
-        Assert.AreEqual(4, formulaCells.Length);
-        var formulaRange = new CellRange(
-            formulaCells[0].Key,
-            formulaCells[^1].Key);
-        Assert.AreEqual(2, formulaRange.RowCount);
-        Assert.AreEqual(2, formulaRange.ColumnCount);
-        var before = formulaCells.ToDictionary(
-            static pair => pair.Key,
-            static pair => pair.Value.Formula!,
-            EqualityComparer<CellAddress>.Default);
+        Assert.IsTrue(reorder.MoveRows(1, 2, 6));
+        Assert.IsTrue(reorder.MoveColumns(1, 2, 6));
+        var formulasBefore = CaptureFormulas(worksheet);
+        Assert.AreEqual(4, formulasBefore.Count);
 
         var serializer = new NeraOpenXmlWorkbookSerializer();
         await using var stream = new MemoryStream();
@@ -247,23 +276,13 @@ public sealed class SharedFormulaExportTests
             workbook,
             stream,
             new OpenXmlExportOptions());
-        AssertSharedRectangle(
-            stream,
-            "Data",
-            formulaRange,
-            expectedSharedIndex: 0U,
-            before[formulaRange.TopLeft]);
+        AssertSchemaValid(stream);
 
         stream.Position = 0L;
         var loaded = await serializer.LoadAsync(
             stream,
             new OpenXmlImportOptions());
-        foreach (var (address, formula) in before)
-        {
-            Assert.AreEqual(
-                formula,
-                loaded.Worksheets[0].GetCell(address).Formula);
-        }
+        AssertFormulasEqual(formulasBefore, loaded.Worksheets[0]);
     }
 
     [TestMethod]
@@ -277,8 +296,8 @@ public sealed class SharedFormulaExportTests
         SetFormulaRectangle(
             workbook.Worksheets[0],
             range.TopLeft,
-            rowCount: 2,
-            columnCount: 2,
+            range.RowCount,
+            range.ColumnCount,
             AnchorFormula);
 
         await using var source = new MemoryStream();
@@ -371,6 +390,24 @@ public sealed class SharedFormulaExportTests
             }
         }
         worksheet.SetCells(changes);
+    }
+
+    private static Dictionary<CellAddress, string> CaptureFormulas(
+        NeraWorksheet worksheet) =>
+        worksheet.EnumerateUsedCells()
+            .Where(static pair => pair.Value.Formula is not null)
+            .ToDictionary(
+                static pair => pair.Key,
+                static pair => pair.Value.Formula!);
+
+    private static void AssertFormulasEqual(
+        IReadOnlyDictionary<CellAddress, string> expected,
+        NeraWorksheet actual)
+    {
+        foreach (var (address, formula) in expected)
+        {
+            Assert.AreEqual(formula, actual.GetCell(address).Formula);
+        }
     }
 
     private static void AssertFormulaRectangleEqual(
@@ -493,7 +530,6 @@ public sealed class SharedFormulaExportTests
             OpaqueRelationshipId);
         using var target = opaque.GetStream(FileMode.Create, FileAccess.Write);
         target.Write(OpaqueBytes);
-        stream.Position = 0L;
     }
 
     private static void AssertOpaquePart(MemoryStream stream)
