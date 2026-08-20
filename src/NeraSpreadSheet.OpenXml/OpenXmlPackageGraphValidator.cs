@@ -12,6 +12,16 @@ internal static class OpenXmlPackageGraphValidator
     private const int MaxRelationshipTypeCharacters = 64 * 1024;
     private const int MaxReferenceTargetCharacters = 64 * 1024;
 
+    public static void Validate(byte[] packageBytes)
+    {
+        ArgumentNullException.ThrowIfNull(packageBytes);
+        using var stream = new MemoryStream(
+            packageBytes,
+            writable: false);
+        using var document = SpreadsheetDocument.Open(stream, false);
+        Validate(document);
+    }
+
     public static void Validate(OpenXmlPackage package)
     {
         ArgumentNullException.ThrowIfNull(package);
@@ -158,9 +168,18 @@ internal static class OpenXmlPackageGraphValidator
     {
         if (string.IsNullOrWhiteSpace(relationshipType) ||
             relationshipType.Length > MaxRelationshipTypeCharacters ||
-            ContainsControlCharacter(relationshipType) ||
+            ContainsControlCharacter(relationshipType))
+        {
+            throw new InvalidDataException(
+                "The XLSX package contains an invalid relationship type URI.");
+        }
+
+        var decoded = DecodeUriText(
+            relationshipType,
+            "The XLSX package contains an invalid escaped relationship type URI.");
+        if (ContainsControlCharacter(decoded) ||
             !Uri.TryCreate(
-                relationshipType,
+                decoded,
                 UriKind.Absolute,
                 out var relationshipTypeUri) ||
             string.IsNullOrWhiteSpace(relationshipTypeUri.Scheme))
