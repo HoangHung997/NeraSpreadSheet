@@ -60,48 +60,74 @@ Full contract: `docs/whole-axis-style-contract.md`.
 - Gap, `#REF!`, structured/array markers and failed bidirectional proof fall back to independent formulas.
 - Cached-value modes, structural behavior, schema validation and opaque repeated-save gates are implemented.
 
-### Conditional formatting Core model
+### Conditional formatting
 
-- `ConditionalFormattingRule` is platform/document independent and supports `CellIs` and `Expression`.
-- Cell-is operators: equal, not-equal, greater/greater-or-equal, less/less-or-equal, between and not-between.
-- Rules support one or more ranges, integer priority and `StopIfTrue`.
-- `DifferentialStyleCatalog` deduplicates property-level patches for font, fill, border, alignment and number format.
-- Worksheet snapshots deep-copy rules and differential styles for thread-safe renderer use.
-- `ConditionalFormattingEvaluator` evaluates rules in priority order and composes non-conflicting lower-priority properties while letting higher-priority properties win.
-- Expression formulas are translated from the rule anchor to each target cell through the shared Core A1 translator.
-- Cell mutations conservatively expand `CellsChanged` dirty regions to all conditional target ranges, so a source cell may invalidate a different rendered area without materializing any target cells.
+- Platform-independent `CellIs` and `Expression` rules support priority, `StopIfTrue`, multiple ranges and differential styles.
+- Rules evaluate against immutable snapshots and compose through the shared display-list renderer.
+- Rule ranges/formulas participate in structural state, insert/delete/reorder, undo/redo and rollback.
+- Standard SpreadsheetML `dxfs`, `dxf`, `conditionalFormatting`, `cfRule` and `formula` round-trip with malformed-input and opaque repeated-save gates.
 
-### Conditional formatting structural safety
+### Data Validation Core model
 
-- Rule ranges and formulas participate in structural state, insert/delete, undo/redo and rollback.
-- The Core structural-reference rewriter is shared by editing operations and conditional rules; absolute/mixed references and formula ranges are rewritten consistently.
-- Insert/delete removes rules whose complete target disappears and maps remaining ranges/formulas.
-- Axis reorder requires every rule range to be one uniform translation. A range that remains contiguous but whose internal rows/columns use different deltas is rejected atomically.
-- Production controller tests verify insert → undo → redo restores exact rule ID, priority, range and formula.
+- `DataValidationRule` is independent from UI and OpenXml and supports `Whole`, `Decimal`, `List`, `Date`, `Time`, `TextLength` and `Custom`.
+- Numeric/date/time/text operators include between/not-between, equal/not-equal and the four ordered comparisons.
+- Rules support sparse multiple ranges, stable IDs, formulas, `AllowBlank`, input-message metadata, error-alert metadata, Stop/Warning/Information style and list-dropdown visibility.
+- One worksheet cell is owned by at most one validation rule; overlapping ranges within or across rules are rejected atomically.
+- Worksheet snapshots deep-copy validation rules; structural state includes them for exact history and rollback.
+- Package-controlled rule/range/formula/title/message counts and lengths are bounded.
 
-### Conditional formatting XLSX interoperability
+### Data Validation evaluation and editor gate
 
-- Standard SpreadsheetML `dxfs`, `dxf`, `conditionalFormatting`, `cfRule` and `formula` are imported/exported.
-- `cellIs`, `expression`, operator, `priority`, `stopIfTrue`, `dxfId` and multiple `sqref` ranges round-trip.
-- Workbook-wide differential styles are deduplicated deterministically at save boundaries while Core keeps worksheet-local catalogs.
+- Whole, decimal, date, time and text-length candidates use operator-aware formula thresholds.
+- Literal comma-separated lists and same-sheet A1 range lists are supported without materializing the logical worksheet.
+- Custom formulas and formula-backed limits use the shared Core A1 translator and Nera formula engine.
+- Candidate-value substitution ensures a custom formula sees the value being committed at its target address rather than the previously stored value.
+- `AllowBlank` is authoritative: blank is accepted only when enabled, independent of numeric zero coercion.
+- Stop alerts reject editor commits; Warning/Information require explicit host acceptance; disabled error alerts permit the commit while leaving the cell diagnosable.
+- Input title/message are exposed through the editor controller; validation failure events carry style/title/message metadata.
+- Add/remove validation-rule operations and accepted cell edits participate in production undo/redo.
+
+### Data Validation diagnostics and rendering
+
+- Bounded diagnostic scans return invalid cells without storing a materialized invalid-cell index.
+- `SpreadsheetDisplayListComposer` outlines invalid visible cells through one shared theme contract; WPF, WinForms and MAUI consume the same result.
+- Hosts can disable validation highlighting through `ShowValidationErrors` without disabling the underlying rules.
+- Cell or rule mutation conservatively expands dirty regions to validation target ranges, so formula/list dependencies repaint correctly.
+
+### Data Validation structural safety
+
+- Insert/delete maps target ranges and rewrites relative, mixed, absolute and range references through the shared structural rewriter.
+- A rule is removed when all of its targets are deleted; undo restores the exact ID, ranges, formulas and metadata.
+- Row/column reorder requires each validation range to be one uniform translation. A contiguous but internally permuted image is rejected before any worksheet mutation.
+- Transformed rule sets are prevalidated for overlaps before cells, dimensions, merges or styles are replaced.
+
+### Data Validation XLSX interoperability
+
+- Standard SpreadsheetML `dataValidations`, `dataValidation`, `formula1` and `formula2` are imported/exported.
+- Type, operator, `sqref`, `allowBlank`, inverse `showDropDown`, input/error visibility, prompt/error text and Stop/Warning/Information style round-trip.
 - Generated packages pass `OpenXmlValidator(FileFormatVersions.Office2013)`.
-- Duplicate priorities, missing/invalid priority, invalid `sqref`, out-of-range `dxfId`, malformed formula counts and unsupported rule/style markup are rejected.
-- `PreserveUnknownParts=true` owns and refreshes worksheet conditional-formatting elements plus stylesheet `dxfs` while retaining opaque package bytes and unowned markup across repeated saves.
+- Duplicate collections, count mismatch, unsupported types/operators/children, invalid `sqref`, bad formula counts and overlapping targets are rejected as `InvalidDataException`.
+- `PreserveUnknownParts=true` patches generated `dataValidations` into the preserved worksheet package after normal copy-and-patch, retaining opaque parts and relationship bytes across repeated saves.
 
 ### XLSX style fidelity and package preservation
 
 - Values, formulas/cached values, sheets, dimensions, merges, panes and current Nera style semantics round-trip.
 - Standard cell/row/column style indexes and a Nera exact sparse-style state part preserve interoperability and no-flattening behavior.
-- Unknown-part preservation uses an internal bounded package envelope and copy-and-patch save.
+- Unknown-part preservation uses an internal bounded package envelope and atomic copy-and-patch save.
 - Nested opaque parts, standard drawing/image relationships, custom XML/properties and package-root relationships retain exact IDs, URIs, content types and bytes across repeated saves.
 - Package graph preflight checks part/relationship counts, uniqueness, NCName IDs, absolute relationship types, unsafe URI segments and encoded control/traversal payloads before restoration or destination mutation.
 
 ## Implemented but intentionally conservative
 
-- Conditional formatting currently supports `CellIs` and `Expression`; color scales, data bars, icon sets and specialized duplicate/top/average/time rules are not modeled.
-- Imported differential colors currently require explicit RGB; theme/indexed colors are not semantically converted.
-- Conditional expression evaluation currently resolves the active worksheet snapshot; cross-sheet conditional references are not a supported evaluation contract.
-- Dependent conditional invalidation is conservative: any cell mutation expands to every conditional target range on that worksheet.
+- Validation rules do not overlap; Nera does not attempt ambiguous multi-rule-per-cell precedence.
+- List validation supports quoted literal lists and same-sheet A1 ranges. Named ranges, external references and cross-sheet list/custom evaluation are not a supported contract yet.
+- The Core exposes prompt/error/dropdown metadata, but native rule-manager, popup prompt and dropdown presenter controls are not implemented.
+- Programmatic `Worksheet.SetValue/SetCells` intentionally bypass the interactive editor gate; invalid values remain visible through diagnostics and renderer highlighting.
+- Data-validation date/time numeric semantics use .NET/OA serial bridging, not the complete Excel date-system compatibility surface.
+- Conditional formatting currently supports `CellIs` and `Expression`; color scales, data bars, icon sets and specialized rules are not modeled.
+- Imported differential colors require explicit RGB; theme/indexed colors are not semantically converted.
+- Conditional and validation formula evaluation currently resolves the active worksheet snapshot; cross-sheet contracts remain unsupported.
+- Dependent invalidation is conservative and expands to all conditional/validation target ranges on that worksheet.
 - Direct styles remain complete overrides; no second partial-cell inheritance layer is introduced.
 - Number formatting uses a .NET bridge rather than a complete Excel format-code engine.
 - Sort is in-memory and bounded.
@@ -111,32 +137,34 @@ Full contract: `docs/whole-axis-style-contract.md`.
 
 ## Progress estimate
 
-- Engine/viewport/renderer foundation: approximately `86%`.
-- Basic spreadsheet MVP: approximately `70–74%`.
-- Complete professional roadmap: approximately `46%`.
-- Production release readiness: approximately `22–26%`.
+- Engine/viewport/renderer foundation: approximately `87%`.
+- Basic spreadsheet MVP: approximately `73–77%`.
+- Complete professional roadmap: approximately `48%`.
+- Production release readiness: approximately `24–28%`.
 
 These are weighted engineering estimates, not checkbox counts.
 
 ## Next implementation work
 
-1. Data validation Core model, whole/decimal/date/time/text/list/custom rules and commit-time editor gate.
-2. Validation input message, error alert, invalid-cell diagnostics and XLSX `dataValidations` round-trip.
-3. Tables, structured references and AutoFilter integration.
-4. Formula/function surface, dynamic arrays and plugin function SDK.
-5. Advanced sorting, grouping and virtualized data.
-6. Printing/page layout/PDF, first-class drawings/charts and pivot/slicers.
-7. Accessibility, packaging, fuzzing, performance budgets and release hardening.
+1. Tables Core model, stable table/column identity and structural transactions.
+2. Structured-reference parsing, dependency tracking and rewrite integration.
+3. Standard XLSX table parts, table styles and unknown-part coexistence.
+4. AutoFilter model, filter predicates and desktop filter UI.
+5. Formula/function surface, dynamic arrays and plugin function SDK.
+6. Advanced sorting, grouping and virtualized data.
+7. Printing/page layout/PDF, first-class drawings/charts and pivot/slicers.
+8. Accessibility, packaging, fuzzing, performance budgets and release hardening.
 
 ## Not implemented yet
 
+- Native data-validation rule manager, popup prompt/error presenters, dropdown UI, named-range lists and cross-sheet validation evaluation.
 - Color scales, data bars, icon sets and conditional-format rule-manager UI.
-- Data validation and tables/structured references.
+- Tables, structured references and AutoFilter/filter UI.
 - Dynamic arrays and complete Excel-compatible function surface.
 - External XLSX compatibility corpus from multiple spreadsheet generators.
 - Topology-changing unknown-part preservation.
 - Complete themes, named styles and Excel format-code semantics.
-- AutoFilter/filter UI, advanced sort, printing, preview and PDF export.
+- Advanced sort, printing, preview and PDF export.
 - First-class charts, pivot, slicers, collaboration and macro/query engines.
 - Full accessibility/designer/NuGet/security/performance/release gates.
 
@@ -146,17 +174,17 @@ These are weighted engineering estimates, not checkbox counts.
 - `NeraSpreadSheet.slnx` must restore/build on Windows and all tests must pass.
 - Architecture verification and Windows desktop GPU/runtime smoke are mandatory.
 - MAUI changes require real platform builds; production lifecycle/input/scale claims require loaded native Windows gates.
-- Conditional formatting must prove evaluator priority/stop behavior, snapshot isolation, renderer output, dependent-range invalidation, structural history, uniform-reorder proof, schema-valid XLSX, malformed-input rejection and opaque repeated saves.
+- Data validation must prove all supported types/operators, candidate-value semantics, blank/error-alert policy, editor history, diagnostics/rendering, structural rollback, schema-valid XLSX, malformed-input rejection and opaque repeated saves.
 - Unknown-part preservation must retain opaque bytes, URI, relationship ID/type, content type and unowned markup across repeated saves.
 - PR #1 remains Draft and must not merge while exact-head CI is red or unknown.
 
 ## Latest validated implementation milestone
 
-CI run #476 (`32372708251`) passed at implementation commit `58ed4a1c440b22bc75f8b3add40a3ba988a50517` on August 20, 2026.
+CI run #486 (`32392801690`) passed at implementation commit `64682b9d633bfae699832dee5b73ef5646271bad` on August 20, 2026.
 
-- Core restore/build/tests and architecture verification passed, including conditional model, evaluator, renderer, dirty invalidation, structural mapping and controller history gates.
-- Standard `dxfs/cfRule/formula` round-trip, multiple ranges, malformed priority/`dxfId`, schema validation and opaque repeated-save tests passed.
-- Existing sparse styles, shared formulas, package graph hardening and unknown-part preservation remained green.
+- Core restore/build/tests and architecture verification passed, including validation model, evaluator, candidate/blank policy, editor alerts, rule/cell undo, diagnostics, renderer and structural gates.
+- Standard `dataValidations/dataValidation/formula1/formula2` round-trip, metadata, malformed input, schema validation and opaque repeated-save tests passed.
+- Existing conditional formatting, sparse styles, shared formulas, package graph hardening and unknown-part preservation remained green.
 - Full Windows build/tests and desktop GPU runtime smoke passed.
 - MAUI Android, iOS and Mac Catalyst real-target builds passed.
 - MAUI Windows build/tests and both loaded runtime smokes passed.
