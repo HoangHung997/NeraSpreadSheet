@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>NeraSpreadSheet.Maui.Windows.ScaleSmoke</RootNamespace>
+    <AssemblyName>NeraSpreadSheet.Maui.Windows.ScaleSmoke</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Platforms>x64</Platforms>
+    <UseWinUI>true</UseWinUI>
+    <UseMaui>true</UseMaui>
+    <EnableDefaultMauiItems>false</EnableDefaultMauiItems>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <IsPackable>false</IsPackable>
+    <Description>Loaded MAUI Windows DPI, pixel-scaling and viewport-class smoke for NeraSpreadSheet.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/NeraSpreadSheet.Maui/NeraSpreadSheet.Maui.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+</Project>
