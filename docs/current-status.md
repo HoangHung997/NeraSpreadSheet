@@ -12,6 +12,7 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 - Workbook, formulas, editing, layout, scrolling and command projects remain independent from WPF, WinForms and MAUI.
 - Viewports use continuous `double` pixel offsets and may stop between row/column boundaries.
 - Desktop and GPU hosts consume the same workbook, viewport and display-list semantics.
+- Document-format dependencies stay inside adapter projects; Microsoft/OpenXml types do not enter public Core contracts.
 
 ## Implemented
 
@@ -73,6 +74,46 @@ Full style semantics: `docs/whole-axis-style-contract.md`.
 - Duplicate/default-invalid catalogs, invalid sequence bounds, overlapping spans, empty patches and duplicate exact-state parts are rejected.
 - XML, base64 and JSON failures are normalized to `InvalidDataException`; package-controlled counts and payload sizes are bounded.
 
+### Unknown OpenXml package-part preservation
+
+`NeraOpenXmlWorkbookSerializer` now supports `PreserveUnknownParts=true` without placing `DocumentFormat.OpenXml` types in the Core workbook model.
+
+#### Internal package envelope
+
+- Load captures the original XLSX bytes into an internal `OpenXmlPackageEnvelope` associated with the loaded `Workbook` through a `ConditionalWeakTable`.
+- The capture is bounded to 512 MiB and validates that every logical worksheet maps one-to-one to a `WorksheetPart`.
+- Worksheet relationship IDs and part URIs are captured and revalidated before every preservation save.
+- Unsafe worksheet part URIs, duplicate worksheet relationship IDs, duplicate worksheet part URIs and unsupported chart/dialog sheet topology are rejected.
+- The envelope disappears with the workbook and is detached when the caller explicitly saves with preservation disabled.
+
+#### Copy-and-patch save model
+
+- A preservation save first builds a complete Nera-supported package in memory.
+- It then clones the captured package and patches only regions Nera owns instead of reconstructing the opaque relationship graph.
+- Workbook sheet names are updated in place while original worksheet relationship IDs and part URIs remain unchanged.
+- Worksheet `cols`, `sheetData` and `mergeCells` are replaced from the generated Nera package.
+- The supported style-table children (`numFmts`, `fonts`, `fills`, `borders`, `cellStyleXfs`, `cellXfs`, `cellStyles`) are replaced in schema order.
+- Other workbook, worksheet and stylesheet markup remains untouched, including `extLst` payloads and future/extension markup outside Nera-owned regions.
+- The Nera exact sparse style-state part is refreshed as Nera-owned metadata; other custom/extended parts are not rewritten.
+- The complete output package is assembled before the destination stream is changed, giving failure atomicity for validation and merge failures.
+- A successful save refreshes the envelope from the emitted bytes, so repeated preservation saves operate from the latest package state.
+- A new Nera workbook can also be saved with preservation enabled; its first generated package becomes the baseline envelope.
+
+#### Validated opaque invariants
+
+Automated round-trip tests prove that these survive rename/edit and repeated saves:
+
+- workbook-level and worksheet-level opaque `ExtendedPart` relationships;
+- exact relationship IDs;
+- exact part URIs;
+- relationship types and content types;
+- arbitrary binary/XML bytes;
+- worksheet external relationships and target URI;
+- workbook, worksheet and stylesheet extension markup outside Nera-owned regions;
+- newly edited Nera cell data and worksheet rename.
+
+A separate failure-atomicity test adds a worksheet after a preservation load, verifies that topology validation throws, and proves that a pre-populated destination stream is unchanged.
+
 ### MAUI native GPU host
 
 `NeraSpreadsheetView` is one public `SKGLView`. It binds a Nera `Workbook`, owns a `SpreadsheetSession`/viewport engine and consumes the same spreadsheet display-list composer as desktop hosts. Windows, Android, iOS and Mac Catalyst compile against real MAUI workloads.
@@ -106,8 +147,6 @@ Validated invariants:
 - all started frames finish exactly once with no failed, abandoned or stale transition;
 - pointer state is empty at every lifecycle boundary.
 
-Exact run diagnostics are recorded in `docs/worklog/CURRENT.md`.
-
 #### Surface scale and viewport classes
 
 - `NeraSurfaceMetrics` separates logical MAUI viewport units, renderer canvas units and raw backing pixels.
@@ -120,39 +159,37 @@ Exact run diagnostics are recorded in `docs/worklog/CURRENT.md`.
 
 Full contract: `docs/maui-surface-scale-contract.md`.
 
-The dedicated loaded Windows scale smoke does not assume 100% DPI. It reads native `SKSwapChainPanel.ContentsScale`, verifies raw backing dimensions against it, and runs these scenarios on the same public view with handler/context recreation after each:
-
-1. physical-canvas Portrait/Compact;
-2. logical-canvas Landscape/Expanded;
-3. logical-canvas Square/Medium.
-
-Across all scenarios it preserves the same session, workbook, exact selection, zoom and fractional scroll state while keeping GPU accounting balanced.
-
 ## Implemented but intentionally conservative
 
 - Direct cell styles are complete overrides; Nera does not add a second partial-cell inheritance layer.
 - Unsafe formula/merge transforms are rejected rather than converted into ambiguous unions.
 - Number formatting uses a .NET bridge rather than a complete Excel format-code engine.
 - Sort is in-memory and materialization-bounded.
-- Themes, named styles, differential styles, conditional formats and full Excel format-code semantics remain outside the current XLSX milestone.
 - Structural rewriting covers A1 syntax, not tables, structured references, shared formulas or dynamic arrays.
-- Conservative full invalidation remains where retained correctness is not yet proven.
+- Unknown-part preservation requires the same worksheet objects in the same order; add/remove/reorder is rejected before destination mutation.
+- Preservation mode currently supports ordinary worksheet topology only; chart sheets and dialog sheets are rejected.
+- Nera replaces supported worksheet/style regions conservatively; semantic rewrites of unknown formulas, defined names, tables, drawings or vendor extensions are not attempted.
+- The package envelope is in-memory and bounded; streaming preservation for packages above 512 MiB is not implemented.
+- Nested drawing/media graphs are retained by copying the original package, but a dedicated fixture gate for every standard nested graph remains future hardening.
+- Themes, named styles, differential styles, conditional formats and full Excel format-code semantics remain outside the current XLSX milestone.
 - Hosted CI cannot guarantee physical driver removal, a real monitor-to-monitor DPI transition or every OS-controlled context-loss mode.
 - Sustained FPS, input latency, physical touch behavior and power use still require target-hardware benchmarks.
 
 ## Next implementation work
 
-1. Preserve unknown OpenXml parts across load/save without exposing Microsoft types in Nera public contracts.
-2. Add shared formulas, conditional formatting, validation, tables and drawings.
-3. Add device/emulator MAUI execution and global native pointer injection where infrastructure is reliable.
-4. Add filters, advanced sorting, printing, page layout, preview and PDF export.
-5. Add charts, pivot/slicers, accessibility, packaging and sustained-performance hardening.
+1. Harden unknown-part preservation with nested drawing/media/custom-XML fixtures, package-level relationships, hostile/conflicting relationship cases and schema validation after repeated saves.
+2. Implement shared-formula import/export and reference translation without flattening sparse worksheets.
+3. Add conditional formatting, validation, tables and drawings as first-class supported models.
+4. Add device/emulator MAUI execution and global native pointer injection where infrastructure is reliable.
+5. Add filters, advanced sorting, printing, page layout, preview and PDF export.
+6. Add charts, pivot/slicers, accessibility, packaging and sustained-performance hardening.
 
 ## Not implemented yet
 
-- Unknown OpenXml part preservation, themes, named/differential/conditional styles and complete Excel format-code semantics.
-- Global OS-level pointer injection and device/emulator runtime coverage across all MAUI platforms.
+- First-class themes, named/differential/conditional styles and complete Excel format-code semantics.
 - Shared formulas, validation, tables, drawings, charts, macros and complete dynamic arrays.
+- Topology-changing preservation merge for worksheet add/remove/reorder and chart/dialog sheets.
+- Dedicated nested drawing/media and package-root opaque-relationship fixtures.
 - Complete Excel-compatible function surface.
 - AutoFilter/filter UI, advanced sort, printing, page layout, preview and PDF export.
 - Charts, pivot, slicers, collaboration and macro/query engines.
@@ -170,18 +207,18 @@ Across all scenarios it preserves the same session, workbook, exact selection, z
 - Whole-axis styles require no-materialization, chronological composition, structural mapping, exact history and renderer tests.
 - Split-view history must remain per worksheet and isolated from data history.
 - XLSX style state must pass schema validation, direct-style round-trip, sparse no-flattening and malformed-input rejection gates.
+- Unknown-part preservation must retain opaque bytes, URI, relationship ID/type, content type, external relationships and unowned markup across repeated saves.
+- Preservation topology conflicts must fail before mutating the destination stream.
 - PR #1 remains Draft and must not merge while exact-head CI is red or unknown.
 
 ## Latest validated implementation milestone
 
-CI run #445 (`32323479652`) passed at exact-head commit `5ccbf90dacf3c4c4395939ce26d78a7945ac60e3` on August 20, 2026.
+CI run #449 (`32330382258`) passed at implementation commit `75b8292f060eccaaa7caff1fbed88f650f68ea7f` on August 20, 2026.
 
-- Core restore/build/tests and architecture verification passed.
+- Core restore/build/tests and architecture verification passed, including the new unknown-part preservation and failure-atomicity tests.
 - Full Windows restore/build/test and desktop GPU runtime smoke passed.
 - MAUI Android, iOS and Mac Catalyst real-target builds passed.
-- MAUI Windows build and all 18 handler/lifecycle/input/surface-metrics tests passed.
-- The repeated loaded Windows input/resize/context-recreation smoke passed.
-- The loaded Windows scale/orientation/width-class smoke passed.
+- MAUI Windows build, handler/lifecycle/input/surface-metrics tests and both loaded runtime smokes passed.
 - Exact sparse XLSX style fidelity and malformed-input hardening remained green.
 
 The PR remains Draft and has not been merged into `develop`.

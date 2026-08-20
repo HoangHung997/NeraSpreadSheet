@@ -4,128 +4,127 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` vào `develop` — Draft, chưa merge
-- Exact-head đã xác minh: `5ccbf90dacf3c4c4395939ce26d78a7945ac60e3`
-- GitHub Actions: run `32323479652`, CI `#445`, kết luận `success`
+- Implementation commit đã xác minh: `75b8292f060eccaaa7caff1fbed88f650f68ea7f`
+- GitHub Actions: run `32330382258`, CI `#449`, kết luận `success`
 - Tài liệu nguồn sự thật: `docs/current-status.md`
 - Contract scale MAUI: `docs/maui-surface-scale-contract.md`
 - Contract sparse styles: `docs/whole-axis-style-contract.md`
 
-## Mốc đã xác minh
+## Mốc vừa hoàn thành
 
-### Repeated MAUI input, resize và context recreation
+### Unknown OpenXml package-part preservation
 
-Loaded MAUI Windows smoke chạy trên cùng public `NeraSpreadsheetView`:
+`NeraOpenXmlWorkbookSerializer` hiện hỗ trợ `PreserveUnknownParts=true`.
 
-1. pinch production tới zoom `1.375`;
-2. pan tới offset phân số `17.25 / 31.75`;
-3. tap selection và mutate workbook;
-4. wheel production, đợi animated scroll settle hoàn toàn;
-5. resize xen kẽ `784 x 480`, `896 x 560`, `704 x 420`;
-6. sau mỗi resize, tháo cùng view, đặt handler về null rồi gắn lại;
-7. yêu cầu handler, platform surface và `GRContext` chưa từng dùng trước đó;
-8. giữ nguyên session, workbook, selection, zoom và current/target offsets qua toàn bộ chuỗi.
+Kiến trúc đã khóa:
 
-Kết quả exact run:
+1. Khi load, toàn bộ package XLSX gốc được chụp vào `OpenXmlPackageEnvelope` nội bộ.
+2. Envelope gắn với đúng `Workbook` bằng `ConditionalWeakTable`; Core không tham chiếu `DocumentFormat.OpenXml` và không có Microsoft type trong public contract.
+3. Capture bị giới hạn 512 MiB.
+4. Envelope giữ worksheet object identity, relationship ID và part URI theo đúng thứ tự sheet.
+5. Khi save, Nera dựng một package chuẩn mới trong memory để lấy phần markup mà Nera sở hữu.
+6. Sau đó Nera clone package gốc và chỉ patch các vùng được phép, thay vì dựng lại opaque relationship graph.
+7. Chỉ sau khi merge thành công mới ghi bytes hoàn chỉnh vào destination.
+8. Save thành công sẽ chụp lại output làm envelope mới, nhờ đó repeated save tiếp tục từ package gần nhất.
 
-- frame callbacks: `43`;
-- context generation: `1 -> 4`;
-- created/lost/recreated context: `4 / 3 / 3`;
-- started/completed/failed/abandoned: `43 / 43 / 0 / 0`;
-- stale transition: `0`;
-- wheel event: `1`;
-- final fractional offset/target: `17.25 / 101.56818181818181`;
-- selection version/ranges: `1 / 1`;
-- input state cuối chuỗi: zero active touch, pinch và tap.
+### Vùng Nera được phép thay
 
-### MAUI surface scale contract
+- Tên worksheet trong workbook markup.
+- Worksheet `cols`.
+- Worksheet `sheetData`.
+- Worksheet `mergeCells`.
+- Style-table children:
+  - `numFmts`;
+  - `fonts`;
+  - `fills`;
+  - `borders`;
+  - `cellStyleXfs`;
+  - `cellXfs`;
+  - `cellStyles`.
+- Nera exact sparse style-state custom part.
 
-`NeraSurfaceMetrics` phân biệt ba không gian:
+Mọi workbook/worksheet/stylesheet markup khác được giữ nguyên. Các phần tử mới do Nera chèn được đặt theo SpreadsheetML schema order.
 
-- logical MAUI viewport;
-- renderer canvas (`Info`);
-- raw backing pixels (`RawInfo`).
+### Invariants đã có test
 
-Các tỷ lệ canvas/viewport, raw/viewport và raw/canvas chỉ được chụp sau khi production frame lease đã complete. Orientation và width class chỉ dựa trên logical viewport:
+Round-trip rename/edit và repeated save giữ nguyên:
 
-- Compact `<600`;
-- Medium `600..<840`;
-- Expanded `>=840`;
-- Portrait/Landscape/Square theo logical width/height.
+- opaque `ExtendedPart` dưới workbook;
+- opaque `ExtendedPart` dưới worksheet;
+- relationship ID;
+- part URI;
+- relationship type;
+- content type;
+- raw binary/XML bytes;
+- external worksheet relationship và target URI;
+- workbook `extLst` payload ngoài vùng Nera sở hữu;
+- worksheet `extLst` payload ngoài vùng Nera sở hữu;
+- stylesheet `extLst` payload ngoài vùng Nera sở hữu;
+- worksheet rename;
+- cell edits của lần save thứ nhất và thứ hai.
 
-### Loaded Windows scale smoke
+Test failure atomicity:
 
-Gate đọc `SKSwapChainPanel.ContentsScale` thật, không giả định DPI runner. Trên cùng public view, gate chạy:
+- load package với preservation;
+- thêm worksheet làm topology không còn ánh xạ được;
+- destination đã có sentinel bytes;
+- save phải ném `InvalidOperationException` trước merge/write;
+- destination phải giữ nguyên sentinel bytes.
 
-1. physical-canvas Portrait/Compact `420 x 560`;
-2. logical-canvas Landscape/Expanded `900 x 500`;
-3. logical-canvas Square/Medium `600 x 600`;
-4. handler/platform-surface/`GRContext` recreation sau mỗi scenario.
+New workbook cũng có thể save với preservation bật; output đầu tiên trở thành baseline envelope.
 
-Kết quả exact run:
+## Validation exact implementation
 
-- frame callbacks: `19`;
-- recreation cycles: `3`;
-- context generation: `1 -> 4`;
-- created/lost/recreated context: `4 / 3 / 3`;
-- all started frames completed; failed/abandoned/stale: `0 / 0 / 0`;
-- native contents scale observed: `1.0`;
-- zoom/offset preserved: `1.25`, `29.5 / 53.75`;
-- same session and exact selection version/ranges preserved.
+CI `#449` xanh toàn bộ:
 
-### Unit và cross-platform matrix
+- Core restore/build/tests.
+- Architecture verification.
+- Unknown-part preservation tests.
+- XLSX style fidelity, no-flattening và malformed-input hardening.
+- Full Windows build/tests.
+- Windows desktop GPU runtime smoke.
+- MAUI Android build.
+- MAUI iOS build.
+- MAUI Mac Catalyst build.
+- MAUI Windows build/tests.
+- Loaded repeated input/resize/context-recreation smoke.
+- Loaded scale/orientation/width-class smoke.
 
-CI `#445` xanh toàn bộ:
+Hai lỗi ở lượt CI đầu chỉ là analyzer và đã được sửa:
 
-- Core build/tests và architecture verification.
-- Full Windows build/tests cùng desktop GPU runtime smoke.
-- Android real-target MAUI build.
-- iOS và Mac Catalyst real-target MAUI builds.
-- MAUI Windows build.
-- 18 MAUI tests: handler registration, GPU lifecycle, input controller và surface metrics.
-- repeated loaded runtime smoke.
-- loaded scale/orientation/width-class smoke.
+- dùng `StartsWith(char)` thay cho `StartsWith(string)`;
+- trả về `Dictionary<string, int>` cụ thể cho schema-order factory.
 
-## Quyết định kỹ thuật đã khóa
+## Giới hạn có chủ ý
 
-- Không tạo control riêng cho từng ô.
-- GPU lifecycle thuộc từng public MAUI view.
-- Production input controller là state machine duy nhất cho `OnTouch` và tests.
-- Logical viewport, canvas và raw pixels là ba không gian riêng.
-- Width class/orientation không được suy ra từ raw pixels.
-- DPI runner không được hard-code; gate phải đồi chiếu với `ContentsScale` thật.
-- Handler recreation phải tạo mới handler, native platform surface và `GRContext`.
-- Workbook/session/selection/zoom/fractional scroll không được mất khi đổi scaling mode, size class hoặc context generation.
+- Preserve mode chỉ nhận ordinary worksheet topology.
+- Chart sheet và dialog sheet bị từ chối.
+- Thêm/xóa/đổi thứ tự worksheet sau load bị từ chối; rename vẫn được phép.
+- Unknown formula, defined name, table, drawing và vendor-extension semantics không được tự sửa.
+- Envelope hiện giữ package trong memory và giới hạn 512 MiB.
+- Package copy giữ nguyên nested parts theo bytes/relationship graph, nhưng chưa có fixture riêng cho drawing/media và package-root opaque relationships.
+- Save với `PreserveUnknownParts=false` là full Nera rewrite và chủ động bỏ envelope cũ.
+- PR tiếp tục Draft; không merge nếu exact-head CI đỏ hoặc chưa xác định.
 
 ## File trọng tâm
 
-- `src/NeraSpreadSheet.Maui/NeraSpreadsheetView.cs`
-- `src/NeraSpreadSheet.Maui/NeraSpreadsheetInputController.cs`
-- `src/NeraSpreadSheet.Maui/NeraGpuContextLifecycle.cs`
-- `src/NeraSpreadSheet.Maui/NeraSurfaceMetrics.cs`
-- `tests/NeraSpreadSheet.Maui.Tests/NeraSurfaceMetricsTests.cs`
-- `tests/NeraSpreadSheet.Maui.Windows.Smoke/SmokePage.cs`
-- `tests/NeraSpreadSheet.Maui.Windows.ScaleSmoke/ScaleSmokePage.cs`
-- `docs/maui-surface-scale-contract.md`
-- `.github/workflows/ci.yml`
-
-## Giới hạn còn lại
-
-- Hosted runner không mô phỏng chắc chắn việc kéo cửa sổ giữa hai monitor có DPI khác nhau.
-- Android/iOS/Mac Catalyst hiện có compile gates; device/emulator runtime cần hạ tầng ổn định riêng.
-- Chưa có global OS pointer injection trên mọi platform.
-- Chưa preserve unknown OpenXml parts khi load/save.
-- Chưa có shared formulas, conditional formatting, validation, tables và drawings.
-- PR tiếp tục Draft; không merge nếu exact-head CI đỏ hoặc chưa xác định.
+- `src/NeraSpreadSheet.OpenXml/OpenXmlPackageEnvelope.cs`
+- `src/NeraSpreadSheet.OpenXml/OpenXmlPackagePreserver.cs`
+- `src/NeraSpreadSheet.OpenXml/NeraOpenXmlWorkbookSerializer.cs`
+- `tests/NeraSpreadSheet.OpenXml.Tests/OpenXmlRoundTripTests.cs`
+- `tests/NeraSpreadSheet.OpenXml.Tests/UnknownPartPreservationTests.cs`
+- `docs/current-status.md`
+- `docs/worklog/CURRENT.md`
 
 ## Bước tiếp theo duy nhất
 
-Hoàn thành **unknown OpenXml part preservation** mà không làm rò kiểu Microsoft/OpenXml vào public Nera model:
+Gia cố **unknown package graph preservation** trước khi chuyển sang shared formulas:
 
-1. chụp package envelope/part graph khi load;
-2. phân loại Nera-owned, standard-owned và opaque pass-through parts;
-3. giữ content type, relationship type/id, URI và raw bytes của opaque parts;
-4. khi save, tái tạo package và chỉ thay các parts Nera thực sự sở hữu;
-5. từ chối quan hệ/URI độc hại hoặc mâu thuẫn;
-6. thêm round-trip tests cho unknown workbook/worksheet parts, rels, custom XML, drawing/media và duplicate/conflict cases;
-7. giữ API public độc lập với DocumentFormat.OpenXml;
-8. chỉ ghi nhận mốc mới sau exact-head Core/Windows/MAUI CI xanh.
+1. thêm nested opaque relationship fixture;
+2. thêm standard drawing part + image/media bytes và worksheet drawing reference;
+3. thêm non-Nera custom XML part cùng properties/relationships;
+4. thêm package-root relationship fixture;
+5. thêm duplicate/conflicting relationship ID, unsafe URI và malformed relationship tests;
+6. chạy `OpenXmlValidator` sau rename/edit và repeated save;
+7. xác nhận failure atomicity khi merge phát hiện conflict;
+8. sau khi exact-head xanh mới chuyển sang shared-formula import/export.
