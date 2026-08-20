@@ -42,7 +42,7 @@ internal sealed class OpenXmlSharedFormulaImportResolver
                     continue;
                 }
 
-                var rangeText = GetAttributeValue(cellFormula, "ref");
+                var rangeText = cellFormula.Reference?.Value;
                 if (!TryParseSharedRange(rangeText, out var range))
                 {
                     throw new InvalidDataException(
@@ -88,8 +88,7 @@ internal sealed class OpenXmlSharedFormulaImportResolver
                 {
                     continue;
                 }
-                if (!string.IsNullOrWhiteSpace(
-                        GetAttributeValue(cellFormula, "ref")))
+                if (!string.IsNullOrWhiteSpace(cellFormula.Reference?.Value))
                 {
                     throw new InvalidDataException(
                         $"Shared-formula follower {address} must not declare its own reference range.");
@@ -155,21 +154,13 @@ internal sealed class OpenXmlSharedFormulaImportResolver
     }
 
     private static bool IsShared(CellFormula formula) =>
-        string.Equals(
-            GetAttributeValue(formula, "t"),
-            "shared",
-            StringComparison.Ordinal);
+        formula.FormulaType?.Value == CellFormulaValues.Shared;
 
     private static uint ReadSharedIndex(
         CellFormula formula,
         CellAddress address)
     {
-        var value = GetAttributeValue(formula, "si");
-        if (!uint.TryParse(
-                value,
-                NumberStyles.None,
-                CultureInfo.InvariantCulture,
-                out var sharedIndex))
+        if (formula.SharedIndex?.Value is not uint sharedIndex)
         {
             throw new InvalidDataException(
                 $"Shared formula at {address} has an invalid or missing shared index.");
@@ -187,18 +178,6 @@ internal sealed class OpenXmlSharedFormulaImportResolver
                 "Every shared-formula cell must have a valid A1 cell reference.");
         }
         return address;
-    }
-
-    private static string? GetAttributeValue(
-        CellFormula formula,
-        string localName)
-    {
-        var attribute = formula.GetAttribute(
-            localName,
-            string.Empty);
-        return string.IsNullOrEmpty(attribute.LocalName)
-            ? null
-            : attribute.Value;
     }
 
     private static bool TryParseSharedRange(
