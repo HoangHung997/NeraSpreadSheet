@@ -2,13 +2,17 @@ using NeraSpreadSheet.Core;
 
 namespace NeraSpreadSheet.Formulas;
 
-public sealed record WorkbookCalculationResult(int FormulaCellCount, int UpdatedCellCount, int ErrorCellCount);
+public sealed record WorkbookCalculationResult(
+    int FormulaCellCount,
+    int UpdatedCellCount,
+    int ErrorCellCount);
 
 public sealed class WorkbookCalculationEngine
 {
     private readonly IFormulaEngine _formulaEngine;
 
-    public WorkbookCalculationEngine(IFormulaEngine? formulaEngine = null)
+    public WorkbookCalculationEngine(
+        IFormulaEngine? formulaEngine = null)
     {
         _formulaEngine = formulaEngine ?? new NeraFormulaEngine();
     }
@@ -24,12 +28,18 @@ public sealed class WorkbookCalculationEngine
         {
             formulaCells.AddRange(worksheet.EnumerateUsedCells()
                 .Where(pair => pair.Value.Formula is not null)
-                .Select(pair => new FormulaCellKey(worksheet.Name, pair.Key)));
+                .Select(pair => new FormulaCellKey(
+                    worksheet.Name,
+                    pair.Key)));
         }
+
         return RecalculateFormulaCells(workbook, formulaCells);
     }
 
-    public WorkbookCalculationResult RecalculateAffected(Workbook workbook, Worksheet changedWorksheet, CellRange changedRange)
+    public WorkbookCalculationResult RecalculateAffected(
+        Workbook workbook,
+        Worksheet changedWorksheet,
+        CellRange changedRange)
     {
         ArgumentNullException.ThrowIfNull(workbook);
         ArgumentNullException.ThrowIfNull(changedWorksheet);
@@ -40,25 +50,34 @@ public sealed class WorkbookCalculationEngine
         }
 
         var candidates = new HashSet<FormulaCellKey>(
-            DependencyGraph.GetTransitiveDependents(changedWorksheet.Name, changedRange));
+            DependencyGraph.GetTransitiveDependents(
+                changedWorksheet.Name,
+                changedRange));
 
         foreach (var pair in changedWorksheet.EnumerateUsedCells())
         {
-            if (pair.Value.Formula is not null && changedRange.Contains(pair.Key))
+            if (pair.Value.Formula is not null &&
+                changedRange.Contains(pair.Key))
             {
-                candidates.Add(new FormulaCellKey(changedWorksheet.Name, pair.Key));
+                candidates.Add(new FormulaCellKey(
+                    changedWorksheet.Name,
+                    pair.Key));
             }
         }
 
         foreach (var formulaCell in DependencyGraph.FormulaCells)
         {
-            if (!string.Equals(formulaCell.WorksheetName, changedWorksheet.Name, StringComparison.OrdinalIgnoreCase) ||
+            if (!string.Equals(
+                    formulaCell.WorksheetName,
+                    changedWorksheet.Name,
+                    StringComparison.OrdinalIgnoreCase) ||
                 !changedRange.Contains(formulaCell.Address))
             {
                 continue;
             }
 
-            if (changedWorksheet.GetCell(formulaCell.Address).Formula is null)
+            if (changedWorksheet.GetCell(
+                    formulaCell.Address).Formula is null)
             {
                 DependencyGraph.Remove(formulaCell);
             }
@@ -67,12 +86,16 @@ public sealed class WorkbookCalculationEngine
         return RecalculateFormulaCells(workbook, candidates);
     }
 
-    private WorkbookCalculationResult RecalculateFormulaCells(Workbook workbook, IEnumerable<FormulaCellKey> formulaCells)
+    private WorkbookCalculationResult RecalculateFormulaCells(
+        Workbook workbook,
+        IEnumerable<FormulaCellKey> formulaCells)
     {
         var requested = formulaCells.Distinct().ToArray();
         var states = new Dictionary<CellKey, VisitState>();
         var cache = new Dictionary<CellKey, CellValue>();
-        var updates = new Dictionary<Worksheet, List<KeyValuePair<CellAddress, CellData>>>();
+        var updates = new Dictionary<
+            Worksheet,
+            List<KeyValuePair<CellAddress, CellData>>>();
         var errors = 0;
         var evaluated = 0;
 
@@ -81,7 +104,8 @@ public sealed class WorkbookCalculationEngine
             Worksheet worksheet;
             try
             {
-                worksheet = workbook.GetWorksheet(formulaCell.WorksheetName);
+                worksheet = workbook.GetWorksheet(
+                    formulaCell.WorksheetName);
             }
             catch (KeyNotFoundException)
             {
@@ -96,7 +120,12 @@ public sealed class WorkbookCalculationEngine
             }
 
             evaluated++;
-            var value = EvaluateCell(workbook, worksheet, formulaCell.Address, states, cache);
+            var value = EvaluateCell(
+                workbook,
+                worksheet,
+                formulaCell.Address,
+                states,
+                cache);
             if (value.Kind == CellValueKind.Error)
             {
                 errors++;
@@ -107,15 +136,21 @@ public sealed class WorkbookCalculationEngine
                 continue;
             }
 
-            if (!updates.TryGetValue(worksheet, out var worksheetUpdates))
+            if (!updates.TryGetValue(
+                    worksheet,
+                    out var worksheetUpdates))
             {
                 worksheetUpdates = [];
                 updates.Add(worksheet, worksheetUpdates);
             }
 
-            worksheetUpdates.Add(new KeyValuePair<CellAddress, CellData>(
-                formulaCell.Address,
-                new CellData(value, current.Formula, current.StyleId)));
+            worksheetUpdates.Add(
+                new KeyValuePair<CellAddress, CellData>(
+                    formulaCell.Address,
+                    new CellData(
+                        value,
+                        current.Formula,
+                        current.StyleId)));
         }
 
         foreach (var (worksheet, worksheetUpdates) in updates)
@@ -123,7 +158,10 @@ public sealed class WorkbookCalculationEngine
             worksheet.SetCells(worksheetUpdates);
         }
 
-        return new WorkbookCalculationResult(evaluated, updates.Values.Sum(list => list.Count), errors);
+        return new WorkbookCalculationResult(
+            evaluated,
+            updates.Values.Sum(list => list.Count),
+            errors);
     }
 
     private CellValue EvaluateCell(
@@ -139,7 +177,8 @@ public sealed class WorkbookCalculationEngine
             return cached;
         }
 
-        if (states.TryGetValue(key, out var state) && state == VisitState.Visiting)
+        if (states.TryGetValue(key, out var state) &&
+            state == VisitState.Visiting)
         {
             return CellValue.FromError("#CIRC!");
         }
@@ -153,10 +192,20 @@ public sealed class WorkbookCalculationEngine
         }
         else
         {
-            var context = new CalculationContext(this, workbook, worksheet, states, cache);
-            var result = _formulaEngine.Evaluate(cell.Formula, context);
+            var context = new CalculationContext(
+                this,
+                workbook,
+                worksheet,
+                address,
+                states,
+                cache);
+            var result = _formulaEngine.Evaluate(
+                cell.Formula,
+                context);
             value = result.Value;
-            DependencyGraph.Replace(new FormulaCellKey(worksheet.Name, address), result.Dependencies);
+            DependencyGraph.Replace(
+                new FormulaCellKey(worksheet.Name, address),
+                result.Dependencies);
         }
 
         states[key] = VisitState.Visited;
@@ -164,11 +213,13 @@ public sealed class WorkbookCalculationEngine
         return value;
     }
 
-    private sealed class CalculationContext : IFormulaEvaluationContext
+    private sealed class CalculationContext
+        : IStructuredReferenceEvaluationContext
     {
         private readonly WorkbookCalculationEngine _owner;
         private readonly Workbook _workbook;
         private readonly Worksheet _currentWorksheet;
+        private readonly CellAddress _currentAddress;
         private readonly IDictionary<CellKey, VisitState> _states;
         private readonly IDictionary<CellKey, CellValue> _cache;
 
@@ -176,33 +227,53 @@ public sealed class WorkbookCalculationEngine
             WorkbookCalculationEngine owner,
             Workbook workbook,
             Worksheet currentWorksheet,
+            CellAddress currentAddress,
             IDictionary<CellKey, VisitState> states,
             IDictionary<CellKey, CellValue> cache)
         {
             _owner = owner;
             _workbook = workbook;
             _currentWorksheet = currentWorksheet;
+            _currentAddress = currentAddress;
             _states = states;
             _cache = cache;
         }
 
-        public CellValue GetCellValue(string? worksheetName, CellAddress address)
+        public string ExpandStructuredReferences(string formula) =>
+            StructuredReferenceFormulaTranslator.Translate(
+                formula,
+                _workbook,
+                _currentWorksheet,
+                _currentAddress);
+
+        public CellValue GetCellValue(
+            string? worksheetName,
+            CellAddress address)
         {
             Worksheet worksheet;
             try
             {
-                worksheet = worksheetName is null ? _currentWorksheet : _workbook.GetWorksheet(worksheetName);
+                worksheet = worksheetName is null
+                    ? _currentWorksheet
+                    : _workbook.GetWorksheet(worksheetName);
             }
             catch (KeyNotFoundException)
             {
                 return CellValue.FromError("#REF!");
             }
 
-            return _owner.EvaluateCell(_workbook, worksheet, address, _states, _cache);
+            return _owner.EvaluateCell(
+                _workbook,
+                worksheet,
+                address,
+                _states,
+                _cache);
         }
     }
 
-    private readonly record struct CellKey(Worksheet Worksheet, CellAddress Address);
+    private readonly record struct CellKey(
+        Worksheet Worksheet,
+        CellAddress Address);
 
     private enum VisitState
     {

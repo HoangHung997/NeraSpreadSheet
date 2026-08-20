@@ -13,7 +13,9 @@ public enum FormulaErrorCode
     NotAvailable,
 }
 
-public readonly record struct FormulaDependency(string? WorksheetName, CellRange Range);
+public readonly record struct FormulaDependency(
+    string? WorksheetName,
+    CellRange Range);
 
 public sealed record FormulaEvaluationResult(
     CellValue Value,
@@ -25,20 +27,37 @@ public sealed record FormulaEvaluationResult(
     public static FormulaEvaluationResult Success(
         CellValue value,
         IReadOnlyList<FormulaDependency>? dependencies = null) =>
-        new(value, FormulaErrorCode.None, dependencies ?? Array.Empty<FormulaDependency>());
+        new(
+            value,
+            FormulaErrorCode.None,
+            dependencies ?? Array.Empty<FormulaDependency>());
 
-    public static FormulaEvaluationResult Failure(FormulaErrorCode errorCode) =>
-        new(CellValue.FromError($"#{errorCode}"), errorCode, Array.Empty<FormulaDependency>());
+    public static FormulaEvaluationResult Failure(
+        FormulaErrorCode errorCode) =>
+        new(
+            CellValue.FromError($"#{errorCode}"),
+            errorCode,
+            Array.Empty<FormulaDependency>());
 }
 
 public interface IFormulaEvaluationContext
 {
-    CellValue GetCellValue(string? worksheetName, CellAddress address);
+    CellValue GetCellValue(
+        string? worksheetName,
+        CellAddress address);
+}
+
+public interface IStructuredReferenceEvaluationContext
+    : IFormulaEvaluationContext
+{
+    string ExpandStructuredReferences(string formula);
 }
 
 public interface IFormulaEngine
 {
-    FormulaEvaluationResult Evaluate(string formula, IFormulaEvaluationContext context);
+    FormulaEvaluationResult Evaluate(
+        string formula,
+        IFormulaEvaluationContext context);
 }
 
 public interface IFormulaFunction
@@ -52,5 +71,7 @@ public interface IFormulaFunction
 
 public interface IFormulaFunctionRegistry
 {
-    bool TryResolve(string name, out IFormulaFunction formulaFunction);
+    bool TryResolve(
+        string name,
+        out IFormulaFunction formulaFunction);
 }
