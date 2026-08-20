@@ -142,7 +142,7 @@ internal sealed class OpenXmlPackageEnvelope
         ArgumentNullException.ThrowIfNull(partUri);
         var value = partUri.OriginalString;
         if (string.IsNullOrWhiteSpace(value) ||
-            !value.StartsWith("/", StringComparison.Ordinal) ||
+            !value.StartsWith('/') ||
             value.Contains('\\') ||
             value.Contains("/../", StringComparison.Ordinal) ||
             value.Contains("/./", StringComparison.Ordinal) ||
