@@ -6,7 +6,7 @@ namespace NeraSpreadSheet.OpenXml.Tests;
 public sealed class OpenXmlPackageGraphValidatorTests
 {
     [TestMethod]
-    public void SafePartUriAndRelationshipIdentifiersAreAccepted()
+    public void SafePartUriRelationshipsAndTargetsAreAccepted()
     {
         var partUri = new Uri(
             "/xl/worksheets/sheet1.xml",
@@ -20,11 +20,15 @@ public sealed class OpenXmlPackageGraphValidatorTests
         OpenXmlPackageGraphValidator.ValidateRelationshipId(
             "R4a4880969ca5400d",
             relationshipIds);
-        OpenXmlPackageGraphValidator.ValidateExternalTarget(
+        OpenXmlPackageGraphValidator.ValidateRelationshipType(
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet");
+        OpenXmlPackageGraphValidator.ValidateRelationshipType(
+            "urn:neraspreadsheet:test:opaque");
+        OpenXmlPackageGraphValidator.ValidateReferenceTarget(
             new Uri(
                 "https://example.invalid/opaque",
                 UriKind.Absolute));
-        OpenXmlPackageGraphValidator.ValidateExternalTarget(
+        OpenXmlPackageGraphValidator.ValidateReferenceTarget(
             new Uri(
                 "relative/opaque-target",
                 UriKind.Relative));
@@ -90,6 +94,36 @@ public sealed class OpenXmlPackageGraphValidatorTests
                     invalidId,
                     new HashSet<string>(StringComparer.Ordinal)));
         }
+    }
+
+    [TestMethod]
+    public void RelativeEmptyAndControlRelationshipTypesAreRejected()
+    {
+        string[] invalidTypes =
+        [
+            string.Empty,
+            " ",
+            "relative/relationship/type",
+            "urn:nera:bad\ntype",
+        ];
+
+        foreach (var invalidType in invalidTypes)
+        {
+            AssertInvalidData(() =>
+                OpenXmlPackageGraphValidator.ValidateRelationshipType(
+                    invalidType));
+        }
+    }
+
+    [TestMethod]
+    public void EmptyAndControlReferenceTargetsAreRejected()
+    {
+        AssertInvalidData(() =>
+            OpenXmlPackageGraphValidator.ValidateReferenceTarget(
+                new Uri(string.Empty, UriKind.Relative)));
+        AssertInvalidData(() =>
+            OpenXmlPackageGraphValidator.ValidateReferenceTarget(
+                new Uri("bad%0Atarget", UriKind.Relative)));
     }
 
     private static void AssertInvalidData(Action action)
