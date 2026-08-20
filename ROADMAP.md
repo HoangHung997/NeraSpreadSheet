@@ -32,7 +32,7 @@
 - [x] Arithmetic, comparison, concatenation, A1 references/ranges và basic cross-sheet references.
 - [x] `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT` và `IF`.
 - [x] Shared-formula import, anchor/follower expansion và mixed/absolute A1 translation không materialize range.
-- [ ] Shared-formula export grouping, stable shared indexes và normal-formula fallback.
+- [x] Shared-formula export grouping, stable worksheet-order indexes, bidirectional equivalence proof và normal-formula fallback.
 - [ ] Dynamic arrays, spill ranges và array calculation contracts.
 - [ ] Complete math, text, date/time, lookup, statistical và financial function surface.
 - [ ] Tables/structured references và formula rewrite integration.
@@ -48,11 +48,11 @@
 - [x] Repeated-save gate cho nested opaque parts, drawing/image, custom XML/properties và package-root relationships.
 - [x] Package graph preflight cho URI, relationship ID/type/target và size/count limits.
 - [x] Shared-formula import với malformed-group và cached-value gates.
-- [ ] Shared-formula export và complete shared-formula round-trip compatibility corpus.
+- [x] Shared-formula export, schema-valid anchor/follower output, structural/fallback và preservation repeated-save gates.
+- [ ] Compatibility corpus và round-trip differential tests với nhiều nguồn tạo XLSX thực tế.
 - [ ] Conditional formatting, validation và tables.
 - [ ] First-class drawings, images và charts model/editor.
 - [ ] Print areas, page setup, page breaks, preview và PDF export.
-- [ ] Compatibility corpus và round-trip differential tests với nhiều nguồn tạo XLSX.
 
 ## E. Data và analysis
 
@@ -87,20 +87,21 @@
 
 ## Immediate execution order
 
-1. Shared-formula export grouping, reference equivalence proof và repeated-save round-trip.
-2. Conditional formatting, validation và tables.
-3. Formula/function surface cùng structured references và dynamic arrays.
-4. AutoFilter, advanced sort, grouping và virtualized data.
-5. Printing/PDF, drawings/charts và pivot/slicers.
-6. Accessibility, packaging, fuzzing, performance budgets và release hardening.
+1. Conditional formatting model, differential styles và renderer/XLSX round-trip.
+2. Data validation model, list/custom rules và desktop validation UX.
+3. Tables, structured references và AutoFilter integration.
+4. Formula/function surface, dynamic arrays và plugin function SDK.
+5. Advanced sort, grouping, virtualized data và subtotals.
+6. Printing/PDF, drawings/charts và pivot/slicers.
+7. Accessibility, packaging, fuzzing, performance budgets và release hardening.
 
-## Trạng thái ước tính sau task shared-formula import
+## Trạng thái ước tính sau shared-formula end-to-end
 
 - Nền móng engine/viewport/renderer: khoảng `85%`.
-- MVP bảng tính cơ bản: khoảng `66–70%`.
-- Toàn bộ roadmap chuyên nghiệp: khoảng `44%`.
-- Production release readiness: khoảng `20–25%`.
+- MVP bảng tính cơ bản: khoảng `68–72%`.
+- Toàn bộ roadmap chuyên nghiệp: khoảng `45%`.
+- Production release readiness: khoảng `21–25%`.
 
-Task shared-formula import nâng tổng thể khoảng `0,5–1` điểm phần trăm. Phần shared-formula export, compatibility corpus và structural round-trip vẫn còn, nên chưa chấm cao hơn.
+Shared-formula import/export hoàn chỉnh trong phạm vi Nera hiện tại nâng tổng thể khoảng `1` điểm phần trăm so với mốc import-only. Chưa chấm cao hơn vì corpus tương thích bên ngoài, dynamic arrays, structured references và bề mặt hàm lớn vẫn còn.
 
 Các tỷ lệ trên là ước lượng theo độ khó và khối lượng còn lại, không phải tỷ lệ số checkbox.
