@@ -30,15 +30,19 @@ public sealed class Worksheet
         _conditionalFormatting = new();
     private readonly WorksheetDataValidationCollection
         _dataValidations = new();
+    private readonly WorksheetTableCollection _tables = new();
     private long _nextAxisStyleSequence = 1L;
 
-    internal Worksheet(string name)
+    internal Worksheet(string name, Workbook workbook)
     {
+        Workbook = workbook ?? throw new ArgumentNullException(nameof(workbook));
         Name = name;
         Dimensions = new WorksheetDimensions();
         MergedCells = new MergedCellRanges();
         DifferentialStyles = new DifferentialStyleCatalog();
     }
+
+    internal Workbook Workbook { get; }
 
     public string Name { get; internal set; }
 
@@ -68,6 +72,10 @@ public sealed class Worksheet
 
     public IReadOnlyList<DataValidationRule> DataValidationRules =>
         _dataValidations.Rules;
+
+    public int TableCount => _tables.Count;
+
+    public IReadOnlyList<SpreadsheetTable> Tables => _tables.Tables;
 
     public event EventHandler<CellsChangedEventArgs>? CellsChanged;
 
@@ -281,10 +289,104 @@ public sealed class Worksheet
             ResolveMergedAnchor(address),
             out rule);
 
+    public void AddTable(SpreadsheetTable table)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        Workbook.EnsureTableNameAvailable(table.Name, table.Id);
+        if (MergedCells.Ranges.Any(range =>
+                range.Intersects(table.Range)))
+        {
+            throw new InvalidOperationException(
+                "A table cannot overlap a merged range.");
+        }
+
+        _tables.Add(table);
+        Workbook.NotifyTableCollectionChanged();
+        PublishTableChange(table.Range);
+    }
+
+    public bool RemoveTable(Guid tableId)
+    {
+        if (!_tables.Remove(tableId, out var removed) ||
+            removed is null)
+        {
+            return false;
+        }
+
+        Workbook.NotifyTableCollectionChanged();
+        PublishTableChange(removed.Range);
+        return true;
+    }
+
+    public bool TryGetTable(
+        string name,
+        out SpreadsheetTable? table) =>
+        _tables.TryGet(name, out table);
+
+    public bool TryGetTable(
+        Guid id,
+        out SpreadsheetTable? table) =>
+        _tables.TryGet(id, out table);
+
+    public bool TryGetTable(
+        CellAddress address,
+        out SpreadsheetTable? table) =>
+        _tables.TryGet(address, out table);
+
+    public void RenameTable(Guid tableId, string name)
+    {
+        if (!_tables.TryGet(tableId, out var table) ||
+            table is null)
+        {
+            throw new KeyNotFoundException(
+                $"Table '{tableId}' was not found.");
+        }
+
+        Workbook.EnsureTableNameAvailable(name, tableId);
+        var replacement = table.Rename(name);
+        ReplaceTable(tableId, replacement);
+    }
+
+    public void RenameTableColumn(
+        Guid tableId,
+        Guid columnId,
+        string name)
+    {
+        if (!_tables.TryGet(tableId, out var table) ||
+            table is null)
+        {
+            throw new KeyNotFoundException(
+                $"Table '{tableId}' was not found.");
+        }
+
+        ReplaceTable(tableId, table.RenameColumn(columnId, name));
+    }
+
+    public void SetTableAutoFilter(
+        Guid tableId,
+        TableAutoFilter? autoFilter)
+    {
+        if (!_tables.TryGet(tableId, out var table) ||
+            table is null)
+        {
+            throw new KeyNotFoundException(
+                $"Table '{tableId}' was not found.");
+        }
+
+        ReplaceTable(tableId, table.WithAutoFilter(autoFilter));
+    }
+
     public void MergeCells(
         CellRange range,
         bool clearNonTopLeftCells = true)
     {
+        if (_tables.Tables.Any(table =>
+                table.Range.Intersects(range)))
+        {
+            throw new InvalidOperationException(
+                "Merged cells cannot overlap a table.");
+        }
+
         MergedCells.Add(range);
 
         if (clearNonTopLeftCells)
@@ -471,7 +573,8 @@ public sealed class Worksheet
             _columnStyles.Capture(),
             _nextAxisStyleSequence,
             _conditionalFormatting.Capture(),
-            _dataValidations.Capture());
+            _dataValidations.Capture(),
+            _tables.Capture());
 
     internal void ApplyStructuralChange(
         WorksheetStructuralChange change)
@@ -488,6 +591,11 @@ public sealed class Worksheet
             _conditionalFormatting.CreateStructuralRules(change);
         var transformedDataValidations =
             _dataValidations.CreateStructuralRules(change);
+        var transformedTables =
+            _tables.CreateStructuralTables(change, Name);
+        ValidateTablesAgainstMergedRanges(
+            transformedTables,
+            transformedMergedCells);
 
         ReplaceCells(transformedCells);
         Dimensions.ReplaceStructuralOverrides(
@@ -499,6 +607,7 @@ public sealed class Worksheet
             transformedConditionalFormatting,
             DifferentialStyles);
         _dataValidations.Restore(transformedDataValidations);
+        _tables.Restore(transformedTables);
         PublishStructuralChange(change);
     }
 
@@ -522,6 +631,11 @@ public sealed class Worksheet
             _conditionalFormatting.CreateAxisMoveRules(move);
         var transformedDataValidations =
             _dataValidations.CreateAxisMoveRules(move);
+        var transformedTables =
+            _tables.CreateAxisMoveTables(move);
+        ValidateTablesAgainstMergedRanges(
+            transformedTables,
+            transformedMergedCells);
 
         ReplaceCells(transformedCells);
         Dimensions.ReplaceAxisMoveOverrides(
@@ -533,6 +647,7 @@ public sealed class Worksheet
             transformedConditionalFormatting,
             DifferentialStyles);
         _dataValidations.Restore(transformedDataValidations);
+        _tables.Restore(transformedTables);
         PublishAxisMove(move);
     }
 
@@ -557,6 +672,7 @@ public sealed class Worksheet
             state.ConditionalFormattingRules,
             DifferentialStyles);
         _dataValidations.Restore(state.DataValidationRules);
+        _tables.Restore(state.Tables);
         PublishStructuralChange(signalChange);
     }
 
@@ -581,6 +697,7 @@ public sealed class Worksheet
             state.ConditionalFormattingRules,
             DifferentialStyles);
         _dataValidations.Restore(state.DataValidationRules);
+        _tables.Restore(state.Tables);
         PublishAxisMove(signalMove);
     }
 
@@ -599,6 +716,15 @@ public sealed class Worksheet
         CellRange signalRange)
     {
         _dataValidations.Restore(rules);
+        PublishChange(signalRange);
+    }
+
+    internal void RestoreTables(
+        IEnumerable<SpreadsheetTable> tables,
+        CellRange signalRange)
+    {
+        _tables.Restore(tables);
+        Workbook.NotifyTableCollectionChanged();
         PublishChange(signalRange);
     }
 
@@ -735,6 +861,49 @@ public sealed class Worksheet
         return style;
     }
 
+    private void ReplaceTable(
+        Guid tableId,
+        SpreadsheetTable replacement)
+    {
+        var tables = _tables.Capture();
+        var index = Array.FindIndex(
+            tables,
+            table => table.Id == tableId);
+        if (index < 0)
+        {
+            throw new KeyNotFoundException(
+                $"Table '{tableId}' was not found.");
+        }
+
+        var oldRange = tables[index].Range;
+        tables[index] = replacement;
+        _tables.Restore(tables);
+        Workbook.NotifyTableCollectionChanged();
+        PublishTableChange(new CellRange(
+            new CellAddress(
+                Math.Min(oldRange.Top, replacement.Range.Top),
+                Math.Min(oldRange.Left, replacement.Range.Left)),
+            new CellAddress(
+                Math.Max(oldRange.Bottom, replacement.Range.Bottom),
+                Math.Max(oldRange.Right, replacement.Range.Right))));
+    }
+
+    private static void ValidateTablesAgainstMergedRanges(
+        IEnumerable<SpreadsheetTable> tables,
+        IEnumerable<CellRange> mergedRanges)
+    {
+        var materializedMerges = mergedRanges.ToArray();
+        foreach (var table in tables)
+        {
+            if (materializedMerges.Any(range =>
+                    range.Intersects(table.Range)))
+            {
+                throw new InvalidOperationException(
+                    $"Table '{table.Name}' would overlap a merged range.");
+            }
+        }
+    }
+
     private void ReplaceCells(
         IEnumerable<KeyValuePair<CellAddress, CellData>> cells)
     {
@@ -814,6 +983,11 @@ public sealed class Worksheet
         PublishRuleChange(ranges);
     }
 
+    private void PublishTableChange(CellRange range)
+    {
+        PublishChange(range);
+    }
+
     private void PublishRuleChange(IEnumerable<CellRange> ranges)
     {
         ArgumentNullException.ThrowIfNull(ranges);
@@ -840,6 +1014,7 @@ public sealed class Worksheet
     {
         range = _conditionalFormatting.ExpandSignalRange(range);
         range = _dataValidations.ExpandSignalRange(range);
+        range = _tables.ExpandSignalRange(range);
         Version++;
         CellsChanged?.Invoke(
             this,

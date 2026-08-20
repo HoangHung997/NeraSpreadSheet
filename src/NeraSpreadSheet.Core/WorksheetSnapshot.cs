@@ -15,6 +15,7 @@ public sealed class WorksheetSnapshot
         _conditionalFormattingRules;
     private readonly CellStylePatch[] _differentialStyles;
     private readonly DataValidationRule[] _dataValidationRules;
+    private readonly SpreadsheetTable[] _tables;
     private readonly ConcurrentDictionary<AxisStyleCacheKey, CellStyle>
         _axisStyleCache = new();
 
@@ -31,7 +32,8 @@ public sealed class WorksheetSnapshot
         WorksheetAxisStyleSpan[] columnStyleSpans,
         ConditionalFormattingRule[] conditionalFormattingRules,
         CellStylePatch[] differentialStyles,
-        DataValidationRule[] dataValidationRules)
+        DataValidationRule[] dataValidationRules,
+        SpreadsheetTable[] tables)
     {
         Name = name;
         Version = version;
@@ -55,6 +57,9 @@ public sealed class WorksheetSnapshot
         _dataValidationRules = dataValidationRules
             .Select(static rule => rule.Copy())
             .ToArray();
+        _tables = tables
+            .Select(static table => table.Copy())
+            .ToArray();
     }
 
     public string Name { get; }
@@ -76,6 +81,8 @@ public sealed class WorksheetSnapshot
     public int DataValidationRuleCount =>
         _dataValidationRules.Length;
 
+    public int TableCount => _tables.Length;
+
     public double DefaultRowHeight { get; }
 
     public double DefaultColumnWidth { get; }
@@ -92,6 +99,8 @@ public sealed class WorksheetSnapshot
 
     public IReadOnlyList<DataValidationRule> DataValidationRules =>
         _dataValidationRules;
+
+    public IReadOnlyList<SpreadsheetTable> Tables => _tables;
 
     internal int AxisStyleCacheEntryCount =>
         _axisStyleCache.Count;
@@ -168,6 +177,43 @@ public sealed class WorksheetSnapshot
         return false;
     }
 
+    public bool TryGetTable(
+        string name,
+        out SpreadsheetTable? table)
+    {
+        table = _tables.FirstOrDefault(candidate => string.Equals(
+            candidate.Name,
+            name,
+            StringComparison.OrdinalIgnoreCase));
+        return table is not null;
+    }
+
+    public bool TryGetTable(
+        CellAddress address,
+        out SpreadsheetTable? table)
+    {
+        table = _tables.FirstOrDefault(candidate =>
+            candidate.Range.Contains(address));
+        return table is not null;
+    }
+
+    public bool IsRowVisible(int rowIndex)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(rowIndex);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(
+            rowIndex,
+            SpreadsheetLimits.MaxRows);
+        foreach (var table in _tables)
+        {
+            if (!table.IsRowVisible(this, rowIndex))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public IEnumerable<KeyValuePair<CellAddress, CellData>>
         EnumerateUsedCells() =>
         _cells;
@@ -230,7 +276,8 @@ public sealed class WorksheetSnapshot
             axisStyles.ColumnSpans,
             [.. worksheet.ConditionalFormattingRules],
             [.. worksheet.DifferentialStyles.Snapshot()],
-            [.. worksheet.DataValidationRules]);
+            [.. worksheet.DataValidationRules],
+            [.. worksheet.Tables]);
     }
 
     private CellAddress ResolveMergedAnchor(

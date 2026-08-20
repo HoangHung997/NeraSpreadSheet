@@ -9,4 +9,5 @@ internal sealed record WorksheetStructuralState(
     WorksheetAxisStyleSpan[] ColumnStyleSpans,
     long NextAxisStyleSequence,
     ConditionalFormattingRule[] ConditionalFormattingRules,
-    DataValidationRule[] DataValidationRules);
+    DataValidationRule[] DataValidationRules,
+    SpreadsheetTable[] Tables);
