@@ -6,6 +6,7 @@ using DocumentFormat.OpenXml.Validation;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraWorkbook = NeraSpreadSheet.Core.Workbook;
+using OpenXmlCellValue = DocumentFormat.OpenXml.Spreadsheet.CellValue;
 
 namespace NeraSpreadSheet.OpenXml.Tests;
 
@@ -312,7 +313,7 @@ public sealed class SharedFormulaImportTests
         {
             CellReference = reference,
             CellFormula = formula,
-            CellValue = new CellValue(
+            CellValue = new OpenXmlCellValue(
                 cachedValue.ToString(
                     "R",
                     CultureInfo.InvariantCulture)),
