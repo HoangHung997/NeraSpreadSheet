@@ -82,7 +82,7 @@ public sealed class NeraSurfaceMetricsTests
     [TestMethod]
     public void InvalidDimensionsAndToleranceAreRejected()
     {
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() =>
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
             NeraSurfaceMetrics.Create(
                 1L,
                 1L,
@@ -105,9 +105,9 @@ public sealed class NeraSurfaceMetricsTests
             600,
             true);
 
-        Assert.ThrowsException<ArgumentOutOfRangeException>(
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
             () => metrics.IsRawPixelScaleUniform(-0.01d));
-        Assert.ThrowsException<ArgumentOutOfRangeException>(
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
             () => metrics.IsCanvasScaleUniform(double.NaN));
     }
 }
