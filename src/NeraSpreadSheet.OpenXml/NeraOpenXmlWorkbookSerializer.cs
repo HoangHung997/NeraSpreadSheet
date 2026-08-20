@@ -145,6 +145,9 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             workbookPart,
             workbook.Styles,
             exactStyleState?.Catalog);
+        var differentialStyles =
+            OpenXmlConditionalFormattingCodec.ReadDifferentialStyles(
+                workbookPart);
         var sharedStrings =
             workbookPart.SharedStringTablePart?.SharedStringTable;
 
@@ -187,6 +190,11 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                     worksheet,
                     exactStyleState);
             }
+            OpenXmlConditionalFormattingCodec.ReadWorksheetRules(
+                worksheetPart,
+                worksheet,
+                differentialStyles,
+                cancellationToken);
         }
 
         if (workbook.Worksheets.Count == 0)
@@ -218,6 +226,10 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         var sheets = openXmlWorkbook.AppendChild(new Sheets());
         var styleTable = OpenXmlStyleTable.CreateForExport(workbook);
         styleTable.Write(workbookPart);
+        var conditionalFormattingPlan =
+            OpenXmlConditionalFormattingCodec.WriteDifferentialStyles(
+                workbookPart,
+                workbook);
         uint sheetId = 1;
 
         foreach (var worksheet in workbook.Worksheets)
@@ -231,6 +243,10 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 options,
                 cancellationToken);
             worksheetPart.Worksheet.Save();
+            OpenXmlConditionalFormattingCodec.WriteWorksheetRules(
+                worksheetPart,
+                worksheet,
+                conditionalFormattingPlan);
             sheets.Append(new Sheet
             {
                 Id = workbookPart.GetIdOfPart(worksheetPart),

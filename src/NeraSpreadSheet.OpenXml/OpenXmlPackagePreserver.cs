@@ -18,6 +18,7 @@ internal static class OpenXmlPackagePreserver
         "cols",
         "sheetData",
         "mergeCells",
+        "conditionalFormatting",
     ];
 
     private static readonly IReadOnlyDictionary<string, int> WorksheetOrder =
@@ -72,6 +73,7 @@ internal static class OpenXmlPackagePreserver
         "cellStyleXfs",
         "cellXfs",
         "cellStyles",
+        "dxfs",
     ];
 
     private static readonly IReadOnlyDictionary<string, int> StylesheetOrder =
@@ -298,37 +300,31 @@ internal static class OpenXmlPackagePreserver
             var preservedElements = preservedRoot
                 .Elements(name)
                 .ToArray();
-            var generatedElement = generatedRoot
+            var generatedElements = generatedRoot
                 .Elements(name)
-                .FirstOrDefault();
+                .Select(static element => new XElement(element))
+                .ToArray();
 
             if (preservedElements.Length > 0)
             {
-                if (generatedElement is null)
+                var insertionAnchor = preservedElements[0];
+                foreach (var generatedElement in generatedElements)
                 {
-                    foreach (var element in preservedElements)
-                    {
-                        element.Remove();
-                    }
-                    continue;
+                    insertionAnchor.AddBeforeSelf(generatedElement);
                 }
 
-                preservedElements[0].ReplaceWith(
-                    new XElement(generatedElement));
-                for (var index = 1;
-                     index < preservedElements.Length;
-                     index++)
+                foreach (var preservedElement in preservedElements)
                 {
-                    preservedElements[index].Remove();
+                    preservedElement.Remove();
                 }
                 continue;
             }
 
-            if (generatedElement is not null)
+            foreach (var generatedElement in generatedElements)
             {
                 InsertInSchemaOrder(
                     preservedRoot,
-                    new XElement(generatedElement),
+                    generatedElement,
                     schemaOrder);
             }
         }
