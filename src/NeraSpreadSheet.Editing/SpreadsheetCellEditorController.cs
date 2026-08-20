@@ -96,7 +96,8 @@ public sealed class SpreadsheetCellEditorController
                 state.Address,
                 literal = ParseLiteral(text));
         LastValidationResult = validation;
-        if (!validation.IsValid)
+        if (!validation.IsValid &&
+            validation.Rule?.ShowErrorMessage == true)
         {
             ValidationFailed?.Invoke(
                 this,
