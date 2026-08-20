@@ -416,7 +416,7 @@ internal static class OpenXmlPackagePreserver
         sourceStream.CopyTo(destinationStream);
     }
 
-    private static IReadOnlyDictionary<string, int> CreateOrder(
+    private static Dictionary<string, int> CreateOrder(
         IReadOnlyList<string> elementNames)
     {
         var result = new Dictionary<string, int>(
