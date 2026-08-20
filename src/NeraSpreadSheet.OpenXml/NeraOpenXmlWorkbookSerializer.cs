@@ -107,6 +107,14 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 envelope,
                 generatedBytes,
                 cancellationToken);
+        if (envelope is not null)
+        {
+            outputBytes = OpenXmlDataValidationPackagePatcher.Patch(
+                outputBytes,
+                generatedBytes,
+                workbook.Worksheets.Count,
+                cancellationToken);
+        }
         var outputEnvelope = OpenXmlPackageEnvelope.Capture(
             outputBytes,
             workbook);
@@ -195,6 +203,10 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 worksheet,
                 differentialStyles,
                 cancellationToken);
+            OpenXmlDataValidationCodec.ReadWorksheetRules(
+                worksheetPart,
+                worksheet,
+                cancellationToken);
         }
 
         if (workbook.Worksheets.Count == 0)
@@ -247,6 +259,9 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 worksheetPart,
                 worksheet,
                 conditionalFormattingPlan);
+            OpenXmlDataValidationCodec.WriteWorksheetRules(
+                worksheetPart,
+                worksheet);
             sheets.Append(new Sheet
             {
                 Id = workbookPart.GetIdOfPart(worksheetPart),
