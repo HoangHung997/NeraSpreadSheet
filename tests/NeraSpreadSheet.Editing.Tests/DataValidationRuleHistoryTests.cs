@@ -29,13 +29,17 @@ public sealed class DataValidationRuleHistoryTests
         Assert.IsTrue(session.Undo());
         Assert.AreEqual(0, session.ActiveWorksheet.DataValidationRuleCount);
         Assert.IsTrue(session.Redo());
-        Assert.AreEqual(rule, session.ActiveWorksheet.DataValidationRules.Single());
+        AssertRuleEquivalent(
+            rule,
+            session.ActiveWorksheet.DataValidationRules.Single());
 
         Assert.IsTrue(session.Validation.RemoveRule(rule.Id));
         Assert.AreEqual(0, session.ActiveWorksheet.DataValidationRuleCount);
         Assert.AreEqual("Remove data validation", session.History.NextUndoDescription);
         Assert.IsTrue(session.Undo());
-        Assert.AreEqual(rule, session.ActiveWorksheet.DataValidationRules.Single());
+        AssertRuleEquivalent(
+            rule,
+            session.ActiveWorksheet.DataValidationRules.Single());
         Assert.IsTrue(session.Redo());
         Assert.AreEqual(0, session.ActiveWorksheet.DataValidationRuleCount);
     }
@@ -62,5 +66,28 @@ public sealed class DataValidationRuleHistoryTests
                 "100")));
         Assert.AreEqual(historyBefore, session.History.UndoCount);
         Assert.AreEqual(1, session.ActiveWorksheet.DataValidationRuleCount);
+    }
+
+    private static void AssertRuleEquivalent(
+        DataValidationRule expected,
+        DataValidationRule actual)
+    {
+        Assert.AreEqual(expected.Id, actual.Id);
+        Assert.AreEqual(expected.Type, actual.Type);
+        Assert.AreEqual(expected.Operator, actual.Operator);
+        Assert.AreEqual(expected.Formula1, actual.Formula1);
+        Assert.AreEqual(expected.Formula2, actual.Formula2);
+        Assert.AreEqual(expected.AllowBlank, actual.AllowBlank);
+        Assert.AreEqual(expected.ShowInputMessage, actual.ShowInputMessage);
+        Assert.AreEqual(expected.PromptTitle, actual.PromptTitle);
+        Assert.AreEqual(expected.Prompt, actual.Prompt);
+        Assert.AreEqual(expected.ShowErrorMessage, actual.ShowErrorMessage);
+        Assert.AreEqual(expected.ErrorStyle, actual.ErrorStyle);
+        Assert.AreEqual(expected.ErrorTitle, actual.ErrorTitle);
+        Assert.AreEqual(expected.Error, actual.Error);
+        Assert.AreEqual(expected.ShowDropDown, actual.ShowDropDown);
+        CollectionAssert.AreEqual(
+            expected.Ranges.ToArray(),
+            actual.Ranges.ToArray());
     }
 }
