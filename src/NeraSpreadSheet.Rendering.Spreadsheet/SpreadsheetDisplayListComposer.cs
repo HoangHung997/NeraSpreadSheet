@@ -193,6 +193,16 @@ public static class SpreadsheetDisplayListComposer
             pane,
             theme,
             styles);
+        if (theme.ShowValidationErrors)
+        {
+            DrawValidationDiagnostics(
+                builder,
+                worksheet,
+                rows,
+                columns,
+                pane,
+                theme);
+        }
         if (selection is not null)
         {
             DrawSelection(
@@ -342,6 +352,72 @@ public static class SpreadsheetDisplayListComposer
             builder,
             bounds,
             style.Border);
+    }
+
+    private static void DrawValidationDiagnostics(
+        DisplayListBuilder builder,
+        WorksheetSnapshot worksheet,
+        AxisSlot[] rows,
+        AxisSlot[] columns,
+        RectD pane,
+        SpreadsheetRenderTheme theme)
+    {
+        if (worksheet.DataValidationRuleCount == 0)
+        {
+            return;
+        }
+
+        var renderedMergedRanges = new HashSet<CellRange>();
+        foreach (var row in rows)
+        {
+            foreach (var column in columns)
+            {
+                var address = new CellAddress(row.Index, column.Index);
+                CellAddress validationAddress;
+                RectD bounds;
+                if (worksheet.TryGetMergedRange(address, out var mergedRange))
+                {
+                    if (!renderedMergedRanges.Add(mergedRange) ||
+                        !TryGetRangeBounds(
+                            rows,
+                            columns,
+                            mergedRange,
+                            out bounds))
+                    {
+                        continue;
+                    }
+
+                    validationAddress = mergedRange.TopLeft;
+                }
+                else
+                {
+                    bounds = new RectD(
+                        column.Start,
+                        row.Start,
+                        column.Size,
+                        row.Size);
+                    validationAddress = address;
+                }
+
+                if (!bounds.IntersectsWith(pane))
+                {
+                    continue;
+                }
+
+                var result = DataValidationEvaluator.Evaluate(
+                    worksheet,
+                    validationAddress,
+                    worksheet.GetCell(validationAddress).Value);
+                if (!result.IsValid)
+                {
+                    DrawRectangleOutline(
+                        builder,
+                        bounds,
+                        theme.InvalidCellStrokeWidth,
+                        theme.InvalidCell);
+                }
+            }
+        }
     }
 
     private static CellStyle ResolveStyle(
@@ -685,6 +761,15 @@ public static class SpreadsheetDisplayListComposer
             throw new ArgumentOutOfRangeException(
                 nameof(theme),
                 "SelectionStrokeWidth must be finite and positive.");
+        }
+
+        if (!double.IsFinite(
+                theme.InvalidCellStrokeWidth) ||
+            theme.InvalidCellStrokeWidth <= 0d)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(theme),
+                "InvalidCellStrokeWidth must be finite and positive.");
         }
 
         if (!double.IsFinite(theme.GridStrokeWidth) ||

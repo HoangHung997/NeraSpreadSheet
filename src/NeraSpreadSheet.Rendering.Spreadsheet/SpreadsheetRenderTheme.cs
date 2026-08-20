@@ -10,6 +10,7 @@ public sealed record SpreadsheetRenderTheme
     public ColorRgba Text { get; init; } = ColorRgba.Black;
     public ColorRgba Selection { get; init; } = ColorRgba.Selection;
     public ColorRgba ActiveCell { get; init; } = new(16, 92, 52);
+    public ColorRgba InvalidCell { get; init; } = new(196, 32, 32);
     public ColorRgba FreezePaneLine { get; init; } = new(128, 128, 128);
     public ColorRgba SplitPaneSeparator { get; init; } = new(176, 176, 176);
     public ColorRgba ActivePaneBorder { get; init; } = new(80, 120, 96);
@@ -29,9 +30,11 @@ public sealed record SpreadsheetRenderTheme
     public string FontFamily { get; init; } = "Segoe UI";
     public double FontSize { get; init; } = 12d;
     public double SelectionStrokeWidth { get; init; } = 2d;
+    public double InvalidCellStrokeWidth { get; init; } = 2d;
     public double GridStrokeWidth { get; init; } = 1d;
     public double FreezePaneStrokeWidth { get; init; } = 2d;
     public double ActivePaneStrokeWidth { get; init; } = 1d;
+    public bool ShowValidationErrors { get; init; } = true;
     public bool ShowHeaders { get; init; }
     public double RowHeaderWidth { get; init; } = 48d;
     public double ColumnHeaderHeight { get; init; } = 24d;
@@ -45,7 +48,9 @@ public sealed record SpreadsheetRenderTheme
     public double ScrollBarPageFactor { get; init; } = 0.9d;
     public double ScrollBarStrokeWidth { get; init; } = 1d;
 
-    public TextStyle CreateTextStyle() => new(FontFamily, FontSize, 400, Text, false);
+    public TextStyle CreateTextStyle() =>
+        new(FontFamily, FontSize, 400, Text, false);
 
-    public TextStyle CreateHeaderTextStyle() => new(FontFamily, HeaderFontSize, 400, HeaderText, false);
+    public TextStyle CreateHeaderTextStyle() =>
+        new(FontFamily, HeaderFontSize, 400, HeaderText, false);
 }

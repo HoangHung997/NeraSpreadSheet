@@ -8,4 +8,5 @@ internal sealed record WorksheetStructuralState(
     WorksheetAxisStyleSpan[] RowStyleSpans,
     WorksheetAxisStyleSpan[] ColumnStyleSpans,
     long NextAxisStyleSequence,
-    ConditionalFormattingRule[] ConditionalFormattingRules);
+    ConditionalFormattingRule[] ConditionalFormattingRules,
+    DataValidationRule[] DataValidationRules);

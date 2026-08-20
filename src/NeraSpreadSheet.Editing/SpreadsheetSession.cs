@@ -29,6 +29,7 @@ public sealed class SpreadsheetSession
         Styles = new SpreadsheetStyleController(this);
         Merge = new SpreadsheetMergeController(this);
         Sort = new SpreadsheetSortController(this);
+        Validation = new SpreadsheetDataValidationController(this);
         Editor = new SpreadsheetCellEditorController(this);
         View = new SpreadsheetViewController(this);
         Structure = new SpreadsheetStructureController(this);
@@ -64,6 +65,8 @@ public sealed class SpreadsheetSession
     public SpreadsheetMergeController Merge { get; }
 
     public SpreadsheetSortController Sort { get; }
+
+    public SpreadsheetDataValidationController Validation { get; }
 
     public SpreadsheetCellEditorController Editor { get; }
 

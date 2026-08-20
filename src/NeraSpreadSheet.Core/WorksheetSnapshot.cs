@@ -14,6 +14,7 @@ public sealed class WorksheetSnapshot
     private readonly ConditionalFormattingRule[]
         _conditionalFormattingRules;
     private readonly CellStylePatch[] _differentialStyles;
+    private readonly DataValidationRule[] _dataValidationRules;
     private readonly ConcurrentDictionary<AxisStyleCacheKey, CellStyle>
         _axisStyleCache = new();
 
@@ -29,7 +30,8 @@ public sealed class WorksheetSnapshot
         WorksheetAxisStyleSpan[] rowStyleSpans,
         WorksheetAxisStyleSpan[] columnStyleSpans,
         ConditionalFormattingRule[] conditionalFormattingRules,
-        CellStylePatch[] differentialStyles)
+        CellStylePatch[] differentialStyles,
+        DataValidationRule[] dataValidationRules)
     {
         Name = name;
         Version = version;
@@ -50,6 +52,9 @@ public sealed class WorksheetSnapshot
             .OrderBy(static rule => rule.Priority)
             .ToArray();
         _differentialStyles = [.. differentialStyles];
+        _dataValidationRules = dataValidationRules
+            .Select(static rule => rule.Copy())
+            .ToArray();
     }
 
     public string Name { get; }
@@ -68,6 +73,9 @@ public sealed class WorksheetSnapshot
     public int DifferentialStyleCount =>
         _differentialStyles.Length;
 
+    public int DataValidationRuleCount =>
+        _dataValidationRules.Length;
+
     public double DefaultRowHeight { get; }
 
     public double DefaultColumnWidth { get; }
@@ -81,6 +89,9 @@ public sealed class WorksheetSnapshot
     public IReadOnlyList<ConditionalFormattingRule>
         ConditionalFormattingRules =>
         _conditionalFormattingRules;
+
+    public IReadOnlyList<DataValidationRule> DataValidationRules =>
+        _dataValidationRules;
 
     internal int AxisStyleCacheEntryCount =>
         _axisStyleCache.Count;
@@ -138,6 +149,23 @@ public sealed class WorksheetSnapshot
                 yield return rule;
             }
         }
+    }
+
+    public bool TryGetDataValidationRule(
+        CellAddress address,
+        out DataValidationRule? rule)
+    {
+        foreach (var candidate in _dataValidationRules)
+        {
+            if (candidate.AppliesTo(address))
+            {
+                rule = candidate;
+                return true;
+            }
+        }
+
+        rule = null;
+        return false;
     }
 
     public IEnumerable<KeyValuePair<CellAddress, CellData>>
@@ -201,7 +229,8 @@ public sealed class WorksheetSnapshot
             axisStyles.RowSpans,
             axisStyles.ColumnSpans,
             [.. worksheet.ConditionalFormattingRules],
-            [.. worksheet.DifferentialStyles.Snapshot()]);
+            [.. worksheet.DifferentialStyles.Snapshot()],
+            [.. worksheet.DataValidationRules]);
     }
 
     private CellAddress ResolveMergedAnchor(

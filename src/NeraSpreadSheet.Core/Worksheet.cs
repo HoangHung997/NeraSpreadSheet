@@ -28,6 +28,8 @@ public sealed class Worksheet
         SpreadsheetLimits.MaxColumns);
     private readonly WorksheetConditionalFormattingCollection
         _conditionalFormatting = new();
+    private readonly WorksheetDataValidationCollection
+        _dataValidations = new();
     private long _nextAxisStyleSequence = 1L;
 
     internal Worksheet(string name)
@@ -60,6 +62,12 @@ public sealed class Worksheet
     public IReadOnlyList<ConditionalFormattingRule>
         ConditionalFormattingRules =>
         _conditionalFormatting.Rules;
+
+    public int DataValidationRuleCount =>
+        _dataValidations.Count;
+
+    public IReadOnlyList<DataValidationRule> DataValidationRules =>
+        _dataValidations.Rules;
 
     public event EventHandler<CellsChangedEventArgs>? CellsChanged;
 
@@ -233,6 +241,45 @@ public sealed class Worksheet
         PublishConditionalFormattingChange(
             existing.SelectMany(static rule => rule.Ranges));
     }
+
+    public void AddDataValidationRule(DataValidationRule rule)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+        _dataValidations.Add(rule);
+        PublishDataValidationChange(rule.Ranges);
+    }
+
+    public bool RemoveDataValidationRule(Guid ruleId)
+    {
+        if (!_dataValidations.Remove(ruleId, out var removed) ||
+            removed is null)
+        {
+            return false;
+        }
+
+        PublishDataValidationChange(removed.Ranges);
+        return true;
+    }
+
+    public void ClearDataValidationRules()
+    {
+        var existing = _dataValidations.Capture();
+        if (existing.Length == 0)
+        {
+            return;
+        }
+
+        _dataValidations.Restore([]);
+        PublishDataValidationChange(
+            existing.SelectMany(static rule => rule.Ranges));
+    }
+
+    public bool TryGetDataValidationRule(
+        CellAddress address,
+        out DataValidationRule? rule) =>
+        _dataValidations.TryGetRule(
+            ResolveMergedAnchor(address),
+            out rule);
 
     public void MergeCells(
         CellRange range,
@@ -423,7 +470,8 @@ public sealed class Worksheet
             _rowStyles.Capture(),
             _columnStyles.Capture(),
             _nextAxisStyleSequence,
-            _conditionalFormatting.Capture());
+            _conditionalFormatting.Capture(),
+            _dataValidations.Capture());
 
     internal void ApplyStructuralChange(
         WorksheetStructuralChange change)
@@ -438,6 +486,8 @@ public sealed class Worksheet
             CreateStructuralStyles(change);
         var transformedConditionalFormatting =
             _conditionalFormatting.CreateStructuralRules(change);
+        var transformedDataValidations =
+            _dataValidations.CreateStructuralRules(change);
 
         ReplaceCells(transformedCells);
         Dimensions.ReplaceStructuralOverrides(
@@ -448,6 +498,7 @@ public sealed class Worksheet
         _conditionalFormatting.Restore(
             transformedConditionalFormatting,
             DifferentialStyles);
+        _dataValidations.Restore(transformedDataValidations);
         PublishStructuralChange(change);
     }
 
@@ -469,6 +520,8 @@ public sealed class Worksheet
             CreateAxisMoveStyles(move);
         var transformedConditionalFormatting =
             _conditionalFormatting.CreateAxisMoveRules(move);
+        var transformedDataValidations =
+            _dataValidations.CreateAxisMoveRules(move);
 
         ReplaceCells(transformedCells);
         Dimensions.ReplaceAxisMoveOverrides(
@@ -479,6 +532,7 @@ public sealed class Worksheet
         _conditionalFormatting.Restore(
             transformedConditionalFormatting,
             DifferentialStyles);
+        _dataValidations.Restore(transformedDataValidations);
         PublishAxisMove(move);
     }
 
@@ -502,6 +556,7 @@ public sealed class Worksheet
         _conditionalFormatting.Restore(
             state.ConditionalFormattingRules,
             DifferentialStyles);
+        _dataValidations.Restore(state.DataValidationRules);
         PublishStructuralChange(signalChange);
     }
 
@@ -525,6 +580,7 @@ public sealed class Worksheet
         _conditionalFormatting.Restore(
             state.ConditionalFormattingRules,
             DifferentialStyles);
+        _dataValidations.Restore(state.DataValidationRules);
         PublishAxisMove(signalMove);
     }
 
@@ -535,6 +591,14 @@ public sealed class Worksheet
         _conditionalFormatting.Restore(
             rules,
             DifferentialStyles);
+        PublishChange(signalRange);
+    }
+
+    internal void RestoreDataValidations(
+        IEnumerable<DataValidationRule> rules,
+        CellRange signalRange)
+    {
+        _dataValidations.Restore(rules);
         PublishChange(signalRange);
     }
 
@@ -741,6 +805,17 @@ public sealed class Worksheet
     private void PublishConditionalFormattingChange(
         IEnumerable<CellRange> ranges)
     {
+        PublishRuleChange(ranges);
+    }
+
+    private void PublishDataValidationChange(
+        IEnumerable<CellRange> ranges)
+    {
+        PublishRuleChange(ranges);
+    }
+
+    private void PublishRuleChange(IEnumerable<CellRange> ranges)
+    {
         ArgumentNullException.ThrowIfNull(ranges);
         var materialized = ranges.ToArray();
         if (materialized.Length == 0)
@@ -764,6 +839,7 @@ public sealed class Worksheet
     private void PublishChange(CellRange range)
     {
         range = _conditionalFormatting.ExpandSignalRange(range);
+        range = _dataValidations.ExpandSignalRange(range);
         Version++;
         CellsChanged?.Invoke(
             this,
