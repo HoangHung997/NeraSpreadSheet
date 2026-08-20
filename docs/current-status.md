@@ -74,6 +74,18 @@ Full style semantics: `docs/whole-axis-style-contract.md`.
 - Duplicate/default-invalid catalogs, invalid sequence bounds, overlapping spans, empty patches and duplicate exact-state parts are rejected.
 - XML, base64 and JSON failures are normalized to `InvalidDataException`; package-controlled counts and payload sizes are bounded.
 
+### Shared-formula import and A1 translation
+
+- SpreadsheetML formulas with `t="shared"` are imported through a two-pass resolver.
+- Formula-bearing anchors are collected before followers, so valid followers may appear earlier than their anchor in worksheet XML.
+- `SharedIndex`, anchor range and cell addresses are validated before any worksheet changes are applied.
+- Every existing follower receives an independent Nera formula translated from the anchor by the same `FormulaReferenceTranslator` used by copy/paste and structural editing.
+- Relative and mixed references are translated while `$A$1`, `$A1`, `A$1`, quoted sheet names and doubled-quote string literals retain their intended semantics.
+- The declared shared range is never enumerated or materialized; only cells already present in `sheetData` are processed.
+- Duplicate anchors, missing anchors/indexes, missing or reversed anchor ranges, followers outside the declared range and followers declaring their own range are rejected with `InvalidDataException`.
+- Cached formula values are retained or discarded according to `LoadCachedFormulaValues` without dropping the expanded formulas.
+- Export intentionally remains normal-formula output until the next shared-formula compaction task proves safe grouping and fallback behavior.
+
 ### Unknown OpenXml package-part preservation
 
 `NeraOpenXmlWorkbookSerializer` supports `PreserveUnknownParts=true` without placing `DocumentFormat.OpenXml` types in the Core workbook model.
@@ -99,7 +111,7 @@ Full style semantics: `docs/whole-axis-style-contract.md`.
 
 #### Nested package-graph gate
 
-A repeated-save fixture now proves preservation of:
+A repeated-save fixture proves preservation of:
 
 - package-root opaque `ExtendedPart` plus nested opaque child;
 - package-root and nested external relationships;
@@ -128,7 +140,7 @@ The validator enforces:
 - no encoded slash/backslash, empty URI segment, backslash, query, fragment or control character in part URIs;
 - no literal or percent-decoded control character in relationship type/target text.
 
-Preservation load validates the captured bytes before `LoadCore`. Preservation save creates and validates the final output envelope before the destination stream is truncated or written. Graph/topology failure therefore remains atomic from the caller's perspective.
+Preservation load validates captured bytes before workbook restoration. Preservation save creates and validates the final output envelope before the destination stream is truncated or written.
 
 ### MAUI native GPU host
 
@@ -178,7 +190,8 @@ Full contract: `docs/maui-surface-scale-contract.md`.
 - Unsafe formula/merge transforms are rejected rather than converted into ambiguous unions.
 - Number formatting uses a .NET bridge rather than a complete Excel format-code engine.
 - Sort is in-memory and materialization-bounded.
-- Structural rewriting covers A1 syntax, not tables, structured references, shared formulas or dynamic arrays.
+- Structural rewriting covers A1 syntax, not tables, structured references or dynamic arrays.
+- Shared formulas are expanded safely on import; export does not yet compact equivalent normal formulas into shared groups.
 - Unknown-part preservation requires the same worksheet objects in the same order; add/remove/reorder is rejected before destination mutation.
 - Preservation mode supports ordinary worksheet topology only; chart sheets and dialog sheets are rejected.
 - Unknown formulas, defined names, tables, drawings and vendor extensions are retained but not semantically rewritten.
@@ -189,16 +202,18 @@ Full contract: `docs/maui-surface-scale-contract.md`.
 
 ## Next implementation work
 
-1. Implement shared-formula import/export, anchor expansion and reference translation without flattening sparse worksheets.
-2. Add conditional formatting, validation and tables.
-3. Expand formula functions, structured references and dynamic arrays.
-4. Add AutoFilter, advanced sorting, grouping and virtualized data.
-5. Add printing/page layout/PDF, first-class drawings/charts and pivot/slicers.
-6. Add accessibility, packaging, fuzzing, performance budgets and release hardening.
+1. Implement shared-formula export grouping, rectangular range proof, stable shared indexes and normal-formula fallback.
+2. Add round-trip/repeated-save compatibility gates for shared export and preserve logical formula identity through structural edits.
+3. Add conditional formatting, validation and tables.
+4. Expand formula functions, structured references and dynamic arrays.
+5. Add AutoFilter, advanced sorting, grouping and virtualized data.
+6. Add printing/page layout/PDF, first-class drawings/charts and pivot/slicers.
+7. Add accessibility, packaging, fuzzing, performance budgets and release hardening.
 
 ## Not implemented yet
 
-- Shared formulas, dynamic arrays, structured references and complete Excel-compatible function surface.
+- Shared-formula export compaction and complete shared-formula round-trip fidelity.
+- Dynamic arrays, structured references and complete Excel-compatible function surface.
 - First-class conditional formatting, validation, tables, drawings and charts.
 - Topology-changing preservation merge for worksheet add/remove/reorder and chart/dialog sheets.
 - Complete themes, named/differential styles and Excel format-code semantics.
@@ -216,20 +231,22 @@ Full contract: `docs/maui-surface-scale-contract.md`.
 - Every started MAUI GPU frame must finish exactly once as completed, failed or abandoned; stale transitions may not mutate the active generation.
 - Whole-axis styles require no-materialization, chronological composition, structural mapping, exact history and renderer tests.
 - XLSX style state must pass schema validation, direct-style round-trip, sparse no-flattening and malformed-input rejection gates.
+- Shared-formula import must prove mixed/absolute reference translation, quoted-sheet/string preservation, cached-value modes, follower-before-anchor handling and malformed-group rejection without range materialization.
 - Unknown-part preservation must retain opaque bytes, URI, relationship ID/type, content type, nested/external relationships and unowned markup across repeated saves.
 - Package graph must be preflighted before workbook restoration and before destination mutation.
 - PR #1 remains Draft and must not merge while exact-head CI is red or unknown.
 
 ## Latest validated implementation milestone
 
-CI run #459 (`32337216394`) passed at implementation commit `59293ff52c95b1f61d92560a49f90f931df5bb47` on August 20, 2026.
+CI run #463 (`32341414045`) passed at implementation commit `6fb4684f0dd5361b584f7d98fde55cf449e0642c` on August 20, 2026.
 
-- Core restore/build/tests and architecture verification passed, including nested package-graph preservation and hostile URI/relationship tests.
-- Drawing/image, custom XML/properties, package-root/nested/external relationships and repeated-save schema validation passed.
+- Core restore/build/tests and architecture verification passed, including nine shared-formula import tests and all prior OpenXml regressions.
+- Mixed/absolute A1 translation, quoted sheet names, string literals, cached-value modes and follower-before-anchor ordering passed.
+- Missing/duplicate anchors, missing shared index, reversed range, follower-outside-range and follower-owned-range cases were rejected.
 - Full Windows restore/build/test and desktop GPU runtime smoke passed.
 - MAUI Android, iOS and Mac Catalyst real-target builds passed.
 - MAUI Windows build/tests and both loaded runtime smokes passed.
-- Exact sparse XLSX style fidelity and malformed-input hardening remained green.
+- Exact sparse XLSX style fidelity, package graph hardening and unknown-part preservation remained green.
 
 The PR remains Draft and has not been merged into `develop`.
 

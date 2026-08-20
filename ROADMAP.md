@@ -31,7 +31,8 @@
 - [x] Tokenizer, parser, AST, dependency graph và circular-reference policy.
 - [x] Arithmetic, comparison, concatenation, A1 references/ranges và basic cross-sheet references.
 - [x] `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT` và `IF`.
-- [ ] Shared-formula import/export, anchor translation và sparse expansion policy.
+- [x] Shared-formula import, anchor/follower expansion và mixed/absolute A1 translation không materialize range.
+- [ ] Shared-formula export grouping, stable shared indexes và normal-formula fallback.
 - [ ] Dynamic arrays, spill ranges và array calculation contracts.
 - [ ] Complete math, text, date/time, lookup, statistical và financial function surface.
 - [ ] Tables/structured references và formula rewrite integration.
@@ -46,6 +47,8 @@
 - [x] Unknown package-part preservation theo copy-and-patch.
 - [x] Repeated-save gate cho nested opaque parts, drawing/image, custom XML/properties và package-root relationships.
 - [x] Package graph preflight cho URI, relationship ID/type/target và size/count limits.
+- [x] Shared-formula import với malformed-group và cached-value gates.
+- [ ] Shared-formula export và complete shared-formula round-trip compatibility corpus.
 - [ ] Conditional formatting, validation và tables.
 - [ ] First-class drawings, images và charts model/editor.
 - [ ] Print areas, page setup, page breaks, preview và PDF export.
@@ -84,18 +87,20 @@
 
 ## Immediate execution order
 
-1. Shared-formula import/export và reference translation.
+1. Shared-formula export grouping, reference equivalence proof và repeated-save round-trip.
 2. Conditional formatting, validation và tables.
-3. Formula/function surface cùng structured references.
+3. Formula/function surface cùng structured references và dynamic arrays.
 4. AutoFilter, advanced sort, grouping và virtualized data.
 5. Printing/PDF, drawings/charts và pivot/slicers.
 6. Accessibility, packaging, fuzzing, performance budgets và release hardening.
 
-## Trạng thái ước tính
+## Trạng thái ước tính sau task shared-formula import
 
 - Nền móng engine/viewport/renderer: khoảng `85%`.
-- MVP bảng tính cơ bản: khoảng `65–70%`.
-- Toàn bộ roadmap chuyên nghiệp: khoảng `43–44%`.
+- MVP bảng tính cơ bản: khoảng `66–70%`.
+- Toàn bộ roadmap chuyên nghiệp: khoảng `44%`.
 - Production release readiness: khoảng `20–25%`.
+
+Task shared-formula import nâng tổng thể khoảng `0,5–1` điểm phần trăm. Phần shared-formula export, compatibility corpus và structural round-trip vẫn còn, nên chưa chấm cao hơn.
 
 Các tỷ lệ trên là ước lượng theo độ khó và khối lượng còn lại, không phải tỷ lệ số checkbox.
