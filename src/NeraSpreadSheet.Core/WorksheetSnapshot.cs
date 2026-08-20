@@ -46,7 +46,7 @@ public sealed class WorksheetSnapshot
             .Select(static span => span.Clone())
             .ToArray();
         _conditionalFormattingRules = conditionalFormattingRules
-            .Select(static rule => rule.Clone())
+            .Select(static rule => rule.Copy())
             .OrderBy(static rule => rule.Priority)
             .ToArray();
         _differentialStyles = [.. differentialStyles];

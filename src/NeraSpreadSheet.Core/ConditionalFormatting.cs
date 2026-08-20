@@ -154,7 +154,7 @@ public sealed record ConditionalFormattingRule
         return false;
     }
 
-    internal ConditionalFormattingRule Clone() => new(
+    internal ConditionalFormattingRule Copy() => new(
         Id,
         Ranges,
         Type,
@@ -309,7 +309,7 @@ internal sealed class WorksheetConditionalFormattingCollection
     public IReadOnlyList<ConditionalFormattingRule> Rules =>
         _rules
             .OrderBy(static rule => rule.Priority)
-            .Select(static rule => rule.Clone())
+            .Select(static rule => rule.Copy())
             .ToArray();
 
     public void Add(
@@ -347,7 +347,7 @@ internal sealed class WorksheetConditionalFormattingCollection
                 "is already used.");
         }
 
-        _rules.Add(rule.Clone());
+        _rules.Add(rule.Copy());
     }
 
     public bool Remove(
@@ -361,14 +361,14 @@ internal sealed class WorksheetConditionalFormattingCollection
             return false;
         }
 
-        removed = _rules[index].Clone();
+        removed = _rules[index].Copy();
         _rules.RemoveAt(index);
         return true;
     }
 
     public ConditionalFormattingRule[] Capture() =>
         _rules
-            .Select(static rule => rule.Clone())
+            .Select(static rule => rule.Copy())
             .ToArray();
 
     public void Restore(
