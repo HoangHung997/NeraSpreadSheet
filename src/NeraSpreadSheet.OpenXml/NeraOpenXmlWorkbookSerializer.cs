@@ -46,23 +46,15 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         cancellationToken.ThrowIfCancellationRequested();
         if (!options.PreserveUnknownParts)
         {
-            return LoadCore(
-                source,
-                options,
-                cancellationToken);
+            return LoadCore(source, options, cancellationToken);
         }
 
         var packageBytes = await ReadPreservedPackageAsync(
             source,
             cancellationToken).ConfigureAwait(false);
         OpenXmlPackageGraphValidator.Validate(packageBytes);
-        using var buffer = new MemoryStream(
-            packageBytes,
-            writable: false);
-        var workbook = LoadCore(
-            buffer,
-            options,
-            cancellationToken);
+        using var buffer = new MemoryStream(packageBytes, writable: false);
+        var workbook = LoadCore(buffer, options, cancellationToken);
         OpenXmlPackageEnvelopeStore.Attach(
             workbook,
             OpenXmlPackageEnvelope.CaptureValidated(
@@ -90,11 +82,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         cancellationToken.ThrowIfCancellationRequested();
         if (!options.PreserveUnknownParts)
         {
-            SaveCore(
-                workbook,
-                destination,
-                options,
-                cancellationToken);
+            SaveCore(workbook, destination, options, cancellationToken);
             OpenXmlPackageEnvelopeStore.Detach(workbook);
             return;
         }
@@ -110,11 +98,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         }
 
         await using var generated = new MemoryStream();
-        SaveCore(
-            workbook,
-            generated,
-            options,
-            cancellationToken);
+        SaveCore(workbook, generated, options, cancellationToken);
         var generatedBytes = generated.ToArray();
         var outputBytes = envelope is null
             ? generatedBytes
@@ -130,9 +114,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             destination,
             outputBytes,
             cancellationToken).ConfigureAwait(false);
-        OpenXmlPackageEnvelopeStore.Attach(
-            workbook,
-            outputEnvelope);
+        OpenXmlPackageEnvelopeStore.Attach(workbook, outputEnvelope);
     }
 
     private static NeraWorkbook LoadCore(
@@ -151,8 +133,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             ?? throw new InvalidDataException(
                 "The XLSX workbook does not contain a sheets collection.");
 
-        var workbook = new NeraWorkbook(
-            createDefaultWorksheet: false);
+        var workbook = new NeraWorkbook(createDefaultWorksheet: false);
         var exactStyleState = NeraOpenXmlStyleStateCodec.Read(workbookPart);
         if (exactStyleState is not null)
         {
@@ -171,11 +152,8 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         {
             cancellationToken.ThrowIfCancellationRequested();
             var relationshipId = sheet.Id?.Value;
-            if (string.IsNullOrWhiteSpace(relationshipId))
-            {
-                continue;
-            }
-            if (workbookPart.GetPartById(
+            if (string.IsNullOrWhiteSpace(relationshipId) ||
+                workbookPart.GetPartById(
                     relationshipId) is not WorksheetPart worksheetPart)
             {
                 continue;
@@ -261,9 +239,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             });
         }
 
-        NeraOpenXmlStyleStateCodec.Write(
-            workbookPart,
-            workbook);
+        NeraOpenXmlStyleStateCodec.Write(workbookPart, workbook);
         openXmlWorkbook.Save();
     }
 
@@ -307,8 +283,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         await destination.WriteAsync(
             packageBytes.AsMemory(),
             cancellationToken).ConfigureAwait(false);
-        await destination.FlushAsync(
-            cancellationToken).ConfigureAwait(false);
+        await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static void ImportCells(
@@ -321,11 +296,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         CancellationToken cancellationToken)
     {
         var openXmlWorksheet = worksheetPart.Worksheet;
-        if (openXmlWorksheet is null)
-        {
-            return;
-        }
-        var sheetData = openXmlWorksheet.GetFirstChild<SheetData>();
+        var sheetData = openXmlWorksheet?.GetFirstChild<SheetData>();
         if (sheetData is null)
         {
             return;
@@ -355,10 +326,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 var styleId = cell.StyleIndex?.Value is uint styleIndex
                     ? catalog.Intern(styleTable.GetStyle(styleIndex))
                     : CellStyleCatalog.DefaultStyleId;
-                var data = new CellData(
-                    value,
-                    formula,
-                    styleId);
+                var data = new CellData(value, formula, styleId);
                 if (!data.IsEmpty)
                 {
                     changes.Add(
@@ -409,8 +377,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         var raw = cell.CellValue?.Text;
         if (dataType == CellValues.InlineString)
         {
-            return NeraCellValue.FromText(
-                cell.InlineString?.InnerText);
+            return NeraCellValue.FromText(cell.InlineString?.InnerText);
         }
         if (dataType == CellValues.SharedString)
         {
@@ -504,6 +471,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 {
                     continue;
                 }
+
                 var size = column.Hidden?.Value == true
                     ? 0d
                     : column.Width?.Value is double width
@@ -514,11 +482,10 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                     if (column.Width is not null ||
                         column.Hidden?.Value == true)
                     {
-                        worksheet.Dimensions.SetColumnWidth(
-                            index,
-                            size);
+                        worksheet.Dimensions.SetColumnWidth(index, size);
                     }
                 }
+
                 if (importAxisStyles &&
                     column.Style?.Value is uint styleIndex)
                 {
@@ -548,12 +515,11 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             {
                 continue;
             }
+
             var rowIndex = (int)oneBased - 1;
             if (row.Hidden?.Value == true)
             {
-                worksheet.Dimensions.SetRowHeight(
-                    rowIndex,
-                    0d);
+                worksheet.Dimensions.SetRowHeight(rowIndex, 0d);
             }
             else if (row.Height?.Value is double points)
             {
@@ -561,6 +527,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                     rowIndex,
                     points * PixelsPerPoint);
             }
+
             if (importAxisStyles &&
                 row.StyleIndex?.Value is uint styleIndex)
             {
@@ -586,18 +553,17 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
     {
         var result = new OpenXmlWorksheet();
         var axisState = worksheet.CaptureAxisStyleState();
-        var columns = BuildColumns(
-            worksheet,
-            axisState,
-            styleTable);
+        var columns = BuildColumns(worksheet, axisState, styleTable);
         if (columns.HasChildren)
         {
             result.Append(columns);
         }
 
-        var sheetData = new SheetData();
-        var usedByRow = worksheet
-            .EnumerateUsedCells()
+        var usedCells = worksheet.EnumerateUsedCells().ToArray();
+        var sharedFormulaPlan = OpenXmlSharedFormulaExportPlan.Create(
+            usedCells,
+            cancellationToken);
+        var usedByRow = usedCells
             .GroupBy(pair => pair.Key.RowIndex)
             .ToDictionary(
                 group => group.Key,
@@ -605,13 +571,11 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                     .OrderBy(pair => pair.Key.ColumnIndex)
                     .ToArray());
         var rowIndexes = usedByRow.Keys
-            .Concat(
-                worksheet.Dimensions
-                    .GetRowOverrides()
-                    .Keys)
+            .Concat(worksheet.Dimensions.GetRowOverrides().Keys)
             .Distinct()
             .OrderBy(index => index);
 
+        var sheetData = new SheetData();
         foreach (var rowIndex in rowIndexes)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -621,9 +585,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             };
             if (worksheet.Dimensions
                 .GetRowOverrides()
-                .TryGetValue(
-                    rowIndex,
-                    out var height))
+                .TryGetValue(rowIndex, out var height))
             {
                 if (height <= 0d)
                 {
@@ -635,6 +597,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                     row.CustomHeight = true;
                 }
             }
+
             var rowOperations = FindAxisOperations(
                 axisState.RowSpans,
                 rowIndex);
@@ -644,9 +607,8 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                     ComposeAxisOperations(rowOperations));
                 row.CustomFormat = true;
             }
-            if (usedByRow.TryGetValue(
-                    rowIndex,
-                    out var cells))
+
+            if (usedByRow.TryGetValue(rowIndex, out var cells))
             {
                 foreach (var pair in cells)
                 {
@@ -655,7 +617,8 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                         pair.Value,
                         catalog,
                         styleTable,
-                        options));
+                        options,
+                        sharedFormulaPlan));
                 }
             }
             sheetData.Append(row);
@@ -705,6 +668,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                     ComposeAxisOperations(span.Operations)),
             });
         }
+
         foreach (var pair in worksheet.Dimensions
                      .GetColumnOverrides()
                      .OrderBy(pair => pair.Key))
@@ -742,7 +706,8 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         CellData data,
         CellStyleCatalog catalog,
         OpenXmlStyleTable styleTable,
-        OpenXmlExportOptions options)
+        OpenXmlExportOptions options,
+        OpenXmlSharedFormulaExportPlan sharedFormulaPlan)
     {
         var cell = new Cell
         {
@@ -753,26 +718,47 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             cell.StyleIndex = styleTable.GetOrAddStyle(
                 catalog.Get(data.StyleId));
         }
+
         if (data.Formula is not null)
         {
-            cell.CellFormula = new CellFormula(
-                data.Formula.StartsWith('=')
-                    ? data.Formula[1..]
-                    : data.Formula);
+            cell.CellFormula = BuildFormula(
+                address,
+                data.Formula,
+                sharedFormulaPlan);
             if (options.WriteCachedFormulaValues)
             {
-                ApplyValue(
-                    cell,
-                    data.Value,
-                    isFormulaResult: true);
+                ApplyValue(cell, data.Value, isFormulaResult: true);
             }
             return cell;
         }
-        ApplyValue(
-            cell,
-            data.Value,
-            isFormulaResult: false);
+
+        ApplyValue(cell, data.Value, isFormulaResult: false);
         return cell;
+    }
+
+    private static CellFormula BuildFormula(
+        CellAddress address,
+        string formula,
+        OpenXmlSharedFormulaExportPlan sharedFormulaPlan)
+    {
+        var formulaText = formula.StartsWith('=')
+            ? formula[1..]
+            : formula;
+        if (!sharedFormulaPlan.TryGet(address, out var sharedCell))
+        {
+            return new CellFormula(formulaText);
+        }
+
+        var result = sharedCell.IsAnchor
+            ? new CellFormula(formulaText)
+            : new CellFormula();
+        result.FormulaType = CellFormulaValues.Shared;
+        result.SharedIndex = sharedCell.SharedIndex;
+        if (sharedCell.IsAnchor)
+        {
+            result.Reference = ToA1Range(sharedCell.Range);
+        }
+        return result;
     }
 
     private static WorksheetAxisStyleOperation[] FindAxisOperations(
@@ -851,9 +837,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             case CellValueKind.Boolean:
                 cell.DataType = CellValues.Boolean;
                 cell.CellValue = new OpenXmlCellValue(
-                    (bool)value.RawValue!
-                        ? "1"
-                        : "0");
+                    (bool)value.RawValue! ? "1" : "0");
                 return;
             case CellValueKind.DateTime:
                 cell.DataType = CellValues.Date;
@@ -881,6 +865,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             range = default;
             return false;
         }
+
         var separatorIndex = reference.IndexOf(':');
         if (separatorIndex <= 0 ||
             separatorIndex >= reference.Length - 1 ||
@@ -894,9 +879,9 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             range = default;
             return false;
         }
+
         range = new CellRange(first, second);
-        return range.RowCount > 1 ||
-               range.ColumnCount > 1;
+        return range.RowCount > 1 || range.ColumnCount > 1;
     }
 
     private static string ToA1Range(CellRange range) =>
