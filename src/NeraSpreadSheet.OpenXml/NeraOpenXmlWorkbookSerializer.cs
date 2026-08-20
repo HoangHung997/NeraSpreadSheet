@@ -50,6 +50,7 @@ cancellationToken);
 var packageBytes = await ReadPreservedPackageAsync(
 source,
 cancellationToken).ConfigureAwait(false);
+OpenXmlPackageGraphValidator.Validate(packageBytes);
 using var buffer = new MemoryStream(
 packageBytes,
 writable: false);
@@ -59,7 +60,7 @@ options,
 cancellationToken);
 OpenXmlPackageEnvelopeStore.Attach(
 workbook,
-OpenXmlPackageEnvelope.Capture(
+OpenXmlPackageEnvelope.CaptureValidated(
 packageBytes,
 workbook));
 return workbook;
@@ -113,15 +114,16 @@ workbook,
 envelope,
 generatedBytes,
 cancellationToken);
+var outputEnvelope = OpenXmlPackageEnvelope.Capture(
+outputBytes,
+workbook);
 await WritePackageAsync(
 destination,
 outputBytes,
 cancellationToken).ConfigureAwait(false);
 OpenXmlPackageEnvelopeStore.Attach(
 workbook,
-OpenXmlPackageEnvelope.Capture(
-outputBytes,
-workbook));
+outputEnvelope);
 }
 private static NeraWorkbook LoadCore(
 Stream source,
