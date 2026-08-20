@@ -4,176 +4,120 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` vào `develop` — Draft, chưa merge
-- Implementation commit đã xác minh: `d6808102298920ae868b86713341f2ccc1970594`
-- GitHub Actions: run `32347684027`, CI `#469`, kết luận `success`
+- Implementation commit đã xác minh: `58ed4a1c440b22bc75f8b3add40a3ba988a50517`
+- GitHub Actions: run `32372708251`, CI `#476`, kết luận `success`
 - Tài liệu nguồn sự thật: `docs/current-status.md`
 - Roadmap còn lại: `ROADMAP.md`
-- Contract MAUI scale: `docs/maui-surface-scale-contract.md`
-- Contract sparse styles: `docs/whole-axis-style-contract.md`
 
 ## Batch vừa hoàn thành
 
-Phiên này gom tuần tự năm lát cắt phụ thuộc nhau:
+### 1. Conditional Formatting Core model
 
-1. shared-formula export grouping;
-2. round-trip, stable index, fallback và cached-value gates;
-3. insert/delete regroup cùng reorder-safe fallback;
-4. repeated preservation save giữ opaque part và shared groups;
-5. đồng bộ roadmap, feature matrix, current status và handoff.
+- Thêm `ConditionalFormattingRuleType`: `CellIs`, `Expression`.
+- Thêm các toán tử equal/not-equal, greater/greater-or-equal, less/less-or-equal, between/not-between.
+- Rule có ID ổn định, nhiều range, priority, `StopIfTrue`, một hoặc hai formula và differential-style ID.
+- `DifferentialStyleCatalog` lưu `CellStylePatch` và deduplicate trong worksheet.
+- `WorksheetSnapshot` deep-copy rule và differential style.
 
-### Shared-formula export plan
+### 2. Evaluation và renderer
 
-Đã thêm `OpenXmlSharedFormulaExportPlan` và nối trực tiếp vào `NeraOpenXmlWorkbookSerializer.BuildWorksheet`.
+- `ConditionalFormattingEvaluator` chạy theo priority.
+- `StopIfTrue` ngăn rule ưu tiên thấp hơn.
+- Property xung đột giữ rule ưu tiên cao; property không xung đột vẫn compose.
+- Expression dùng Core A1 translator để dịch từ anchor tới từng cell.
+- Shared `SpreadsheetDisplayListComposer` áp conditional style vào fill, text, border và number format; WPF/WinForms/MAUI nhận cùng kết quả.
 
-Plan chỉ đọc các formula cell đã tồn tại trong sparse worksheet. Nó không tạo hoặc quét toàn logical range.
+### 3. Dirty-region invalidation
 
-Một group chỉ được tạo khi:
+- Thay đổi rule invalidates union target range.
+- Mọi cell mutation mở rộng tín hiệu `CellsChanged` tới toàn bộ conditional target ranges của worksheet.
+- Đây là chính sách bảo thủ để đảm bảo đúng khi một source cell ảnh hưởng vùng khác; không enumerate/materialize cell trong range.
 
-- có ít nhất hai formula cell;
-- các cell tạo thành rectangle liên tục không có gap;
-- mọi formula đều thuộc tập token hiện được hỗ trợ;
-- dịch anchor → follower bằng `FormulaReferenceTranslator` cho kết quả trùng tuyệt đối;
-- dịch follower → anchor cũng phục hồi đúng formula ban đầu.
+### 4. Structural mapping và history
 
-Bidirectional proof ngăn việc compact một nhóm chỉ tình cờ giống nhau theo một chiều.
+- A1 translator và structural-reference rewriter được đưa về Core; Editing giữ facade tương thích.
+- Rule range/formula nằm trong `WorksheetStructuralState`.
+- Insert/delete rewrite relative, mixed, absolute và range references.
+- Undo/redo qua `SpreadsheetStructureController` phục hồi chính xác rule ID, priority, range và formula.
+- Reorder chỉ được phép nếu mỗi target range là một uniform translation. Contiguous-but-internally-permuted range bị từ chối trước mutation.
 
-### SpreadsheetML output
+### 5. XLSX standard interoperability
 
-Shared index được cấp ổn định theo thứ tự row-major của worksheet.
+- Thêm `OpenXmlConditionalFormattingCodec`.
+- Import/export chuẩn `dxfs`, `dxf`, `conditionalFormatting`, `cfRule`, `formula`.
+- Hỗ trợ `cellIs`, `expression`, operator, priority, `stopIfTrue`, `dxfId`, nhiều `sqref`.
+- Differential style hỗ trợ font, fill, border, alignment và number format trong phạm vi Core hiện tại.
+- Workbook-wide `dxf` được deduplicate ổn định khi save.
+- Output vượt `OpenXmlValidator(FileFormatVersions.Office2013)`.
 
-Anchor ghi:
+### 6. Malformed input và preservation
 
-```xml
-<f t="shared" si="0" ref="B2:C3">...</f>
-```
+- Từ chối duplicate/missing/zero priority, invalid `sqref`, out-of-range `dxfId`, sai số formula, unsupported rule/style markup và count vượt giới hạn.
+- `OpenXmlPackagePreserver` sở hữu `conditionalFormatting` và `dxfs`, đồng thời vẫn giữ opaque parts, relationships và unowned markup.
+- Hai consecutive `PreserveUnknownParts=true` saves giữ exact opaque bytes và conditional rules.
 
-Follower ghi:
+## CI #476
 
-```xml
-<f t="shared" si="0" />
-```
-
-Các group được giới hạn:
-
-- tối đa `100,000` group trên worksheet;
-- tối đa `1,000,000` existing cell trong một group.
-
-Cached result tiếp tục tuân theo `WriteCachedFormulaValues`.
-
-### Conservative fallback
-
-Nera giữ normal formula nếu gặp:
-
-- gap hoặc discontiguous cells;
-- `#REF!`/error marker;
-- structured reference `[...]`;
-- array marker `{...}`;
-- formula không vượt bidirectional proof;
-- group mơ hồ sau structural reorder.
-
-Fallback không làm mất formula. Output vẫn schema-valid và re-import giữ đúng logical formula identity.
-
-### Structural behavior
-
-- Insert/delete được chạy qua production `SpreadsheetStructureController`; nếu các formula sau rewrite vẫn tạo rectangle tương đương thì exporter regroup.
-- Row/column reorder được chạy qua production `SpreadsheetAxisReorderController`.
-- Reorder có thể làm set formula không còn translation-equivalent; exporter khi đó không ép shared group mà ghi normal formulas.
-- Re-import sau fallback giữ nguyên địa chỉ và formula text hiện hành.
-
-### Preservation repeated save
-
-Gate tạo workbook có shared rectangle và một opaque workbook `ExtendedPart`, sau đó:
-
-1. load với `PreserveUnknownParts=true`;
-2. sửa workbook;
-3. save lần một;
-4. xác nhận opaque bytes và shared group;
-5. sửa workbook lần hai;
-6. save lần hai;
-7. xác nhận lại opaque bytes, shared group và OpenXml schema.
-
-Điều này chứng minh copy-and-patch preservation không làm mất shared compaction mới, đồng thời shared export không làm mất package graph chưa được Nera hiểu.
-
-## Automated tests của batch
-
-`SharedFormulaExportTests.cs` khóa:
-
-- rectangle 2×2 với mixed/absolute references, quoted sheet name và string literal;
-- import → export → re-import cùng cached values;
-- nhiều group và stable worksheet-order index;
-- gap và structured-reference fallback;
-- `WriteCachedFormulaValues=false`;
-- insert/delete regroup;
-- reorder fallback giữ formula identity;
-- hai preservation saves giữ opaque part và shared groups;
-- `OpenXmlValidator(FileFormatVersions.Office2013)`.
-
-## Exact implementation CI #469
-
-Toàn bộ matrix xanh tại `d6808102...`:
+Toàn bộ matrix xanh tại implementation commit `58ed4a1c...`:
 
 - Core restore/build/tests.
 - Architecture verification.
-- Shared-formula import và export tests.
-- Exact sparse style, no-flattening và malformed-input gates.
-- Nested unknown-package graph preservation.
+- Conditional model/evaluator/renderer/invalidation/structural/history tests.
+- Conditional XLSX schema, round-trip, malformed-input và preservation tests.
+- Toàn bộ OpenXml/style/shared-formula/package-graph regressions.
 - Windows full build/tests và desktop GPU runtime smoke.
 - MAUI Android build.
 - MAUI iOS và Mac Catalyst builds.
 - MAUI Windows build/tests.
-- Loaded production input/resize/context recreation smoke.
+- Loaded production input/resize/context-recreation smoke.
 - Loaded logical/raw scale and orientation smoke.
 
-## File trọng tâm của batch
+CI #474 từng có một Windows native fast-fail không kèm managed exception; cùng implementation path đã xanh ở CI #472 và exact implementation CI #476, nên không được ghi nhận là regression tái hiện được.
 
-- `src/NeraSpreadSheet.OpenXml/OpenXmlSharedFormulaExportPlan.cs`
+## File trọng tâm
+
+- `src/NeraSpreadSheet.Core/ConditionalFormatting.cs`
+- `src/NeraSpreadSheet.Core/A1FormulaReferenceTranslator.cs`
+- `src/NeraSpreadSheet.Core/FormulaStructuralReferenceRewriter.cs`
+- `src/NeraSpreadSheet.Core/Worksheet.cs`
+- `src/NeraSpreadSheet.Core/WorksheetSnapshot.cs`
+- `src/NeraSpreadSheet.Formulas/ConditionalFormattingEvaluator.cs`
+- `src/NeraSpreadSheet.Rendering.Spreadsheet/SpreadsheetDisplayListComposer.cs`
+- `src/NeraSpreadSheet.OpenXml/OpenXmlConditionalFormattingCodec.cs`
 - `src/NeraSpreadSheet.OpenXml/NeraOpenXmlWorkbookSerializer.cs`
-- `tests/NeraSpreadSheet.OpenXml.Tests/SharedFormulaExportTests.cs`
-- `tests/NeraSpreadSheet.OpenXml.Tests/SharedFormulaGlobalUsings.cs`
-- `src/NeraSpreadSheet.OpenXml/OpenXmlSharedFormulaImportResolver.cs`
-- `src/NeraSpreadSheet.Editing/FormulaReferenceTranslator.cs`
-- `docs/current-status.md`
-- `docs/feature-matrix.md`
-- `ROADMAP.md`
+- `src/NeraSpreadSheet.OpenXml/OpenXmlPackagePreserver.cs`
+- conditional-formatting test files trong Core, Editing, Formulas, Rendering và OpenXml projects.
 
-## Quyết định kỹ thuật đã khóa
+## Giới hạn có chủ ý
 
-- Core model tiếp tục lưu independent formulas, không lưu OpenXml `SharedIndex`.
-- Import mở rộng shared groups; export tự chứng minh và regroup ở document boundary.
-- Shared index là output detail, được tái cấp ổn định mỗi lần save.
-- Chỉ nhóm rectangle liên tục của existing formula cells.
-- Forward-only equivalence không đủ; phải có reverse proof.
-- Không ép regroup sau reorder nếu formula semantics không còn translation-equivalent.
-- Safety và exact formula identity quan trọng hơn mức compact tối đa.
-- Preservation và shared export phải cùng vượt repeated-save gate.
+- Chưa có color scales, data bars, icon sets và các rule duplicate/top/average/time-period chuyên biệt.
+- Imported differential colors chỉ hỗ trợ explicit RGB; theme/indexed colors chưa có semantic conversion.
+- Conditional expression evaluator hiện dùng snapshot của worksheet hiện tại; cross-sheet conditional formula chưa phải supported contract.
+- Dirty invalidation hiện bảo thủ theo toàn bộ target ranges trên worksheet.
+- Chưa có rule-manager UI và external compatibility corpus.
 
 ## Tiến độ tổng thể sau batch
 
-- Nền móng engine/viewport/renderer: khoảng `85%`.
-- MVP bảng tính cơ bản: khoảng `68–72%`.
-- Toàn bộ roadmap chuyên nghiệp: khoảng `45%`.
-- Production release readiness: khoảng `21–25%`.
+- Nền móng engine/viewport/renderer: khoảng `86%`.
+- MVP bảng tính cơ bản: khoảng `70–74%`.
+- Toàn bộ roadmap chuyên nghiệp: khoảng `46%`.
+- Production release readiness: khoảng `22–26%`.
 
-So với mốc import-only khoảng `44%`, batch end-to-end này tăng khoảng `1` điểm phần trăm. Phần tăng đến từ export compaction, fallback safety, structural round-trip và preservation compatibility; external compatibility corpus và các tính năng spreadsheet lớn vẫn còn.
+Batch nâng tổng thể khoảng `1` điểm phần trăm so với mốc shared-formula end-to-end.
 
-## Giới hạn còn lại
+## Bước tiếp theo duy nhất
 
-- Chưa có corpus XLSX shared formula từ nhiều phiên bản Excel, LibreOffice và third-party generators.
-- Shared index nguồn không được giữ; output index được tái cấp.
-- Dynamic arrays và spill formulas chưa có.
-- Structured references được fallback normal, chưa được semantic model hỗ trợ.
-- Conditional formatting, data validation và tables chưa có first-class Nera model.
-- PR tiếp tục Draft; không merge khi exact-head CI đỏ hoặc chưa xác định.
+Triển khai batch **Data Validation**:
 
-## Batch tiếp theo
+1. Core validation model và sparse range ownership.
+2. whole number, decimal, date, time, text length và list rules.
+3. custom formula validation dùng Core A1 translator/evaluator.
+4. input message, error alert và blank/error policy.
+5. production editor commit gate cùng undo/redo.
+6. invalid-cell diagnostics/highlight và dirty invalidation.
+7. XLSX `dataValidations` import/export, schema và malformed-input gates.
+8. structural insert/delete/reorder mapping và failure atomicity.
+9. `PreserveUnknownParts=true` repeated-save coexistence.
+10. exact-head Core/Windows/MAUI CI trước khi cập nhật mốc hoàn thành.
 
-Thứ tự tiếp theo đã khóa:
-
-1. conditional formatting Core model và differential style catalog;
-2. formula/range rule evaluation và dirty-region invalidation;
-3. renderer overlay cho cell-is, expression, color scale/data bar ở mức hỗ trợ đầu tiên;
-4. XLSX conditional formatting import/export cùng unknown-part coexistence;
-5. malformed rule, priority/stop-if-true và structural mapping tests;
-6. sau đó data validation và tables/structured references.
-
-Chỉ cập nhật mốc hoàn thành sau exact-head Core/Windows/MAUI CI xanh.
+PR tiếp tục Draft; không merge khi exact-head CI đỏ hoặc chưa xác định.

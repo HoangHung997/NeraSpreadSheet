@@ -9,239 +9,135 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 - No runtime dependency on Microsoft Excel, LibreOffice or DevExpress.
 - No UNO/Excel command identifiers in Nera public contracts.
 - No UI control per cell.
-- Workbook, formulas, editing, layout, scrolling and command projects remain independent from WPF, WinForms and MAUI.
+- Workbook, formulas, editing, layout, scrolling and commands remain independent from WPF, WinForms and MAUI.
 - Viewports use continuous `double` pixel offsets and may stop between row/column boundaries.
 - Desktop and GPU hosts consume the same workbook, viewport and display-list semantics.
-- Document-format dependencies stay inside adapter projects; Microsoft/OpenXml types do not enter public Core contracts.
+- Document-format dependencies stay inside adapter projects; OpenXml types do not enter Core public contracts.
 
 ## Implemented
 
 ### Core workbook, formulas and editing
 
-- Sparse worksheets over an Excel-size logical address space.
-- Multiple worksheets, immutable snapshots, values, formulas, direct styles, sparse dimensions and native merged ranges.
-- Structural insert/delete/reorder with overflow preflight, reference mapping and atomic rollback.
-- Formula tokenizer, parser and AST for arithmetic, comparison, concatenation, references, ranges and basic cross-sheet references.
+- Excel-size sparse worksheets, multiple worksheets, values, formulas, direct styles, dimensions and native merged ranges.
+- Immutable snapshots and bounded caches for viewport/rendering work.
+- Selection, clipboard, reusable editor, commands, sort and data undo/redo.
+- Structural insert/delete/reorder with overflow preflight, formula/reference mapping and atomic rollback.
+- Formula tokenizer, parser and AST for arithmetic, comparison, concatenation, A1 references/ranges and basic cross-sheet references.
 - `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT` and `IF`.
 - Dependency graph, circular-reference detection and affected-only recalculation.
-- Selection, clipboard, formatting, merge, sort, reusable editor, commands and data undo/redo.
 
-### Sparse whole-axis styles and model-safe reordering
+### Sparse styles and model-safe axis transforms
 
-- `CellStylePatch` stores property-level changes without materializing every addressed cell.
-- Each worksheet owns non-overlapping sparse row-style and column-style span maps.
-- Row/column properties compose by one worksheet-global chronological sequence.
-- Direct-cell styles remain complete overrides; whole-axis changes patch existing direct cells without losing unrelated properties.
-- Insert/delete/reorder map cells, dimensions, styles, merged ranges, formulas, selection and split-pane offsets through the same atomic transform.
-- Discontiguous formula images and unsafe merged/freeze transformations are rejected rather than silently corrupted.
-- Split and unsplit WPF/WinForms header drag share one reorder model and retain fractional-pixel edge auto-scroll.
+- `CellStylePatch` stores property-level changes without materializing logical axes.
+- Sparse row/column style spans compose by one worksheet-global chronological sequence.
+- Direct-cell styles remain complete overrides; whole-axis changes preserve unrelated properties.
+- Insert/delete/reorder map cells, dimensions, styles, merged ranges, formulas, selection and pane offsets through one transaction.
+- Unsafe discontiguous range/merge/freeze transforms are rejected instead of silently corrupted.
 
-Full style semantics: `docs/whole-axis-style-contract.md`.
+Full contract: `docs/whole-axis-style-contract.md`.
 
-### Continuous viewport, freeze, split panes and view history
+### Continuous viewport, split panes and view history
 
-- Sparse metric indexes and fractional pixel scrolling without row/column snapping.
-- Snapshot cache and bounded translated viewport tile cache.
-- Freeze panes and one/two/four-pane topology.
-- Independent per-pane continuous scroll state, active-pane fallback and per-worksheet persistence.
-- Integrated and optional overlay pane scrollbars.
-- Split-aware headers, selection, editor, resizing, header reorder and dirty-region projection.
-- Split-view undo/redo is bounded, per worksheet and isolated from workbook/data history.
+- Fractional pixel scrolling, sparse metric indexes, freeze panes and one/two/four-pane topology.
+- Independent per-pane continuous offsets, pane-local scrollbars and per-worksheet persistence.
+- Split-aware headers, selection, editor, resize, reorder and dirty-region projection.
+- Snapshot/tile caching and a view-history stack isolated from workbook/data undo/redo.
 
-### Desktop rendering and recovery
+### Desktop and cross-platform rendering
 
 - WPF DrawingContext and shared-texture D3DImage.
 - WinForms GDI+, Direct2D/DirectWrite HWND and D3D11/DXGI `FlipDiscard`.
-- Hardware preference, WARP fallback, text-layout caching, recovery and diagnostics.
-- Runtime stress repeatedly recreates HWND Direct2D, DXGI stacks and loaded WPF shared-texture rendering while validating resize, resource recreation and cached text reuse.
+- Hardware preference, WARP fallback, text caching, recovery and diagnostics.
+- Cross-platform Skia renderer for fill, line, text, nested lists, clip and translation.
+- Repeated device/context recreation stress for desktop and loaded MAUI Windows hosts.
+- MAUI Windows, Android, iOS and Mac Catalyst build against real workloads.
 
-### Cross-platform Skia renderer
+### Shared formulas
 
-- Executes the shared fill, line, text, nested-list, clip and translation command surface.
-- Nested lists preserve reference semantics and balance clip/translation state.
-- Text supports command clipping and basic wrapping.
-- Typeface resources use a bounded LRU cache with explicit ownership and diagnostics.
-- Logical-to-device scaling restores caller canvas state after success or exception.
-- Linux raster tests and the Windows suite verify pixels, transforms, clipping, cache reuse/eviction, DPI mapping and exception recovery.
+- Two-pass SpreadsheetML shared-formula import supports follower-before-anchor ordering.
+- Relative, mixed and absolute A1 references, quoted sheet names and string literals use one Core translator.
+- Export compacts only translation-equivalent continuous rectangles and assigns deterministic worksheet-order shared indexes.
+- Gap, `#REF!`, structured/array markers and failed bidirectional proof fall back to independent formulas.
+- Cached-value modes, structural behavior, schema validation and opaque repeated-save gates are implemented.
 
-### XLSX style fidelity and malformed-input hardening
+### Conditional formatting Core model
 
-- Values, formulas/cached values, multiple sheets, dimensions and merged ranges.
-- The current Nera style model round-trips fonts, fills, borders, alignment, number formats and direct-cell style IDs through a deduplicated standard SpreadsheetML style table.
-- Standard cell, row and column style indexes provide external interoperability.
-- A versioned Nera custom XML part preserves exact sparse row/column spans, chronological sequence and stable catalog IDs without materializing blank cells.
-- Generated packages pass OpenXml schema validation and huge-axis no-flattening gates.
-- Duplicate/default-invalid catalogs, invalid sequence bounds, overlapping spans, empty patches and duplicate exact-state parts are rejected.
-- XML, base64 and JSON failures are normalized to `InvalidDataException`; package-controlled counts and payload sizes are bounded.
+- `ConditionalFormattingRule` is platform/document independent and supports `CellIs` and `Expression`.
+- Cell-is operators: equal, not-equal, greater/greater-or-equal, less/less-or-equal, between and not-between.
+- Rules support one or more ranges, integer priority and `StopIfTrue`.
+- `DifferentialStyleCatalog` deduplicates property-level patches for font, fill, border, alignment and number format.
+- Worksheet snapshots deep-copy rules and differential styles for thread-safe renderer use.
+- `ConditionalFormattingEvaluator` evaluates rules in priority order and composes non-conflicting lower-priority properties while letting higher-priority properties win.
+- Expression formulas are translated from the rule anchor to each target cell through the shared Core A1 translator.
+- Cell mutations conservatively expand `CellsChanged` dirty regions to all conditional target ranges, so a source cell may invalidate a different rendered area without materializing any target cells.
 
-### Shared-formula import, export and round-trip
+### Conditional formatting structural safety
 
-#### Import
+- Rule ranges and formulas participate in structural state, insert/delete, undo/redo and rollback.
+- The Core structural-reference rewriter is shared by editing operations and conditional rules; absolute/mixed references and formula ranges are rewritten consistently.
+- Insert/delete removes rules whose complete target disappears and maps remaining ranges/formulas.
+- Axis reorder requires every rule range to be one uniform translation. A range that remains contiguous but whose internal rows/columns use different deltas is rejected atomically.
+- Production controller tests verify insert → undo → redo restores exact rule ID, priority, range and formula.
 
-- SpreadsheetML formulas with `t="shared"` are imported through a two-pass resolver.
-- Formula-bearing anchors are collected before followers, so followers may appear earlier than their anchor in worksheet XML.
-- `SharedIndex`, anchor range and cell addresses are validated before worksheet changes are applied.
-- Every existing follower receives an independent Nera formula translated from the anchor by the same `FormulaReferenceTranslator` used by copy/paste and structural editing.
-- Relative and mixed references are translated while `$A$1`, `$A1`, `A$1`, quoted sheet names and doubled-quote string literals retain their intended semantics.
-- The declared shared range is never enumerated or materialized; only cells already present in `sheetData` are processed.
-- Duplicate anchors, missing anchors/indexes, missing or reversed anchor ranges, followers outside the declared range and followers declaring their own range are rejected with `InvalidDataException`.
-- Cached formula values are retained or discarded according to `LoadCachedFormulaValues` without dropping formulas.
+### Conditional formatting XLSX interoperability
 
-#### Export grouping
+- Standard SpreadsheetML `dxfs`, `dxf`, `conditionalFormatting`, `cfRule` and `formula` are imported/exported.
+- `cellIs`, `expression`, operator, `priority`, `stopIfTrue`, `dxfId` and multiple `sqref` ranges round-trip.
+- Workbook-wide differential styles are deduplicated deterministically at save boundaries while Core keeps worksheet-local catalogs.
+- Generated packages pass `OpenXmlValidator(FileFormatVersions.Office2013)`.
+- Duplicate priorities, missing/invalid priority, invalid `sqref`, out-of-range `dxfId`, malformed formula counts and unsupported rule/style markup are rejected.
+- `PreserveUnknownParts=true` owns and refreshes worksheet conditional-formatting elements plus stylesheet `dxfs` while retaining opaque package bytes and unowned markup across repeated saves.
 
-- `OpenXmlSharedFormulaExportPlan` examines only existing used formula cells.
-- A group is emitted only when cells form a continuous rectangle and every follower equals an exact translation of the candidate anchor.
-- Safety is bidirectional: translating anchor → follower and follower → anchor must both reproduce the exact normalized formulas.
-- Shared indexes are regenerated deterministically in worksheet row-major order.
-- The anchor emits formula text plus `t="shared"`, `si` and `ref`; followers emit only `t="shared"` and `si`.
-- At most `100,000` groups are emitted per worksheet and each group is bounded to `1,000,000` existing cells.
-- Formulas containing unsupported/error/structured/array markers, formulas separated by gaps and ambiguous translation sets remain normal formulas.
-- Cached results follow `WriteCachedFormulaValues` for both anchors and followers.
+### XLSX style fidelity and package preservation
 
-#### Structural and preservation gates
-
-- Insert/delete that preserves translation equivalence is regrouped safely at the new export boundary.
-- Row/column reorder is allowed to fall back to independent normal formulas when the reordered set is no longer translation-equivalent; exact logical formulas still round-trip.
-- Import → export → re-import preserves independent Nera formulas and cached results.
-- Two consecutive `PreserveUnknownParts=true` saves retain an opaque workbook part while regenerating schema-valid shared groups.
-- Generated shared-formula packages pass `OpenXmlValidator(FileFormatVersions.Office2013)`.
-
-### Unknown OpenXml package-part preservation
-
-`NeraOpenXmlWorkbookSerializer` supports `PreserveUnknownParts=true` without placing `DocumentFormat.OpenXml` types in the Core workbook model.
-
-#### Internal package envelope
-
-- Load captures the original XLSX bytes into an internal `OpenXmlPackageEnvelope` associated with the loaded `Workbook` through a `ConditionalWeakTable`.
-- Capture is bounded to 512 MiB.
-- Worksheet object identity, relationship ID, order and part URI are retained and revalidated.
-- Worksheet add/remove/reorder, duplicate binding, unsafe URI and unsupported chart/dialog-sheet topology fail explicitly.
-- Saving with preservation disabled performs a full Nera rewrite and detaches the envelope.
-
-#### Copy-and-patch save
-
-- A preservation save first builds a complete Nera-supported package in memory.
-- It clones the captured package and patches only regions Nera owns instead of reconstructing the opaque relationship graph.
-- Workbook sheet names are updated in place while original worksheet relationship IDs and part URIs remain unchanged.
-- Worksheet `cols`, `sheetData` and `mergeCells` are replaced from the generated package.
-- Supported style-table children are replaced in schema order.
-- Workbook, worksheet and stylesheet markup outside Nera-owned regions remains untouched.
-- The Nera exact sparse style-state part is refreshed; other custom/extended parts are not rewritten.
-- Successful saves refresh the envelope from the emitted bytes, so repeated saves continue from the latest package state.
-
-#### Nested package-graph gate
-
-A repeated-save fixture proves preservation of:
-
-- package-root opaque `ExtendedPart` plus nested opaque child;
-- package-root and nested external relationships;
-- standard worksheet `DrawingsPart` and worksheet `<drawing r:id>` reference;
-- a real PNG `ImagePart`, relationship ID, URI, content type and exact bytes;
-- opaque nested relationship beneath the drawing part;
-- non-Nera `CustomXmlPart`, `CustomXmlPropertiesPart` and opaque nested relationship;
-- exact relationship IDs/types, part URIs, content types and binary/XML bytes;
-- worksheet rename and Nera cell edits through two preservation saves.
-
-Both outputs pass `OpenXmlValidator` after rename/edit and repeated save.
-
-#### Package graph preflight
-
-`OpenXmlPackageGraphValidator` traverses package root and nested containers before a preserved workbook is restored. It covers internal parts, external relationships, hyperlink relationships and data-part references.
-
-The validator enforces:
-
-- package-wide part-URI uniqueness across OpenXml parts and data parts;
-- per-container relationship-ID uniqueness across internal and reference relationships;
-- XML NCName relationship IDs;
-- absolute relationship-type URIs;
-- bounded part count and relationship count;
-- bounded URI/type/target lengths;
-- no literal or decoded `.`/`..` traversal segments;
-- no encoded slash/backslash, empty URI segment, backslash, query, fragment or control character in part URIs;
-- no literal or percent-decoded control character in relationship type/target text.
-
-Preservation load validates captured bytes before workbook restoration. Preservation save creates and validates the final output envelope before the destination stream is truncated or written.
-
-### MAUI native GPU host
-
-`NeraSpreadsheetView` is one public `SKGLView`. It binds a Nera `Workbook`, owns a `SpreadsheetSession`/viewport engine and consumes the same spreadsheet display-list composer as desktop hosts. Windows, Android, iOS and Mac Catalyst compile against real MAUI workloads.
-
-#### GPU context lifecycle
-
-- Every production paint opens a frame lease bound to the current `GRContext` generation.
-- Handler detach/replacement records context loss before the old native surface is released.
-- Completion from a stale generation is rejected; completed, failed, abandoned and stale transitions are diagnosed independently.
-- Dispose is idempotent and prevents new frame leases.
-- Public `PaintSurface` observers run only after the tracked frame is closed.
-
-#### Production pointer state machine
-
-- `NeraSpreadsheetInputController` is the single touch/wheel state machine used directly by `NeraSpreadsheetView.OnTouch`.
-- Deterministic tests and loaded smokes call the same production path; no test-only gesture model exists.
-- Fractional pan, anchored pinch, zoom-normalized wheel, tap selection, cancellation, topology rebasing and explicit reset are implemented.
-- Handler, workbook, worksheet and view reset boundaries clear active gesture state.
-- Public diagnostics expose event/update counts, ignored transitions, resets and active touch topology.
-
-#### Repeated loaded Windows stress
-
-The loaded unpackaged Windows smoke uses the same public view and native `SKSwapChainPanel`/`GRContext` path as production. It performs pinch, pan, tap, workbook mutation, wheel animation to settle, alternating resize classes and same-view handler/context recreations.
-
-Validated invariants include preserved session/selection/zoom/fractional offsets, fresh handler/native/context identity after recreation, balanced context generations and zero failed/abandoned/stale frame transitions.
-
-#### Surface scale and viewport classes
-
-- `NeraSurfaceMetrics` separates logical MAUI viewport units, renderer canvas units and raw backing pixels.
-- Orientation and width class are derived only from logical viewport dimensions.
-- Raw pixel dimensions and monitor DPI never alter logical Compact/Medium/Expanded classification.
-- Loaded Windows gates read native `SKSwapChainPanel.ContentsScale`, switch logical/physical modes and preserve state through context recreation.
-
-Full contract: `docs/maui-surface-scale-contract.md`.
+- Values, formulas/cached values, sheets, dimensions, merges, panes and current Nera style semantics round-trip.
+- Standard cell/row/column style indexes and a Nera exact sparse-style state part preserve interoperability and no-flattening behavior.
+- Unknown-part preservation uses an internal bounded package envelope and copy-and-patch save.
+- Nested opaque parts, standard drawing/image relationships, custom XML/properties and package-root relationships retain exact IDs, URIs, content types and bytes across repeated saves.
+- Package graph preflight checks part/relationship counts, uniqueness, NCName IDs, absolute relationship types, unsafe URI segments and encoded control/traversal payloads before restoration or destination mutation.
 
 ## Implemented but intentionally conservative
 
-- Direct cell styles are complete overrides; Nera does not add a second partial-cell inheritance layer.
-- Unsafe formula/merge transforms are rejected rather than converted into ambiguous unions.
+- Conditional formatting currently supports `CellIs` and `Expression`; color scales, data bars, icon sets and specialized duplicate/top/average/time rules are not modeled.
+- Imported differential colors currently require explicit RGB; theme/indexed colors are not semantically converted.
+- Conditional expression evaluation currently resolves the active worksheet snapshot; cross-sheet conditional references are not a supported evaluation contract.
+- Dependent conditional invalidation is conservative: any cell mutation expands to every conditional target range on that worksheet.
+- Direct styles remain complete overrides; no second partial-cell inheritance layer is introduced.
 - Number formatting uses a .NET bridge rather than a complete Excel format-code engine.
-- Sort is in-memory and materialization-bounded.
-- Structural rewriting covers A1 syntax, not tables, structured references or dynamic arrays.
-- Shared-formula grouping is conservative and regenerated on every save; it does not preserve source `si` identity.
-- Shared formulas with gaps, `#REF!`, structured/array markers or failed bidirectional proof fall back to normal formulas.
-- Unknown-part preservation requires the same worksheet objects in the same order; add/remove/reorder is rejected before destination mutation.
-- Preservation mode supports ordinary worksheet topology only; chart sheets and dialog sheets are rejected.
-- Unknown formulas, defined names, tables, drawings and vendor extensions are retained but not semantically rewritten.
-- The package envelope is in-memory and bounded; streaming preservation above 512 MiB is not implemented.
-- Themes, named styles, differential styles, conditional formats and full Excel format-code semantics remain outside the current XLSX milestone.
-- Hosted CI cannot guarantee physical driver removal, a real monitor-to-monitor DPI transition or every OS-controlled context-loss mode.
-- Sustained FPS, input latency, physical touch behavior and power use still require target-hardware benchmarks.
+- Sort is in-memory and bounded.
+- Unknown-part preservation requires the same worksheet objects and order; topology-changing merges are rejected before destination mutation.
+- Package preservation is in-memory and bounded to 512 MiB.
+- Hosted CI cannot guarantee physical driver removal, real monitor-to-monitor DPI transitions or every OS-controlled context-loss mode.
 
 ## Progress estimate
 
-- Engine/viewport/renderer foundation: approximately `85%`.
-- Basic spreadsheet MVP: approximately `68–72%`.
-- Complete professional roadmap: approximately `45%`.
-- Production release readiness: approximately `21–25%`.
+- Engine/viewport/renderer foundation: approximately `86%`.
+- Basic spreadsheet MVP: approximately `70–74%`.
+- Complete professional roadmap: approximately `46%`.
+- Production release readiness: approximately `22–26%`.
 
 These are weighted engineering estimates, not checkbox counts.
 
 ## Next implementation work
 
-1. Add conditional formatting model, differential styles, renderer integration and XLSX round-trip.
-2. Add data validation model, list/custom rules and desktop validation behavior.
-3. Add tables, structured references and AutoFilter integration.
-4. Expand formula functions, dynamic arrays and plugin function SDK.
-5. Add advanced sorting, grouping and virtualized data.
-6. Add printing/page layout/PDF, first-class drawings/charts and pivot/slicers.
-7. Add accessibility, packaging, fuzzing, performance budgets and release hardening.
+1. Data validation Core model, whole/decimal/date/time/text/list/custom rules and commit-time editor gate.
+2. Validation input message, error alert, invalid-cell diagnostics and XLSX `dataValidations` round-trip.
+3. Tables, structured references and AutoFilter integration.
+4. Formula/function surface, dynamic arrays and plugin function SDK.
+5. Advanced sorting, grouping and virtualized data.
+6. Printing/page layout/PDF, first-class drawings/charts and pivot/slicers.
+7. Accessibility, packaging, fuzzing, performance budgets and release hardening.
 
 ## Not implemented yet
 
-- External shared-formula compatibility corpus from multiple spreadsheet generators.
-- Dynamic arrays, structured references and complete Excel-compatible function surface.
-- First-class conditional formatting, validation, tables, drawings and charts.
-- Topology-changing preservation merge for worksheet add/remove/reorder and chart/dialog sheets.
-- Complete themes, named/differential styles and Excel format-code semantics.
+- Color scales, data bars, icon sets and conditional-format rule-manager UI.
+- Data validation and tables/structured references.
+- Dynamic arrays and complete Excel-compatible function surface.
+- External XLSX compatibility corpus from multiple spreadsheet generators.
+- Topology-changing unknown-part preservation.
+- Complete themes, named styles and Excel format-code semantics.
 - AutoFilter/filter UI, advanced sort, printing, preview and PDF export.
-- Pivot, slicers, collaboration and macro/query engines.
+- First-class charts, pivot, slicers, collaboration and macro/query engines.
 - Full accessibility/designer/NuGet/security/performance/release gates.
 
 ## Validation policy
@@ -249,29 +145,21 @@ These are weighted engineering estimates, not checkbox counts.
 - `NeraSpreadSheet.Core.slnx` must restore, build and test on cross-platform CI.
 - `NeraSpreadSheet.slnx` must restore/build on Windows and all tests must pass.
 - Architecture verification and Windows desktop GPU/runtime smoke are mandatory.
-- Skia rendering requires raster, bounded-resource, DPI and failure-recovery gates.
-- MAUI changes require real platform builds; production lifecycle/input/scale claims additionally require loaded native runtime gates.
-- Every started MAUI GPU frame must finish exactly once as completed, failed or abandoned; stale transitions may not mutate the active generation.
-- Whole-axis styles require no-materialization, chronological composition, structural mapping, exact history and renderer tests.
-- XLSX style state must pass schema validation, direct-style round-trip, sparse no-flattening and malformed-input rejection gates.
-- Shared-formula import/export must prove mixed/absolute translation, quoted-sheet/string preservation, continuous rectangle proof, deterministic indexes, cached-value modes, structural safety, normal-formula fallback and preservation repeated-save without range materialization.
-- Unknown-part preservation must retain opaque bytes, URI, relationship ID/type, content type, nested/external relationships and unowned markup across repeated saves.
-- Package graph must be preflighted before workbook restoration and before destination mutation.
+- MAUI changes require real platform builds; production lifecycle/input/scale claims require loaded native Windows gates.
+- Conditional formatting must prove evaluator priority/stop behavior, snapshot isolation, renderer output, dependent-range invalidation, structural history, uniform-reorder proof, schema-valid XLSX, malformed-input rejection and opaque repeated saves.
+- Unknown-part preservation must retain opaque bytes, URI, relationship ID/type, content type and unowned markup across repeated saves.
 - PR #1 remains Draft and must not merge while exact-head CI is red or unknown.
 
 ## Latest validated implementation milestone
 
-CI run #469 (`32347684027`) passed at implementation commit `d6808102298920ae868b86713341f2ccc1970594` on August 20, 2026.
+CI run #476 (`32372708251`) passed at implementation commit `58ed4a1c440b22bc75f8b3add40a3ba988a50517` on August 20, 2026.
 
-- Core restore/build/tests and architecture verification passed, including shared-formula export grouping and all prior OpenXml regressions.
-- Continuous rectangular groups, stable worksheet-order indexes, cached-value modes and schema-valid anchor/follower output passed.
-- Gaps and unsupported tokens fell back to normal formulas.
-- Insert/delete regrouped safely; reorder preserved exact logical formulas through fallback and round-trip.
-- Two preservation saves retained opaque package bytes while regenerating valid shared groups.
-- Full Windows restore/build/test and desktop GPU runtime smoke passed.
+- Core restore/build/tests and architecture verification passed, including conditional model, evaluator, renderer, dirty invalidation, structural mapping and controller history gates.
+- Standard `dxfs/cfRule/formula` round-trip, multiple ranges, malformed priority/`dxfId`, schema validation and opaque repeated-save tests passed.
+- Existing sparse styles, shared formulas, package graph hardening and unknown-part preservation remained green.
+- Full Windows build/tests and desktop GPU runtime smoke passed.
 - MAUI Android, iOS and Mac Catalyst real-target builds passed.
 - MAUI Windows build/tests and both loaded runtime smokes passed.
-- Exact sparse XLSX style fidelity, package graph hardening and unknown-part preservation remained green.
 
 The PR remains Draft and has not been merged into `develop`.
 

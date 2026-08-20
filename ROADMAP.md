@@ -11,9 +11,10 @@
 - [x] Model-safe row/column reorder theo logical cell identity.
 - [x] Sparse whole-row/column/sheet styles và effective composition.
 - [x] Split-view changes có history/undo/redo riêng, tách khỏi data history.
+- [x] Conditional-formatting Core model, differential styles, structural history và conservative reorder proof.
 - [ ] Sparse hide/group/outline metadata và complete axis property model.
 
-## B. Viewport và desktop rendering
+## B. Viewport và rendering
 
 - [x] Continuous pixel scrolling bằng `double` offsets.
 - [x] Freeze panes, split panes và independent pane scrolling.
@@ -23,7 +24,9 @@
 - [x] Snapshot/tile caching và split-aware dirty-region projection.
 - [x] WPF DrawingContext và D3DImage shared-texture backend.
 - [x] WinForms GDI+, Direct2D/DirectWrite HWND và D3D11/DXGI backend.
-- [x] Injected device/front-buffer lifecycle recreation stress gates.
+- [x] Production Skia display-list renderer cùng MAUI native GPU host.
+- [x] Conditional formatting tham gia shared display-list composer và conservative dependent-range invalidation.
+- [x] Injected device/front-buffer/context recreation stress gates.
 - [ ] 60/120 Hz, 4K target-hardware latency, FPS, memory và power baselines.
 
 ## C. Formula engine
@@ -31,8 +34,9 @@
 - [x] Tokenizer, parser, AST, dependency graph và circular-reference policy.
 - [x] Arithmetic, comparison, concatenation, A1 references/ranges và basic cross-sheet references.
 - [x] `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT` và `IF`.
-- [x] Shared-formula import, anchor/follower expansion và mixed/absolute A1 translation không materialize range.
-- [x] Shared-formula export grouping, stable worksheet-order indexes, bidirectional equivalence proof và normal-formula fallback.
+- [x] Shared-formula import và mixed/absolute A1 translation không materialize range.
+- [x] Shared-formula export grouping, stable worksheet-order indexes, bidirectional proof và fallback.
+- [x] Shared Core A1 translator và structural-reference rewriter dùng cho cell formulas và conditional rules.
 - [ ] Dynamic arrays, spill ranges và array calculation contracts.
 - [ ] Complete math, text, date/time, lookup, statistical và financial function surface.
 - [ ] Tables/structured references và formula rewrite integration.
@@ -45,18 +49,20 @@
 - [x] Current Nera style table và direct-cell style round-trip.
 - [x] Sparse row/column style round-trip không flatten logical axis.
 - [x] Unknown package-part preservation theo copy-and-patch.
-- [x] Repeated-save gate cho nested opaque parts, drawing/image, custom XML/properties và package-root relationships.
+- [x] Nested opaque graph, drawing/image, custom XML/properties và package-root relationship gates.
 - [x] Package graph preflight cho URI, relationship ID/type/target và size/count limits.
-- [x] Shared-formula import với malformed-group và cached-value gates.
-- [x] Shared-formula export, schema-valid anchor/follower output, structural/fallback và preservation repeated-save gates.
-- [ ] Compatibility corpus và round-trip differential tests với nhiều nguồn tạo XLSX thực tế.
-- [ ] Conditional formatting, validation và tables.
+- [x] Shared-formula import/export, schema, structural/fallback và repeated-save gates.
+- [x] Conditional-formatting `dxfs/dxf`, `conditionalFormatting`, `cfRule`, `formula`, priority và `stopIfTrue` round-trip.
+- [x] Conditional-formatting malformed-input, multiple-`sqref`, schema và opaque repeated-save gates.
+- [ ] External compatibility corpus và differential tests với nhiều trình tạo XLSX thực tế.
+- [ ] Data validation và tables.
 - [ ] First-class drawings, images và charts model/editor.
 - [ ] Print areas, page setup, page breaks, preview và PDF export.
 
 ## E. Data và analysis
 
 - [x] Basic in-memory sort có safety limits.
+- [ ] Data-validation model, editor commit gate và invalid-cell diagnostics.
 - [ ] AutoFilter model và desktop filter UI.
 - [ ] Advanced/multi-key sort, custom lists và stable large-data path.
 - [ ] Tables, subtotals, grouping và outlines.
@@ -67,7 +73,6 @@
 
 - [x] Platform-neutral command, Ribbon Core, Bars Core và DataGrid Core contracts.
 - [x] Public WPF và WinForms spreadsheet hosts/samples.
-- [x] Production Skia GPU display-list executor.
 - [x] MAUI native handler, production touch state machine và pinch zoom.
 - [x] Loaded Windows context recreation và logical/raw pixel gates.
 - [ ] MAUI virtual keyboard, IME và mobile editor lifecycle.
@@ -87,21 +92,20 @@
 
 ## Immediate execution order
 
-1. Conditional formatting model, differential styles và renderer/XLSX round-trip.
-2. Data validation model, list/custom rules và desktop validation UX.
-3. Tables, structured references và AutoFilter integration.
-4. Formula/function surface, dynamic arrays và plugin function SDK.
-5. Advanced sort, grouping, virtualized data và subtotals.
-6. Printing/PDF, drawings/charts và pivot/slicers.
-7. Accessibility, packaging, fuzzing, performance budgets và release hardening.
+1. Data validation Core model, list/custom rules, editor gate và XLSX round-trip.
+2. Tables, structured references và AutoFilter integration.
+3. Formula/function surface, dynamic arrays và plugin function SDK.
+4. Advanced sort, grouping, virtualized data và subtotals.
+5. Printing/PDF, drawings/charts và pivot/slicers.
+6. Accessibility, packaging, fuzzing, performance budgets và release hardening.
 
-## Trạng thái ước tính sau shared-formula end-to-end
+## Trạng thái ước tính sau conditional formatting
 
-- Nền móng engine/viewport/renderer: khoảng `85%`.
-- MVP bảng tính cơ bản: khoảng `68–72%`.
-- Toàn bộ roadmap chuyên nghiệp: khoảng `45%`.
-- Production release readiness: khoảng `21–25%`.
+- Nền móng engine/viewport/renderer: khoảng `86%`.
+- MVP bảng tính cơ bản: khoảng `70–74%`.
+- Toàn bộ roadmap chuyên nghiệp: khoảng `46%`.
+- Production release readiness: khoảng `22–26%`.
 
-Shared-formula import/export hoàn chỉnh trong phạm vi Nera hiện tại nâng tổng thể khoảng `1` điểm phần trăm so với mốc import-only. Chưa chấm cao hơn vì corpus tương thích bên ngoài, dynamic arrays, structured references và bề mặt hàm lớn vẫn còn.
+Conditional formatting end-to-end nâng tổng thể khoảng `1` điểm phần trăm so với mốc shared-formula. Chưa chấm cao hơn vì data validation, tables/structured references, dynamic arrays, hệ thống hàm lớn, printing/PDF, charts và pivot vẫn còn.
 
 Các tỷ lệ trên là ước lượng theo độ khó và khối lượng còn lại, không phải tỷ lệ số checkbox.
