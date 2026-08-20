@@ -70,7 +70,7 @@ public static class DataValidationEvaluator
             DataValidationType.List =>
                 MatchesList(worksheet, address, candidate, rule),
             DataValidationType.Custom =>
-                MatchesCustom(worksheet, address, rule),
+                MatchesCustom(worksheet, address, candidate, rule),
             _ => false,
         };
 
@@ -94,6 +94,7 @@ public static class DataValidationEvaluator
         return MatchesOperator(
             worksheet,
             address,
+            candidate,
             rule,
             value,
             TryNumber);
@@ -113,6 +114,7 @@ public static class DataValidationEvaluator
         return MatchesOperator(
             worksheet,
             address,
+            candidate,
             rule,
             value,
             TryNumber);
@@ -132,6 +134,7 @@ public static class DataValidationEvaluator
         return MatchesOperator(
             worksheet,
             address,
+            candidate,
             rule,
             value,
             TryDateSerial);
@@ -151,6 +154,7 @@ public static class DataValidationEvaluator
         return MatchesOperator(
             worksheet,
             address,
+            candidate,
             rule,
             value,
             TryTimeSerial);
@@ -173,6 +177,7 @@ public static class DataValidationEvaluator
         return MatchesOperator(
             worksheet,
             address,
+            candidate,
             rule,
             value,
             TryNumber);
@@ -193,6 +198,7 @@ public static class DataValidationEvaluator
         if (!TryResolveListValues(
                 worksheet,
                 address,
+                candidate,
                 rule,
                 out var values))
         {
@@ -208,11 +214,13 @@ public static class DataValidationEvaluator
     private static bool MatchesCustom(
         WorksheetSnapshot worksheet,
         CellAddress address,
+        CellValue candidate,
         DataValidationRule rule)
     {
         var result = EvaluateFormula(
             worksheet,
             address,
+            candidate,
             rule.Anchor,
             rule.Formula1);
         return result.IsSuccess &&
@@ -223,6 +231,7 @@ public static class DataValidationEvaluator
     private static bool MatchesOperator(
         WorksheetSnapshot worksheet,
         CellAddress address,
+        CellValue candidate,
         DataValidationRule rule,
         double value,
         TryConvertDelegate converter)
@@ -235,6 +244,7 @@ public static class DataValidationEvaluator
         var first = EvaluateFormula(
             worksheet,
             address,
+            candidate,
             rule.Anchor,
             rule.Formula1);
         if (!first.IsSuccess ||
@@ -254,6 +264,7 @@ public static class DataValidationEvaluator
             var second = EvaluateFormula(
                 worksheet,
                 address,
+                candidate,
                 rule.Anchor,
                 rule.Formula2);
             if (!second.IsSuccess ||
@@ -285,6 +296,7 @@ public static class DataValidationEvaluator
     private static bool TryResolveListValues(
         WorksheetSnapshot worksheet,
         CellAddress address,
+        CellValue candidate,
         DataValidationRule rule,
         out string[] values)
     {
@@ -307,8 +319,10 @@ public static class DataValidationEvaluator
             {
                 for (var column = range.Left; column <= range.Right; column++)
                 {
-                    var value = worksheet.GetCell(
-                        new CellAddress(row, column)).Value;
+                    var sourceAddress = new CellAddress(row, column);
+                    var value = sourceAddress == address
+                        ? candidate
+                        : worksheet.GetCell(sourceAddress).Value;
                     if (!value.IsBlank && value.Kind != CellValueKind.Error)
                     {
                         materialized.Add(value.ToString());
@@ -322,7 +336,10 @@ public static class DataValidationEvaluator
 
         var result = FormulaEngine.Evaluate(
             translated,
-            new SnapshotEvaluationContext(worksheet));
+            new SnapshotEvaluationContext(
+                worksheet,
+                address,
+                candidate));
         if (!result.IsSuccess || result.Value.Kind == CellValueKind.Error)
         {
             values = [];
@@ -451,6 +468,7 @@ public static class DataValidationEvaluator
     private static FormulaEvaluationResult EvaluateFormula(
         WorksheetSnapshot worksheet,
         CellAddress address,
+        CellValue candidate,
         CellAddress anchor,
         string formula)
     {
@@ -468,7 +486,10 @@ public static class DataValidationEvaluator
 
         return FormulaEngine.Evaluate(
             translated,
-            new SnapshotEvaluationContext(worksheet));
+            new SnapshotEvaluationContext(
+                worksheet,
+                address,
+                candidate));
     }
 
     private static bool TryNumber(CellValue value, out double number)
@@ -559,10 +580,17 @@ public static class DataValidationEvaluator
         : IFormulaEvaluationContext
     {
         private readonly WorksheetSnapshot _worksheet;
+        private readonly CellAddress _candidateAddress;
+        private readonly CellValue _candidateValue;
 
-        public SnapshotEvaluationContext(WorksheetSnapshot worksheet)
+        public SnapshotEvaluationContext(
+            WorksheetSnapshot worksheet,
+            CellAddress candidateAddress,
+            CellValue candidateValue)
         {
             _worksheet = worksheet;
+            _candidateAddress = candidateAddress;
+            _candidateValue = candidateValue;
         }
 
         public CellValue GetCellValue(
@@ -578,7 +606,9 @@ public static class DataValidationEvaluator
                 return CellValue.FromError("#REF!");
             }
 
-            return _worksheet.GetCell(address).Value;
+            return address == _candidateAddress
+                ? _candidateValue
+                : _worksheet.GetCell(address).Value;
         }
     }
 }
