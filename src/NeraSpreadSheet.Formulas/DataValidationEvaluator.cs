@@ -50,9 +50,11 @@ public static class DataValidationEvaluator
             return DataValidationEvaluationResult.Valid();
         }
 
-        if (candidate.Kind == CellValueKind.Blank && rule.AllowBlank)
+        if (candidate.Kind == CellValueKind.Blank)
         {
-            return DataValidationEvaluationResult.Valid(rule);
+            return rule.AllowBlank
+                ? DataValidationEvaluationResult.Valid(rule)
+                : DataValidationEvaluationResult.Invalid(rule);
         }
 
         var isValid = rule.Type switch
@@ -171,9 +173,7 @@ public static class DataValidationEvaluator
             return false;
         }
 
-        var value = candidate.Kind == CellValueKind.Blank
-            ? 0d
-            : candidate.ToString().Length;
+        var value = candidate.ToString().Length;
         return MatchesOperator(
             worksheet,
             address,
