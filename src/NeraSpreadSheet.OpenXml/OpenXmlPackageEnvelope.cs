@@ -24,7 +24,75 @@ internal sealed class OpenXmlPackageEnvelope
 
     public static OpenXmlPackageEnvelope Capture(
         byte[] packageBytes,
-        Workbook workbook)
+        Workbook workbook) =>
+        CaptureCore(
+            packageBytes,
+            workbook,
+            validatePackageGraph: true);
+
+    public static OpenXmlPackageEnvelope CaptureValidated(
+        byte[] packageBytes,
+        Workbook workbook) =>
+        CaptureCore(
+            packageBytes,
+            workbook,
+            validatePackageGraph: false);
+
+    public byte[] ClonePackageBytes() =>
+        (byte[])_packageBytes.Clone();
+
+    public void ValidateWorkbookTopology(Workbook workbook)
+    {
+        ArgumentNullException.ThrowIfNull(workbook);
+        if (workbook.Worksheets.Count != _worksheets.Length)
+        {
+            throw new InvalidOperationException(
+                "Cannot preserve unknown XLSX parts after worksheets have been added or removed.");
+        }
+
+        for (var index = 0; index < _worksheets.Length; index++)
+        {
+            if (!ReferenceEquals(
+                    _worksheets[index].Worksheet,
+                    workbook.Worksheets[index]))
+            {
+                throw new InvalidOperationException(
+                    "Cannot preserve unknown XLSX parts after worksheet topology or order has changed.");
+            }
+        }
+    }
+
+    public void ValidatePackageBinding(
+        int index,
+        string relationshipId,
+        Uri partUri)
+    {
+        if ((uint)index >= (uint)_worksheets.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        var expected = _worksheets[index];
+        var actualPartUri = OpenXmlPackageGraphValidator.ValidatePartUri(
+            partUri);
+        if (!string.Equals(
+                expected.RelationshipId,
+                relationshipId,
+                StringComparison.Ordinal) ||
+            !string.Equals(
+                expected.PartUri,
+                actualPartUri,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                "The preserved XLSX worksheet relationship graph no longer matches its captured envelope.");
+        }
+    }
+
+    private static OpenXmlPackageEnvelope CaptureCore(
+        byte[] packageBytes,
+        Workbook workbook,
+        bool validatePackageGraph)
     {
         ArgumentNullException.ThrowIfNull(packageBytes);
         ArgumentNullException.ThrowIfNull(workbook);
@@ -33,7 +101,11 @@ internal sealed class OpenXmlPackageEnvelope
             packageBytes,
             writable: false);
         using var document = SpreadsheetDocument.Open(stream, false);
-        OpenXmlPackageGraphValidator.Validate(document);
+        if (validatePackageGraph)
+        {
+            OpenXmlPackageGraphValidator.Validate(document);
+        }
+
         var workbookPart = document.WorkbookPart
             ?? throw new InvalidDataException(
                 "The preserved XLSX package does not contain a workbook part.");
@@ -87,57 +159,6 @@ internal sealed class OpenXmlPackageEnvelope
         return new OpenXmlPackageEnvelope(
             packageBytes,
             bindings);
-    }
-
-    public byte[] ClonePackageBytes() =>
-        (byte[])_packageBytes.Clone();
-
-    public void ValidateWorkbookTopology(Workbook workbook)
-    {
-        ArgumentNullException.ThrowIfNull(workbook);
-        if (workbook.Worksheets.Count != _worksheets.Length)
-        {
-            throw new InvalidOperationException(
-                "Cannot preserve unknown XLSX parts after worksheets have been added or removed.");
-        }
-
-        for (var index = 0; index < _worksheets.Length; index++)
-        {
-            if (!ReferenceEquals(
-                    _worksheets[index].Worksheet,
-                    workbook.Worksheets[index]))
-            {
-                throw new InvalidOperationException(
-                    "Cannot preserve unknown XLSX parts after worksheet topology or order has changed.");
-            }
-        }
-    }
-
-    public void ValidatePackageBinding(
-        int index,
-        string relationshipId,
-        Uri partUri)
-    {
-        if ((uint)index >= (uint)_worksheets.Length)
-        {
-            throw new ArgumentOutOfRangeException(nameof(index));
-        }
-
-        var expected = _worksheets[index];
-        var actualPartUri = OpenXmlPackageGraphValidator.ValidatePartUri(
-            partUri);
-        if (!string.Equals(
-                expected.RelationshipId,
-                relationshipId,
-                StringComparison.Ordinal) ||
-            !string.Equals(
-                expected.PartUri,
-                actualPartUri,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidDataException(
-                "The preserved XLSX worksheet relationship graph no longer matches its captured envelope.");
-        }
     }
 
     internal sealed record WorksheetBinding(
