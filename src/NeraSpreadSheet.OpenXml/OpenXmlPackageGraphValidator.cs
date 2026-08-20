@@ -74,8 +74,8 @@ internal static class OpenXmlPackageGraphValidator
             !value.StartsWith('/') ||
             value.EndsWith('/') ||
             value.Contains('\\') ||
-            value.Contains('?', StringComparison.Ordinal) ||
-            value.Contains('#', StringComparison.Ordinal) ||
+            value.Contains('?') ||
+            value.Contains('#') ||
             ContainsControlCharacter(value))
         {
             throw new InvalidDataException(
