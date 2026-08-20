@@ -1,20 +1,20 @@
 # NeraSpreadSheet
 
-> Trạng thái: **M0 — Bootstrap kiến trúc, chưa phải bản phát hành sử dụng thực tế**.
+> Trạng thái: **M1 — nền tảng engine, renderer đa host và XLSX preservation đã được CI xác minh; chưa phải bản phát hành production**.
 
-NeraSpreadSheet là bộ SDK spreadsheet mô-đun cho **WPF, WinForms và .NET MAUI**. Mục tiêu dài hạn là cung cấp trải nghiệm làm việc kiểu bảng tính chuyên nghiệp, ưu tiên tốc độ cuộn theo từng pixel, khả năng mở rộng theo mô-đun và nghiệp vụ dự toán.
+NeraSpreadSheet là bộ SDK spreadsheet độc lập cho **WPF, WinForms và .NET MAUI**. Mục tiêu dài hạn là trải nghiệm bảng tính chuyên nghiệp, cuộn liên tục theo từng pixel, mô hình dữ liệu sparse và khả năng mở rộng cho nghiệp vụ dự toán.
 
-## Mục tiêu kỹ thuật đã khóa
+## Nguyên tắc kỹ thuật đã khóa
 
 - Không tạo một control giao diện cho từng ô.
-- Viewport lưu `ScrollX` và `ScrollY` bằng `double`; cho phép dừng giữa hàng hoặc cột.
-- Input được gom theo frame; không render lại toàn bộ theo từng sự kiện chuột/touchpad.
-- Workbook, công thức, layout và command không phụ thuộc WPF, WinForms hoặc MAUI.
-- Windows dùng backend **Direct2D + DirectWrite + composition**.
-- Android, iOS và Mac Catalyst dùng backend **Skia GPU**.
-- Renderer tiêu thụ một **display list** dùng chung; host nền tảng không chứa nghiệp vụ workbook.
+- Viewport lưu `ScrollX` và `ScrollY` bằng `double`, có thể dừng giữa hàng hoặc cột.
 - Cuộn không kích hoạt tính lại toàn workbook, AutoFit hoặc page layout.
-- Spreadsheet và DataGrid dùng chung hạ tầng thấp, nhưng không dùng chung mô hình dữ liệu.
+- Workbook, công thức, layout, scrolling và command không phụ thuộc WPF, WinForms hoặc MAUI.
+- Windows có WPF DrawingContext/D3DImage và WinForms GDI+/Direct2D/D3D11-DXGI.
+- Android, iOS, Mac Catalyst và MAUI Windows dùng một public `SKGLView` cùng Skia GPU.
+- Mọi backend tiêu thụ display list dùng chung; host nền tảng không chứa nghiệp vụ workbook.
+- Spreadsheet và DataGrid chia sẻ hạ tầng thấp nhưng không dùng chung mô hình dữ liệu.
+- Excel, LibreOffice và DevExpress chỉ là nguồn tham khảo hành vi; không phải runtime dependency.
 
 ## Kiến trúc tổng quát
 
@@ -32,34 +32,46 @@ Direct2D/DirectWrite   Skia GPU
  WPF       WinForms         MAUI
 ```
 
-## Các mô-đun hiện có
+## Những phần đã có gate thực thi
+
+- Workbook/worksheet sparse trên không gian địa chỉ cỡ Excel.
+- Selection, clipboard, editor, command và undo/redo dữ liệu/view.
+- Insert/delete/reorder hàng cột có formula mapping và rollback nguyên tử.
+- Whole-row/column/sheet style dạng sparse, không materialize trục logic.
+- Cuộn phân số, freeze pane, split pane, pane-local scroll và tile/display-list cache.
+- WPF, WinForms và MAUI GPU hosts cùng recovery/context lifecycle diagnostics.
+- Formula parser, dependency graph, circular-reference policy và các hàm nền tảng.
+- XLSX values/formulas/dimensions/merge, style table, exact sparse style state và split-view state.
+- `PreserveUnknownParts=true` theo mô hình copy-and-patch, giữ opaque relationship graph qua repeated save.
+- Drawing + image, custom XML + properties, package-root/nested/external relationships được kiểm tra bằng fixture và `OpenXmlValidator`.
+- Package graph preflight chặn URI traversal, duplicate/invalid relationship ID, invalid relationship type và target chứa control character trước workbook restoration hoặc destination mutation.
+
+Chi tiết chính xác nằm tại `docs/current-status.md`; thứ tự phần việc còn lại nằm tại `ROADMAP.md`.
+
+## Các mô-đun chính
 
 | Mô-đun | Vai trò |
 |---|---|
-| `NeraSpreadSheet.Foundation` | Kiểu hình học và primitive dùng chung |
-| `NeraSpreadSheet.Core` | Workbook, worksheet, ô, range và kích thước hàng/cột dạng sparse |
-| `NeraSpreadSheet.Formulas` | Hợp đồng engine công thức, dependency và registry hàm |
-| `NeraSpreadSheet.Layout` | Chuyển offset pixel thành hàng/cột nhìn thấy; hỗ trợ kích thước biến đổi |
-| `NeraSpreadSheet.Scrolling` | Bộ điều khiển cuộn liên tục, precision input và animation theo frame |
-| `NeraSpreadSheet.Commands` | Command ID, metadata, registry và handler dùng chung |
-| `NeraSpreadSheet.Ribbon.Core` | Schema ribbon trung lập nền tảng |
-| `NeraSpreadSheet.Bars.Core` | Schema toolbar, menu và context menu trung lập nền tảng |
-| `NeraSpreadSheet.DataGrid.Core` | Hợp đồng DataGrid riêng, không dùng mô hình ô của Spreadsheet |
-| `NeraSpreadSheet.Rendering.Abstractions` | Display list và hợp đồng backend render |
-| `NeraSpreadSheet.Rendering.Direct2D` | Ranh giới backend Direct2D/DirectWrite trên Windows |
-| `NeraSpreadSheet.Rendering.Skia` | Ranh giới backend Skia GPU đa nền tảng |
-| `NeraSpreadSheet.OpenXml` | Hợp đồng nhập/xuất XLSX bằng Open XML |
-| `NeraSpreadSheet.Wpf` | Host WPF; không render từng ô bằng `FrameworkElement` |
-| `NeraSpreadSheet.WinForms` | Host WinForms; không render từng ô bằng `Control` |
-| `NeraSpreadSheet.Maui` | Host MAUI, sẽ nối với Skia GPU bằng handler riêng |
+| `NeraSpreadSheet.Foundation` | Geometry và primitive dùng chung |
+| `NeraSpreadSheet.Core` | Workbook, worksheet, cell/range, merge, style và sparse dimensions |
+| `NeraSpreadSheet.Formulas` | Parser, AST, dependency, recalculation và registry hàm |
+| `NeraSpreadSheet.Layout` | Ánh xạ offset pixel sang hàng/cột hiển thị |
+| `NeraSpreadSheet.Scrolling` | Cuộn liên tục, precision input và animation theo frame |
+| `NeraSpreadSheet.Commands` | Command ID, metadata, registry và handler |
+| `NeraSpreadSheet.Rendering.Abstractions` | Display list và hợp đồng backend |
+| `NeraSpreadSheet.Rendering.Direct2D` | Direct2D/DirectWrite backend cho Windows |
+| `NeraSpreadSheet.Rendering.Skia` | Skia display-list renderer đa nền tảng |
+| `NeraSpreadSheet.OpenXml` | Biên nhập/xuất XLSX và package preservation |
+| `NeraSpreadSheet.Wpf` | WPF host, không render từng ô bằng `FrameworkElement` |
+| `NeraSpreadSheet.WinForms` | WinForms host, không render từng ô bằng `Control` |
+| `NeraSpreadSheet.Maui` | Native GPU/touch host trên một `SKGLView` |
+| `NeraSpreadSheet.Ribbon.Core` | Schema Ribbon trung lập nền tảng |
+| `NeraSpreadSheet.Bars.Core` | Schema toolbar/menu/context menu |
+| `NeraSpreadSheet.DataGrid.Core` | Hợp đồng DataGrid riêng biệt |
 
-## Yêu cầu môi trường
+## Build và test
 
-- .NET SDK `10.0.302` hoặc feature band mới hơn của .NET 10.
-- Visual Studio 2026/18.x trên Windows để build WPF, WinForms và MAUI Windows.
-- Workload MAUI khi build `NeraSpreadSheet.Maui.slnx`.
-
-## Build
+Yêu cầu .NET 10 SDK theo `global.json`; Visual Studio 2026/18.x và workload MAUI khi build các target Windows/mobile.
 
 ```powershell
 dotnet restore .\NeraSpreadSheet.slnx
@@ -67,7 +79,7 @@ dotnet build .\NeraSpreadSheet.slnx -c Release
 dotnet test .\NeraSpreadSheet.Core.slnx -c Release --no-build
 ```
 
-MAUI được tách khỏi solution mặc định để CI lõi không buộc cài workload di động:
+MAUI target matrix:
 
 ```powershell
 dotnet workload install maui
@@ -82,11 +94,11 @@ main       : bản ổn định
        └─ feature/<ten-tinh-nang>
 ```
 
-Mọi thay đổi đi qua pull request. Không commit trực tiếp vào `main`. Xem thêm `CONTRIBUTING.md` và `AGENTS.md`.
+Mọi thay đổi đi qua pull request. Không commit trực tiếp vào `main`.
 
 ## Mốc tiếp theo
 
-M1 tập trung vào snapshot workbook, selection model, dirty region, tile/display-list cache và prototype viewport WPF. Chi tiết tại `ROADMAP.md`.
+Mốc kỹ thuật kế tiếp là **shared-formula import/export và reference translation**. Sau đó mới mở rộng conditional formatting, validation, tables, hệ thống hàm, printing/PDF và các gate phát hành production.
 
 ## Giấy phép
 

@@ -76,43 +76,59 @@ Full style semantics: `docs/whole-axis-style-contract.md`.
 
 ### Unknown OpenXml package-part preservation
 
-`NeraOpenXmlWorkbookSerializer` now supports `PreserveUnknownParts=true` without placing `DocumentFormat.OpenXml` types in the Core workbook model.
+`NeraOpenXmlWorkbookSerializer` supports `PreserveUnknownParts=true` without placing `DocumentFormat.OpenXml` types in the Core workbook model.
 
 #### Internal package envelope
 
 - Load captures the original XLSX bytes into an internal `OpenXmlPackageEnvelope` associated with the loaded `Workbook` through a `ConditionalWeakTable`.
-- The capture is bounded to 512 MiB and validates that every logical worksheet maps one-to-one to a `WorksheetPart`.
-- Worksheet relationship IDs and part URIs are captured and revalidated before every preservation save.
-- Unsafe worksheet part URIs, duplicate worksheet relationship IDs, duplicate worksheet part URIs and unsupported chart/dialog sheet topology are rejected.
-- The envelope disappears with the workbook and is detached when the caller explicitly saves with preservation disabled.
+- Capture is bounded to 512 MiB.
+- Worksheet object identity, relationship ID, order and part URI are retained and revalidated.
+- Worksheet add/remove/reorder, duplicate binding, unsafe URI and unsupported chart/dialog-sheet topology fail explicitly.
+- Saving with preservation disabled performs a full Nera rewrite and detaches the envelope.
 
-#### Copy-and-patch save model
+#### Copy-and-patch save
 
 - A preservation save first builds a complete Nera-supported package in memory.
-- It then clones the captured package and patches only regions Nera owns instead of reconstructing the opaque relationship graph.
+- It clones the captured package and patches only regions Nera owns instead of reconstructing the opaque relationship graph.
 - Workbook sheet names are updated in place while original worksheet relationship IDs and part URIs remain unchanged.
-- Worksheet `cols`, `sheetData` and `mergeCells` are replaced from the generated Nera package.
-- The supported style-table children (`numFmts`, `fonts`, `fills`, `borders`, `cellStyleXfs`, `cellXfs`, `cellStyles`) are replaced in schema order.
-- Other workbook, worksheet and stylesheet markup remains untouched, including `extLst` payloads and future/extension markup outside Nera-owned regions.
-- The Nera exact sparse style-state part is refreshed as Nera-owned metadata; other custom/extended parts are not rewritten.
-- The complete output package is assembled before the destination stream is changed, giving failure atomicity for validation and merge failures.
-- A successful save refreshes the envelope from the emitted bytes, so repeated preservation saves operate from the latest package state.
-- A new Nera workbook can also be saved with preservation enabled; its first generated package becomes the baseline envelope.
+- Worksheet `cols`, `sheetData` and `mergeCells` are replaced from the generated package.
+- Supported style-table children are replaced in schema order.
+- Workbook, worksheet and stylesheet markup outside Nera-owned regions remains untouched.
+- The Nera exact sparse style-state part is refreshed; other custom/extended parts are not rewritten.
+- Successful saves refresh the envelope from the emitted bytes, so repeated saves continue from the latest package state.
 
-#### Validated opaque invariants
+#### Nested package-graph gate
 
-Automated round-trip tests prove that these survive rename/edit and repeated saves:
+A repeated-save fixture now proves preservation of:
 
-- workbook-level and worksheet-level opaque `ExtendedPart` relationships;
-- exact relationship IDs;
-- exact part URIs;
-- relationship types and content types;
-- arbitrary binary/XML bytes;
-- worksheet external relationships and target URI;
-- workbook, worksheet and stylesheet extension markup outside Nera-owned regions;
-- newly edited Nera cell data and worksheet rename.
+- package-root opaque `ExtendedPart` plus nested opaque child;
+- package-root and nested external relationships;
+- standard worksheet `DrawingsPart` and worksheet `<drawing r:id>` reference;
+- a real PNG `ImagePart`, relationship ID, URI, content type and exact bytes;
+- opaque nested relationship beneath the drawing part;
+- non-Nera `CustomXmlPart`, `CustomXmlPropertiesPart` and opaque nested relationship;
+- exact relationship IDs/types, part URIs, content types and binary/XML bytes;
+- worksheet rename and Nera cell edits through two preservation saves.
 
-A separate failure-atomicity test adds a worksheet after a preservation load, verifies that topology validation throws, and proves that a pre-populated destination stream is unchanged.
+Both outputs pass `OpenXmlValidator` after rename/edit and repeated save.
+
+#### Package graph preflight
+
+`OpenXmlPackageGraphValidator` traverses package root and nested containers before a preserved workbook is restored. It covers internal parts, external relationships, hyperlink relationships and data-part references.
+
+The validator enforces:
+
+- package-wide part-URI uniqueness across OpenXml parts and data parts;
+- per-container relationship-ID uniqueness across internal and reference relationships;
+- XML NCName relationship IDs;
+- absolute relationship-type URIs;
+- bounded part count and relationship count;
+- bounded URI/type/target lengths;
+- no literal or decoded `.`/`..` traversal segments;
+- no encoded slash/backslash, empty URI segment, backslash, query, fragment or control character in part URIs;
+- no literal or percent-decoded control character in relationship type/target text.
+
+Preservation load validates the captured bytes before `LoadCore`. Preservation save creates and validates the final output envelope before the destination stream is truncated or written. Graph/topology failure therefore remains atomic from the caller's perspective.
 
 ### MAUI native GPU host
 
@@ -150,12 +166,9 @@ Validated invariants:
 #### Surface scale and viewport classes
 
 - `NeraSurfaceMetrics` separates logical MAUI viewport units, renderer canvas units and raw backing pixels.
-- It records canvas/viewport, raw/viewport and raw/canvas scale on a completed production frame.
-- Orientation is derived only from logical viewport dimensions: Portrait, Landscape or Square.
-- Width class is derived only from logical width: Compact `<600`, Medium `600..<840`, Expanded `>=840`.
-- Raw pixel dimensions and monitor DPI never alter the logical width class.
-- `IgnorePixelScaling=true` keeps approximately one canvas unit per logical viewport unit; raw/canvas scale follows native display scale.
-- `IgnorePixelScaling=false` maps canvas dimensions to raw backing pixels; canvas/viewport scale follows native display scale.
+- Orientation and width class are derived only from logical viewport dimensions.
+- Raw pixel dimensions and monitor DPI never alter logical Compact/Medium/Expanded classification.
+- Loaded Windows gates read native `SKSwapChainPanel.ContentsScale`, switch logical/physical modes and preserve session/selection/zoom/fractional offsets through context recreation.
 
 Full contract: `docs/maui-surface-scale-contract.md`.
 
@@ -167,32 +180,31 @@ Full contract: `docs/maui-surface-scale-contract.md`.
 - Sort is in-memory and materialization-bounded.
 - Structural rewriting covers A1 syntax, not tables, structured references, shared formulas or dynamic arrays.
 - Unknown-part preservation requires the same worksheet objects in the same order; add/remove/reorder is rejected before destination mutation.
-- Preservation mode currently supports ordinary worksheet topology only; chart sheets and dialog sheets are rejected.
-- Nera replaces supported worksheet/style regions conservatively; semantic rewrites of unknown formulas, defined names, tables, drawings or vendor extensions are not attempted.
-- The package envelope is in-memory and bounded; streaming preservation for packages above 512 MiB is not implemented.
-- Nested drawing/media graphs are retained by copying the original package, but a dedicated fixture gate for every standard nested graph remains future hardening.
+- Preservation mode supports ordinary worksheet topology only; chart sheets and dialog sheets are rejected.
+- Unknown formulas, defined names, tables, drawings and vendor extensions are retained but not semantically rewritten.
+- The package envelope is in-memory and bounded; streaming preservation above 512 MiB is not implemented.
 - Themes, named styles, differential styles, conditional formats and full Excel format-code semantics remain outside the current XLSX milestone.
 - Hosted CI cannot guarantee physical driver removal, a real monitor-to-monitor DPI transition or every OS-controlled context-loss mode.
 - Sustained FPS, input latency, physical touch behavior and power use still require target-hardware benchmarks.
 
 ## Next implementation work
 
-1. Harden unknown-part preservation with nested drawing/media/custom-XML fixtures, package-level relationships, hostile/conflicting relationship cases and schema validation after repeated saves.
-2. Implement shared-formula import/export and reference translation without flattening sparse worksheets.
-3. Add conditional formatting, validation, tables and drawings as first-class supported models.
-4. Add device/emulator MAUI execution and global native pointer injection where infrastructure is reliable.
-5. Add filters, advanced sorting, printing, page layout, preview and PDF export.
-6. Add charts, pivot/slicers, accessibility, packaging and sustained-performance hardening.
+1. Implement shared-formula import/export, anchor expansion and reference translation without flattening sparse worksheets.
+2. Add conditional formatting, validation and tables.
+3. Expand formula functions, structured references and dynamic arrays.
+4. Add AutoFilter, advanced sorting, grouping and virtualized data.
+5. Add printing/page layout/PDF, first-class drawings/charts and pivot/slicers.
+6. Add accessibility, packaging, fuzzing, performance budgets and release hardening.
 
 ## Not implemented yet
 
-- First-class themes, named/differential/conditional styles and complete Excel format-code semantics.
-- Shared formulas, validation, tables, drawings, charts, macros and complete dynamic arrays.
+- Shared formulas, dynamic arrays, structured references and complete Excel-compatible function surface.
+- First-class conditional formatting, validation, tables, drawings and charts.
 - Topology-changing preservation merge for worksheet add/remove/reorder and chart/dialog sheets.
-- Dedicated nested drawing/media and package-root opaque-relationship fixtures.
-- Complete Excel-compatible function surface.
-- AutoFilter/filter UI, advanced sort, printing, page layout, preview and PDF export.
-- Charts, pivot, slicers, collaboration and macro/query engines.
+- Complete themes, named/differential styles and Excel format-code semantics.
+- AutoFilter/filter UI, advanced sort, printing, preview and PDF export.
+- Pivot, slicers, collaboration and macro/query engines.
+- Full accessibility/designer/NuGet/security/performance/release gates.
 
 ## Validation policy
 
@@ -202,23 +214,21 @@ Full contract: `docs/maui-surface-scale-contract.md`.
 - Skia rendering requires raster, bounded-resource, DPI and failure-recovery gates.
 - MAUI changes require real platform builds; production lifecycle/input/scale claims additionally require loaded native runtime gates.
 - Every started MAUI GPU frame must finish exactly once as completed, failed or abandoned; stale transitions may not mutate the active generation.
-- Pointer tests must call the production controller used by `OnTouch` and finish with no active touch/pinch/tap state.
-- Surface-scale classification must use logical viewport dimensions; raw pixels may only describe backing scale.
 - Whole-axis styles require no-materialization, chronological composition, structural mapping, exact history and renderer tests.
-- Split-view history must remain per worksheet and isolated from data history.
 - XLSX style state must pass schema validation, direct-style round-trip, sparse no-flattening and malformed-input rejection gates.
-- Unknown-part preservation must retain opaque bytes, URI, relationship ID/type, content type, external relationships and unowned markup across repeated saves.
-- Preservation topology conflicts must fail before mutating the destination stream.
+- Unknown-part preservation must retain opaque bytes, URI, relationship ID/type, content type, nested/external relationships and unowned markup across repeated saves.
+- Package graph must be preflighted before workbook restoration and before destination mutation.
 - PR #1 remains Draft and must not merge while exact-head CI is red or unknown.
 
 ## Latest validated implementation milestone
 
-CI run #449 (`32330382258`) passed at implementation commit `75b8292f060eccaaa7caff1fbed88f650f68ea7f` on August 20, 2026.
+CI run #459 (`32337216394`) passed at implementation commit `59293ff52c95b1f61d92560a49f90f931df5bb47` on August 20, 2026.
 
-- Core restore/build/tests and architecture verification passed, including the new unknown-part preservation and failure-atomicity tests.
+- Core restore/build/tests and architecture verification passed, including nested package-graph preservation and hostile URI/relationship tests.
+- Drawing/image, custom XML/properties, package-root/nested/external relationships and repeated-save schema validation passed.
 - Full Windows restore/build/test and desktop GPU runtime smoke passed.
 - MAUI Android, iOS and Mac Catalyst real-target builds passed.
-- MAUI Windows build, handler/lifecycle/input/surface-metrics tests and both loaded runtime smokes passed.
+- MAUI Windows build/tests and both loaded runtime smokes passed.
 - Exact sparse XLSX style fidelity and malformed-input hardening remained green.
 
 The PR remains Draft and has not been merged into `develop`.

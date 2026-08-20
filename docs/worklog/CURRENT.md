@@ -4,127 +4,149 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` vào `develop` — Draft, chưa merge
-- Implementation commit đã xác minh: `75b8292f060eccaaa7caff1fbed88f650f68ea7f`
-- GitHub Actions: run `32330382258`, CI `#449`, kết luận `success`
+- Implementation commit đã xác minh: `59293ff52c95b1f61d92560a49f90f931df5bb47`
+- GitHub Actions: run `32337216394`, CI `#459`, kết luận `success`
 - Tài liệu nguồn sự thật: `docs/current-status.md`
-- Contract scale MAUI: `docs/maui-surface-scale-contract.md`
+- Roadmap còn lại: `ROADMAP.md`
+- Contract MAUI scale: `docs/maui-surface-scale-contract.md`
 - Contract sparse styles: `docs/whole-axis-style-contract.md`
 
 ## Mốc vừa hoàn thành
 
-### Unknown OpenXml package-part preservation
+### Nested unknown-package graph preservation
 
-`NeraOpenXmlWorkbookSerializer` hiện hỗ trợ `PreserveUnknownParts=true`.
+Đã thêm `UnknownPackageGraphPreservationTests.cs` với package XLSX chứa đồng thời:
 
-Kiến trúc đã khóa:
+- package-root opaque `ExtendedPart`;
+- nested opaque child dưới package-root part;
+- package-root external relationship;
+- external relationship dưới nested child;
+- standard worksheet `DrawingsPart`;
+- worksheet `<drawing r:id>` reference;
+- PNG `ImagePart` có bytes thật;
+- opaque nested part dưới drawing;
+- non-Nera `CustomXmlPart`;
+- `CustomXmlPropertiesPart`;
+- opaque nested part dưới custom XML.
 
-1. Khi load, toàn bộ package XLSX gốc được chụp vào `OpenXmlPackageEnvelope` nội bộ.
-2. Envelope gắn với đúng `Workbook` bằng `ConditionalWeakTable`; Core không tham chiếu `DocumentFormat.OpenXml` và không có Microsoft type trong public contract.
-3. Capture bị giới hạn 512 MiB.
-4. Envelope giữ worksheet object identity, relationship ID và part URI theo đúng thứ tự sheet.
-5. Khi save, Nera dựng một package chuẩn mới trong memory để lấy phần markup mà Nera sở hữu.
-6. Sau đó Nera clone package gốc và chỉ patch các vùng được phép, thay vì dựng lại opaque relationship graph.
-7. Chỉ sau khi merge thành công mới ghi bytes hoàn chỉnh vào destination.
-8. Save thành công sẽ chụp lại output làm envelope mới, nhờ đó repeated save tiếp tục từ package gần nhất.
+Gate thực hiện:
 
-### Vùng Nera được phép thay
+1. tạo package baseline;
+2. load với `PreserveUnknownParts=true`;
+3. rename worksheet và sửa cell;
+4. save lần một;
+5. xác nhận schema, graph, ID, URI, content type và bytes;
+6. sửa cell lần hai;
+7. save lần hai;
+8. xác nhận lại toàn bộ invariants và cell edits.
 
-- Tên worksheet trong workbook markup.
-- Worksheet `cols`.
-- Worksheet `sheetData`.
-- Worksheet `mergeCells`.
-- Style-table children:
-  - `numFmts`;
-  - `fonts`;
-  - `fills`;
-  - `borders`;
-  - `cellStyleXfs`;
-  - `cellXfs`;
-  - `cellStyles`.
-- Nera exact sparse style-state custom part.
+Các output đều vượt `OpenXmlValidator(FileFormatVersions.Office2013)`.
 
-Mọi workbook/worksheet/stylesheet markup khác được giữ nguyên. Các phần tử mới do Nera chèn được đặt theo SpreadsheetML schema order.
+### Package graph validator
 
-### Invariants đã có test
+Đã thêm `OpenXmlPackageGraphValidator` và nối vào public preservation flow.
 
-Round-trip rename/edit và repeated save giữ nguyên:
+Validator duyệt:
 
-- opaque `ExtendedPart` dưới workbook;
-- opaque `ExtendedPart` dưới worksheet;
-- relationship ID;
-- part URI;
-- relationship type;
-- content type;
-- raw binary/XML bytes;
-- external worksheet relationship và target URI;
-- workbook `extLst` payload ngoài vùng Nera sở hữu;
-- worksheet `extLst` payload ngoài vùng Nera sở hữu;
-- stylesheet `extLst` payload ngoài vùng Nera sở hữu;
-- worksheet rename;
-- cell edits của lần save thứ nhất và thứ hai.
+- package root;
+- mọi nested `OpenXmlPartContainer`;
+- internal part relationships;
+- external relationships;
+- hyperlink relationships;
+- data-part reference relationships.
 
-Test failure atomicity:
+Các invariant bị khóa:
 
-- load package với preservation;
-- thêm worksheet làm topology không còn ánh xạ được;
-- destination đã có sentinel bytes;
-- save phải ném `InvalidOperationException` trước merge/write;
-- destination phải giữ nguyên sentinel bytes.
+- tối đa `100,000` package parts;
+- tối đa `100,000` relationships trên một container;
+- package-wide part URI phải duy nhất;
+- relationship ID phải duy nhất trên một `.rels` container;
+- relationship ID phải là XML NCName, tối đa `1,024` ký tự;
+- relationship type phải là absolute URI, tối đa `64 KiB`;
+- relationship target tối đa `64 KiB` và không chứa control character kể cả dạng percent-encoded;
+- part URI phải relative OPC path bắt đầu bằng `/`;
+- từ chối `.`/`..`, `%2E%2E`, encoded slash/backslash, empty segment, backslash, query, fragment và control character.
 
-New workbook cũng có thể save với preservation bật; output đầu tiên trở thành baseline envelope.
+### Atomic preflight ordering
 
-## Validation exact implementation
+Luồng preservation hiện là:
 
-CI `#449` xanh toàn bộ:
+```text
+Load:
+read bounded package bytes
+→ validate complete relationship graph
+→ LoadCore workbook/styles/cells
+→ capture validated envelope
+→ return workbook
+
+Save:
+build supported Nera package in memory
+→ copy-and-patch captured package
+→ capture + validate final output envelope
+→ truncate/write destination
+→ attach new envelope
+```
+
+Vì vậy graph xấu bị từ chối trước workbook restoration; merge/output xấu bị từ chối trước destination mutation.
+
+## Exact CI #459
+
+Toàn bộ matrix xanh tại implementation commit `59293ff...`:
 
 - Core restore/build/tests.
 - Architecture verification.
-- Unknown-part preservation tests.
-- XLSX style fidelity, no-flattening và malformed-input hardening.
-- Full Windows build/tests.
-- Windows desktop GPU runtime smoke.
+- Exact sparse style and malformed-input tests.
+- Existing unknown-part repeated-save and topology atomicity tests.
+- New nested drawing/image/custom-XML/package-root graph gate.
+- New URI, relationship ID/type/target negative tests.
+- Windows full build/tests và desktop GPU runtime smoke.
 - MAUI Android build.
-- MAUI iOS build.
-- MAUI Mac Catalyst build.
+- MAUI iOS và Mac Catalyst builds.
 - MAUI Windows build/tests.
-- Loaded repeated input/resize/context-recreation smoke.
-- Loaded scale/orientation/width-class smoke.
+- Loaded production input/resize/context recreation smoke.
+- Loaded logical/raw scale and orientation smoke.
 
-Hai lỗi ở lượt CI đầu chỉ là analyzer và đã được sửa:
+## File trọng tâm của lát cắt
 
-- dùng `StartsWith(char)` thay cho `StartsWith(string)`;
-- trả về `Dictionary<string, int>` cụ thể cho schema-order factory.
-
-## Giới hạn có chủ ý
-
-- Preserve mode chỉ nhận ordinary worksheet topology.
-- Chart sheet và dialog sheet bị từ chối.
-- Thêm/xóa/đổi thứ tự worksheet sau load bị từ chối; rename vẫn được phép.
-- Unknown formula, defined name, table, drawing và vendor-extension semantics không được tự sửa.
-- Envelope hiện giữ package trong memory và giới hạn 512 MiB.
-- Package copy giữ nguyên nested parts theo bytes/relationship graph, nhưng chưa có fixture riêng cho drawing/media và package-root opaque relationships.
-- Save với `PreserveUnknownParts=false` là full Nera rewrite và chủ động bỏ envelope cũ.
-- PR tiếp tục Draft; không merge nếu exact-head CI đỏ hoặc chưa xác định.
-
-## File trọng tâm
-
+- `src/NeraSpreadSheet.OpenXml/OpenXmlPackageGraphValidator.cs`
 - `src/NeraSpreadSheet.OpenXml/OpenXmlPackageEnvelope.cs`
 - `src/NeraSpreadSheet.OpenXml/OpenXmlPackagePreserver.cs`
 - `src/NeraSpreadSheet.OpenXml/NeraOpenXmlWorkbookSerializer.cs`
-- `tests/NeraSpreadSheet.OpenXml.Tests/OpenXmlRoundTripTests.cs`
+- `src/NeraSpreadSheet.OpenXml/Properties/AssemblyInfo.cs`
+- `tests/NeraSpreadSheet.OpenXml.Tests/UnknownPackageGraphPreservationTests.cs`
+- `tests/NeraSpreadSheet.OpenXml.Tests/OpenXmlPackageGraphValidatorTests.cs`
 - `tests/NeraSpreadSheet.OpenXml.Tests/UnknownPartPreservationTests.cs`
-- `docs/current-status.md`
-- `docs/worklog/CURRENT.md`
+
+## Quyết định kỹ thuật đã khóa
+
+- Opaque package graph được giữ bằng copy-and-patch, không convert vào Core model.
+- Microsoft/OpenXml types chỉ tồn tại trong adapter OpenXml.
+- Nera chỉ thay những XML regions mà mình thực sự sở hữu.
+- Unknown semantic content được giữ nguyên, không đoán và viết lại.
+- Relationship validation phải bao phủ package root, nested parts và mọi reference relationship category.
+- Graph validation phải xảy ra trước restoration và trước destination mutation.
+- Worksheet topology-changing preservation tiếp tục bị từ chối cho đến khi có mapping contract an toàn.
+
+## Giới hạn còn lại
+
+- Preserve mode vẫn yêu cầu cùng worksheet objects và cùng thứ tự; rename được phép nhưng add/remove/reorder bị từ chối.
+- Chart sheet và dialog sheet chưa được hỗ trợ.
+- Package envelope nằm trong memory và giới hạn 512 MiB.
+- Drawing/image/custom XML hiện được bảo toàn opaque; chưa phải first-class editable Nera model.
+- Shared formulas, conditional formatting, validation, tables và complete function surface chưa có.
+- PR tiếp tục Draft; không merge khi exact-head CI đỏ hoặc chưa xác định.
 
 ## Bước tiếp theo duy nhất
 
-Gia cố **unknown package graph preservation** trước khi chuyển sang shared formulas:
+Triển khai **shared-formula import/export và reference translation**:
 
-1. thêm nested opaque relationship fixture;
-2. thêm standard drawing part + image/media bytes và worksheet drawing reference;
-3. thêm non-Nera custom XML part cùng properties/relationships;
-4. thêm package-root relationship fixture;
-5. thêm duplicate/conflicting relationship ID, unsafe URI và malformed relationship tests;
-6. chạy `OpenXmlValidator` sau rename/edit và repeated save;
-7. xác nhận failure atomicity khi merge phát hiện conflict;
-8. sau khi exact-head xanh mới chuyển sang shared-formula import/export.
+1. đọc `CellFormula` loại shared, `SharedIndex`, anchor formula và shared range;
+2. xác thực duplicate/missing shared index, range sai và follower nằm ngoài range;
+3. dịch A1 references từ anchor tới từng follower, bảo toàn `$`, quoted sheet names và string literals;
+4. không materialize ô ngoài shared range hoặc vượt sparse safety limit;
+5. export nhóm formula tương đương thành shared formula khi an toàn;
+6. fallback sang normal formulas khi nhóm không liên tục hoặc translation không biểu diễn được;
+7. round-trip với cached values bật/tắt;
+8. structural insert/delete/reorder phải giữ đúng logical formula identity;
+9. thêm malformed-input, repeated-save và compatibility tests;
+10. chỉ cập nhật mốc hoàn thành sau exact-head Core/Windows/MAUI CI xanh.
