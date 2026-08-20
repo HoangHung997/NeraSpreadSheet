@@ -107,18 +107,9 @@ internal static class OpenXmlPackageGraphValidator
                     "The XLSX package contains an unsafe part URI.");
             }
 
-            string decoded;
-            try
-            {
-                decoded = Uri.UnescapeDataString(segment);
-            }
-            catch (UriFormatException exception)
-            {
-                throw new InvalidDataException(
-                    "The XLSX package contains an invalid escaped part URI.",
-                    exception);
-            }
-
+            var decoded = DecodeUriText(
+                segment,
+                "The XLSX package contains an invalid escaped part URI.");
             if (decoded is "." or ".." ||
                 decoded.Contains('/') ||
                 decoded.Contains('\\') ||
@@ -134,7 +125,7 @@ internal static class OpenXmlPackageGraphValidator
 
     internal static void ValidateRelationshipId(
         string relationshipId,
-        ISet<string> existingIds)
+        HashSet<string> existingIds)
     {
         ArgumentNullException.ThrowIfNull(existingIds);
         if (string.IsNullOrWhiteSpace(relationshipId) ||
@@ -193,12 +184,21 @@ internal static class OpenXmlPackageGraphValidator
             throw new InvalidDataException(
                 "The XLSX package contains an invalid reference relationship target.");
         }
+
+        var decoded = DecodeUriText(
+            value,
+            "The XLSX package contains an invalid escaped reference relationship target.");
+        if (ContainsControlCharacter(decoded))
+        {
+            throw new InvalidDataException(
+                "The XLSX package contains an invalid reference relationship target.");
+        }
     }
 
     private static bool RegisterPackagePart(
         Uri partUri,
         object part,
-        IDictionary<string, object> packagePartsByUri)
+        Dictionary<string, object> packagePartsByUri)
     {
         var validatedUri = ValidatePartUri(partUri);
         if (packagePartsByUri.TryGetValue(
@@ -225,7 +225,7 @@ internal static class OpenXmlPackageGraphValidator
     private static void RegisterRelationship(
         string relationshipId,
         string relationshipType,
-        ISet<string> relationshipIds,
+        HashSet<string> relationshipIds,
         ref int relationshipCount)
     {
         relationshipCount++;
@@ -236,6 +236,22 @@ internal static class OpenXmlPackageGraphValidator
         }
         ValidateRelationshipId(relationshipId, relationshipIds);
         ValidateRelationshipType(relationshipType);
+    }
+
+    private static string DecodeUriText(
+        string value,
+        string errorMessage)
+    {
+        try
+        {
+            return Uri.UnescapeDataString(value);
+        }
+        catch (UriFormatException exception)
+        {
+            throw new InvalidDataException(
+                errorMessage,
+                exception);
+        }
     }
 
     private static bool ContainsControlCharacter(string value)
