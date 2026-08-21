@@ -115,7 +115,7 @@ public static class WorksheetSnapshotFilterProjectionExtensions
         }
     }
 
-    private static IReadOnlyList<FilteredRowSpan> MergeSpans(
+    private static List<FilteredRowSpan> MergeSpans(
         List<FilteredRowSpan> spans)
     {
         if (spans.Count <= 1)
