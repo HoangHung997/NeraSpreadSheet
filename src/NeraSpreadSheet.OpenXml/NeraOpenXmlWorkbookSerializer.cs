@@ -114,6 +114,11 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 generatedBytes,
                 workbook.Worksheets.Count,
                 cancellationToken);
+            outputBytes = OpenXmlTablePackagePatcher.Patch(
+                outputBytes,
+                generatedBytes,
+                workbook.Worksheets.Count,
+                cancellationToken);
         }
         var outputEnvelope = OpenXmlPackageEnvelope.Capture(
             outputBytes,
@@ -207,6 +212,10 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 worksheetPart,
                 worksheet,
                 cancellationToken);
+            OpenXmlTableCodec.ReadWorksheetTables(
+                worksheetPart,
+                worksheet,
+                cancellationToken);
         }
 
         if (workbook.Worksheets.Count == 0)
@@ -243,6 +252,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 workbookPart,
                 workbook);
         uint sheetId = 1;
+        uint tableId = 1;
 
         foreach (var worksheet in workbook.Worksheets)
         {
@@ -262,6 +272,10 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             OpenXmlDataValidationCodec.WriteWorksheetRules(
                 worksheetPart,
                 worksheet);
+            OpenXmlTableCodec.WriteWorksheetTables(
+                worksheetPart,
+                worksheet,
+                ref tableId);
             sheets.Append(new Sheet
             {
                 Id = workbookPart.GetIdOfPart(worksheetPart),
