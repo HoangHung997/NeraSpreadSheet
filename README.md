@@ -1,6 +1,6 @@
 # NeraSpreadSheet
 
-> Trạng thái: **M1 — nền tảng engine, renderer đa host và XLSX preservation đã được CI xác minh; chưa phải bản phát hành production**.
+> Trạng thái: **M1 — nền tảng spreadsheet engine, renderer đa host và XLSX interoperability đã được CI xác minh; chưa phải bản phát hành production**.
 
 NeraSpreadSheet là bộ SDK spreadsheet độc lập cho **WPF, WinForms và .NET MAUI**. Mục tiêu dài hạn là trải nghiệm bảng tính chuyên nghiệp, cuộn liên tục theo từng pixel, mô hình dữ liệu sparse và khả năng mở rộng cho nghiệp vụ dự toán.
 
@@ -36,28 +36,32 @@ Direct2D/DirectWrite   Skia GPU
 
 - Workbook/worksheet sparse trên không gian địa chỉ cỡ Excel.
 - Selection, clipboard, editor, command và undo/redo dữ liệu/view.
-- Insert/delete/reorder hàng cột có formula mapping và rollback nguyên tử.
+- Insert/delete/reorder hàng cột có formula/rule/Table mapping và rollback nguyên tử.
 - Whole-row/column/sheet style dạng sparse, không materialize trục logic.
 - Cuộn phân số, freeze pane, split pane, pane-local scroll và tile/display-list cache.
 - WPF, WinForms và MAUI GPU hosts cùng recovery/context lifecycle diagnostics.
-- Formula parser, dependency graph, circular-reference policy và các hàm nền tảng.
-- XLSX values/formulas/dimensions/merge, style table, exact sparse style state và split-view state.
-- `PreserveUnknownParts=true` theo mô hình copy-and-patch, giữ opaque relationship graph qua repeated save.
+- Formula parser, dependency graph, circular-reference policy, shared formulas và các hàm nền tảng.
+- Conditional Formatting và Data Validation đi từ Core model tới renderer, editor gate và XLSX round-trip.
+- Table Core model có stable Table/column identity, structured-reference evaluation/rewrite và AutoFilter row projection.
+- Hàng bị lọc được nén thành span trong metric index; viewport, content extent và hit-test bỏ qua hàng đó mà không ghi đè chiều cao gốc.
+- XLSX values/formulas/dimensions/merge, style table, sparse style state, panes, conditional formatting, validation và standard table parts.
+- `PreserveUnknownParts=true` theo mô hình copy-and-patch, giữ opaque relationship graph và Table `extLst` qua repeated save.
 - Drawing + image, custom XML + properties, package-root/nested/external relationships được kiểm tra bằng fixture và `OpenXmlValidator`.
 - Package graph preflight chặn URI traversal, duplicate/invalid relationship ID, invalid relationship type và target chứa control character trước workbook restoration hoặc destination mutation.
 
-Chi tiết chính xác nằm tại `docs/current-status.md`; thứ tự phần việc còn lại nằm tại `ROADMAP.md`.
+Chi tiết chính xác nằm tại `docs/current-status.md`; thứ tự phần việc còn lại nằm tại `ROADMAP.md`; contract Table nằm tại `docs/table-structured-reference-contract.md`.
 
 ## Các mô-đun chính
 
 | Mô-đun | Vai trò |
 |---|---|
 | `NeraSpreadSheet.Foundation` | Geometry và primitive dùng chung |
-| `NeraSpreadSheet.Core` | Workbook, worksheet, cell/range, merge, style và sparse dimensions |
-| `NeraSpreadSheet.Formulas` | Parser, AST, dependency, recalculation và registry hàm |
-| `NeraSpreadSheet.Layout` | Ánh xạ offset pixel sang hàng/cột hiển thị |
+| `NeraSpreadSheet.Core` | Workbook, worksheet, cell/range, Table, rule, merge, style và sparse dimensions |
+| `NeraSpreadSheet.Formulas` | Parser, AST, structured-reference expansion, dependency, recalculation và registry hàm |
+| `NeraSpreadSheet.Layout` | Ánh xạ offset pixel sang hàng/cột hiển thị và compressed hidden spans |
 | `NeraSpreadSheet.Scrolling` | Cuộn liên tục, precision input và animation theo frame |
 | `NeraSpreadSheet.Commands` | Command ID, metadata, registry và handler |
+| `NeraSpreadSheet.Editing` | Session, editor, clipboard, structural operations và Table/rule history |
 | `NeraSpreadSheet.Rendering.Abstractions` | Display list và hợp đồng backend |
 | `NeraSpreadSheet.Rendering.Direct2D` | Direct2D/DirectWrite backend cho Windows |
 | `NeraSpreadSheet.Rendering.Skia` | Skia display-list renderer đa nền tảng |
@@ -98,7 +102,7 @@ Mọi thay đổi đi qua pull request. Không commit trực tiếp vào `main`.
 
 ## Mốc tiếp theo
 
-Mốc kỹ thuật kế tiếp là **shared-formula import/export và reference translation**. Sau đó mới mở rộng conditional formatting, validation, tables, hệ thống hàm, printing/PDF và các gate phát hành production.
+Mốc kỹ thuật kế tiếp là **calculated-column propagation, totals execution và native Table/AutoFilter UX**. Sau đó mở rộng hệ thống hàm, dynamic arrays, advanced data analysis, printing/PDF, charts/pivot và các gate phát hành production.
 
 ## Giấy phép
 
