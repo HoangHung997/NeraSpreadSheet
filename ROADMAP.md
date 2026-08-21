@@ -24,7 +24,8 @@
 - [x] WPF and WinForms software/GPU backends.
 - [x] Shared Skia renderer and native MAUI GPU host.
 - [x] Conditional/validation overlays in the shared display list.
-- [x] AutoFilter compressed hidden-row projection in layout, extent and hit-test.
+- [x] AutoFilter compressed hidden-row projection in layout, extent and hit test.
+- [x] Shared Table filter-button identity/geometry for rendering, hit testing and native overlays.
 - [x] Loaded device/context recreation and scale/orientation gates.
 - [ ] Sustained 60/120 Hz, 4K target-hardware latency, memory and power budgets.
 
@@ -66,9 +67,14 @@
 - [x] Table AutoFilter value/blank/comparison predicates.
 - [x] Table add/remove/rename/filter and calculated/totals metadata operations with Undo/Redo.
 - [x] Filter-aware totals execution.
-- [ ] Platform-neutral Table manager and filter-dropdown contracts.
-- [ ] Native desktop/mobile Table/filter presenters.
-- [ ] Rich text/date/top/custom-list filters and direct worksheet AutoFilter.
+- [x] Platform-neutral Table manager and filter-menu snapshots.
+- [x] Bounded distinct-value enumeration, search, truncation diagnostics and visible-selection commands.
+- [x] Active-cell Table/column resolver and platform-neutral keyboard navigator.
+- [x] Native WPF, WinForms and responsive MAUI Table-filter presenters.
+- [x] Loaded desktop and MAUI Windows Apply/Undo/Redo/focus lifecycle gates.
+- [ ] Complete Table design/resize/style manager UI.
+- [ ] Virtualized/paged native distinct-value lists.
+- [ ] Rich text/date/top/bottom/color/icon/custom-list filters and direct worksheet AutoFilter.
 - [ ] Advanced multi-key sort and custom lists.
 - [ ] Grouping, outlines and general subtotals.
 - [ ] Pivot tables, slicers and calculated fields.
@@ -80,12 +86,14 @@
 - [x] Public WPF/WinForms spreadsheet hosts.
 - [x] MAUI handler, touch state machine and pinch zoom.
 - [x] Loaded Windows lifecycle/input/scale gates.
-- [ ] Native Table manager/filter dropdown and column menus.
+- [x] Native Table filter buttons, popup/dropdown/sheet and cross-platform keyboard navigation.
+- [x] Search focus acquisition, close-time focus release/restoration and stable MAUI Automation IDs.
+- [ ] Full Table manager and general column/context menus.
 - [ ] Native validation manager/dropdown/prompt/error presenters.
 - [ ] MAUI virtual keyboard and IME lifecycle.
 - [ ] Responsive Ribbon/toolbar/menu/context-menu presenters.
 - [ ] Production standalone DataGrid presenter.
-- [ ] Theme, localization, accessibility and designer support.
+- [ ] Complete theme, localization, high-contrast, accessibility and designer support.
 
 ## G. Product hardening
 
@@ -98,18 +106,24 @@
 
 ## Immediate execution order
 
-1. Table manager/filter dropdown contracts and WPF/WinForms presenters.
-2. Responsive MAUI Table/filter UX and rich filter predicates.
-3. Formula/function surface, dynamic arrays and plugin SDK.
-4. Advanced sort, grouping, virtualized data and outlines.
-5. Printing/PDF, drawings/charts and pivot/slicers.
-6. External XLSX corpus, accessibility, packaging, fuzzing and release hardening.
+1. Rich filter predicates and direct worksheet AutoFilter.
+2. Virtualized/paged filter-value lists and complete Table design/resize/style manager UI.
+3. MAUI IME/virtual-keyboard lifecycle and broader accessibility/localization/theme hardening.
+4. External XLSX Table/AutoFilter compatibility corpus and differential tests.
+5. Formula/function surface, dynamic arrays and plugin SDK.
+6. Advanced sort, grouping, virtualized data and outlines.
+7. Printing/PDF, drawings/charts and pivot/slicers.
+8. Packaging, fuzzing, performance budgets and release hardening.
 
-## Weighted progress after calculated columns and filter-aware totals
+## Weighted progress after native Table-filter presenters
 
 - Engine/viewport/renderer foundation: approximately `89%`.
-- Basic spreadsheet MVP: approximately `79–82%`.
-- Complete professional roadmap: approximately `52%`.
-- Production release readiness: approximately `27–31%`.
+- Basic spreadsheet MVP: approximately `82–85%`.
+- Complete professional roadmap: approximately `54%`.
+- Production release readiness: approximately `30–33%`.
 
 These are engineering-weighted estimates, not checkbox counts.
+
+## Validation rule
+
+The latest validated native Table-filter milestone is implementation commit `e3a814f5c0f6eb0fff75d30ee5ee217069139d71`, CI `#570`, run `32474664182`, completed successfully on August 21, 2026. PR #1 remains Draft and must not merge while a newer exact-head CI is red or unknown.

@@ -4,114 +4,169 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` vào `develop` — Draft, chưa merge
-- Implementation commit đã xác minh: `819fc3c3f5f72ee89438834012d9090c6f6b7032`
-- GitHub Actions: run `32446946544`, CI `#505`, kết luận `success`
+- Implementation commit đã xác minh: `e3a814f5c0f6eb0fff75d30ee5ee217069139d71`
+- GitHub Actions: run `32474664182`, CI `#570`, kết luận `success`
 - Nguồn sự thật: `docs/current-status.md`
-- Contract Table: `docs/table-structured-reference-contract.md`
+- Contract Table model: `docs/table-structured-reference-contract.md`
+- Contract Table presenter: `docs/table-filter-presenter-contract.md`
 - Roadmap: `ROADMAP.md`
 
-## Batch vừa hoàn thành: Calculated Columns + Filter-aware Totals
+## Batch vừa hoàn thành: Table Manager + Native AutoFilter Presenter
 
-### 1. Calculated-column projection
+### 1. Platform-neutral Table manager
 
-- Thêm `SpreadsheetTableFormulaProjection` trong Core.
-- Formula metadata được neo tại data row đầu rồi dịch sang từng row bằng shared A1 translator.
-- Structured `[@Column]` formulas giữ một metadata expression nhưng được tính theo formula address từng row.
-- Style cell được giữ; formula mới làm cached value blank trước recalculation.
-- Clear metadata chuyển projected formulas thành static values hiện hành.
-- Projection tối đa 1.000.000 cell/operation; oversized request rollback, không materialize logical axis và không vào history.
+- `SpreadsheetTablePresenterController.GetManagerSnapshot()` trả về snapshot chỉ đọc của worksheet hiện hành.
+- Snapshot dùng stable `Guid` của Table và column, range chuẩn, header/totals state, style và trạng thái filter/formula metadata.
+- Snapshot không phải writable model thứ hai; mọi host phải refresh sau mutation.
 
-### 2. Structural refill và metadata recovery
+### 2. Bounded distinct-value filter menu
 
-- Full recalculation tự project formulas/totals cho mọi Table.
-- Insert data row nhận formula ngay sau structural transaction.
-- Delete/reorder tiếp tục dùng cùng path.
-- Engine chuẩn hóa formula cells hiện hữu trở lại first-row anchor và chọn majority expression trước khi fill.
-- Cơ chế này phục hồi A1 metadata đã được structural rewriter dịch đúng, tránh metadata cũ ghi đè cell đã move.
+- Menu được mở bằng Table ID + column ID.
+- Giá trị được quét từ một `WorksheetSnapshot` bất biến của canonical Table data range.
+- Giới hạn mặc định:
+  - `100.000` data row được quét;
+  - `10.000` distinct value được giữ.
+- Có occurrence count, blank identity và hai cờ truncation độc lập.
+- Search dùng trimmed ordinal-ignore-case substring.
+- Search không làm mất lựa chọn đang bị ẩn.
+- Select-all-visible và clear-visible chỉ tác động projection đang hiển thị.
+- Khi enumeration bị truncate, chọn toàn bộ giá trị đã thấy vẫn tạo explicit filter; giá trị chưa quét không bị tự động coi là đã chọn.
 
-### 3. Production commands và atomic history
+### 3. Production commands và history
 
-`SpreadsheetSession.Tables` có thêm:
+- Apply value filter.
+- Apply một/hai custom condition với AND/OR.
+- Clear current column filter.
+- Clear all filters của Table.
 
-- `SetCalculatedColumnFormula`;
-- `SetTotalsRowFormula`;
-- `SetTotalsRowLabel`;
-- `SetTotalsRowFunction`.
+Tất cả mutation đi qua `SpreadsheetSession.Tables`, vì vậy:
 
-Table metadata và projected cell state nằm trong cùng Undo/Redo operation. Rename Table/column rewrite cả cell formulas và calculated/totals metadata trên toàn workbook.
+- chỉ tạo một production history entry;
+- compressed row projection được rebuild;
+- viewport extent/hit test được refresh;
+- filter-aware `SUBTOTAL` được recalculation đúng dependency;
+- Undo/Redo phục hồi chính xác Table và row visibility.
 
-### 4. Filter-aware SUBTOTAL
+### 4. Shared header-button geometry
 
-Hỗ trợ:
+- `SpreadsheetTableFilterButtonGeometry` dùng `WorksheetSnapshot`, `ViewportLayout` và render theme chung.
+- Mỗi hit mang Table ID, column ID, worksheet column index, filtered state và bounds.
+- Renderer, pointer hit test và native overlay dùng cùng identity/geometry.
+- Không tạo control cho từng cell; chỉ tạo native button cho Table header column đang nhìn thấy.
 
-- `1/101` Average;
-- `2/102` Count Numbers;
-- `3/103` Count Nonblank;
-- `4/104` Maximum;
-- `5/105` Minimum;
-- `9/109` Sum.
+### 5. Keyboard navigator và active-cell resolver
 
-Built-in totals function tạo structured formula dạng `=SUBTOTAL(109,Sales[Amount])`.
+Đã thêm:
 
-### 5. Dependency correctness
+- `SpreadsheetTableFilterNavigator`;
+- `SpreadsheetTableFilterTargetResolver`;
+- active-value identity theo `CellValue`, không phụ thuộc visual index.
 
-- `SUBTOTAL` phụ thuộc data range.
-- Đồng thời phụ thuộc các filter-source column ranges quyết định row visibility.
-- Sửa `Status` vì vậy trigger affected-only recalculation của subtotal trên `Amount`.
-- Filter formula cells được evaluate qua cùng recursive calculation context.
+Mapping đã xác minh:
 
-### 6. Tests mới
+- `Alt+Down`: mở filter của Table column chứa active cell;
+- Escape: đóng;
+- Up/Down/Home/End/Page Up/Page Down: duyệt danh sách;
+- Space/Enter: toggle giá trị hiện hành;
+- Enter từ search: Apply nếu selection hợp lệ;
+- Ctrl+A ngoài search: chọn tất cả giá trị đang hiện;
+- Shift+Ctrl+A ngoài search: bỏ chọn giá trị đang hiện.
 
-- Calculated formula propagation và totals execution.
-- Add/Undo/Redo phục hồi exact cells/Table.
-- Structural insert tự fill row mới.
-- Metadata commands và filter-aware totals.
-- Oversized projection rollback không materialize.
-- SUBTOTAL aggregate codes.
-- Filter-source dependency và affected-only recalc.
+### 6. Native WPF presenter
 
-## CI #505
+- Native `Popup`.
+- Automatic visible Table-header button host.
+- Search, checkbox values, select-all/clear-visible, clear filter và Apply.
+- Keyboard navigation, open-focus và close-time focus restoration.
+- Loaded native-window presenter smoke và keyboard/focus smoke đã xanh.
 
-Toàn bộ matrix xanh tại `819fc3c3...`:
+### 7. Native WinForms presenter
+
+- Native `ToolStripDropDown`.
+- Automatic visible Table-header button host.
+- Cùng menu/history semantics với WPF.
+- Keyboard navigation và focus lifecycle được kiểm tra với native handle/message loop.
+
+### 8. Responsive MAUI presenter
+
+- `NeraSpreadsheetTableHost` đặt native visible filter buttons trên GPU spreadsheet surface.
+- Responsive overlay/bottom-sheet filter UX, không tạo control theo cell.
+- Stable Automation IDs, semantic description, hint và heading metadata.
+- Windows keyboard binding chỉ dịch WinUI key events sang navigator chung.
+- WinUI search focus dùng `FocusManager.TryFocusAsync` với retry hữu hạn:
+  - tối đa 40 attempt;
+  - mỗi retry cách 50 ms;
+  - dừng khi focus thành công, user chuyển vào value list, sheet đóng, host dispose hoặc hết giới hạn.
+- Close giải phóng native search focus và đưa focus về button/surface hợp lệ.
+
+### 9. Các lỗi runtime gate đã bắt và sửa
+
+1. Gọi focus trước khi native WinUI `TextBox` loaded/visible.
+2. Gán lại MAUI `AutomationId` sau Apply/Undo/Redo.
+3. Search còn giữ native focus sau khi sheet đóng.
+4. Smoke dùng fixed delay nên flake giữa Windows runners.
+
+Smoke cuối chuyển sang chờ sự kiện focus thật với timeout hữu hạn thay vì coi một delay cố định là bằng chứng lifecycle.
+
+## CI #570
+
+Toàn bộ exact-head matrix xanh tại `e3a814f5...`:
 
 - Core restore/build/tests.
 - Architecture verification.
-- Calculated-column, structural refill, rollback và SUBTOTAL tests.
-- Toàn bộ Table/AutoFilter, validation, conditional-formatting, shared-formula, sparse-style và package preservation regressions.
-- Windows full build/tests và desktop GPU runtime smoke.
+- Presenter, bounded enumeration, navigator, active-cell resolver và shared geometry tests.
+- Toàn bộ Table/Structured Reference/AutoFilter, calculated-column, filter-aware totals, validation, conditional-formatting, shared-formula, sparse-style và package-preservation regressions.
+- Windows full build/tests.
+- Loaded WPF/WinForms presenter + keyboard/focus smokes.
+- Windows desktop GPU runtime smoke.
 - MAUI Android build.
 - MAUI iOS và Mac Catalyst builds.
 - MAUI Windows build/tests.
-- Loaded runtime input/context recreation smoke.
-- Loaded logical/raw scale/orientation smoke.
+- Loaded MAUI Windows Table-filter smoke:
+  - live Skia `GRContext`;
+  - open từ active cell;
+  - search focus;
+  - accessibility semantics;
+  - Apply Open-only filter;
+  - compressed row visibility;
+  - Undo;
+  - Redo;
+  - reopen;
+  - focus release khi close.
+- Loaded MAUI input/context-recreation smoke.
+- Loaded MAUI logical/raw scale/orientation smoke.
 
 ## Giới hạn có chủ ý
 
-- Chưa hỗ trợ PRODUCT/STDEV/STDEVP/VAR/VARP trong SUBTOTAL.
-- Chưa loại nested SUBTOTAL/AGGREGATE.
-- Chưa phân biệt code 1–11 và 101–111 theo manual hidden rows vì manual hide metadata chưa có.
-- Chưa tự suy ra metadata từ arbitrary formula-cell edit; dùng Table controller command.
-- Chưa có native Table manager/filter dropdown.
-- Chưa có rich filters hoặc direct worksheet AutoFilter.
+- Chưa virtualize/page native distinct-value list.
+- Chưa có Table design/resize/style manager UI đầy đủ.
+- Chưa có rich text/date/top/bottom/color/icon/custom-list filters.
+- Chưa có direct worksheet AutoFilter ngoài Table.
+- Chưa hoàn thiện MAUI virtual keyboard/IME lifecycle.
+- Chưa chứng nhận đầy đủ screen reader, high contrast, localization và theme.
+- Chưa có external XLSX AutoFilter compatibility corpus đầy đủ.
+- Các giới hạn SUBTOTAL, dynamic array, function surface, printing, chart và pivot vẫn giữ như `docs/current-status.md`.
 
 ## Tiến độ tổng thể
 
 - Nền móng engine/viewport/renderer: khoảng `89%`.
-- MVP bảng tính cơ bản: khoảng `79–82%`.
-- Toàn bộ roadmap chuyên nghiệp: khoảng `52%`.
-- Production release readiness: khoảng `27–31%`.
+- MVP bảng tính cơ bản: khoảng `82–85%`.
+- Toàn bộ roadmap chuyên nghiệp: khoảng `54%`.
+- Production release readiness: khoảng `30–33%`.
+
+Đây là ước lượng theo trọng số kỹ thuật, không phải đếm checkbox.
 
 ## Bước tiếp theo duy nhất
 
-Triển khai **Table Manager + AutoFilter Presenter**:
+Triển khai **Rich AutoFilter + Scalable Filter Values** theo thứ tự:
 
-1. Platform-neutral query/view-model/command contracts.
-2. Distinct-value enumeration có safety bounds và search.
-3. Apply/clear value/custom filters qua production history.
-4. Header/filter-button hit regions trong shared host semantics.
-5. WPF và WinForms presenter trước.
-6. MAUI responsive popup/sheet presenter.
-7. Rich text/date/top/custom-list predicates.
+1. Mở rộng platform-neutral predicate cho rich text/date/top-bottom/custom-list.
+2. Direct worksheet AutoFilter dùng chung row-projection/history semantics với Table.
+3. Tách value enumeration khỏi native list materialization; thêm paging/virtualization và cancellation.
+4. Hoàn thiện Table design/resize/style manager UI.
+5. MAUI IME/virtual-keyboard lifecycle.
+6. Accessibility/high-contrast/localization/theme hardening.
+7. External XLSX AutoFilter corpus và differential tests.
 8. Exact-head Core/Windows/MAUI CI.
 
 PR tiếp tục Draft; không merge khi exact-head CI đỏ hoặc chưa xác định.
