@@ -20,7 +20,7 @@ public sealed class SpreadsheetTableFilterPagingTests
         Assert.IsTrue(page.HasPreviousPage);
         Assert.IsTrue(page.HasNextPage);
         CollectionAssert.AreEqual(
-            ["V11", "V12", "V13", "V14", "V15"],
+            new[] { "V11", "V12", "V13", "V14", "V15" },
             page.Values.Select(static item =>
                 item.DisplayText).ToArray());
     }
