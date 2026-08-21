@@ -7,17 +7,18 @@ using NeraSpreadSheet.Editing;
 using Windows.System;
 using Windows.UI.Core;
 using WinUiTextBox = Microsoft.UI.Xaml.Controls.TextBox;
+using WinUiVisibility = Microsoft.UI.Xaml.Visibility;
 
 namespace NeraSpreadSheet.Maui;
 
 public sealed partial class NeraSpreadsheetTableHost
 {
-    private UIElement? _platformKeyboardRoot;
+    private FrameworkElement? _platformKeyboardRoot;
     private bool _platformSearchFocusPending;
 
     partial void AttachPlatformKeyboard()
     {
-        if (Handler?.PlatformView is not UIElement root ||
+        if (Handler?.PlatformView is not FrameworkElement root ||
             ReferenceEquals(_platformKeyboardRoot, root))
         {
             return;
@@ -115,7 +116,7 @@ public sealed partial class NeraSpreadsheetTableHost
 
         if (_search.Handler?.PlatformView is not WinUiTextBox textBox ||
             !textBox.IsLoaded ||
-            textBox.Visibility != Visibility.Visible)
+            textBox.Visibility != WinUiVisibility.Visible)
         {
             return;
         }
