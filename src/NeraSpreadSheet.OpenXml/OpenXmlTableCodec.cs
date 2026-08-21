@@ -89,6 +89,12 @@ internal static class OpenXmlTableCodec
                     "A tablePart relationship cannot be resolved.",
                     exception);
             }
+            catch (KeyNotFoundException exception)
+            {
+                throw new InvalidDataException(
+                    "A tablePart relationship cannot be resolved.",
+                    exception);
+            }
 
             worksheet.AddTable(ReadTableDefinition(
                 tablePart,
@@ -307,7 +313,7 @@ internal static class OpenXmlTableCodec
         XElement tableRoot,
         CellRange tableRange,
         bool hasTotalsRow,
-        IReadOnlyList<SpreadsheetTableColumn> columns)
+        SpreadsheetTableColumn[] columns)
     {
         var elements = tableRoot
             .Elements(SpreadsheetNamespace + "autoFilter")
@@ -360,7 +366,7 @@ internal static class OpenXmlTableCodec
                 filterColumn,
                 "colId",
                 uint.MaxValue);
-            if (columnIndex >= columns.Count ||
+            if (columnIndex >= columns.Length ||
                 !seenColumnIndexes.Add(columnIndex))
             {
                 throw new InvalidDataException(
@@ -415,9 +421,13 @@ internal static class OpenXmlTableCodec
                 throw new InvalidDataException(
                     "A table value filter requires values or blank matching.");
             }
+            CellValue[] effectiveValues =
+                values.Length == 0 && includeBlank
+                    ? [CellValue.Blank]
+                    : values;
             return new TableFilterColumn(
                 columnId,
-                values,
+                effectiveValues,
                 includeBlank);
         }
 
@@ -557,11 +567,14 @@ internal static class OpenXmlTableCodec
             var filterColumn = new XElement(
                 SpreadsheetNamespace + "filterColumn",
                 new XAttribute("colId", columnIndex));
-            if (filter.Values.Count > 0 || filter.IncludeBlank)
+            var includeBlank = filter.IncludeBlank ||
+                               filter.Values.Any(static value =>
+                                   value.IsBlank);
+            if (filter.Values.Count > 0 || includeBlank)
             {
                 var values = new XElement(
                     SpreadsheetNamespace + "filters");
-                if (filter.IncludeBlank)
+                if (includeBlank)
                 {
                     values.SetAttributeValue("blank", 1);
                 }

@@ -275,7 +275,7 @@ internal static class OpenXmlTablePackagePatcher
         }
     }
 
-    private static IReadOnlyDictionary<string, int> CreateOrder(
+    private static Dictionary<string, int> CreateOrder(
         IReadOnlyList<string> names)
     {
         var result = new Dictionary<string, int>(StringComparer.Ordinal);
