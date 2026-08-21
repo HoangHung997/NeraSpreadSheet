@@ -17,7 +17,7 @@ public sealed class StructuredReferenceFormulaEngine
         _inner = new NeraFormulaEngine(functions);
     }
 
-    public string Expand(
+    public static string Expand(
         string formula,
         Workbook workbook,
         Worksheet currentWorksheet,

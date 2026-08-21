@@ -28,7 +28,7 @@ public sealed class StructuredReferenceFormulaEngineTests
         Assert.AreEqual(6d, result.Value.RawValue);
         Assert.AreEqual(
             "=SUM($B$2:$B$4)",
-            engine.Expand(
+            StructuredReferenceFormulaEngine.Expand(
                 "=SUM(Sales[Amount])",
                 workbook,
                 worksheet,
@@ -55,7 +55,7 @@ public sealed class StructuredReferenceFormulaEngineTests
         Assert.AreEqual(14d, result.Value.RawValue);
         Assert.AreEqual(
             "=$B$3*2",
-            engine.Expand(
+            StructuredReferenceFormulaEngine.Expand(
                 "=[@Amount]*2",
                 workbook,
                 worksheet,
