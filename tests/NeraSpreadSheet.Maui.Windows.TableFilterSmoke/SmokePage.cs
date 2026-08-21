@@ -8,7 +8,7 @@ using SkiaSharp.Views.Maui;
 
 namespace NeraSpreadSheet.Maui.Windows.TableFilterSmoke;
 
-internal sealed class SmokePage : ContentPage
+internal sealed class SmokePage : ContentPage, IDisposable
 {
     private static readonly TimeSpan SmokeTimeout =
         TimeSpan.FromSeconds(60d);
@@ -28,6 +28,7 @@ internal sealed class SmokePage : ContentPage
     private bool _keyboardRootAttached;
     private bool _filterApplied;
     private bool _undoRedoVerified;
+    private bool _disposed;
     private string? _semanticDescription;
 
     public SmokePage()
@@ -43,6 +44,22 @@ internal sealed class SmokePage : ContentPage
         _host.Spreadsheet.PaintSurface += OnPaintSurface;
         Content = _host;
         Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        Loaded -= OnLoaded;
+        Unloaded -= OnUnloaded;
+        _host.Spreadsheet.PaintSurface -= OnPaintSurface;
+        _host.Dispose();
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 
     private void OnLoaded(object? sender, EventArgs e)
@@ -51,6 +68,9 @@ internal sealed class SmokePage : ContentPage
         _host.Spreadsheet.InvalidateSurface();
         _ = RunSmokeAsync();
     }
+
+    private void OnUnloaded(object? sender, EventArgs e) =>
+        Dispose();
 
     private void OnPaintSurface(
         object? sender,
@@ -249,7 +269,7 @@ internal sealed class SmokePage : ContentPage
             "The loaded search Entry retained focus after sheet closure.");
     }
 
-    private Task DispatchAsync(Action action)
+    private Task<bool> DispatchAsync(Action action)
     {
         ArgumentNullException.ThrowIfNull(action);
         var completion = new TaskCompletionSource<bool>(
