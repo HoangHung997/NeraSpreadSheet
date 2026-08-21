@@ -14,6 +14,7 @@ namespace NeraSpreadSheet.Maui;
 public sealed partial class NeraSpreadsheetTableHost
 {
     private FrameworkElement? _platformKeyboardRoot;
+    private WinUiTextBox? _platformSearchTextBox;
     private bool _platformSearchFocusPending;
 
     partial void AttachPlatformKeyboard()
@@ -31,6 +32,7 @@ public sealed partial class NeraSpreadsheetTableHost
         _sheetOverlay.PropertyChanged += OnFilterOverlayPropertyChanged;
         _search.Focused += OnSearchEntryFocused;
         _search.HandlerChanged += OnSearchHandlerChanged;
+        AttachPlatformSearchTextBox();
         _platformSearchFocusPending = IsFilterSheetOpen;
         TryCompletePlatformSearchFocus();
     }
@@ -45,6 +47,7 @@ public sealed partial class NeraSpreadsheetTableHost
                 OnPlatformLayoutUpdated;
         }
 
+        DetachPlatformSearchTextBox();
         _sheetOverlay.PropertyChanged -= OnFilterOverlayPropertyChanged;
         _search.Focused -= OnSearchEntryFocused;
         _search.HandlerChanged -= OnSearchHandlerChanged;
@@ -78,6 +81,7 @@ public sealed partial class NeraSpreadsheetTableHost
 
     private void OnSearchHandlerChanged(object? sender, EventArgs e)
     {
+        AttachPlatformSearchTextBox();
         if (_platformSearchFocusPending)
         {
             TryCompletePlatformSearchFocus();
@@ -87,6 +91,47 @@ public sealed partial class NeraSpreadsheetTableHost
     private void OnSearchEntryFocused(
         object? sender,
         Microsoft.Maui.Controls.FocusEventArgs e)
+    {
+        ConfirmPlatformSearchFocus();
+    }
+
+    private void OnPlatformSearchTextBoxGotFocus(
+        object sender,
+        RoutedEventArgs e)
+    {
+        ConfirmPlatformSearchFocus();
+    }
+
+    private void AttachPlatformSearchTextBox()
+    {
+        var textBox = _search.Handler?.PlatformView as WinUiTextBox;
+        if (ReferenceEquals(_platformSearchTextBox, textBox))
+        {
+            return;
+        }
+
+        DetachPlatformSearchTextBox();
+        _platformSearchTextBox = textBox;
+        if (_platformSearchTextBox is not null)
+        {
+            _platformSearchTextBox.GotFocus +=
+                OnPlatformSearchTextBoxGotFocus;
+        }
+    }
+
+    private void DetachPlatformSearchTextBox()
+    {
+        if (_platformSearchTextBox is null)
+        {
+            return;
+        }
+
+        _platformSearchTextBox.GotFocus -=
+            OnPlatformSearchTextBoxGotFocus;
+        _platformSearchTextBox = null;
+    }
+
+    private void ConfirmPlatformSearchFocus()
     {
         _platformSearchFocusPending = false;
         SelectSearchText();
@@ -101,10 +146,9 @@ public sealed partial class NeraSpreadsheetTableHost
             return;
         }
 
-        if (_search.IsFocused)
+        if (IsPlatformSearchFocused())
         {
-            _platformSearchFocusPending = false;
-            SelectSearchText();
+            ConfirmPlatformSearchFocus();
             return;
         }
 
@@ -114,24 +158,35 @@ public sealed partial class NeraSpreadsheetTableHost
             return;
         }
 
-        if (_search.Handler?.PlatformView is not WinUiTextBox textBox ||
+        AttachPlatformSearchTextBox();
+        var textBox = _platformSearchTextBox;
+        if (textBox is null ||
             !textBox.IsLoaded ||
             textBox.Visibility != WinUiVisibility.Visible)
         {
             return;
         }
 
-        if (textBox.Focus(FocusState.Programmatic))
+        _search.Focus();
+        textBox.Focus(FocusState.Programmatic);
+        if (IsPlatformSearchFocused())
         {
-            _platformSearchFocusPending = false;
-            SelectSearchText();
+            ConfirmPlatformSearchFocus();
         }
     }
+
+    private bool IsPlatformSearchFocused() =>
+        _search.IsFocused ||
+        _platformSearchTextBox?.FocusState is
+            FocusState.Keyboard or
+            FocusState.Pointer or
+            FocusState.Programmatic;
 
     private void SelectSearchText()
     {
         _search.CursorPosition = 0;
         _search.SelectionLength = _search.Text?.Length ?? 0;
+        _platformSearchTextBox?.SelectAll();
     }
 
     private void OnPlatformPreviewKeyDown(
@@ -165,7 +220,7 @@ public sealed partial class NeraSpreadsheetTableHost
             return;
         }
 
-        var searchFocused = IsSearchFocused();
+        var searchFocused = IsPlatformSearchFocused();
         var valueFocused = IsValueListFocused();
         if (controlPressed &&
             e.Key == VirtualKey.A &&
