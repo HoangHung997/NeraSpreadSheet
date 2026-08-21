@@ -1,67 +1,76 @@
-# Table, Structured Reference và AutoFilter Contract
+# Table, Structured Reference, Calculated Column và AutoFilter Contract
 
-Tài liệu này khóa semantics hiện hành của NeraSpreadSheet cho Table, structured references và AutoFilter. Mọi host và adapter phải dùng cùng Core model; không tạo một Table model riêng cho WPF, WinForms, MAUI hoặc OpenXml.
+Tài liệu này khóa semantics hiện hành của NeraSpreadSheet. Mọi host và adapter phải dùng cùng Core model; không tạo Table, calculated-column, totals hoặc filter model cạnh tranh trong WPF, WinForms, MAUI hay OpenXml.
 
-## 1. Phạm vi và nguyên tắc
+## 1. Canonical Table model
 
-- Table là metadata sparse trên một `CellRange`; Table không sở hữu control/cell object cho từng địa chỉ.
+- Table là metadata sparse trên một `CellRange`, không sở hữu một control/cell object cho từng địa chỉ.
 - Table và column dùng stable `Guid` identity.
-- Tên Table duy nhất trên toàn workbook, so sánh không phân biệt hoa thường.
-- Tên và ID cột duy nhất trong một Table, so sánh tên không phân biệt hoa thường.
-- Hai Table trên cùng worksheet không được chồng lấn.
-- Table model không phụ thuộc OpenXml hoặc UI framework.
-- Mọi transform không chứng minh được an toàn phải bị từ chối trước mutation.
+- Tên Table duy nhất toàn workbook; tên và ID cột duy nhất trong Table.
+- Hai Table cùng worksheet không được chồng lấn.
+- `HeaderRange`, `DataRange` và `TotalsRange` suy ra từ một `SpreadsheetTable.Range` duy nhất.
+- Table state nằm trong snapshot, structural state và Undo/Redo.
 
-## 2. Canonical ranges
-
-Một `SpreadsheetTable.Range` là nguồn sự thật duy nhất.
-
-- `HeaderRange`: hàng đầu tiên khi `HasHeaders=true`.
-- `TotalsRange`: hàng cuối cùng khi `HasTotalsRow=true`.
-- `DataRange`: phần còn lại giữa header và totals.
-- Table phải có số cột metadata đúng bằng `Range.ColumnCount`.
-- Table phải có đủ hàng cho cấu hình header/totals.
-- Không lưu một bản sao range cạnh tranh trong presenter hoặc adapter.
-
-## 3. Column metadata
+## 2. Column metadata
 
 `SpreadsheetTableColumn` giữ:
 
-- stable ID;
-- tên cột;
-- calculated-column formula metadata;
-- totals-row formula metadata;
-- totals-row label metadata.
+- stable ID và tên;
+- `CalculatedColumnFormula`;
+- `TotalsRowFormula`;
+- `TotalsRowLabel`.
 
-Formula metadata được chuẩn hóa có dấu `=` ở Core boundary. Metadata đã được XLSX round-trip nhưng chưa đồng nghĩa với việc Nera tự materialize formula vào mọi data row hoặc tự thực thi totals row.
+Formula được chuẩn hóa có dấu `=` tại Core boundary. Totals formula và label là hai cách trình bày cạnh tranh trong một cột; khi đặt label mới, totals formula hiện hành được bỏ, và ngược lại.
 
-## 4. Structural transforms
+## 3. Calculated-column projection
 
-### 4.1 Insert/delete
+`SpreadsheetTableFormulaProjection` là implementation duy nhất cho calculated columns.
+
+- Formula metadata được neo tại cell của dòng data đầu tiên trong cột.
+- Mỗi data row nhận formula được dịch bằng `A1FormulaReferenceTranslator` từ anchor tới destination.
+- Structured reference như `[@Amount]` giữ nguyên text và được resolver ánh xạ theo formula address khi tính toán.
+- Style hiện tại của cell được giữ.
+- Cached value được giữ khi formula text không đổi; formula mới làm cached value trở thành blank trước recalculation.
+- Xóa calculated metadata chuyển formula cells thành static values hiện hành.
+- Không lưu một mảng formula riêng cạnh tranh với worksheet cells.
+
+### Safety bound
+
+Một operation chỉ được project tối đa `1,000,000` formula/label cells. Vượt giới hạn phải lỗi và rollback trước khi materialize logical worksheet.
+
+## 4. Structural transforms và metadata recovery
 
 - Insert trước Table dịch toàn Table.
-- Insert hàng bên trong data range mở rộng Table theo transform chuẩn.
-- Insert cột bên trong Table không được tự đoán tên/ID cột mới; thao tác mơ hồ bị từ chối.
-- Delete thu hẹp Table khi vẫn bảo toàn header/data/totals semantics.
-- Delete toàn bộ Table hoặc làm mất cấu hình tối thiểu bị từ chối hoặc loại bỏ theo operation contract đã kiểm thử.
-- A1 references trong calculated/totals metadata được rewrite bằng Core structural rewriter.
+- Insert data rows mở rộng Table; full recalculation project formula vào row mới.
+- Delete thu hẹp Table khi còn bảo toàn header/data/totals semantics.
+- Row/column reorder chỉ hợp lệ khi toàn Table là một uniform translation.
+- Cell formulas được structural rewriter dịch trước recalculation.
+- Trước khi project, engine dịch mọi formula cell hiện hữu trở lại anchor và chọn biểu thức xuất hiện nhiều nhất. Metadata vì vậy nhận lại A1 formula đã được structural rewriter sửa đúng, thay vì ghi đè cell bằng metadata c�	.
+- Totals metadata được refresh từ totals formula cell đã di chuyển.
+- Nếu không còn data formula cell để suy ra, metadata hiện hữu được giữ nguyên.
 
-### 4.2 Reorder
+## 5. Table metadata commands và history
 
-- Row/column reorder chỉ hợp lệ khi toàn `Table.Range` là một phép tịnh tiến đồng nhất.
-- Range liên tục nhưng các hàng/cột bên trong có delta khác nhau không được coi là an toàn.
-- Filter column identity theo `Guid`, không theo vị trí tạm thời.
+`SpreadsheetSession.Tables` cung cấp:
 
-### 4.3 History và rollback
+```text
+Add / Remove
+RenameTable / RenameColumn
+SetCalculatedColumnFormula
+SetTotalsRowFormula
+SetTotalsRowLabel
+SetTotalsRowFunction
+SetAutoFilter / ClearAutoFilter
+```
 
-- Table nằm trong `WorksheetStructuralState`.
-- Add/remove/rename/filter và structural operations tham gia Undo/Redo.
-- Rename Table hoặc column cùng formula rewrite phải là một transaction.
-- Bất kỳ lỗi validation/rewrite nào phải phục hồi cả Table state lẫn formula state và không tăng Undo count.
+- Table metadata và projected cells thay đổi trong cùng operation.
+- Undo/Redo phục hồi exact Table IDs, metadata, formulas, values và styles trong affected range.
+- Rename Table/column rewrite cả workbook cell formulas và formula metadata của mọi Table.
+- Failed duplicate rename hoặc oversized projection không được tăng Undo count.
 
-## 5. Structured references được hỗ trợ
+## 6. Structured references
 
-Các dạng canonical hiện hành:
+Các dạng hiện hỗ trợ:
 
 ```excel
 Sales[Amount]
@@ -74,146 +83,77 @@ Sales[[#Headers],[Amount]]
 [@Amount]
 ```
 
-Semantics:
+- `Table[Column]` mặc định là data range.
+- `#This Row` và `[@Column]` chỉ hợp lệ trong data row của owning Table.
+- Cross-sheet Table reference nhận quoted worksheet qualifier.
+- String literal không bị rewrite.
+- Structured references expand thành absolute A1 trước parser/evaluator.
+- A1 dependencies sau expansion đi vào `FormulaDependencyGraph`.
 
-- `Table[Column]` mặc định là data range của cột.
-- `#All`, `#Data`, `#Headers`, `#Totals` ánh xạ trực tiếp tới canonical Table ranges.
-- `#This Row` và `[@Column]` chỉ hợp lệ khi formula address nằm trong data range.
-- Cross-sheet Table reference tạo quoted worksheet qualifier khi cần.
-- String literals không bị nhận diện hoặc rewrite như structured reference.
-- Structured reference không hợp lệ trả lỗi formula thay vì đoán một A1 range.
+## 7. Totals functions và SUBTOTAL
 
-## 6. Formula evaluation và dependencies
+`SpreadsheetTableTotalsFunction` hiện hỗ trợ:
 
-- `NeraFormulaEngine` nhận `IStructuredReferenceEvaluationContext` khi workbook calculation cần Table semantics.
-- Structured references được expand thành absolute A1 references trước parser/evaluator hiện hành.
-- Parser, function registry và arithmetic engine không bị nhân đôi.
-- A1 dependencies sau expansion được ghi vào `FormulaDependencyGraph`.
-- `RecalculateAffected` vì vậy cập nhật công thức Table khi một cell trong data range thay đổi.
-- Circular-reference policy hiện hành vẫn áp dụng sau expansion.
+| Function | SUBTOTAL code |
+|---|---:|
+| Average | 101 |
+| Count Numbers | 102 |
+| Count Nonblank | 103 |
+| Maximum | 104 |
+| Minimum | 105 |
+| Sum | 109 |
+| Custom | formula do caller cung cấp |
 
-## 7. Rename rewrite
+Các code tương ứng `1,2,3,4,5,9` cũng được evaluator chấp nhận.
 
-### 7.1 Table rename
+- Built-in function tạo formula chuẩn `=SUBTOTAL(code,Table[Column])`.
+- Hàng bị AutoFilter loại bỏ luôn bị bỏ khỏi aggregate.
+- SUM không có số trả 0; AVERAGE không có số trả `#DIV/0!`; MIN/MAX không có số trả 0.
+- COUNT Numbers đếm numeric cells; COUNT Nonblank đếm mọi cell không blank.
+- Visible error cells được truyền qua cho SUM/AVERAGE/MIN/MAX; COUNT variants áp dụng semantics đếm của chúng.
 
-```excel
-=SUM(Sales[Amount])
-```
+### Filter dependencies
 
-sau khi đổi tên:
+`SUBTOTAL` ghi hai nhóm dependency:
 
-```excel
-=SUM(Revenue[Amount])
-```
+1. range dữ liệu được aggregate;
+2. các filter-source column ranges quyết định visibility của cùng row span.
 
-### 7.2 Column rename
+Vì vậy thay đổi `Status` có thể tính lại `SUBTOTAL(Sales[Amount])` dù `Status` nằm ngoài Amount range.
 
-- Explicit `Sales[Amount]` được rewrite trên toàn workbook.
-- Implicit `[@Amount]` chỉ được rewrite trong đúng owning Table range.
-- String literal `"Sales[Amount]"` không đổi.
-- Stable Table/column ID không đổi sau rename.
+## 8. AutoFilter và row projection
 
-## 8. AutoFilter model
+- Hỗ trợ value sets, blank matching và một/hai comparison conditions kết hợp AND/OR.
+- Nhiều filter columns kết hợp AND theo hàng.
+- Row visibility được nén thành spans, không ghi `row height = 0` cho từng row.
+- Hidden spans giảm content extent, không tạo viewport slot và bị hit-test bỏ qua.
+- Raw row size được giữ để clear filter phục hồi đúng.
 
-`TableAutoFilter` hiện hỗ trợ:
+## 9. XLSX mapping và preservation
 
-- explicit value set;
-- blank matching;
-- một custom comparison condition;
-- hai custom comparison conditions kết hợp AND hoặc OR;
-- nhiều filter columns kết hợp AND ở cấp hàng.
+Nera đọc/ghi standard worksheet `tableParts/tablePart` và `TableDefinitionPart` gồm:
 
-Comparison operators:
-
-- equal/not-equal;
-- greater/greater-or-equal;
-- less/less-or-equal.
-
-Chưa hỗ trợ rich text/date/top/bottom/color/icon filters hoặc direct worksheet AutoFilter ngoài Table.
-
-## 9. Row visibility projection
-
-- Filter evaluation dùng `WorksheetSnapshot` bất biến.
-- Chỉ Table có active filter và data range mới được quét.
-- Tổng số hàng đánh giá bị giới hạn rõ ràng.
-- Adjacent hidden rows được nén thành `FilteredRowSpan`.
-- Layout chuyển các span này thành `AxisIndexRange` trong `SparseAxisMetricIndex`.
-- Không tạo một row override cho từng hàng bị lọc.
-- Raw row height vẫn được giữ; xóa filter phục hồi đúng size trước đó.
-- Hidden spans giảm `TotalExtent`, không sinh `AxisSlot`, và hit-test trả hàng visible kế tiếp.
-- `SpreadsheetViewportEngine` refresh metrics khi worksheet version thay đổi trong lúc filter hoạt động.
-- Split viewport dùng cùng engine nên không có một visibility path cạnh tranh.
-
-## 10. Standard XLSX mapping
-
-### 10.1 Worksheet relationship
-
-Nera đọc/ghi:
-
-```xml
-<tableParts count="1">
-  <tablePart r:id="rIdNeraTable..." />
-</tableParts>
-```
-
-### 10.2 Table definition
-
-Nera đọc/ghi:
-
-- `table@id`;
-- `name`/`displayName`;
-- `ref`;
+- Table name/display name/range;
 - header/totals attributes;
-- `autoFilter`;
-- `tableColumns/tableColumn`;
-- calculated/totals formula children;
-- totals label;
-- `tableStyleInfo`.
+- columns;
+- calculated/totals formulas và totals labels;
+- Table style;
+- AutoFilter predicates hiện hỗ trợ.
 
-Nera-generated package mã hóa identity:
+Nera-generated package dùng relationship/column metadata để giữ stable identities. Foreign package nhận deterministic fallback identities. `PreserveUnknownParts=true` refresh owned Table markup nhưng giữ unowned worksheet/package markup và Table `extLst` qua repeated saves.
 
-- Table GUID trong relationship ID `rIdNeraTable{Guid:N}`;
-- column GUID trong `tableColumn@uniqueName="nera:{Guid:N}"`.
+## 10. Malformed-input policy
 
-Foreign package không có metadata Nera nhận deterministic fallback identity từ part URI, relationship ID và numeric column ID. Normal semantic save không cam kết giữ nguyên foreign relationship ID.
+Load bị từ chối với missing/duplicate relationships, unreferenced Table parts, count mismatch, invalid/reversed ranges, width mismatch, bad/duplicate column IDs, duplicate formula children, invalid filter indexes hoặc unsupported markup. Lỗi phải xảy ra trước workbook restoration hoàn thành.
 
-## 11. Malformed-input policy
+## 11. Giới hạn còn lại
 
-Load bị từ chối khi gặp:
-
-- nhiều `tableParts` collection;
-- missing/duplicate relationship ID;
-- relationship không trỏ tới `TableDefinitionPart`;
-- unreferenced Table part;
-- count mismatch;
-- missing hoặc reversed Table range;
-- width không khớp số columns;
-- zero/duplicate column ID;
-- duplicate formula child;
-- invalid/duplicate filter column index;
-- unsupported Table/filter child hoặc operator;
-- package-controlled count vượt safety limit.
-
-Lỗi được chuẩn hóa thành `InvalidDataException` trước khi workbook restoration hoàn thành.
-
-## 12. Preservation
-
-Khi `PreserveUnknownParts=true`:
-
-1. Nera dựng package chuẩn từ Core model.
-2. Copy-and-patch package được bảo toàn.
-3. Table patcher refresh worksheet `tableParts` và owned Table definition parts.
-4. Existing Table `extLst` được giữ khi generated model không thay thế extension đó.
-5. Unowned worksheet/package markup và opaque graph tiếp tục được giữ bởi preservation pipeline.
-6. Final package được xác minh trước destination mutation và envelope attach.
-
-## 13. Giới hạn còn lại
-
-- Chưa auto-fill calculated-column formulas.
-- Chưa tự thực thi totals metadata hoặc filter-aware subtotal semantics.
-- Chưa có native Table manager/filter dropdown trên WPF, WinForms hoặc MAUI.
-- Chưa có rich filter predicates.
+- Chưa có PRODUCT/STDEV/STDEVP/VAR/VARP trong `SUBTOTAL`.
+- Chưa loại nested `SUBTOTAL`/`AGGREGATE` khỏi aggregate range.
+- Chưa phân biệt manual-hidden rows giữa code `1–11` và `101–111` vì manual hide metadata chưa có.
+- Chưa tự suy ra metadata từ arbitrary user edit vào một formula cell; dùng Table controller command.
+- Chưa có native Table manager/filter dropdown.
+- Chưa có rich date/text/top/bottom/color/icon filters hoặc direct worksheet AutoFilter.
 - Chưa có external compatibility corpus rộng.
-- Chưa có streaming preservation cho package lớn hơn 512 MiB.
 
-Các giới hạn này không được presenter hoặc adapter tự giả lập bằng một model song song.
+Presenter và adapter không được tự giả lập các phần còn thiếu bằng model riêng.

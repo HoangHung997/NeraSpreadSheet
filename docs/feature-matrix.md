@@ -1,32 +1,31 @@
 # NeraSpreadSheet feature matrix
 
-This is Nera's own capability map. Excel, LibreOffice and DevExpress are external behavior/coverage references only.
+This is Nera's own capability map. Excel, LibreOffice and DevExpress are behavior/coverage references only.
 
 | Area | Current validated capability | Next implementation |
 |---|---|---|
-| Workbook / sparse cells | Excel-size sparse sheets, bulk mutation, merges, dimensions, snapshots, insert/delete/reorder | manual hide/group/outline metadata and richer axis properties |
-| Tables | Stable Table/column IDs, workbook-wide naming, header/data/totals ranges, structural state and edit history | calculated-column propagation, totals execution and native Table manager |
-| Selection / editing | Multi-range selection, reusable editor, clipboard, commands and data undo/redo | mobile IME/editor lifecycle and richer command surfaces |
-| Styles | Direct styles, sparse whole-axis patches, chronological row/column composition and exact history | named/theme styles and complete Excel format semantics |
-| Conditional formatting | `CellIs`/`Expression`, priority, `StopIfTrue`, differential styles, structural history and renderer integration | color scales, data bars, icon sets, duplicate/top/average/time rules and rule-manager UI |
-| Data validation | Whole/decimal/date/time/text/list/custom rules, blank/error policies, editor gate, rule/cell history, diagnostics and shared rendering | named/cross-sheet lists, native rule manager, prompt/error presenters and dropdown UI |
-| Formula | Parser, arithmetic/comparison/ranges, basic cross-sheet references, six built-ins and shared formulas | large function surface, dynamic arrays and plugin SDK |
-| Structured references | Canonical Table references expand to A1, participate in dependency/affected recalc and rewrite atomically on rename | richer grammar, calculated-column fill and totals-aware semantics |
-| Formula dependencies | Direct/transitive graph, affected-only recalc, circular policy and expanded Table-range dependencies | spatial dependency index and scheduling |
-| Pixel scrolling / panes | Fractional offsets, freeze/split panes, independent scrolling and tile cache | target-hardware performance budgets |
-| AutoFilter / row visibility | Value/blank and one/two comparison filters; compressed hidden spans drive extent, slots and hit-test | rich predicates, direct worksheet filters and native dropdown presenter |
-| Rendering | Shared display lists; WPF/WinForms fallback and GPU backends; Skia/MAUI GPU host; invalid-cell overlay | accessibility semantics and sustained 60/120-Hz validation |
-| XLSX | Cells, styles, panes, merges, shared formulas, conditional formatting, validation, standard Table parts/styles/filters and unknown-part preservation | external compatibility corpus, printing and drawings/charts |
-| Package hardening | Nested relationship graph preservation, URI/relationship preflight, Table `extLst` coexistence and atomic copy-and-patch save | fuzzing and streaming preservation above 512 MiB |
-| Data / analysis | Basic bounded sort, validation engine and current Table AutoFilter projection | advanced sort, subtotals, grouping, virtual data, pivot and slicers |
-| Cross-platform controls | Public WPF/WinForms hosts and MAUI Windows/Android/iOS/Mac Catalyst builds | production Ribbon/Bars/DataGrid presenters, validation/Table/filter UX, localization and designer support |
-| Product hardening | Deterministic CI, desktop GPU and loaded MAUI runtime gates | NuGet, API compatibility, security review, support bundle and release gates |
+| Workbook / sparse cells | Excel-size sparse sheets, bulk mutation, merges, dimensions, snapshots and atomic structure transforms | manual hide/group/outline metadata and names |
+| Selection / editing | Multi-range selection, reusable editor, clipboard, commands and data/view Undo/Redo | mobile IME lifecycle and richer command surfaces |
+| Styles | Direct styles, sparse whole-axis patches and exact history | named/theme styles and complete Excel format semantics |
+| Conditional formatting | CellIs/Expression, differential styles, history, renderer and XLSX | color scales, data bars, icon sets and manager UI |
+| Data validation | Current rule types/operators, editor gate, history, diagnostics, rendering and XLSX | named/cross-sheet lists and native presenters |
+| Tables | Stable Table/column IDs, naming, structural history, calculated/totals metadata and standard XLSX | native manager and richer table UX |
+| Calculated columns | Bounded propagation, A1 translation, structural refill, metadata recovery and exact Undo/Redo | metadata inference from interactive formula edits and virtual very-large columns |
+| Totals / SUBTOTAL | Filter-aware Average/Count/COUNTA/Min/Max/Sum with filter-source dependencies | remaining aggregate codes, nested exclusion and manual hidden rows |
+| Structured references | Current canonical grammar, evaluation, dependencies and rename rewrite | richer grammar and dynamic-array interaction |
+| AutoFilter | Value/blank/custom comparisons and compressed hidden-row projection | native dropdown, rich text/date/top/custom-list filters and worksheet AutoFilter |
+| Formula engine | Parser, dependencies, shared formulas, six base functions plus current SUBTOTAL | broad function surface, dynamic arrays and plugin SDK |
+| Pixel scrolling / panes | Fractional offsets, freeze/split panes, independent scrolling and tile cache | enforced 60/120-Hz hardware budgets |
+| Rendering | Shared display lists across WPF, WinForms and MAUI GPU hosts | accessibility semantics and production performance baselines |
+| XLSX | Cells, styles, panes, shared formulas, CF, validation, Tables/filters and unknown-part preservation | external compatibility corpus, printing and drawings/charts |
+| Data / analysis | Basic sort, validation, Tables, AutoFilter and filter-aware totals | advanced sort, grouping, virtual data, pivot and slicers |
+| Product hardening | Deterministic multi-platform CI and loaded runtime gates | NuGet, API compatibility, fuzzing, support bundle and release gates |
 
-## Weighted progress after Table/Structured References/AutoFilter foundation
+## Weighted progress
 
-- Engine/viewport/renderer foundation: approximately **88%**.
-- Basic spreadsheet MVP: approximately **76–80%**.
-- Complete professional roadmap: approximately **50–51%**.
-- Production release readiness: approximately **26–30%**.
+- Engine/viewport/renderer foundation: approximately **89%**.
+- Basic spreadsheet MVP: approximately **79–82%**.
+- Complete professional roadmap: approximately **52%**.
+- Production release readiness: approximately **27–31%**.
 
 These are engineering-weighted estimates, not checkbox counts.

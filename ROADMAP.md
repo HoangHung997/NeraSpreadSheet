@@ -1,123 +1,115 @@
 # NeraSpreadSheet roadmap
 
-`docs/current-status.md` là nguồn sự thật về triển khai. Một mục chỉ được đánh dấu hoàn thành khi có source chạy được, automated tests và runtime gate phù hợp.
+`docs/current-status.md` is the implementation source of truth. A capability is complete only after executable source, automated tests and the applicable runtime gate pass.
 
 ## A. Independent spreadsheet engine
 
-- [x] Sparse workbook/worksheet trên kích thước logic cỡ Excel.
-- [x] Values, formulas, merges, dimensions và immutable snapshots.
-- [x] Selection, clipboard, reusable editor, commands và data undo/redo.
-- [x] Structural insert/delete có formula mapping và rollback nguyên tử.
-- [x] Model-safe row/column reorder theo logical cell identity.
-- [x] Sparse whole-row/column/sheet styles và effective composition.
-- [x] Split-view changes có history/undo/redo riêng, tách khỏi data history.
-- [x] Conditional-formatting Core model, differential styles, structural history và conservative reorder proof.
-- [x] Data-validation Core model, sparse multi-range ownership, rule history và uniform-reorder proof.
-- [x] Table Core model, workbook-unique names, stable Table/column IDs, snapshot và structural state/history.
-- [ ] Sparse manual hide/group/outline metadata và complete axis property model.
+- [x] Excel-size sparse workbook/worksheet model.
+- [x] Values, formulas, merges, dimensions and immutable snapshots.
+- [x] Selection, clipboard, editor, commands and data/view Undo/Redo.
+- [x] Atomic structural insert/delete/reorder with formula/rule/Table mapping.
+- [x] Sparse whole-row/column styles.
+- [x] Conditional Formatting and Data Validation Core models with structural history.
+- [x] Table model with workbook-unique names, stable Table/column IDs and structural state/history.
+- [x] Calculated-column metadata projection with bounded atomic rollback.
+- [x] Totals-row label/formula projection and production metadata commands.
+- [ ] Sparse manual hide/group/outline metadata and complete axis property model.
 
-## B. Viewport và rendering
+## B. Viewport and rendering
 
-- [x] Continuous pixel scrolling bằng `double` offsets.
-- [x] Freeze panes, split panes và independent pane scrolling.
-- [x] Integrated/optional pane-local scrollbars.
-- [x] Shared headers, resize, selection, editor và drag reorder.
-- [x] Drag-edge auto-scroll cho split và unsplit hosts.
-- [x] Snapshot/tile caching và split-aware dirty-region projection.
-- [x] WPF DrawingContext và D3DImage shared-texture backend.
-- [x] WinForms GDI+, Direct2D/DirectWrite HWND và D3D11/DXGI backend.
-- [x] Production Skia display-list renderer cùng MAUI native GPU host.
-- [x] Conditional formatting và invalid-cell diagnostics tham gia shared display-list composer.
-- [x] AutoFilter row projection dùng compressed hidden spans trong layout/viewport/content extent/hit-test.
-- [x] Injected device/front-buffer/context recreation stress gates.
-- [ ] 60/120 Hz, 4K target-hardware latency, FPS, memory và power baselines.
+- [x] Continuous fractional-pixel scrolling.
+- [x] Freeze/split panes and independent pane scrolling.
+- [x] Shared headers, resize, selection, editor and drag reorder.
+- [x] Snapshot/tile caching and split-aware dirty regions.
+- [x] WPF and WinForms software/GPU backends.
+- [x] Shared Skia renderer and native MAUI GPU host.
+- [x] Conditional/validation overlays in the shared display list.
+- [x] AutoFilter compressed hidden-row projection in layout, extent and hit-test.
+- [x] Loaded device/context recreation and scale/orientation gates.
+- [ ] Sustained 60/120 Hz, 4K target-hardware latency, memory and power budgets.
 
 ## C. Formula engine
 
-- [x] Tokenizer, parser, AST, dependency graph và circular-reference policy.
-- [x] Arithmetic, comparison, concatenation, A1 references/ranges và basic cross-sheet references.
-- [x] `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT` và `IF`.
-- [x] Shared-formula import và mixed/absolute A1 translation không materialize range.
-- [x] Shared-formula export grouping, stable worksheet-order indexes, bidirectional proof và fallback.
-- [x] Shared Core A1 translator và structural-reference rewriter dùng cho cell formulas, conditional rules và validation rules.
-- [x] Table structured-reference translation/evaluation, A1 dependency capture và affected-only recalculation.
-- [x] Atomic Table/column rename rewrite trên toàn workbook cùng Undo/Redo.
-- [ ] Calculated-column propagation, totals-row execution và richer structured-reference grammar.
-- [ ] Dynamic arrays, spill ranges và array calculation contracts.
-- [ ] Complete math, text, date/time, lookup, statistical và financial function surface.
-- [ ] Plugin function SDK cho nghiệp vụ dự toán.
+- [x] Tokenizer, parser, AST, dependency graph and circular-reference policy.
+- [x] Arithmetic, comparison, concatenation, A1 references/ranges and basic cross-sheet references.
+- [x] `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT` and `IF`.
+- [x] Shared-formula import/export and mixed/absolute translation.
+- [x] Shared structural-reference rewriter.
+- [x] Structured-reference translation/evaluation and affected-only dependencies.
+- [x] Atomic Table/column rename rewrite for cell formulas and Table metadata.
+- [x] Calculated-column formula propagation across data rows.
+- [x] Filter-aware `SUBTOTAL` for Average, Count Numbers, Count Nonblank, Maximum, Minimum and Sum.
+- [x] Filter-source dependency tracking for affected-only totals recalculation.
+- [ ] Remaining `SUBTOTAL`/`AGGREGATE` functions, nested subtotal exclusion and manual hidden-row semantics.
+- [ ] Richer structured-reference grammar.
+- [ ] Dynamic arrays and spill contracts.
+- [ ] Complete math, text, date/time, lookup, statistical and financial function surface.
+- [ ] Plugin function SDK for estimating/domain workloads.
 
-## D. XLSX, printing và interoperability
+## D. XLSX, printing and interoperability
 
-- [x] Values, cached formulas, multiple sheets, dimensions và merged ranges.
-- [x] Standard pane metadata cùng Nera custom state cho bốn pane offsets.
-- [x] Current Nera style table và direct-cell style round-trip.
-- [x] Sparse row/column style round-trip không flatten logical axis.
-- [x] Unknown package-part preservation theo copy-and-patch.
-- [x] Nested opaque graph, drawing/image, custom XML/properties và package-root relationship gates.
-- [x] Package graph preflight cho URI, relationship ID/type/target và size/count limits.
-- [x] Shared-formula import/export, schema, structural/fallback và repeated-save gates.
-- [x] Conditional-formatting `dxfs/dxf`, `cfRule/formula`, priority và `StopIfTrue` round-trip.
-- [x] Data-validation `dataValidations/dataValidation`, formulas, metadata, schema và repeated-save round-trip.
-- [x] Standard TableDefinitionPart, worksheet `tableParts`, stable Nera IDs, styles, formulas và AutoFilter round-trip.
-- [x] Table malformed-input, blank/custom filter, totals metadata, schema và `extLst` repeated-save gates.
-- [x] Malformed conditional/validation/Table markup và unsafe package input bị từ chối trước mutation.
-- [ ] External compatibility corpus và differential tests với nhiều trình tạo XLSX thực tế.
-- [ ] First-class drawings, images và charts model/editor.
-- [ ] Print areas, page setup, page breaks, preview và PDF export.
+- [x] Values, cached formulas, sheets, dimensions and merged ranges.
+- [x] Pane metadata and Nera multi-pane state.
+- [x] Cell/row/column styles and exact sparse style state.
+- [x] Unknown package-part copy-and-patch preservation.
+- [x] Shared formulas, Conditional Formatting and Data Validation standard round-trip.
+- [x] Standard TableDefinitionPart, worksheet table relationships, styles, formulas and AutoFilter round-trip.
+- [x] Table malformed-input, schema and repeated `extLst` preservation gates.
+- [ ] External compatibility corpus from Excel, LibreOffice and other XLSX generators.
+- [ ] First-class drawings/images/charts model and editor.
+- [ ] Print areas, page setup, page breaks, preview and PDF export.
 
-## E. Data và analysis
+## E. Data and analysis
 
-- [x] Basic in-memory sort có safety limits.
-- [x] Whole/decimal/date/time/text-length/list/custom validation evaluator.
-- [x] Editor Stop/Warning/Information gate, input/error metadata, undo/redo và bounded invalid-cell diagnostics.
-- [x] Table AutoFilter value filters, blank matching, one/two comparison conditions và shared row-visibility projection.
-- [x] Table add/remove/rename/filter operations có atomic rollback và Undo/Redo.
-- [ ] Native desktop/mobile Table manager và filter-dropdown presenter.
-- [ ] Rich text/date/top/custom-list filter predicates và direct worksheet AutoFilter ngoài Table.
-- [ ] Advanced/multi-key sort, custom lists và stable large-data path.
-- [ ] Subtotals, grouping và outlines.
-- [ ] Pivot tables, slicers và calculated fields.
-- [ ] External/virtualized data sources và incremental loading.
+- [x] Basic bounded in-memory sort.
+- [x] Current complete Data Validation evaluator and editor gate.
+- [x] Table AutoFilter value/blank/comparison predicates.
+- [x] Table add/remove/rename/filter and calculated/totals metadata operations with Undo/Redo.
+- [x] Filter-aware totals execution.
+- [ ] Platform-neutral Table manager and filter-dropdown contracts.
+- [ ] Native desktop/mobile Table/filter presenters.
+- [ ] Rich text/date/top/custom-list filters and direct worksheet AutoFilter.
+- [ ] Advanced multi-key sort and custom lists.
+- [ ] Grouping, outlines and general subtotals.
+- [ ] Pivot tables, slicers and calculated fields.
+- [ ] External/virtualized data and incremental loading.
 
-## F. Cross-platform control suite
+## F. Cross-platform controls
 
-- [x] Platform-neutral command, Ribbon Core, Bars Core và DataGrid Core contracts.
-- [x] Public WPF và WinForms spreadsheet hosts/samples.
-- [x] MAUI native handler, production touch state machine và pinch zoom.
-- [x] Loaded Windows context recreation và logical/raw pixel gates.
-- [ ] Native validation-rule manager, list dropdown presenter và mobile input-message/error-alert UX.
-- [ ] Native Table/filter dropdown, column menu và responsive mobile/tablet presenter.
-- [ ] MAUI virtual keyboard, IME và mobile editor lifecycle.
-- [ ] Responsive command surface cho mobile/tablet.
-- [ ] Production Ribbon, toolbar, menu và context-menu controls.
-- [ ] Standalone DataGrid control dùng chung hạ tầng nhưng không dùng workbook semantics.
-- [ ] Theme, localization, accessibility và designer support.
+- [x] Platform-neutral command, Ribbon Core, Bars Core and DataGrid Core contracts.
+- [x] Public WPF/WinForms spreadsheet hosts.
+- [x] MAUI handler, touch state machine and pinch zoom.
+- [x] Loaded Windows lifecycle/input/scale gates.
+- [ ] Native Table manager/filter dropdown and column menus.
+- [ ] Native validation manager/dropdown/prompt/error presenters.
+- [ ] MAUI virtual keyboard and IME lifecycle.
+- [ ] Responsive Ribbon/toolbar/menu/context-menu presenters.
+- [ ] Production standalone DataGrid presenter.
+- [ ] Theme, localization, accessibility and designer support.
 
 ## G. Product hardening
 
-- [ ] API compatibility và package-version checks.
-- [ ] NuGet packaging, symbols và source link.
-- [ ] Crash recovery, safe-mode startup và support bundle.
-- [ ] Security review và fuzzing cho formulas/XLSX/clipboard.
-- [ ] Performance budgets được thực thi trong CI.
+- [ ] API compatibility and package-version checks.
+- [ ] NuGet packaging, symbols and source link.
+- [ ] Crash recovery, safe mode and support bundle.
+- [ ] Security review and fuzzing for formulas/XLSX/clipboard.
+- [ ] Performance budgets enforced in CI.
 - [ ] Alpha → Beta → RC → Production release gates.
 
 ## Immediate execution order
 
-1. Calculated-column propagation, totals execution và native Table/AutoFilter UX.
-2. Formula/function surface, dynamic arrays và plugin function SDK.
-3. Advanced sort, grouping, virtualized data và subtotals.
-4. Printing/PDF, drawings/charts và pivot/slicers.
-5. External XLSX corpus, accessibility, packaging, fuzzing, performance budgets và release hardening.
+1. Table manager/filter dropdown contracts and WPF/WinForms presenters.
+2. Responsive MAUI Table/filter UX and rich filter predicates.
+3. Formula/function surface, dynamic arrays and plugin SDK.
+4. Advanced sort, grouping, virtualized data and outlines.
+5. Printing/PDF, drawings/charts and pivot/slicers.
+6. External XLSX corpus, accessibility, packaging, fuzzing and release hardening.
 
-## Trạng thái ước tính sau Table/Structured References/AutoFilter foundation
+## Weighted progress after calculated columns and filter-aware totals
 
-- Nền móng engine/viewport/renderer: khoảng `88%`.
-- MVP bảng tính cơ bản: khoảng `76–80%`.
-- Toàn bộ roadmap chuyên nghiệp: khoảng `50–51%`.
-- Production release readiness: khoảng `26–30%`.
+- Engine/viewport/renderer foundation: approximately `89%`.
+- Basic spreadsheet MVP: approximately `79–82%`.
+- Complete professional roadmap: approximately `52%`.
+- Production release readiness: approximately `27–31%`.
 
-Batch Table foundation nâng tổng thể khoảng `2–3` điểm phần trăm so với mốc Data Validation. Chưa chấm cao hơn vì calculated-column propagation, totals execution, native filter UX, dynamic arrays, hệ thống hàm lớn, printing/PDF, charts, pivot và product hardening vẫn còn.
-
-Các tỷ lệ trên là ước lượng theo độ khó và khối lượng còn lại, không phải tỷ lệ số checkbox.
+These are engineering-weighted estimates, not checkbox counts.
