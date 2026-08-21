@@ -52,7 +52,7 @@ public static class WorksheetSnapshotFilterProjectionExtensions
                 $"which exceeds the configured limit of {maximumRowsToEvaluate}.");
         }
 
-        var spans = new List<FilteredRowSpan>();
+        var rawSpans = new List<FilteredRowSpan>();
         if (worksheetFilter is
             {
                 Columns.Count: > 0,
@@ -60,7 +60,7 @@ public static class WorksheetSnapshotFilterProjectionExtensions
             })
         {
             AppendFilteredRows(
-                spans,
+                rawSpans,
                 worksheetDataRange,
                 rowIndex => worksheetFilter.IsRowVisible(
                     worksheet,
@@ -71,14 +71,14 @@ public static class WorksheetSnapshotFilterProjectionExtensions
         {
             var dataRange = table.DataRange!.Value;
             AppendFilteredRows(
-                spans,
+                rawSpans,
                 dataRange,
                 rowIndex => table.IsRowVisible(
                     worksheet,
                     rowIndex));
         }
 
-        return spans;
+        return MergeSpans(rawSpans);
     }
 
     private static void AppendFilteredRows(
@@ -87,45 +87,67 @@ public static class WorksheetSnapshotFilterProjectionExtensions
         Func<int, bool> isRowVisible)
     {
         ArgumentNullException.ThrowIfNull(isRowVisible);
-            int? spanStart = null;
-            for (var rowIndex = dataRange.Top;
-                 rowIndex <= dataRange.Bottom;
-                 rowIndex++)
-            {
-                if (!isRowVisible(rowIndex))
-                {
-                    spanStart ??= rowIndex;
-                    continue;
-                }
-
-                if (spanStart is int start)
-                {
-                    AppendSpan(spans, start, rowIndex - 1);
-                    spanStart = null;
-                }
-            }
-
-            if (spanStart is int remainingStart)
-            {
-                AppendSpan(spans, remainingStart, dataRange.Bottom);
-            }
-    }
-
-    private static void AppendSpan(
-        List<FilteredRowSpan> spans,
-        int startRowIndex,
-        int endRowIndex)
-    {
-        if (spans.Count > 0 &&
-            spans[^1].EndRowIndex + 1 >= startRowIndex)
+        int? spanStart = null;
+        for (var rowIndex = dataRange.Top;
+             rowIndex <= dataRange.Bottom;
+             rowIndex++)
         {
-            var previous = spans[^1];
-            spans[^1] = new FilteredRowSpan(
-                previous.StartRowIndex,
-                Math.Max(previous.EndRowIndex, endRowIndex));
-            return;
+            if (!isRowVisible(rowIndex))
+            {
+                spanStart ??= rowIndex;
+                continue;
+            }
+
+            if (spanStart is int start)
+            {
+                spans.Add(new FilteredRowSpan(
+                    start,
+                    rowIndex - 1));
+                spanStart = null;
+            }
         }
 
-        spans.Add(new FilteredRowSpan(startRowIndex, endRowIndex));
+        if (spanStart is int remainingStart)
+        {
+            spans.Add(new FilteredRowSpan(
+                remainingStart,
+                dataRange.Bottom));
+        }
+    }
+
+    private static IReadOnlyList<FilteredRowSpan> MergeSpans(
+        List<FilteredRowSpan> spans)
+    {
+        if (spans.Count <= 1)
+        {
+            return spans;
+        }
+
+        var ordered = spans
+            .OrderBy(static span => span.StartRowIndex)
+            .ThenBy(static span => span.EndRowIndex)
+            .ToArray();
+        var merged = new List<FilteredRowSpan>(ordered.Length);
+        foreach (var span in ordered)
+        {
+            if (merged.Count == 0)
+            {
+                merged.Add(span);
+                continue;
+            }
+
+            var previous = merged[^1];
+            if (span.StartRowIndex > previous.EndRowIndex + 1)
+            {
+                merged.Add(span);
+                continue;
+            }
+
+            merged[^1] = new FilteredRowSpan(
+                previous.StartRowIndex,
+                Math.Max(previous.EndRowIndex, span.EndRowIndex));
+        }
+
+        return merged;
     }
 }

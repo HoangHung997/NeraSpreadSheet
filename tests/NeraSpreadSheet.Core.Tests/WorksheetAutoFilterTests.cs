@@ -38,6 +38,113 @@ public sealed class WorksheetAutoFilterTests
     }
 
     [TestMethod]
+    public void ProjectionSortsWorksheetAndTableSpansBeforeMerging()
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        var tableColumnId = Guid.NewGuid();
+        worksheet.SetValue(new CellAddress(0, 0), "TableStatus");
+        worksheet.SetValue(new CellAddress(1, 0), "Keep");
+        worksheet.SetValue(new CellAddress(2, 0), "Drop");
+        worksheet.SetValue(new CellAddress(3, 0), "Keep");
+        worksheet.AddTable(new SpreadsheetTable(
+            Guid.NewGuid(),
+            "UpperTable",
+            new CellRange(
+                new CellAddress(0, 0),
+                new CellAddress(3, 0)),
+            [new SpreadsheetTableColumn(tableColumnId, "Status")],
+            autoFilter: new TableAutoFilter([
+                new TableFilterColumn(
+                    tableColumnId,
+                    [CellValue.FromText("Keep")]),
+            ])));
+
+        worksheet.SetValue(new CellAddress(10, 0), "DirectStatus");
+        worksheet.SetValue(new CellAddress(11, 0), "Keep");
+        worksheet.SetValue(new CellAddress(12, 0), "Drop");
+        worksheet.SetValue(new CellAddress(13, 0), "Keep");
+        worksheet.SetAutoFilter(new WorksheetAutoFilter(
+            new CellRange(
+                new CellAddress(10, 0),
+                new CellAddress(13, 0)),
+            [
+                new WorksheetAutoFilterColumn(
+                    0,
+                    [CellValue.FromText("Keep")]),
+            ]));
+
+        var spans = WorksheetSnapshot.Capture(worksheet)
+            .GetFilteredOutRowSpans();
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                new FilteredRowSpan(2, 2),
+                new FilteredRowSpan(12, 12),
+            },
+            spans.ToArray());
+    }
+
+    [TestMethod]
+    public void ProjectionSortsSpansFromSideBySideFilteredTables()
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        var leftColumnId = Guid.NewGuid();
+        var rightColumnId = Guid.NewGuid();
+
+        worksheet.SetValue(new CellAddress(0, 0), "LeftStatus");
+        worksheet.SetValue(new CellAddress(1, 0), "Keep");
+        worksheet.SetValue(new CellAddress(2, 0), "Keep");
+        worksheet.SetValue(new CellAddress(3, 0), "Keep");
+        worksheet.SetValue(new CellAddress(4, 0), "Keep");
+        worksheet.SetValue(new CellAddress(5, 0), "Drop");
+        worksheet.AddTable(new SpreadsheetTable(
+            Guid.NewGuid(),
+            "LeftTable",
+            new CellRange(
+                new CellAddress(0, 0),
+                new CellAddress(5, 0)),
+            [new SpreadsheetTableColumn(leftColumnId, "Status")],
+            autoFilter: new TableAutoFilter([
+                new TableFilterColumn(
+                    leftColumnId,
+                    [CellValue.FromText("Keep")]),
+            ])));
+
+        worksheet.SetValue(new CellAddress(0, 2), "RightStatus");
+        worksheet.SetValue(new CellAddress(1, 2), "Keep");
+        worksheet.SetValue(new CellAddress(2, 2), "Keep");
+        worksheet.SetValue(new CellAddress(3, 2), "Drop");
+        worksheet.SetValue(new CellAddress(4, 2), "Keep");
+        worksheet.SetValue(new CellAddress(5, 2), "Keep");
+        worksheet.AddTable(new SpreadsheetTable(
+            Guid.NewGuid(),
+            "RightTable",
+            new CellRange(
+                new CellAddress(0, 2),
+                new CellAddress(5, 2)),
+            [new SpreadsheetTableColumn(rightColumnId, "Status")],
+            autoFilter: new TableAutoFilter([
+                new TableFilterColumn(
+                    rightColumnId,
+                    [CellValue.FromText("Keep")]),
+            ])));
+
+        var spans = WorksheetSnapshot.Capture(worksheet)
+            .GetFilteredOutRowSpans();
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                new FilteredRowSpan(3, 3),
+                new FilteredRowSpan(5, 5),
+            },
+            spans.ToArray());
+    }
+
+    [TestMethod]
     public void DirectFilterCannotOverlapTableOrMergedCells()
     {
         var workbook = new Workbook();
