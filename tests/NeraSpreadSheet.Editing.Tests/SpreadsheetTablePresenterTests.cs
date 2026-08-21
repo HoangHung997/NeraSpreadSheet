@@ -70,7 +70,12 @@ public sealed class SpreadsheetTablePresenterTests
             item.DisplayText == "Closed").IsSelected);
 
         menu.SetSearchText("pen");
-        Assert.AreEqual(1, menu.Capture().Values.Count);
+        var searched = menu.Capture();
+        Assert.AreEqual(2, searched.Values.Count);
+        Assert.IsTrue(searched.Values.Any(item =>
+            item.DisplayText == "Open"));
+        Assert.IsTrue(searched.Values.Any(item =>
+            item.DisplayText == "Pending"));
         menu.ClearVisibleSelection();
         Assert.IsFalse(menu.Capture().CanApplyValueSelection);
         menu.SelectAllVisible();
