@@ -25,26 +25,184 @@ jobs:
           ref: feature/bootstrap-architecture-v0.1
           fetch-depth: 0
 
-      - name: Decode patch
+      - name: Decode and apply clean patch sections
         shell: bash
         run: |
           set -euo pipefail
           base64 --decode .automation/rich-autofilter.patch.gz.b64 | gzip --decompress > /tmp/rich-autofilter.patch
+          excludes=(
+            --exclude=src/NeraSpreadSheet.Core/WorksheetSnapshot.cs
+            --exclude=src/NeraSpreadSheet.Core/Worksheet.cs
+            --exclude=src/NeraSpreadSheet.Editing/SpreadsheetSession.cs
+            --exclude=src/NeraSpreadSheet.Editing/SpreadsheetTablePresenter.cs
+          )
+          git apply --check --whitespace=error-all "${excludes[@]}" /tmp/rich-autofilter.patch
+          git apply --whitespace=error-all "${excludes[@]}" /tmp/rich-autofilter.patch
 
-      - name: Apply batch with three-way merge and remove automation inputs
+      - name: Apply exact source transformations
         shell: bash
         run: |
           set -euo pipefail
-          git apply --3way --whitespace=error-all /tmp/rich-autofilter.patch
-          if git ls-files --unmerged | grep -q .; then
-            echo "Patch produced merge conflicts:" >&2
-            git status --short >&2
-            exit 1
-          fi
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(
+                      f"{path}: expected one exact source fragment, found {count}: {old[:120]!r}")
+              target.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          def regex_once(path: str, pattern: str, replacement: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding="utf-8")
+              updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+              if count != 1:
+                  raise RuntimeError(
+                      f"{path}: expected one regex match, found {count}: {pattern[:120]!r}")
+              target.write_text(updated, encoding="utf-8")
+
+          snapshot = "src/NeraSpreadSheet.Core/WorksheetSnapshot.cs"
+          replace_once(
+              snapshot,
+              "    private readonly SpreadsheetTable[] _tables;\n    private readonly ConcurrentDictionary<AxisStyleCacheKey, CellStyle>\n",
+              "    private readonly SpreadsheetTable[] _tables;\n    private readonly WorksheetAutoFilter? _autoFilter;\n    private readonly ConcurrentDictionary<AxisStyleCacheKey, CellStyle>\n")
+          replace_once(
+              snapshot,
+              "        DataValidationRule[] dataValidationRules,\n        SpreadsheetTable[] tables)\n",
+              "        DataValidationRule[] dataValidationRules,\n        SpreadsheetTable[] tables,\n        WorksheetAutoFilter? autoFilter)\n")
+          replace_once(
+              snapshot,
+              "        _tables = tables\n            .Select(static table => table.Copy())\n            .ToArray();\n    }\n",
+              "        _tables = tables\n            .Select(static table => table.Copy())\n            .ToArray();\n        _autoFilter = autoFilter?.Copy();\n    }\n")
+          replace_once(
+              snapshot,
+              "    public IReadOnlyList<SpreadsheetTable> Tables => _tables;\n\n    internal int AxisStyleCacheEntryCount =>\n",
+              "    public IReadOnlyList<SpreadsheetTable> Tables => _tables;\n\n    public WorksheetAutoFilter? AutoFilter => _autoFilter;\n\n    internal int AxisStyleCacheEntryCount =>\n")
+          replace_once(
+              snapshot,
+              "        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(\n            rowIndex,\n            SpreadsheetLimits.MaxRows);\n        foreach (var table in _tables)\n",
+              "        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(\n            rowIndex,\n            SpreadsheetLimits.MaxRows);\n        if (_autoFilter is not null &&\n            !_autoFilter.IsRowVisible(this, rowIndex))\n        {\n            return false;\n        }\n\n        foreach (var table in _tables)\n")
+          replace_once(
+              snapshot,
+              "            [.. worksheet.DataValidationRules],\n            [.. worksheet.Tables]);\n",
+              "            [.. worksheet.DataValidationRules],\n            [.. worksheet.Tables],\n            worksheet.AutoFilter);\n")
+
+          worksheet = "src/NeraSpreadSheet.Core/Worksheet.cs"
+          replace_once(
+              worksheet,
+              "    private readonly WorksheetTableCollection _tables = new();\n    private long _nextAxisStyleSequence = 1L;\n",
+              "    private readonly WorksheetTableCollection _tables = new();\n    private WorksheetAutoFilter? _autoFilter;\n    private long _nextAxisStyleSequence = 1L;\n")
+          replace_once(
+              worksheet,
+              "    public IReadOnlyList<SpreadsheetTable> Tables => _tables.Tables;\n\n    public event EventHandler<CellsChangedEventArgs>? CellsChanged;\n",
+              "    public IReadOnlyList<SpreadsheetTable> Tables => _tables.Tables;\n\n    public WorksheetAutoFilter? AutoFilter => _autoFilter?.Copy();\n\n    public event EventHandler<CellsChangedEventArgs>? CellsChanged;\n")
+          replace_once(
+              worksheet,
+              "        if (MergedCells.Ranges.Any(range =>\n                range.Intersects(table.Range)))\n        {\n            throw new InvalidOperationException(\n                \"A table cannot overlap a merged range.\");\n        }\n\n        _tables.Add(table);\n",
+              "        if (MergedCells.Ranges.Any(range =>\n                range.Intersects(table.Range)))\n        {\n            throw new InvalidOperationException(\n                \"A table cannot overlap a merged range.\");\n        }\n        if (_autoFilter is not null &&\n            _autoFilter.Range.Intersects(table.Range))\n        {\n            throw new InvalidOperationException(\n                \"A table cannot overlap the worksheet AutoFilter range.\");\n        }\n\n        _tables.Add(table);\n")
+          replace_once(
+              worksheet,
+              "    public void SetTableAutoFilter(\n        Guid tableId,\n        TableAutoFilter? autoFilter)\n    {\n        if (!_tables.TryGet(tableId, out var table) ||\n            table is null)\n        {\n            throw new KeyNotFoundException(\n                $\"Table '{tableId}' was not found.\");\n        }\n\n        ReplaceTable(tableId, table.WithAutoFilter(autoFilter));\n    }\n\n",
+              "    public void SetTableAutoFilter(\n        Guid tableId,\n        TableAutoFilter? autoFilter)\n    {\n        if (!_tables.TryGet(tableId, out var table) ||\n            table is null)\n        {\n            throw new KeyNotFoundException(\n                $\"Table '{tableId}' was not found.\");\n        }\n\n        ReplaceTable(tableId, table.WithAutoFilter(autoFilter));\n    }\n\n    public void SetAutoFilter(WorksheetAutoFilter? autoFilter)\n    {\n        var replacement = autoFilter?.Copy();\n        if (Equals(_autoFilter, replacement))\n        {\n            return;\n        }\n\n        if (replacement is not null)\n        {\n            ValidateWorksheetAutoFilter(\n                replacement,\n                _tables.Tables,\n                MergedCells.Ranges);\n        }\n\n        var beforeRange = _autoFilter?.Range;\n        var afterRange = replacement?.Range;\n        _autoFilter = replacement;\n        if (beforeRange is null && afterRange is null)\n        {\n            return;\n        }\n\n        PublishChange(beforeRange is null\n            ? afterRange!.Value\n            : afterRange is null\n                ? beforeRange.Value\n                : Union(beforeRange.Value, afterRange.Value));\n    }\n\n    public void ClearAutoFilter() =>\n        SetAutoFilter(null);\n\n")
+          replace_once(
+              worksheet,
+              "        if (_tables.Tables.Any(table =>\n                table.Range.Intersects(range)))\n        {\n            throw new InvalidOperationException(\n                \"Merged cells cannot overlap a table.\");\n        }\n\n        MergedCells.Add(range);\n",
+              "        if (_tables.Tables.Any(table =>\n                table.Range.Intersects(range)))\n        {\n            throw new InvalidOperationException(\n                \"Merged cells cannot overlap a table.\");\n        }\n        if (_autoFilter is not null &&\n            _autoFilter.Range.Intersects(range))\n        {\n            throw new InvalidOperationException(\n                \"Merged cells cannot overlap the worksheet AutoFilter range.\");\n        }\n\n        MergedCells.Add(range);\n")
+          replace_once(
+              worksheet,
+              "            _conditionalFormatting.Capture(),\n            _dataValidations.Capture(),\n            _tables.Capture());\n",
+              "            _conditionalFormatting.Capture(),\n            _dataValidations.Capture(),\n            _tables.Capture(),\n            _autoFilter?.Copy());\n")
+          replace_once(
+              worksheet,
+              "        var transformedTables =\n            _tables.CreateStructuralTables(change, Name);\n        ValidateTablesAgainstMergedRanges(\n            transformedTables,\n            transformedMergedCells);\n",
+              "        var transformedTables =\n            _tables.CreateStructuralTables(change, Name);\n        var transformedAutoFilter =\n            _autoFilter?.CreateStructuralFilter(change);\n        ValidateTablesAgainstMergedRanges(\n            transformedTables,\n            transformedMergedCells);\n        if (transformedAutoFilter is not null)\n        {\n            ValidateWorksheetAutoFilter(\n                transformedAutoFilter,\n                transformedTables,\n                transformedMergedCells);\n        }\n")
+          replace_once(
+              worksheet,
+              "        _dataValidations.Restore(transformedDataValidations);\n        _tables.Restore(transformedTables);\n        PublishStructuralChange(change);\n",
+              "        _dataValidations.Restore(transformedDataValidations);\n        _tables.Restore(transformedTables);\n        _autoFilter = transformedAutoFilter?.Copy();\n        PublishStructuralChange(change);\n")
+          replace_once(
+              worksheet,
+              "        var transformedTables =\n            _tables.CreateAxisMoveTables(move);\n        ValidateTablesAgainstMergedRanges(\n            transformedTables,\n            transformedMergedCells);\n",
+              "        var transformedTables =\n            _tables.CreateAxisMoveTables(move);\n        var transformedAutoFilter =\n            _autoFilter?.CreateAxisMoveFilter(move);\n        ValidateTablesAgainstMergedRanges(\n            transformedTables,\n            transformedMergedCells);\n        if (transformedAutoFilter is not null)\n        {\n            ValidateWorksheetAutoFilter(\n                transformedAutoFilter,\n                transformedTables,\n                transformedMergedCells);\n        }\n")
+          replace_once(
+              worksheet,
+              "        _dataValidations.Restore(transformedDataValidations);\n        _tables.Restore(transformedTables);\n        PublishAxisMove(move);\n",
+              "        _dataValidations.Restore(transformedDataValidations);\n        _tables.Restore(transformedTables);\n        _autoFilter = transformedAutoFilter?.Copy();\n        PublishAxisMove(move);\n")
+          replace_once(
+              worksheet,
+              "        _dataValidations.Restore(state.DataValidationRules);\n        _tables.Restore(state.Tables);\n        PublishStructuralChange(signalChange);\n",
+              "        _dataValidations.Restore(state.DataValidationRules);\n        _tables.Restore(state.Tables);\n        _autoFilter = state.AutoFilter?.Copy();\n        PublishStructuralChange(signalChange);\n")
+          replace_once(
+              worksheet,
+              "        _dataValidations.Restore(state.DataValidationRules);\n        _tables.Restore(state.Tables);\n        PublishAxisMove(signalMove);\n",
+              "        _dataValidations.Restore(state.DataValidationRules);\n        _tables.Restore(state.Tables);\n        _autoFilter = state.AutoFilter?.Copy();\n        PublishAxisMove(signalMove);\n")
+          replace_once(
+              worksheet,
+              "    internal void RestoreTables(\n        IEnumerable<SpreadsheetTable> tables,\n        CellRange signalRange)\n    {\n        _tables.Restore(tables);\n",
+              "    internal void RestoreTables(\n        IEnumerable<SpreadsheetTable> tables,\n        CellRange signalRange)\n    {\n        var materialized = tables\n            .Select(static table => table.Copy())\n            .ToArray();\n        if (_autoFilter is not null)\n        {\n            ValidateWorksheetAutoFilter(\n                _autoFilter,\n                materialized,\n                MergedCells.Ranges);\n        }\n        _tables.Restore(materialized);\n")
+          replace_once(
+              worksheet,
+              "        var oldRange = tables[index].Range;\n        tables[index] = replacement;\n        _tables.Restore(tables);\n",
+              "        var oldRange = tables[index].Range;\n        tables[index] = replacement;\n        if (_autoFilter is not null)\n        {\n            ValidateWorksheetAutoFilter(\n                _autoFilter,\n                tables,\n                MergedCells.Ranges);\n        }\n        _tables.Restore(tables);\n")
+          replace_once(
+              worksheet,
+              "    private void ReplaceCells(\n",
+              "    private static void ValidateWorksheetAutoFilter(\n        WorksheetAutoFilter autoFilter,\n        IEnumerable<SpreadsheetTable> tables,\n        IEnumerable<CellRange> mergedRanges)\n    {\n        if (tables.Any(table =>\n                table.Range.Intersects(autoFilter.Range)))\n        {\n            throw new InvalidOperationException(\n                \"A worksheet AutoFilter cannot overlap a table.\");\n        }\n        if (mergedRanges.Any(range =>\n                range.Intersects(autoFilter.Range)))\n        {\n            throw new InvalidOperationException(\n                \"A worksheet AutoFilter cannot overlap a merged range.\");\n        }\n    }\n\n    private static CellRange Union(\n        CellRange left,\n        CellRange right) =>\n        new(\n            new CellAddress(\n                Math.Min(left.Top, right.Top),\n                Math.Min(left.Left, right.Left)),\n            new CellAddress(\n                Math.Max(left.Bottom, right.Bottom),\n                Math.Max(left.Right, right.Right)));\n\n    private void ReplaceCells(\n")
+          replace_once(
+              worksheet,
+              "        range = _dataValidations.ExpandSignalRange(range);\n        range = _tables.ExpandSignalRange(range);\n        Version++;\n",
+              "        range = _dataValidations.ExpandSignalRange(range);\n        range = _tables.ExpandSignalRange(range);\n        if (_autoFilter is not null)\n        {\n            range = _autoFilter.ExpandSignalRange(range);\n        }\n        Version++;\n")
+
+          session = "src/NeraSpreadSheet.Editing/SpreadsheetSession.cs"
+          replace_once(
+              session,
+              "        Validation = new SpreadsheetDataValidationController(this);\n        Tables = new SpreadsheetTableController(this);\n        Editor = new SpreadsheetCellEditorController(this);\n",
+              "        Validation = new SpreadsheetDataValidationController(this);\n        Tables = new SpreadsheetTableController(this);\n        WorksheetFilter =\n            new SpreadsheetWorksheetAutoFilterController(this);\n        Editor = new SpreadsheetCellEditorController(this);\n")
+          replace_once(
+              session,
+              "    public SpreadsheetTableController Tables { get; }\n\n    public SpreadsheetCellEditorController Editor { get; }\n",
+              "    public SpreadsheetTableController Tables { get; }\n\n    public SpreadsheetWorksheetAutoFilterController\n        WorksheetFilter { get; }\n\n    public SpreadsheetCellEditorController Editor { get; }\n")
+
+          presenter = "src/NeraSpreadSheet.Editing/SpreadsheetTablePresenter.cs"
+          replace_once(
+              presenter,
+              "public sealed class SpreadsheetTableFilterMenu\n{\n    private readonly SpreadsheetTablePresenterController _owner;\n",
+              "public sealed record SpreadsheetTableFilterValuePage(\n    Guid TableId,\n    Guid ColumnId,\n    string SearchText,\n    int Offset,\n    int PageSize,\n    int TotalVisibleValueCount,\n    bool HasPreviousPage,\n    bool HasNextPage,\n    bool IsSourceTruncated,\n    IReadOnlyList<SpreadsheetTableFilterValueItem> Values);\n\npublic sealed class SpreadsheetTableFilterMenu\n{\n    public const int MaximumPageSize = 1000;\n\n    private readonly SpreadsheetTablePresenterController _owner;\n")
+          replace_once(
+              presenter,
+              "        var visible = GetVisibleValues();\n",
+              "        var visible = GetVisibleValues(CancellationToken.None);\n")
+          replace_once(
+              presenter,
+              "    public void SetSearchText(string? searchText)\n",
+              "    public SpreadsheetTableFilterValuePage CapturePage(\n        int offset,\n        int pageSize,\n        CancellationToken cancellationToken = default)\n    {\n        ArgumentOutOfRangeException.ThrowIfNegative(offset);\n        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);\n        ArgumentOutOfRangeException.ThrowIfGreaterThan(\n            pageSize,\n            MaximumPageSize);\n        cancellationToken.ThrowIfCancellationRequested();\n\n        var visible = GetVisibleValues(cancellationToken);\n        var page = visible\n            .Skip(offset)\n            .Take(pageSize)\n            .Select(item =>\n                new SpreadsheetTableFilterValueItem(\n                    item.Value,\n                    item.DisplayText,\n                    item.Count,\n                    _selected.Contains(item.Value)))\n            .ToArray();\n        cancellationToken.ThrowIfCancellationRequested();\n        return new SpreadsheetTableFilterValuePage(\n            TableId,\n            ColumnId,\n            _searchText,\n            offset,\n            pageSize,\n            visible.Count,\n            offset > 0,\n            checked(offset + page.Length) < visible.Count,\n            IsTruncated,\n            page);\n    }\n\n    public void SetSearchText(string? searchText)\n")
+          text = Path(presenter).read_text(encoding="utf-8")
+          if text.count("foreach (var item in GetVisibleValues())") != 2:
+              raise RuntimeError("Presenter: expected exactly two visible-value mutation loops")
+          text = text.replace(
+              "foreach (var item in GetVisibleValues())",
+              "foreach (var item in GetVisibleValues(CancellationToken.None))")
+          Path(presenter).write_text(text, encoding="utf-8")
+          regex_once(
+              presenter,
+              r"    private List<ValueCount> GetVisibleValues\(\)\n    \{.*?\n    \}\n\n    private static string FormatValue",
+              "    private List<ValueCount> GetVisibleValues(\n        CancellationToken cancellationToken)\n    {\n        var result = new List<ValueCount>(_counts.Count);\n        var index = 0;\n        foreach (var pair in _counts)\n        {\n            if ((index++ & 255) == 0)\n            {\n                cancellationToken.ThrowIfCancellationRequested();\n            }\n\n            var item = new ValueCount(\n                pair.Key,\n                FormatValue(pair.Key),\n                pair.Value);\n            if (_searchText.Length == 0 ||\n                item.DisplayText.Contains(\n                    _searchText,\n                    StringComparison.OrdinalIgnoreCase))\n            {\n                result.Add(item);\n            }\n        }\n\n        cancellationToken.ThrowIfCancellationRequested();\n        result.Sort(static (left, right) =>\n        {\n            var blank = (left.Value.IsBlank ? 0 : 1)\n                .CompareTo(right.Value.IsBlank ? 0 : 1);\n            if (blank != 0)\n            {\n                return blank;\n            }\n            var text = StringComparer.OrdinalIgnoreCase.Compare(\n                left.DisplayText,\n                right.DisplayText);\n            return text != 0\n                ? text\n                : left.Value.Kind.CompareTo(right.Value.Kind);\n        });\n        return result;\n    }\n\n    private static string FormatValue")
+          PY
+
+      - name: Validate result and remove one-shot automation
+        shell: bash
+        run: |
+          set -euo pipefail
           rm -f .automation/rich-autofilter.patch.gz.b64
           rmdir .automation 2>/dev/null || true
           rm -f .github/workflows/apply-rich-autofilter-batch.yml
           git diff --check
+          test ! -e .automation/rich-autofilter.patch.gz.b64
+          test ! -e .github/workflows/apply-rich-autofilter-batch.yml
 
       - name: Commit and push implementation
         shell: bash
