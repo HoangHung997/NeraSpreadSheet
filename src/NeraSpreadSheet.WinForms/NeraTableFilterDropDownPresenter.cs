@@ -566,7 +566,7 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             case Keys.Enter when valuesFocused:
                 navigator.Handle(
                     SpreadsheetTableFilterNavigationCommand.ToggleCurrent);
-                rebuildItems(restoreValueFocus: true);
+                rebuildItems(true);
                 Suppress(e);
                 return;
             case Keys.Enter when searchFocused:
