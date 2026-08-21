@@ -4,7 +4,7 @@ using Microsoft.Maui.Controls;
 
 namespace NeraSpreadSheet.Maui;
 
-internal readonly struct NeraSemanticPropertiesAccessor
+internal sealed class NeraSemanticPropertiesAccessor
 {
     private readonly BindableObject _target;
 
