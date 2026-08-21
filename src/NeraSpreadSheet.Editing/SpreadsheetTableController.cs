@@ -65,6 +65,95 @@ public sealed class SpreadsheetTableController
             name));
     }
 
+    public void SetCalculatedColumnFormula(
+        Guid tableId,
+        Guid columnId,
+        string? formula)
+    {
+        var table = GetTable(tableId);
+        var replacement =
+            SpreadsheetTableFormulaProjection
+                .WithCalculatedColumnFormula(
+                    table,
+                    columnId,
+                    formula);
+        Execute(new UpdateTableMetadataOperation(
+            _session.ActiveWorksheet,
+            table,
+            replacement,
+            formula is null
+                ? "Clear calculated column formula"
+                : "Set calculated column formula"));
+    }
+
+    public void SetTotalsRowFormula(
+        Guid tableId,
+        Guid columnId,
+        string? formula)
+    {
+        var table = GetTable(tableId);
+        EnsureTotalsRow(table);
+        var replacement =
+            SpreadsheetTableFormulaProjection
+                .WithTotalsRowFormula(
+                    table,
+                    columnId,
+                    formula);
+        Execute(new UpdateTableMetadataOperation(
+            _session.ActiveWorksheet,
+            table,
+            replacement,
+            formula is null
+                ? "Clear totals row formula"
+                : "Set totals row formula"));
+    }
+
+    public void SetTotalsRowLabel(
+        Guid tableId,
+        Guid columnId,
+        string? label)
+    {
+        var table = GetTable(tableId);
+        EnsureTotalsRow(table);
+        var replacement =
+            SpreadsheetTableFormulaProjection
+                .WithTotalsRowLabel(
+                    table,
+                    columnId,
+                    label);
+        Execute(new UpdateTableMetadataOperation(
+            _session.ActiveWorksheet,
+            table,
+            replacement,
+            label is null
+                ? "Clear totals row label"
+                : "Set totals row label"));
+    }
+
+    public void SetTotalsRowFunction(
+        Guid tableId,
+        Guid columnId,
+        SpreadsheetTableTotalsFunction function,
+        string? customFormula = null)
+    {
+        var table = GetTable(tableId);
+        EnsureTotalsRow(table);
+        var replacement =
+            SpreadsheetTableFormulaProjection
+                .WithTotalsRowFunction(
+                    table,
+                    columnId,
+                    function,
+                    customFormula);
+        Execute(new UpdateTableMetadataOperation(
+            _session.ActiveWorksheet,
+            table,
+            replacement,
+            function == SpreadsheetTableTotalsFunction.None
+                ? "Clear totals row function"
+                : "Set totals row function"));
+    }
+
     public void SetAutoFilter(
         Guid tableId,
         TableAutoFilter? autoFilter)
@@ -93,6 +182,15 @@ public sealed class SpreadsheetTableController
             $"Table '{tableId}' was not found.");
     }
 
+    private static void EnsureTotalsRow(SpreadsheetTable table)
+    {
+        if (!table.HasTotalsRow)
+        {
+            throw new InvalidOperationException(
+                $"Table '{table.Name}' does not have a totals row.");
+        }
+    }
+
     private void Execute(ISpreadsheetEditOperation operation)
     {
         _session.History.Execute(operation);
@@ -103,6 +201,7 @@ public sealed class SpreadsheetTableController
         : ISpreadsheetEditOperation
     {
         private SpreadsheetTable[]? _tablesBefore;
+        private KeyValuePair<CellAddress, CellData>[]? _cellsBefore;
 
         protected TableOperationBase(
             Worksheet worksheet,
@@ -142,11 +241,15 @@ public sealed class SpreadsheetTableController
             _tablesBefore ??= Worksheet.Tables
                 .Select(static table => table.Copy())
                 .ToArray();
+            _cellsBefore ??= Worksheet.EnumerateUsedCells()
+                .Where(pair => AffectedRange.Contains(pair.Key))
+                .ToArray();
         }
 
         protected virtual void RestoreBeforeState()
         {
-            if (_tablesBefore is null)
+            if (_tablesBefore is null ||
+                _cellsBefore is null)
             {
                 throw new InvalidOperationException(
                     "The table operation has not been executed yet.");
@@ -155,6 +258,19 @@ public sealed class SpreadsheetTableController
             Worksheet.RestoreTables(
                 _tablesBefore,
                 AffectedRange);
+            var updates = Worksheet.EnumerateUsedCells()
+                .Where(pair => AffectedRange.Contains(pair.Key))
+                .ToDictionary(
+                    static pair => pair.Key,
+                    static _ => CellData.Empty);
+            foreach (var pair in _cellsBefore)
+            {
+                updates[pair.Key] = pair.Value;
+            }
+            if (updates.Count > 0)
+            {
+                Worksheet.SetCells(updates);
+            }
         }
     }
 
@@ -166,6 +282,8 @@ public sealed class SpreadsheetTableController
             Worksheet,
             KeyValuePair<CellAddress, CellData>[]>?
             _formulaCellsBefore;
+        private Dictionary<Worksheet, SpreadsheetTable[]>?
+            _externalTablesBefore;
 
         protected FormulaRewritingTableOperationBase(
             Workbook workbook,
@@ -220,6 +338,35 @@ public sealed class SpreadsheetTableController
             }
         }
 
+        protected void RewriteWorkbookTableMetadata(
+            Func<Worksheet, SpreadsheetTable, SpreadsheetTable> rewrite)
+        {
+            ArgumentNullException.ThrowIfNull(rewrite);
+            foreach (var worksheet in _workbook.Worksheets)
+            {
+                var changedRanges = new List<CellRange>();
+                var tables = worksheet.Tables
+                    .Select(table =>
+                    {
+                        var rewritten = rewrite(worksheet, table);
+                        if (!ReferenceEquals(rewritten, table))
+                        {
+                            changedRanges.Add(Union(
+                                table.Range,
+                                rewritten.Range));
+                        }
+                        return rewritten;
+                    })
+                    .ToArray();
+                if (changedRanges.Count > 0)
+                {
+                    worksheet.RestoreTables(
+                        tables,
+                        Union(changedRanges));
+                }
+            }
+        }
+
         protected override void CaptureBeforeState()
         {
             base.CaptureBeforeState();
@@ -230,17 +377,33 @@ public sealed class SpreadsheetTableController
                         .Where(static pair =>
                             pair.Value.Formula is not null)
                         .ToArray());
+            _externalTablesBefore ??= _workbook.Worksheets
+                .Where(worksheet =>
+                    !ReferenceEquals(worksheet, Worksheet))
+                .ToDictionary(
+                    static worksheet => worksheet,
+                    static worksheet => worksheet.Tables
+                        .Select(static table => table.Copy())
+                        .ToArray());
         }
 
         protected override void RestoreBeforeState()
         {
             base.RestoreBeforeState();
-            if (_formulaCellsBefore is null)
+            if (_formulaCellsBefore is null ||
+                _externalTablesBefore is null)
             {
                 throw new InvalidOperationException(
-                    "Formula state was not captured.");
+                    "Formula and external Table state was not captured.");
             }
 
+            foreach (var (worksheet, tables) in
+                     _externalTablesBefore)
+            {
+                worksheet.RestoreTables(
+                    tables,
+                    CalculateTableSignalRange(tables));
+            }
             foreach (var (worksheet, formulas) in
                      _formulaCellsBefore)
             {
@@ -249,6 +412,16 @@ public sealed class SpreadsheetTableController
                     worksheet.SetCells(formulas);
                 }
             }
+        }
+
+        private static CellRange CalculateTableSignalRange(
+            SpreadsheetTable[] tables)
+        {
+            if (tables.Length == 0)
+            {
+                return new CellRange(default, default);
+            }
+            return Union(tables.Select(static table => table.Range));
         }
     }
 
@@ -267,8 +440,13 @@ public sealed class SpreadsheetTableController
 
         public override string Description => "Add table";
 
-        protected override void Apply() =>
+        protected override void Apply()
+        {
             Worksheet.AddTable(_table);
+            SpreadsheetTableFormulaProjection.Project(
+                Worksheet,
+                _table);
+        }
     }
 
     private sealed class RemoveTableOperation
@@ -294,6 +472,37 @@ public sealed class SpreadsheetTableController
                     "The table does not exist.");
             }
         }
+    }
+
+    private sealed class UpdateTableMetadataOperation
+        : TableOperationBase
+    {
+        private readonly SpreadsheetTable _previous;
+        private readonly SpreadsheetTable _next;
+        private readonly string _description;
+
+        public UpdateTableMetadataOperation(
+            Worksheet worksheet,
+            SpreadsheetTable previous,
+            SpreadsheetTable next,
+            string description)
+            : base(
+                worksheet,
+                Union(previous.Range, next.Range))
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(description);
+            _previous = previous.Copy();
+            _next = next.Copy();
+            _description = description.Trim();
+        }
+
+        public override string Description => _description;
+
+        protected override void Apply() =>
+            SpreadsheetTableFormulaProjection.ApplyReplacement(
+                Worksheet,
+                _previous,
+                _next);
     }
 
     private sealed class SetTableAutoFilterOperation
@@ -353,6 +562,17 @@ public sealed class SpreadsheetTableController
                         formula,
                         _oldName,
                         _newName));
+            RewriteWorkbookTableMetadata(
+                (_, table) =>
+                    SpreadsheetTableFormulaProjection
+                        .RewriteStructuredReferences(
+                            table,
+                            formula =>
+                                StructuredReferenceFormulaRewriter
+                                    .RenameTable(
+                                        formula,
+                                        _oldName,
+                                        _newName)));
         }
     }
 
@@ -400,6 +620,51 @@ public sealed class SpreadsheetTableController
                         rewriteImplicitReferences:
                             ReferenceEquals(worksheet, Worksheet) &&
                             _tableRange.Contains(address)));
+            RewriteWorkbookTableMetadata(
+                (worksheet, table) =>
+                    SpreadsheetTableFormulaProjection
+                        .RewriteStructuredReferences(
+                            table,
+                            formula =>
+                                StructuredReferenceFormulaRewriter
+                                    .RenameColumn(
+                                        formula,
+                                        _tableName,
+                                        _oldName,
+                                        _newName,
+                                        rewriteImplicitReferences:
+                                            ReferenceEquals(
+                                                worksheet,
+                                                Worksheet) &&
+                                            table.Id == _tableId)));
         }
     }
+
+    private static CellRange Union(
+        IEnumerable<CellRange> ranges)
+    {
+        var materialized = ranges.ToArray();
+        if (materialized.Length == 0)
+        {
+            return new CellRange(default, default);
+        }
+        return new CellRange(
+            new CellAddress(
+                materialized.Min(static range => range.Top),
+                materialized.Min(static range => range.Left)),
+            new CellAddress(
+                materialized.Max(static range => range.Bottom),
+                materialized.Max(static range => range.Right)));
+    }
+
+    private static CellRange Union(
+        CellRange left,
+        CellRange right) =>
+        new(
+            new CellAddress(
+                Math.Min(left.Top, right.Top),
+                Math.Min(left.Left, right.Left)),
+            new CellAddress(
+                Math.Max(left.Bottom, right.Bottom),
+                Math.Max(left.Right, right.Right)));
 }

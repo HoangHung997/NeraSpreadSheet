@@ -22,6 +22,13 @@ public sealed class WorkbookCalculationEngine
     public WorkbookCalculationResult Recalculate(Workbook workbook)
     {
         ArgumentNullException.ThrowIfNull(workbook);
+        foreach (var worksheet in workbook.Worksheets)
+        {
+            SpreadsheetTableFormulaProjection
+                .RefreshMetadataFromCells(worksheet);
+            SpreadsheetTableFormulaProjection.ProjectAll(worksheet);
+        }
+
         DependencyGraph.Clear();
         var formulaCells = new List<FormulaCellKey>();
         foreach (var worksheet in workbook.Worksheets)
@@ -214,7 +221,8 @@ public sealed class WorkbookCalculationEngine
     }
 
     private sealed class CalculationContext
-        : IStructuredReferenceEvaluationContext
+        : IStructuredReferenceEvaluationContext,
+          IFilterAwareFormulaEvaluationContext
     {
         private readonly WorkbookCalculationEngine _owner;
         private readonly Workbook _workbook;
@@ -250,14 +258,9 @@ public sealed class WorkbookCalculationEngine
             string? worksheetName,
             CellAddress address)
         {
-            Worksheet worksheet;
-            try
-            {
-                worksheet = worksheetName is null
-                    ? _currentWorksheet
-                    : _workbook.GetWorksheet(worksheetName);
-            }
-            catch (KeyNotFoundException)
+            if (!TryResolveWorksheet(
+                    worksheetName,
+                    out var worksheet))
             {
                 return CellValue.FromError("#REF!");
             }
@@ -268,6 +271,124 @@ public sealed class WorkbookCalculationEngine
                 address,
                 _states,
                 _cache);
+        }
+
+        public bool IsRowVisible(
+            string? worksheetName,
+            int rowIndex)
+        {
+            if (rowIndex < 0 ||
+                rowIndex >= SpreadsheetLimits.MaxRows ||
+                !TryResolveWorksheet(
+                    worksheetName,
+                    out var worksheet))
+            {
+                return false;
+            }
+
+            foreach (var table in worksheet.Tables)
+            {
+                if (table.DataRange is not { } dataRange ||
+                    rowIndex < dataRange.Top ||
+                    rowIndex > dataRange.Bottom ||
+                    table.AutoFilter is not { Columns.Count: > 0 })
+                {
+                    continue;
+                }
+
+                foreach (var filter in table.AutoFilter.Columns)
+                {
+                    var columnIndex = table.GetColumnIndex(
+                        filter.ColumnId);
+                    var value = _owner.EvaluateCell(
+                        _workbook,
+                        worksheet,
+                        new CellAddress(
+                            rowIndex,
+                            table.Range.Left + columnIndex),
+                        _states,
+                        _cache);
+                    if (!filter.Matches(value))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        public IReadOnlyList<FormulaDependency>
+            GetRowVisibilityDependencies(
+                string? worksheetName,
+                CellRange referencedRange)
+        {
+            if (!TryResolveWorksheet(
+                    worksheetName,
+                    out var worksheet))
+            {
+                return Array.Empty<FormulaDependency>();
+            }
+
+            var dependencies = new List<FormulaDependency>();
+            foreach (var table in worksheet.Tables)
+            {
+                if (table.DataRange is not { } dataRange ||
+                    table.AutoFilter is not { Columns.Count: > 0 })
+                {
+                    continue;
+                }
+
+                var top = Math.Max(
+                    referencedRange.Top,
+                    dataRange.Top);
+                var bottom = Math.Min(
+                    referencedRange.Bottom,
+                    dataRange.Bottom);
+                if (top > bottom)
+                {
+                    continue;
+                }
+
+                foreach (var filter in table.AutoFilter.Columns)
+                {
+                    var columnIndex = table.GetColumnIndex(
+                        filter.ColumnId);
+                    dependencies.Add(new FormulaDependency(
+                        worksheetName,
+                        new CellRange(
+                            new CellAddress(
+                                top,
+                                table.Range.Left + columnIndex),
+                            new CellAddress(
+                                bottom,
+                                table.Range.Left + columnIndex))));
+                }
+            }
+
+            return dependencies.Distinct().ToArray();
+        }
+
+        private bool TryResolveWorksheet(
+            string? worksheetName,
+            out Worksheet worksheet)
+        {
+            if (worksheetName is null)
+            {
+                worksheet = _currentWorksheet;
+                return true;
+            }
+
+            try
+            {
+                worksheet = _workbook.GetWorksheet(worksheetName);
+                return true;
+            }
+            catch (KeyNotFoundException)
+            {
+                worksheet = null!;
+                return false;
+            }
         }
     }
 

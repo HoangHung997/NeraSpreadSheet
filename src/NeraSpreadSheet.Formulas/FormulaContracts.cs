@@ -53,6 +53,18 @@ public interface IStructuredReferenceEvaluationContext
     string ExpandStructuredReferences(string formula);
 }
 
+public interface IFilterAwareFormulaEvaluationContext
+    : IFormulaEvaluationContext
+{
+    bool IsRowVisible(
+        string? worksheetName,
+        int rowIndex);
+
+    IReadOnlyList<FormulaDependency> GetRowVisibilityDependencies(
+        string? worksheetName,
+        CellRange referencedRange);
+}
+
 public interface IFormulaEngine
 {
     FormulaEvaluationResult Evaluate(

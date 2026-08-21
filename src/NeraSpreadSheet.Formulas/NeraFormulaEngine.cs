@@ -196,6 +196,16 @@ public sealed class NeraFormulaEngine : IFormulaEngine
                 context,
                 dependencies);
         }
+        if (string.Equals(
+                function.Name,
+                "SUBTOTAL",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateSubtotal(
+                function,
+                context,
+                dependencies);
+        }
         if (!_functions.TryResolve(
                 function.Name,
                 out var formulaFunction))
@@ -259,6 +269,124 @@ public sealed class NeraFormulaEngine : IFormulaEngine
             : CellValue.FromBoolean(false);
     }
 
+    private CellValue EvaluateSubtotal(
+        FunctionNode function,
+        IFormulaEvaluationContext context,
+        List<FormulaDependency> dependencies)
+    {
+        if (function.Arguments.Count < 2)
+        {
+            return CellValue.FromError("#VALUE!");
+        }
+
+        var functionValue = EvaluateNode(
+            function.Arguments[0],
+            context,
+            dependencies);
+        if (!TryFunctionNumber(functionValue, out var functionNumber) ||
+            !TryGetSubtotalKind(functionNumber, out var kind))
+        {
+            return CellValue.FromError("#VALUE!");
+        }
+
+        var values = new List<CellValue>();
+        for (var index = 1;
+             index < function.Arguments.Count;
+             index++)
+        {
+            var argument = function.Arguments[index];
+            switch (argument)
+            {
+                case RangeNode range:
+                    dependencies.Add(new FormulaDependency(
+                        range.WorksheetName,
+                        range.Range));
+                    AppendRowVisibilityDependencies(
+                        dependencies,
+                        range.WorksheetName,
+                        range.Range,
+                        context);
+                    AppendVisibleRange(values, range, context);
+                    break;
+                case CellNode cell:
+                    var cellRange = new CellRange(
+                        cell.Address,
+                        cell.Address);
+                    dependencies.Add(new FormulaDependency(
+                        cell.WorksheetName,
+                        cellRange));
+                    AppendRowVisibilityDependencies(
+                        dependencies,
+                        cell.WorksheetName,
+                        cellRange,
+                        context);
+                    if (IsRowVisible(
+                            context,
+                            cell.WorksheetName,
+                            cell.Address.RowIndex))
+                    {
+                        values.Add(context.GetCellValue(
+                            cell.WorksheetName,
+                            cell.Address));
+                    }
+                    break;
+                default:
+                    values.Add(EvaluateNode(
+                        argument,
+                        context,
+                        dependencies));
+                    break;
+            }
+        }
+
+        return AggregateSubtotal(kind, values);
+    }
+
+    private static CellValue AggregateSubtotal(
+        SubtotalKind kind,
+        List<CellValue> values)
+    {
+        if (kind == SubtotalKind.CountNumbers)
+        {
+            return CellValue.FromNumber(values.Count(static value =>
+                value.Kind == CellValueKind.Number));
+        }
+        if (kind == SubtotalKind.CountNonBlank)
+        {
+            return CellValue.FromNumber(values.Count(static value =>
+                !value.IsBlank));
+        }
+
+        foreach (var value in values)
+        {
+            if (value.Kind == CellValueKind.Error)
+            {
+                return value;
+            }
+        }
+
+        var numbers = values
+            .Where(static value =>
+                value.Kind == CellValueKind.Number)
+            .Select(static value =>
+                (double)value.RawValue!)
+            .ToArray();
+        return kind switch
+        {
+            SubtotalKind.Sum => SafeNumber(numbers.Sum()),
+            SubtotalKind.Average => numbers.Length == 0
+                ? CellValue.FromError("#DIV/0!")
+                : SafeNumber(numbers.Average()),
+            SubtotalKind.Minimum => numbers.Length == 0
+                ? CellValue.FromNumber(0d)
+                : SafeNumber(numbers.Min()),
+            SubtotalKind.Maximum => numbers.Length == 0
+                ? CellValue.FromNumber(0d)
+                : SafeNumber(numbers.Max()),
+            _ => CellValue.FromError("#VALUE!"),
+        };
+    }
+
     private static void AppendRange(
         List<CellValue> values,
         RangeNode range,
@@ -277,6 +405,106 @@ public sealed class NeraFormulaEngine : IFormulaEngine
                     new CellAddress(row, column)));
             }
         }
+    }
+
+    private static void AppendVisibleRange(
+        List<CellValue> values,
+        RangeNode range,
+        IFormulaEvaluationContext context)
+    {
+        for (var row = range.Range.Top;
+             row <= range.Range.Bottom;
+             row++)
+        {
+            if (!IsRowVisible(
+                    context,
+                    range.WorksheetName,
+                    row))
+            {
+                continue;
+            }
+
+            for (var column = range.Range.Left;
+                 column <= range.Range.Right;
+                 column++)
+            {
+                values.Add(context.GetCellValue(
+                    range.WorksheetName,
+                    new CellAddress(row, column)));
+            }
+        }
+    }
+
+    private static void AppendRowVisibilityDependencies(
+        List<FormulaDependency> dependencies,
+        string? worksheetName,
+        CellRange range,
+        IFormulaEvaluationContext context)
+    {
+        if (context is not IFilterAwareFormulaEvaluationContext
+            filterAwareContext)
+        {
+            return;
+        }
+
+        dependencies.AddRange(
+            filterAwareContext.GetRowVisibilityDependencies(
+                worksheetName,
+                range));
+    }
+
+    private static bool IsRowVisible(
+        IFormulaEvaluationContext context,
+        string? worksheetName,
+        int rowIndex) =>
+        context is not IFilterAwareFormulaEvaluationContext filterAware ||
+        filterAware.IsRowVisible(worksheetName, rowIndex);
+
+    private static bool TryFunctionNumber(
+        CellValue value,
+        out int functionNumber)
+    {
+        if (!TryNumber(value, out var number) ||
+            !double.IsFinite(number) ||
+            number < int.MinValue ||
+            number > int.MaxValue)
+        {
+            functionNumber = default;
+            return false;
+        }
+
+        var rounded = Math.Round(number);
+        if (Math.Abs(number - rounded) > double.Epsilon)
+        {
+            functionNumber = default;
+            return false;
+        }
+
+        functionNumber = (int)rounded;
+        return true;
+    }
+
+    private static bool TryGetSubtotalKind(
+        int functionNumber,
+        out SubtotalKind kind)
+    {
+        kind = functionNumber switch
+        {
+            1 or 101 => SubtotalKind.Average,
+            2 or 102 => SubtotalKind.CountNumbers,
+            3 or 103 => SubtotalKind.CountNonBlank,
+            4 or 104 => SubtotalKind.Maximum,
+            5 or 105 => SubtotalKind.Minimum,
+            9 or 109 => SubtotalKind.Sum,
+            _ => default,
+        };
+        return functionNumber is
+            1 or 101 or
+            2 or 102 or
+            3 or 103 or
+            4 or 104 or
+            5 or 105 or
+            9 or 109;
     }
 
     private static bool TryNumber(
@@ -362,5 +590,15 @@ public sealed class NeraFormulaEngine : IFormulaEngine
             "#N/A" => FormulaErrorCode.NotAvailable,
             _ => FormulaErrorCode.InvalidValue,
         };
+    }
+
+    private enum SubtotalKind
+    {
+        Average = 0,
+        CountNumbers,
+        CountNonBlank,
+        Maximum,
+        Minimum,
+        Sum,
     }
 }
