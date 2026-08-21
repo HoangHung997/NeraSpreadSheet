@@ -182,7 +182,7 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
         popup.IsOpen = true;
     }
 
-    private FrameworkElement BuildPopupContent(
+    private Border BuildPopupContent(
         SpreadsheetTableFilterMenu menu)
     {
         var root = new Border
