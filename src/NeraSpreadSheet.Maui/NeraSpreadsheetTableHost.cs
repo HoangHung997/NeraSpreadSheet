@@ -369,8 +369,20 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
                 Spreadsheet.RenderTheme.TableFilterButtonGlyph);
             button.BorderColor = ToColor(
                 Spreadsheet.RenderTheme.TableFilterButtonBorder);
-            button.AutomationId =
+            var automationId =
                 $"NeraTableFilter_{hit.TableId:N}_{hit.ColumnId:N}";
+            if (string.IsNullOrEmpty(button.AutomationId))
+            {
+                button.AutomationId = automationId;
+            }
+            else if (!string.Equals(
+                         button.AutomationId,
+                         automationId,
+                         StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    "A Table filter button changed its stable automation identity.");
+            }
             SetFilterButtonSemantics(button, hit);
             AbsoluteLayout.SetLayoutBounds(button, scaled);
             AbsoluteLayout.SetLayoutFlags(
