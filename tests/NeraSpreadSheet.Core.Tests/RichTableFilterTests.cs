@@ -43,11 +43,16 @@ public sealed class RichTableFilterTests
             firstCondition: new TableFilterCondition(
                 TableFilterComparisonOperator.GreaterThan,
                 CellValue.FromNumber(-1d))).Matches(CellValue.Blank));
-        Assert.IsTrue(new TableFilterColumn(
+        Assert.IsFalse(new TableFilterColumn(
             Guid.NewGuid(),
             firstCondition: new TableFilterCondition(
                 TableFilterComparisonOperator.IsNotBlank,
                 CellValue.Blank)).Matches(CellValue.FromText(string.Empty)));
+        Assert.IsTrue(new TableFilterColumn(
+            Guid.NewGuid(),
+            firstCondition: new TableFilterCondition(
+                TableFilterComparisonOperator.IsNotBlank,
+                CellValue.Blank)).Matches(CellValue.FromText(" ")));
     }
 
     [TestMethod]
