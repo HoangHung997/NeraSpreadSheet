@@ -11,7 +11,8 @@ public sealed class SpreadsheetTableFilterButtonGeometryTests
     [TestMethod]
     public void ReturnsOneButtonPerVisibleTableHeaderColumn()
     {
-        var worksheet = new Worksheet("Sheet1");
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
         var firstId = Guid.NewGuid();
         var secondId = Guid.NewGuid();
         var table = new SpreadsheetTable(
@@ -46,7 +47,8 @@ public sealed class SpreadsheetTableFilterButtonGeometryTests
     [TestMethod]
     public void HitTestUsesButtonBoundsNotWholeHeaderCell()
     {
-        var worksheet = new Worksheet("Sheet1");
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
         var columnId = Guid.NewGuid();
         worksheet.AddTable(new SpreadsheetTable(
             Guid.NewGuid(),
@@ -79,7 +81,8 @@ public sealed class SpreadsheetTableFilterButtonGeometryTests
     [TestMethod]
     public void HiddenThemeAndHeaderOutsideViewportProduceNoButtons()
     {
-        var worksheet = new Worksheet("Sheet1");
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
         worksheet.AddTable(new SpreadsheetTable(
             Guid.NewGuid(),
             "Sales",
