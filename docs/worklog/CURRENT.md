@@ -95,7 +95,8 @@ Toàn bộ matrix xanh tại `819fc3c3...`:
 - Chưa có rich filters hoặc direct worksheet AutoFilter.
 
 ## Tiến độ tổng thể
-J- Nền móng engine/viewport/renderer: khoảng `89%`.
+
+- Nền móng engine/viewport/renderer: khoảng `89%`.
 - MVP bảng tính cơ bản: khoảng `79–82%`.
 - Toàn bộ roadmap chuyên nghiệp: khoảng `52%`.
 - Production release readiness: khoảng `27–31%`.
