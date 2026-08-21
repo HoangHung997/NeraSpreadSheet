@@ -133,7 +133,7 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
         return button;
     }
 
-    private IReadOnlyList<SpreadsheetTableFilterButtonHit> GetVisibleButtons()
+    private SpreadsheetTableFilterButtonHit[] GetVisibleButtons()
     {
         var session = _control.Session;
         if (session is null ||
