@@ -81,6 +81,164 @@ public sealed class TableRoundTripTests
     }
 
     [TestMethod]
+    public async Task BlankOnlyAndCustomFiltersRoundTrip()
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        var statusColumnId = Guid.NewGuid();
+        var amountColumnId = Guid.NewGuid();
+        var table = new SpreadsheetTable(
+            Guid.NewGuid(),
+            "FilteredSales",
+            new CellRange(
+                new CellAddress(0, 0),
+                new CellAddress(3, 1)),
+            [
+                new SpreadsheetTableColumn(statusColumnId, "Status"),
+                new SpreadsheetTableColumn(amountColumnId, "Amount"),
+            ],
+            autoFilter: new TableAutoFilter([
+                new TableFilterColumn(
+                    statusColumnId,
+                    [CellValue.Blank],
+                    includeBlank: true),
+                new TableFilterColumn(
+                    amountColumnId,
+                    firstCondition: new TableFilterCondition(
+                        TableFilterComparisonOperator.GreaterThan,
+                        CellValue.FromNumber(1d)),
+                    secondCondition: new TableFilterCondition(
+                        TableFilterComparisonOperator.LessThanOrEqual,
+                        CellValue.FromNumber(3d)),
+                    combineWithAnd: true),
+            ]));
+        worksheet.AddTable(table);
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        await using var stream = new MemoryStream();
+
+        await serializer.SaveAsync(
+            workbook,
+            stream,
+            new OpenXmlExportOptions());
+        AssertSchemaValid(stream);
+
+        stream.Position = 0L;
+        using (var document = SpreadsheetDocument.Open(stream, false))
+        {
+            var tablePart = document.WorkbookPart?
+                .WorksheetParts.Single()
+                .TableDefinitionParts.Single()
+                ?? throw new AssertFailedException(
+                    "Table-definition part is missing.");
+            var root = LoadPartXml(tablePart).Root
+                ?? throw new AssertFailedException(
+                    "Table root is missing.");
+            var filterColumns = root
+                .Descendants(SpreadsheetNamespace + "filterColumn")
+                .ToArray();
+            var blankFilters = filterColumns
+                .Single(element =>
+                    (string?)element.Attribute("colId") == "0")
+                .Element(SpreadsheetNamespace + "filters")
+                ?? throw new AssertFailedException(
+                    "Blank filter markup is missing.");
+            Assert.AreEqual(
+                "1",
+                (string?)blankFilters.Attribute("blank"));
+            Assert.AreEqual(
+                0,
+                blankFilters.Elements(
+                    SpreadsheetNamespace + "filter").Count());
+            var customFilters = filterColumns
+                .Single(element =>
+                    (string?)element.Attribute("colId") == "1")
+                .Element(SpreadsheetNamespace + "customFilters")
+                ?? throw new AssertFailedException(
+                    "Custom filter markup is missing.");
+            Assert.AreEqual("1", (string?)customFilters.Attribute("and"));
+            Assert.AreEqual(
+                2,
+                customFilters.Elements(
+                    SpreadsheetNamespace + "customFilter").Count());
+        }
+
+        stream.Position = 0L;
+        var loaded = await serializer.LoadAsync(
+            stream,
+            new OpenXmlImportOptions());
+        var loadedFilters = loaded.Worksheets[0]
+            .Tables.Single()
+            .AutoFilter?
+            .Columns
+            ?? throw new AssertFailedException(
+                "AutoFilter was not restored.");
+        var blank = loadedFilters.Single(filter =>
+            filter.ColumnId == statusColumnId);
+        Assert.IsTrue(blank.IncludeBlank);
+        Assert.AreEqual(1, blank.Values.Count);
+        Assert.IsTrue(blank.Values[0].IsBlank);
+        var custom = loadedFilters.Single(filter =>
+            filter.ColumnId == amountColumnId);
+        Assert.AreEqual(
+            TableFilterComparisonOperator.GreaterThan,
+            custom.FirstCondition?.Operator);
+        Assert.AreEqual(
+            TableFilterComparisonOperator.LessThanOrEqual,
+            custom.SecondCondition?.Operator);
+        Assert.IsTrue(custom.CombineWithAnd);
+    }
+
+    [TestMethod]
+    public async Task TotalsRowLabelsAndFormulasRoundTrip()
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        var table = new SpreadsheetTable(
+            Guid.NewGuid(),
+            "SalesTotals",
+            new CellRange(
+                new CellAddress(0, 0),
+                new CellAddress(4, 1)),
+            [
+                new SpreadsheetTableColumn(
+                    Guid.NewGuid(),
+                    "Item",
+                    totalsRowLabel: "Total"),
+                new SpreadsheetTableColumn(
+                    Guid.NewGuid(),
+                    "Amount",
+                    totalsRowFormula: "=SUM(SalesTotals[Amount])"),
+            ],
+            hasTotalsRow: true,
+            styleName: "TableStyleMedium3");
+        worksheet.AddTable(table);
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        await using var stream = new MemoryStream();
+
+        await serializer.SaveAsync(
+            workbook,
+            stream,
+            new OpenXmlExportOptions());
+        AssertSchemaValid(stream);
+
+        stream.Position = 0L;
+        var loaded = await serializer.LoadAsync(
+            stream,
+            new OpenXmlImportOptions());
+        var loadedTable = loaded.Worksheets[0].Tables.Single();
+        Assert.IsTrue(loadedTable.HasTotalsRow);
+        Assert.AreEqual(
+            new CellRange(
+                new CellAddress(4, 0),
+                new CellAddress(4, 1)),
+            loadedTable.TotalsRange);
+        Assert.AreEqual("Total", loadedTable.Columns[0].TotalsRowLabel);
+        Assert.AreEqual(
+            "=SUM(SalesTotals[Amount])",
+            loadedTable.Columns[1].TotalsRowFormula);
+    }
+
+    [TestMethod]
     public async Task MalformedColumnCountAndFilterIndexAreRejected()
     {
         var serializer = new NeraOpenXmlWorkbookSerializer();
