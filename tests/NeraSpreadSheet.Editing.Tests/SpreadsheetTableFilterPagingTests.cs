@@ -6,6 +6,9 @@ namespace NeraSpreadSheet.Editing.Tests;
 [TestClass]
 public sealed class SpreadsheetTableFilterPagingTests
 {
+    private static readonly string[] ExpectedPageValues =
+        ["V11", "V12", "V13", "V14", "V15"];
+
     [TestMethod]
     public void CapturePageReturnsStableOrderedWindow()
     {
@@ -20,7 +23,7 @@ public sealed class SpreadsheetTableFilterPagingTests
         Assert.IsTrue(page.HasPreviousPage);
         Assert.IsTrue(page.HasNextPage);
         CollectionAssert.AreEqual(
-            new[] { "V11", "V12", "V13", "V14", "V15" },
+            ExpectedPageValues,
             page.Values.Select(static item =>
                 item.DisplayText).ToArray());
     }
