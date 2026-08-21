@@ -1,5 +1,6 @@
 #if WINDOWS
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
@@ -14,9 +15,15 @@ namespace NeraSpreadSheet.Maui;
 
 public sealed partial class NeraSpreadsheetTableHost
 {
+    private const int PlatformSearchFocusMaximumAttempts = 40;
+    private static readonly TimeSpan PlatformSearchFocusRetryDelay =
+        TimeSpan.FromMilliseconds(50d);
+
     private FrameworkElement? _platformKeyboardRoot;
     private WinUiTextBox? _platformSearchTextBox;
     private bool _platformSearchFocusPending;
+    private bool _platformSearchFocusOperationActive;
+    private int _platformSearchFocusAttempt;
 
     partial void AttachPlatformKeyboard()
     {
@@ -34,8 +41,10 @@ public sealed partial class NeraSpreadsheetTableHost
         _search.Focused += OnSearchEntryFocused;
         _search.HandlerChanged += OnSearchHandlerChanged;
         AttachPlatformSearchTextBox();
-        _platformSearchFocusPending = IsFilterSheetOpen;
-        TryCompletePlatformSearchFocus();
+        if (IsFilterSheetOpen)
+        {
+            BeginPlatformSearchFocus();
+        }
     }
 
     partial void DetachPlatformKeyboard()
@@ -52,7 +61,7 @@ public sealed partial class NeraSpreadsheetTableHost
         _sheetOverlay.PropertyChanged -= OnFilterOverlayPropertyChanged;
         _search.Focused -= OnSearchEntryFocused;
         _search.HandlerChanged -= OnSearchHandlerChanged;
-        _platformSearchFocusPending = false;
+        CancelPlatformSearchFocus();
         _platformKeyboardRoot = null;
     }
 
@@ -70,12 +79,11 @@ public sealed partial class NeraSpreadsheetTableHost
 
         if (IsFilterSheetOpen)
         {
-            _platformSearchFocusPending = true;
-            TryCompletePlatformSearchFocus();
+            BeginPlatformSearchFocus();
             return;
         }
 
-        _platformSearchFocusPending = false;
+        CancelPlatformSearchFocus();
         MovePlatformFocusAwayFromSearch();
     }
 
@@ -83,7 +91,7 @@ public sealed partial class NeraSpreadsheetTableHost
     {
         if (_platformSearchFocusPending)
         {
-            TryCompletePlatformSearchFocus();
+            QueuePlatformSearchFocus();
         }
     }
 
@@ -92,7 +100,7 @@ public sealed partial class NeraSpreadsheetTableHost
         AttachPlatformSearchTextBox();
         if (_platformSearchFocusPending)
         {
-            TryCompletePlatformSearchFocus();
+            QueuePlatformSearchFocus();
         }
     }
 
@@ -139,15 +147,31 @@ public sealed partial class NeraSpreadsheetTableHost
         _platformSearchTextBox = null;
     }
 
-    private void ConfirmPlatformSearchFocus()
+    private void BeginPlatformSearchFocus()
+    {
+        _platformSearchFocusPending = true;
+        _platformSearchFocusAttempt = 0;
+        QueuePlatformSearchFocus();
+    }
+
+    private void CancelPlatformSearchFocus()
     {
         _platformSearchFocusPending = false;
+        _platformSearchFocusAttempt = 0;
+    }
+
+    private void ConfirmPlatformSearchFocus()
+    {
+        CancelPlatformSearchFocus();
         SelectSearchText();
     }
 
-    private void TryCompletePlatformSearchFocus()
+    private void QueuePlatformSearchFocus()
     {
         if (!_platformSearchFocusPending ||
+            _platformSearchFocusOperationActive ||
+            _platformSearchFocusAttempt >=
+                PlatformSearchFocusMaximumAttempts ||
             _disposed ||
             !IsFilterSheetOpen)
         {
@@ -162,7 +186,7 @@ public sealed partial class NeraSpreadsheetTableHost
 
         if (IsValueListFocused())
         {
-            _platformSearchFocusPending = false;
+            CancelPlatformSearchFocus();
             return;
         }
 
@@ -175,13 +199,58 @@ public sealed partial class NeraSpreadsheetTableHost
             return;
         }
 
-        _search.Focus();
-        textBox.Focus(FocusState.Programmatic);
-        if (IsPlatformSearchFocused())
-        {
-            ConfirmPlatformSearchFocus();
-        }
+        _platformSearchFocusOperationActive = true;
+        _platformSearchFocusAttempt++;
+        _ = TryCompletePlatformSearchFocusAsync(textBox);
     }
+
+    private async Task TryCompletePlatformSearchFocusAsync(
+        WinUiTextBox textBox)
+    {
+        var retry = false;
+        try
+        {
+            _search.Focus();
+            var result = await FocusManager.TryFocusAsync(
+                textBox,
+                FocusState.Programmatic);
+            if (result.Succeeded && IsPlatformSearchFocused())
+            {
+                ConfirmPlatformSearchFocus();
+            }
+            else
+            {
+                retry = ShouldRetryPlatformSearchFocus();
+            }
+        }
+        catch (COMException)
+        {
+            retry = ShouldRetryPlatformSearchFocus();
+        }
+        catch (InvalidOperationException)
+        {
+            retry = ShouldRetryPlatformSearchFocus();
+        }
+        finally
+        {
+            _platformSearchFocusOperationActive = false;
+        }
+
+        if (!retry)
+        {
+            return;
+        }
+
+        await Task.Delay(PlatformSearchFocusRetryDelay);
+        QueuePlatformSearchFocus();
+    }
+
+    private bool ShouldRetryPlatformSearchFocus() =>
+        _platformSearchFocusPending &&
+        !_disposed &&
+        IsFilterSheetOpen &&
+        _platformSearchFocusAttempt <
+            PlatformSearchFocusMaximumAttempts;
 
     private void MovePlatformFocusAwayFromSearch()
     {
