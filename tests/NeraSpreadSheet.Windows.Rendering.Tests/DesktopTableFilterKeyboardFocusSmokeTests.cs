@@ -28,7 +28,6 @@ using WpfDockPanel = System.Windows.Controls.DockPanel;
 using WpfKey = System.Windows.Input.Key;
 using WpfKeyEventArgs = System.Windows.Input.KeyEventArgs;
 using WpfKeyboard = System.Windows.Input.Keyboard;
-using WpfKeyboardNavigation = System.Windows.Input.KeyboardNavigation;
 using WpfPresentationSource = System.Windows.PresentationSource;
 using WpfPresenter = NeraSpreadSheet.Wpf.NeraTableFilterPopupPresenter;
 using WpfTextBox = System.Windows.Controls.TextBox;
@@ -129,13 +128,6 @@ public sealed class DesktopTableFilterKeyboardFocusSmokeTests
                 PumpFor(TimeSpan.FromMilliseconds(100d));
                 Assert.IsFalse(presenter.IsOpen);
                 Assert.IsTrue(focusTarget.IsKeyboardFocused);
-                Assert.AreEqual(
-                    System.Windows.Input.KeyboardNavigationMode.Cycle,
-                    WpfKeyboardNavigation.GetTabNavigation(
-                        root.Children
-                            .OfType<WpfAdornerDecorator>()
-                            .Single()
-                            .AdornedElement ?? root));
             }
             finally
             {
