@@ -25,18 +25,22 @@ jobs:
           ref: feature/bootstrap-architecture-v0.1
           fetch-depth: 0
 
-      - name: Decode and validate patch
+      - name: Decode patch
         shell: bash
         run: |
           set -euo pipefail
           base64 --decode .automation/rich-autofilter.patch.gz.b64 | gzip --decompress > /tmp/rich-autofilter.patch
-          git apply --check --whitespace=error-all /tmp/rich-autofilter.patch
 
-      - name: Apply batch and remove automation inputs
+      - name: Apply batch with three-way merge and remove automation inputs
         shell: bash
         run: |
           set -euo pipefail
-          git apply --whitespace=error-all /tmp/rich-autofilter.patch
+          git apply --3way --whitespace=error-all /tmp/rich-autofilter.patch
+          if git ls-files --unmerged | grep -q .; then
+            echo "Patch produced merge conflicts:" >&2
+            git status --short >&2
+            exit 1
+          fi
           rm -f .automation/rich-autofilter.patch.gz.b64
           rmdir .automation 2>/dev/null || true
           rm -f .github/workflows/apply-rich-autofilter-batch.yml
