@@ -1,0 +1,50 @@
+name: apply-rich-autofilter-batch
+
+on:
+  push:
+    branches:
+      - feature/bootstrap-architecture-v0.1
+    paths:
+      - .automation/rich-autofilter.patch.gz.b64
+      - .github/workflows/apply-rich-autofilter-batch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact feature branch
+        uses: actions/checkout@v6
+        with:
+          ref: feature/bootstrap-architecture-v0.1
+          fetch-depth: 0
+
+      - name: Decode and validate patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode .automation/rich-autofilter.patch.gz.b64 | gzip --decompress > /tmp/rich-autofilter.patch
+          git apply --check --whitespace=error-all /tmp/rich-autofilter.patch
+
+      - name: Apply batch and remove automation inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply --whitespace=error-all /tmp/rich-autofilter.patch
+          rm -f .automation/rich-autofilter.patch.gz.b64
+          rmdir .automation 2>/dev/null || true
+          rm -f .github/workflows/apply-rich-autofilter-batch.yml
+          git diff --check
+
+      - name: Commit and push implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: add rich and worksheet AutoFilter foundations"
+          git push origin HEAD:feature/bootstrap-architecture-v0.1
