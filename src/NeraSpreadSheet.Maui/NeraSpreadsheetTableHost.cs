@@ -11,7 +11,7 @@ namespace NeraSpreadSheet.Maui;
 /// Responsive MAUI host that layers native Table filter buttons and a bottom-sheet
 /// presenter over the single GPU-backed <see cref="NeraSpreadsheetView"/>.
 /// </summary>
-public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
+public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
 {
     public static readonly BindableProperty WorkbookProperty =
         BindableProperty.Create(
@@ -28,19 +28,34 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
     private readonly Label _status;
     private readonly VerticalStackLayout _itemsPanel;
     private readonly Button _apply;
+    private readonly List<CheckBox> _valueCheckBoxes = [];
     private readonly Dictionary<(Guid TableId, Guid ColumnId), Button>
         _buttons = [];
     private SpreadsheetSession? _session;
     private Worksheet? _subscribedWorksheet;
     private SpreadsheetViewportEngine? _viewport;
     private SpreadsheetTableFilterMenu? _menu;
+    private SpreadsheetTableFilterNavigator? _navigator;
+    private VisualElement? _focusReturnTarget;
     private bool _disposed;
 
     public NeraSpreadsheetTableHost()
     {
-        Spreadsheet = new NeraSpreadsheetView();
+        AutomationId = "NeraSpreadsheetTableHost";
+        SemanticProperties.SetDescription(
+            this,
+            "Bảng tính Nera có bộ lọc Table tương tác.");
+        SemanticProperties.SetHint(
+            this,
+            "Trên Windows, nhấn Alt và mũi tên xuống để mở bộ lọc của cột Table đang chọn.");
+
+        Spreadsheet = new NeraSpreadsheetView
+        {
+            AutomationId = "NeraSpreadsheetTableSurface",
+        };
         _buttonLayer = new AbsoluteLayout
         {
+            AutomationId = "NeraTableFilterButtonLayer",
             InputTransparent = true,
             CascadeInputTransparent = false,
             HorizontalOptions = LayoutOptions.Fill,
@@ -60,6 +75,9 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
         Spreadsheet.SizeChanged += OnSpreadsheetVisualChanged;
         Spreadsheet.ScrollChanged += OnSpreadsheetVisualChanged;
         Spreadsheet.ZoomChanged += OnSpreadsheetVisualChanged;
+        Loaded += OnHostLoaded;
+        Unloaded += OnHostUnloaded;
+        HandlerChanged += OnHostHandlerChanged;
     }
 
     public Workbook? Workbook
@@ -95,7 +113,66 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
         UpdateButtons();
     }
 
-    public bool TryOpenFilter(Guid tableId, Guid columnId)
+    public bool TryOpenFilter(Guid tableId, Guid columnId) =>
+        TryOpenFilterCore(
+            tableId,
+            columnId,
+            focusReturnTarget: null);
+
+    public bool TryOpenForActiveCell()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        AttachSession();
+        if (_session is null ||
+            !_session.TryResolveActiveTableFilterTarget(out var target))
+        {
+            return false;
+        }
+
+        var key = (target.TableId, target.ColumnId);
+        var focusTarget = _buttons.TryGetValue(key, out var button) &&
+                          button.IsVisible
+            ? button
+            : Spreadsheet;
+        return TryOpenFilterCore(
+            target.TableId,
+            target.ColumnId,
+            focusTarget);
+    }
+
+    public void CloseFilterSheet() =>
+        CloseFilterSheetCore(restoreFocus: true);
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        DetachPlatformKeyboard();
+        CloseFilterSheetCore(restoreFocus: false);
+        DetachSession();
+        Spreadsheet.SizeChanged -= OnSpreadsheetVisualChanged;
+        Spreadsheet.ScrollChanged -= OnSpreadsheetVisualChanged;
+        Spreadsheet.ZoomChanged -= OnSpreadsheetVisualChanged;
+        Loaded -= OnHostLoaded;
+        Unloaded -= OnHostUnloaded;
+        HandlerChanged -= OnHostHandlerChanged;
+        foreach (var button in _buttons.Values)
+        {
+            button.Clicked -= OnFilterButtonClicked;
+        }
+        _buttons.Clear();
+        _buttonLayer.Children.Clear();
+        Spreadsheet.Dispose();
+        _disposed = true;
+    }
+
+    private bool TryOpenFilterCore(
+        Guid tableId,
+        Guid columnId,
+        VisualElement? focusReturnTarget)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         AttachSession();
@@ -107,40 +184,40 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
             return false;
         }
 
+        CloseFilterSheetCore(restoreFocus: false);
+        _focusReturnTarget = focusReturnTarget ?? Spreadsheet;
         _menu = new SpreadsheetTablePresenterController(_session)
             .OpenFilterMenu(tableId, columnId);
+        _navigator = new SpreadsheetTableFilterNavigator(_menu);
         _search.Text = string.Empty;
-        RebuildSheetItems();
+        RebuildSheetItems(focusActiveValue: false);
         _sheetOverlay.IsVisible = true;
+        SemanticProperties.SetDescription(
+            _sheetPanel,
+            $"Lọc {_menu.ColumnName} trong Table {_menu.TableName}");
+        SemanticProperties.SetHint(
+            _sheetPanel,
+            "Tìm kiếm hoặc chọn giá trị. Escape đóng, Enter áp dụng, các phím mũi tên duyệt danh sách trên Windows.");
+        Dispatcher.Dispatch(FocusSearchEntry);
         return true;
     }
 
-    public void CloseFilterSheet()
+    private void CloseFilterSheetCore(bool restoreFocus)
     {
+        var focusTarget = _focusReturnTarget;
+        _focusReturnTarget = null;
+        _search.Unfocus();
         _sheetOverlay.IsVisible = false;
+        _navigator?.Dispose();
+        _navigator = null;
         _menu = null;
+        _valueCheckBoxes.Clear();
         _itemsPanel.Children.Clear();
-    }
-
-    public void Dispose()
-    {
-        if (_disposed)
+        _apply.IsEnabled = false;
+        if (restoreFocus && !_disposed)
         {
-            return;
+            Dispatcher.Dispatch(() => RestoreFocus(focusTarget));
         }
-
-        DetachSession();
-        Spreadsheet.SizeChanged -= OnSpreadsheetVisualChanged;
-        Spreadsheet.ScrollChanged -= OnSpreadsheetVisualChanged;
-        Spreadsheet.ZoomChanged -= OnSpreadsheetVisualChanged;
-        foreach (var button in _buttons.Values)
-        {
-            button.Clicked -= OnFilterButtonClicked;
-        }
-        _buttons.Clear();
-        _buttonLayer.Children.Clear();
-        Spreadsheet.Dispose();
-        _disposed = true;
     }
 
     private static void OnWorkbookChanged(
@@ -153,6 +230,7 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
             return;
         }
 
+        host.CloseFilterSheetCore(restoreFocus: false);
         host.Spreadsheet.Workbook = (Workbook?)newValue;
         host.AttachSession(force: true);
         host.UpdateButtons();
@@ -287,6 +365,9 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
                 Spreadsheet.RenderTheme.TableFilterButtonGlyph);
             button.BorderColor = ToColor(
                 Spreadsheet.RenderTheme.TableFilterButtonBorder);
+            button.AutomationId =
+                $"NeraTableFilter_{hit.TableId:N}_{hit.ColumnId:N}";
+            SetFilterButtonSemantics(button, hit);
             AbsoluteLayout.SetLayoutBounds(button, scaled);
             AbsoluteLayout.SetLayoutFlags(
                 button,
@@ -301,6 +382,27 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
                 button.IsVisible = false;
             }
         }
+    }
+
+    private void SetFilterButtonSemantics(
+        Button button,
+        SpreadsheetTableFilterButtonHit hit)
+    {
+        var description = "Mở bộ lọc Table";
+        if (_session?.ActiveWorksheet.TryGetTable(
+                hit.TableId,
+                out var table) == true &&
+            table is not null &&
+            table.TryGetColumn(hit.ColumnId, out var column) &&
+            column is not null)
+        {
+            description = $"Lọc cột {column.Name} trong Table {table.Name}";
+        }
+
+        SemanticProperties.SetDescription(button, description);
+        SemanticProperties.SetHint(
+            button,
+            "Chạm hoặc nhấn Enter để mở. Trên Windows cũng có thể dùng Alt và mũi tên xuống từ ô đang chọn.");
     }
 
     private Button CreateFilterButton()
@@ -324,9 +426,12 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
         if (sender is Button
             {
                 CommandParameter: SpreadsheetTableFilterButtonHit hit,
-            })
+            } button)
         {
-            TryOpenFilter(hit.TableId, hit.ColumnId);
+            TryOpenFilterCore(
+                hit.TableId,
+                hit.ColumnId,
+                button);
         }
     }
 
@@ -340,17 +445,28 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
     {
         var overlay = new Grid
         {
+            AutomationId = "NeraTableFilterOverlay",
             IsVisible = false,
             BackgroundColor = Colors.Transparent,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
         };
+        SemanticProperties.SetDescription(
+            overlay,
+            "Lớp phủ bộ lọc Table");
         var backdrop = new BoxView
         {
+            AutomationId = "NeraTableFilterBackdrop",
             Color = Color.FromRgba(0, 0, 0, 96),
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
         };
+        SemanticProperties.SetDescription(
+            backdrop,
+            "Đóng bộ lọc");
+        SemanticProperties.SetHint(
+            backdrop,
+            "Chạm bên ngoài bảng lọc để đóng.");
         var backdropTap = new TapGestureRecognizer();
         backdropTap.Tapped += (_, _) => CloseFilterSheet();
         backdrop.GestureRecognizers.Add(backdropTap);
@@ -358,6 +474,7 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
 
         var panel = new VerticalStackLayout
         {
+            AutomationId = "NeraTableFilterSheet",
             BackgroundColor = Colors.White,
             Padding = new Thickness(16d, 14d, 16d, 18d),
             Spacing = 8d,
@@ -368,38 +485,52 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
 
         var title = new Label
         {
+            AutomationId = "NeraTableFilterTitle",
             Text = "Lọc Table",
             FontSize = 18d,
             FontAttributes = FontAttributes.Bold,
         };
+        SemanticProperties.SetHeadingLevel(
+            title,
+            SemanticHeadingLevel.Level2);
         panel.Children.Add(title);
 
         var search = new Entry
         {
+            AutomationId = "NeraTableFilterSearch",
             Placeholder = "Tìm giá trị",
+            ReturnType = ReturnType.Done,
         };
+        SemanticProperties.SetDescription(
+            search,
+            "Tìm giá trị lọc");
+        SemanticProperties.SetHint(
+            search,
+            "Nhập nội dung tìm kiếm. Nhấn Enter để áp dụng nếu lựa chọn hợp lệ.");
         panel.Children.Add(search);
 
         var commands = new HorizontalStackLayout
         {
+            AutomationId = "NeraTableFilterSelectionCommands",
             Spacing = 8d,
         };
-        var selectAll = new Button
-        {
-            Text = "Chọn tất cả",
-            HorizontalOptions = LayoutOptions.Fill,
-        };
-        var selectNone = new Button
-        {
-            Text = "Bỏ chọn",
-            HorizontalOptions = LayoutOptions.Fill,
-        };
+        var selectAll = CreateSheetButton(
+            "Chọn tất cả",
+            "NeraTableFilterSelectAll",
+            "Chọn mọi giá trị đang hiển thị");
+        var selectNone = CreateSheetButton(
+            "Bỏ chọn",
+            "NeraTableFilterSelectNone",
+            "Bỏ chọn mọi giá trị đang hiển thị");
+        selectAll.HorizontalOptions = LayoutOptions.Fill;
+        selectNone.HorizontalOptions = LayoutOptions.Fill;
         commands.Children.Add(selectAll);
         commands.Children.Add(selectNone);
         panel.Children.Add(commands);
 
         var status = new Label
         {
+            AutomationId = "NeraTableFilterStatus",
             FontSize = 12d,
             TextColor = Colors.Gray,
         };
@@ -407,22 +538,40 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
 
         var items = new VerticalStackLayout
         {
+            AutomationId = "NeraTableFilterValues",
             Spacing = 2d,
         };
+        SemanticProperties.SetDescription(
+            items,
+            "Danh sách giá trị lọc");
+        SemanticProperties.SetHint(
+            items,
+            "Chọn hoặc bỏ chọn các giá trị cần hiển thị.");
         panel.Children.Add(new ScrollView
         {
+            AutomationId = "NeraTableFilterValuesScroll",
             Content = items,
             MaximumHeightRequest = 280d,
         });
 
         var footer = new HorizontalStackLayout
         {
+            AutomationId = "NeraTableFilterFooter",
             Spacing = 8d,
             HorizontalOptions = LayoutOptions.End,
         };
-        var clear = new Button { Text = "Xóa lọc" };
-        var cancel = new Button { Text = "Hủy" };
-        var apply = new Button { Text = "Áp dụng" };
+        var clear = CreateSheetButton(
+            "Xóa lọc",
+            "NeraTableFilterClear",
+            "Xóa bộ lọc của cột hiện tại");
+        var cancel = CreateSheetButton(
+            "Hủy",
+            "NeraTableFilterCancel",
+            "Đóng mà không áp dụng thay đổi");
+        var apply = CreateSheetButton(
+            "Áp dụng",
+            "NeraTableFilterApply",
+            "Áp dụng các giá trị đã chọn");
         footer.Children.Add(clear);
         footer.Children.Add(cancel);
         footer.Children.Add(apply);
@@ -435,85 +584,226 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
                 return;
             }
             _menu.SetSearchText(args.NewTextValue);
-            RebuildSheetItems();
+            RebuildSheetItems(focusActiveValue: false);
         };
+        search.Completed += (_, _) =>
+            ApplyCurrentFilterAndClose();
         selectAll.Clicked += (_, _) =>
         {
-            _menu?.SelectAllVisible();
-            RebuildSheetItems();
+            _navigator?.Handle(
+                SpreadsheetTableFilterNavigationCommand.SelectAllVisible);
+            RebuildSheetItems(focusActiveValue: false);
         };
         selectNone.Clicked += (_, _) =>
         {
-            _menu?.ClearVisibleSelection();
-            RebuildSheetItems();
+            _navigator?.Handle(
+                SpreadsheetTableFilterNavigationCommand.ClearVisibleSelection);
+            RebuildSheetItems(focusActiveValue: false);
         };
         clear.Clicked += (_, _) =>
-        {
-            _menu?.ClearColumnFilter();
-            CloseFilterSheet();
-            _viewport?.InvalidateMetrics();
-            Spreadsheet.InvalidateSurface();
-            UpdateButtons();
-        };
+            ClearCurrentFilterAndClose();
         cancel.Clicked += (_, _) => CloseFilterSheet();
         apply.Clicked += (_, _) =>
-        {
-            _menu?.ApplyValueSelection();
-            CloseFilterSheet();
-            _viewport?.InvalidateMetrics();
-            Spreadsheet.InvalidateSurface();
-            UpdateButtons();
-        };
+            ApplyCurrentFilterAndClose();
 
         return (overlay, panel, search, status, items, apply);
     }
 
-    private void RebuildSheetItems()
+    private static Button CreateSheetButton(
+        string text,
+        string automationId,
+        string hint)
     {
+        var button = new Button
+        {
+            Text = text,
+            AutomationId = automationId,
+        };
+        SemanticProperties.SetDescription(button, text);
+        SemanticProperties.SetHint(button, hint);
+        return button;
+    }
+
+    private void RebuildSheetItems(bool focusActiveValue)
+    {
+        _valueCheckBoxes.Clear();
         _itemsPanel.Children.Clear();
-        if (_menu is null)
+        if (_menu is null || _navigator is null)
         {
             _apply.IsEnabled = false;
             return;
         }
 
-        foreach (var item in _menu.GetVisibleItems())
+        var items = _menu.GetVisibleItems();
+        for (var index = 0; index < items.Count; index++)
         {
+            var item = items[index];
             var value = item.Value;
+            var displayText = DisplayValue(value);
             var checkBox = new CheckBox
             {
+                AutomationId = $"NeraTableFilterValue_{index}",
                 IsChecked = item.IsSelected,
                 VerticalOptions = LayoutOptions.Center,
             };
+            SemanticProperties.SetDescription(
+                checkBox,
+                $"{displayText}; {item.Count:N0} dòng");
+            SemanticProperties.SetHint(
+                checkBox,
+                "Chọn hoặc bỏ chọn giá trị này.");
+            checkBox.Focused += (_, _) =>
+                _navigator?.SetActiveValue(value);
             checkBox.CheckedChanged += (_, args) =>
             {
                 _menu?.SelectValue(value, args.Value);
                 if (_menu is not null)
                 {
-                    _apply.IsEnabled = _menu.CanApplyValueSelection;
+                    _apply.IsEnabled =
+                        _menu.CanApplyValueSelection;
                 }
             };
             var row = new HorizontalStackLayout
             {
+                AutomationId = $"NeraTableFilterValueRow_{index}",
                 Spacing = 8d,
             };
             row.Children.Add(checkBox);
             row.Children.Add(new Label
             {
-                Text = $"{DisplayValue(value)}  ({item.Count})",
+                Text = $"{displayText}  ({item.Count})",
                 VerticalOptions = LayoutOptions.Center,
                 LineBreakMode = LineBreakMode.TailTruncation,
                 HorizontalOptions = LayoutOptions.Fill,
+                InputTransparent = true,
             });
+            _valueCheckBoxes.Add(checkBox);
             _itemsPanel.Children.Add(row);
         }
 
         _status.Text = _menu.ValuesTruncated
             ? $"Đã quét {_menu.ScannedRowCount:N0} hàng; danh sách giá trị đã bị giới hạn."
             : $"{_menu.DistinctValueCount:N0} giá trị khác nhau trong {_menu.ScannedRowCount:N0} hàng.";
+        SemanticProperties.SetDescription(_status, _status.Text);
         _apply.IsEnabled = _menu.CanApplyValueSelection;
-        _sheetPanel.SemanticProperties.Description =
-            $"Lọc {_menu.ColumnName} trong Table {_menu.TableName}";
+        SemanticProperties.SetDescription(
+            _sheetPanel,
+            $"Lọc {_menu.ColumnName} trong Table {_menu.TableName}");
+        if (focusActiveValue)
+        {
+            Dispatcher.Dispatch(FocusActiveValue);
+        }
+    }
+
+    private bool HandleFilterNavigation(
+        SpreadsheetTableFilterNavigationCommand command)
+    {
+        if (_navigator is null)
+        {
+            return false;
+        }
+
+        var handled = _navigator.Handle(command);
+        switch (command)
+        {
+            case SpreadsheetTableFilterNavigationCommand.ToggleCurrent:
+                RebuildSheetItems(focusActiveValue: true);
+                break;
+            case SpreadsheetTableFilterNavigationCommand.SelectAllVisible:
+            case SpreadsheetTableFilterNavigationCommand.ClearVisibleSelection:
+                RebuildSheetItems(focusActiveValue: IsValueListFocused());
+                break;
+            case SpreadsheetTableFilterNavigationCommand.MovePrevious:
+            case SpreadsheetTableFilterNavigationCommand.MoveNext:
+            case SpreadsheetTableFilterNavigationCommand.MoveFirst:
+            case SpreadsheetTableFilterNavigationCommand.MoveLast:
+            case SpreadsheetTableFilterNavigationCommand.PagePrevious:
+            case SpreadsheetTableFilterNavigationCommand.PageNext:
+                FocusActiveValue();
+                break;
+        }
+        return handled;
+    }
+
+    private bool ApplyCurrentFilterAndClose()
+    {
+        if (_menu is null || !_menu.CanApplyValueSelection)
+        {
+            return false;
+        }
+
+        _menu.ApplyValueSelection();
+        CloseFilterSheetCore(restoreFocus: true);
+        RefreshAfterFilterMutation();
+        return true;
+    }
+
+    private bool ClearCurrentFilterAndClose()
+    {
+        if (_menu is null)
+        {
+            return false;
+        }
+
+        _menu.ClearColumnFilter();
+        CloseFilterSheetCore(restoreFocus: true);
+        RefreshAfterFilterMutation();
+        return true;
+    }
+
+    private void RefreshAfterFilterMutation()
+    {
+        _viewport?.InvalidateMetrics();
+        Spreadsheet.InvalidateSurface();
+        UpdateButtons();
+    }
+
+    private bool FocusSearchEntry()
+    {
+        if (!_sheetOverlay.IsVisible)
+        {
+            return false;
+        }
+
+        var focused = _search.Focus();
+        if (focused)
+        {
+            _search.CursorPosition = 0;
+            _search.SelectionLength = _search.Text?.Length ?? 0;
+        }
+        return focused;
+    }
+
+    private bool FocusActiveValue()
+    {
+        var index = _navigator?.Capture().ActiveIndex ?? -1;
+        if (index < 0 || index >= _valueCheckBoxes.Count)
+        {
+            return false;
+        }
+
+        return _valueCheckBoxes[index].Focus();
+    }
+
+    private bool IsSearchFocused() =>
+        _search.IsFocused;
+
+    private bool IsValueListFocused() =>
+        _valueCheckBoxes.Any(static item => item.IsFocused);
+
+    private void RestoreFocus(VisualElement? target)
+    {
+        if (target is
+            {
+                IsVisible: true,
+                IsEnabled: true,
+            } &&
+            target.Focus())
+        {
+            return;
+        }
+
+        Spreadsheet.Focus();
     }
 
     private void HideAllButtons()
@@ -526,7 +816,7 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
 
     private void OnActiveWorksheetChanged(object? sender, EventArgs e)
     {
-        CloseFilterSheet();
+        CloseFilterSheetCore(restoreFocus: false);
         EnsureWorksheetSubscription();
         _viewport?.InvalidateMetrics();
         UpdateButtons();
@@ -540,6 +830,25 @@ public sealed class NeraSpreadsheetTableHost : Grid, IDisposable
 
     private void OnSpreadsheetVisualChanged(object? sender, EventArgs e) =>
         UpdateButtons();
+
+    private void OnHostLoaded(object? sender, EventArgs e) =>
+        AttachPlatformKeyboard();
+
+    private void OnHostUnloaded(object? sender, EventArgs e)
+    {
+        DetachPlatformKeyboard();
+        CloseFilterSheetCore(restoreFocus: false);
+    }
+
+    private void OnHostHandlerChanged(object? sender, EventArgs e)
+    {
+        DetachPlatformKeyboard();
+        AttachPlatformKeyboard();
+    }
+
+    partial void AttachPlatformKeyboard();
+
+    partial void DetachPlatformKeyboard();
 
     private static string DisplayValue(CellValue value) =>
         value.IsBlank ? "(Trống)" : value.ToString();
