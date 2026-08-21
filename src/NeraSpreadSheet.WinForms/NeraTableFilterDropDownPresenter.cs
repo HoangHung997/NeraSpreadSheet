@@ -21,7 +21,12 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
         _buttons = [];
     private SpreadsheetSession? _viewportSession;
     private SpreadsheetViewportEngine? _viewport;
+    private SpreadsheetTableFilterNavigator? _navigator;
     private ToolStripDropDown? _dropDown;
+    private TextBox? _searchBox;
+    private CheckedListBox? _valuesList;
+    private Button? _applyButton;
+    private Control? _focusBeforeOpen;
     private bool _disposed;
 
     public NeraTableFilterDropDownPresenter(NeraSpreadsheetControl control)
@@ -30,6 +35,8 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
         _control.Paint += OnControlPaint;
         _control.Resize += OnControlLayoutChanged;
         _control.ScrollChanged += OnScrollChanged;
+        _control.PreviewKeyDown += OnControlPreviewKeyDown;
+        _control.KeyDown += OnControlKeyDown;
         _control.Disposed += OnControlDisposed;
         UpdateButtons();
     }
@@ -44,6 +51,29 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
         }
     }
 
+    public bool TryOpenForActiveCell()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var session = _control.Session;
+        if (session is null ||
+            !session.TryResolveActiveTableFilterTarget(out var target))
+        {
+            return false;
+        }
+
+        UpdateButtons();
+        var key = (target.TableId, target.ColumnId);
+        if (!_buttons.TryGetValue(key, out var button) ||
+            !button.Visible ||
+            button.Tag is not SpreadsheetTableFilterButtonHit hit)
+        {
+            return false;
+        }
+
+        Open(button, hit);
+        return true;
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -55,6 +85,8 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
         _control.Paint -= OnControlPaint;
         _control.Resize -= OnControlLayoutChanged;
         _control.ScrollChanged -= OnScrollChanged;
+        _control.PreviewKeyDown -= OnControlPreviewKeyDown;
+        _control.KeyDown -= OnControlKeyDown;
         _control.Disposed -= OnControlDisposed;
         foreach (var button in _buttons.Values)
         {
@@ -63,6 +95,8 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             button.Dispose();
         }
         _buttons.Clear();
+        _navigator?.Dispose();
+        _navigator = null;
         _dropDown?.Dispose();
         _dropDown = null;
         _disposed = true;
@@ -98,6 +132,9 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
                     : _control.RenderTheme.TableFilterButtonBackground);
             button.ForeColor = ToColor(
                 _control.RenderTheme.TableFilterButtonGlyph);
+            button.AccessibleName = GetFilterButtonAccessibleName(hit);
+            button.AccessibleDescription =
+                "Mở menu lọc bằng Enter, Space hoặc Alt+mũi tên xuống từ ô đang chọn.";
             button.Visible = true;
             button.BringToFront();
         }
@@ -119,7 +156,8 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             FlatStyle = FlatStyle.Flat,
             Padding = Padding.Empty,
             Margin = Padding.Empty,
-            TabStop = false,
+            TabStop = true,
+            AccessibleRole = AccessibleRole.PushButton,
             Font = new Font(
                 _control.Font.FontFamily,
                 Math.Max(6f, _control.Font.Size - 2f),
@@ -180,6 +218,22 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             .ToArray();
     }
 
+    private string GetFilterButtonAccessibleName(
+        SpreadsheetTableFilterButtonHit hit)
+    {
+        var worksheet = _control.Session?.ActiveWorksheet;
+        if (worksheet is not null &&
+            worksheet.TryGetTable(hit.TableId, out var table) &&
+            table is not null &&
+            table.TryGetColumn(hit.ColumnId, out var column) &&
+            column is not null)
+        {
+            return $"Lọc cột {column.Name} trong Table {table.Name}";
+        }
+
+        return "Mở bộ lọc Table";
+    }
+
     private void OnFilterButtonClick(object? sender, EventArgs e)
     {
         if (sender is not Button
@@ -200,32 +254,48 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
         var session = _control.Session
             ?? throw new InvalidOperationException(
                 "A spreadsheet session is required before opening a Table filter menu.");
-        var menu = new SpreadsheetTablePresenterController(session)
-            .OpenFilterMenu(hit.TableId, hit.ColumnId);
         Close();
         _dropDown?.Dispose();
+        _focusBeforeOpen = placementButton;
+        var menu = new SpreadsheetTablePresenterController(session)
+            .OpenFilterMenu(hit.TableId, hit.ColumnId);
+        var navigator = new SpreadsheetTableFilterNavigator(menu);
+        _navigator = navigator;
 
-        var panel = BuildDropDownPanel(menu);
-        var host = new ToolStripControlHost(panel)
+        var content = BuildDropDownPanel(menu, navigator);
+        _searchBox = content.Search;
+        _valuesList = content.Values;
+        _applyButton = content.Apply;
+        var host = new ToolStripControlHost(content.Panel)
         {
             AutoSize = false,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
-            Size = panel.Size,
+            Size = content.Panel.Size,
         };
         var dropDown = new ToolStripDropDown
         {
             AutoSize = false,
             Padding = Padding.Empty,
-            Size = panel.Size,
+            Size = content.Panel.Size,
+            AccessibleName = $"Lọc {menu.ColumnName} trong Table {menu.TableName}",
+            AccessibleDescription =
+                "Dùng mũi tên để duyệt, Space hoặc Enter để chọn, Escape để đóng.",
         };
         dropDown.Items.Add(host);
+        dropDown.Opened += (_, _) => FocusSearchBox(dropDown, content.Search);
         dropDown.Closed += (_, _) =>
         {
+            navigator.Dispose();
             if (ReferenceEquals(_dropDown, dropDown))
             {
                 _dropDown = null;
+                _navigator = null;
+                _searchBox = null;
+                _valuesList = null;
+                _applyButton = null;
             }
+            RestoreFocus();
         };
         _dropDown = dropDown;
         dropDown.Show(
@@ -234,13 +304,19 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             ToolStripDropDownDirection.BelowRight);
     }
 
-    private Panel BuildDropDownPanel(SpreadsheetTableFilterMenu menu)
+    private DropDownContent BuildDropDownPanel(
+        SpreadsheetTableFilterMenu menu,
+        SpreadsheetTableFilterNavigator navigator)
     {
         var panel = new Panel
         {
             Size = new Size(DropDownWidth, DropDownHeight),
             BackColor = Color.White,
             Padding = new Padding(10),
+            AccessibleName = $"Bộ lọc {menu.ColumnName}",
+            AccessibleDescription =
+                "Tab để chuyển vùng; mũi tên, Home, End, Page Up và Page Down để duyệt giá trị.",
+            AccessibleRole = AccessibleRole.Pane,
         };
         var title = new Label
         {
@@ -251,27 +327,36 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
                 FontStyle.Bold),
             Location = new Point(10, 10),
             Size = new Size(DropDownWidth - 20, 24),
+            AccessibleName = $"Lọc {menu.ColumnName} trong Table {menu.TableName}",
+            AccessibleRole = AccessibleRole.StaticText,
         };
         var search = new TextBox
         {
             PlaceholderText = "Tìm giá trị",
             Location = new Point(10, 39),
             Size = new Size(DropDownWidth - 20, 27),
+            AccessibleName = $"Tìm giá trị trong cột {menu.ColumnName}",
+            AccessibleDescription =
+                "Nhấn Enter để áp dụng, Escape để đóng, hoặc mũi tên xuống để vào danh sách.",
+            AccessibleRole = AccessibleRole.Text,
         };
         var selectAll = CreateCommandButton(
             "Chọn tất cả",
             new Point(10, 72),
-            100);
+            100,
+            "Chọn mọi giá trị đang hiển thị");
         var selectNone = CreateCommandButton(
             "Bỏ chọn",
             new Point(116, 72),
-            88);
+            88,
+            "Bỏ chọn mọi giá trị đang hiển thị");
         var status = new Label
         {
             AutoSize = false,
             ForeColor = Color.DimGray,
             Location = new Point(10, 105),
             Size = new Size(DropDownWidth - 20, 34),
+            AccessibleRole = AccessibleRole.StaticText,
         };
         var values = new CheckedListBox
         {
@@ -279,19 +364,26 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             IntegralHeight = false,
             Location = new Point(10, 141),
             Size = new Size(DropDownWidth - 20, 224),
+            AccessibleName = $"Giá trị lọc của cột {menu.ColumnName}",
+            AccessibleDescription =
+                "Dùng mũi tên để duyệt; Space hoặc Enter để chọn hay bỏ chọn.",
+            AccessibleRole = AccessibleRole.List,
         };
         var clear = CreateCommandButton(
             "Xóa lọc",
             new Point(10, 382),
-            82);
+            82,
+            "Xóa bộ lọc hiện tại của cột này");
         var cancel = CreateCommandButton(
             "Hủy",
             new Point(174, 382),
-            66);
+            66,
+            "Đóng mà không áp dụng thay đổi");
         var apply = CreateCommandButton(
             "Áp dụng",
             new Point(246, 382),
-            84);
+            84,
+            "Áp dụng các giá trị đã chọn");
         panel.Controls.AddRange([
             title,
             search,
@@ -305,7 +397,7 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
         ]);
 
         var rebuilding = false;
-        void RebuildItems()
+        void RebuildItems(bool restoreValueFocus)
         {
             rebuilding = true;
             values.BeginUpdate();
@@ -321,6 +413,12 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
                             item.Count),
                         item.IsSelected);
                 }
+
+                var activeIndex = navigator.Capture().ActiveIndex;
+                values.SelectedIndex = activeIndex >= 0 &&
+                                       activeIndex < values.Items.Count
+                    ? activeIndex
+                    : -1;
             }
             finally
             {
@@ -331,13 +429,26 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             status.Text = menu.ValuesTruncated
                 ? $"Đã quét {menu.ScannedRowCount:N0} hàng; danh sách giá trị đã bị giới hạn."
                 : $"{menu.DistinctValueCount:N0} giá trị khác nhau trong {menu.ScannedRowCount:N0} hàng.";
+            status.AccessibleName = status.Text;
             apply.Enabled = menu.CanApplyValueSelection;
+            if (restoreValueFocus)
+            {
+                BeginInvokeIfHandleCreated(() =>
+                    FocusActiveValue(navigator));
+            }
         }
 
         search.TextChanged += (_, _) =>
         {
             menu.SetSearchText(search.Text);
-            RebuildItems();
+            RebuildItems(restoreValueFocus: false);
+        };
+        values.SelectedIndexChanged += (_, _) =>
+        {
+            if (!rebuilding && values.SelectedIndex >= 0)
+            {
+                navigator.SetActiveIndex(values.SelectedIndex);
+            }
         };
         values.ItemCheck += (_, e) =>
         {
@@ -354,13 +465,15 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
         };
         selectAll.Click += (_, _) =>
         {
-            menu.SelectAllVisible();
-            RebuildItems();
+            navigator.Handle(
+                SpreadsheetTableFilterNavigationCommand.SelectAllVisible);
+            RebuildItems(restoreValueFocus: false);
         };
         selectNone.Click += (_, _) =>
         {
-            menu.ClearVisibleSelection();
-            RebuildItems();
+            navigator.Handle(
+                SpreadsheetTableFilterNavigationCommand.ClearVisibleSelection);
+            RebuildItems(restoreValueFocus: false);
         };
         apply.Click += (_, _) =>
         {
@@ -374,20 +487,185 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
         };
         cancel.Click += (_, _) => Close();
 
-        RebuildItems();
-        return panel;
+        KeyEventHandler keyHandler = (_, args) =>
+            OnDropDownKeyDown(
+                args,
+                menu,
+                navigator,
+                RebuildItems);
+        search.KeyDown += keyHandler;
+        values.KeyDown += keyHandler;
+        selectAll.KeyDown += keyHandler;
+        selectNone.KeyDown += keyHandler;
+        clear.KeyDown += keyHandler;
+        cancel.KeyDown += keyHandler;
+        apply.KeyDown += keyHandler;
+
+        RebuildItems(restoreValueFocus: false);
+        return new DropDownContent(
+            panel,
+            search,
+            values,
+            apply);
+    }
+
+    private void OnDropDownKeyDown(
+        KeyEventArgs e,
+        SpreadsheetTableFilterMenu menu,
+        SpreadsheetTableFilterNavigator navigator,
+        Action<bool> rebuildItems)
+    {
+        var searchFocused = _searchBox?.Focused == true;
+        var valuesFocused = _valuesList?.Focused == true;
+        if (e.KeyCode == Keys.Escape)
+        {
+            Close();
+            Suppress(e);
+            return;
+        }
+
+        if (e.Control && e.KeyCode == Keys.A && !searchFocused)
+        {
+            navigator.Handle(
+                e.Shift
+                    ? SpreadsheetTableFilterNavigationCommand.ClearVisibleSelection
+                    : SpreadsheetTableFilterNavigationCommand.SelectAllVisible);
+            rebuildItems(valuesFocused);
+            Suppress(e);
+            return;
+        }
+
+        SpreadsheetTableFilterNavigationCommand command;
+        switch (e.KeyCode)
+        {
+            case Keys.Down when searchFocused:
+                command = SpreadsheetTableFilterNavigationCommand.MoveFirst;
+                break;
+            case Keys.Up when searchFocused:
+                command = SpreadsheetTableFilterNavigationCommand.MoveLast;
+                break;
+            case Keys.Down when valuesFocused:
+                command = SpreadsheetTableFilterNavigationCommand.MoveNext;
+                break;
+            case Keys.Up when valuesFocused:
+                command = SpreadsheetTableFilterNavigationCommand.MovePrevious;
+                break;
+            case Keys.Home when valuesFocused:
+                command = SpreadsheetTableFilterNavigationCommand.MoveFirst;
+                break;
+            case Keys.End when valuesFocused:
+                command = SpreadsheetTableFilterNavigationCommand.MoveLast;
+                break;
+            case Keys.PageUp when valuesFocused:
+                command = SpreadsheetTableFilterNavigationCommand.PagePrevious;
+                break;
+            case Keys.PageDown when valuesFocused:
+                command = SpreadsheetTableFilterNavigationCommand.PageNext;
+                break;
+            case Keys.Space when valuesFocused:
+            case Keys.Enter when valuesFocused:
+                navigator.Handle(
+                    SpreadsheetTableFilterNavigationCommand.ToggleCurrent);
+                rebuildItems(restoreValueFocus: true);
+                Suppress(e);
+                return;
+            case Keys.Enter when searchFocused:
+                if (menu.CanApplyValueSelection)
+                {
+                    menu.ApplyValueSelection();
+                    CloseAndRefresh();
+                }
+                Suppress(e);
+                return;
+            default:
+                return;
+        }
+
+        navigator.Handle(command);
+        FocusActiveValue(navigator);
+        Suppress(e);
+    }
+
+    private bool FocusActiveValue(
+        SpreadsheetTableFilterNavigator navigator)
+    {
+        if (_valuesList is null)
+        {
+            return false;
+        }
+
+        var index = navigator.Capture().ActiveIndex;
+        if (index < 0 || index >= _valuesList.Items.Count)
+        {
+            return false;
+        }
+
+        _valuesList.SelectedIndex = index;
+        return _valuesList.Focus();
+    }
+
+    private void FocusSearchBox(
+        ToolStripDropDown dropDown,
+        TextBox search)
+    {
+        BeginInvokeIfHandleCreated(() =>
+        {
+            if (!ReferenceEquals(_dropDown, dropDown) ||
+                !dropDown.Visible)
+            {
+                return;
+            }
+
+            search.Focus();
+            search.SelectAll();
+        });
+    }
+
+    private void RestoreFocus()
+    {
+        var target = _focusBeforeOpen;
+        _focusBeforeOpen = null;
+        BeginInvokeIfHandleCreated(() =>
+        {
+            if (target is
+                {
+                    IsDisposed: false,
+                    Visible: true,
+                    Enabled: true,
+                    CanFocus: true,
+                })
+            {
+                target.Focus();
+                return;
+            }
+
+            if (!_control.IsDisposed && _control.CanFocus)
+            {
+                _control.Focus();
+            }
+        });
+    }
+
+    private static void Suppress(KeyEventArgs e)
+    {
+        e.Handled = true;
+        e.SuppressKeyPress = true;
     }
 
     private static Button CreateCommandButton(
         string text,
         Point location,
-        int width) =>
+        int width,
+        string accessibleDescription) =>
         new()
         {
             Text = text,
             Location = location,
             Size = new Size(width, 28),
             FlatStyle = FlatStyle.System,
+            AccessibleName = text,
+            AccessibleDescription = accessibleDescription,
+            AccessibleRole = AccessibleRole.PushButton,
         };
 
     private void CloseAndRefresh()
@@ -415,16 +693,39 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e) =>
         UpdateButtons();
 
+    private void OnControlPreviewKeyDown(
+        object? sender,
+        PreviewKeyDownEventArgs e)
+    {
+        if (e.Alt && e.KeyCode == Keys.Down)
+        {
+            e.IsInputKey = true;
+        }
+    }
+
+    private void OnControlKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (!IsOpen &&
+            e.Alt &&
+            e.KeyCode == Keys.Down &&
+            TryOpenForActiveCell())
+        {
+            Suppress(e);
+        }
+    }
+
     private void OnControlDisposed(object? sender, EventArgs e) => Dispose();
 
-    private static Rectangle ToRectangle(NeraSpreadSheet.Foundation.RectD bounds) =>
+    private static Rectangle ToRectangle(
+        NeraSpreadSheet.Foundation.RectD bounds) =>
         Rectangle.FromLTRB(
             checked((int)Math.Round(bounds.Left)),
             checked((int)Math.Round(bounds.Top)),
             checked((int)Math.Round(bounds.Right)),
             checked((int)Math.Round(bounds.Bottom)));
 
-    private static Color ToColor(NeraSpreadSheet.Foundation.ColorRgba color) =>
+    private static Color ToColor(
+        NeraSpreadSheet.Foundation.ColorRgba color) =>
         Color.FromArgb(
             color.Alpha,
             color.Red,
@@ -433,6 +734,12 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
 
     private static string DisplayValue(CellValue value) =>
         value.IsBlank ? "(Trống)" : value.ToString();
+
+    private sealed record DropDownContent(
+        Panel Panel,
+        TextBox Search,
+        CheckedListBox Values,
+        Button Apply);
 
     private sealed record FilterListItem(
         CellValue Value,
