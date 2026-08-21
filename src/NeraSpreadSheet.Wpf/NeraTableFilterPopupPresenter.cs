@@ -498,7 +498,7 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
             case Key.Enter when valueFocused:
                 navigator.Handle(
                     SpreadsheetTableFilterNavigationCommand.ToggleCurrent);
-                rebuildItems(restoreValueFocus: true);
+                rebuildItems(true);
                 e.Handled = true;
                 return;
             case Key.Enter when searchFocused:
