@@ -1,16 +1,19 @@
 #if WINDOWS
+using System.ComponentModel;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using NeraSpreadSheet.Editing;
 using Windows.System;
 using Windows.UI.Core;
+using WinUiTextBox = Microsoft.UI.Xaml.Controls.TextBox;
 
 namespace NeraSpreadSheet.Maui;
 
 public sealed partial class NeraSpreadsheetTableHost
 {
     private UIElement? _platformKeyboardRoot;
+    private bool _platformSearchFocusPending;
 
     partial void AttachPlatformKeyboard()
     {
@@ -23,18 +26,111 @@ public sealed partial class NeraSpreadsheetTableHost
         DetachPlatformKeyboard();
         _platformKeyboardRoot = root;
         root.PreviewKeyDown += OnPlatformPreviewKeyDown;
+        root.LayoutUpdated += OnPlatformLayoutUpdated;
+        _sheetOverlay.PropertyChanged += OnFilterOverlayPropertyChanged;
+        _search.Focused += OnSearchEntryFocused;
+        _search.HandlerChanged += OnSearchHandlerChanged;
+        _platformSearchFocusPending = IsFilterSheetOpen;
+        TryCompletePlatformSearchFocus();
     }
 
     partial void DetachPlatformKeyboard()
     {
-        if (_platformKeyboardRoot is null)
+        if (_platformKeyboardRoot is not null)
+        {
+            _platformKeyboardRoot.PreviewKeyDown -=
+                OnPlatformPreviewKeyDown;
+            _platformKeyboardRoot.LayoutUpdated -=
+                OnPlatformLayoutUpdated;
+        }
+
+        _sheetOverlay.PropertyChanged -= OnFilterOverlayPropertyChanged;
+        _search.Focused -= OnSearchEntryFocused;
+        _search.HandlerChanged -= OnSearchHandlerChanged;
+        _platformSearchFocusPending = false;
+        _platformKeyboardRoot = null;
+    }
+
+    private void OnFilterOverlayPropertyChanged(
+        object? sender,
+        PropertyChangedEventArgs e)
+    {
+        if (!string.Equals(
+                e.PropertyName,
+                nameof(VisualElement.IsVisible),
+                StringComparison.Ordinal))
         {
             return;
         }
 
-        _platformKeyboardRoot.PreviewKeyDown -=
-            OnPlatformPreviewKeyDown;
-        _platformKeyboardRoot = null;
+        _platformSearchFocusPending = IsFilterSheetOpen;
+        TryCompletePlatformSearchFocus();
+    }
+
+    private void OnPlatformLayoutUpdated(object? sender, object e)
+    {
+        if (_platformSearchFocusPending)
+        {
+            TryCompletePlatformSearchFocus();
+        }
+    }
+
+    private void OnSearchHandlerChanged(object? sender, EventArgs e)
+    {
+        if (_platformSearchFocusPending)
+        {
+            TryCompletePlatformSearchFocus();
+        }
+    }
+
+    private void OnSearchEntryFocused(
+        object? sender,
+        Microsoft.Maui.Controls.FocusEventArgs e)
+    {
+        _platformSearchFocusPending = false;
+        SelectSearchText();
+    }
+
+    private void TryCompletePlatformSearchFocus()
+    {
+        if (!_platformSearchFocusPending ||
+            _disposed ||
+            !IsFilterSheetOpen)
+        {
+            return;
+        }
+
+        if (_search.IsFocused)
+        {
+            _platformSearchFocusPending = false;
+            SelectSearchText();
+            return;
+        }
+
+        if (IsValueListFocused())
+        {
+            _platformSearchFocusPending = false;
+            return;
+        }
+
+        if (_search.Handler?.PlatformView is not WinUiTextBox textBox ||
+            !textBox.IsLoaded ||
+            textBox.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        if (textBox.Focus(FocusState.Programmatic))
+        {
+            _platformSearchFocusPending = false;
+            SelectSearchText();
+        }
+    }
+
+    private void SelectSearchText()
+    {
+        _search.CursorPosition = 0;
+        _search.SelectionLength = _search.Text?.Length ?? 0;
     }
 
     private void OnPlatformPreviewKeyDown(
