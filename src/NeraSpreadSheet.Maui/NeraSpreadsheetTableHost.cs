@@ -130,10 +130,11 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
         }
 
         var key = (target.TableId, target.ColumnId);
-        var focusTarget = _buttons.TryGetValue(key, out var button) &&
-                          button.IsVisible
-            ? button
-            : Spreadsheet;
+        VisualElement focusTarget =
+            _buttons.TryGetValue(key, out var button) &&
+            button.IsVisible
+                ? button
+                : Spreadsheet;
         return TryOpenFilterCore(
             target.TableId,
             target.ColumnId,
@@ -198,7 +199,10 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
         SemanticProperties.SetHint(
             _sheetPanel,
             "Tìm kiếm hoặc chọn giá trị. Escape đóng, Enter áp dụng, các phím mũi tên duyệt danh sách trên Windows.");
-        Dispatcher.Dispatch(FocusSearchEntry);
+        Dispatcher.Dispatch(() =>
+        {
+            FocusSearchEntry();
+        });
         return true;
     }
 
@@ -691,7 +695,10 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
             $"Lọc {_menu.ColumnName} trong Table {_menu.TableName}");
         if (focusActiveValue)
         {
-            Dispatcher.Dispatch(FocusActiveValue);
+            Dispatcher.Dispatch(() =>
+            {
+                FocusActiveValue();
+            });
         }
     }
 
