@@ -17,6 +17,7 @@ public sealed class SpreadsheetViewportEngine
     private SparseAxisMetricIndex? _columns;
     private Worksheet? _metricsWorksheet;
     private long _dimensionsVersion = -1;
+    private long _rowVisibilityVersion = -1;
     private WorksheetSnapshot? _worksheetSnapshot;
     private Worksheet? _snapshotWorksheet;
     private long _snapshotWorksheetVersion = -1;
@@ -143,6 +144,7 @@ public sealed class SpreadsheetViewportEngine
     {
         _metricsWorksheet = null;
         _dimensionsVersion = -1;
+        _rowVisibilityVersion = -1;
         _rows = null;
         _columns = null;
         InvalidateSnapshot();
@@ -429,8 +431,15 @@ public sealed class SpreadsheetViewportEngine
     private void EnsureMetrics()
     {
         var worksheet = _session.ActiveWorksheet;
+        var hasActiveFilters = worksheet.Tables.Any(static table =>
+            table.AutoFilter is { Columns.Count: > 0 } &&
+            table.DataRange is not null);
+        var rowVisibilityVersion = hasActiveFilters
+            ? worksheet.Version
+            : 0L;
         if (ReferenceEquals(_metricsWorksheet, worksheet) &&
             _dimensionsVersion == worksheet.Dimensions.Version &&
+            _rowVisibilityVersion == rowVisibilityVersion &&
             _rows is not null &&
             _columns is not null)
         {
@@ -443,6 +452,16 @@ public sealed class SpreadsheetViewportEngine
             rows.SetSize(index, size);
         }
 
+        if (hasActiveFilters)
+        {
+            var snapshot = GetWorksheetSnapshot(worksheet);
+            rows.SetHiddenRanges(
+                snapshot.GetFilteredOutRowSpans()
+                    .Select(static span => new AxisIndexRange(
+                        span.StartRowIndex,
+                        span.EndRowIndex)));
+        }
+
         var columns = new SparseAxisMetricIndex(SpreadsheetLimits.MaxColumns, worksheet.Dimensions.DefaultColumnWidth);
         foreach (var (index, size) in worksheet.Dimensions.GetColumnOverrides())
         {
@@ -453,6 +472,7 @@ public sealed class SpreadsheetViewportEngine
         _columns = columns;
         _metricsWorksheet = worksheet;
         _dimensionsVersion = worksheet.Dimensions.Version;
+        _rowVisibilityVersion = rowVisibilityVersion;
         ClearDisplayListCache();
     }
 

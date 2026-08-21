@@ -53,6 +53,67 @@ public sealed class SpreadsheetViewportEngineTests
         Assert.AreEqual(before.Width + 25d, after.Width, 1e-9);
     }
 
+    [TestMethod]
+    public void FilteredTableRowsAreRemovedFromLayoutHitTestingAndExtent()
+    {
+        var workbook = new Workbook();
+        var sheet = workbook.Worksheets[0];
+        var statusColumnId = Guid.NewGuid();
+        sheet.SetValue(new CellAddress(1, 1), "Open");
+        sheet.SetValue(new CellAddress(2, 1), "Closed");
+        sheet.SetValue(new CellAddress(3, 1), "Open");
+        sheet.AddTable(new SpreadsheetTable(
+            Guid.NewGuid(),
+            "Sales",
+            new CellRange(
+                new CellAddress(0, 0),
+                new CellAddress(3, 1)),
+            [
+                new SpreadsheetTableColumn(Guid.NewGuid(), "Item"),
+                new SpreadsheetTableColumn(statusColumnId, "Status"),
+            ],
+            autoFilter: new TableAutoFilter([
+                new TableFilterColumn(
+                    statusColumnId,
+                    [CellValue.FromText("Open")]),
+            ])));
+        var engine = new SpreadsheetViewportEngine(
+            new SpreadsheetSession(workbook));
+        var rowHeight = sheet.Dimensions.DefaultRowHeight;
+
+        var frame = engine.Compose(
+            0d,
+            0d,
+            240d,
+            rowHeight * 5d,
+            overscan: 0d);
+
+        Assert.IsFalse(frame.Layout.Rows.Any(static row => row.Index == 2));
+        Assert.AreEqual(
+            (SpreadsheetLimits.MaxRows - 1d) * rowHeight,
+            frame.Layout.ContentHeight,
+            1e-6);
+        Assert.IsTrue(engine.TryHitTestRow(
+            rowHeight * 2.25d,
+            0d,
+            out var hitRow));
+        Assert.AreEqual(3, hitRow);
+
+        sheet.SetValue(new CellAddress(2, 1), "Open");
+        var refreshed = engine.Compose(
+            0d,
+            0d,
+            240d,
+            rowHeight * 5d,
+            overscan: 0d);
+
+        Assert.IsTrue(refreshed.Layout.Rows.Any(static row => row.Index == 2));
+        Assert.AreEqual(
+            SpreadsheetLimits.MaxRows * rowHeight,
+            refreshed.Layout.ContentHeight,
+            1e-6);
+    }
+
     private static IEnumerable<RenderCommand> EnumerateCommands(DisplayList displayList)
     {
         foreach (var command in displayList.Commands)

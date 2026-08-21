@@ -54,11 +54,13 @@ public sealed class SparseAxisMetricIndexTests
         Assert.AreEqual(60d, index.TotalExtent, 1e-9);
         Assert.AreEqual(20d, index.GetOffset(4), 1e-9);
         Assert.AreEqual(4, index.FindIndexAtOffset(20d));
-        CollectionAssert.AreEqual(
-            new[] { 0, 4, 5 },
-            index.GetSlots(0d, 60d)
-                .Select(static slot => slot.Index)
-                .ToArray());
+        var visibleIndexes = index.GetSlots(0d, 60d)
+            .Select(static slot => slot.Index)
+            .ToArray();
+        Assert.AreEqual(3, visibleIndexes.Length);
+        Assert.AreEqual(0, visibleIndexes[0]);
+        Assert.AreEqual(4, visibleIndexes[1]);
+        Assert.AreEqual(5, visibleIndexes[2]);
     }
 
     [TestMethod]
