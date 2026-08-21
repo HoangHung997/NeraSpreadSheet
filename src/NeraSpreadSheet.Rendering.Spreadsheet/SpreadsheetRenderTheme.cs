@@ -19,6 +19,10 @@ public sealed record SpreadsheetRenderTheme
     public ColorRgba HeaderActiveBackground { get; init; } = new(198, 225, 209);
     public ColorRgba HeaderText { get; init; } = new(64, 64, 64);
     public ColorRgba HeaderBorder { get; init; } = new(190, 190, 190);
+    public ColorRgba TableFilterButtonBackground { get; init; } = new(250, 250, 250);
+    public ColorRgba TableFilterButtonFilteredBackground { get; init; } = new(210, 232, 219);
+    public ColorRgba TableFilterButtonBorder { get; init; } = new(145, 145, 145);
+    public ColorRgba TableFilterButtonGlyph { get; init; } = new(55, 55, 55);
     public ColorRgba ScrollBarBackground { get; init; } = new(241, 241, 241);
     public ColorRgba ScrollBarTrack { get; init; } = new(232, 232, 232);
     public ColorRgba ScrollBarButtonBackground { get; init; } = new(239, 239, 239);
@@ -35,6 +39,11 @@ public sealed record SpreadsheetRenderTheme
     public double FreezePaneStrokeWidth { get; init; } = 2d;
     public double ActivePaneStrokeWidth { get; init; } = 1d;
     public bool ShowValidationErrors { get; init; } = true;
+    public bool ShowTableFilterButtons { get; init; } = true;
+    public double TableFilterButtonExtent { get; init; } = 14d;
+    public double TableFilterButtonMinimumExtent { get; init; } = 8d;
+    public double TableFilterButtonMargin { get; init; } = 2d;
+    public double TableFilterButtonStrokeWidth { get; init; } = 1d;
     public bool ShowHeaders { get; init; }
     public double RowHeaderWidth { get; init; } = 48d;
     public double ColumnHeaderHeight { get; init; } = 24d;
