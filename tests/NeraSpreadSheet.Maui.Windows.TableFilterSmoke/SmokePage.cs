@@ -12,6 +12,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
 {
     private static readonly TimeSpan SmokeTimeout =
         TimeSpan.FromSeconds(60d);
+    private static readonly TimeSpan FocusTransitionTimeout =
+        TimeSpan.FromSeconds(5d);
     private static readonly JsonSerializerOptions ResultJsonOptions = new()
     {
         WriteIndented = true,
@@ -25,6 +27,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private int _frameCount;
     private int _finished;
     private bool _searchFocused;
+    private bool _focusTransitionsVerified;
     private bool _keyboardRootAttached;
     private bool _filterApplied;
     private bool _undoRedoVerified;
@@ -100,26 +103,36 @@ internal sealed class SmokePage : ContentPage, IDisposable
             await _framesReady.Task
                 .WaitAsync(timeout.Token)
                 .ConfigureAwait(false);
+
             await DispatchAsync(OpenFilterAndValidateHost)
                 .ConfigureAwait(false);
-            await Task.Delay(
-                    TimeSpan.FromMilliseconds(180d),
+            await WaitForSearchFocusStateAsync(
+                    expectedFocused: true,
                     timeout.Token)
                 .ConfigureAwait(false);
             await DispatchAsync(ValidateSheetAndApplyFilter)
                 .ConfigureAwait(false);
-            await Task.Delay(
-                    TimeSpan.FromMilliseconds(120d),
+            await WaitForSearchFocusStateAsync(
+                    expectedFocused: false,
                     timeout.Token)
                 .ConfigureAwait(false);
+
             await DispatchAsync(ReopenFilter)
                 .ConfigureAwait(false);
-            await Task.Delay(
-                    TimeSpan.FromMilliseconds(140d),
+            await WaitForSearchFocusStateAsync(
+                    expectedFocused: true,
                     timeout.Token)
                 .ConfigureAwait(false);
-            await DispatchAsync(CloseFilterAndValidateFocusRelease)
+            await DispatchAsync(CloseFilterSheet)
                 .ConfigureAwait(false);
+            await WaitForSearchFocusStateAsync(
+                    expectedFocused: false,
+                    timeout.Token)
+                .ConfigureAwait(false);
+            await DispatchAsync(ValidateClosedFocusState)
+                .ConfigureAwait(false);
+
+            _focusTransitionsVerified = true;
             CompleteSuccessfully();
         }
         catch (Exception exception)
@@ -257,7 +270,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             "The reopened loaded filter sheet was not visible.");
     }
 
-    private void CloseFilterAndValidateFocusRelease()
+    private void CloseFilterSheet()
     {
         var search = GetPrivateField<Entry>(_host, "_search");
         Require(search.IsFocused,
@@ -265,8 +278,84 @@ internal sealed class SmokePage : ContentPage, IDisposable
         _host.CloseFilterSheet();
         Require(!_host.IsFilterSheetOpen,
             "The loaded filter sheet did not close through its public lifecycle.");
+    }
+
+    private void ValidateClosedFocusState()
+    {
+        var search = GetPrivateField<Entry>(_host, "_search");
         Require(!search.IsFocused,
             "The loaded search Entry retained focus after sheet closure.");
+    }
+
+    private async Task WaitForSearchFocusStateAsync(
+        bool expectedFocused,
+        CancellationToken smokeToken)
+    {
+        Entry? search = null;
+        EventHandler<FocusEventArgs>? handler = null;
+        var completion = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await DispatchAsync(() =>
+        {
+            search = GetPrivateField<Entry>(_host, "_search");
+            if (search.IsFocused == expectedFocused)
+            {
+                completion.TrySetResult(true);
+                return;
+            }
+
+            handler = (_, _) => completion.TrySetResult(true);
+            if (expectedFocused)
+            {
+                search.Focused += handler;
+            }
+            else
+            {
+                search.Unfocused += handler;
+            }
+
+            if (search.IsFocused == expectedFocused)
+            {
+                completion.TrySetResult(true);
+            }
+        }).ConfigureAwait(false);
+
+        using var focusTimeout =
+            CancellationTokenSource.CreateLinkedTokenSource(
+                smokeToken);
+        focusTimeout.CancelAfter(FocusTransitionTimeout);
+        try
+        {
+            await completion.Task
+                .WaitAsync(focusTimeout.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (
+            !smokeToken.IsCancellationRequested)
+        {
+            throw new TimeoutException(
+                expectedFocused
+                    ? "The loaded Table-filter search did not receive focus within five seconds."
+                    : "The loaded Table-filter search did not release focus within five seconds.");
+        }
+        finally
+        {
+            if (search is not null && handler is not null)
+            {
+                await DispatchAsync(() =>
+                {
+                    if (expectedFocused)
+                    {
+                        search.Focused -= handler;
+                    }
+                    else
+                    {
+                        search.Unfocused -= handler;
+                    }
+                }).ConfigureAwait(false);
+            }
+        }
     }
 
     private Task<bool> DispatchAsync(Action action)
@@ -302,6 +391,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             frameCount = _frameCount,
             keyboardRootAttached = _keyboardRootAttached,
             searchFocused = _searchFocused,
+            focusTransitionsVerified = _focusTransitionsVerified,
             filterApplied = _filterApplied,
             undoRedoVerified = _undoRedoVerified,
             semanticDescription = _semanticDescription,
