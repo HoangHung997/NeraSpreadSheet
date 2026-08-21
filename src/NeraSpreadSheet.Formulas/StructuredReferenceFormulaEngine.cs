@@ -3,9 +3,9 @@ using NeraSpreadSheet.Core;
 namespace NeraSpreadSheet.Formulas;
 
 /// <summary>
-/// Expands table structured references to A1 ranges before delegating to the
-/// existing Nera formula engine. The expansion is deterministic and does not
-/// materialize table cells.
+/// Expands canonical Nera table structured references to A1 references before
+/// delegating to the existing formula engine. Expansion is sparse and does not
+/// materialize any table cells.
 /// </summary>
 public sealed class StructuredReferenceFormulaEngine
 {
@@ -19,18 +19,30 @@ public sealed class StructuredReferenceFormulaEngine
 
     public string Expand(
         string formula,
-        WorkbookTableCatalog tables,
+        Workbook workbook,
         Worksheet currentWorksheet,
-        CellAddress formulaAddress) =>
-        SpreadsheetStructuredReferenceResolver.ResolveFormula(
+        CellAddress formulaAddress)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(formula);
+        ArgumentNullException.ThrowIfNull(workbook);
+        ArgumentNullException.ThrowIfNull(currentWorksheet);
+        if (!workbook.Worksheets.Contains(currentWorksheet))
+        {
+            throw new ArgumentException(
+                "The current worksheet must belong to the workbook.",
+                nameof(currentWorksheet));
+        }
+
+        return StructuredReferenceFormulaTranslator.Translate(
             formula,
-            tables,
+            workbook,
             currentWorksheet,
             formulaAddress);
+    }
 
     public FormulaEvaluationResult Evaluate(
         string formula,
-        WorkbookTableCatalog tables,
+        Workbook workbook,
         Worksheet currentWorksheet,
         CellAddress formulaAddress,
         IFormulaEvaluationContext context)
@@ -38,7 +50,7 @@ public sealed class StructuredReferenceFormulaEngine
         ArgumentNullException.ThrowIfNull(context);
         var expanded = Expand(
             formula,
-            tables,
+            workbook,
             currentWorksheet,
             formulaAddress);
         return _inner.Evaluate(expanded, context);

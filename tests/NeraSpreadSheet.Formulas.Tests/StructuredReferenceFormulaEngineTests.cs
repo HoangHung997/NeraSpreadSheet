@@ -11,9 +11,7 @@ public sealed class StructuredReferenceFormulaEngineTests
     {
         var workbook = new Workbook();
         var worksheet = workbook.Worksheets[0];
-        var table = CreateTable();
-        var catalog = new WorkbookTableCatalog(workbook);
-        catalog.Add(worksheet, table);
+        worksheet.AddTable(CreateTable());
         worksheet.SetValue(new CellAddress(1, 1), 1d);
         worksheet.SetValue(new CellAddress(2, 1), 2d);
         worksheet.SetValue(new CellAddress(3, 1), 3d);
@@ -21,18 +19,20 @@ public sealed class StructuredReferenceFormulaEngineTests
 
         var result = engine.Evaluate(
             "=SUM(Sales[Amount])",
-            catalog,
+            workbook,
             worksheet,
             new CellAddress(0, 3),
             new WorksheetContext(worksheet));
 
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(6d, result.Value.RawValue);
-        Assert.AreEqual("=SUM(B2:B4)", engine.Expand(
-            "=SUM(Sales[Amount])",
-            catalog,
-            worksheet,
-            new CellAddress(0, 3)));
+        Assert.AreEqual(
+            "=SUM($B$2:$B$4)",
+            engine.Expand(
+                "=SUM(Sales[Amount])",
+                workbook,
+                worksheet,
+                new CellAddress(0, 3)));
     }
 
     [TestMethod]
@@ -40,21 +40,26 @@ public sealed class StructuredReferenceFormulaEngineTests
     {
         var workbook = new Workbook();
         var worksheet = workbook.Worksheets[0];
-        var table = CreateTable();
-        var catalog = new WorkbookTableCatalog(workbook);
-        catalog.Add(worksheet, table);
+        worksheet.AddTable(CreateTable());
         worksheet.SetValue(new CellAddress(2, 1), 7d);
         var engine = new StructuredReferenceFormulaEngine();
 
         var result = engine.Evaluate(
             "=[@Amount]*2",
-            catalog,
+            workbook,
             worksheet,
             new CellAddress(2, 0),
             new WorksheetContext(worksheet));
 
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(14d, result.Value.RawValue);
+        Assert.AreEqual(
+            "=$B$3*2",
+            engine.Expand(
+                "=[@Amount]*2",
+                workbook,
+                worksheet,
+                new CellAddress(2, 0)));
     }
 
     private static SpreadsheetTable CreateTable() =>
@@ -85,7 +90,7 @@ public sealed class StructuredReferenceFormulaEngineTests
                 return CellValue.FromError("#REF!");
             }
 
-            return worksheet.GetValue(address);
+            return worksheet.GetCell(address).Value;
         }
     }
 }
