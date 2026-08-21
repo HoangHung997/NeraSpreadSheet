@@ -31,6 +31,8 @@ public sealed class SpreadsheetSession
         Sort = new SpreadsheetSortController(this);
         Validation = new SpreadsheetDataValidationController(this);
         Tables = new SpreadsheetTableController(this);
+        WorksheetFilter =
+            new SpreadsheetWorksheetAutoFilterController(this);
         Editor = new SpreadsheetCellEditorController(this);
         View = new SpreadsheetViewController(this);
         Structure = new SpreadsheetStructureController(this);
@@ -70,6 +72,9 @@ public sealed class SpreadsheetSession
     public SpreadsheetDataValidationController Validation { get; }
 
     public SpreadsheetTableController Tables { get; }
+
+    public SpreadsheetWorksheetAutoFilterController
+        WorksheetFilter { get; }
 
     public SpreadsheetCellEditorController Editor { get; }
 

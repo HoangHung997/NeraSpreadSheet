@@ -19,6 +19,24 @@ public enum TableFilterComparisonOperator
     GreaterThanOrEqual,
     LessThan,
     LessThanOrEqual,
+    BeginsWith,
+    EndsWith,
+    Contains,
+    DoesNotContain,
+    IsBlank,
+    IsNotBlank,
+    OnDate,
+    BeforeDate,
+    AfterDate,
+    ThisWeek,
+    LastWeek,
+    NextWeek,
+    ThisMonth,
+    LastMonth,
+    NextMonth,
+    ThisYear,
+    LastYear,
+    NextYear,
 }
 
 public sealed record TableFilterCondition(
@@ -84,16 +102,21 @@ public sealed class TableFilterColumn
 
     public bool Matches(CellValue value)
     {
-        if (value.IsBlank)
-        {
-            return IncludeBlank ||
-                   _values.Any(static candidate => candidate.IsBlank);
-        }
-
         if (_values.Length > 0)
         {
+            if (value.IsBlank)
+            {
+                return IncludeBlank ||
+                       _values.Any(static candidate => candidate.IsBlank);
+            }
+
             return _values.Any(candidate =>
                 TableValueComparer.Compare(candidate, value) == 0);
+        }
+
+        if (value.IsBlank && IncludeBlank)
+        {
+            return true;
         }
 
         var first = FirstCondition is not null &&
@@ -119,8 +142,82 @@ public sealed class TableFilterColumn
 
     private static bool MatchesCondition(
         CellValue value,
+        TableFilterCondition condition) =>
+        SpreadsheetFilterPredicate.Matches(value, condition);
+}
+
+internal static class SpreadsheetFilterPredicate
+{
+    public static bool Matches(
+        CellValue value,
         TableFilterCondition condition)
     {
+        ArgumentNullException.ThrowIfNull(condition);
+        if (condition.Operator == TableFilterComparisonOperator.IsBlank)
+        {
+            return value.IsBlank;
+        }
+        if (condition.Operator == TableFilterComparisonOperator.IsNotBlank)
+        {
+            return !value.IsBlank;
+        }
+        if (value.IsBlank)
+        {
+            return false;
+        }
+
+        if (condition.Operator is
+            TableFilterComparisonOperator.BeginsWith or
+            TableFilterComparisonOperator.EndsWith or
+            TableFilterComparisonOperator.Contains or
+            TableFilterComparisonOperator.DoesNotContain)
+        {
+            var source = GetText(value);
+            var requested = GetText(condition.Value);
+            return condition.Operator switch
+            {
+                TableFilterComparisonOperator.BeginsWith =>
+                    source.StartsWith(
+                        requested,
+                        StringComparison.OrdinalIgnoreCase),
+                TableFilterComparisonOperator.EndsWith =>
+                    source.EndsWith(
+                        requested,
+                        StringComparison.OrdinalIgnoreCase),
+                TableFilterComparisonOperator.Contains =>
+                    source.Contains(
+                        requested,
+                        StringComparison.OrdinalIgnoreCase),
+                TableFilterComparisonOperator.DoesNotContain =>
+                    !source.Contains(
+                        requested,
+                        StringComparison.OrdinalIgnoreCase),
+                _ => false,
+            };
+        }
+
+        if (condition.Operator is
+            TableFilterComparisonOperator.OnDate or
+            TableFilterComparisonOperator.BeforeDate or
+            TableFilterComparisonOperator.AfterDate or
+            TableFilterComparisonOperator.ThisWeek or
+            TableFilterComparisonOperator.LastWeek or
+            TableFilterComparisonOperator.NextWeek or
+            TableFilterComparisonOperator.ThisMonth or
+            TableFilterComparisonOperator.LastMonth or
+            TableFilterComparisonOperator.NextMonth or
+            TableFilterComparisonOperator.ThisYear or
+            TableFilterComparisonOperator.LastYear or
+            TableFilterComparisonOperator.NextYear)
+        {
+            return TryGetDate(value, out var candidate) &&
+                   TryGetDate(condition.Value, out var reference) &&
+                   MatchesDate(
+                       candidate.Date,
+                       reference.Date,
+                       condition.Operator);
+        }
+
         var comparison = TableValueComparer.Compare(
             value,
             condition.Value);
@@ -134,6 +231,120 @@ public sealed class TableFilterColumn
             TableFilterComparisonOperator.LessThanOrEqual => comparison <= 0,
             _ => false,
         };
+    }
+
+    private static string GetText(CellValue value) =>
+        value.Kind == CellValueKind.Text
+            ? (string)value.RawValue!
+            : value.ToString();
+
+    private static bool TryGetDate(
+        CellValue value,
+        out DateTime date)
+    {
+        switch (value.Kind)
+        {
+            case CellValueKind.DateTime:
+                date = (DateTime)value.RawValue!;
+                return true;
+            case CellValueKind.Number:
+                try
+                {
+                    date = DateTime.FromOADate(
+                        (double)value.RawValue!);
+                    return true;
+                }
+                catch (ArgumentException)
+                {
+                    date = default;
+                    return false;
+                }
+            case CellValueKind.Text:
+                return DateTime.TryParse(
+                    (string)value.RawValue!,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AllowWhiteSpaces |
+                    DateTimeStyles.AssumeLocal,
+                    out date);
+            default:
+                date = default;
+                return false;
+        }
+    }
+
+    private static bool MatchesDate(
+        DateTime candidate,
+        DateTime reference,
+        TableFilterComparisonOperator comparisonOperator)
+    {
+        if (comparisonOperator == TableFilterComparisonOperator.OnDate)
+        {
+            return candidate == reference;
+        }
+        if (comparisonOperator == TableFilterComparisonOperator.BeforeDate)
+        {
+            return candidate < reference;
+        }
+        if (comparisonOperator == TableFilterComparisonOperator.AfterDate)
+        {
+            return candidate > reference;
+        }
+
+        var (start, end) = comparisonOperator switch
+        {
+            TableFilterComparisonOperator.ThisWeek =>
+                CreateWeekWindow(reference, 0),
+            TableFilterComparisonOperator.LastWeek =>
+                CreateWeekWindow(reference, -1),
+            TableFilterComparisonOperator.NextWeek =>
+                CreateWeekWindow(reference, 1),
+            TableFilterComparisonOperator.ThisMonth =>
+                CreateMonthWindow(reference, 0),
+            TableFilterComparisonOperator.LastMonth =>
+                CreateMonthWindow(reference, -1),
+            TableFilterComparisonOperator.NextMonth =>
+                CreateMonthWindow(reference, 1),
+            TableFilterComparisonOperator.ThisYear =>
+                CreateYearWindow(reference, 0),
+            TableFilterComparisonOperator.LastYear =>
+                CreateYearWindow(reference, -1),
+            TableFilterComparisonOperator.NextYear =>
+                CreateYearWindow(reference, 1),
+            _ => (DateTime.MaxValue, DateTime.MinValue),
+        };
+        return candidate >= start && candidate < end;
+    }
+
+    private static (DateTime Start, DateTime End)
+        CreateWeekWindow(DateTime reference, int offset)
+    {
+        var daysSinceMonday =
+            ((int)reference.DayOfWeek -
+             (int)DayOfWeek.Monday + 7) % 7;
+        var start = reference
+            .AddDays(-daysSinceMonday + (offset * 7))
+            .Date;
+        return (start, start.AddDays(7));
+    }
+
+    private static (DateTime Start, DateTime End)
+        CreateMonthWindow(DateTime reference, int offset)
+    {
+        var start = new DateTime(
+            reference.Year,
+            reference.Month,
+            1).AddMonths(offset);
+        return (start, start.AddMonths(1));
+    }
+
+    private static (DateTime Start, DateTime End)
+        CreateYearWindow(DateTime reference, int offset)
+    {
+        var start = new DateTime(
+            reference.Year + offset,
+            1,
+            1);
+        return (start, start.AddYears(1));
     }
 }
 

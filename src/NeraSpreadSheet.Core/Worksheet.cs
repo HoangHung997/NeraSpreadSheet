@@ -31,6 +31,7 @@ public sealed class Worksheet
     private readonly WorksheetDataValidationCollection
         _dataValidations = new();
     private readonly WorksheetTableCollection _tables = new();
+    private WorksheetAutoFilter? _autoFilter;
     private long _nextAxisStyleSequence = 1L;
 
     internal Worksheet(string name, Workbook workbook)
@@ -76,6 +77,8 @@ public sealed class Worksheet
     public int TableCount => _tables.Count;
 
     public IReadOnlyList<SpreadsheetTable> Tables => _tables.Tables;
+
+    public WorksheetAutoFilter? AutoFilter => _autoFilter?.Copy();
 
     public event EventHandler<CellsChangedEventArgs>? CellsChanged;
 
@@ -299,6 +302,12 @@ public sealed class Worksheet
             throw new InvalidOperationException(
                 "A table cannot overlap a merged range.");
         }
+        if (_autoFilter is not null &&
+            _autoFilter.Range.Intersects(table.Range))
+        {
+            throw new InvalidOperationException(
+                "A table cannot overlap the worksheet AutoFilter range.");
+        }
 
         _tables.Add(table);
         Workbook.NotifyTableCollectionChanged();
@@ -376,6 +385,40 @@ public sealed class Worksheet
         ReplaceTable(tableId, table.WithAutoFilter(autoFilter));
     }
 
+    public void SetAutoFilter(WorksheetAutoFilter? autoFilter)
+    {
+        var replacement = autoFilter?.Copy();
+        if (Equals(_autoFilter, replacement))
+        {
+            return;
+        }
+
+        if (replacement is not null)
+        {
+            ValidateWorksheetAutoFilter(
+                replacement,
+                _tables.Tables,
+                MergedCells.Ranges);
+        }
+
+        var beforeRange = _autoFilter?.Range;
+        var afterRange = replacement?.Range;
+        _autoFilter = replacement;
+        if (beforeRange is null && afterRange is null)
+        {
+            return;
+        }
+
+        PublishChange(beforeRange is null
+            ? afterRange!.Value
+            : afterRange is null
+                ? beforeRange.Value
+                : Union(beforeRange.Value, afterRange.Value));
+    }
+
+    public void ClearAutoFilter() =>
+        SetAutoFilter(null);
+
     public void MergeCells(
         CellRange range,
         bool clearNonTopLeftCells = true)
@@ -385,6 +428,12 @@ public sealed class Worksheet
         {
             throw new InvalidOperationException(
                 "Merged cells cannot overlap a table.");
+        }
+        if (_autoFilter is not null &&
+            _autoFilter.Range.Intersects(range))
+        {
+            throw new InvalidOperationException(
+                "Merged cells cannot overlap the worksheet AutoFilter range.");
         }
 
         MergedCells.Add(range);
@@ -574,7 +623,8 @@ public sealed class Worksheet
             _nextAxisStyleSequence,
             _conditionalFormatting.Capture(),
             _dataValidations.Capture(),
-            _tables.Capture());
+            _tables.Capture(),
+            _autoFilter?.Copy());
 
     internal void ApplyStructuralChange(
         WorksheetStructuralChange change)
@@ -593,9 +643,18 @@ public sealed class Worksheet
             _dataValidations.CreateStructuralRules(change);
         var transformedTables =
             _tables.CreateStructuralTables(change, Name);
+        var transformedAutoFilter =
+            _autoFilter?.CreateStructuralFilter(change);
         ValidateTablesAgainstMergedRanges(
             transformedTables,
             transformedMergedCells);
+        if (transformedAutoFilter is not null)
+        {
+            ValidateWorksheetAutoFilter(
+                transformedAutoFilter,
+                transformedTables,
+                transformedMergedCells);
+        }
 
         ReplaceCells(transformedCells);
         Dimensions.ReplaceStructuralOverrides(
@@ -608,6 +667,7 @@ public sealed class Worksheet
             DifferentialStyles);
         _dataValidations.Restore(transformedDataValidations);
         _tables.Restore(transformedTables);
+        _autoFilter = transformedAutoFilter?.Copy();
         PublishStructuralChange(change);
     }
 
@@ -633,9 +693,18 @@ public sealed class Worksheet
             _dataValidations.CreateAxisMoveRules(move);
         var transformedTables =
             _tables.CreateAxisMoveTables(move);
+        var transformedAutoFilter =
+            _autoFilter?.CreateAxisMoveFilter(move);
         ValidateTablesAgainstMergedRanges(
             transformedTables,
             transformedMergedCells);
+        if (transformedAutoFilter is not null)
+        {
+            ValidateWorksheetAutoFilter(
+                transformedAutoFilter,
+                transformedTables,
+                transformedMergedCells);
+        }
 
         ReplaceCells(transformedCells);
         Dimensions.ReplaceAxisMoveOverrides(
@@ -648,6 +717,7 @@ public sealed class Worksheet
             DifferentialStyles);
         _dataValidations.Restore(transformedDataValidations);
         _tables.Restore(transformedTables);
+        _autoFilter = transformedAutoFilter?.Copy();
         PublishAxisMove(move);
     }
 
@@ -673,6 +743,7 @@ public sealed class Worksheet
             DifferentialStyles);
         _dataValidations.Restore(state.DataValidationRules);
         _tables.Restore(state.Tables);
+        _autoFilter = state.AutoFilter?.Copy();
         PublishStructuralChange(signalChange);
     }
 
@@ -698,6 +769,7 @@ public sealed class Worksheet
             DifferentialStyles);
         _dataValidations.Restore(state.DataValidationRules);
         _tables.Restore(state.Tables);
+        _autoFilter = state.AutoFilter?.Copy();
         PublishAxisMove(signalMove);
     }
 
@@ -723,7 +795,17 @@ public sealed class Worksheet
         IEnumerable<SpreadsheetTable> tables,
         CellRange signalRange)
     {
-        _tables.Restore(tables);
+        var materialized = tables
+            .Select(static table => table.Copy())
+            .ToArray();
+        if (_autoFilter is not null)
+        {
+            ValidateWorksheetAutoFilter(
+                _autoFilter,
+                materialized,
+                MergedCells.Ranges);
+        }
+        _tables.Restore(materialized);
         Workbook.NotifyTableCollectionChanged();
         PublishChange(signalRange);
     }
@@ -877,6 +959,13 @@ public sealed class Worksheet
 
         var oldRange = tables[index].Range;
         tables[index] = replacement;
+        if (_autoFilter is not null)
+        {
+            ValidateWorksheetAutoFilter(
+                _autoFilter,
+                tables,
+                MergedCells.Ranges);
+        }
         _tables.Restore(tables);
         Workbook.NotifyTableCollectionChanged();
         PublishTableChange(new CellRange(
@@ -903,6 +992,36 @@ public sealed class Worksheet
             }
         }
     }
+
+    private static void ValidateWorksheetAutoFilter(
+        WorksheetAutoFilter autoFilter,
+        IEnumerable<SpreadsheetTable> tables,
+        IEnumerable<CellRange> mergedRanges)
+    {
+        if (tables.Any(table =>
+                table.Range.Intersects(autoFilter.Range)))
+        {
+            throw new InvalidOperationException(
+                "A worksheet AutoFilter cannot overlap a table.");
+        }
+        if (mergedRanges.Any(range =>
+                range.Intersects(autoFilter.Range)))
+        {
+            throw new InvalidOperationException(
+                "A worksheet AutoFilter cannot overlap a merged range.");
+        }
+    }
+
+    private static CellRange Union(
+        CellRange left,
+        CellRange right) =>
+        new(
+            new CellAddress(
+                Math.Min(left.Top, right.Top),
+                Math.Min(left.Left, right.Left)),
+            new CellAddress(
+                Math.Max(left.Bottom, right.Bottom),
+                Math.Max(left.Right, right.Right)));
 
     private void ReplaceCells(
         IEnumerable<KeyValuePair<CellAddress, CellData>> cells)
@@ -1015,6 +1134,10 @@ public sealed class Worksheet
         range = _conditionalFormatting.ExpandSignalRange(range);
         range = _dataValidations.ExpandSignalRange(range);
         range = _tables.ExpandSignalRange(range);
+        if (_autoFilter is not null)
+        {
+            range = _autoFilter.ExpandSignalRange(range);
+        }
         Version++;
         CellsChanged?.Invoke(
             this,

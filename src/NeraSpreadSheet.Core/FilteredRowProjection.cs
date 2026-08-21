@@ -39,8 +39,12 @@ public static class WorksheetSnapshotFilterProjectionExtensions
             .OrderBy(static table => table.Range.Top)
             .ThenBy(static table => table.Range.Left)
             .ToArray();
+        var worksheetFilter = worksheet.AutoFilter;
+        var worksheetFilterRows =
+            worksheetFilter?.DataRange?.RowCount ?? 0;
         var requestedRows = filteredTables.Sum(static table =>
-            (long)table.DataRange!.Value.RowCount);
+            (long)table.DataRange!.Value.RowCount) +
+            worksheetFilterRows;
         if (requestedRows > maximumRowsToEvaluate)
         {
             throw new InvalidOperationException(
@@ -49,15 +53,46 @@ public static class WorksheetSnapshotFilterProjectionExtensions
         }
 
         var spans = new List<FilteredRowSpan>();
+        if (worksheetFilter is
+            {
+                Columns.Count: > 0,
+                DataRange: { } worksheetDataRange,
+            })
+        {
+            AppendFilteredRows(
+                spans,
+                worksheetDataRange,
+                rowIndex => worksheetFilter.IsRowVisible(
+                    worksheet,
+                    rowIndex));
+        }
+
         foreach (var table in filteredTables)
         {
             var dataRange = table.DataRange!.Value;
+            AppendFilteredRows(
+                spans,
+                dataRange,
+                rowIndex => table.IsRowVisible(
+                    worksheet,
+                    rowIndex));
+        }
+
+        return spans;
+    }
+
+    private static void AppendFilteredRows(
+        List<FilteredRowSpan> spans,
+        CellRange dataRange,
+        Func<int, bool> isRowVisible)
+    {
+        ArgumentNullException.ThrowIfNull(isRowVisible);
             int? spanStart = null;
             for (var rowIndex = dataRange.Top;
                  rowIndex <= dataRange.Bottom;
                  rowIndex++)
             {
-                if (!table.IsRowVisible(worksheet, rowIndex))
+                if (!isRowVisible(rowIndex))
                 {
                     spanStart ??= rowIndex;
                     continue;
@@ -74,9 +109,6 @@ public static class WorksheetSnapshotFilterProjectionExtensions
             {
                 AppendSpan(spans, remainingStart, dataRange.Bottom);
             }
-        }
-
-        return spans;
     }
 
     private static void AppendSpan(

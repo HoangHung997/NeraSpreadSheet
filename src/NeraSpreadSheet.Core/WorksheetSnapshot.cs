@@ -16,6 +16,7 @@ public sealed class WorksheetSnapshot
     private readonly CellStylePatch[] _differentialStyles;
     private readonly DataValidationRule[] _dataValidationRules;
     private readonly SpreadsheetTable[] _tables;
+    private readonly WorksheetAutoFilter? _autoFilter;
     private readonly ConcurrentDictionary<AxisStyleCacheKey, CellStyle>
         _axisStyleCache = new();
 
@@ -33,7 +34,8 @@ public sealed class WorksheetSnapshot
         ConditionalFormattingRule[] conditionalFormattingRules,
         CellStylePatch[] differentialStyles,
         DataValidationRule[] dataValidationRules,
-        SpreadsheetTable[] tables)
+        SpreadsheetTable[] tables,
+        WorksheetAutoFilter? autoFilter)
     {
         Name = name;
         Version = version;
@@ -60,6 +62,7 @@ public sealed class WorksheetSnapshot
         _tables = tables
             .Select(static table => table.Copy())
             .ToArray();
+        _autoFilter = autoFilter?.Copy();
     }
 
     public string Name { get; }
@@ -101,6 +104,8 @@ public sealed class WorksheetSnapshot
         _dataValidationRules;
 
     public IReadOnlyList<SpreadsheetTable> Tables => _tables;
+
+    public WorksheetAutoFilter? AutoFilter => _autoFilter;
 
     internal int AxisStyleCacheEntryCount =>
         _axisStyleCache.Count;
@@ -203,6 +208,12 @@ public sealed class WorksheetSnapshot
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(
             rowIndex,
             SpreadsheetLimits.MaxRows);
+        if (_autoFilter is not null &&
+            !_autoFilter.IsRowVisible(this, rowIndex))
+        {
+            return false;
+        }
+
         foreach (var table in _tables)
         {
             if (!table.IsRowVisible(this, rowIndex))
@@ -277,7 +288,8 @@ public sealed class WorksheetSnapshot
             [.. worksheet.ConditionalFormattingRules],
             [.. worksheet.DifferentialStyles.Snapshot()],
             [.. worksheet.DataValidationRules],
-            [.. worksheet.Tables]);
+            [.. worksheet.Tables],
+            worksheet.AutoFilter);
     }
 
     private CellAddress ResolveMergedAnchor(

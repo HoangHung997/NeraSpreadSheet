@@ -10,4 +10,5 @@ internal sealed record WorksheetStructuralState(
     long NextAxisStyleSequence,
     ConditionalFormattingRule[] ConditionalFormattingRules,
     DataValidationRule[] DataValidationRules,
-    SpreadsheetTable[] Tables);
+    SpreadsheetTable[] Tables,
+    WorksheetAutoFilter? AutoFilter);

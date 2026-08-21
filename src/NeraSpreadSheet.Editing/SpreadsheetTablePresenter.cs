@@ -54,8 +54,22 @@ public sealed record SpreadsheetTableFilterMenuSnapshot(
         IsRowScanTruncated || IsDistinctValueTruncated;
 }
 
+public sealed record SpreadsheetTableFilterValuePage(
+    Guid TableId,
+    Guid ColumnId,
+    string SearchText,
+    int Offset,
+    int PageSize,
+    int TotalVisibleValueCount,
+    bool HasPreviousPage,
+    bool HasNextPage,
+    bool IsSourceTruncated,
+    IReadOnlyList<SpreadsheetTableFilterValueItem> Values);
+
 public sealed class SpreadsheetTableFilterMenu
 {
+    public const int MaximumPageSize = 1000;
+
     private readonly SpreadsheetTablePresenterController _owner;
     private readonly Dictionary<CellValue, int> _counts;
     private readonly HashSet<CellValue> _selected;
@@ -125,7 +139,7 @@ public sealed class SpreadsheetTableFilterMenu
 
     public SpreadsheetTableFilterMenuSnapshot Capture()
     {
-        var visible = GetVisibleValues();
+        var visible = GetVisibleValues(CancellationToken.None);
         var selectedVisibleCount = visible.Count(item =>
             _selected.Contains(item.Value));
         return new SpreadsheetTableFilterMenuSnapshot(
@@ -150,6 +164,43 @@ public sealed class SpreadsheetTableFilterMenu
                     item.Count,
                     _selected.Contains(item.Value)))
                 .ToArray());
+    }
+
+    public SpreadsheetTableFilterValuePage CapturePage(
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(
+            pageSize,
+            MaximumPageSize);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var visible = GetVisibleValues(cancellationToken);
+        var page = visible
+            .Skip(offset)
+            .Take(pageSize)
+            .Select(item =>
+                new SpreadsheetTableFilterValueItem(
+                    item.Value,
+                    item.DisplayText,
+                    item.Count,
+                    _selected.Contains(item.Value)))
+            .ToArray();
+        cancellationToken.ThrowIfCancellationRequested();
+        return new SpreadsheetTableFilterValuePage(
+            TableId,
+            ColumnId,
+            _searchText,
+            offset,
+            pageSize,
+            visible.Count,
+            offset > 0,
+            checked(offset + page.Length) < visible.Count,
+            IsTruncated,
+            page);
     }
 
     public void SetSearchText(string? searchText)
@@ -188,7 +239,7 @@ public sealed class SpreadsheetTableFilterMenu
     public void SelectAllVisible()
     {
         var changed = false;
-        foreach (var item in GetVisibleValues())
+        foreach (var item in GetVisibleValues(CancellationToken.None))
         {
             changed |= _selected.Add(item.Value);
         }
@@ -201,7 +252,7 @@ public sealed class SpreadsheetTableFilterMenu
     public void ClearVisibleSelection()
     {
         var changed = false;
-        foreach (var item in GetVisibleValues())
+        foreach (var item in GetVisibleValues(CancellationToken.None))
         {
             changed |= _selected.Remove(item.Value);
         }
@@ -241,22 +292,47 @@ public sealed class SpreadsheetTableFilterMenu
         _selected.Count == _counts.Count &&
         _counts.Keys.All(_selected.Contains);
 
-    private List<ValueCount> GetVisibleValues()
+    private List<ValueCount> GetVisibleValues(
+        CancellationToken cancellationToken)
     {
-        var result = _counts
-            .Select(static pair => new ValueCount(
+        var result = new List<ValueCount>(_counts.Count);
+        var index = 0;
+        foreach (var pair in _counts)
+        {
+            if ((index++ & 255) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            var item = new ValueCount(
                 pair.Key,
                 FormatValue(pair.Key),
-                pair.Value))
-            .Where(item =>
-                _searchText.Length == 0 ||
+                pair.Value);
+            if (_searchText.Length == 0 ||
                 item.DisplayText.Contains(
                     _searchText,
                     StringComparison.OrdinalIgnoreCase))
-            .OrderBy(static item => item.Value.IsBlank ? 0 : 1)
-            .ThenBy(static item => item.DisplayText, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(static item => item.Value.Kind)
-            .ToList();
+            {
+                result.Add(item);
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        result.Sort(static (left, right) =>
+        {
+            var blank = (left.Value.IsBlank ? 0 : 1)
+                .CompareTo(right.Value.IsBlank ? 0 : 1);
+            if (blank != 0)
+            {
+                return blank;
+            }
+            var text = StringComparer.OrdinalIgnoreCase.Compare(
+                left.DisplayText,
+                right.DisplayText);
+            return text != 0
+                ? text
+                : left.Value.Kind.CompareTo(right.Value.Kind);
+        });
         return result;
     }
 
