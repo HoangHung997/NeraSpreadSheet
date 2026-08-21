@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Input;
 using NeraSpreadSheet.Editing;
 using Windows.System;
 using Windows.UI.Core;
+using WinUiControl = Microsoft.UI.Xaml.Controls.Control;
 using WinUiTextBox = Microsoft.UI.Xaml.Controls.TextBox;
 using WinUiVisibility = Microsoft.UI.Xaml.Visibility;
 
@@ -67,8 +68,15 @@ public sealed partial class NeraSpreadsheetTableHost
             return;
         }
 
-        _platformSearchFocusPending = IsFilterSheetOpen;
-        TryCompletePlatformSearchFocus();
+        if (IsFilterSheetOpen)
+        {
+            _platformSearchFocusPending = true;
+            TryCompletePlatformSearchFocus();
+            return;
+        }
+
+        _platformSearchFocusPending = false;
+        MovePlatformFocusAwayFromSearch();
     }
 
     private void OnPlatformLayoutUpdated(object? sender, object e)
@@ -172,6 +180,38 @@ public sealed partial class NeraSpreadsheetTableHost
         if (IsPlatformSearchFocused())
         {
             ConfirmPlatformSearchFocus();
+        }
+    }
+
+    private void MovePlatformFocusAwayFromSearch()
+    {
+        if (!IsPlatformSearchFocused())
+        {
+            return;
+        }
+
+        _search.Unfocus();
+        VisualElement target = Spreadsheet;
+        if (_session?.TryResolveActiveTableFilterTarget(
+                out var activeTarget) == true &&
+            _buttons.TryGetValue(
+                (activeTarget.TableId, activeTarget.ColumnId),
+                out var button) &&
+            button.IsVisible)
+        {
+            target = button;
+        }
+
+        target.Focus();
+        if (target.Handler?.PlatformView is WinUiControl control)
+        {
+            control.Focus(FocusState.Programmatic);
+            return;
+        }
+
+        if (_platformKeyboardRoot is WinUiControl rootControl)
+        {
+            rootControl.Focus(FocusState.Programmatic);
         }
     }
 
