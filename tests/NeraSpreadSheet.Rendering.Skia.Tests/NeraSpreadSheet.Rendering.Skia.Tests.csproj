@@ -10,5 +10,6 @@
     <PackageReference Include="MSTest.TestFramework" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
     <ProjectReference Include="../../src/NeraSpreadSheet.Rendering.Skia/NeraSpreadSheet.Rendering.Skia.csproj" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.Rendering.Spreadsheet/NeraSpreadSheet.Rendering.Spreadsheet.csproj" />
   </ItemGroup>
 </Project>
