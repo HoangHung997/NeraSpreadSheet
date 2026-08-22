@@ -114,6 +114,11 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 generatedBytes,
                 workbook.Worksheets.Count,
                 cancellationToken);
+            outputBytes = OpenXmlWorksheetAutoFilterPackagePatcher.Patch(
+                outputBytes,
+                generatedBytes,
+                workbook.Worksheets.Count,
+                cancellationToken);
             outputBytes = OpenXmlTablePackagePatcher.Patch(
                 outputBytes,
                 generatedBytes,
@@ -216,6 +221,10 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 worksheetPart,
                 worksheet,
                 cancellationToken);
+            OpenXmlWorksheetAutoFilterCodec.ReadWorksheetFilter(
+                worksheetPart,
+                worksheet,
+                cancellationToken);
         }
 
         if (workbook.Worksheets.Count == 0)
@@ -265,6 +274,9 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 options,
                 cancellationToken);
             worksheetPart.Worksheet.Save();
+            OpenXmlWorksheetAutoFilterCodec.WriteWorksheetFilter(
+                worksheetPart,
+                worksheet);
             OpenXmlConditionalFormattingCodec.WriteWorksheetRules(
                 worksheetPart,
                 worksheet,
