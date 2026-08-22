@@ -1,6 +1,7 @@
 using Microsoft.Maui.Controls;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Editing;
 
 namespace NeraSpreadSheet.Maui.Tests;
 
