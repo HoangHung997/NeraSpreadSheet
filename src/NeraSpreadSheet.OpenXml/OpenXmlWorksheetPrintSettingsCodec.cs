@@ -162,9 +162,10 @@ internal static class OpenXmlWorksheetPrintSettingsCodec
             SpreadsheetNamespace + "printOptions");
         var headerFooter = root.Element(
             SpreadsheetNamespace + "headerFooter");
-        var printArea = definedNames?.PrintArea is { Length: > 0 } area
-            ? ParsePrintArea(area, worksheetName)
-            : null;
+        CellRange? printArea =
+            definedNames?.PrintArea is { Length: > 0 } area
+                ? ParsePrintArea(area, worksheetName)
+                : null;
         var repeatTitles = definedNames?.PrintTitles is { Length: > 0 } titles
             ? ParsePrintTitles(titles, worksheetName, printArea)
             : default;
@@ -178,6 +179,11 @@ internal static class OpenXmlWorksheetPrintSettingsCodec
         var scale = ReadPositiveDouble(
             pageSetup?.Attribute("scale"),
             100d);
+        if (scale is < 10d or > 400d)
+        {
+            throw new InvalidDataException(
+                "The XLSX page scale must be between 10 and 400 percent.");
+        }
         var fitWide = ReadPositiveInt(pageSetup?.Attribute("fitToWidth"));
         var fitTall = ReadPositiveInt(pageSetup?.Attribute("fitToHeight"));
         var paper = ReadPaperSize(pageSetup?.Attribute("paperSize"));
@@ -367,13 +373,19 @@ internal static class OpenXmlWorksheetPrintSettingsCodec
         {
             var calculationProperties = root.Element(
                 SpreadsheetNamespace + "calcPr");
-            if (calculationProperties is null)
+            var extensionList = root.Element(
+                SpreadsheetNamespace + "extLst");
+            if (calculationProperties is not null)
             {
-                root.Add(container);
+                calculationProperties.AddBeforeSelf(container);
+            }
+            else if (extensionList is not null)
+            {
+                extensionList.AddBeforeSelf(container);
             }
             else
             {
-                calculationProperties.AddBeforeSelf(container);
+                root.Add(container);
             }
         }
 
@@ -604,7 +616,7 @@ internal static class OpenXmlWorksheetPrintSettingsCodec
             : string.Join(',', terms);
     }
 
-    private static IReadOnlyList<string> SplitFormulaTerms(string formula)
+    private static List<string> SplitFormulaTerms(string formula)
     {
         var result = new List<string>();
         var current = new StringBuilder();
@@ -838,9 +850,36 @@ internal static class OpenXmlWorksheetPrintSettingsCodec
         }
         if (element is null)
         {
-            parent.Add(new XElement(
+            var created = new XElement(
                 SpreadsheetNamespace + localName,
-                value));
+                value);
+            var order = new[]
+            {
+                "oddHeader",
+                "oddFooter",
+                "evenHeader",
+                "evenFooter",
+                "firstHeader",
+                "firstFooter",
+            };
+            var requestedIndex = Array.IndexOf(order, localName);
+            var insertBefore = parent.Elements()
+                .FirstOrDefault(candidate =>
+                {
+                    var candidateIndex = Array.IndexOf(
+                        order,
+                        candidate.Name.LocalName);
+                    return candidateIndex >= 0 &&
+                           candidateIndex > requestedIndex;
+                });
+            if (insertBefore is null)
+            {
+                parent.Add(created);
+            }
+            else
+            {
+                insertBefore.AddBeforeSelf(created);
+            }
         }
         else
         {
