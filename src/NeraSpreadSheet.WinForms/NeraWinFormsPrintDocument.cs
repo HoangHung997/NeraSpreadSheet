@@ -114,7 +114,8 @@ public sealed class NeraWinFormsPrintDocument : PrintDocument
         }
 
         var page = ComposePage(_nextInvocationIndex);
-        var graphics = e.Graphics;
+        var graphics = e.Graphics ?? throw new InvalidOperationException(
+            "The selected WinForms print controller did not provide a graphics surface.");
         var state = graphics.Save();
         try
         {
