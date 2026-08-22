@@ -21,12 +21,12 @@ public sealed class NativePrintPreviewControlsTests
             var session = CreatePreviewSession();
             var control = new WpfPreview
             {
-                Width = 480d,
+                Width = 160d,
                 Height = 320d,
                 Session = session,
             };
-            control.Measure(new System.Windows.Size(480d, 320d));
-            control.Arrange(new Rect(0d, 0d, 480d, 320d));
+            control.Measure(new System.Windows.Size(160d, 320d));
+            control.Arrange(new Rect(0d, 0d, 160d, 320d));
 
             control.SetZoom(0.5d, 125.25d, 84.75d);
             control.ScrollTo(17.25d, 31.75d);
@@ -47,7 +47,7 @@ public sealed class NativePrintPreviewControlsTests
         var session = CreatePreviewSession();
         using var control = new WinFormsPreview
         {
-            Size = new System.Drawing.Size(480, 320),
+            Size = new System.Drawing.Size(160, 320),
             Session = session,
         };
 
