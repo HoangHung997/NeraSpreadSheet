@@ -72,7 +72,7 @@ public sealed class SpreadsheetAutoFilterPagingTests
         Assert.AreEqual("pen", searched.SearchText);
         Assert.AreEqual(2, searched.TotalItemCount);
         CollectionAssert.AreEqual(
-            new[] { "Open", "Pending" },
+            ExpectedSearchValues,
             searched.LoadedItems
                 .Select(static item => item.DisplayText)
                 .ToArray());
@@ -158,6 +158,9 @@ public sealed class SpreadsheetAutoFilterPagingTests
         await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () =>
             await view.RefreshAsync());
     }
+
+    private static readonly string[] ExpectedSearchValues =
+        ["Open", "Pending"];
 
     private static Fixture CreateFixture()
     {
