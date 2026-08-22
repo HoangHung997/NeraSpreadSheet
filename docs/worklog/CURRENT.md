@@ -1,172 +1,127 @@
 # Current Work Handoff
 
-- Ngày cập nhật: 2026-08-21
+- Ngày cập nhật: 2026-08-22
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` vào `develop` — Draft, chưa merge
-- Implementation commit đã xác minh: `e3a814f5c0f6eb0fff75d30ee5ee217069139d71`
-- GitHub Actions: run `32474664182`, CI `#570`, kết luận `success`
+- Implementation commit đã xác minh: `023835495a5c56aea19830aff299765808ab5598`
+- GitHub Actions: run `32543422821`, CI `#586`, kết luận `success`
 - Nguồn sự thật: `docs/current-status.md`
-- Contract Table model: `docs/table-structured-reference-contract.md`
-- Contract Table presenter: `docs/table-filter-presenter-contract.md`
 - Roadmap: `ROADMAP.md`
 
-## Batch vừa hoàn thành: Table Manager + Native AutoFilter Presenter
+## Batch vừa hoàn thành: Worksheet AutoFilter Preservation + Paged Session Foundation
 
-### 1. Platform-neutral Table manager
+### 1. Direct worksheet AutoFilter
 
-- `SpreadsheetTablePresenterController.GetManagerSnapshot()` trả về snapshot chỉ đọc của worksheet hiện hành.
-- Snapshot dùng stable `Guid` của Table và column, range chuẩn, header/totals state, style và trạng thái filter/formula metadata.
-- Snapshot không phải writable model thứ hai; mọi host phải refresh sau mutation.
+- Worksheet sở hữu một `WorksheetAutoFilter` độc lập với Table.
+- Phạm vi có hàng tiêu đề, vùng dữ liệu và các criterion theo column offset.
+- Dùng chung `TableFilterColumn` và predicate engine với Table AutoFilter.
+- Production API: `SpreadsheetSession.WorksheetFilters`.
+- Set range, value/custom filter, clear column/criteria và remove đều đi qua Undo/Redo.
+- Insert/delete/reorder ánh xạ range và column criteria; xóa riêng header bị từ chối trước mutation.
+- Không cho chồng lên Table hoặc merged cells trong contract hiện tại.
 
-### 2. Bounded distinct-value filter menu
+### 2. Rich predicates dùng chung
 
-- Menu được mở bằng Table ID + column ID.
-- Giá trị được quét từ một `WorksheetSnapshot` bất biến của canonical Table data range.
-- Giới hạn mặc định:
-  - `100.000` data row được quét;
-  - `10.000` distinct value được giữ.
-- Có occurrence count, blank identity và hai cờ truncation độc lập.
-- Search dùng trimmed ordinal-ignore-case substring.
-- Search không làm mất lựa chọn đang bị ẩn.
-- Select-all-visible và clear-visible chỉ tác động projection đang hiển thị.
-- Khi enumeration bị truncate, chọn toàn bộ giá trị đã thấy vẫn tạo explicit filter; giá trị chưa quét không bị tự động coi là đã chọn.
+- Equal/not-equal và các phép so sánh lớn/nhỏ.
+- BeginsWith, EndsWith, Contains, DoesNotContain.
+- IsBlank và IsNotBlank.
+- On/Before/After date.
+- This/Last/Next week, month và year với reference date rõ ràng.
+- Blank không bị ép thành 0 hoặc empty text.
 
-### 3. Production commands và history
+### 3. Compressed row projection
 
-- Apply value filter.
-- Apply một/hai custom condition với AND/OR.
-- Clear current column filter.
-- Clear all filters của Table.
+- Table và direct worksheet filter cùng đi qua `GetFilteredOutRowSpans()`.
+- Các hàng liền nhau được nén thành sparse spans rồi merge trước khi đưa vào layout.
+- Hàng bị lọc không chiếm viewport extent, không tạo row slot và bị hit-test bỏ qua.
 
-Tất cả mutation đi qua `SpreadsheetSession.Tables`, vì vậy:
+### 4. Standard worksheet AutoFilter XLSX
 
-- chỉ tạo một production history entry;
-- compressed row projection được rebuild;
-- viewport extent/hit test được refresh;
-- filter-aware `SUBTOTAL` được recalculation đúng dependency;
-- Undo/Redo phục hồi chính xác Table và row visibility.
+Đã thêm `OpenXmlWorksheetAutoFilterCodec` cho:
 
-### 4. Shared header-button geometry
+- `autoFilter@ref`;
+- `filterColumn@colId`;
+- value filters;
+- blank matching;
+- một/hai custom comparisons và AND/OR;
+- wildcard SpreadsheetML cho begins-with, ends-with, contains và does-not-contain;
+- empty equal/not-equal cho blank/nonblank.
 
-- `SpreadsheetTableFilterButtonGeometry` dùng `WorksheetSnapshot`, `ViewportLayout` và render theme chung.
-- Mỗi hit mang Table ID, column ID, worksheet column index, filtered state và bounds.
-- Renderer, pointer hit test và native overlay dùng cùng identity/geometry.
-- Không tạo control cho từng cell; chỉ tạo native button cho Table header column đang nhìn thấy.
+Output vượt `OpenXmlValidator(FileFormatVersions.Office2013)`.
 
-### 5. Keyboard navigator và active-cell resolver
+Malformed input bị từ chối gồm duplicate AutoFilter, invalid range/index, conflicting child, unsupported wildcard và unsupported `top10`/dynamic/date-group/color/icon markup.
 
-Đã thêm:
+### 5. Copy-and-patch preservation
 
-- `SpreadsheetTableFilterNavigator`;
-- `SpreadsheetTableFilterTargetResolver`;
-- active-value identity theo `CellValue`, không phụ thuộc visual index.
+Đã thêm `OpenXmlWorksheetAutoFilterPackagePatcher`:
 
-Mapping đã xác minh:
+- refresh đúng worksheet `autoFilter` do Nera sở hữu;
+- giữ opaque worksheet part/relationship bytes;
+- giữ AutoFilter `extLst` và namespaced attributes;
+- repeated save cập nhật criterion mới ở từng lần save;
+- package vẫn schema-valid và giữ save atomicity.
 
-- `Alt+Down`: mở filter của Table column chứa active cell;
-- Escape: đóng;
-- Up/Down/Home/End/Page Up/Page Down: duyệt danh sách;
-- Space/Enter: toggle giá trị hiện hành;
-- Enter từ search: Apply nếu selection hợp lệ;
-- Ctrl+A ngoài search: chọn tất cả giá trị đang hiện;
-- Shift+Ctrl+A ngoài search: bỏ chọn giá trị đang hiện.
+### 6. Paged session foundation
 
-### 6. Native WPF presenter
+Đã thêm `SpreadsheetTableFilterPagedSession`:
 
-- Native `Popup`.
-- Automatic visible Table-header button host.
-- Search, checkbox values, select-all/clear-visible, clear filter và Apply.
-- Keyboard navigation, open-focus và close-time focus restoration.
-- Loaded native-window presenter smoke và keyboard/focus smoke đã xanh.
+- một immutable menu snapshot theo generation;
+- refresh mới hủy refresh cũ;
+- request cũ không thể publish đè generation mới;
+- `GetPageAsync` hỗ trợ search, offset, bounded page size và cancellation;
+- mutation worksheet không thay đổi snapshot đã publish cho tới lần refresh tiếp theo;
+- dispose hủy work và từ chối request mới.
 
-### 7. Native WinForms presenter
+Đây mới là platform-neutral paging foundation; native WPF/WinForms/MAUI list chưa bind bằng virtualization thật.
 
-- Native `ToolStripDropDown`.
-- Automatic visible Table-header button host.
-- Cùng menu/history semantics với WPF.
-- Keyboard navigation và focus lifecycle được kiểm tra với native handle/message loop.
+## Các lỗi CI đã bắt và sửa
 
-### 8. Responsive MAUI presenter
+1. CA1859 yêu cầu schema-order helper trả `Dictionary` cụ thể thay vì interface.
+2. Cancellation test kỳ vọng exact `OperationCanceledException`, trong khi `Task.Run` trả `TaskCanceledException` chuẩn; test được khóa theo kiểu thực tế, production behavior không đổi.
 
-- `NeraSpreadsheetTableHost` đặt native visible filter buttons trên GPU spreadsheet surface.
-- Responsive overlay/bottom-sheet filter UX, không tạo control theo cell.
-- Stable Automation IDs, semantic description, hint và heading metadata.
-- Windows keyboard binding chỉ dịch WinUI key events sang navigator chung.
-- WinUI search focus dùng `FocusManager.TryFocusAsync` với retry hữu hạn:
-  - tối đa 40 attempt;
-  - mỗi retry cách 50 ms;
-  - dừng khi focus thành công, user chuyển vào value list, sheet đóng, host dispose hoặc hết giới hạn.
-- Close giải phóng native search focus và đưa focus về button/surface hợp lệ.
+## CI #586
 
-### 9. Các lỗi runtime gate đã bắt và sửa
-
-1. Gọi focus trước khi native WinUI `TextBox` loaded/visible.
-2. Gán lại MAUI `AutomationId` sau Apply/Undo/Redo.
-3. Search còn giữ native focus sau khi sheet đóng.
-4. Smoke dùng fixed delay nên flake giữa Windows runners.
-
-Smoke cuối chuyển sang chờ sự kiện focus thật với timeout hữu hạn thay vì coi một delay cố định là bằng chứng lifecycle.
-
-## CI #570
-
-Toàn bộ exact-head matrix xanh tại `e3a814f5...`:
+Toàn bộ exact implementation matrix xanh tại `023835495...`:
 
 - Core restore/build/tests.
 - Architecture verification.
-- Presenter, bounded enumeration, navigator, active-cell resolver và shared geometry tests.
-- Toàn bộ Table/Structured Reference/AutoFilter, calculated-column, filter-aware totals, validation, conditional-formatting, shared-formula, sparse-style và package-preservation regressions.
-- Windows full build/tests.
-- Loaded WPF/WinForms presenter + keyboard/focus smokes.
-- Windows desktop GPU runtime smoke.
+- Rich filter, direct worksheet AutoFilter, structural/history và paged-session tests.
+- 49 OpenXml tests, gồm round-trip, wildcard, malformed input và repeated preservation.
+- Windows full build/tests và desktop GPU runtime smoke.
 - MAUI Android build.
 - MAUI iOS và Mac Catalyst builds.
-- MAUI Windows build/tests.
-- Loaded MAUI Windows Table-filter smoke:
-  - live Skia `GRContext`;
-  - open từ active cell;
-  - search focus;
-  - accessibility semantics;
-  - Apply Open-only filter;
-  - compressed row visibility;
-  - Undo;
-  - Redo;
-  - reopen;
-  - focus release khi close.
-- Loaded MAUI input/context-recreation smoke.
-- Loaded MAUI logical/raw scale/orientation smoke.
+- MAUI Windows build/handler tests.
+- Loaded MAUI Table-filter smoke.
+- Loaded MAUI context-recreation smoke.
+- Loaded MAUI scale/orientation smoke.
 
 ## Giới hạn có chủ ý
 
-- Chưa virtualize/page native distinct-value list.
-- Chưa có Table design/resize/style manager UI đầy đủ.
-- Chưa có rich text/date/top/bottom/color/icon/custom-list filters.
-- Chưa có direct worksheet AutoFilter ngoài Table.
-- Chưa hoàn thiện MAUI virtual keyboard/IME lifecycle.
-- Chưa chứng nhận đầy đủ screen reader, high contrast, localization và theme.
-- Chưa có external XLSX AutoFilter compatibility corpus đầy đủ.
-- Các giới hạn SUBTOTAL, dynamic array, function surface, printing, chart và pivot vẫn giữ như `docs/current-status.md`.
+- Native WPF/WinForms/MAUI value lists chưa dùng paged session.
+- Direct worksheet AutoFilter chưa có shared header-button geometry/native presenter.
+- Chưa có first-class `top10`, dynamic/date-group/color/icon filter và `sortState`.
+- Chưa có Table design/resize/style manager đầy đủ.
+- MAUI IME/virtual-keyboard và accessibility certification vẫn pending.
 
 ## Tiến độ tổng thể
 
-- Nền móng engine/viewport/renderer: khoảng `89%`.
-- MVP bảng tính cơ bản: khoảng `82–85%`.
-- Toàn bộ roadmap chuyên nghiệp: khoảng `54%`.
-- Production release readiness: khoảng `30–33%`.
-
-Đây là ước lượng theo trọng số kỹ thuật, không phải đếm checkbox.
+- Nền móng engine/viewport/renderer: khoảng `90%`.
+- MVP bảng tính cơ bản: khoảng `84–87%`.
+- Toàn bộ roadmap chuyên nghiệp: khoảng `56%`.
+- Production release readiness: khoảng `32–35%`.
 
 ## Bước tiếp theo duy nhất
 
-Triển khai **Rich AutoFilter + Scalable Filter Values** theo thứ tự:
+Triển khai **Native Paged Filter Binding + Direct Worksheet Filter UI**:
 
-1. Mở rộng platform-neutral predicate cho rich text/date/top-bottom/custom-list.
-2. Direct worksheet AutoFilter dùng chung row-projection/history semantics với Table.
-3. Tách value enumeration khỏi native list materialization; thêm paging/virtualization và cancellation.
-4. Hoàn thiện Table design/resize/style manager UI.
-5. MAUI IME/virtual-keyboard lifecycle.
-6. Accessibility/high-contrast/localization/theme hardening.
-7. External XLSX AutoFilter corpus và differential tests.
+1. WPF virtualized/paged value list và stale-request cancellation.
+2. WinForms virtual mode/paged value list.
+3. MAUI incremental paged sheet và cancellation.
+4. Shared direct worksheet AutoFilter header-button geometry.
+5. Native direct-filter entry points cho WPF, WinForms và MAUI.
+6. `top10`, dynamic/date-group filters và `sortState` khi semantic model hoàn tất.
+7. External XLSX compatibility corpus.
 8. Exact-head Core/Windows/MAUI CI.
 
 PR tiếp tục Draft; không merge khi exact-head CI đỏ hoặc chưa xác định.
