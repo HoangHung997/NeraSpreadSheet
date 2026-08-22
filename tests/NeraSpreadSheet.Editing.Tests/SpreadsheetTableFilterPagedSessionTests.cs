@@ -6,6 +6,9 @@ namespace NeraSpreadSheet.Editing.Tests;
 [TestClass]
 public sealed class SpreadsheetTableFilterPagedSessionTests
 {
+    private static readonly string[] ExpectedSearchValues =
+        ["Open", "Pending"];
+
     [TestMethod]
     public async Task RefreshPublishesGenerationAndSearchablePages()
     {
@@ -72,6 +75,67 @@ public sealed class SpreadsheetTableFilterPagedSessionTests
     }
 
     [TestMethod]
+    public async Task SelectionAndApplyUseGenerationAndProductionHistory()
+    {
+        var fixture = CreateFixture();
+        await using var paged = new SpreadsheetTableFilterPagedSession(
+            fixture.Session,
+            fixture.TableId,
+            fixture.ColumnId);
+        var generation = await paged.RefreshAsync();
+
+        await paged.ClearVisibleSelectionAsync(
+            generation,
+            searchText: null);
+        await paged.SetSelectedAsync(
+            generation,
+            CellValue.FromText("Open"),
+            selected: true);
+        var invalidatedGeneration =
+            await paged.ApplyValueSelectionAsync(generation);
+
+        Assert.AreEqual(generation + 1L, invalidatedGeneration);
+        Assert.IsFalse(paged.IsReady);
+        Assert.AreEqual(1, fixture.Session.History.UndoCount);
+        var filter = fixture.Worksheet.Tables.Single().AutoFilter
+            ?? throw new AssertFailedException(
+                "Table filter was not applied.");
+        Assert.AreEqual(
+            "Open",
+            filter.Columns.Single().Values.Single().RawValue);
+        Assert.IsFalse(WorksheetSnapshot.Capture(fixture.Worksheet)
+            .IsRowVisible(2));
+        Assert.IsTrue(fixture.Session.Undo());
+        Assert.IsTrue(WorksheetSnapshot.Capture(fixture.Worksheet)
+            .IsRowVisible(2));
+    }
+
+    [TestMethod]
+    public async Task StaleGenerationCannotChangeSelectionOrWorkbook()
+    {
+        var fixture = CreateFixture();
+        await using var paged = new SpreadsheetTableFilterPagedSession(
+            fixture.Session,
+            fixture.TableId,
+            fixture.ColumnId);
+        var firstGeneration = await paged.RefreshAsync();
+        var secondGeneration = await paged.RefreshAsync();
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            async () => await paged.SetSelectedAsync(
+                firstGeneration,
+                CellValue.FromText("Open"),
+                selected: false));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            async () => await paged.ApplyValueSelectionAsync(
+                firstGeneration));
+
+        Assert.AreEqual(firstGeneration + 1L, secondGeneration);
+        Assert.IsNull(fixture.Worksheet.Tables.Single().AutoFilter);
+        Assert.AreEqual(0, fixture.Session.History.UndoCount);
+    }
+
+    [TestMethod]
     public async Task PageRequestHonorsCancellation()
     {
         var fixture = CreateFixture();
@@ -92,24 +156,26 @@ public sealed class SpreadsheetTableFilterPagedSessionTests
     }
 
     [TestMethod]
-    public async Task DisposedSessionRejectsRefreshAndPages()
+    public async Task DisposedSessionRejectsRefreshPagesAndMutations()
     {
         var fixture = CreateFixture();
         var session = new SpreadsheetTableFilterPagedSession(
             fixture.Session,
             fixture.TableId,
             fixture.ColumnId);
-        await session.RefreshAsync();
+        var generation = await session.RefreshAsync();
         session.Dispose();
 
         await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () =>
             await session.RefreshAsync());
         await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () =>
             await session.GetPageAsync(null, 0, 10));
+        await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () =>
+            await session.SetSelectedAsync(
+                generation,
+                CellValue.FromText("Open"),
+                selected: false));
     }
-
-    private static readonly string[] ExpectedSearchValues =
-        ["Open", "Pending"];
 
     private static Fixture CreateFixture()
     {

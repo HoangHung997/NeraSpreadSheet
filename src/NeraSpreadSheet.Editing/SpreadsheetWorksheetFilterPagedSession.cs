@@ -2,61 +2,49 @@ using NeraSpreadSheet.Core;
 
 namespace NeraSpreadSheet.Editing;
 
-public sealed record SpreadsheetTableFilterPagedResult(
+public sealed record SpreadsheetWorksheetFilterPagedResult(
     long Generation,
-    SpreadsheetTableFilterValuePage Page);
+    SpreadsheetWorksheetFilterValuePage Page);
 
 /// <summary>
-/// Owns one cancellable, generation-checked Table filter-value snapshot for
-/// native virtualized presenters. A completed refresh publishes only when it is
-/// still the newest request; stale refreshes cannot replace a newer menu.
+/// Owns one cancellable, generation-checked direct worksheet AutoFilter menu
+/// for native paged presenters.
 /// </summary>
-public sealed class SpreadsheetTableFilterPagedSession :
+public sealed class SpreadsheetWorksheetFilterPagedSession :
     IDisposable,
     IAsyncDisposable
 {
     private readonly object _gate = new();
     private readonly SemaphoreSlim _operationGate = new(1, 1);
-    private readonly SpreadsheetTablePresenterController _controller;
-    private readonly Guid _tableId;
-    private readonly Guid _columnId;
+    private readonly SpreadsheetWorksheetFilterPresenterController _controller;
+    private readonly int _worksheetColumnIndex;
     private readonly int _maximumRows;
     private readonly int _maximumDistinctValues;
 
     private CancellationTokenSource? _refreshCancellation;
-    private SpreadsheetTableFilterMenu? _menu;
+    private SpreadsheetWorksheetFilterMenu? _menu;
     private long _generation;
     private bool _disposed;
 
-    public SpreadsheetTableFilterPagedSession(
+    public SpreadsheetWorksheetFilterPagedSession(
         SpreadsheetSession session,
-        Guid tableId,
-        Guid columnId,
+        int worksheetColumnIndex,
         int maximumRows =
-            SpreadsheetTablePresenterController.DefaultMaximumRows,
+            SpreadsheetWorksheetFilterPresenterController.DefaultMaximumRows,
         int maximumDistinctValues =
-            SpreadsheetTablePresenterController.DefaultMaximumDistinctValues)
+            SpreadsheetWorksheetFilterPresenterController
+                .DefaultMaximumDistinctValues)
     {
         ArgumentNullException.ThrowIfNull(session);
-        if (tableId == Guid.Empty)
-        {
-            throw new ArgumentException(
-                "Table identity must not be empty.",
-                nameof(tableId));
-        }
-        if (columnId == Guid.Empty)
-        {
-            throw new ArgumentException(
-                "Table-column identity must not be empty.",
-                nameof(columnId));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(
+            worksheetColumnIndex);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumRows);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(
             maximumDistinctValues);
 
-        _controller = new SpreadsheetTablePresenterController(session);
-        _tableId = tableId;
-        _columnId = columnId;
+        _controller =
+            new SpreadsheetWorksheetFilterPresenterController(session);
+        _worksheetColumnIndex = worksheetColumnIndex;
         _maximumRows = maximumRows;
         _maximumDistinctValues = maximumDistinctValues;
     }
@@ -103,13 +91,12 @@ public sealed class SpreadsheetTableFilterPagedSession :
             requestedGeneration = checked(++_generation);
         }
 
-        SpreadsheetTableFilterMenu menu;
+        SpreadsheetWorksheetFilterMenu menu;
         try
         {
             menu = await Task.Run(
                 () => _controller.OpenFilterMenu(
-                    _tableId,
-                    _columnId,
+                    _worksheetColumnIndex,
                     _maximumRows,
                     _maximumDistinctValues),
                 refreshCancellation.Token).ConfigureAwait(false);
@@ -130,14 +117,14 @@ public sealed class SpreadsheetTableFilterPagedSession :
                 menu))
         {
             throw new OperationCanceledException(
-                "A newer Table filter-value refresh superseded this request.");
+                "A newer worksheet filter refresh superseded this request.");
         }
 
         Refreshed?.Invoke(this, EventArgs.Empty);
         return requestedGeneration;
     }
 
-    public async Task<SpreadsheetTableFilterPagedResult> GetPageAsync(
+    public async Task<SpreadsheetWorksheetFilterPagedResult> GetPageAsync(
         string? searchText,
         int offset,
         int pageSize,
@@ -157,7 +144,7 @@ public sealed class SpreadsheetTableFilterPagedSession :
                         offset,
                         pageSize,
                         cancellationToken);
-                    return new SpreadsheetTableFilterPagedResult(
+                    return new SpreadsheetWorksheetFilterPagedResult(
                         generation,
                         page);
                 },
@@ -188,29 +175,25 @@ public sealed class SpreadsheetTableFilterPagedSession :
         }
     }
 
-    public async Task SelectAllVisibleAsync(
+    public Task SelectAllVisibleAsync(
         long generation,
         string? searchText,
-        CancellationToken cancellationToken = default)
-    {
-        await ChangeVisibleSelectionAsync(
+        CancellationToken cancellationToken = default) =>
+        ChangeVisibleSelectionAsync(
             generation,
             searchText,
             select: true,
-            cancellationToken).ConfigureAwait(false);
-    }
+            cancellationToken);
 
-    public async Task ClearVisibleSelectionAsync(
+    public Task ClearVisibleSelectionAsync(
         long generation,
         string? searchText,
-        CancellationToken cancellationToken = default)
-    {
-        await ChangeVisibleSelectionAsync(
+        CancellationToken cancellationToken = default) =>
+        ChangeVisibleSelectionAsync(
             generation,
             searchText,
             select: false,
-            cancellationToken).ConfigureAwait(false);
-    }
+            cancellationToken);
 
     public async Task<long> ApplyValueSelectionAsync(
         long generation,
@@ -284,12 +267,14 @@ public sealed class SpreadsheetTableFilterPagedSession :
             {
                 return;
             }
+
             _disposed = true;
             _menu = null;
             _refreshCancellation?.Cancel();
             _refreshCancellation?.Dispose();
             _refreshCancellation = null;
         }
+
         _operationGate.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -328,20 +313,22 @@ public sealed class SpreadsheetTableFilterPagedSession :
         }
     }
 
-    private (SpreadsheetTableFilterMenu Menu, long Generation)
-        GetReadyMenu()
+    private (
+        SpreadsheetWorksheetFilterMenu Menu,
+        long Generation) GetReadyMenu()
     {
         lock (_gate)
         {
             ThrowIfDisposed();
             return (
                 _menu ?? throw new InvalidOperationException(
-                    "Refresh the paged Table filter session before requesting a page."),
+                    "Refresh the worksheet filter session before requesting a page."),
                 _generation);
         }
     }
 
-    private SpreadsheetTableFilterMenu GetReadyMenu(long generation)
+    private SpreadsheetWorksheetFilterMenu GetReadyMenu(
+        long generation)
     {
         lock (_gate)
         {
@@ -349,17 +336,17 @@ public sealed class SpreadsheetTableFilterPagedSession :
             if (generation != _generation)
             {
                 throw new InvalidOperationException(
-                    "The Table filter page belongs to a stale generation.");
+                    "The worksheet filter page belongs to a stale generation.");
             }
 
             return _menu ?? throw new InvalidOperationException(
-                "Refresh the paged Table filter session before changing selection.");
+                "Refresh the worksheet filter session before changing selection.");
         }
     }
 
     private long ExecuteMutation(
         long generation,
-        Action<SpreadsheetTableFilterMenu> mutation)
+        Action<SpreadsheetWorksheetFilterMenu> mutation)
     {
         ArgumentNullException.ThrowIfNull(mutation);
         long invalidatedGeneration;
@@ -369,7 +356,7 @@ public sealed class SpreadsheetTableFilterPagedSession :
             if (generation != _generation || _menu is null)
             {
                 throw new InvalidOperationException(
-                    "The Table filter mutation belongs to a stale generation.");
+                    "The worksheet filter mutation belongs to a stale generation.");
             }
 
             mutation(_menu);
@@ -384,7 +371,7 @@ public sealed class SpreadsheetTableFilterPagedSession :
     private bool CompleteRefresh(
         CancellationTokenSource refreshCancellation,
         long requestedGeneration,
-        SpreadsheetTableFilterMenu? menu)
+        SpreadsheetWorksheetFilterMenu? menu)
     {
         var published = false;
         lock (_gate)
@@ -407,6 +394,7 @@ public sealed class SpreadsheetTableFilterPagedSession :
                 _refreshCancellation = null;
             }
         }
+
         refreshCancellation.Dispose();
         return published;
     }
