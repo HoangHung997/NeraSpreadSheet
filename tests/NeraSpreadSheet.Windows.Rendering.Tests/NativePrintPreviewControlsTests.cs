@@ -24,7 +24,7 @@ public sealed class NativePrintPreviewControlsTests
                 Height = 320d,
                 Session = session,
             };
-            control.Measure(new Size(480d, 320d));
+            control.Measure(new System.Windows.Size(480d, 320d));
             control.Arrange(new Rect(0d, 0d, 480d, 320d));
 
             control.SetZoom(0.5d, 125.25d, 84.75d);
