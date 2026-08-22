@@ -24,11 +24,9 @@ public static class DelimitedTextAtomicExporter
                 "Destination stream must be writable.",
                 nameof(destination));
         }
-        if (maximumOutputBytes <= 0L)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maximumOutputBytes));
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(
+            maximumOutputBytes,
+            0L);
 
         cancellationToken.ThrowIfCancellationRequested();
         await using var buffer = new MemoryStream();
@@ -80,10 +78,9 @@ public static class DelimitedTextAtomicExporter
                     "Inner stream must be writable.",
                     nameof(inner));
             }
-            if (maximumLength <= 0L)
-            {
-                throw new ArgumentOutOfRangeException(nameof(maximumLength));
-            }
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(
+                maximumLength,
+                0L);
             _maximumLength = maximumLength;
         }
 
@@ -178,11 +175,11 @@ public static class DelimitedTextAtomicExporter
             base.Dispose(disposing);
         }
 
-        public override ValueTask DisposeAsync()
+        public override async ValueTask DisposeAsync()
         {
             _disposed = true;
+            await base.DisposeAsync().ConfigureAwait(false);
             GC.SuppressFinalize(this);
-            return ValueTask.CompletedTask;
         }
 
         private void EnsureCapacity(int additionalBytes)
