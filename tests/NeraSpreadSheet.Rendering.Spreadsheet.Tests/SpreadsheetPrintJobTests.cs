@@ -6,6 +6,24 @@ namespace NeraSpreadSheet.Rendering.Spreadsheet.Tests;
 [TestClass]
 public sealed class SpreadsheetPrintJobTests
 {
+    private static readonly int[] ExpectedReverseEvenIndexes =
+        [5, 3, 1];
+
+    private static readonly int[] ExpectedCollatedPages =
+        [1, 2, 1, 2];
+
+    private static readonly int[] ExpectedUncollatedPages =
+        [1, 1, 2, 2];
+
+    private static readonly int[] ExpectedCollatedCopies =
+        [1, 1, 2, 2];
+
+    private static readonly int[] ExpectedUncollatedCopies =
+        [1, 2, 1, 2];
+
+    private static readonly int[] ExpectedSelectedPages =
+        [2, 3, 2, 3];
+
     [TestMethod]
     public void PageSelectionParsesRangesParityAndReverseOrder()
     {
@@ -16,7 +34,7 @@ public sealed class SpreadsheetPrintJobTests
             reverseOrder: true);
 
         CollectionAssert.AreEqual(
-            new[] { 5, 3, 1 },
+            ExpectedReverseEvenIndexes,
             selection.ResolvePageIndexes(totalPages: 6).ToArray());
     }
 
@@ -40,16 +58,16 @@ public sealed class SpreadsheetPrintJobTests
             });
 
         CollectionAssert.AreEqual(
-            new[] { 1, 2, 1, 2 },
+            ExpectedCollatedPages,
             collated.Select(static item => item.PageNumber).ToArray());
         CollectionAssert.AreEqual(
-            new[] { 1, 1, 2, 2 },
+            ExpectedUncollatedPages,
             uncollated.Select(static item => item.PageNumber).ToArray());
         CollectionAssert.AreEqual(
-            new[] { 1, 1, 2, 2 },
+            ExpectedCollatedCopies,
             collated.Select(static item => item.CopyNumber).ToArray());
         CollectionAssert.AreEqual(
-            new[] { 1, 2, 1, 2 },
+            ExpectedUncollatedCopies,
             uncollated.Select(static item => item.CopyNumber).ToArray());
     }
 
@@ -84,7 +102,7 @@ public sealed class SpreadsheetPrintJobTests
         Assert.AreEqual(1, sink.CompleteCount);
         Assert.AreEqual(0, sink.AbortCount);
         CollectionAssert.AreEqual(
-            new[] { 2, 3, 2, 3 },
+            ExpectedSelectedPages,
             sink.Pages
                 .Select(static page => page.Invocation.PageNumber)
                 .ToArray());
