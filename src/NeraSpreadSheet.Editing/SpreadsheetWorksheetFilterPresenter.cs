@@ -51,10 +51,9 @@ public sealed class SpreadsheetWorksheetFilterMenu
         ArgumentException.ThrowIfNullOrWhiteSpace(columnName);
         _counts = counts ?? throw new ArgumentNullException(nameof(counts));
         ArgumentOutOfRangeException.ThrowIfNegative(columnOffset);
-        if (columnOffset >= autoFilter.Range.ColumnCount)
-        {
-            throw new ArgumentOutOfRangeException(nameof(columnOffset));
-        }
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(
+            columnOffset,
+            autoFilter.Range.ColumnCount);
 
         FilterRange = autoFilter.Range;
         ColumnOffset = columnOffset;
