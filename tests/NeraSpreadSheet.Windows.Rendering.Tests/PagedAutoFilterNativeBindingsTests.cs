@@ -1,3 +1,4 @@
+using System.Threading;
 using System.Windows.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
@@ -15,24 +16,27 @@ public sealed class PagedAutoFilterNativeBindingsTests
     [TestMethod]
     public async Task WpfBindingPublishesOnlyTheCurrentPage()
     {
-        var fixture = CreateFixture();
-        var presenter = new SpreadsheetAutoFilterPagedPresenter(
-            fixture.Session,
-            fixture.Target,
-            pageSize: 2);
-        await using var binding = new NeraWpfAutoFilterPagedBinding(
-            presenter,
-            Dispatcher.CurrentDispatcher);
+        await RunOnWpfDispatcherAsync(async () =>
+        {
+            var fixture = CreateFixture();
+            var presenter = new SpreadsheetAutoFilterPagedPresenter(
+                fixture.Session,
+                fixture.Target,
+                pageSize: 2);
+            await using var binding = new NeraWpfAutoFilterPagedBinding(
+                presenter,
+                Dispatcher.CurrentDispatcher);
 
-        await binding.InitializeAsync();
+            await binding.InitializeAsync();
 
-        Assert.AreEqual(2, binding.Items.Count);
-        Assert.AreEqual(5, binding.TotalItemCount);
-        Assert.IsTrue(binding.HasNextPage);
-        Assert.IsFalse(binding.HasPreviousPage);
-        Assert.IsTrue(await binding.MoveNextPageAsync());
-        Assert.AreEqual(2, binding.Items.Count);
-        Assert.AreEqual(2, binding.PageOffset);
+            Assert.AreEqual(2, binding.Items.Count);
+            Assert.AreEqual(5, binding.TotalItemCount);
+            Assert.IsTrue(binding.HasNextPage);
+            Assert.IsFalse(binding.HasPreviousPage);
+            Assert.IsTrue(await binding.MoveNextPageAsync());
+            Assert.AreEqual(2, binding.Items.Count);
+            Assert.AreEqual(2, binding.PageOffset);
+        });
     }
 
     [TestMethod]
@@ -70,6 +74,44 @@ public sealed class PagedAutoFilterNativeBindingsTests
 
         Assert.IsFalse(wpfPresenter.IsOpen);
         Assert.IsFalse(winFormsPresenter.IsOpen);
+    }
+
+    private static Task RunOnWpfDispatcherAsync(Func<Task> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        var completion = new TaskCompletionSource<object?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            var dispatcher = Dispatcher.CurrentDispatcher;
+            dispatcher.BeginInvoke(
+                DispatcherPriority.Send,
+                new Action(async () =>
+                {
+                    try
+                    {
+                        await action();
+                        completion.TrySetResult(null);
+                    }
+                    catch (Exception exception)
+                    {
+                        completion.TrySetException(exception);
+                    }
+                    finally
+                    {
+                        dispatcher.BeginInvokeShutdown(
+                            DispatcherPriority.Send);
+                    }
+                }));
+            Dispatcher.Run();
+        })
+        {
+            IsBackground = true,
+            Name = "Nera WPF paged AutoFilter test dispatcher",
+        };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        return completion.Task;
     }
 
     private static Fixture CreateFixture()
