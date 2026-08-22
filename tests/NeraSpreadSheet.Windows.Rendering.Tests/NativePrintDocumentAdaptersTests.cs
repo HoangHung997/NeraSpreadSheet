@@ -17,6 +17,7 @@ public sealed class NativePrintDocumentAdaptersTests
         [2, 3, 2, 3];
 
     [TestMethod]
+    [Timeout(60_000)]
     public async Task WpfPaginatorComposesSelectedCopiesFromSharedDisplayLists()
     {
         await RunOnWpfDispatcherAsync(() =>
@@ -53,6 +54,7 @@ public sealed class NativePrintDocumentAdaptersTests
     }
 
     [TestMethod]
+    [Timeout(60_000)]
     public void WinFormsDocumentComposesWithoutRequiringAPhysicalPrinter()
     {
         var fixture = CreateFixture();
@@ -81,6 +83,7 @@ public sealed class NativePrintDocumentAdaptersTests
     }
 
     [TestMethod]
+    [Timeout(60_000)]
     public async Task NativeDocumentsRejectOutOfRangePageAccess()
     {
         await RunOnWpfDispatcherAsync(() =>
@@ -128,11 +131,10 @@ public sealed class NativePrintDocumentAdaptersTests
         return new Fixture(workbook, snapshot, plan);
     }
 
-    private static Task<object?> RunOnWpfDispatcherAsync(
-        Func<Task> action)
+    private static Task RunOnWpfDispatcherAsync(Func<Task> action)
     {
         ArgumentNullException.ThrowIfNull(action);
-        var completion = new TaskCompletionSource<object?>(
+        var completion = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>
         {
@@ -144,7 +146,7 @@ public sealed class NativePrintDocumentAdaptersTests
                     try
                     {
                         await action();
-                        completion.TrySetResult(null);
+                        completion.TrySetResult();
                     }
                     catch (Exception exception)
                     {
@@ -164,7 +166,7 @@ public sealed class NativePrintDocumentAdaptersTests
         };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        return completion.Task;
+        return completion.Task.WaitAsync(TimeSpan.FromSeconds(45d));
     }
 
     private sealed record Fixture(
