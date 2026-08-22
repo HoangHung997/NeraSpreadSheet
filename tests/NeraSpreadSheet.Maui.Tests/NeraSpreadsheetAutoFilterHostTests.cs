@@ -1,6 +1,6 @@
+using Microsoft.Maui.Controls;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
-using NeraSpreadSheet.Maui;
 
 namespace NeraSpreadSheet.Maui.Tests;
 
@@ -8,28 +8,54 @@ namespace NeraSpreadSheet.Maui.Tests;
 public sealed class NeraSpreadsheetAutoFilterHostTests
 {
     [TestMethod]
-    public void HostOwnsOneSpreadsheetAndStartsWithTheSheetClosed()
+    public void HostTypeExposesTheSharedSpreadsheetContract()
     {
-        using var host = new NeraSpreadsheetAutoFilterHost();
+        var type = typeof(NeraSpreadsheetAutoFilterHost);
 
-        Assert.IsNotNull(host.Spreadsheet);
-        Assert.IsFalse(host.IsFilterSheetOpen);
-        Assert.AreEqual(
-            "NeraAutoFilterSpreadsheet",
-            host.Spreadsheet.AutomationId);
+        Assert.IsTrue(typeof(Grid).IsAssignableFrom(type));
+        Assert.IsNotNull(type.GetProperty(nameof(NeraSpreadsheetAutoFilterHost.Workbook)));
+        Assert.IsNotNull(type.GetProperty(nameof(NeraSpreadsheetAutoFilterHost.Spreadsheet)));
+        Assert.IsNotNull(type.GetProperty(nameof(NeraSpreadsheetAutoFilterHost.IsFilterSheetOpen)));
+        Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.TryOpenForActiveCell)));
+        Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.TryOpenFilter)));
+        Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.CloseFilterSheet)));
     }
 
     [TestMethod]
-    public void WorkbookBindingFlowsToTheSharedSpreadsheetView()
+    public void FilterTargetsResolveWithoutConstructingANativeVisualTree()
     {
         var workbook = new Workbook();
-        using var host = new NeraSpreadsheetAutoFilterHost
-        {
-            Workbook = workbook,
-        };
+        var worksheet = workbook.Worksheets[0];
+        var tableId = Guid.NewGuid();
+        var columnId = Guid.NewGuid();
+        worksheet.SetValue(new CellAddress(0, 0), "Status");
+        worksheet.SetValue(new CellAddress(1, 0), "Open");
+        worksheet.AddTable(new SpreadsheetTable(
+            tableId,
+            "Sales",
+            new CellRange(
+                new CellAddress(0, 0),
+                new CellAddress(1, 0)),
+            [new SpreadsheetTableColumn(columnId, "Status")]));
+        worksheet.SetValue(new CellAddress(0, 2), "Region");
+        worksheet.SetValue(new CellAddress(1, 2), "North");
+        worksheet.SetAutoFilter(new WorksheetAutoFilter(
+            new CellRange(
+                new CellAddress(0, 2),
+                new CellAddress(1, 2))));
+        var session = new SpreadsheetSession(workbook);
 
-        Assert.AreSame(workbook, host.Workbook);
-        Assert.AreSame(workbook, host.Spreadsheet.Workbook);
-        Assert.IsNotNull(host.Spreadsheet.Session);
+        Assert.IsTrue(session.TryResolveAutoFilterTarget(
+            new CellAddress(1, 0),
+            out var tableTarget));
+        Assert.AreEqual(
+            SpreadsheetAutoFilterOwnerKind.Table,
+            tableTarget.OwnerKind);
+        Assert.IsTrue(session.TryResolveAutoFilterTarget(
+            new CellAddress(1, 2),
+            out var worksheetTarget));
+        Assert.AreEqual(
+            SpreadsheetAutoFilterOwnerKind.Worksheet,
+            worksheetTarget.OwnerKind);
     }
 }
