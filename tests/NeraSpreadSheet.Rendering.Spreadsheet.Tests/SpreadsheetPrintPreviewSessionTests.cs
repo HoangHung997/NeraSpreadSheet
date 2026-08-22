@@ -21,14 +21,14 @@ public sealed class SpreadsheetPrintPreviewSessionTests
                 PageGapDips = 12d,
             });
         session.SetViewportSize(400d, 300d);
-        session.ScrollTo(0d, 5_000.25d);
+        session.ScrollTo(0d, 1_000.25d);
 
         var frame = session.Compose();
 
         Assert.IsTrue(frame.Pages.Count > 0);
         Assert.IsTrue(frame.Pages.Count < fixture.Plan.Pages.Count);
         Assert.IsTrue(frame.Pages.Count < 10);
-        Assert.AreEqual(5_000.25d, frame.Layout.OffsetYDips, 0.000001d);
+        Assert.AreEqual(1_000.25d, frame.Layout.OffsetYDips, 0.000001d);
     }
 
     [TestMethod]
