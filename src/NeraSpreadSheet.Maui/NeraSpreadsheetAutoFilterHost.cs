@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Graphics;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Rendering.Spreadsheet;
@@ -73,7 +74,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
         Children.Add(_sheetOverlay);
         Spreadsheet.SizeChanged += OnSpreadsheetLayoutChanged;
         Spreadsheet.HandlerChanged += OnSpreadsheetHandlerChanged;
-        Spreadsheet.ScrollChanged += OnSpreadsheetScrollChanged;
+        Spreadsheet.ScrollChanged += OnSpreadsheetLayoutChanged;
         SizeChanged += OnHostSizeChanged;
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -142,7 +143,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
         DetachSession();
         Spreadsheet.SizeChanged -= OnSpreadsheetLayoutChanged;
         Spreadsheet.HandlerChanged -= OnSpreadsheetHandlerChanged;
-        Spreadsheet.ScrollChanged -= OnSpreadsheetScrollChanged;
+        Spreadsheet.ScrollChanged -= OnSpreadsheetLayoutChanged;
         SizeChanged -= OnHostSizeChanged;
         Loaded -= OnLoaded;
         Unloaded -= OnUnloaded;
@@ -415,11 +416,6 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
         UpdateButtons();
     }
 
-    private void OnSpreadsheetScrollChanged(
-        object? sender,
-        ScrollChangedEventArgs e) =>
-        UpdateButtons();
-
     private void OnHostSizeChanged(object? sender, EventArgs e) =>
         UpdateButtons();
 
@@ -460,7 +456,8 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
             _ => throw new ArgumentOutOfRangeException(nameof(ownerKind)),
         };
 
-    private static Color ToColor(ColorRgba color) =>
+    private static Color ToColor(
+        NeraSpreadSheet.Foundation.ColorRgba color) =>
         Color.FromRgba(
             color.Red,
             color.Green,
