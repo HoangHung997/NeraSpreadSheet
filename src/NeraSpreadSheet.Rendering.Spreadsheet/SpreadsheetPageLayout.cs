@@ -3,153 +3,6 @@ using NeraSpreadSheet.Foundation;
 
 namespace NeraSpreadSheet.Rendering.Spreadsheet;
 
-public enum SpreadsheetPageOrientation
-{
-    Portrait,
-    Landscape,
-}
-
-public readonly record struct SpreadsheetPaperSize
-{
-    public static SpreadsheetPaperSize A4 { get; } =
-        new(8.2677165354d, 11.6929133858d, "A4");
-
-    public static SpreadsheetPaperSize A3 { get; } =
-        new(11.6929133858d, 16.5354330709d, "A3");
-
-    public static SpreadsheetPaperSize Letter { get; } =
-        new(8.5d, 11d, "Letter");
-
-    public static SpreadsheetPaperSize Legal { get; } =
-        new(8.5d, 14d, "Legal");
-
-    public SpreadsheetPaperSize(
-        double widthInches,
-        double heightInches,
-        string? name = null)
-    {
-        if (!double.IsFinite(widthInches) || widthInches <= 0d)
-        {
-            throw new ArgumentOutOfRangeException(nameof(widthInches));
-        }
-        if (!double.IsFinite(heightInches) || heightInches <= 0d)
-        {
-            throw new ArgumentOutOfRangeException(nameof(heightInches));
-        }
-
-        WidthInches = widthInches;
-        HeightInches = heightInches;
-        Name = string.IsNullOrWhiteSpace(name)
-            ? "Custom"
-            : name.Trim();
-    }
-
-    public double WidthInches { get; }
-
-    public double HeightInches { get; }
-
-    public string Name { get; }
-}
-
-public readonly record struct SpreadsheetPageMargins
-{
-    public static SpreadsheetPageMargins Normal { get; } =
-        new(0.7d, 0.7d, 0.75d, 0.75d, 0.3d, 0.3d);
-
-    public static SpreadsheetPageMargins Narrow { get; } =
-        new(0.25d, 0.25d, 0.75d, 0.75d, 0.3d, 0.3d);
-
-    public SpreadsheetPageMargins(
-        double leftInches,
-        double rightInches,
-        double topInches,
-        double bottomInches,
-        double headerInches = 0d,
-        double footerInches = 0d)
-    {
-        Validate(leftInches, nameof(leftInches));
-        Validate(rightInches, nameof(rightInches));
-        Validate(topInches, nameof(topInches));
-        Validate(bottomInches, nameof(bottomInches));
-        Validate(headerInches, nameof(headerInches));
-        Validate(footerInches, nameof(footerInches));
-
-        LeftInches = leftInches;
-        RightInches = rightInches;
-        TopInches = topInches;
-        BottomInches = bottomInches;
-        HeaderInches = headerInches;
-        FooterInches = footerInches;
-    }
-
-    public double LeftInches { get; }
-
-    public double RightInches { get; }
-
-    public double TopInches { get; }
-
-    public double BottomInches { get; }
-
-    public double HeaderInches { get; }
-
-    public double FooterInches { get; }
-
-    private static void Validate(double value, string parameterName)
-    {
-        if (!double.IsFinite(value) || value < 0d)
-        {
-            throw new ArgumentOutOfRangeException(parameterName);
-        }
-    }
-}
-
-public readonly record struct SpreadsheetRepeatTitles
-{
-    public SpreadsheetRepeatTitles(
-        CellRange? rows = null,
-        CellRange? columns = null)
-    {
-        Rows = rows;
-        Columns = columns;
-    }
-
-    public CellRange? Rows { get; }
-
-    public CellRange? Columns { get; }
-}
-
-public sealed record SpreadsheetPageSetup
-{
-    public SpreadsheetPaperSize PaperSize { get; init; } =
-        SpreadsheetPaperSize.A4;
-
-    public SpreadsheetPageOrientation Orientation { get; init; } =
-        SpreadsheetPageOrientation.Portrait;
-
-    public SpreadsheetPageMargins Margins { get; init; } =
-        SpreadsheetPageMargins.Normal;
-
-    public double ScalePercent { get; init; } = 100d;
-
-    public int? FitToPagesWide { get; init; }
-
-    public int? FitToPagesTall { get; init; }
-
-    public SpreadsheetRepeatTitles RepeatTitles { get; init; }
-
-    public IReadOnlyList<int> ManualRowBreaks { get; init; } = [];
-
-    public IReadOnlyList<int> ManualColumnBreaks { get; init; } = [];
-
-    public bool CenterHorizontally { get; init; }
-
-    public bool CenterVertically { get; init; }
-
-    public bool PrintGridlines { get; init; }
-
-    public bool PrintHeadings { get; init; }
-}
-
 public sealed record SpreadsheetPrintPage(
     int PageNumber,
     int RowPageIndex,
@@ -195,6 +48,10 @@ public static class SpreadsheetPageLayoutPlanner
         ArgumentNullException.ThrowIfNull(worksheet);
         setup ??= new SpreadsheetPageSetup();
         ValidateSetup(setup, printArea);
+        ValidateManualBreaksAgainstMerges(
+            worksheet,
+            setup,
+            printArea);
 
         var paper = GetOrientedPaperSize(setup);
         var paperDips = new SizeD(
@@ -338,7 +195,7 @@ public static class SpreadsheetPageLayoutPlanner
 
         return new SpreadsheetPageLayoutPlan(
             printArea,
-            setup,
+            setup.Copy(),
             scale,
             paperDips,
             printableBounds,
@@ -351,41 +208,70 @@ public static class SpreadsheetPageLayoutPlanner
     {
         if (!Enum.IsDefined(setup.Orientation))
         {
-            throw new ArgumentOutOfRangeException(nameof(setup.Orientation));
+            throw new ArgumentOutOfRangeException(
+                nameof(setup),
+                "Page orientation is not defined.");
         }
         if (!double.IsFinite(setup.ScalePercent) ||
             setup.ScalePercent <= 0d ||
             setup.ScalePercent > 400d)
         {
-            throw new ArgumentOutOfRangeException(nameof(setup.ScalePercent));
+            throw new ArgumentOutOfRangeException(
+                nameof(setup),
+                "ScalePercent must be finite and between 0 and 400.");
         }
-        ValidateFit(setup.FitToPagesWide, nameof(setup.FitToPagesWide));
-        ValidateFit(setup.FitToPagesTall, nameof(setup.FitToPagesTall));
+        ValidateFit(setup.FitToPagesWide);
+        ValidateFit(setup.FitToPagesTall);
         ValidateBreaks(
             setup.ManualRowBreaks,
             printArea.Top,
-            printArea.Bottom,
-            nameof(setup.ManualRowBreaks));
+            printArea.Bottom);
         ValidateBreaks(
             setup.ManualColumnBreaks,
             printArea.Left,
-            printArea.Right,
-            nameof(setup.ManualColumnBreaks));
+            printArea.Right);
     }
 
-    private static void ValidateFit(int? value, string parameterName)
+    private static void ValidateManualBreaksAgainstMerges(
+        WorksheetSnapshot worksheet,
+        SpreadsheetPageSetup setup,
+        CellRange printArea)
+    {
+        foreach (var merge in worksheet.MergedCells)
+        {
+            if (!merge.Intersects(printArea))
+            {
+                continue;
+            }
+            if (setup.ManualRowBreaks.Any(value =>
+                    merge.Top < value && merge.Bottom >= value))
+            {
+                throw new InvalidOperationException(
+                    "A manual row page break cannot split a merged cell.");
+            }
+            if (setup.ManualColumnBreaks.Any(value =>
+                    merge.Left < value && merge.Right >= value))
+            {
+                throw new InvalidOperationException(
+                    "A manual column page break cannot split a merged cell.");
+            }
+        }
+    }
+
+    private static void ValidateFit(int? value)
     {
         if (value is <= 0 or > 1000)
         {
-            throw new ArgumentOutOfRangeException(parameterName);
+            throw new ArgumentOutOfRangeException(
+                nameof(value),
+                "Fit-to-page values must be between 1 and 1000.");
         }
     }
 
     private static void ValidateBreaks(
         IReadOnlyList<int> breaks,
         int areaStart,
-        int areaEnd,
-        string parameterName)
+        int areaEnd)
     {
         ArgumentNullException.ThrowIfNull(breaks);
         var seen = new HashSet<int>();
@@ -395,7 +281,7 @@ public static class SpreadsheetPageLayoutPlanner
             {
                 throw new ArgumentException(
                     "Manual page breaks must be unique and inside the print area.",
-                    parameterName);
+                    nameof(breaks));
             }
         }
     }
@@ -506,10 +392,10 @@ public static class SpreadsheetPageLayoutPlanner
             capacity,
             manualBreaks,
             index => GetRowSize(worksheet, index),
-            next => AdjustRowBreakForMerges(
+            (segmentStart, next) => AdjustRowBreakForMerges(
                 worksheet,
                 printArea,
-                start,
+                segmentStart,
                 next));
 
     private static List<AxisSegment> PartitionColumns(
@@ -525,10 +411,10 @@ public static class SpreadsheetPageLayoutPlanner
             capacity,
             manualBreaks,
             index => GetColumnSize(worksheet, index),
-            next => AdjustColumnBreakForMerges(
+            (segmentStart, next) => AdjustColumnBreakForMerges(
                 worksheet,
                 printArea,
-                start,
+                segmentStart,
                 next));
 
     private static List<AxisSegment> PartitionAxis(
@@ -537,9 +423,9 @@ public static class SpreadsheetPageLayoutPlanner
         double capacity,
         IReadOnlyList<int> manualBreaks,
         Func<int, double> getSize,
-        Func<int, int> adjustForMerges)
+        Func<int, int, int> adjustForMerges)
     {
-        var breaks = manualBreaks
+        var orderedBreaks = manualBreaks
             .Where(value => value > start && value <= end)
             .OrderBy(static value => value)
             .ToArray();
@@ -547,7 +433,8 @@ public static class SpreadsheetPageLayoutPlanner
         var current = start;
         while (current <= end)
         {
-            var nextManualBreak = breaks.FirstOrDefault(value => value > current);
+            var nextManualBreak = orderedBreaks.FirstOrDefault(
+                value => value > current);
             var limit = nextManualBreak == 0
                 ? end + 1
                 : nextManualBreak;
@@ -571,7 +458,14 @@ public static class SpreadsheetPageLayoutPlanner
             {
                 next++;
             }
-            next = Math.Min(limit, adjustForMerges(next));
+            next = Math.Min(
+                end + 1,
+                adjustForMerges(current, next));
+            if (next > limit && nextManualBreak != 0)
+            {
+                throw new InvalidOperationException(
+                    "A manual page break cannot split a merged cell.");
+            }
             if (next <= current)
             {
                 next = current + 1;

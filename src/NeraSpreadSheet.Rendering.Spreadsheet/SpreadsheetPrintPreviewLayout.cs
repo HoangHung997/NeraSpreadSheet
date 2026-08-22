@@ -80,15 +80,19 @@ public static class SpreadsheetPrintPreviewLayoutEngine
         Validate(viewportSizeDips, offsetXDips, offsetYDips, options);
 
         var pageCount = plan.Pages.Count;
+        var effectiveColumns = pageCount == 0
+            ? 0
+            : Math.Min(options.Columns, pageCount);
         var pageWidth = plan.PaperSizeDips.Width * options.Zoom;
         var pageHeight = plan.PaperSizeDips.Height * options.Zoom;
         var strideX = pageWidth + options.PageGapDips;
         var strideY = pageHeight + options.PageGapDips;
         var rowCount = pageCount == 0
             ? 0
-            : checked((pageCount + options.Columns - 1) / options.Columns);
-        var contentWidth = options.PageGapDips +
-            (options.Columns * strideX);
+            : checked((pageCount + effectiveColumns - 1) / effectiveColumns);
+        var contentWidth = pageCount == 0
+            ? 0d
+            : options.PageGapDips + (effectiveColumns * strideX);
         var contentHeight = rowCount == 0
             ? 0d
             : options.PageGapDips + (rowCount * strideY);
@@ -101,6 +105,7 @@ public static class SpreadsheetPrintPreviewLayoutEngine
                 offsetXDips,
                 offsetYDips,
                 options,
+                effectiveColumns,
                 pageWidth,
                 pageHeight,
                 strideX,
@@ -113,7 +118,7 @@ public static class SpreadsheetPrintPreviewLayoutEngine
             offsetXDips,
             offsetYDips,
             options.Zoom,
-            options.Columns,
+            effectiveColumns,
             visiblePages);
     }
 
@@ -123,6 +128,7 @@ public static class SpreadsheetPrintPreviewLayoutEngine
         double offsetX,
         double offsetY,
         SpreadsheetPrintPreviewOptions options,
+        int columns,
         double pageWidth,
         double pageHeight,
         double strideX,
@@ -153,12 +159,12 @@ public static class SpreadsheetPrintPreviewLayoutEngine
             (int)Math.Floor(
                 (visibleLeft - options.PageGapDips) / strideX),
             0,
-            options.Columns - 1);
+            columns - 1);
         var lastColumn = Math.Clamp(
             (int)Math.Floor(
                 (visibleRight - options.PageGapDips) / strideX),
             0,
-            options.Columns - 1);
+            columns - 1);
         var result = new List<SpreadsheetPrintPreviewPageSlot>();
         for (var row = firstRow; row <= lastRow; row++)
         {
@@ -166,8 +172,7 @@ public static class SpreadsheetPrintPreviewLayoutEngine
                  column <= lastColumn;
                  column++)
             {
-                var pageIndex = checked(
-                    (row * options.Columns) + column);
+                var pageIndex = checked((row * columns) + column);
                 if (pageIndex >= plan.Pages.Count)
                 {
                     break;
@@ -220,21 +225,29 @@ public static class SpreadsheetPrintPreviewLayoutEngine
             options.Zoom < 0.05d ||
             options.Zoom > 8d)
         {
-            throw new ArgumentOutOfRangeException(nameof(options.Zoom));
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                "Zoom must be between 0.05 and 8.");
         }
         if (!double.IsFinite(options.PageGapDips) ||
             options.PageGapDips < 0d)
         {
-            throw new ArgumentOutOfRangeException(nameof(options.PageGapDips));
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                "PageGapDips must be finite and nonnegative.");
         }
         if (options.Columns <= 0 || options.Columns > 100)
         {
-            throw new ArgumentOutOfRangeException(nameof(options.Columns));
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                "Columns must be between 1 and 100.");
         }
         if (!double.IsFinite(options.OverscanDips) ||
             options.OverscanDips < 0d)
         {
-            throw new ArgumentOutOfRangeException(nameof(options.OverscanDips));
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                "OverscanDips must be finite and nonnegative.");
         }
     }
 }

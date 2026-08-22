@@ -199,8 +199,9 @@ public static class DelimitedTextWorkbookSerializer
             }
             if (row < targetRange.Bottom)
             {
-                await writer.WriteAsync(options.NewLine.AsMemory(), cancellationToken)
-                    .ConfigureAwait(false);
+                await writer.WriteAsync(
+                    options.NewLine.AsMemory(),
+                    cancellationToken).ConfigureAwait(false);
             }
         }
         await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
@@ -310,8 +311,9 @@ public static class DelimitedTextWorkbookSerializer
              char.IsWhiteSpace(field[^1]));
         if (!requiresQuotes)
         {
-            await writer.WriteAsync(field.AsMemory(), cancellationToken)
-                .ConfigureAwait(false);
+            await writer.WriteAsync(
+                field.AsMemory(),
+                cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -367,17 +369,22 @@ public static class DelimitedTextWorkbookSerializer
         if (options.MaximumRows <= 0 ||
             options.MaximumRows > SpreadsheetLimits.MaxRows)
         {
-            throw new ArgumentOutOfRangeException(nameof(options.MaximumRows));
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                "MaximumRows must be inside the spreadsheet row limit.");
         }
         if (options.MaximumColumns <= 0 ||
             options.MaximumColumns > SpreadsheetLimits.MaxColumns)
         {
-            throw new ArgumentOutOfRangeException(nameof(options.MaximumColumns));
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                "MaximumColumns must be inside the spreadsheet column limit.");
         }
         if (options.MaximumCellCharacters <= 0)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(options.MaximumCellCharacters));
+                nameof(options),
+                "MaximumCellCharacters must be positive.");
         }
     }
 
@@ -392,7 +399,7 @@ public static class DelimitedTextWorkbookSerializer
         {
             throw new ArgumentException(
                 "NewLine must contain only carriage-return and line-feed characters.",
-                nameof(options.NewLine));
+                nameof(options));
         }
         ArgumentException.ThrowIfNullOrWhiteSpace(options.DateTimeFormat);
     }
@@ -433,6 +440,8 @@ public static class DelimitedTextWorkbookSerializer
             var row = new List<DelimitedTextField>();
             var field = new StringBuilder();
             var inQuotes = false;
+            var quotePending = false;
+            var quotedFieldClosed = false;
             var wasQuoted = false;
             var fieldStarted = false;
             var pendingCarriageReturn = false;
@@ -464,48 +473,49 @@ public static class DelimitedTextWorkbookSerializer
 
                     if (inQuotes)
                     {
-                        if (current == _options.Quote)
+                        if (!quotePending)
                         {
-                            var nextIsQuote = index + 1 < read &&
-                                              buffer[index + 1] == _options.Quote;
-                            if (nextIsQuote)
+                            if (current == _options.Quote)
                             {
-                                Append(field, current);
-                                index++;
+                                quotePending = true;
                             }
                             else
                             {
-                                inQuotes = false;
+                                Append(field, current);
                             }
+                            continue;
                         }
-                        else
+
+                        if (current == _options.Quote)
                         {
                             Append(field, current);
+                            quotePending = false;
+                            continue;
                         }
-                        continue;
+
+                        inQuotes = false;
+                        quotePending = false;
+                        quotedFieldClosed = true;
                     }
 
-                    if (current == _options.Quote && !fieldStarted)
-                    {
-                        inQuotes = true;
-                        wasQuoted = true;
-                        fieldStarted = true;
-                        continue;
-                    }
                     if (current == _options.Delimiter)
                     {
-                        row.Add(new DelimitedTextField(
-                            field.ToString(),
-                            wasQuoted));
-                        Reset(field, out wasQuoted, out fieldStarted);
+                        AddField(
+                            row,
+                            field,
+                            ref wasQuoted,
+                            ref fieldStarted,
+                            ref quotedFieldClosed);
                         continue;
                     }
                     if (current is '\r' or '\n')
                     {
-                        row.Add(new DelimitedTextField(
-                            field.ToString(),
-                            wasQuoted));
-                        Reset(field, out wasQuoted, out fieldStarted);
+                        AddField(
+                            row,
+                            field,
+                            ref wasQuoted,
+                            ref fieldStarted,
+                            ref quotedFieldClosed);
                         yield return row.ToArray();
                         row.Clear();
                         if (current == '\r')
@@ -514,13 +524,20 @@ public static class DelimitedTextWorkbookSerializer
                         }
                         continue;
                     }
-                    if (wasQuoted)
+                    if (quotedFieldClosed)
                     {
                         if (!char.IsWhiteSpace(current))
                         {
                             throw new InvalidDataException(
                                 "Unexpected content follows a quoted field.");
                         }
+                        continue;
+                    }
+                    if (current == _options.Quote && !fieldStarted)
+                    {
+                        inQuotes = true;
+                        wasQuoted = true;
+                        fieldStarted = true;
                         continue;
                     }
 
@@ -531,18 +548,30 @@ public static class DelimitedTextWorkbookSerializer
 
             if (inQuotes)
             {
-                throw new InvalidDataException(
-                    "Delimited text ends inside a quoted field.");
+                if (quotePending)
+                {
+                    inQuotes = false;
+                    quotePending = false;
+                    quotedFieldClosed = true;
+                }
+                else
+                {
+                    throw new InvalidDataException(
+                        "Delimited text ends inside a quoted field.");
+                }
             }
-            if (pendingCarriageReturn ||
-                field.Length > 0 ||
+            if (field.Length > 0 ||
                 fieldStarted ||
                 wasQuoted ||
+                quotedFieldClosed ||
                 row.Count > 0)
             {
-                row.Add(new DelimitedTextField(
-                    field.ToString(),
-                    wasQuoted));
+                AddField(
+                    row,
+                    field,
+                    ref wasQuoted,
+                    ref fieldStarted,
+                    ref quotedFieldClosed);
                 yield return row.ToArray();
             }
         }
@@ -558,14 +587,20 @@ public static class DelimitedTextWorkbookSerializer
             field.Append(value);
         }
 
-        private static void Reset(
+        private static void AddField(
+            ICollection<DelimitedTextField> row,
             StringBuilder field,
-            out bool wasQuoted,
-            out bool fieldStarted)
+            ref bool wasQuoted,
+            ref bool fieldStarted,
+            ref bool quotedFieldClosed)
         {
+            row.Add(new DelimitedTextField(
+                field.ToString(),
+                wasQuoted));
             field.Clear();
             wasQuoted = false;
             fieldStarted = false;
+            quotedFieldClosed = false;
         }
     }
 }

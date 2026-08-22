@@ -44,7 +44,7 @@ public sealed class SpreadsheetPrintPageGrid
         if (!_rows.TryGetValue(address.RowIndex, out var row) ||
             !_columns.TryGetValue(address.ColumnIndex, out var column))
         {
-            bounds = RectD.Empty;
+            bounds = default;
             return false;
         }
 
@@ -94,7 +94,9 @@ public static class SpreadsheetPrintPageGridBuilder
             rowIndexes,
             originY,
             page.Scale,
-            page.RepeatedRows,
+            index => page.RepeatedRows is { } repeated &&
+                     index >= repeated.Top &&
+                     index <= repeated.Bottom,
             index => worksheet.RowHeights.TryGetValue(index, out var size)
                 ? size
                 : worksheet.DefaultRowHeight);
@@ -102,7 +104,9 @@ public static class SpreadsheetPrintPageGridBuilder
             columnIndexes,
             originX,
             page.Scale,
-            page.RepeatedColumns,
+            index => page.RepeatedColumns is { } repeated &&
+                     index >= repeated.Left &&
+                     index <= repeated.Right,
             index => worksheet.ColumnWidths.TryGetValue(index, out var size)
                 ? size
                 : worksheet.DefaultColumnWidth);
@@ -134,10 +138,10 @@ public static class SpreadsheetPrintPageGridBuilder
     }
 
     private static SpreadsheetPrintAxisSlot[] BuildSlots(
-        IReadOnlyList<int> indexes,
+        List<int> indexes,
         double origin,
         double scale,
-        CellRange? repeatedRange,
+        Func<int, bool> isRepeated,
         Func<int, double> getSize)
     {
         var result = new SpreadsheetPrintAxisSlot[indexes.Count];
@@ -146,16 +150,11 @@ public static class SpreadsheetPrintPageGridBuilder
         {
             var worksheetIndex = indexes[index];
             var size = getSize(worksheetIndex) * scale;
-            var isRepeated = repeatedRange is { } repeated &&
-                (worksheetIndex >= repeated.Top &&
-                 worksheetIndex <= repeated.Bottom ||
-                 worksheetIndex >= repeated.Left &&
-                 worksheetIndex <= repeated.Right);
             result[index] = new SpreadsheetPrintAxisSlot(
                 worksheetIndex,
                 cursor,
                 size,
-                isRepeated);
+                isRepeated(worksheetIndex));
             cursor += size;
         }
         return result;
@@ -185,14 +184,23 @@ public static class SpreadsheetHeaderFooterFormatter
         ArgumentNullException.ThrowIfNull(context);
         if (context.PageNumber <= 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(context.PageNumber));
+            throw new ArgumentOutOfRangeException(
+                nameof(context),
+                "PageNumber must be greater than zero.");
         }
         if (context.TotalPages <= 0 ||
             context.PageNumber > context.TotalPages)
         {
-            throw new ArgumentOutOfRangeException(nameof(context.TotalPages));
+            throw new ArgumentOutOfRangeException(
+                nameof(context),
+                "TotalPages must be positive and no smaller than PageNumber.");
         }
-        ArgumentException.ThrowIfNullOrWhiteSpace(context.WorksheetName);
+        if (string.IsNullOrWhiteSpace(context.WorksheetName))
+        {
+            throw new ArgumentException(
+                "WorksheetName must not be blank.",
+                nameof(context));
+        }
         if (string.IsNullOrEmpty(template))
         {
             return string.Empty;
@@ -206,6 +214,7 @@ public static class SpreadsheetHeaderFooterFormatter
         }
 
         culture ??= CultureInfo.CurrentCulture;
+        var timestamp = context.EffectiveTimestamp;
         var result = new StringBuilder(template.Length + 32);
         for (var index = 0; index < template.Length; index++)
         {
@@ -235,12 +244,10 @@ public static class SpreadsheetHeaderFooterFormatter
                     result.Append(context.WorkbookName ?? string.Empty);
                     break;
                 case 'D':
-                    result.Append(
-                        context.EffectiveTimestamp.ToString("d", culture));
+                    result.Append(timestamp.ToString("d", culture));
                     break;
                 case 'T':
-                    result.Append(
-                        context.EffectiveTimestamp.ToString("t", culture));
+                    result.Append(timestamp.ToString("t", culture));
                     break;
                 default:
                     result.Append('&');
