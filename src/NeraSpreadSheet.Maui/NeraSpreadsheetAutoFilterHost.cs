@@ -105,7 +105,8 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
             candidate.CommandParameter is SpreadsheetAutoFilterButtonHit hit &&
             hit.HeaderCell == target.HeaderCell &&
             hit.OwnerKind == ToGeometryOwner(target.OwnerKind));
-        return TryOpenFilterCore(target, button ?? Spreadsheet);
+        VisualElement focusTarget = button ?? (VisualElement)Spreadsheet;
+        return TryOpenFilterCore(target, focusTarget);
     }
 
     public bool TryOpenFilter(CellAddress address)
