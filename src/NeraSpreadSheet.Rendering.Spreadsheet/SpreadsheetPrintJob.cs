@@ -39,7 +39,7 @@ public interface ISpreadsheetPrintSink
     Task CompleteJobAsync(CancellationToken cancellationToken);
 
     Task AbortJobAsync(
-        Exception? error,
+        Exception? failure,
         CancellationToken cancellationToken);
 }
 
