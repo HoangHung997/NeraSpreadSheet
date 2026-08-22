@@ -9,6 +9,15 @@ namespace NeraSpreadSheet.Export.Pdf.Tests;
 [TestClass]
 public sealed class SpreadsheetPdfPrintJobExporterTests
 {
+    private static readonly int[] ExpectedCollatedPageNumbers =
+        [2, 3, 2, 3];
+
+    private static readonly int[] ExpectedCollatedCopyNumbers =
+        [1, 1, 2, 2];
+
+    private static readonly int[] ExpectedReverseOddPageNumbers =
+        [5, 3, 1];
+
     [TestMethod]
     public async Task PageSelectionCopiesAndCollationDrivePdfSequence()
     {
@@ -36,12 +45,12 @@ public sealed class SpreadsheetPdfPrintJobExporterTests
 
         Assert.AreEqual(4, result.PageCount);
         CollectionAssert.AreEqual(
-            new[] { 2, 3, 2, 3 },
+            ExpectedCollatedPageNumbers,
             result.Invocations
                 .Select(static invocation => invocation.PageNumber)
                 .ToArray());
         CollectionAssert.AreEqual(
-            new[] { 1, 1, 2, 2 },
+            ExpectedCollatedCopyNumbers,
             result.Invocations
                 .Select(static invocation => invocation.CopyNumber)
                 .ToArray());
@@ -74,7 +83,7 @@ public sealed class SpreadsheetPdfPrintJobExporterTests
             workbook.Styles);
 
         CollectionAssert.AreEqual(
-            new[] { 5, 3, 1 },
+            ExpectedReverseOddPageNumbers,
             result.Invocations
                 .Select(static invocation => invocation.PageNumber)
                 .ToArray());
