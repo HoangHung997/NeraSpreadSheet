@@ -32,6 +32,7 @@ public sealed class NeraPrintPreviewViewTests
 
         session.SetZoom(0.5d, 100.25d, 75.75d);
         session.SetColumns(2);
+        session.SetViewportSize(300d, 200d);
         session.ScrollTo(17.25d, 31.75d);
 
         Assert.AreEqual(0.5d, session.Zoom, 0.000001d);
