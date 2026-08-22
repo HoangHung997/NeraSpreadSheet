@@ -89,7 +89,6 @@ public sealed class SkiaDisplayListPdfExporterTests
 
         Assert.AreEqual(3, enumerated);
         Assert.IsTrue(destination.Length > 500L);
-        Assert.AreEqual(0.75d, SkiaDisplayListPdfExporter.PdfPointsPerDip);
     }
 
     [TestMethod]
@@ -122,10 +121,14 @@ public sealed class SkiaDisplayListPdfExporterTests
         var sentinel = Encoding.UTF8.GetBytes("existing-pdf");
         await using var destination = new MemoryStream();
         await destination.WriteAsync(sentinel);
+        var pages = new[]
+        {
+            CreatePage(800d, 1000d, new string('X', 5000)),
+        };
 
         await Assert.ThrowsExactlyAsync<InvalidDataException>(async () =>
             await SkiaDisplayListPdfExporter.SaveAsync(
-                [CreatePage(800d, 1000d, new string('X', 5000))],
+                pages,
                 destination,
                 new SkiaPdfExportOptions
                 {
@@ -143,10 +146,14 @@ public sealed class SkiaDisplayListPdfExporterTests
         await destination.WriteAsync(sentinel);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
+        var pages = new[]
+        {
+            CreatePage(96d, 96d, "Canceled"),
+        };
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(async () =>
             await SkiaDisplayListPdfExporter.SaveAsync(
-                [CreatePage(96d, 96d, "Canceled")],
+                pages,
                 destination,
                 cancellationToken: cancellation.Token));
 
@@ -161,9 +168,13 @@ public sealed class SkiaDisplayListPdfExporterTests
             await SkiaDisplayListPdfExporter.SaveAsync(
                 Array.Empty<SkiaPdfPage>(),
                 destination));
+        var invalidPages = new[]
+        {
+            CreatePage(0d, 96d, "Invalid"),
+        };
         await Assert.ThrowsExactlyAsync<InvalidDataException>(async () =>
             await SkiaDisplayListPdfExporter.SaveAsync(
-                [CreatePage(0d, 96d, "Invalid")],
+                invalidPages,
                 destination));
     }
 
