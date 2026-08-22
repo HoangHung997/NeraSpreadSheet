@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -43,6 +44,8 @@ public sealed class NeraPrintPreviewControl : Control
         BackColor = WorkspaceColor;
     }
 
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public SpreadsheetPrintPreviewSession? Session
     {
         get => _session;
@@ -59,12 +62,16 @@ public sealed class NeraPrintPreviewControl : Control
         }
     }
 
+    [Browsable(false)]
     public SpreadsheetPrintPreviewFrame? LastFrame => _lastFrame;
 
+    [Browsable(false)]
     public double Zoom => _session?.Zoom ?? 1d;
 
+    [Browsable(false)]
     public double OffsetX => _session?.OffsetX ?? 0d;
 
+    [Browsable(false)]
     public double OffsetY => _session?.OffsetY ?? 0d;
 
     public void SetZoom(
