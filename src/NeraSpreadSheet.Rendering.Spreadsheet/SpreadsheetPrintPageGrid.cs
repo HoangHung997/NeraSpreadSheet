@@ -244,10 +244,12 @@ public static class SpreadsheetHeaderFooterFormatter
                     result.Append(context.WorkbookName ?? string.Empty);
                     break;
                 case 'D':
-                    result.Append(timestamp.ToString("d", culture));
+                    result.Append(NormalizeCultureWhitespace(
+                        timestamp.ToString("d", culture)));
                     break;
                 case 'T':
-                    result.Append(timestamp.ToString("t", culture));
+                    result.Append(NormalizeCultureWhitespace(
+                        timestamp.ToString("t", culture)));
                     break;
                 default:
                     result.Append('&');
@@ -257,4 +259,9 @@ public static class SpreadsheetHeaderFooterFormatter
         }
         return result.ToString();
     }
+
+    private static string NormalizeCultureWhitespace(string value) =>
+        value
+            .Replace('\u00A0', ' ')
+            .Replace('\u202F', ' ');
 }

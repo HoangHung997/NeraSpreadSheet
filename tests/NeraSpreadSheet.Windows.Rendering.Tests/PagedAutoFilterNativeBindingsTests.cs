@@ -75,7 +75,8 @@ public sealed class PagedAutoFilterNativeBindingsTests
         Assert.IsFalse(winFormsPresenter.IsOpen);
     }
 
-    private static Task RunOnWpfDispatcherAsync(Func<Task> action)
+    private static Task<object?> RunOnWpfDispatcherAsync(
+        Func<Task> action)
     {
         ArgumentNullException.ThrowIfNull(action);
         var completion = new TaskCompletionSource<object?>(
