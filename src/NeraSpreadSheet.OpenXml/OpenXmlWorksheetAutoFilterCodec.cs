@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml.Packaging;
@@ -11,50 +12,20 @@ internal static class OpenXmlWorksheetAutoFilterCodec
 {
     private const int MaxFilterValuesPerColumn = 100_000;
     private const long MaxXmlCharacters = 256L * 1024L * 1024L;
-
     private static readonly XNamespace SpreadsheetNamespace =
         "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-
-    private static readonly IReadOnlyDictionary<string, int> WorksheetOrder =
+    private static readonly Dictionary<string, int> WorksheetOrder =
         CreateOrder([
-            "sheetPr",
-            "dimension",
-            "sheetViews",
-            "sheetFormatPr",
-            "cols",
-            "sheetData",
-            "sheetCalcPr",
-            "sheetProtection",
-            "protectedRanges",
-            "scenarios",
-            "autoFilter",
-            "sortState",
-            "dataConsolidate",
-            "customSheetViews",
-            "mergeCells",
-            "phoneticPr",
-            "conditionalFormatting",
-            "dataValidations",
-            "hyperlinks",
-            "printOptions",
-            "pageMargins",
-            "pageSetup",
-            "headerFooter",
-            "rowBreaks",
-            "colBreaks",
-            "customProperties",
-            "cellWatches",
-            "ignoredErrors",
-            "smartTags",
-            "drawing",
-            "legacyDrawing",
-            "legacyDrawingHF",
-            "picture",
-            "oleObjects",
-            "controls",
-            "webPublishItems",
-            "tableParts",
-            "extLst",
+            "sheetPr", "dimension", "sheetViews", "sheetFormatPr", "cols",
+            "sheetData", "sheetCalcPr", "sheetProtection", "protectedRanges",
+            "scenarios", "autoFilter", "sortState", "dataConsolidate",
+            "customSheetViews", "mergeCells", "phoneticPr",
+            "conditionalFormatting", "dataValidations", "hyperlinks",
+            "printOptions", "pageMargins", "pageSetup", "headerFooter",
+            "rowBreaks", "colBreaks", "customProperties", "cellWatches",
+            "ignoredErrors", "smartTags", "drawing", "legacyDrawing",
+            "legacyDrawingHF", "picture", "oleObjects", "controls",
+            "webPublishItems", "tableParts", "extLst",
         ]);
 
     public static void ReadWorksheetFilter(
@@ -65,15 +36,8 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         ArgumentNullException.ThrowIfNull(worksheetPart);
         ArgumentNullException.ThrowIfNull(worksheet);
         cancellationToken.ThrowIfCancellationRequested();
-
-        var document = LoadPartXml(worksheetPart);
-        var root = document.Root
-            ?? throw new InvalidDataException(
-                "The XLSX worksheet part is missing its root element.");
-        EnsureWorksheetRoot(root);
-        var elements = root
-            .Elements(SpreadsheetNamespace + "autoFilter")
-            .ToArray();
+        var root = LoadWorksheetRoot(worksheetPart);
+        var elements = root.Elements(SpreadsheetNamespace + "autoFilter").ToArray();
         if (elements.Length > 1)
         {
             throw new InvalidDataException(
@@ -84,10 +48,9 @@ internal static class OpenXmlWorksheetAutoFilterCodec
             return;
         }
 
-        var parsed = ParseAutoFilter(elements[0], cancellationToken);
         try
         {
-            worksheet.SetAutoFilter(parsed);
+            worksheet.SetAutoFilter(ParseAutoFilter(elements[0], cancellationToken));
         }
         catch (Exception exception) when (
             exception is ArgumentException or InvalidOperationException)
@@ -104,12 +67,8 @@ internal static class OpenXmlWorksheetAutoFilterCodec
     {
         ArgumentNullException.ThrowIfNull(worksheetPart);
         ArgumentNullException.ThrowIfNull(worksheet);
-
         var document = LoadPartXml(worksheetPart);
-        var root = document.Root
-            ?? throw new InvalidDataException(
-                "The generated XLSX worksheet is missing its root element.");
-        EnsureWorksheetRoot(root);
+        var root = RequireWorksheetRoot(document);
         root.Elements(SpreadsheetNamespace + "autoFilter").Remove();
         if (worksheet.AutoFilter is not { } autoFilter)
         {
@@ -125,13 +84,11 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         var element = new XElement(
             SpreadsheetNamespace + "autoFilter",
             new XAttribute("ref", ToA1Range(autoFilter.Range)));
-        foreach (var column in autoFilter.Columns
-                     .OrderBy(static column => column.ColumnOffset))
+        foreach (var column in autoFilter.Columns.OrderBy(static item => item.ColumnOffset))
         {
             element.Add(BuildFilterColumn(column));
         }
-
-        InsertInSchemaOrder(root, element, WorksheetOrder);
+        InsertInSchemaOrder(root, element);
         SavePartXml(worksheetPart, document);
     }
 
@@ -139,17 +96,12 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         XElement preservedWorksheetRoot,
         XElement generatedWorksheetRoot)
     {
-        ArgumentNullException.ThrowIfNull(preservedWorksheetRoot);
-        ArgumentNullException.ThrowIfNull(generatedWorksheetRoot);
         EnsureWorksheetRoot(preservedWorksheetRoot);
         EnsureWorksheetRoot(generatedWorksheetRoot);
-
         var preserved = preservedWorksheetRoot
-            .Elements(SpreadsheetNamespace + "autoFilter")
-            .ToArray();
+            .Elements(SpreadsheetNamespace + "autoFilter").ToArray();
         var generated = generatedWorksheetRoot
-            .Elements(SpreadsheetNamespace + "autoFilter")
-            .ToArray();
+            .Elements(SpreadsheetNamespace + "autoFilter").ToArray();
         if (preserved.Length > 1 || generated.Length > 1)
         {
             throw new InvalidDataException(
@@ -164,17 +116,13 @@ internal static class OpenXmlWorksheetAutoFilterCodec
             PreserveOpaqueAttributes(preserved[0], replacement);
             PreserveExtensionList(preserved[0], replacement);
         }
-
         foreach (var element in preserved)
         {
             element.Remove();
         }
         if (replacement is not null)
         {
-            InsertInSchemaOrder(
-                preservedWorksheetRoot,
-                replacement,
-                WorksheetOrder);
+            InsertInSchemaOrder(preservedWorksheetRoot, replacement);
         }
     }
 
@@ -182,7 +130,16 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         XElement element,
         CancellationToken cancellationToken)
     {
-        EnsureSupportedAutoFilterChildren(element);
+        EnsureOnlyAttributes(element, "ref");
+        var unsupported = element.Elements().FirstOrDefault(child =>
+            child.Name != SpreadsheetNamespace + "filterColumn" &&
+            child.Name != SpreadsheetNamespace + "extLst");
+        if (unsupported is not null)
+        {
+            throw new InvalidDataException(
+                $"Unsupported worksheet AutoFilter element '{unsupported.Name.LocalName}'.");
+        }
+
         var range = ParseRange(RequiredAttribute(element, "ref"));
         var columns = new List<WorksheetAutoFilterColumn>();
         var seenOffsets = new HashSet<int>();
@@ -198,20 +155,16 @@ internal static class OpenXmlWorksheetAutoFilterCodec
             }
             columns.Add(ParseFilterColumn(filterColumn, offset));
         }
-
-        return new WorksheetAutoFilter(
-            range,
-            columns,
-            hasHeaderRow: true);
+        return new WorksheetAutoFilter(range, columns, hasHeaderRow: true);
     }
 
     private static WorksheetAutoFilterColumn ParseFilterColumn(
         XElement filterColumn,
         int columnOffset)
     {
+        EnsureOnlyAttributes(filterColumn, "colId", "hiddenButton", "showButton");
         var children = filterColumn.Elements()
-            .Where(element =>
-                element.Name != SpreadsheetNamespace + "extLst")
+            .Where(element => element.Name != SpreadsheetNamespace + "extLst")
             .ToArray();
         if (children.Length != 1)
         {
@@ -221,65 +174,63 @@ internal static class OpenXmlWorksheetAutoFilterCodec
 
         if (children[0].Name == SpreadsheetNamespace + "filters")
         {
-            EnsureOnlyAttributes(children[0], "blank");
-            var values = children[0]
-                .Elements(SpreadsheetNamespace + "filter")
-                .Select(ParseValueFilter)
-                .ToArray();
-            if (values.Length > MaxFilterValuesPerColumn ||
-                children[0].Elements().Any(child =>
-                    child.Name != SpreadsheetNamespace + "filter"))
-            {
-                throw new InvalidDataException(
-                    "The worksheet value-filter collection is unsupported or too large.");
-            }
-
-            var includeBlank = ReadBooleanAttribute(
-                children[0],
-                "blank",
-                defaultValue: false);
-            if (values.Length == 0 && !includeBlank)
-            {
-                throw new InvalidDataException(
-                    "A worksheet value filter requires values or blank matching.");
-            }
-            CellValue[] effectiveValues = values.Length == 0 && includeBlank
-                ? [CellValue.Blank]
-                : values;
-            return new WorksheetAutoFilterColumn(
-                columnOffset,
-                effectiveValues,
-                includeBlank);
+            return ParseValueFilters(children[0], columnOffset);
         }
-
         if (children[0].Name == SpreadsheetNamespace + "customFilters")
         {
-            EnsureOnlyAttributes(children[0], "and");
-            var conditions = children[0]
-                .Elements(SpreadsheetNamespace + "customFilter")
-                .Select(ParseCustomFilter)
-                .ToArray();
-            if (conditions.Length is < 1 or > 2 ||
-                children[0].Elements().Any(child =>
-                    child.Name != SpreadsheetNamespace + "customFilter"))
-            {
-                throw new InvalidDataException(
-                    "A worksheet custom filter requires one or two supported conditions.");
-            }
-            return new WorksheetAutoFilterColumn(
-                columnOffset,
-                firstCondition: conditions[0],
-                secondCondition: conditions.Length == 2
-                    ? conditions[1]
-                    : null,
-                combineWithAnd: ReadBooleanAttribute(
-                    children[0],
-                    "and",
-                    defaultValue: false));
+            return ParseCustomFilters(children[0], columnOffset);
         }
-
         throw new InvalidDataException(
             $"Unsupported worksheet AutoFilter type '{children[0].Name.LocalName}'.");
+    }
+
+    private static WorksheetAutoFilterColumn ParseValueFilters(
+        XElement filters,
+        int columnOffset)
+    {
+        EnsureOnlyAttributes(filters, "blank");
+        var children = filters.Elements().ToArray();
+        if (children.Any(child => child.Name != SpreadsheetNamespace + "filter") ||
+            children.Length > MaxFilterValuesPerColumn)
+        {
+            throw new InvalidDataException(
+                "The worksheet value-filter collection is unsupported or too large.");
+        }
+        var values = children.Select(ParseValueFilter).ToArray();
+        var includeBlank = ReadBooleanAttribute(filters, "blank", false);
+        if (values.Length == 0 && !includeBlank)
+        {
+            throw new InvalidDataException(
+                "A worksheet value filter requires values or blank matching.");
+        }
+        CellValue[] effectiveValues = values.Length == 0 && includeBlank
+            ? [CellValue.Blank]
+            : values;
+        return new WorksheetAutoFilterColumn(
+            columnOffset,
+            effectiveValues,
+            includeBlank);
+    }
+
+    private static WorksheetAutoFilterColumn ParseCustomFilters(
+        XElement filters,
+        int columnOffset)
+    {
+        EnsureOnlyAttributes(filters, "and");
+        var children = filters.Elements().ToArray();
+        if (children.Length is < 1 or > 2 ||
+            children.Any(child =>
+                child.Name != SpreadsheetNamespace + "customFilter"))
+        {
+            throw new InvalidDataException(
+                "A worksheet custom filter requires one or two supported conditions.");
+        }
+        var conditions = children.Select(ParseCustomFilter).ToArray();
+        return new WorksheetAutoFilterColumn(
+            columnOffset,
+            firstCondition: conditions[0],
+            secondCondition: conditions.Length == 2 ? conditions[1] : null,
+            combineWithAnd: ReadBooleanAttribute(filters, "and", false));
     }
 
     private static CellValue ParseValueFilter(XElement element)
@@ -303,25 +254,20 @@ internal static class OpenXmlWorksheetAutoFilterCodec
                         : TableFilterComparisonOperator.IsNotBlank,
                     CellValue.Blank);
             }
-            if (TryParseWildcard(
-                    valueText,
-                    out var wildcardOperator,
-                    out var wildcardValue))
+            if (TryParseWildcard(valueText, out var wildcardOperator, out var value))
             {
                 if (operatorText == "notEqual")
                 {
-                    if (wildcardOperator !=
-                        TableFilterComparisonOperator.Contains)
+                    if (wildcardOperator != TableFilterComparisonOperator.Contains)
                     {
                         throw new InvalidDataException(
                             "Only not-equal contains wildcard filters are currently supported.");
                     }
-                    wildcardOperator =
-                        TableFilterComparisonOperator.DoesNotContain;
+                    wildcardOperator = TableFilterComparisonOperator.DoesNotContain;
                 }
                 return new TableFilterCondition(
                     wildcardOperator,
-                    CellValue.FromText(wildcardValue));
+                    CellValue.FromText(value));
             }
         }
 
@@ -330,11 +276,9 @@ internal static class OpenXmlWorksheetAutoFilterCodec
             "equal" => TableFilterComparisonOperator.Equal,
             "notEqual" => TableFilterComparisonOperator.NotEqual,
             "greaterThan" => TableFilterComparisonOperator.GreaterThan,
-            "greaterThanOrEqual" =>
-                TableFilterComparisonOperator.GreaterThanOrEqual,
+            "greaterThanOrEqual" => TableFilterComparisonOperator.GreaterThanOrEqual,
             "lessThan" => TableFilterComparisonOperator.LessThan,
-            "lessThanOrEqual" =>
-                TableFilterComparisonOperator.LessThanOrEqual,
+            "lessThanOrEqual" => TableFilterComparisonOperator.LessThanOrEqual,
             _ => throw new InvalidDataException(
                 $"Unsupported worksheet custom-filter operator '{operatorText}'."),
         };
@@ -343,10 +287,9 @@ internal static class OpenXmlWorksheetAutoFilterCodec
             ParseFilterValue(valueText));
     }
 
-    private static XElement BuildFilterColumn(
-        WorksheetAutoFilterColumn column)
+    private static XElement BuildFilterColumn(WorksheetAutoFilterColumn column)
     {
-        var filterColumn = new XElement(
+        var result = new XElement(
             SpreadsheetNamespace + "filterColumn",
             new XAttribute("colId", column.ColumnOffset));
         var includeBlank = column.IncludeBlank ||
@@ -358,8 +301,7 @@ internal static class OpenXmlWorksheetAutoFilterCodec
                 throw new InvalidOperationException(
                     $"A worksheet filter column cannot contain more than {MaxFilterValuesPerColumn} values.");
             }
-            var filters = new XElement(
-                SpreadsheetNamespace + "filters");
+            var filters = new XElement(SpreadsheetNamespace + "filters");
             if (includeBlank)
             {
                 filters.SetAttributeValue("blank", 1);
@@ -370,19 +312,16 @@ internal static class OpenXmlWorksheetAutoFilterCodec
                 {
                     filters.Add(new XElement(
                         SpreadsheetNamespace + "filter",
-                        new XAttribute(
-                            "val",
-                            FormatFilterValue(value))));
+                        new XAttribute("val", FormatFilterValue(value))));
                 }
             }
-            filterColumn.Add(filters);
-            return filterColumn;
+            result.Add(filters);
+            return result;
         }
 
         var customFilters = new XElement(
             SpreadsheetNamespace + "customFilters");
-        if (column.SecondCondition is not null &&
-            column.CombineWithAnd)
+        if (column.SecondCondition is not null && column.CombineWithAnd)
         {
             customFilters.SetAttributeValue("and", 1);
         }
@@ -394,12 +333,11 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         {
             customFilters.Add(BuildCustomFilter(column.SecondCondition));
         }
-        filterColumn.Add(customFilters);
-        return filterColumn;
+        result.Add(customFilters);
+        return result;
     }
 
-    private static XElement BuildCustomFilter(
-        TableFilterCondition condition)
+    private static XElement BuildCustomFilter(TableFilterCondition condition)
     {
         var (operatorText, valueText) = condition.Operator switch
         {
@@ -423,10 +361,8 @@ internal static class OpenXmlWorksheetAutoFilterCodec
                 ("equal", BuildWildcard(condition.Value, true, true)),
             TableFilterComparisonOperator.DoesNotContain =>
                 ("notEqual", BuildWildcard(condition.Value, true, true)),
-            TableFilterComparisonOperator.IsBlank =>
-                ("equal", string.Empty),
-            TableFilterComparisonOperator.IsNotBlank =>
-                ("notEqual", string.Empty),
+            TableFilterComparisonOperator.IsBlank => ("equal", string.Empty),
+            TableFilterComparisonOperator.IsNotBlank => ("notEqual", string.Empty),
             _ => throw new InvalidOperationException(
                 $"Worksheet AutoFilter operator '{condition.Operator}' requires unsupported dynamic or date-group markup."),
         };
@@ -441,21 +377,16 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         out TableFilterComparisonOperator comparisonOperator,
         out string value)
     {
-        var literal = new System.Text.StringBuilder(pattern.Length);
+        var literal = new StringBuilder(pattern.Length);
         var leading = false;
         var trailing = false;
-        var unescapedStars = 0;
+        var wildcardCount = 0;
         for (var index = 0; index < pattern.Length; index++)
         {
             var current = pattern[index];
             if (current == '~')
             {
-                if (index + 1 >= pattern.Length)
-                {
-                    literal.Append('~');
-                    continue;
-                }
-                literal.Append(pattern[++index]);
+                literal.Append(index + 1 < pattern.Length ? pattern[++index] : '~');
                 continue;
             }
             if (current == '?')
@@ -463,40 +394,39 @@ internal static class OpenXmlWorksheetAutoFilterCodec
                 throw new InvalidDataException(
                     "Single-character wildcard worksheet filters are not supported.");
             }
-            if (current == '*')
+            if (current != '*')
             {
-                unescapedStars++;
-                if (index == 0)
-                {
-                    leading = true;
-                }
-                else if (index == pattern.Length - 1)
-                {
-                    trailing = true;
-                }
-                else
-                {
-                    throw new InvalidDataException(
-                        "Only leading and trailing worksheet wildcard filters are supported.");
-                }
+                literal.Append(current);
                 continue;
             }
-            literal.Append(current);
+
+            wildcardCount++;
+            if (index == 0)
+            {
+                leading = true;
+            }
+            else if (index == pattern.Length - 1)
+            {
+                trailing = true;
+            }
+            else
+            {
+                throw new InvalidDataException(
+                    "Only leading and trailing worksheet wildcard filters are supported.");
+            }
         }
 
-        if (unescapedStars == 0)
+        if (wildcardCount == 0)
         {
             comparisonOperator = default;
             value = string.Empty;
             return false;
         }
-        if (unescapedStars > (leading && trailing ? 2 : 1) ||
-            literal.Length == 0)
+        if (wildcardCount > (leading && trailing ? 2 : 1) || literal.Length == 0)
         {
             throw new InvalidDataException(
                 "The worksheet wildcard filter pattern is unsupported.");
         }
-
         comparisonOperator = leading && trailing
             ? TableFilterComparisonOperator.Contains
             : leading
@@ -511,10 +441,10 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         bool leading,
         bool trailing)
     {
-        var text = value.Kind == CellValueKind.Text
+        var source = value.Kind == CellValueKind.Text
             ? (string)value.RawValue!
             : value.ToString();
-        var escaped = text
+        var escaped = source
             .Replace("~", "~~", StringComparison.Ordinal)
             .Replace("*", "~*", StringComparison.Ordinal)
             .Replace("?", "~?", StringComparison.Ordinal);
@@ -524,9 +454,7 @@ internal static class OpenXmlWorksheetAutoFilterCodec
             trailing ? "*" : string.Empty);
     }
 
-    private static int ReadColumnOffset(
-        XElement element,
-        CellRange range)
+    private static int ReadColumnOffset(XElement element, CellRange range)
     {
         var text = RequiredAttribute(element, "colId");
         if (!int.TryParse(
@@ -534,8 +462,7 @@ internal static class OpenXmlWorksheetAutoFilterCodec
                 NumberStyles.None,
                 CultureInfo.InvariantCulture,
                 out var offset) ||
-            offset < 0 ||
-            offset >= range.ColumnCount)
+            offset < 0 || offset >= range.ColumnCount)
         {
             throw new InvalidDataException(
                 "A worksheet AutoFilter column index is invalid.");
@@ -548,30 +475,26 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         var separator = reference.IndexOf(':');
         if (separator < 0)
         {
-            if (!CellAddress.TryParseA1(reference, out var address))
+            if (CellAddress.TryParseA1(reference, out var address))
             {
-                throw new InvalidDataException(
-                    $"'{reference}' is not a valid worksheet AutoFilter range.");
+                return new CellRange(address, address);
             }
-            return new CellRange(address, address);
+            throw InvalidRange(reference);
         }
-        if (separator == 0 ||
-            separator == reference.Length - 1 ||
+        if (separator == 0 || separator == reference.Length - 1 ||
             reference.IndexOf(':', separator + 1) >= 0 ||
-            !CellAddress.TryParseA1(
-                reference[..separator],
-                out var first) ||
-            !CellAddress.TryParseA1(
-                reference[(separator + 1)..],
-                out var second) ||
+            !CellAddress.TryParseA1(reference[..separator], out var first) ||
+            !CellAddress.TryParseA1(reference[(separator + 1)..], out var second) ||
             first.RowIndex > second.RowIndex ||
             first.ColumnIndex > second.ColumnIndex)
         {
-            throw new InvalidDataException(
-                $"'{reference}' is not a valid worksheet AutoFilter range.");
+            throw InvalidRange(reference);
         }
         return new CellRange(first, second);
     }
+
+    private static InvalidDataException InvalidRange(string reference) =>
+        new($"'{reference}' is not a valid worksheet AutoFilter range.");
 
     private static CellValue ParseFilterValue(string value)
     {
@@ -579,16 +502,13 @@ internal static class OpenXmlWorksheetAutoFilterCodec
                 value,
                 NumberStyles.Float,
                 CultureInfo.InvariantCulture,
-                out var number) &&
-            double.IsFinite(number))
+                out var number) && double.IsFinite(number))
         {
             return CellValue.FromNumber(number);
         }
-        if (bool.TryParse(value, out var boolean))
-        {
-            return CellValue.FromBoolean(boolean);
-        }
-        return CellValue.FromText(value);
+        return bool.TryParse(value, out var boolean)
+            ? CellValue.FromBoolean(boolean)
+            : CellValue.FromText(value);
     }
 
     private static string FormatFilterValue(CellValue value) =>
@@ -596,26 +516,12 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         {
             CellValueKind.Blank => string.Empty,
             CellValueKind.Number => ((double)value.RawValue!).ToString(
-                "R",
-                CultureInfo.InvariantCulture),
+                "R", CultureInfo.InvariantCulture),
             CellValueKind.Boolean => (bool)value.RawValue! ? "1" : "0",
             CellValueKind.DateTime => ((DateTime)value.RawValue!).ToOADate()
                 .ToString("R", CultureInfo.InvariantCulture),
             _ => value.ToString(),
         };
-
-    private static void EnsureSupportedAutoFilterChildren(XElement element)
-    {
-        EnsureOnlyAttributes(element, "ref");
-        var unsupported = element.Elements().FirstOrDefault(child =>
-            child.Name != SpreadsheetNamespace + "filterColumn" &&
-            child.Name != SpreadsheetNamespace + "extLst");
-        if (unsupported is not null)
-        {
-            throw new InvalidDataException(
-                $"Unsupported worksheet AutoFilter element '{unsupported.Name.LocalName}'.");
-        }
-    }
 
     private static void EnsureOnlyAttributes(
         XElement element,
@@ -639,12 +545,9 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         bool defaultValue)
     {
         var text = (string?)element.Attribute(name);
-        if (text is null)
-        {
-            return defaultValue;
-        }
         return text switch
         {
+            null => defaultValue,
             "1" or "true" => true,
             "0" or "false" => false,
             _ => throw new InvalidDataException(
@@ -652,9 +555,7 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         };
     }
 
-    private static string RequiredAttribute(
-        XElement element,
-        string name)
+    private static string RequiredAttribute(XElement element, string name)
     {
         var value = RequiredAttributeAllowEmpty(element, name);
         if (string.IsNullOrWhiteSpace(value))
@@ -667,13 +568,10 @@ internal static class OpenXmlWorksheetAutoFilterCodec
 
     private static string RequiredAttributeAllowEmpty(
         XElement element,
-        string name)
-    {
-        var attribute = element.Attribute(name)
-            ?? throw new InvalidDataException(
-                $"Required worksheet AutoFilter attribute '{name}' is missing.");
-        return attribute.Value;
-    }
+        string name) =>
+        element.Attribute(name)?.Value
+        ?? throw new InvalidDataException(
+            $"Required worksheet AutoFilter attribute '{name}' is missing.");
 
     private static void PreserveOpaqueAttributes(
         XElement preserved,
@@ -681,13 +579,11 @@ internal static class OpenXmlWorksheetAutoFilterCodec
     {
         foreach (var attribute in preserved.Attributes())
         {
-            if (attribute.IsNamespaceDeclaration ||
-                attribute.Name.Namespace != XNamespace.None)
+            if ((attribute.IsNamespaceDeclaration ||
+                 attribute.Name.Namespace != XNamespace.None) &&
+                replacement.Attribute(attribute.Name) is null)
             {
-                if (replacement.Attribute(attribute.Name) is null)
-                {
-                    replacement.Add(new XAttribute(attribute));
-                }
+                replacement.Add(new XAttribute(attribute));
             }
         }
     }
@@ -697,11 +593,9 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         XElement replacement)
     {
         var preservedExtensions = preserved
-            .Elements(SpreadsheetNamespace + "extLst")
-            .ToArray();
+            .Elements(SpreadsheetNamespace + "extLst").ToArray();
         var generatedExtensions = replacement
-            .Elements(SpreadsheetNamespace + "extLst")
-            .ToArray();
+            .Elements(SpreadsheetNamespace + "extLst").ToArray();
         if (preservedExtensions.Length > 1 || generatedExtensions.Length > 1)
         {
             throw new InvalidDataException(
@@ -713,6 +607,18 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         }
     }
 
+    private static XElement LoadWorksheetRoot(OpenXmlPart part) =>
+        RequireWorksheetRoot(LoadPartXml(part));
+
+    private static XElement RequireWorksheetRoot(XDocument document)
+    {
+        var root = document.Root
+            ?? throw new InvalidDataException(
+                "The XLSX worksheet part is missing its root element.");
+        EnsureWorksheetRoot(root);
+        return root;
+    }
+
     private static void EnsureWorksheetRoot(XElement root)
     {
         if (root.Name != SpreadsheetNamespace + "worksheet")
@@ -722,7 +628,7 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         }
     }
 
-    private static IReadOnlyDictionary<string, int> CreateOrder(
+    private static Dictionary<string, int> CreateOrder(
         IReadOnlyList<string> names)
     {
         var result = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -733,18 +639,14 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         return result;
     }
 
-    private static void InsertInSchemaOrder(
-        XElement root,
-        XElement element,
-        IReadOnlyDictionary<string, int> schemaOrder)
+    private static void InsertInSchemaOrder(XElement root, XElement element)
     {
-        var targetRank = schemaOrder[element.Name.LocalName];
+        var targetRank = WorksheetOrder[element.Name.LocalName];
         var following = root.Elements().FirstOrDefault(candidate =>
             candidate.Name.Namespace == SpreadsheetNamespace &&
-            schemaOrder.TryGetValue(
+            WorksheetOrder.TryGetValue(
                 candidate.Name.LocalName,
-                out var candidateRank) &&
-            candidateRank > targetRank);
+                out var rank) && rank > targetRank);
         if (following is null)
         {
             root.Add(element);
@@ -757,9 +659,7 @@ internal static class OpenXmlWorksheetAutoFilterCodec
 
     private static XDocument LoadPartXml(OpenXmlPart part)
     {
-        using var stream = part.GetStream(
-            FileMode.Open,
-            FileAccess.Read);
+        using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
         using var reader = XmlReader.Create(
             stream,
             new XmlReaderSettings
@@ -780,19 +680,14 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         }
     }
 
-    private static void SavePartXml(
-        OpenXmlPart part,
-        XDocument document)
+    private static void SavePartXml(OpenXmlPart part, XDocument document)
     {
-        using var stream = part.GetStream(
-            FileMode.Create,
-            FileAccess.Write);
+        using var stream = part.GetStream(FileMode.Create, FileAccess.Write);
         using var writer = XmlWriter.Create(
             stream,
             new XmlWriterSettings
             {
-                Encoding = new System.Text.UTF8Encoding(
-                    encoderShouldEmitUTF8Identifier: false),
+                Encoding = new UTF8Encoding(false),
                 Indent = false,
                 OmitXmlDeclaration = false,
             });
