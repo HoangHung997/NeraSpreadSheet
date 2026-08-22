@@ -8,6 +8,12 @@ namespace NeraSpreadSheet.Export.Pdf.Tests;
 [TestClass]
 public sealed class SpreadsheetPdfDocumentExporterTests
 {
+    private static readonly string[] ExpectedDefaultWorksheetNames =
+        ["One", "Two"];
+
+    private static readonly string[] ExpectedExplicitWorksheetNames =
+        ["Two", "One"];
+
     [TestMethod]
     public async Task DefaultExportIncludesEveryNonEmptyWorksheet()
     {
@@ -25,7 +31,7 @@ public sealed class SpreadsheetPdfDocumentExporterTests
 
         Assert.AreEqual(2, result.Sections.Count);
         CollectionAssert.AreEqual(
-            new[] { "One", "Two" },
+            ExpectedDefaultWorksheetNames,
             result.Sections
                 .Select(static section => section.WorksheetName)
                 .ToArray());
@@ -71,7 +77,7 @@ public sealed class SpreadsheetPdfDocumentExporterTests
             });
 
         CollectionAssert.AreEqual(
-            new[] { "Two", "One" },
+            ExpectedExplicitWorksheetNames,
             result.Sections
                 .Select(static section => section.WorksheetName)
                 .ToArray());
