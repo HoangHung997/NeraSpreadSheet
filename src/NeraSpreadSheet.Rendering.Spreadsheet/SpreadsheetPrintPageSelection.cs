@@ -48,8 +48,7 @@ public sealed record SpreadsheetPrintPageSelection
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(totalPages);
         if (!Enum.IsDefined(Parity))
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(Parity),
+            throw new InvalidOperationException(
                 "The print-page parity is not defined.");
         }
         ArgumentNullException.ThrowIfNull(Ranges);
@@ -86,7 +85,8 @@ public sealed record SpreadsheetPrintPageSelection
                 pageNumbers.Where(static page => (page & 1) == 1),
             SpreadsheetPrintPageParity.Even =>
                 pageNumbers.Where(static page => (page & 1) == 0),
-            _ => throw new ArgumentOutOfRangeException(nameof(Parity)),
+            _ => throw new InvalidOperationException(
+                "The print-page parity is not defined."),
         };
         if (ReverseOrder)
         {
