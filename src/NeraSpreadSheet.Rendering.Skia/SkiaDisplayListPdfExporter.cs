@@ -49,9 +49,9 @@ public static class SkiaDisplayListPdfExporter
         cancellationToken.ThrowIfCancellationRequested();
 
         await using var stagingBuffer = new MemoryStream();
-        await using (var boundedOutput = new MaximumLengthWriteStream(
-                         stagingBuffer,
-                         options.MaximumOutputBytes))
+        await using var boundedOutput = new MaximumLengthWriteStream(
+            stagingBuffer,
+            options.MaximumOutputBytes);
         using (var renderer = new SkiaDisplayListRenderer())
         using (var document = SKDocument.CreatePdf(
                    boundedOutput,
@@ -115,6 +115,16 @@ public static class SkiaDisplayListPdfExporter
                     }
                 }
             }
+        }
+
+        // Never throw from the native Skia stream callback. The bounded stream
+        // records overflow and truncates staging writes; report the managed
+        // failure only after Skia has closed the document and returned control.
+        if (boundedOutput.ExceededMaximum)
+        {
+            throw new InvalidDataException(
+                $"PDF output exceeds the staging limit of " +
+                $"{options.MaximumOutputBytes:N0} bytes.");
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -189,6 +199,7 @@ public static class SkiaDisplayListPdfExporter
     {
         private readonly Stream _inner;
         private readonly long _maximumLength;
+        private long _writtenLength;
         private bool _disposed;
 
         public MaximumLengthWriteStream(
@@ -208,17 +219,19 @@ public static class SkiaDisplayListPdfExporter
             _maximumLength = maximumLength;
         }
 
+        public bool ExceededMaximum { get; private set; }
+
         public override bool CanRead => false;
 
         public override bool CanSeek => false;
 
         public override bool CanWrite => !_disposed;
 
-        public override long Length => _inner.Length;
+        public override long Length => _writtenLength;
 
         public override long Position
         {
-            get => _inner.Position;
+            get => _writtenLength;
             set => throw new NotSupportedException();
         }
 
@@ -241,16 +254,25 @@ public static class SkiaDisplayListPdfExporter
             int count)
         {
             ArgumentNullException.ThrowIfNull(buffer);
+            ValidateBuffer(buffer.Length, offset, count);
             ThrowIfDisposed();
-            EnsureCapacity(count);
-            _inner.Write(buffer, offset, count);
+            var allowed = GetAllowedCount(count);
+            if (allowed > 0)
+            {
+                _inner.Write(buffer, offset, allowed);
+                _writtenLength += allowed;
+            }
         }
 
         public override void Write(ReadOnlySpan<byte> buffer)
         {
             ThrowIfDisposed();
-            EnsureCapacity(buffer.Length);
-            _inner.Write(buffer);
+            var allowed = GetAllowedCount(buffer.Length);
+            if (allowed > 0)
+            {
+                _inner.Write(buffer[..allowed]);
+                _writtenLength += allowed;
+            }
         }
 
         public override Task WriteAsync(
@@ -260,12 +282,18 @@ public static class SkiaDisplayListPdfExporter
             CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(buffer);
+            ValidateBuffer(buffer.Length, offset, count);
             ThrowIfDisposed();
-            EnsureCapacity(count);
+            var allowed = GetAllowedCount(count);
+            if (allowed == 0)
+            {
+                return Task.CompletedTask;
+            }
+            _writtenLength += allowed;
             return _inner.WriteAsync(
                 buffer,
                 offset,
-                count,
+                allowed,
                 cancellationToken);
         }
 
@@ -274,8 +302,15 @@ public static class SkiaDisplayListPdfExporter
             CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            EnsureCapacity(buffer.Length);
-            return _inner.WriteAsync(buffer, cancellationToken);
+            var allowed = GetAllowedCount(buffer.Length);
+            if (allowed == 0)
+            {
+                return ValueTask.CompletedTask;
+            }
+            _writtenLength += allowed;
+            return _inner.WriteAsync(
+                buffer[..allowed],
+                cancellationToken);
         }
 
         public override int Read(
@@ -305,14 +340,34 @@ public static class SkiaDisplayListPdfExporter
             GC.SuppressFinalize(this);
         }
 
-        private void EnsureCapacity(int additionalBytes)
+        private int GetAllowedCount(int requestedCount)
         {
-            if (additionalBytes < 0 ||
-                _inner.Length > _maximumLength - additionalBytes)
+            ArgumentOutOfRangeException.ThrowIfNegative(requestedCount);
+            var remaining = _maximumLength - _writtenLength;
+            if (requestedCount <= remaining)
             {
-                throw new InvalidDataException(
-                    $"PDF output exceeds the staging limit of " +
-                    $"{_maximumLength:N0} bytes.");
+                return requestedCount;
+            }
+
+            ExceededMaximum = true;
+            if (remaining <= 0L)
+            {
+                return 0;
+            }
+            return checked((int)Math.Min(remaining, int.MaxValue));
+        }
+
+        private static void ValidateBuffer(
+            int bufferLength,
+            int offset,
+            int count)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(offset);
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
+            if (offset > bufferLength - count)
+            {
+                throw new ArgumentException(
+                    "The buffer offset and count are outside the array.");
             }
         }
 
