@@ -42,40 +42,50 @@ public sealed class PagedAutoFilterNativeBindingsTests
     [Timeout(60_000)]
     public async Task WinFormsBindingPublishesOnlyTheCurrentPage()
     {
-        var fixture = CreateFixture();
-        using var dispatcher = new System.Windows.Forms.Control();
-        var presenter = new SpreadsheetAutoFilterPagedPresenter(
-            fixture.Session,
-            fixture.Target,
-            pageSize: 2);
-        await using var binding = new NeraWinFormsAutoFilterPagedBinding(
-            presenter,
-            dispatcher);
+        await RunOnWinFormsThreadAsync(async dispatcher =>
+        {
+            var fixture = CreateFixture();
+            var presenter = new SpreadsheetAutoFilterPagedPresenter(
+                fixture.Session,
+                fixture.Target,
+                pageSize: 2);
+            await using var binding = new NeraWinFormsAutoFilterPagedBinding(
+                presenter,
+                dispatcher);
 
-        await binding.InitializeAsync();
+            await binding.InitializeAsync();
 
-        Assert.AreEqual(2, binding.Items.Count);
-        Assert.AreEqual(5, binding.TotalItemCount);
-        Assert.IsTrue(binding.HasNextPage);
-        Assert.IsTrue(await binding.MoveNextPageAsync());
-        Assert.AreEqual(2, binding.Items.Count);
-        Assert.AreEqual(2, binding.PageOffset);
+            Assert.AreEqual(2, binding.Items.Count);
+            Assert.AreEqual(5, binding.TotalItemCount);
+            Assert.IsTrue(binding.HasNextPage);
+            Assert.IsTrue(await binding.MoveNextPageAsync());
+            Assert.AreEqual(2, binding.Items.Count);
+            Assert.AreEqual(2, binding.PageOffset);
+        });
     }
 
     [TestMethod]
     [Timeout(60_000)]
-    public void NativePagedPresentersConstructAndDisposeWithoutAWorkbook()
+    public async Task NativePagedPresentersConstructAndDisposeWithoutAWorkbook()
     {
-        using NeraSpreadSheet.Wpf.NeraSpreadsheetControl wpfControl = new();
-        using var wpfPresenter =
-            new NeraAutoFilterPagedPopupPresenter(wpfControl);
-        using NeraSpreadSheet.WinForms.NeraSpreadsheetControl
-            winFormsControl = new();
-        using var winFormsPresenter =
-            new NeraAutoFilterPagedDropDownPresenter(winFormsControl);
+        await RunOnWpfDispatcherAsync(() =>
+        {
+            using NeraSpreadSheet.Wpf.NeraSpreadsheetControl wpfControl = new();
+            using var wpfPresenter =
+                new NeraAutoFilterPagedPopupPresenter(wpfControl);
+            Assert.IsFalse(wpfPresenter.IsOpen);
+            return Task.CompletedTask;
+        });
 
-        Assert.IsFalse(wpfPresenter.IsOpen);
-        Assert.IsFalse(winFormsPresenter.IsOpen);
+        await RunOnWinFormsThreadAsync(_ =>
+        {
+            using NeraSpreadSheet.WinForms.NeraSpreadsheetControl
+                winFormsControl = new();
+            using var winFormsPresenter =
+                new NeraAutoFilterPagedDropDownPresenter(winFormsControl);
+            Assert.IsFalse(winFormsPresenter.IsOpen);
+            return Task.CompletedTask;
+        });
     }
 
     private static Task RunOnWpfDispatcherAsync(Func<Task> action)
@@ -110,6 +120,50 @@ public sealed class PagedAutoFilterNativeBindingsTests
         {
             IsBackground = true,
             Name = "Nera WPF paged AutoFilter test dispatcher",
+        };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        return completion.Task.WaitAsync(TimeSpan.FromSeconds(45d));
+    }
+
+    private static Task RunOnWinFormsThreadAsync(
+        Func<System.Windows.Forms.Control, Task> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        var completion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            using var form = new System.Windows.Forms.Form
+            {
+                ShowInTaskbar = false,
+                StartPosition = System.Windows.Forms.FormStartPosition.Manual,
+                Location = new System.Drawing.Point(-32000, -32000),
+                Size = new System.Drawing.Size(1, 1),
+                FormBorderStyle =
+                    System.Windows.Forms.FormBorderStyle.FixedToolWindow,
+            };
+            form.Shown += async (_, _) =>
+            {
+                try
+                {
+                    await action(form);
+                    completion.TrySetResult();
+                }
+                catch (Exception exception)
+                {
+                    completion.TrySetException(exception);
+                }
+                finally
+                {
+                    form.Close();
+                }
+            };
+            System.Windows.Forms.Application.Run(form);
+        })
+        {
+            IsBackground = true,
+            Name = "Nera WinForms paged AutoFilter test dispatcher",
         };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
