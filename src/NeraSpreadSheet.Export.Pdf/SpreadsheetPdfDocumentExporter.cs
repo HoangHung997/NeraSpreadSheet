@@ -55,7 +55,7 @@ public static class SpreadsheetPdfDocumentExporter
         cancellationToken.ThrowIfCancellationRequested();
 
         var selections = ResolveSelections(workbook, options);
-        var prepared = new List<PreparedSection>(selections.Count);
+        var prepared = new List<PreparedSection>(selections.Length);
         foreach (var selection in selections)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -135,10 +135,9 @@ public static class SpreadsheetPdfDocumentExporter
             destination.CanSeek ? destination.Length : null);
     }
 
-    private static IReadOnlyList<SpreadsheetPdfWorksheetSelection>
-        ResolveSelections(
-            Workbook workbook,
-            SpreadsheetPdfDocumentExportOptions options)
+    private static SpreadsheetPdfWorksheetSelection[] ResolveSelections(
+        Workbook workbook,
+        SpreadsheetPdfDocumentExportOptions options)
     {
         var selections = options.Worksheets?.ToArray() ??
             Enumerable.Range(0, workbook.Worksheets.Count)
