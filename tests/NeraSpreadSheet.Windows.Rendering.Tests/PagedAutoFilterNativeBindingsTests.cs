@@ -5,8 +5,6 @@ using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.WinForms;
 using NeraSpreadSheet.Wpf;
-using WinFormsControl = NeraSpreadSheet.WinForms.NeraSpreadsheetControl;
-using WpfControl = NeraSpreadSheet.Wpf.NeraSpreadsheetControl;
 
 namespace NeraSpreadSheet.Windows.Rendering.Tests;
 
@@ -65,10 +63,11 @@ public sealed class PagedAutoFilterNativeBindingsTests
     [TestMethod]
     public void NativePagedPresentersConstructAndDisposeWithoutAWorkbook()
     {
-        using var wpfControl = new WpfControl();
+        using NeraSpreadSheet.Wpf.NeraSpreadsheetControl wpfControl = new();
         using var wpfPresenter =
             new NeraAutoFilterPagedPopupPresenter(wpfControl);
-        using var winFormsControl = new WinFormsControl();
+        using NeraSpreadSheet.WinForms.NeraSpreadsheetControl
+            winFormsControl = new();
         using var winFormsPresenter =
             new NeraAutoFilterPagedDropDownPresenter(winFormsControl);
 
