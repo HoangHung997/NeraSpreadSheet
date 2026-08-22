@@ -127,7 +127,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             {
                 if (_search.Handler?.PlatformView is TextBox textBox &&
                     textBox.IsLoaded &&
-                    textBox.Visibility == Visibility.Visible)
+                    textBox.Visibility == Microsoft.UI.Xaml.Visibility.Visible)
                 {
                     focused = textBox.Focus(FocusState.Programmatic);
                     if (focused)
