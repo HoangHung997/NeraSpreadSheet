@@ -13,6 +13,7 @@ namespace NeraSpreadSheet.Windows.Rendering.Tests;
 public sealed class NativePrintPreviewControlsTests
 {
     [TestMethod]
+    [Timeout(60_000)]
     public async Task WpfPreviewHostsSharedSessionAndPreservesFractionalViewport()
     {
         await RunOnWpfDispatcherAsync(() =>
@@ -40,6 +41,7 @@ public sealed class NativePrintPreviewControlsTests
     }
 
     [TestMethod]
+    [Timeout(60_000)]
     public void WinFormsPreviewHostsSharedSessionAndDisposesRenderer()
     {
         var session = CreatePreviewSession();
@@ -60,6 +62,7 @@ public sealed class NativePrintPreviewControlsTests
     }
 
     [TestMethod]
+    [Timeout(60_000)]
     public async Task NativeControlsRejectViewportChangesWithoutASession()
     {
         await RunOnWpfDispatcherAsync(() =>
@@ -115,11 +118,10 @@ public sealed class NativePrintPreviewControlsTests
             });
     }
 
-    private static Task<object?> RunOnWpfDispatcherAsync(
-        Func<Task> action)
+    private static Task RunOnWpfDispatcherAsync(Func<Task> action)
     {
         ArgumentNullException.ThrowIfNull(action);
-        var completion = new TaskCompletionSource<object?>(
+        var completion = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>
         {
@@ -131,7 +133,7 @@ public sealed class NativePrintPreviewControlsTests
                     try
                     {
                         await action();
-                        completion.TrySetResult(null);
+                        completion.TrySetResult();
                     }
                     catch (Exception exception)
                     {
@@ -151,6 +153,6 @@ public sealed class NativePrintPreviewControlsTests
         };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        return completion.Task;
+        return completion.Task.WaitAsync(TimeSpan.FromSeconds(45d));
     }
 }
