@@ -46,24 +46,6 @@ public sealed class NeraWinFormsPrintDocument : PrintDocument
 
         DocumentName = worksheet.Name;
         OriginAtMargins = false;
-        DefaultPageSettings.Landscape = false;
-        DefaultPageSettings.PaperSize = new PaperSize(
-            plan.Setup.PaperSize.Name,
-            ToHundredthsOfInch(plan.PaperSizeDips.Width),
-            ToHundredthsOfInch(plan.PaperSizeDips.Height));
-        DefaultPageSettings.Margins = new Margins(
-            ToHundredthsOfInch(
-                plan.Setup.Margins.LeftInches *
-                SpreadsheetPageLayoutPlanner.DipsPerInch),
-            ToHundredthsOfInch(
-                plan.Setup.Margins.RightInches *
-                SpreadsheetPageLayoutPlanner.DipsPerInch),
-            ToHundredthsOfInch(
-                plan.Setup.Margins.TopInches *
-                SpreadsheetPageLayoutPlanner.DipsPerInch),
-            ToHundredthsOfInch(
-                plan.Setup.Margins.BottomInches *
-                SpreadsheetPageLayoutPlanner.DipsPerInch));
     }
 
     public IReadOnlyList<SpreadsheetPrintPageInvocation> Invocations =>
@@ -88,10 +70,39 @@ public sealed class NeraWinFormsPrintDocument : PrintDocument
             composed.DisplayList);
     }
 
+    public void ApplyPageSettings(PageSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        settings.Landscape = false;
+        settings.PaperSize = new PaperSize(
+            _plan.Setup.PaperSize.Name,
+            ToHundredthsOfInch(_plan.PaperSizeDips.Width),
+            ToHundredthsOfInch(_plan.PaperSizeDips.Height));
+        settings.Margins = new Margins(
+            ToHundredthsOfInch(
+                _plan.Setup.Margins.LeftInches *
+                SpreadsheetPageLayoutPlanner.DipsPerInch),
+            ToHundredthsOfInch(
+                _plan.Setup.Margins.RightInches *
+                SpreadsheetPageLayoutPlanner.DipsPerInch),
+            ToHundredthsOfInch(
+                _plan.Setup.Margins.TopInches *
+                SpreadsheetPageLayoutPlanner.DipsPerInch),
+            ToHundredthsOfInch(
+                _plan.Setup.Margins.BottomInches *
+                SpreadsheetPageLayoutPlanner.DipsPerInch));
+    }
+
     protected override void OnBeginPrint(PrintEventArgs e)
     {
         _nextInvocationIndex = 0;
         base.OnBeginPrint(e);
+    }
+
+    protected override void OnQueryPageSettings(QueryPageSettingsEventArgs e)
+    {
+        base.OnQueryPageSettings(e);
+        ApplyPageSettings(e.PageSettings);
     }
 
     protected override void OnPrintPage(PrintPageEventArgs e)
