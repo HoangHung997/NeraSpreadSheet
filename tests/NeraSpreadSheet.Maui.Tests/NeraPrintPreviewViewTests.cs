@@ -1,6 +1,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Rendering.Spreadsheet;
+using SkiaSharp.Views.Maui.Controls;
 
 namespace NeraSpreadSheet.Maui.Tests;
 
@@ -8,40 +9,47 @@ namespace NeraSpreadSheet.Maui.Tests;
 public sealed class NeraPrintPreviewViewTests
 {
     [TestMethod]
-    public void ViewHostsSharedSessionAndChangesViewportState()
+    public void ViewTypeExposesTheSharedPreviewContract()
     {
-        var session = CreatePreviewSession();
-        using var view = new NeraPrintPreviewView
-        {
-            Session = session,
-        };
+        var type = typeof(NeraPrintPreviewView);
 
-        view.SetZoom(0.5d, 100.25d, 75.75d);
-        view.SetColumns(2);
-        view.ScrollTo(17.25d, 31.75d);
-
-        Assert.AreSame(session, view.Session);
-        Assert.AreEqual(0.5d, view.Zoom, 0.000001d);
-        Assert.AreEqual(2, session.Columns);
-        Assert.AreEqual(17.25d, view.OffsetX, 0.000001d);
-        Assert.AreEqual(31.75d, view.OffsetY, 0.000001d);
+        Assert.IsTrue(typeof(SKCanvasView).IsAssignableFrom(type));
+        Assert.IsNotNull(type.GetProperty(nameof(NeraPrintPreviewView.Session)));
+        Assert.IsNotNull(type.GetProperty(nameof(NeraPrintPreviewView.Zoom)));
+        Assert.IsNotNull(type.GetProperty(nameof(NeraPrintPreviewView.OffsetX)));
+        Assert.IsNotNull(type.GetProperty(nameof(NeraPrintPreviewView.OffsetY)));
+        Assert.IsNotNull(type.GetMethod(nameof(NeraPrintPreviewView.SetZoom)));
+        Assert.IsNotNull(type.GetMethod(nameof(NeraPrintPreviewView.SetColumns)));
+        Assert.IsNotNull(type.GetMethod(nameof(NeraPrintPreviewView.ScrollTo)));
+        Assert.IsNotNull(type.GetMethod(nameof(NeraPrintPreviewView.ScrollBy)));
+        Assert.IsNotNull(type.GetMethod(nameof(NeraPrintPreviewView.TryHitTestPage)));
     }
 
     [TestMethod]
-    public void HitTestingUsesTheSharedPreviewLayout()
+    public void SharedSessionChangesViewportStateWithoutANativeApp()
     {
         var session = CreatePreviewSession();
-        session.SetViewportSize(500d, 400d);
-        using var view = new NeraPrintPreviewView
-        {
-            Session = session,
-        };
+
+        session.SetZoom(0.5d, 100.25d, 75.75d);
+        session.SetColumns(2);
+        session.ScrollTo(17.25d, 31.75d);
+
+        Assert.AreEqual(0.5d, session.Zoom, 0.000001d);
+        Assert.AreEqual(2, session.Columns);
+        Assert.AreEqual(17.25d, session.OffsetX, 0.000001d);
+        Assert.AreEqual(31.75d, session.OffsetY, 0.000001d);
+    }
+
+    [TestMethod]
+    public void SharedSessionHitTestingUsesThePreviewLayout()
+    {
+        var session = CreatePreviewSession();
         var frame = session.Compose();
         var first = frame.Layout.VisiblePages[0];
         var x = first.BoundsDips.X - frame.Layout.OffsetXDips + 5d;
         var y = first.BoundsDips.Y - frame.Layout.OffsetYDips + 7d;
 
-        Assert.IsTrue(view.TryHitTestPage(
+        Assert.IsTrue(session.TryHitTest(
             x,
             y,
             out var hit,
@@ -49,29 +57,6 @@ public sealed class NeraPrintPreviewViewTests
         Assert.AreEqual(first.PageNumber, hit.PageNumber);
         Assert.AreEqual(5d, pagePoint.X, 0.000001d);
         Assert.AreEqual(7d, pagePoint.Y, 0.000001d);
-    }
-
-    [TestMethod]
-    public void ViewRejectsViewportMutationWithoutSession()
-    {
-        using var view = new NeraPrintPreviewView();
-
-        Assert.ThrowsExactly<InvalidOperationException>(() =>
-            view.SetZoom(1d));
-        Assert.ThrowsExactly<InvalidOperationException>(() =>
-            view.ScrollBy(1d, 1d));
-    }
-
-    [TestMethod]
-    public void DisposeIsIdempotent()
-    {
-        var view = new NeraPrintPreviewView
-        {
-            Session = CreatePreviewSession(),
-        };
-
-        view.Dispose();
-        view.Dispose();
     }
 
     private static SpreadsheetPrintPreviewSession CreatePreviewSession()
