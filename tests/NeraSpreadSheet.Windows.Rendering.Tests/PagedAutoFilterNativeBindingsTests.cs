@@ -12,6 +12,7 @@ namespace NeraSpreadSheet.Windows.Rendering.Tests;
 public sealed class PagedAutoFilterNativeBindingsTests
 {
     [TestMethod]
+    [Timeout(60_000)]
     public async Task WpfBindingPublishesOnlyTheCurrentPage()
     {
         await RunOnWpfDispatcherAsync(async () =>
@@ -38,6 +39,7 @@ public sealed class PagedAutoFilterNativeBindingsTests
     }
 
     [TestMethod]
+    [Timeout(60_000)]
     public async Task WinFormsBindingPublishesOnlyTheCurrentPage()
     {
         var fixture = CreateFixture();
@@ -61,6 +63,7 @@ public sealed class PagedAutoFilterNativeBindingsTests
     }
 
     [TestMethod]
+    [Timeout(60_000)]
     public void NativePagedPresentersConstructAndDisposeWithoutAWorkbook()
     {
         using NeraSpreadSheet.Wpf.NeraSpreadsheetControl wpfControl = new();
@@ -75,11 +78,10 @@ public sealed class PagedAutoFilterNativeBindingsTests
         Assert.IsFalse(winFormsPresenter.IsOpen);
     }
 
-    private static Task<object?> RunOnWpfDispatcherAsync(
-        Func<Task> action)
+    private static Task RunOnWpfDispatcherAsync(Func<Task> action)
     {
         ArgumentNullException.ThrowIfNull(action);
-        var completion = new TaskCompletionSource<object?>(
+        var completion = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>
         {
@@ -91,7 +93,7 @@ public sealed class PagedAutoFilterNativeBindingsTests
                     try
                     {
                         await action();
-                        completion.TrySetResult(null);
+                        completion.TrySetResult();
                     }
                     catch (Exception exception)
                     {
@@ -111,7 +113,7 @@ public sealed class PagedAutoFilterNativeBindingsTests
         };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        return completion.Task;
+        return completion.Task.WaitAsync(TimeSpan.FromSeconds(45d));
     }
 
     private static Fixture CreateFixture()
