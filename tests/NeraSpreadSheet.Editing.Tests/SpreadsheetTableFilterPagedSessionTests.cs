@@ -83,7 +83,7 @@ public sealed class SpreadsheetTableFilterPagedSessionTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        await Assert.ThrowsExactlyAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () =>
             await session.GetPageAsync(
                 null,
                 0,
