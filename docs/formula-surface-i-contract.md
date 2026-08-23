@@ -9,6 +9,7 @@ This document defines the validated Formula Surface I behavior of NeraSpreadShee
 - `BuiltInFormulaFunctionRegistry` owns eager scalar/range functions.
 - `FormulaValueCoercion` owns shared conversion of blank, number, Boolean, text and `DateTime`.
 - Workbook calculation continues to use the existing dependency graph and affected-only recalculation.
+- Dynamic-array values, spill ownership and array functions are specified separately in `docs/dynamic-arrays-contract.md`.
 - Platform hosts must not implement function semantics.
 - No OpenXml type enters the public formula contracts.
 
@@ -24,11 +25,14 @@ The function registry may be supplied to `NeraFormulaEngine`, but this milestone
 - `InvalidValue` → `#VALUE!`;
 - `CircularReference` → `#CIRC!`;
 - `NotAvailable` → `#N/A`;
-- `NumericError` → `#NUM!`.
+- `NumericError` → `#NUM!`;
+- `Spill` → `#SPILL!`.
 
 Formula-error values propagate through ordinary scalar and numeric aggregate functions. Information functions such as `ISERROR`, `ISERR` and `ISNA`, and counting functions with explicit non-propagating contracts, inspect or count errors instead of returning them.
 
 `IFERROR` and `IFNA` evaluate the fallback only when required. `IF`, `IFS`, `SWITCH` and `CHOOSE` evaluate only the selected result branch.
+
+`#SPILL!` is committed by the dynamic-array materialization layer when an otherwise valid array cannot reserve its complete target range. Scalar dependents consume that committed error value.
 
 ## 3. Shared coercion
 
@@ -78,11 +82,13 @@ Search positions are one-based. `FIND` is ordinal case-sensitive; `SEARCH` is or
 
 ## 5. AST/reference-aware functions
 
-The engine additionally recognizes **12 special names**, bringing the current recognized function surface to **104 names**:
+The scalar/reference engine additionally recognizes **12 special names**, bringing Formula Surface I to **104 names**:
 
 `IF`, `IFERROR`, `IFNA`, `IFS`, `SWITCH`, `CHOOSE`, `INDEX`, `MATCH`, `XLOOKUP`, `VLOOKUP`, `HLOOKUP`, `SUBTOTAL`.
 
 These functions remain in the evaluator because they require lazy AST evaluation, range identity, row visibility or dependency semantics.
+
+The separately validated dynamic-array engine recognizes five additional names — `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT` and `UNIQUE` — so the complete formula subsystem currently recognizes **109 function names**.
 
 ## 6. Lookup/reference semantics
 
@@ -92,13 +98,16 @@ These functions remain in the evaluator because they require lazy AST evaluation
 - `VLOOKUP` and `HLOOKUP` support exact mode and conservative approximate mode.
 - Lookup ranges are captured as formula dependencies.
 - Approximate lookup assumes input is sorted in the required direction; the engine does not sort or silently normalize source data.
-- Wildcard matching, binary-search modes, reverse search, multiple return columns and array-valued results are not in this milestone.
+- Wildcard matching, binary-search modes, reverse search and multiple scalar return columns are not in Formula Surface I.
+- Array-valued results are handled only by the dynamic-array functions specified in `docs/dynamic-arrays-contract.md`.
 
 ## 7. Range and dependency behavior
 
 Registry functions flatten range arguments into scalar values while recording the canonical source range once. Reference-aware functions record the ranges they inspect and avoid registering unused lazy branches.
 
-The current flattening model does not retain every Excel distinction between a literal argument and the same value coming from a referenced cell. Those finer coercion differences remain compatibility work rather than being guessed.
+Dynamic-array functions retain rectangular shape and dependency identity instead of flattening their array inputs. Their spill output is materialized by the dynamic calculation layer, not by the scalar registry.
+
+The current scalar flattening model does not retain every Excel distinction between a literal argument and the same value coming from a referenced cell. Those finer coercion differences remain compatibility work rather than being guessed.
 
 ## 8. Date representation
 
@@ -108,14 +117,14 @@ This milestone does not emulate Excel's historical fictitious 1900-02-29 date. L
 
 ## 9. Deliberately pending
 
-- Dynamic arrays, spill ranges and array-valued arguments/results.
-- `LET`, `LAMBDA`, array helpers and a versioned plugin-function SDK.
+- A complete versioned plugin-function SDK.
 - Conditional aggregate families such as `SUMIF(S)`, `COUNTIF(S)` and `AVERAGEIF(S)`.
 - Full lookup/reference families such as `OFFSET`, `INDIRECT`, `ADDRESS`, `ROW(S)` and `COLUMN(S)`.
 - Statistical, financial, engineering, database and cube functions.
 - Locale-aware `TEXT`, number-format parsing and regional function aliases.
 - Complete Excel coercion compatibility for literal versus referenced values.
 - Volatile recalculation scheduling for `NOW`/`TODAY`.
+- Advanced dynamic-array syntax and functions listed in `docs/dynamic-arrays-contract.md`.
 - External Excel/LibreOffice differential corpus and fuzzing.
 
 ## 10. Validation gates
@@ -130,6 +139,7 @@ Promotion requires the exact head to pass:
 6. Text/Unicode/length regressions.
 7. Date/time/deterministic-clock regressions.
 8. Lookup result/dependency regressions.
-9. Existing formula, Table, filter, XLSX, Windows and MAUI matrix.
+9. Dynamic-array and spill regressions.
+10. Existing Table, filter, XLSX, Windows and MAUI matrix.
 
 PR #1 remains Draft while a newer exact-head CI is red or unknown.

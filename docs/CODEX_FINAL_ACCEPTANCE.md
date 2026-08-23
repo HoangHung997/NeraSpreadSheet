@@ -14,7 +14,37 @@ Run from a clean exact-head checkout:
 
 Keep the generated JSON report with the release evidence. Any failure blocks promotion.
 
-## 2. Independent PDF validation
+## 2. Dynamic arrays compatibility, scale and fuzzing
+
+Validate `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT` and `UNIQUE` against current Excel and LibreOffice using:
+
+- scalar, row-vector, column-vector and rectangular results;
+- nested dynamic-array functions;
+- blank, number, text, Boolean, DateTime and error values;
+- row and column filtering;
+- ascending/descending row and column sort;
+- duplicate and exactly-once uniqueness;
+- source edits that shrink and grow output;
+- dependent formulas consuming owner and child values;
+- blocked output from values, formulas, spills, merged cells, Tables and worksheet bounds;
+- blocker removal and spill recovery;
+- copy/cut/paste of complete and partial spill ranges;
+- row/column insert/delete/reorder with Undo/Redo;
+- XLSX save, external open, external resave, Nera reopen and recalculation.
+
+Performance and resource samples:
+
+- 1 cell;
+- 100 cells;
+- 10,000 cells;
+- 100,000 cells;
+- 1,000,000 cells.
+
+Record calculation latency, allocation, committed memory, worksheet cell count, dependency-graph cost, UI responsiveness and cancellation/recovery behavior. Run mutation fuzzing over shapes, formulas, collision maps, structural changes, clipboard ranges and repeated recalculation. Respect the one-million-cell per-array limit and fail closed on excessive shapes.
+
+The first-generation milestone does not claim compatibility for `A1#`, `@`, array constants, LET/LAMBDA, higher-order array functions or full Microsoft Office dynamic-array extension metadata. Treat those as expected limitations, not silent passes.
+
+## 3. Independent PDF validation
 
 For every generated sample:
 
@@ -40,7 +70,7 @@ Required samples:
 
 Perform pixel/geometry diffs between print preview and rasterized PDF.
 
-## 3. Font and international text
+## 4. Font and international text
 
 Validate:
 
@@ -56,7 +86,7 @@ Validate:
 
 Record embedded/subset/substituted font behavior and file-size impact.
 
-## 4. Native print preview and printer devices
+## 5. Native print preview and printer devices
 
 On supported Windows hardware:
 
@@ -69,11 +99,12 @@ On supported Windows hardware:
 - print through multiple physical and virtual printer drivers;
 - validate hard margins, custom paper, orientation, copies and cancellation.
 
-## 5. MAUI devices
+## 6. MAUI devices
 
 On Android/iOS/macOS/Windows target hardware:
 
 - touch pan and pinch while native filter/preview overlays exist;
+- inspect spill owner/child selection and error behavior after source edits;
 - virtual keyboard and IME lifecycle;
 - suspend/resume;
 - orientation and window-size changes;
@@ -82,7 +113,7 @@ On Android/iOS/macOS/Windows target hardware:
 - cancellation during paging/export;
 - no orphaned native focus or overlay after close/reopen.
 
-## 6. XLSX compatibility corpus
+## 7. XLSX compatibility corpus
 
 Round-trip files from:
 
@@ -95,6 +126,9 @@ Round-trip files from:
 
 Cover:
 
+- dynamic-array owner formulas and cached child conventions;
+- blocked and recovered spills;
+- package extension metadata used by modern Office;
 - page setup/margins/print area/print titles;
 - row/column manual breaks;
 - odd/even/first headers and footers;
@@ -103,9 +137,9 @@ Cover:
 - repeated preservation saves;
 - malformed relationships and package URIs.
 
-Run OpenXml schema validation after every output.
+Run OpenXml schema validation after every output. Confirm that dynamic-array child cleanup does not remove unrelated styles, metadata or extension payloads.
 
-## 7. CSV/TSV corpus and fuzzing
+## 8. CSV/TSV corpus and fuzzing
 
 Include:
 
@@ -120,20 +154,20 @@ Include:
 
 Run mutation fuzzing with strict row/column/cell/output budgets.
 
-## 8. General security and reliability
+## 9. General security and reliability
 
 Run:
 
-- formula parser/evaluator fuzzing;
-- clipboard fuzzing;
+- scalar and dynamic formula parser/evaluator fuzzing;
+- clipboard fuzzing, including partial/complete spill selections and paste collisions;
 - XLSX package/relationship/URI fuzzing;
 - low-disk and access-denied file replacement;
 - crash/restart during staged export;
-- memory pressure and repeated open/save/export loops;
+- memory pressure and repeated open/save/export/recalculate loops;
 - API compatibility checks;
 - NuGet/source-link/symbol package verification.
 
-## 9. Evidence pack
+## 10. Evidence pack
 
 Store:
 
@@ -142,12 +176,13 @@ Store:
 - automated JSON/TRX results;
 - external validator logs;
 - screenshots and raster diffs;
+- dynamic-array result/collision/performance traces;
 - performance/memory traces;
 - printer/device matrix;
 - compatibility corpus manifest and hashes;
 - every accepted limitation and release blocker.
 
-## 10. Promotion rule
+## 11. Promotion rule
 
 PR #1 remains Draft until:
 

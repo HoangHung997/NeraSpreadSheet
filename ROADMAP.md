@@ -6,12 +6,13 @@
 
 - [x] Excel-size sparse workbook/worksheet model.
 - [x] Values, formulas, merges, dimensions and immutable snapshots.
-- [x] Selection, clipboard, editor, commands and data/view Undo/Redo.
-- [x] Atomic structural insert/delete/reorder with formula/rule/Table/filter mapping.
+- [x] Selection, spill-aware clipboard, editor, commands and data/view Undo/Redo.
+- [x] Atomic structural insert/delete/reorder with formula/rule/Table/filter/spill mapping.
 - [x] Sparse whole-row/column styles.
 - [x] Conditional Formatting and Data Validation Core models with structural history.
 - [x] Table model with stable IDs, structural state/history and calculated/totals metadata.
 - [x] Worksheet-associated page setup and print area.
+- [x] Immutable formula arrays and worksheet spill owner/child contracts.
 - [ ] Sparse manual hide/group/outline metadata and complete axis property model.
 - [ ] Print settings in structural history and complete named-range integration.
 
@@ -27,9 +28,11 @@
 - [x] Shared Table/worksheet filter-button geometry.
 - [x] Shared print display-list composition.
 - [x] Virtualized print-preview layout/session and native host foundations.
+- [x] Immutable spill identity in worksheet snapshots.
 - [x] Loaded spreadsheet context recreation and scale/orientation gates.
-- [ ] Dedicated loaded interaction gates for every new filter/preview path.
-- [ ] Enforced 60/120-Hz, 4K hardware budgets.
+- [ ] Dedicated spill-border/selection UX on every native host.
+- [ ] Dedicated loaded interaction gates for every new filter/preview/spill path.
+- [ ] Enforced 60/120-Hz, 4K and large-array hardware budgets.
 
 ## C. Formula engine
 
@@ -38,14 +41,21 @@
 - [x] Shared formulas and structured references.
 - [x] Atomic Table/column formula rewrite.
 - [x] Calculated-column propagation and current filter-aware `SUBTOTAL`.
-- [x] Shared coercion/error layer including `#NUM!`.
+- [x] Shared coercion/error layer including `#NUM!` and `#SPILL!`.
 - [x] Logical/error and lazy-control functions.
 - [x] Aggregate/information functions.
 - [x] Scalar math, rounding, logarithmic and trigonometric functions.
 - [x] Text, search/replace and Unicode functions.
 - [x] Date/time functions and deterministic clock context.
 - [x] Basic `INDEX`, `MATCH`, `XLOOKUP`, `VLOOKUP` and `HLOOKUP`.
-- [ ] Dynamic arrays, spill ownership and collision/structural contracts.
+- [x] Immutable dynamic-array values and spill ownership/collision contracts.
+- [x] Dynamic-array source dependencies and bounded affected-only stabilization.
+- [x] `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT` and `UNIQUE`.
+- [x] Spill-aware editing, Undo/Redo, structural mapping, clipboard and snapshot contracts.
+- [ ] Spill-reference operator (`A1#`) and implicit-intersection (`@`).
+- [ ] Array constants and arbitrary vectorized expressions.
+- [ ] Advanced dynamic arrays: `SORTBY`, `TAKE`, `DROP`, `CHOOSECOLS`, `CHOOSEROWS`, `TOCOL`, `TOROW`, `HSTACK`, `VSTACK` and related helpers.
+- [ ] `LET`, `LAMBDA`, `MAP`, `REDUCE`, `SCAN`, `MAKEARRAY`, `BYROW` and `BYCOL`.
 - [ ] Versioned plugin-function SDK.
 - [ ] Conditional aggregate families.
 - [ ] Statistical, financial, engineering and database functions.
@@ -63,6 +73,8 @@
 - [x] Deterministic pagination and merged-cell protection.
 - [x] Staged PDF for one worksheet, selected worksheets and print tickets.
 - [x] WPF paginator and WinForms `PrintDocument`.
+- [x] Dynamic-array-aware document save retains owner formulas, removes derived children and preserves direct child styles.
+- [ ] Full Microsoft Office dynamic-array extension metadata and external producer corpus.
 - [ ] XLSX manual breaks, first/even headers and arbitrary custom paper.
 - [ ] Independent PDF validator/raster visual-diff corpus and font policy.
 - [ ] First-class drawings/images/charts and print/PDF pagination.
@@ -79,6 +91,7 @@
 - [x] Random-access page cache and cancellable search.
 - [x] Native WPF/WinForms/MAUI paged-filter foundations.
 - [x] Streaming CSV/TSV and staged atomic output.
+- [x] One-key row/column dynamic-array `SORT` and first-occurrence `UNIQUE`.
 - [ ] Complete Table design/resize/style manager UI.
 - [ ] Incremental distinct-value publication.
 - [ ] Rich XLSX AutoFilter markup and `sortState`.
@@ -93,6 +106,8 @@
 - [x] MAUI handler, touch state machine and pinch zoom.
 - [x] Native Table/worksheet filter and print-preview foundations.
 - [x] WPF paginator and WinForms print adapter.
+- [x] Spill child edit/clear/copy/cut/paste protection through shared session/controllers.
+- [ ] Dedicated native spill-range border, selection and error affordances.
 - [ ] Dedicated loaded smokes for every new native control path.
 - [ ] Full Table manager and general column/context menus.
 - [ ] Native validation presenters.
@@ -106,35 +121,37 @@
 - [x] Broad exact-head multi-platform CI matrix.
 - [x] Staged atomic PDF and delimited-text output limits.
 - [x] Repository-wide validation runner and Codex final-acceptance plan.
-- [ ] API compatibility and package-version checks.
+- [x] Dynamic-array shape/collision/history/structure/clipboard/XLSX automated gates.
+- [ ] Versioned API compatibility and package-version checks.
 - [ ] NuGet packaging, symbols and source link.
 - [ ] Crash recovery, safe mode and support bundle.
-- [ ] Security review and fuzzing for formulas/XLSX/CSV/clipboard.
-- [ ] Performance budgets enforced in CI.
+- [ ] Security review and fuzzing for formulas, arrays, XLSX, CSV and clipboard.
+- [ ] Performance budgets enforced in CI, including one-million-cell arrays.
 - [ ] Target printer/device/DPI/accessibility compatibility matrix.
 - [ ] Alpha → Beta → RC → Production release gates.
 
 ## Immediate execution order
 
-1. Dynamic Arrays Foundation.
-2. Versioned plugin-function SDK.
-3. Conditional aggregate/statistical/financial function families.
-4. Drawings/images/charts plus print/PDF pagination.
-5. Advanced data analysis, grouping/outlines, virtual data, pivot and slicers.
-6. Remaining print/XLSX semantics and PDF/font corpus.
-7. Complete Table design manager and rich filter markup.
-8. Accessibility/IME/localization/theme and release hardening.
-9. Execute final Codex acceptance before PR promotion.
+1. Versioned function-extension SDK with stable identity, capabilities and compatibility policy.
+2. `SUMIF(S)`, `COUNTIF(S)`, `AVERAGEIF(S)` and criteria parsing.
+3. Statistical, financial, engineering and database function families.
+4. Advanced dynamic-array syntax/functions and native spill UX.
+5. Drawings/images/charts plus print/PDF pagination.
+6. Advanced data analysis, grouping/outlines, virtual data, pivot and slicers.
+7. Remaining print/XLSX semantics and PDF/font/dynamic-array compatibility corpus.
+8. Complete Table design manager and rich filter markup.
+9. Accessibility/IME/localization/theme and release hardening.
+10. Execute final Codex acceptance before PR promotion.
 
-## Weighted progress after Formula Surface I
+## Weighted progress after Dynamic Arrays Foundation
 
 - Engine/viewport/renderer foundation: approximately `92%`.
-- Basic spreadsheet MVP: approximately `90–93%`.
-- Complete professional roadmap: approximately `62%`.
-- Production release readiness: approximately `39–42%`.
+- Basic spreadsheet MVP: approximately `92–94%`.
+- Complete professional roadmap: approximately `64%`.
+- Production release readiness: approximately `41–44%`.
 
 These are engineering-weighted estimates, not checkbox counts.
 
 ## Validation rule
 
-Implementation commit `497ebf3fbaca79e2f294475af861077d47400d3c` passed CI `#706`, run `32613991638`. PR #1 remains Draft and must not merge while a newer exact-head run is red or unknown.
+Implementation commit `705afb46f05e687a7ee13147e6ed106b82944c04` passed CI `#746`, run `32624762199`. PR #1 remains Draft and must not merge while a newer exact-head run is red or unknown.
