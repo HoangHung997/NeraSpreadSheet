@@ -174,6 +174,12 @@ public enum FormulaFunctionArgumentKind
     Array,
 }
 
+public enum FormulaFunctionArgumentCountPolicy
+{
+    LogicalArguments = 0,
+    FlattenedValues,
+}
+
 public sealed record FormulaFunctionDescriptor
 {
     public FormulaFunctionDescriptor(
@@ -190,7 +196,9 @@ public sealed record FormulaFunctionDescriptor
         FormulaFunctionDependencyPolicy dependencyPolicy =
             FormulaFunctionDependencyPolicy.EngineCapturedOnly,
         bool propagateArgumentErrors = true,
-        IEnumerable<string>? aliases = null)
+        IEnumerable<string>? aliases = null,
+        FormulaFunctionArgumentCountPolicy argumentCountPolicy =
+            FormulaFunctionArgumentCountPolicy.LogicalArguments)
     {
         if (string.IsNullOrWhiteSpace(identity.Namespace) ||
             string.IsNullOrWhiteSpace(identity.Name))
@@ -231,6 +239,11 @@ public sealed record FormulaFunctionDescriptor
         {
             throw new ArgumentOutOfRangeException(nameof(dependencyPolicy));
         }
+        if (!Enum.IsDefined(argumentCountPolicy))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(argumentCountPolicy));
+        }
 
         Identity = identity;
         Version = version;
@@ -243,6 +256,7 @@ public sealed record FormulaFunctionDescriptor
         DependencyPolicy = dependencyPolicy;
         PropagateArgumentErrors = propagateArgumentErrors;
         Aliases = NormalizeAliases(identity.Name, aliases);
+        ArgumentCountPolicy = argumentCountPolicy;
     }
 
     public FormulaFunctionIdentity Identity { get; }
@@ -269,6 +283,8 @@ public sealed record FormulaFunctionDescriptor
     public bool PropagateArgumentErrors { get; }
 
     public IReadOnlyList<string> Aliases { get; }
+
+    public FormulaFunctionArgumentCountPolicy ArgumentCountPolicy { get; }
 
     public IEnumerable<string> EnumerateFormulaNames()
     {
@@ -435,6 +451,13 @@ public sealed class FormulaFunctionInvocation
         _arguments
             .SelectMany(static argument => argument.Values)
             .ToArray();
+
+    internal long GetArgumentCount(
+        FormulaFunctionArgumentCountPolicy policy) =>
+        policy == FormulaFunctionArgumentCountPolicy.LogicalArguments
+            ? _arguments.Length
+            : _arguments.Sum(static argument =>
+                (long)argument.Values.Count);
 }
 
 public interface IVersionedFormulaFunction : IFormulaFunction
@@ -514,8 +537,10 @@ public sealed class FormulaFunctionDefinition : IVersionedFormulaFunction
     public FormulaEvaluationResult Invoke(FormulaFunctionInvocation invocation)
     {
         ArgumentNullException.ThrowIfNull(invocation);
-        if (invocation.Arguments.Count < Descriptor.MinimumArguments ||
-            invocation.Arguments.Count > Descriptor.MaximumArguments)
+        var argumentCount = invocation.GetArgumentCount(
+            Descriptor.ArgumentCountPolicy);
+        if (argumentCount < Descriptor.MinimumArguments ||
+            argumentCount > Descriptor.MaximumArguments)
         {
             return FormulaEvaluationResult.Failure(
                 FormulaErrorCode.InvalidValue);
@@ -952,7 +977,9 @@ public class VersionedFormulaFunctionRegistry :
                 FormulaFunctionCapabilities.ReturnsScalar,
                 securityClassification:
                     FormulaFunctionSecurityClassification.ContextReadOnly,
-                propagateArgumentErrors: false);
+                propagateArgumentErrors: false,
+                argumentCountPolicy:
+                    FormulaFunctionArgumentCountPolicy.FlattenedValues);
         }
 
         public FormulaFunctionDescriptor Descriptor { get; }
