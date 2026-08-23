@@ -116,6 +116,16 @@ public sealed class DynamicArrayWorkbookCalculationEngine
                         }
                         else
                         {
+                            var current = worksheet.GetCell(address);
+                            var alreadyBlocked =
+                                previous is null &&
+                                current.Value ==
+                                CellValue.FromError("#SPILL!");
+                            if (alreadyBlocked)
+                            {
+                                continue;
+                            }
+
                             worksheet.SetFormulaSpillError(address);
                             AddChange(
                                 changes,
