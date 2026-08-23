@@ -16,6 +16,7 @@ public sealed class WorksheetSnapshot
     private readonly CellStylePatch[] _differentialStyles;
     private readonly DataValidationRule[] _dataValidationRules;
     private readonly SpreadsheetTable[] _tables;
+    private readonly FormulaSpillRange[] _formulaSpills;
     private readonly WorksheetAutoFilter? _autoFilter;
     private readonly ConcurrentDictionary<AxisStyleCacheKey, CellStyle>
         _axisStyleCache = new();
@@ -35,6 +36,7 @@ public sealed class WorksheetSnapshot
         CellStylePatch[] differentialStyles,
         DataValidationRule[] dataValidationRules,
         SpreadsheetTable[] tables,
+        FormulaSpillRange[] formulaSpills,
         WorksheetAutoFilter? autoFilter)
     {
         Name = name;
@@ -62,6 +64,11 @@ public sealed class WorksheetSnapshot
         _tables = tables
             .Select(static table => table.Copy())
             .ToArray();
+        _formulaSpills = formulaSpills
+            .Select(static spill => spill.Copy())
+            .OrderBy(static spill => spill.Owner.RowIndex)
+            .ThenBy(static spill => spill.Owner.ColumnIndex)
+            .ToArray();
         _autoFilter = autoFilter?.Copy();
     }
 
@@ -86,6 +93,8 @@ public sealed class WorksheetSnapshot
 
     public int TableCount => _tables.Length;
 
+    public int FormulaSpillCount => _formulaSpills.Length;
+
     public double DefaultRowHeight { get; }
 
     public double DefaultColumnWidth { get; }
@@ -104,6 +113,9 @@ public sealed class WorksheetSnapshot
         _dataValidationRules;
 
     public IReadOnlyList<SpreadsheetTable> Tables => _tables;
+
+    public IReadOnlyList<FormulaSpillRange> FormulaSpills =>
+        _formulaSpills;
 
     public WorksheetAutoFilter? AutoFilter => _autoFilter;
 
@@ -202,6 +214,35 @@ public sealed class WorksheetSnapshot
         return table is not null;
     }
 
+    public bool TryGetFormulaSpill(
+        CellAddress owner,
+        out FormulaSpillRange? spill)
+    {
+        spill = _formulaSpills.FirstOrDefault(candidate =>
+            candidate.Owner == owner);
+        return spill is not null;
+    }
+
+    public bool TryGetFormulaSpillOwner(
+        CellAddress address,
+        out CellAddress owner)
+    {
+        foreach (var spill in _formulaSpills)
+        {
+            if (spill.Range.Contains(address))
+            {
+                owner = spill.Owner;
+                return true;
+            }
+        }
+        owner = default;
+        return false;
+    }
+
+    public bool IsFormulaSpillChild(CellAddress address) =>
+        TryGetFormulaSpillOwner(address, out var owner) &&
+        owner != address;
+
     public bool IsRowVisible(int rowIndex)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(rowIndex);
@@ -289,6 +330,7 @@ public sealed class WorksheetSnapshot
             [.. worksheet.DifferentialStyles.Snapshot()],
             [.. worksheet.DataValidationRules],
             [.. worksheet.Tables],
+            [.. worksheet.GetFormulaSpills()],
             worksheet.AutoFilter);
     }
 
