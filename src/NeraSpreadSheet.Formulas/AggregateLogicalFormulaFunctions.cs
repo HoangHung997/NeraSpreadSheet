@@ -1,3 +1,4 @@
+using System.Globalization;
 using NeraSpreadSheet.Core;
 
 namespace NeraSpreadSheet.Formulas;
@@ -317,7 +318,9 @@ internal static class AggregateLogicalFormulaFunctions
     private static bool IsError(CellValue value, string code) =>
         value.Kind == CellValueKind.Error &&
         string.Equals(
-            Convert.ToString(value.RawValue),
+            Convert.ToString(
+                value.RawValue,
+                CultureInfo.InvariantCulture),
             code,
             StringComparison.OrdinalIgnoreCase);
 

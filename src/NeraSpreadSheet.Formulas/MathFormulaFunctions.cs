@@ -432,15 +432,18 @@ internal static class MathFormulaFunctions
     private static bool TryTwoNumbers(
         IReadOnlyList<CellValue> arguments,
         out double first,
-        out double second) =>
-        FormulaValueCoercion.TryNumber(
-            arguments[0],
-            out first,
-            allowText: true) &&
-        FormulaValueCoercion.TryNumber(
-            arguments[1],
-            out second,
-            allowText: true);
+        out double second)
+    {
+        second = default;
+        return FormulaValueCoercion.TryNumber(
+                arguments[0],
+                out first,
+                allowText: true) &&
+            FormulaValueCoercion.TryNumber(
+                arguments[1],
+                out second,
+                allowText: true);
+    }
 
     private static int GetInteger(CellValue value)
     {

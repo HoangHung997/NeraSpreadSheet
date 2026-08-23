@@ -63,11 +63,9 @@ internal static class FormulaFunctionFactory
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(name);
             ArgumentOutOfRangeException.ThrowIfNegative(minimumArguments);
-            if (maximumArguments < minimumArguments)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(maximumArguments));
-            }
+            ArgumentOutOfRangeException.ThrowIfLessThan(
+                maximumArguments,
+                minimumArguments);
             Name = name.Trim();
             _minimumArguments = minimumArguments;
             _maximumArguments = maximumArguments;
