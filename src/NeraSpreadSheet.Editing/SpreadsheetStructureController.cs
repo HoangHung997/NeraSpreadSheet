@@ -43,7 +43,8 @@ public sealed class SpreadsheetStructureController
     public void InsertAtActiveCell(int count = 1)
     {
         var active = _session.Selection.ActiveCell;
-        if (_session.Selection.Ranges.Count == 1 && IsWholeColumnRange(_session.Selection.Ranges[0]))
+        if (_session.Selection.Ranges.Count == 1 &&
+            IsWholeColumnRange(_session.Selection.Ranges[0]))
         {
             InsertColumns(active.ColumnIndex, count);
             return;
@@ -54,7 +55,8 @@ public sealed class SpreadsheetStructureController
     public void DeleteAtActiveCell(int count = 1)
     {
         var active = _session.Selection.ActiveCell;
-        if (_session.Selection.Ranges.Count == 1 && IsWholeColumnRange(_session.Selection.Ranges[0]))
+        if (_session.Selection.Ranges.Count == 1 &&
+            IsWholeColumnRange(_session.Selection.Ranges[0]))
         {
             DeleteColumns(active.ColumnIndex, count);
             return;
@@ -64,20 +66,28 @@ public sealed class SpreadsheetStructureController
 
     private void Execute(WorksheetStructuralChange change)
     {
-        var operation = new StructuralWorksheetOperation(_session, _session.ActiveWorksheet, change);
+        var operation = new StructuralWorksheetOperation(
+            _session,
+            _session.ActiveWorksheet,
+            change);
         _session.History.Execute(operation);
         _session.Calculation.Recalculate(_session.Workbook);
     }
 
     private static bool IsWholeColumnRange(CellRange range) =>
-        range.Top == 0 && range.Bottom == SpreadsheetLimits.MaxRows - 1;
+        range.Top == 0 &&
+        range.Bottom == SpreadsheetLimits.MaxRows - 1;
 
-    private sealed class StructuralWorksheetOperation : ISpreadsheetEditOperation
+    private sealed class StructuralWorksheetOperation :
+        ISpreadsheetEditOperation
     {
         private readonly SpreadsheetSession _session;
         private readonly WorksheetStructuralChange _change;
         private WorksheetStructuralState? _worksheetBefore;
-        private Dictionary<Worksheet, KeyValuePair<CellAddress, CellData>[]>? _externalFormulaCellsBefore;
+        private Dictionary<
+            Worksheet,
+            KeyValuePair<CellAddress, CellData>[]>?
+            _externalFormulaCellsBefore;
         private SelectionSnapshot? _selectionBefore;
         private int _frozenRowsBefore;
         private int _frozenColumnsBefore;
@@ -88,31 +98,41 @@ public sealed class SpreadsheetStructureController
             Worksheet worksheet,
             WorksheetStructuralChange change)
         {
-            _session = session ?? throw new ArgumentNullException(nameof(session));
-            Worksheet = worksheet ?? throw new ArgumentNullException(nameof(worksheet));
+            _session = session ??
+                throw new ArgumentNullException(nameof(session));
+            Worksheet = worksheet ??
+                throw new ArgumentNullException(nameof(worksheet));
             _change = change;
             AffectedRange = CreateAffectedRange(change);
         }
 
         public string Description => _change switch
         {
-            { Axis: WorksheetAxis.Row, Kind: WorksheetStructuralChangeKind.Insert } => "Insert rows",
-            { Axis: WorksheetAxis.Row, Kind: WorksheetStructuralChangeKind.Delete } => "Delete rows",
-            { Axis: WorksheetAxis.Column, Kind: WorksheetStructuralChangeKind.Insert } => "Insert columns",
+            {
+                Axis: WorksheetAxis.Row,
+                Kind: WorksheetStructuralChangeKind.Insert,
+            } => "Insert rows",
+            {
+                Axis: WorksheetAxis.Row,
+                Kind: WorksheetStructuralChangeKind.Delete,
+            } => "Delete rows",
+            {
+                Axis: WorksheetAxis.Column,
+                Kind: WorksheetStructuralChangeKind.Insert,
+            } => "Insert columns",
             _ => "Delete columns",
         };
 
         public Worksheet Worksheet { get; }
+
         public CellRange AffectedRange { get; }
 
         public void Execute()
         {
-            CaptureBeforeStateIfNeeded();
-            var worksheetChanged = false;
+            PrepareCanonicalState();
             try
             {
                 Worksheet.ApplyStructuralChange(_change);
-                worksheetChanged = true;
                 RewriteWorkbookFormulas();
                 RestoreMappedSelection();
                 ApplyMappedFreezeState();
@@ -120,25 +140,28 @@ public sealed class SpreadsheetStructureController
             }
             catch
             {
-                if (worksheetChanged)
-                {
-                    RestoreBeforeState();
-                }
+                RestoreBeforeState();
+                _session.Calculation.Recalculate(_session.Workbook);
                 throw;
             }
         }
 
         public void Undo() => RestoreBeforeState();
 
-        private void CaptureBeforeStateIfNeeded()
+        private void PrepareCanonicalState()
         {
+            // Spill children are derived output. They must never be moved or
+            // captured as user data by a structural transaction.
+            Worksheet.ClearAllFormulaSpills();
             if (_worksheetBefore is not null)
             {
                 return;
             }
 
             _worksheetBefore = Worksheet.CaptureStructuralState();
-            _externalFormulaCellsBefore = new Dictionary<Worksheet, KeyValuePair<CellAddress, CellData>[]>();
+            _externalFormulaCellsBefore = new Dictionary<
+                Worksheet,
+                KeyValuePair<CellAddress, CellData>[]>();
             foreach (var worksheet in _session.Workbook.Worksheets)
             {
                 if (ReferenceEquals(worksheet, Worksheet))
@@ -150,7 +173,9 @@ public sealed class SpreadsheetStructureController
                     .ToArray();
                 if (formulas.Length > 0)
                 {
-                    _externalFormulaCellsBefore.Add(worksheet, formulas);
+                    _externalFormulaCellsBefore.Add(
+                        worksheet,
+                        formulas);
                 }
             }
             _selectionBefore = _session.Selection.Capture();
@@ -165,15 +190,22 @@ public sealed class SpreadsheetStructureController
                 _externalFormulaCellsBefore is null ||
                 _selectionBefore is null)
             {
-                throw new InvalidOperationException("The structural operation has not been executed yet.");
+                throw new InvalidOperationException(
+                    "The structural operation has not been executed yet.");
             }
 
-            Worksheet.RestoreStructuralState(_worksheetBefore, _change);
-            foreach (var (worksheet, formulas) in _externalFormulaCellsBefore)
+            Worksheet.ClearAllFormulaSpills();
+            Worksheet.RestoreStructuralState(
+                _worksheetBefore,
+                _change);
+            foreach (var (worksheet, formulas) in
+                     _externalFormulaCellsBefore)
             {
                 worksheet.SetCells(formulas);
             }
-            _session.View.SetFrozenPanes(_frozenRowsBefore, _frozenColumnsBefore);
+            _session.View.SetFrozenPanes(
+                _frozenRowsBefore,
+                _frozenColumnsBefore);
             _session.View.SetSplitState(
                 Worksheet,
                 _splitStateBefore,
@@ -186,25 +218,35 @@ public sealed class SpreadsheetStructureController
         {
             foreach (var worksheet in _session.Workbook.Worksheets)
             {
-                var updates = new List<KeyValuePair<CellAddress, CellData>>();
-                foreach (var (address, cell) in worksheet.EnumerateUsedCells())
+                var updates =
+                    new List<KeyValuePair<CellAddress, CellData>>();
+                foreach (var (address, cell) in
+                         worksheet.EnumerateUsedCells())
                 {
                     if (cell.Formula is not { } formula)
                     {
                         continue;
                     }
-                    var rewritten = FormulaStructuralReferenceRewriter.Rewrite(
-                        formula,
-                        worksheet.Name,
-                        Worksheet.Name,
-                        _change);
-                    if (string.Equals(rewritten, formula, StringComparison.Ordinal))
+                    var rewritten =
+                        FormulaStructuralReferenceRewriter.Rewrite(
+                            formula,
+                            worksheet.Name,
+                            Worksheet.Name,
+                            _change);
+                    if (string.Equals(
+                            rewritten,
+                            formula,
+                            StringComparison.Ordinal))
                     {
                         continue;
                     }
-                    updates.Add(new KeyValuePair<CellAddress, CellData>(
-                        address,
-                        new CellData(cell.Value, rewritten, cell.StyleId)));
+                    updates.Add(
+                        new KeyValuePair<CellAddress, CellData>(
+                            address,
+                            new CellData(
+                                cell.Value,
+                                rewritten,
+                                cell.StyleId)));
                 }
                 if (updates.Count > 0)
                 {
@@ -215,8 +257,9 @@ public sealed class SpreadsheetStructureController
 
         private void RestoreMappedSelection()
         {
-            var before = _selectionBefore
-                ?? throw new InvalidOperationException("Selection state was not captured.");
+            var before = _selectionBefore ??
+                throw new InvalidOperationException(
+                    "Selection state was not captured.");
             var active = MapSelectionAddress(before.ActiveCell);
             var anchor = MapSelectionAddress(before.AnchorCell);
             var ranges = new List<CellRange>(before.Ranges.Count);
@@ -231,7 +274,11 @@ public sealed class SpreadsheetStructureController
             {
                 ranges.Add(new CellRange(active, active));
             }
-            _session.Selection.Restore(new SelectionSnapshot(active, anchor, ranges, before.Version));
+            _session.Selection.Restore(new SelectionSnapshot(
+                active,
+                anchor,
+                ranges,
+                before.Version));
         }
 
         private void ApplyMappedFreezeState()
@@ -248,7 +295,8 @@ public sealed class SpreadsheetStructureController
         private void ApplyMappedSplitState()
         {
             var mapped = _splitStateBefore;
-            foreach (var pane in Enum.GetValues<SpreadsheetSplitViewPane>())
+            foreach (var pane in
+                     Enum.GetValues<SpreadsheetSplitViewPane>())
             {
                 var scroll = _splitStateBefore.GetPaneScroll(pane);
                 var offsetX = _change.Axis == WorksheetAxis.Column
@@ -257,7 +305,10 @@ public sealed class SpreadsheetStructureController
                 var offsetY = _change.Axis == WorksheetAxis.Row
                     ? MapScrollOffset(scroll.OffsetY)
                     : scroll.OffsetY;
-                mapped = mapped.WithPaneScroll(pane, offsetX, offsetY);
+                mapped = mapped.WithPaneScroll(
+                    pane,
+                    offsetX,
+                    offsetY);
             }
 
             _session.View.SetSplitState(
@@ -269,8 +320,9 @@ public sealed class SpreadsheetStructureController
 
         private double MapScrollOffset(double offset)
         {
-            var before = _worksheetBefore
-                ?? throw new InvalidOperationException("Worksheet state was not captured.");
+            var before = _worksheetBefore ??
+                throw new InvalidOperationException(
+                    "Worksheet state was not captured.");
             var overrides = _change.Axis == WorksheetAxis.Row
                 ? before.RowHeights
                 : before.ColumnWidths;
@@ -327,13 +379,21 @@ public sealed class SpreadsheetStructureController
                 return mapped;
             }
 
-            var replacementIndex = Math.Min(_change.Index, _change.AxisLength - 1);
+            var replacementIndex = Math.Min(
+                _change.Index,
+                _change.AxisLength - 1);
             return _change.Axis == WorksheetAxis.Row
-                ? new CellAddress(replacementIndex, source.ColumnIndex)
-                : new CellAddress(source.RowIndex, replacementIndex);
+                ? new CellAddress(
+                    replacementIndex,
+                    source.ColumnIndex)
+                : new CellAddress(
+                    source.RowIndex,
+                    replacementIndex);
         }
 
-        private bool TryMapSelectionRange(CellRange source, out CellRange mapped)
+        private bool TryMapSelectionRange(
+            CellRange source,
+            out CellRange mapped)
         {
             var startsAtOrigin = _change.Axis == WorksheetAxis.Row
                 ? source.Top == 0
@@ -349,13 +409,18 @@ public sealed class SpreadsheetStructureController
             return _change.TryMapRange(source, out mapped);
         }
 
-        private static CellRange CreateAffectedRange(WorksheetStructuralChange change) =>
+        private static CellRange CreateAffectedRange(
+            WorksheetStructuralChange change) =>
             change.Axis == WorksheetAxis.Row
                 ? new CellRange(
                     new CellAddress(change.Index, 0),
-                    new CellAddress(SpreadsheetLimits.MaxRows - 1, SpreadsheetLimits.MaxColumns - 1))
+                    new CellAddress(
+                        SpreadsheetLimits.MaxRows - 1,
+                        SpreadsheetLimits.MaxColumns - 1))
                 : new CellRange(
                     new CellAddress(0, change.Index),
-                    new CellAddress(SpreadsheetLimits.MaxRows - 1, SpreadsheetLimits.MaxColumns - 1));
+                    new CellAddress(
+                        SpreadsheetLimits.MaxRows - 1,
+                        SpreadsheetLimits.MaxColumns - 1));
     }
 }
