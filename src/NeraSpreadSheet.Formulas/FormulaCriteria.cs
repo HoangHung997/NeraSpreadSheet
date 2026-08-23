@@ -63,11 +63,15 @@ public sealed class FormulaCriteria
                 $"{MaximumCriteriaLength:N0} characters.");
         }
         var (comparison, operandText) = ParseOperator(text);
-        var operand = ParseOperand(operandText);
-        var wildcardRegex = operand.Kind == CellValueKind.Text &&
-                            comparison is FormulaCriteriaOperator.Equal or
-                                FormulaCriteriaOperator.NotEqual &&
-                            ContainsUnescapedWildcard(operandText)
+        var hasWildcard =
+            comparison is FormulaCriteriaOperator.Equal or
+                FormulaCriteriaOperator.NotEqual &&
+            ContainsUnescapedWildcard(operandText);
+        var parsedOperandText = hasWildcard
+            ? operandText
+            : UnescapeWildcardLiterals(operandText);
+        var operand = ParseOperand(parsedOperandText);
+        var wildcardRegex = operand.Kind == CellValueKind.Text && hasWildcard
             ? CreateWildcardRegex(operandText)
             : null;
         return new FormulaCriteria(
@@ -209,15 +213,15 @@ public sealed class FormulaCriteria
         {
             return (FormulaCriteriaOperator.NotEqual, text[2..]);
         }
-        if (text.StartsWith('=', StringComparison.Ordinal))
+        if (text.Length > 0 && text[0] == '=')
         {
             return (FormulaCriteriaOperator.Equal, text[1..]);
         }
-        if (text.StartsWith('<', StringComparison.Ordinal))
+        if (text.Length > 0 && text[0] == '<')
         {
             return (FormulaCriteriaOperator.LessThan, text[1..]);
         }
-        if (text.StartsWith('>', StringComparison.Ordinal))
+        if (text.Length > 0 && text[0] == '>')
         {
             return (FormulaCriteriaOperator.GreaterThan, text[1..]);
         }
@@ -291,6 +295,24 @@ public sealed class FormulaCriteria
             }
         }
         return false;
+    }
+
+    private static string UnescapeWildcardLiterals(string pattern)
+    {
+        var builder = new StringBuilder(pattern.Length);
+        for (var index = 0; index < pattern.Length; index++)
+        {
+            var character = pattern[index];
+            if (character == '~' &&
+                index + 1 < pattern.Length &&
+                pattern[index + 1] is '*' or '?' or '~')
+            {
+                builder.Append(pattern[++index]);
+                continue;
+            }
+            builder.Append(character);
+        }
+        return builder.ToString();
     }
 
     private static Regex CreateWildcardRegex(string pattern)
