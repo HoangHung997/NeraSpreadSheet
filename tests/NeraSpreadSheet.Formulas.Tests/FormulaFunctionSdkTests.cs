@@ -6,6 +6,9 @@ namespace NeraSpreadSheet.Formulas.Tests;
 [TestClass]
 public sealed class FormulaFunctionSdkTests
 {
+    private static readonly string[] TwiceAliases = ["TWICE"];
+    private static readonly string[] SharedAliases = ["SHARED"];
+
     [TestMethod]
     public void BuiltInsPublishVersionedMetadataWithoutBreakingLegacyLookup()
     {
@@ -42,6 +45,24 @@ public sealed class FormulaFunctionSdkTests
     }
 
     [TestMethod]
+    public void VersionValueObjectsProvideOrderedComparison()
+    {
+        var apiOne = new FormulaFunctionApiVersion(1, 0);
+        var apiTwo = new FormulaFunctionApiVersion(1, 1);
+        Assert.IsTrue(apiOne < apiTwo);
+        Assert.IsTrue(apiOne <= apiTwo);
+        Assert.IsTrue(apiTwo > apiOne);
+        Assert.IsTrue(apiTwo >= apiOne);
+        Assert.IsTrue(apiOne.IsSupportedBy(apiTwo));
+
+        var versionOne = new FormulaFunctionVersion(1, 2, 3);
+        var versionTwo = new FormulaFunctionVersion(1, 3, 0);
+        Assert.IsTrue(versionOne < versionTwo);
+        Assert.AreEqual("1.2.3", versionOne.ToString());
+        Assert.AreEqual("1.0", apiOne.ToString());
+    }
+
+    [TestMethod]
     public void SideBySideVersionsResolveHighestAndRemainExactlyAddressable()
     {
         var registry = new VersionedFormulaFunctionRegistry();
@@ -50,12 +71,12 @@ public sealed class FormulaFunctionSdkTests
             identity,
             new FormulaFunctionVersion(1, 0, 0),
             2d,
-            aliases: ["TWICE"]);
+            aliases: TwiceAliases);
         var versionTwo = CreateScalarFunction(
             identity,
             new FormulaFunctionVersion(2, 0, 0),
             4d,
-            aliases: ["TWICE"]);
+            aliases: TwiceAliases);
         registry.Register(versionOne);
         registry.Register(
             versionTwo,
@@ -155,13 +176,13 @@ public sealed class FormulaFunctionSdkTests
             new FormulaFunctionIdentity("ACME.ONE", "PRIMARY"),
             new FormulaFunctionVersion(1, 0, 0),
             1d,
-            aliases: ["SHARED"]);
+            aliases: SharedAliases);
         registry.Register(first);
         var aliasConflict = CreateScalarFunction(
             new FormulaFunctionIdentity("ACME.TWO", "OTHER"),
             new FormulaFunctionVersion(1, 0, 0),
             2d,
-            aliases: ["SHARED"]);
+            aliases: SharedAliases);
         Assert.ThrowsExactly<InvalidOperationException>(() =>
             registry.Register(aliasConflict));
         Assert.ThrowsExactly<InvalidOperationException>(() =>
@@ -171,7 +192,7 @@ public sealed class FormulaFunctionSdkTests
             first.Descriptor.Identity,
             first.Descriptor.Version,
             3d,
-            aliases: ["SHARED"]);
+            aliases: SharedAliases);
         registry.Register(
             replacement,
             new FormulaFunctionRegistrationOptions
@@ -226,18 +247,19 @@ public sealed class FormulaFunctionSdkTests
 
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(4d, result.Value.RawValue);
-        Assert.IsNotNull(observed);
-        Assert.AreEqual(1, observed.Arguments.Count);
+        var invocation = observed ?? throw new AssertFailedException(
+            "The extension function was not invoked.");
+        Assert.AreEqual(1, invocation.Arguments.Count);
         Assert.AreEqual(
             FormulaFunctionArgumentKind.Range,
-            observed.Arguments[0].Kind);
-        Assert.AreEqual(4, observed.Arguments[0].Values.Count);
-        Assert.IsTrue(observed.Arguments[0].SourceDependency.HasValue);
+            invocation.Arguments[0].Kind);
+        Assert.AreEqual(4, invocation.Arguments[0].Values.Count);
+        Assert.IsTrue(invocation.Arguments[0].SourceDependency.HasValue);
         Assert.AreEqual(
             new CellRange(
                 new CellAddress(0, 0),
                 new CellAddress(1, 1)),
-            observed.Arguments[0].SourceDependency!.Value.Range);
+            invocation.Arguments[0].SourceDependency!.Value.Range);
         Assert.AreEqual(1, result.Dependencies.Count);
     }
 
@@ -275,9 +297,7 @@ public sealed class FormulaFunctionSdkTests
 
         Assert.AreEqual(7d, result.Value.RawValue);
         Assert.AreEqual(2, result.Dependencies.Count);
-        CollectionAssert.Contains(
-            result.Dependencies.ToArray(),
-            additional);
+        Assert.IsTrue(result.Dependencies.Contains(additional));
     }
 
     [TestMethod]
