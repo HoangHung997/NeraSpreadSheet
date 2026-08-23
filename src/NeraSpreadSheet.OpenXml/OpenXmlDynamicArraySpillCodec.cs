@@ -102,8 +102,6 @@ internal static class OpenXmlDynamicArraySpillCodec
                 cell.CellValue = null;
                 cell.InlineString = null;
                 cell.DataType = null;
-                cell.CellMetadataIndex = null;
-                cell.ValueMetadataIndex = null;
                 cell.RemoveAllChildren<ExtensionList>();
                 if (cell.StyleIndex is null &&
                     cell.ChildElements.Count == 0 &&
