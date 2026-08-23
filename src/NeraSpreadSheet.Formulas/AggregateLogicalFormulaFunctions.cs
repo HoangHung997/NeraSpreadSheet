@@ -13,32 +13,28 @@ internal static class AggregateLogicalFormulaFunctions
             int.MaxValue,
             static (arguments, _) => Aggregate(
                 arguments,
-                AggregateKind.Sum),
-            propagateErrors: false);
+                AggregateKind.Sum));
         yield return FormulaFunctionFactory.Create(
             "AVERAGE",
             0,
             int.MaxValue,
             static (arguments, _) => Aggregate(
                 arguments,
-                AggregateKind.Average),
-            propagateErrors: false);
+                AggregateKind.Average));
         yield return FormulaFunctionFactory.Create(
             "MIN",
             0,
             int.MaxValue,
             static (arguments, _) => Aggregate(
                 arguments,
-                AggregateKind.Minimum),
-            propagateErrors: false);
+                AggregateKind.Minimum));
         yield return FormulaFunctionFactory.Create(
             "MAX",
             0,
             int.MaxValue,
             static (arguments, _) => Aggregate(
                 arguments,
-                AggregateKind.Maximum),
-            propagateErrors: false);
+                AggregateKind.Maximum));
         yield return FormulaFunctionFactory.Create(
             "COUNT",
             0,
@@ -64,14 +60,12 @@ internal static class AggregateLogicalFormulaFunctions
             "PRODUCT",
             0,
             int.MaxValue,
-            static (arguments, _) => Product(arguments),
-            propagateErrors: false);
+            static (arguments, _) => Product(arguments));
         yield return FormulaFunctionFactory.Create(
             "SUMSQ",
             0,
             int.MaxValue,
-            static (arguments, _) => SumSquares(arguments),
-            propagateErrors: false);
+            static (arguments, _) => SumSquares(arguments));
         yield return FormulaFunctionFactory.Create(
             "AND",
             1,
@@ -193,7 +187,9 @@ internal static class AggregateLogicalFormulaFunctions
         }
         if (numbers.Length == 0)
         {
-            return FormulaValueCoercion.Error("#DIV/0!");
+            return kind == AggregateKind.Average
+                ? FormulaValueCoercion.Error("#DIV/0!")
+                : CellValue.FromNumber(0d);
         }
 
         var result = kind switch
