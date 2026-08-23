@@ -130,6 +130,7 @@ public sealed class SpreadsheetStructureController
         public void Execute()
         {
             PrepareCanonicalState();
+            var versionBeforeApply = Worksheet.Version;
             try
             {
                 Worksheet.ApplyStructuralChange(_change);
@@ -140,7 +141,13 @@ public sealed class SpreadsheetStructureController
             }
             catch
             {
-                RestoreBeforeState();
+                // Structural preflight is performed before Worksheet publishes
+                // any change. Avoid restoring an identical state because that
+                // would incorrectly advance Version for a rejected operation.
+                if (Worksheet.Version != versionBeforeApply)
+                {
+                    RestoreBeforeState();
+                }
                 _session.Calculation.Recalculate(_session.Workbook);
                 throw;
             }
