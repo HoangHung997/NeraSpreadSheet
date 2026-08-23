@@ -11,6 +11,7 @@ public enum FormulaErrorCode
     InvalidValue,
     CircularReference,
     NotAvailable,
+    Spill,
 }
 
 public readonly record struct FormulaDependency(
@@ -35,7 +36,17 @@ public sealed record FormulaEvaluationResult(
     public static FormulaEvaluationResult Failure(
         FormulaErrorCode errorCode) =>
         new(
-            CellValue.FromError($"#{errorCode}"),
+            CellValue.FromError(errorCode switch
+            {
+                FormulaErrorCode.DivisionByZero => "#DIV/0!",
+                FormulaErrorCode.InvalidReference => "#REF!",
+                FormulaErrorCode.InvalidName => "#NAME?",
+                FormulaErrorCode.InvalidValue => "#VALUE!",
+                FormulaErrorCode.CircularReference => "#CIRC!",
+                FormulaErrorCode.NotAvailable => "#N/A",
+                FormulaErrorCode.Spill => "#SPILL!",
+                _ => "#VALUE!",
+            }),
             errorCode,
             Array.Empty<FormulaDependency>());
 }
