@@ -143,7 +143,7 @@ public sealed class DynamicArrayFormulaEngineTests
         {
             [new CellAddress(0, 0)] = CellValue.FromNumber(3d),
         };
-        IFormulaEngine engine = new DynamicArrayAwareFormulaEngine();
+        var engine = new DynamicArrayAwareFormulaEngine();
 
         var result = engine.Evaluate(
             "=SEQUENCE(A1,2,7,1)",
