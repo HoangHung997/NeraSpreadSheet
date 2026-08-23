@@ -94,10 +94,10 @@ public sealed class WorkbookCalculationEngine
     }
 
     /// <summary>
-    /// Recalculates formulas that depend on a changed range without forcibly
-    /// evaluating formula cells that merely reside inside that range. Spill
-    /// transactions use this path so a committed #SPILL! owner is not
-    /// immediately overwritten by scalar owner evaluation.
+    /// Recalculates formulas that depend on a committed changed range without
+    /// evaluating formula cells inside that range. Spill transactions use this
+    /// path so dependents observe the materialized values (including #SPILL!)
+    /// rather than recursively re-evaluating the spill owner as a scalar.
     /// </summary>
     public WorkbookCalculationResult RecalculateDependents(
         Workbook workbook,
@@ -115,14 +115,25 @@ public sealed class WorkbookCalculationEngine
             workbook,
             DependencyGraph.GetTransitiveDependents(
                 changedWorksheet.Name,
+                changedRange),
+            new FrozenCalculationRange(
+                changedWorksheet,
                 changedRange));
     }
 
     private WorkbookCalculationResult RecalculateFormulaCells(
         Workbook workbook,
-        IEnumerable<FormulaCellKey> formulaCells)
+        IEnumerable<FormulaCellKey> formulaCells,
+        FrozenCalculationRange? frozenRange = null)
     {
-        var requested = formulaCells.Distinct().ToArray();
+        var requested = formulaCells
+            .Distinct()
+            .Where(formulaCell =>
+                !IsFrozenFormulaCell(
+                    workbook,
+                    formulaCell,
+                    frozenRange))
+            .ToArray();
         var states = new Dictionary<CellKey, VisitState>();
         var cache = new Dictionary<CellKey, CellValue>();
         var updates = new Dictionary<
@@ -157,7 +168,8 @@ public sealed class WorkbookCalculationEngine
                 worksheet,
                 formulaCell.Address,
                 states,
-                cache);
+                cache,
+                frozenRange);
             if (value.Kind == CellValueKind.Error)
             {
                 errors++;
@@ -201,12 +213,20 @@ public sealed class WorkbookCalculationEngine
         Worksheet worksheet,
         CellAddress address,
         IDictionary<CellKey, VisitState> states,
-        IDictionary<CellKey, CellValue> cache)
+        IDictionary<CellKey, CellValue> cache,
+        FrozenCalculationRange? frozenRange)
     {
         var key = new CellKey(worksheet, address);
         if (cache.TryGetValue(key, out var cached))
         {
             return cached;
+        }
+
+        if (frozenRange?.Contains(worksheet, address) == true)
+        {
+            var committed = worksheet.GetCell(address).Value;
+            cache[key] = committed;
+            return committed;
         }
 
         if (states.TryGetValue(key, out var state) &&
@@ -230,7 +250,8 @@ public sealed class WorkbookCalculationEngine
                 worksheet,
                 address,
                 states,
-                cache);
+                cache,
+                frozenRange);
             var result = _formulaEngine.Evaluate(
                 cell.Formula,
                 context);
@@ -245,6 +266,33 @@ public sealed class WorkbookCalculationEngine
         return value;
     }
 
+    private static bool IsFrozenFormulaCell(
+        Workbook workbook,
+        FormulaCellKey formulaCell,
+        FrozenCalculationRange? frozenRange)
+    {
+        if (frozenRange is null ||
+            !string.Equals(
+                formulaCell.WorksheetName,
+                frozenRange.Value.Worksheet.Name,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        try
+        {
+            return ReferenceEquals(
+                       workbook.GetWorksheet(formulaCell.WorksheetName),
+                       frozenRange.Value.Worksheet) &&
+                   frozenRange.Value.Range.Contains(formulaCell.Address);
+        }
+        catch (KeyNotFoundException)
+        {
+            return false;
+        }
+    }
+
     private sealed class CalculationContext
         : IStructuredReferenceEvaluationContext,
           IFilterAwareFormulaEvaluationContext
@@ -255,6 +303,7 @@ public sealed class WorkbookCalculationEngine
         private readonly CellAddress _currentAddress;
         private readonly IDictionary<CellKey, VisitState> _states;
         private readonly IDictionary<CellKey, CellValue> _cache;
+        private readonly FrozenCalculationRange? _frozenRange;
 
         public CalculationContext(
             WorkbookCalculationEngine owner,
@@ -262,7 +311,8 @@ public sealed class WorkbookCalculationEngine
             Worksheet currentWorksheet,
             CellAddress currentAddress,
             IDictionary<CellKey, VisitState> states,
-            IDictionary<CellKey, CellValue> cache)
+            IDictionary<CellKey, CellValue> cache,
+            FrozenCalculationRange? frozenRange)
         {
             _owner = owner;
             _workbook = workbook;
@@ -270,6 +320,7 @@ public sealed class WorkbookCalculationEngine
             _currentAddress = currentAddress;
             _states = states;
             _cache = cache;
+            _frozenRange = frozenRange;
         }
 
         public string ExpandStructuredReferences(string formula) =>
@@ -295,7 +346,8 @@ public sealed class WorkbookCalculationEngine
                 worksheet,
                 address,
                 _states,
-                _cache);
+                _cache,
+                _frozenRange);
         }
 
         public bool IsRowVisible(
@@ -332,7 +384,8 @@ public sealed class WorkbookCalculationEngine
                             rowIndex,
                             table.Range.Left + columnIndex),
                         _states,
-                        _cache);
+                        _cache,
+                        _frozenRange);
                     if (!filter.Matches(value))
                     {
                         return false;
@@ -420,6 +473,17 @@ public sealed class WorkbookCalculationEngine
     private readonly record struct CellKey(
         Worksheet Worksheet,
         CellAddress Address);
+
+    private readonly record struct FrozenCalculationRange(
+        Worksheet Worksheet,
+        CellRange Range)
+    {
+        public bool Contains(
+            Worksheet worksheet,
+            CellAddress address) =>
+            ReferenceEquals(Worksheet, worksheet) &&
+            Range.Contains(address);
+    }
 
     private enum VisitState
     {
