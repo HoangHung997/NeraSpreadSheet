@@ -3,123 +3,107 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` into `develop` — Draft, unmerged
-- Financial implementation head: `e8c349d0b969fa8c9734452573bf7e9bcfa4df28`
-- GitHub Actions: CI `#809`, run `32644745950`
+- Engineering + Database implementation head: `ba7d0ce079c451f6390f5aafcb0cf861ccad0caa`
+- GitHub Actions: CI `#819`, run `32651011596`, success
 - Source of truth: `docs/current-status.md`
 - SDK contract: `docs/function-extension-sdk-contract.md`
-- Statistical contract: `docs/statistical-functions-foundation-contract.md`
-- Financial contract: `docs/financial-functions-foundation-contract.md`
+- Engineering contract: `docs/engineering-functions-foundation-contract.md`
+- Database contract: `docs/database-functions-foundation-contract.md`
 - Final acceptance: `docs/CODEX_FINAL_ACCEPTANCE.md`
 
-## Previously completed foundations
+## Batch completed: Engineering + Database Functions Foundation
 
-- Sparse workbook/worksheet, structural history, fractional viewport and multi-host rendering.
-- Conditional Formatting, Data Validation, Tables, AutoFilter and native paged presenters.
-- Page layout, print preview, PDF, native print adapters, XLSX preservation and CSV/TSV.
-- Formula Surface I, Dynamic Arrays Foundation, Function Extension SDK v1.0, Conditional Aggregates and Statistical Functions Foundation.
+### Engineering functions
 
-## Batch completed: Financial Functions Foundation
+Nineteen SDK v1 functions:
 
-### Ten financial functions
+- `DELTA`, `GESTEP`;
+- `BITAND`, `BITOR`, `BITXOR`, `BITLSHIFT`, `BITRSHIFT`;
+- `DEC2BIN`, `DEC2OCT`, `DEC2HEX`;
+- `BIN2DEC`, `OCT2DEC`, `HEX2DEC`;
+- `BIN2OCT`, `BIN2HEX`, `OCT2BIN`, `OCT2HEX`, `HEX2BIN`, `HEX2OCT`.
 
-- `PV`.
-- `FV`.
-- `PMT`.
-- `NPER`.
-- `NPV`.
-- `IRR`.
-- `IPMT`.
-- `PPMT`.
-- `SLN`.
-- `SYD`.
+Key contracts:
 
-### Time-value and sign conventions
+- deterministic/pure, scalar-only SDK descriptors;
+- bit values bounded to `0..2^48-1`;
+- shift magnitude bounded to 53 with negative direction reversal;
+- 10-bit binary, 30-bit octal and 40-bit hexadecimal two's-complement negative conventions;
+- optional positive-output `places` from 1 through 10;
+- target-range and checked-overflow validation;
+- explicit `#NUM!`/`#VALUE!` failures.
 
-- `PV`, `FV`, `PMT` and `NPER` share one annuity sign/timing model.
-- Payment type is integer `0` or `1`.
-- Zero-rate paths use explicit linear formulas.
-- Invalid rate/domain and non-finite output return `#NUM!`; invalid timing/shape returns `#VALUE!`.
-- Zero-rate `NPER` with zero payment returns `#DIV/0!`.
+### Database functions
 
-### Cash-flow functions
+Twelve SDK v1 functions:
 
-- `NPV` preserves logical argument order and row-major range order.
-- Range numeric/date values participate; range blank/text/Boolean values are ignored.
-- Scalar Boolean and invariant numeric text may coerce.
-- `NPV` retains at most 2,000,000 values and uses compensated summation.
-- `IRR` retains at most 100,000 values and requires positive and negative cash flows.
+- `DSUM`, `DCOUNT`, `DCOUNTA`, `DAVERAGE`;
+- `DMAX`, `DMIN`, `DPRODUCT`, `DGET`;
+- `DSTDEV`, `DSTDEVP`, `DVAR`, `DVARP`.
 
-### Hardened IRR solver
+Key contracts:
 
-- Bounded Newton iteration remains the fast candidate.
-- A transformed-rate log-domain sampler and bisection path supplies an independent candidate.
-- Each solver phase is bounded to 100 iterations; bracket sampling uses 64 intervals.
-- When both candidates converge, the root nearest the caller's `guess` is selected.
-- A regression cash-flow vector with roots near `-0.8368694674` and `1.7426259408` proves Newton can cross to the farther basin and that the bracket candidate restores nearest-guess behavior.
-- Repeated evaluation is deterministic.
+- rectangular database range with unique nonblank headers;
+- field by header or one-based index;
+- criteria-table AND within rows and OR across rows;
+- duplicate criteria headers for same-field AND;
+- shared comparison/wildcard/tilde parser;
+- blank criteria ignored and empty criteria row matches all;
+- compensated sums and stable online variance/deviation;
+- exact-one-record `DGET`;
+- database/field/criteria dependencies and affected recalculation;
+- database, criteria and comparison budgets.
 
-### Payment decomposition and depreciation
+### SDK and formula counts
 
-- `IPMT` and `PPMT` use one-based periods.
-- Beginning-of-period payment one has zero interest.
-- Tests require `IPMT + PPMT == PMT` within tolerance.
-- `SLN` implements straight-line depreciation.
-- `SYD` implements sum-of-years-digits depreciation with period/domain validation.
+- Built-in eager/versioned registry: 144 names.
+- AST/reference-aware built-ins: 18 names.
+- Dynamic-array built-ins: 5 names.
+- Complete built-in subsystem: 167 names.
 
-### SDK and dependency integration
+### CI #819
 
-- Namespace `NERA.BUILTIN`, version `1.0.0`, host API `1.0`.
-- Logical argument counting and scalar return.
-- Deterministic/pure classification.
-- `NPV`/`IRR` declare scalar and range arguments; remaining names are scalar-only.
-- Cash-flow ranges enter the shared dependency graph.
-- Affected-only recalculation responds to source edits.
-- Eager registry increases from 103 to 113 names; complete built-in formula count increases from 126 to 136.
+- Core restore/build/tests: success.
+- Architecture verification: success.
+- 141 formula tests and complete Core matrix: success.
+- Full Windows build/tests: success.
+- Desktop GPU runtime smoke: success.
+- Android: success.
+- iOS and Mac Catalyst: success.
+- MAUI Windows build/handler: success.
+- Loaded Table-filter, runtime-context and scale/orientation smokes: success.
 
-### Cleanup and compatibility fixes
+## Problems found and fixed during the batch
 
-- Removed one duplicate SDK implementation and one duplicate SDK test surface.
-- Removed obsolete connector/tool-discovery marker files.
-- Corrected criteria wildcard escaping so `~*` and `~?` match literal characters across all conditional aggregates.
-
-## Implementation CI #809
-
-The implementation commit is accepted only after all jobs conclude successfully:
-
-- Core restore/build/tests and architecture verification;
-- all financial, statistical, conditional aggregate, SDK and dynamic-array regressions;
-- full Windows build/tests and desktop GPU smoke;
-- Android;
-- iOS and Mac Catalyst;
-- MAUI Windows build/handler;
-- loaded Table-filter, runtime-context and scale/orientation smokes.
+- Analyzer CA1859 findings in database implementation and test helpers were fixed with concrete internal collection types.
+- Registry count regression was updated from 113 to 144 after all 31 new functions were registered.
+- No formula-result regression remained after the analyzer fixes; engineering/database semantics passed the full formula suite.
 
 ## Explicit limitations
 
-- No `RATE`, `XNPV`, `XIRR`, `CUMIPMT`, `CUMPRINC` or `ISPMT`.
-- No bond/coupon, treasury, price/yield or day-count families.
-- No DB/DDB/VDB or amortization-specific depreciation methods.
-- IRR root discovery is bounded and does not claim every pathological external-producer case.
-- Currency/locale/date-basis compatibility remains external corpus work.
-- Numeric `#NUM!` values still share the existing invalid-value enum path.
-- Financial fuzzing and very-large cash-flow performance remain final acceptance work.
+- Engineering complex-number, unit conversion, Bessel and error-function families are pending.
+- Database criteria cells do not execute formula expressions.
+- Database headers must be unique.
+- Database processing is a bounded scan, not an indexed query engine.
+- Criteria parsing is invariant, not locale-specific.
+- Advanced statistics/distributions, remaining finance, advanced lookup/arrays and cube functions are pending.
+- Plugin package loading/signatures/isolation and volatile scheduling are pending.
+- External Excel/LibreOffice engineering/database corpora and fuzzing remain final acceptance work.
 
-## Progress after exact-head documentation validation
+## Progress
 
 - Engine/viewport/renderer: about `92%`.
 - Basic spreadsheet MVP: about `96–98%`.
-- Professional roadmap: about `70%`.
-- Production readiness: about `47–50%`.
+- Complete professional roadmap: about `72%`.
+- Production readiness: about `49–52%`.
 
 ## Next batch
 
-1. Engineering and Database Functions Foundation.
-2. Database criteria-table evaluator and dependency/budget contracts.
-3. Advanced statistics, covariance/correlation/regression and distributions.
-4. Remaining financial families.
-5. Advanced lookup/reference and dynamic-array helpers.
-6. Plugin packaging/discovery/isolation and API compatibility.
-7. Native spill UX, drawings/charts and advanced data.
-8. Release hardening and final Codex acceptance.
+1. Advanced Statistical Functions Foundation.
+2. Covariance, correlation and regression helpers.
+3. Normal and related distribution primitives with bounded numerical methods.
+4. Dependency/domain/precision/resource regressions.
+5. Exact-head Core/Windows/MAUI CI.
+6. Then remaining finance and advanced lookup/dynamic arrays.
 
 PR remains Draft; do not merge while a newer exact-head CI is red or unknown.

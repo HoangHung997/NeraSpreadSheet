@@ -1,130 +1,96 @@
-# Versioned Function Extension SDK contract
+# Function Extension SDK v1.0 contract
 
-This document defines Function Extension SDK API `1.0` for NeraSpreadSheet. The SDK is owned by Nera; Excel, LibreOffice and third-party libraries are compatibility references only.
+This document defines NeraSpreadSheet's validated versioned function-extension contract. It is platform-neutral and independent from OpenXml and UI hosts.
 
-## 1. Architecture boundary
+## 1. Identity and versions
 
-- `FormulaFunctionDescriptor` declares one function contract.
-- `FormulaFunctionIdentity` gives a stable namespace and formula name.
-- `FormulaFunctionVersion` versions implementation independently from the host API.
-- `FormulaFunctionApiVersion` versions the invocation contract; current API is `1.0`.
-- `VersionedFormulaFunctionRegistry` validates, stores and resolves functions.
-- `FormulaFunctionInvocation` preserves logical scalar/range/array identity.
-- `FormulaValueCoercion` is the shared conversion surface.
-- `NeraFormulaEngine` captures source dependencies and invokes compatible functions.
-- Platform hosts, OpenXml and renderers do not implement function semantics.
+Each versioned function declares:
 
-Legacy `IFormulaFunction` and `IFormulaFunctionRegistry` remain source-compatible through descriptors/adapters.
+- stable namespace/name identity;
+- semantic implementation version;
+- minimum host API version;
+- aliases;
+- minimum/maximum logical arguments;
+- argument-count policy;
+- capabilities;
+- volatility/state classification;
+- security classification;
+- dependency policy;
+- argument-error propagation policy.
 
-## 2. Identity and versions
+Current host API: `1.0`.
 
-Identity contains a normalized namespace and primary name. Comparison is case-insensitive through uppercase normalization. Names are bounded and validated.
+## 2. Registry behavior
 
-`FormulaFunctionVersion` is a non-negative major/minor/patch value. Side-by-side registration is explicit. Resolution selects the highest version by name/alias, while exact identity/version resolution remains available.
+- Thread-safe registration and lookup.
+- Exact version lookup.
+- Highest compatible version selection.
+- Side-by-side versions under one identity.
+- Exact replacement only when explicitly requested.
+- Unregister with fallback to next highest version.
+- Global name/alias ownership and deterministic conflict rejection.
+- Bounded versions per identity.
+- Legacy `IFormulaFunction` registration through a `LEGACY` adapter.
 
-Removing the highest version exposes the next lower version. Aliases must be stable across versions. Formula text does not yet pin a version.
+## 3. Capabilities and invocation
 
-## 3. Host API compatibility
+Capabilities distinguish scalar/range/array arguments and scalar/array return. Invocation arguments are immutable and preserve scalar value or range source identity, shape and row-major values. Descriptor validation rejects unsupported array features, incompatible host APIs and disallowed external-state functions before registration.
 
-Registration succeeds only when the requested host API major equals the host major and the requested minor is not newer. API `2.0` is rejected by an API `1.0` host before formula evaluation.
+Argument-count policy is either:
 
-## 4. Capability and state declarations
+- logical arguments; or
+- flattened values for legacy-compatible aggregate-style functions.
 
-Capabilities:
+## 4. State and security
 
-- scalar arguments;
-- range arguments;
-- array arguments;
-- scalar return;
-- array return.
+Volatility classifications include deterministic, volatile and external-state. Security classifications distinguish pure, context-read-only and external-state functions. The default registry policy allows current built-ins and safe extensions but fails closed on unsupported/external-state capability combinations.
 
-State metadata:
+Volatility metadata exists; automatic workbook volatile scheduling remains pending.
 
-- volatility: deterministic, volatile or external-state;
-- security/state: pure, context-read-only or external-state.
+## 5. Dependencies
 
-The default v1 policy permits scalar/range arguments, scalar returns, deterministic/volatile behavior and at most context-read-only access. It rejects external-state and array-capable extensions until isolated loading and dynamic-array extension integration exist.
+A descriptor chooses engine-captured dependencies only or permits additional function-declared dependencies. Returned dependencies are merged with expression/range dependencies and deduplicated before entering the graph.
 
-## 5. Logical versus flattened arguments
+## 6. Built-in registry milestone
 
-### Logical arguments
+The validated eager/versioned built-in registry contains **144 names**:
 
-Default for new SDK functions. `FUNCTION(A1:A10,5)` contains two arguments: one range retaining source identity/ten values and one scalar.
+- 92 original flattened-value functions;
+- 11 statistical functions;
+- 10 financial functions;
+- 19 engineering functions;
+- 12 database functions.
 
-The eleven Statistical Functions Foundation functions use this policy so range data remains distinct from percentile/rank/index control arguments.
+All new engineering/database functions use SDK v1 descriptors. Engineering is scalar-only. Database functions preserve logical range identity and set `propagateArgumentErrors=false` so matched-row semantics can inspect errors selectively.
 
-### Flattened values
+The broader formula subsystem adds 18 AST/reference-aware and five dynamic-array names, totaling **167 built-in names**.
 
-Historical compatibility policy. Range values are flattened before arity validation. The original 92 eager functions and legacy adapters use this behavior.
+## 7. Compatibility and failure policy
 
-The eager built-in registry now contains:
+Registration rejects:
 
-- 92 flattened-value functions;
-- 11 logical-argument statistical functions;
-- total 103 versioned built-in descriptors.
+- minimum host API newer than current host;
+- unsupported capability combinations;
+- invalid argument bounds;
+- conflicting name/alias ownership;
+- duplicate exact versions without explicit replacement;
+- external-state functions under the default restrictive policy.
 
-## 6. Invocation and dependencies
+Evaluation rejects unsupported argument kinds before invocation. Function exceptions are converted through the engine's fail-closed error boundary; they do not escape into UI hosts.
 
-`FormulaFunctionInvocation` exposes immutable `FormulaFunctionArgument` objects recording kind, values, optional source dependency and future array value.
+## 8. Deliberately pending
 
-The engine records ordinary source dependencies before invocation. A descriptor may choose:
+- Plugin manifest/package format.
+- Discovery/loading/unloading.
+- Publisher signatures and trust policy.
+- Process/AppDomain/WASM isolation and resource quotas.
+- Formula-text version pinning.
+- NuGet/plugin packaging and API compatibility tooling.
+- Third-party array return contract and host spill integration.
+- External state permission prompts and auditing.
 
-- `EngineCapturedOnly`;
-- `FunctionMayDeclareAdditional`.
+## 9. Validation gates
 
-Returning undeclared additional dependencies fails the implementation contract rather than silently discarding them.
+SDK changes require version ordering, exact/highest resolution, conflict/replacement/unregister behavior, API/capability/security rejection, range identity/shape, additional dependency, legacy adapter and built-in descriptor/count regressions, followed by the complete hosted matrix.
 
-## 7. Error and coercion policy
-
-Descriptors choose whether argument errors propagate before invocation. Functions that inspect errors disable propagation; ordinary numeric/statistical functions enable it.
-
-`FormulaValueCoercion` provides deterministic helpers for numbers, integers, Boolean, DateTime/OLE serial, text, finite output and explicit errors. Extensions should use this surface rather than inventing incompatible rules.
-
-## 8. Registry conflicts and limits
-
-Conflict policies:
-
-- reject;
-- allow side-by-side versions;
-- replace exact version.
-
-Primary names and aliases are globally owned by one identity. One identity is limited to eight versions by the default registry. Reads/writes are synchronized; descriptor and argument collections are immutable or detached.
-
-## 9. Built-in and legacy metadata
-
-All 103 eager built-ins use namespace `NERA.BUILTIN`, implementation version `1.0.0` and host API `1.0`.
-
-- The original 92 declare scalar/range arguments, scalar return and flattened counting.
-- The eleven statistical functions declare scalar/range arguments, scalar return and logical counting.
-- `TODAY`/`NOW` are volatile/context-read-only.
-- Statistical functions are deterministic/pure and bounded to two million numeric/date values per invocation.
-
-Legacy functions receive namespace `LEGACY`, version `0.0.0`, flattened counting and context-read-only classification.
-
-## 10. Deliberately pending
-
-- formula-text version pinning;
-- plugin/package manifests and assembly discovery;
-- signatures, trust stores and publisher policy;
-- dependency loading and API binary-compatibility tooling;
-- out-of-process isolation/sandboxing;
-- array-returning extension integration;
-- async/external data functions;
-- automatic volatile scheduling;
-- localization/regional aliases;
-- NuGet/source-link release packaging.
-
-## 11. Required validation
-
-Promotion requires:
-
-1. built-in descriptor counts and legacy compatibility;
-2. API/capability/security rejection;
-3. alias/conflict/version resolution;
-4. logical versus flattened arity;
-5. range identity and dependency capture;
-6. additional-dependency policy;
-7. Statistical Functions descriptors through the same SDK surface;
-8. the complete scalar, dynamic-array, workbook, Windows and MAUI matrix.
-
-PR #1 remains Draft while a newer exact-head CI is red or unknown.
+PR #1 remains Draft while exact-head CI is red or unknown.

@@ -4,221 +4,122 @@ This file is the source of truth for the current development branch. A capabilit
 
 ## Product rules
 
-NeraSpreadSheet is an independent spreadsheet SDK.
-
-- No runtime dependency on Microsoft Excel, LibreOffice or DevExpress.
-- No native UI control per cell.
-- Workbook, formulas, extensions, dynamic arrays, editing, layout, scrolling and printing remain independent from WPF, WinForms and MAUI.
-- Viewports and print previews use continuous `double` pixel offsets.
-- Document-format dependencies stay inside adapter projects; OpenXml types do not enter Core/formula public contracts.
+- Independent spreadsheet SDK; no Excel, LibreOffice or DevExpress runtime dependency.
+- No native control per cell.
+- Formula, dynamic-array, editing, layout, scrolling and printing semantics remain platform-neutral.
+- OpenXml types stay inside adapter projects.
 - Spill children are derived output owned by one top-left formula.
-- Extension functions must pass API, capability and state-policy validation before registration.
+- Extension functions must pass API, capability, state and resource validation before registration.
 
 ## Implemented
 
-### Core workbook, editing and structure
+### Core, editing and rendering
 
-- Excel-size sparse worksheets, multiple sheets, values, formulas, direct styles, dimensions and merged ranges.
-- Immutable snapshots, bounded caches and sparse whole-axis styles.
+- Excel-size sparse worksheets, values/formulas/styles/dimensions/merges, immutable snapshots and bounded caches.
 - Selection, spill-aware clipboard, editor, commands, sort and data/view Undo/Redo.
-- Structural insert/delete/reorder with overflow preflight, formula/reference/rule/Table/filter/spill mapping and atomic rollback.
+- Atomic structural operations with formula/rule/Table/filter/spill mapping.
+- Sparse whole-axis styles, fractional scrolling, freeze/split panes and shared display-list rendering across WPF, WinForms and MAUI GPU hosts.
 
-### Formula parser and calculation
+### Formula engine and SDK
 
-- Tokenizer, parser and AST for arithmetic, comparison, concatenation, A1 references/ranges, functions and basic cross-sheet references.
-- Dependency graph, circular-reference detection and affected-only recalculation.
-- Shared formulas, structured references, Table/column rewrite and calculated-column propagation.
-- Public coercion/error layer including `#NUM!` cell values and explicit `#SPILL!` ownership errors.
-- Lazy branches for `IF`, `IFERROR`, `IFNA`, `IFS`, `SWITCH` and `CHOOSE`.
-- Current filter-aware `SUBTOTAL` and filter-source dependencies.
+- Parser/AST, A1/cross-sheet references, dependency graph, circular detection and affected-only recalculation.
+- Shared/structured formulas and Table formula rewrite/projection.
+- Function Extension SDK v1.0 with identity, implementation/API versions, aliases, side-by-side versions, capabilities, volatility/state, dependency policy, argument-count policy, registration conflict rules and legacy adapter.
+- Built-in eager/versioned registry: **144 names**.
+- AST/reference-aware built-ins: **18 names**.
+- Dynamic-array built-ins: **5 names**.
+- Complete built-in subsystem: **167 names**.
 
-### Versioned Function Extension SDK v1.0
+### Conditional aggregates
 
-- Stable namespace/name identity.
-- Independent semantic implementation version and host API version; current API is `1.0`.
-- Exact lookup, highest-version resolution, side-by-side versions, exact replacement and unregister fallback.
-- Global name/alias ownership and alias stability across versions.
-- Scalar/range/array argument and scalar/array-return capability declarations.
-- Deterministic/volatile/external-state metadata and pure/context-read-only/external-state classification.
-- Engine-only or function-added dependency policy.
-- Automatic/disabled argument-error propagation.
-- Logical versus flattened argument-count policy.
-- Immutable invocation arguments preserving range source identity and values.
-- Public `FormulaValueCoercion` helpers.
-- Thread-safe registry and bounded versions per identity.
-- Fail-closed default policy for incompatible APIs, unsupported array capabilities and external-state functions.
-- Legacy `IFormulaFunction` registration through a `LEGACY` adapter.
+`COUNTIF`, `COUNTIFS`, `SUMIF`, `SUMIFS`, `AVERAGEIF`, `AVERAGEIFS` use a shared invariant criteria parser with comparison operators, wildcard/tilde escaping, same-shape positional ranges, dependency capture and a two-million-pass budget.
 
-The eager built-in registry contains **113 names**. The original 92 functions preserve flattened-value arity; eleven statistical and ten financial functions use logical arguments through SDK v1 metadata.
+### Statistical Foundation
 
-Full contract: `docs/function-extension-sdk-contract.md`.
+`MEDIAN`, `MODE.SNGL`, `PERCENTILE.INC`, `QUARTILE.INC`, `VAR.P`, `VAR.S`, `STDEV.P`, `STDEV.S`, `RANK.EQ`, `LARGE`, `SMALL` with bounded value retention, stable variance and affected recalculation.
 
-### Conditional aggregate criteria and functions
+### Financial Foundation
 
-- Shared invariant criteria parser with `=`, `<>`, `<`, `<=`, `>` and `>=`.
-- Boolean, number, DateTime, error and text criteria.
-- Ordinal case-insensitive text, wildcards and tilde escaping, including literal `~*` and `~?` handling.
-- Blank/non-blank matching and strict same-shape positional ranges.
-- `COUNTIF`, `COUNTIFS`, `SUMIF`, `SUMIFS`, `AVERAGEIF`, `AVERAGEIFS`.
-- Multiple criteria combine by AND.
-- Matched aggregate errors propagate; unmatched errors are not inspected.
-- Criteria, aggregate and expression dependencies enter the graph.
-- Two-million positional-pass budget validated before enumeration.
+`PV`, `FV`, `PMT`, `NPER`, `NPV`, `IRR`, `IPMT`, `PPMT`, `SLN`, `SYD` with shared sign/timing rules, zero-rate paths, bounded cash-flow retention and deterministic nearest-guess IRR hardening.
 
-Full contract: `docs/conditional-aggregates-contract.md`.
+### Engineering Functions Foundation
 
-### Statistical Functions Foundation
+Nineteen deterministic/pure SDK v1 functions:
 
-Eleven deterministic/pure SDK v1 functions are implemented:
+- `DELTA`, `GESTEP`;
+- `BITAND`, `BITOR`, `BITXOR`, `BITLSHIFT`, `BITRSHIFT`;
+- `DEC2BIN`, `DEC2OCT`, `DEC2HEX`;
+- `BIN2DEC`, `OCT2DEC`, `HEX2DEC`;
+- `BIN2OCT`, `BIN2HEX`, `OCT2BIN`, `OCT2HEX`, `HEX2BIN`, `HEX2OCT`.
 
-- `MEDIAN`;
-- `MODE.SNGL`;
-- `PERCENTILE.INC`;
-- `QUARTILE.INC`;
-- `VAR.P`, `VAR.S`;
-- `STDEV.P`, `STDEV.S`;
-- `RANK.EQ`;
-- `LARGE`, `SMALL`.
+Contracts include 48-bit bounded bit operations, signed shift direction, fixed-width two's-complement negatives, optional zero-padding, target-range validation, invariant parsing and explicit error behavior.
 
-Behavior includes logical range/scalar boundaries, range numeric/date participation, scalar Boolean/numeric-text coercion, a two-million-value limit, inclusive percentile interpolation, stable online variance, explicit errors, dependencies and affected-only recalculation.
+Full contract: `docs/engineering-functions-foundation-contract.md`.
 
-Full contract: `docs/statistical-functions-foundation-contract.md`.
+### Database Functions Foundation
 
-### Financial Functions Foundation
+Twelve deterministic/pure SDK v1 functions:
 
-Ten deterministic/pure SDK v1 functions are implemented:
+- `DSUM`, `DCOUNT`, `DCOUNTA`, `DAVERAGE`;
+- `DMAX`, `DMIN`, `DPRODUCT`, `DGET`;
+- `DSTDEV`, `DSTDEVP`, `DVAR`, `DVARP`.
 
-- `PV`;
-- `FV`;
-- `PMT`;
-- `NPER`;
-- `NPV`;
-- `IRR`;
-- `IPMT`;
-- `PPMT`;
-- `SLN`;
-- `SYD`.
+Database behavior includes rectangular header/data ranges, field selection by header or one-based index, criteria tables, AND within one criteria row, OR across rows, duplicate criteria headers, shared wildcard/tilde parser, compensated sums, stable sample/population variance, exact-one-record `DGET`, dependency capture, affected recalculation and explicit database/criteria/comparison budgets.
 
-Behavior includes:
+Full contract: `docs/database-functions-foundation-contract.md`.
 
-- consistent cash-flow sign conventions across `PV`, `FV`, `PMT` and `NPER`;
-- explicit zero-rate branches;
-- payment timing `0` or `1`;
-- ordered row-major cash-flow collection for `NPV` and `IRR`;
-- scalar/range coercion boundaries matching the SDK logical-argument model;
-- two-million retained-value budget for `NPV` and 100,000 for `IRR`;
-- compensated summation for discounted cash flows;
-- bounded Newton plus transformed-rate bracket/bisection solving for `IRR`;
-- comparison of Newton and bracket candidates so multiple-root output is selected nearest the supplied guess among roots found by the bounded strategy;
-- one-based period validation for `IPMT` and `PPMT`;
-- `IPMT + PPMT == PMT` reconciliation within floating-point tolerance;
-- straight-line and sum-of-years-digits depreciation;
-- range dependencies and affected-only recalculation;
-- versioned descriptor and budget tests.
+### Dynamic arrays
 
-The scalar/reference surface now contains **131 built-in names**: 113 eager plus 18 AST/reference-aware. Together with five dynamic-array names, the complete built-in formula subsystem recognizes **136 names**. User-registered extension functions are additional.
-
-Full contract: `docs/financial-functions-foundation-contract.md`.
-
-### Dynamic Arrays Foundation
-
-- Immutable rectangular row-major `FormulaArrayValue`, limited to one million cells.
-- Stable spill owner/child identity in worksheets and immutable snapshots.
-- Collision preflight for values, formulas, spills, merged ranges, Tables and worksheet bounds.
-- Direct style-only cells do not block output; child styles survive materialization/resize/clear.
-- Blocked output commits `#SPILL!` while retaining owner formula and blocker state.
-- Atomic replacement and bounded eight-pass stabilization.
+- Immutable row-major arrays and spill owner/child identity.
+- Collision preflight, direct-style preservation, `#SPILL!`, atomic replacement and eight-pass stabilization.
 - `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE`.
-- Source/range dependencies and committed-value dependent recalculation.
-- Spill-aware edit, clear, clipboard, Undo/Redo and structural transforms.
-- Dynamic-array-aware XLSX document save keeps owner formulas and removes derived child values/formulas.
-
-Full contract: `docs/dynamic-arrays-contract.md`.
-
-### Viewport and multi-host rendering
-
-- Fractional pixel scrolling, freeze panes, split panes and independent pane offsets.
-- Snapshot/tile caching and split-aware dirty projection.
-- WPF DrawingContext/D3DImage, WinForms GDI+/Direct2D/D3D11-DXGI and Skia/MAUI GPU rendering.
-- Loaded desktop and MAUI Windows device/context recreation and scale/orientation gates.
-- Immutable snapshots expose spill ownership to host layers.
+- Spill-aware editing, clear, clipboard, Undo/Redo, structural mapping, snapshots and XLSX save boundary.
 
 ### Rules, Tables and filtering
 
-- `CellIs`/`Expression` Conditional Formatting with differential styles, history, rendering and XLSX.
-- Whole/decimal/date/time/text-length/list/custom Data Validation with editor policy, history and XLSX.
+- Conditional Formatting and Data Validation models, history, rendering and XLSX round-trip.
 - Stable Table/column identities, calculated columns, structured references and filter-aware totals.
-- Table and worksheet AutoFilter share value/blank/comparison predicates and compressed hidden-row spans.
-- Generation-guarded paged filter sessions, bounded cache and native WPF/WinForms/MAUI foundations.
+- Table/direct worksheet AutoFilter with compressed hidden rows, generation-guarded paging and native presenter foundations.
 
 ### XLSX, CSV/TSV, page layout and PDF
 
-- XLSX values, cached formulas, sheets, dimensions, merges, panes, styles, rules, Tables, filters and package preservation.
-- Print area/titles, margins, paper, orientation, scale, fit, centering, headings/gridlines and odd header/footer round-trip.
-- Deterministic pagination, repeat titles, merged-cell protection and virtualized native preview foundations.
-- Staged worksheet/workbook/print-ticket PDF and WPF/WinForms printer adapters.
-- Streaming CSV/TSV with buffer-boundary quote handling, explicit type/formula policy, injection protection and staged output limits.
+- XLSX cells/formulas/styles/panes/rules/Tables/filters/print settings and unknown-part preservation.
+- Deterministic pagination, virtualized preview, staged PDF and WPF/WinForms print adapters.
+- Streaming CSV/TSV with quote-boundary handling, explicit type/formula policy, injection protection and staged limits.
 
-### Validation automation
+## Conservative limitations
 
-- `scripts/run-complete-validation.ps1` runs broad Core, Windows and MAUI gates and emits JSON/TRX evidence.
-- `docs/CODEX_FINAL_ACCEPTANCE.md` records external plugin, criteria/statistics/finance, dynamic-array, printer/PDF, device, compatibility and fuzzing work that hosted CI cannot fully prove.
-
-## Implemented but intentionally conservative
-
-- Formula Surface I, conditional aggregates, statistics, finance and Dynamic Arrays Foundation are not a complete Excel-compatible formula engine.
-- SDK v1 does not yet load plugin packages, pin versions in formula text, verify publishers or isolate third-party code.
-- Volatility metadata exists; automatic volatile scheduling is pending.
-- Numeric/domain failures carry `#NUM!` values through the current invalid-value enum path.
-- Statistical comparison uses exact `double` equality for mode/rank ties.
-- Exclusive percentile/quartile, multi-mode, rank-average, correlation/regression and distributions are pending.
-- Financial compatibility does not yet include `RATE`, `XNPV`, `XIRR`, cumulative payment functions, bond/coupon/day-count or accelerated depreciation families.
-- `IRR` uses a bounded deterministic strategy; it does not claim every external producer's behavior for pathological or many-root cash flows.
-- Conditional criteria parsing is invariant, not locale-specific.
-- Spill-reference `A1#`, implicit intersection `@`, array constants and vectorized expressions are pending.
-- Advanced dynamic arrays, LET/LAMBDA and higher-order functions are pending.
-- Native spill-border/selection UX is pending.
-- Advanced XLOOKUP modes, complete `SUBTOTAL`, engineering, database and cube families are pending.
-- Newly added native paths do not each have dedicated loaded interaction gates.
-- XLSX manual breaks, first/even headers and arbitrary custom paper are pending.
-- Physical printer drivers, independent PDF raster diff, font embedding/substitution and drawings/charts pagination remain pending.
+- Formula surface is not complete Excel compatibility.
+- SDK v1 does not yet load signed plugin packages or isolate third-party code.
+- Engineering complex-number, unit conversion, Bessel and error-function families are pending.
+- Database criteria cells do not execute formula expressions; processing is a bounded scan and headers must be unique.
+- Advanced statistics, distributions, `RATE`, `XNPV`, `XIRR`, bond/coupon/day-count and accelerated depreciation are pending.
+- Spill-reference `A1#`, implicit intersection `@`, advanced arrays and LET/LAMBDA are pending.
+- Native spill UX, full external dynamic-array metadata, drawings/charts pagination, real-printer validation, independent PDF/font corpus and final packaging/security/performance gates are pending.
 
 ## Weighted progress estimate
 
 - Engine/viewport/renderer foundation: approximately `92%`.
 - Basic spreadsheet MVP: approximately `96–98%`.
-- Complete professional roadmap: approximately `70%`.
-- Production release readiness: approximately `47–50%`.
+- Complete professional roadmap: approximately `72%`.
+- Production release readiness: approximately `49–52%`.
 
 These are engineering-weighted estimates, not checkbox counts.
 
 ## Next implementation work
 
-1. Engineering and Database Functions Foundation, including criteria-table support.
-2. Advanced statistical distributions, covariance/correlation and regression.
+1. Advanced Statistical Functions Foundation: covariance, correlation, regression and distributions.
+2. Remaining finance: `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon and accelerated depreciation.
 3. Advanced lookup/reference and dynamic-array helpers.
-4. Remaining financial families: `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon and accelerated depreciation.
-5. Plugin packaging/discovery, API compatibility and isolation policy.
-6. Native spill UX, drawings/images/charts and print/PDF pagination.
-7. Advanced sort, grouping/outlines, virtual data, pivot tables and slicers.
-8. Remaining printing/XLSX/PDF/font/external formula corpora.
-9. MAUI IME/accessibility/localization/theme and release hardening.
-10. Execute final Codex acceptance before promoting PR #1.
+4. Plugin packaging/discovery, compatibility and isolation.
+5. Native spill UX, drawings/images/charts and print/PDF pagination.
+6. Advanced data, grouping/outlines, virtual data, pivot tables and slicers.
+7. Remaining XLSX/PDF/font/external formula corpora, MAUI accessibility/IME and release hardening.
 
 ## Validation policy
 
-- Core restore/build/tests and architecture verification are mandatory.
-- Full Windows build/tests and desktop GPU smoke are mandatory.
-- MAUI changes require Android/iOS/Mac Catalyst/Windows builds and applicable loaded native gates.
-- SDK changes require API/version/capability/security/conflict/dependency compatibility tests.
-- Formula-family changes require result, coercion, error, dependency, affected-recalculation, budget and descriptor tests.
-- Financial changes additionally require sign/timing consistency, zero-rate branches, IRR convergence/multiple-root selection and payment reconciliation.
-- PR #1 remains Draft and must not merge while exact-head CI is red or unknown.
+Core, architecture, full Windows, desktop GPU, Android, iOS, Mac Catalyst and MAUI Windows loaded-runtime gates are mandatory. Formula families additionally require result, descriptor, coercion/error, dependency, affected-recalculation and resource-budget regressions.
 
 ## Latest validated implementation milestone
 
-Implementation commit `e8c349d0b969fa8c9734452573bf7e9bcfa4df28` is associated with CI `#809`, run `32644745950`. Documentation promotes this milestone only after that exact-head implementation run concludes successfully.
-
-## Independence rule
-
-Excel, LibreOffice and DevExpress are behavior/coverage references only. Their engines, command IDs, controls and public types are not NeraSpreadSheet dependencies.
+Implementation commit `ba7d0ce079c451f6390f5aafcb0cf861ccad0caa` passed CI `#819`, run `32651011596`, across the full hosted matrix.
