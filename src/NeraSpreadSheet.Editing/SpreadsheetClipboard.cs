@@ -117,16 +117,38 @@ public sealed class SpreadsheetClipboardController
     public SpreadsheetClipboardPackage CopyPrimarySelection()
     {
         var range = _session.Selection.Ranges[0];
+        EnsureSourceSpillsFullySelected(range);
         EnsureMaterializationLimit(range);
-        var cells = _session.ActiveWorksheet.EnumerateUsedCells()
-            .Where(pair => range.Contains(pair.Key))
-            .Select(pair => new SpreadsheetClipboardCell(
+        var worksheet = _session.ActiveWorksheet;
+        var cells = new List<SpreadsheetClipboardCell>();
+        foreach (var pair in worksheet.EnumerateUsedCells()
+                     .Where(pair => range.Contains(pair.Key)))
+        {
+            var data = pair.Value;
+            if (worksheet.TryGetFormulaSpillOwner(pair.Key, out var owner) &&
+                owner != pair.Key)
+            {
+                // Spill children are derived output. Copy only direct child
+                // formatting so the pasted owner can regenerate its values.
+                if (data.StyleId == CellStyleCatalog.DefaultStyleId)
+                {
+                    continue;
+                }
+                data = new CellData(
+                    CellValue.Blank,
+                    styleId: data.StyleId);
+            }
+
+            cells.Add(new SpreadsheetClipboardCell(
                 pair.Key.RowIndex - range.Top,
                 pair.Key.ColumnIndex - range.Left,
                 pair.Key,
-                pair.Value))
-            .ToArray();
-        Clipboard = new SpreadsheetClipboardPackage(_session.ActiveWorksheet.Name, range, cells);
+                data));
+        }
+        Clipboard = new SpreadsheetClipboardPackage(
+            worksheet.Name,
+            range,
+            cells);
         return Clipboard;
     }
 
@@ -177,6 +199,8 @@ public sealed class SpreadsheetClipboardController
         }
         EnsureTargetFits(Clipboard, destination);
         EnsureMaterializationLimit(Clipboard.SourceRange);
+        var pastedRange = CreateTargetRange(Clipboard, destination);
+        EnsureTargetDoesNotIntersectSpill(pastedRange);
 
         var updates = new List<KeyValuePair<CellAddress, CellData>>(checked(Clipboard.RowCount * Clipboard.ColumnCount));
         for (var rowOffset = 0; rowOffset < Clipboard.RowCount; rowOffset++)
@@ -203,11 +227,6 @@ public sealed class SpreadsheetClipboardController
         }
 
         _session.Execute(new SetCellsOperation(_session.ActiveWorksheet, updates, "Paste cells"));
-        var pastedRange = new CellRange(
-            destination,
-            new CellAddress(
-                destination.RowIndex + Clipboard.RowCount - 1,
-                destination.ColumnIndex + Clipboard.ColumnCount - 1));
         _session.Selection.Select(pastedRange);
         return true;
     }
@@ -299,6 +318,39 @@ public sealed class SpreadsheetClipboardController
         return rows;
     }
 
+    private void EnsureSourceSpillsFullySelected(CellRange sourceRange)
+    {
+        foreach (var spill in _session.ActiveWorksheet.GetFormulaSpills())
+        {
+            if (!spill.Range.Intersects(sourceRange))
+            {
+                continue;
+            }
+            if (!Contains(sourceRange, spill.Range))
+            {
+                throw new InvalidOperationException(
+                    $"Cannot copy or cut part of the dynamic-array spill " +
+                    $"owned by {spill.Owner.ToA1()}. Select its complete " +
+                    $"spill range {spill.Range.TopLeft.ToA1()}:" +
+                    $"{spill.Range.BottomRight.ToA1()}.");
+            }
+        }
+    }
+
+    private void EnsureTargetDoesNotIntersectSpill(CellRange targetRange)
+    {
+        foreach (var spill in _session.ActiveWorksheet.GetFormulaSpills())
+        {
+            if (!spill.Range.Intersects(targetRange))
+            {
+                continue;
+            }
+            throw new InvalidOperationException(
+                $"Cannot paste into the dynamic-array spill owned by " +
+                $"{spill.Owner.ToA1()}. Clear or replace the owner formula first.");
+        }
+    }
+
     private void EnsureMaterializationLimit(CellRange range)
     {
         var cellCount = checked((long)range.RowCount * range.ColumnCount);
@@ -307,6 +359,21 @@ public sealed class SpreadsheetClipboardController
             throw new InvalidOperationException($"Clipboard range contains {cellCount.ToString(CultureInfo.InvariantCulture)} cells, exceeding the configured limit of {_maximumMaterializedCells.ToString(CultureInfo.InvariantCulture)}.");
         }
     }
+
+    private static CellRange CreateTargetRange(
+        SpreadsheetClipboardPackage clipboard,
+        CellAddress destination) =>
+        new(
+            destination,
+            new CellAddress(
+                destination.RowIndex + clipboard.RowCount - 1,
+                destination.ColumnIndex + clipboard.ColumnCount - 1));
+
+    private static bool Contains(CellRange outer, CellRange inner) =>
+        inner.Top >= outer.Top &&
+        inner.Left >= outer.Left &&
+        inner.Bottom <= outer.Bottom &&
+        inner.Right <= outer.Right;
 
     private static void EnsureTargetFits(SpreadsheetClipboardPackage clipboard, CellAddress destination)
     {
