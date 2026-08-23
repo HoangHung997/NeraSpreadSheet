@@ -86,10 +86,12 @@ public sealed partial class NeraFormulaEngine
         IFormulaEvaluationContext context,
         List<FormulaDependency> dependencies)
     {
-        if (function.Arguments.Count != 2 ||
-            !TryGetRangeOperand(
+        if (function.Arguments.Count != 2)
+        {
+            return CellValue.FromError("#VALUE!");
+        }
+        if (!TryGetRangeOperand(
                 function.Arguments[0],
-                context,
                 dependencies,
                 out var range,
                 out var rangeError))
@@ -179,10 +181,12 @@ public sealed partial class NeraFormulaEngine
         List<FormulaDependency> dependencies,
         ConditionalAggregateKind kind)
     {
-        if (function.Arguments.Count is < 2 or > 3 ||
-            !TryGetRangeOperand(
+        if (function.Arguments.Count is < 2 or > 3)
+        {
+            return CellValue.FromError("#VALUE!");
+        }
+        if (!TryGetRangeOperand(
                 function.Arguments[0],
-                context,
                 dependencies,
                 out var criteriaRange,
                 out var rangeError))
@@ -203,7 +207,6 @@ public sealed partial class NeraFormulaEngine
         if (function.Arguments.Count == 3 &&
             !TryGetRangeOperand(
                 function.Arguments[2],
-                context,
                 dependencies,
                 out aggregateRange,
                 out rangeError))
@@ -233,10 +236,12 @@ public sealed partial class NeraFormulaEngine
         ConditionalAggregateKind kind)
     {
         if (function.Arguments.Count < 3 ||
-            (function.Arguments.Count & 1) == 0 ||
-            !TryGetRangeOperand(
+            (function.Arguments.Count & 1) == 0)
+        {
+            return CellValue.FromError("#VALUE!");
+        }
+        if (!TryGetRangeOperand(
                 function.Arguments[0],
-                context,
                 dependencies,
                 out var aggregateRange,
                 out var rangeError))
@@ -341,7 +346,6 @@ public sealed partial class NeraFormulaEngine
         {
             if (!TryGetRangeOperand(
                     arguments[index],
-                    context,
                     dependencies,
                     out var range,
                     out error))
@@ -375,9 +379,8 @@ public sealed partial class NeraFormulaEngine
         return true;
     }
 
-    private bool TryGetRangeOperand(
+    private static bool TryGetRangeOperand(
         FormulaNode node,
-        IFormulaEvaluationContext context,
         List<FormulaDependency> dependencies,
         out RangeOperand range,
         out CellValue error)
