@@ -184,7 +184,7 @@ public sealed class DynamicArrayWorkbookCalculationEngine
 
             foreach (var (worksheet, range) in changes)
             {
-                var affected = _scalarCalculation.RecalculateAffected(
+                var affected = _scalarCalculation.RecalculateDependents(
                     workbook,
                     worksheet,
                     range);
