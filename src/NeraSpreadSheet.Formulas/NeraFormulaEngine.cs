@@ -1,9 +1,8 @@
-using System.Globalization;
 using NeraSpreadSheet.Core;
 
 namespace NeraSpreadSheet.Formulas;
 
-public sealed class NeraFormulaEngine : IFormulaEngine
+public sealed partial class NeraFormulaEngine : IFormulaEngine
 {
     private readonly IFormulaFunctionRegistry _functions;
 
@@ -32,7 +31,7 @@ public sealed class NeraFormulaEngine : IFormulaEngine
                 node,
                 context,
                 dependencies);
-            var error = ToErrorCode(value);
+            var error = FormulaErrorMapping.ToErrorCode(value);
             return error == FormulaErrorCode.None
                 ? FormulaEvaluationResult.Success(value, dependencies)
                 : new FormulaEvaluationResult(
@@ -206,6 +205,14 @@ public sealed class NeraFormulaEngine : IFormulaEngine
                 context,
                 dependencies);
         }
+        if (TryEvaluateConditionalAggregate(
+                function,
+                context,
+                dependencies,
+                out var aggregateValue))
+        {
+            return aggregateValue;
+        }
         if (!_functions.TryResolve(
                 function.Name,
                 out var formulaFunction))
@@ -213,26 +220,53 @@ public sealed class NeraFormulaEngine : IFormulaEngine
             return CellValue.FromError("#NAME?");
         }
 
-        var values = new List<CellValue>();
+        var invocationArguments =
+            new List<FormulaFunctionArgument>(function.Arguments.Count);
         foreach (var argument in function.Arguments)
         {
             if (argument is RangeNode range)
             {
-                dependencies.Add(new FormulaDependency(
+                var dependency = new FormulaDependency(
                     range.WorksheetName,
-                    range.Range));
-                AppendRange(values, range, context);
+                    range.Range);
+                dependencies.Add(dependency);
+                var rangeValues = new List<CellValue>(
+                    checked(range.Range.RowCount * range.Range.ColumnCount));
+                AppendRange(rangeValues, range, context);
+                invocationArguments.Add(
+                    FormulaFunctionArgument.Range(
+                        dependency,
+                        rangeValues));
             }
             else
             {
-                values.Add(EvaluateNode(
-                    argument,
-                    context,
-                    dependencies));
+                invocationArguments.Add(
+                    FormulaFunctionArgument.Scalar(
+                        EvaluateNode(
+                            argument,
+                            context,
+                            dependencies)));
             }
         }
 
-        return formulaFunction.Invoke(values, context).Value;
+        FormulaEvaluationResult result;
+        if (formulaFunction is IVersionedFormulaFunction versioned)
+        {
+            result = versioned.Invoke(
+                new FormulaFunctionInvocation(
+                    invocationArguments,
+                    context));
+        }
+        else
+        {
+            result = formulaFunction.Invoke(
+                invocationArguments
+                    .SelectMany(static argument => argument.Values)
+                    .ToArray(),
+                context);
+        }
+        dependencies.AddRange(result.Dependencies);
+        return result.Value;
     }
 
     private CellValue EvaluateIf(
@@ -570,27 +604,6 @@ public sealed class NeraFormulaEngine : IFormulaEngine
         double.IsFinite(value)
             ? CellValue.FromNumber(value)
             : CellValue.FromError("#NUM!");
-
-    private static FormulaErrorCode ToErrorCode(CellValue value)
-    {
-        if (value.Kind != CellValueKind.Error)
-        {
-            return FormulaErrorCode.None;
-        }
-
-        var code = Convert.ToString(
-            value.RawValue,
-            CultureInfo.InvariantCulture);
-        return code switch
-        {
-            "#DIV/0!" => FormulaErrorCode.DivisionByZero,
-            "#REF!" => FormulaErrorCode.InvalidReference,
-            "#NAME?" => FormulaErrorCode.InvalidName,
-            "#CIRC!" => FormulaErrorCode.CircularReference,
-            "#N/A" => FormulaErrorCode.NotAvailable,
-            _ => FormulaErrorCode.InvalidValue,
-        };
-    }
 
     private enum SubtotalKind
     {
