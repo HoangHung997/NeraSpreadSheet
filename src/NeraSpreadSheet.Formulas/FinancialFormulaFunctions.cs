@@ -216,16 +216,13 @@ internal static class FinancialFormulaFunctions
             return NumericError();
         }
         if (!TryCollectCashFlows(
-                invocation.Arguments.Skip(1),
+                invocation.Arguments,
+                startIndex: 1,
                 MaximumCashFlowValues,
                 out var values,
                 out error))
         {
             return error;
-        }
-        if (values.Length == 0)
-        {
-            return Number(0d);
         }
 
         var discountBase = 1d + rate;
@@ -255,7 +252,9 @@ internal static class FinancialFormulaFunctions
         FormulaFunctionInvocation invocation)
     {
         if (!TryCollectCashFlows(
-                [invocation.Arguments[0]],
+                invocation.Arguments,
+                startIndex: 0,
+                argumentCount: 1,
                 MaximumIrrValues,
                 out var cashFlows,
                 out var error))
@@ -278,16 +277,13 @@ internal static class FinancialFormulaFunctions
         {
             return error;
         }
-        if (!double.IsFinite(guess) ||
-            guess <= -1d || guess > MaximumIrrRate)
+        if (guess <= -1d || guess > MaximumIrrRate)
         {
             return NumericError();
         }
 
-        var scale = Math.Max(
-            1d,
-            cashFlows.Sum(static value => Math.Abs(value)));
-        var tolerance = RootTolerance * scale;
+        var maximumMagnitude = cashFlows.Max(static value => Math.Abs(value));
+        var tolerance = RootTolerance * Math.Max(1d, maximumMagnitude);
         if (TryNewtonIrr(cashFlows, guess, tolerance, out var rate) ||
             TryBracketedIrr(cashFlows, guess, tolerance, out rate))
         {
@@ -326,17 +322,15 @@ internal static class FinancialFormulaFunctions
         {
             return error;
         }
-        if (!TryCalculateInterestPayment(
+        return TryCalculateInterestPayment(
                 rate,
                 period,
                 payment,
                 presentValue,
                 timing,
-                out var interest))
-        {
-            return NumericError();
-        }
-        return Number(interest);
+                out var interest)
+            ? Number(interest)
+            : NumericError();
     }
 
     private static FormulaEvaluationResult EvaluatePrincipalPayment(
@@ -365,8 +359,11 @@ internal static class FinancialFormulaFunctions
                 futureValue,
                 timing,
                 out var payment,
-                out error) ||
-            !TryCalculateInterestPayment(
+                out error))
+        {
+            return error;
+        }
+        if (!TryCalculateInterestPayment(
                 rate,
                 period,
                 payment,
@@ -374,7 +371,7 @@ internal static class FinancialFormulaFunctions
                 timing,
                 out var interest))
         {
-            return error.IsSuccess ? NumericError() : error;
+            return NumericError();
         }
         return Number(payment - interest);
     }
@@ -426,29 +423,26 @@ internal static class FinancialFormulaFunctions
         out int timing,
         out FormulaEvaluationResult error)
     {
+        first = default;
+        second = default;
+        third = default;
+        fourth = 0d;
+        timing = 0;
+        error = default!;
+
         if (!TryGetScalarNumber(invocation.Arguments[0], out first, out error) ||
             !TryGetScalarNumber(invocation.Arguments[1], out second, out error) ||
             !TryGetScalarNumber(invocation.Arguments[2], out third, out error))
         {
-            fourth = default;
-            timing = default;
             return false;
         }
-        fourth = 0d;
         if (invocation.Arguments.Count >= 4 &&
             !TryGetScalarNumber(invocation.Arguments[3], out fourth, out error))
         {
-            timing = default;
             return false;
         }
-        timing = 0;
-        if (invocation.Arguments.Count >= 5 &&
-            !TryGetPaymentTiming(invocation.Arguments[4], out timing, out error))
-        {
-            return false;
-        }
-        error = default!;
-        return true;
+        return invocation.Arguments.Count < 5 ||
+               TryGetPaymentTiming(invocation.Arguments[4], out timing, out error);
     }
 
     private static bool TryReadPaymentBreakdownArguments(
@@ -461,30 +455,28 @@ internal static class FinancialFormulaFunctions
         out int timing,
         out FormulaEvaluationResult error)
     {
+        rate = default;
+        period = default;
+        totalPeriods = default;
+        presentValue = default;
+        futureValue = 0d;
+        timing = 0;
+        error = default!;
+
         if (!TryGetScalarNumber(invocation.Arguments[0], out rate, out error) ||
             !TryGetScalarInteger(invocation.Arguments[1], out period, out error) ||
             !TryGetScalarNumber(invocation.Arguments[2], out totalPeriods, out error) ||
             !TryGetScalarNumber(invocation.Arguments[3], out presentValue, out error))
         {
-            futureValue = default;
-            timing = default;
             return false;
         }
-        futureValue = 0d;
         if (invocation.Arguments.Count >= 5 &&
             !TryGetScalarNumber(invocation.Arguments[4], out futureValue, out error))
         {
-            timing = default;
             return false;
         }
-        timing = 0;
-        if (invocation.Arguments.Count >= 6 &&
-            !TryGetPaymentTiming(invocation.Arguments[5], out timing, out error))
-        {
-            return false;
-        }
-        error = default!;
-        return true;
+        return invocation.Arguments.Count < 6 ||
+               TryGetPaymentTiming(invocation.Arguments[5], out timing, out error);
     }
 
     private static bool TryGetScalarNumber(
@@ -542,14 +534,34 @@ internal static class FinancialFormulaFunctions
     }
 
     private static bool TryCollectCashFlows(
-        IEnumerable<FormulaFunctionArgument> arguments,
+        IReadOnlyList<FormulaFunctionArgument> arguments,
+        int startIndex,
+        int maximumValues,
+        out double[] values,
+        out FormulaEvaluationResult error) =>
+        TryCollectCashFlows(
+            arguments,
+            startIndex,
+            arguments.Count - startIndex,
+            maximumValues,
+            out values,
+            out error);
+
+    private static bool TryCollectCashFlows(
+        IReadOnlyList<FormulaFunctionArgument> arguments,
+        int startIndex,
+        int argumentCount,
         int maximumValues,
         out double[] values,
         out FormulaEvaluationResult error)
     {
         var result = new List<double>();
-        foreach (var argument in arguments)
+        var endIndex = checked(startIndex + argumentCount);
+        for (var argumentIndex = startIndex;
+             argumentIndex < endIndex;
+             argumentIndex++)
         {
+            var argument = arguments[argumentIndex];
             foreach (var value in argument.Values)
             {
                 if (value.Kind is CellValueKind.Number or CellValueKind.DateTime)
@@ -629,28 +641,31 @@ internal static class FinancialFormulaFunctions
         out double result,
         out FormulaEvaluationResult error)
     {
+        result = default;
+        error = default!;
         if (periods <= 0d)
         {
-            result = default;
             error = NumericError();
             return false;
         }
         if (rate == 0d)
         {
             result = -(presentValue + futureValue) / periods;
-            error = default!;
-            return double.IsFinite(result);
+            if (!double.IsFinite(result))
+            {
+                error = NumericError();
+                return false;
+            }
+            return true;
         }
         if (!TryGrowth(rate, periods, out var growth))
         {
-            result = default;
             error = NumericError();
             return false;
         }
         var denominator = (1d + (rate * timing)) * (growth - 1d);
         if (denominator == 0d)
         {
-            result = default;
             error = DivisionByZero();
             return false;
         }
@@ -661,7 +676,6 @@ internal static class FinancialFormulaFunctions
             error = NumericError();
             return false;
         }
-        error = default!;
         return true;
     }
 
@@ -746,8 +760,7 @@ internal static class FinancialFormulaFunctions
             {
                 return true;
             }
-            if (!double.IsFinite(derivative) ||
-                Math.Abs(derivative) <= 1e-18d)
+            if (Math.Abs(derivative) <= 1e-18d)
             {
                 return false;
             }
@@ -776,46 +789,75 @@ internal static class FinancialFormulaFunctions
             Math.Log(1d + guess),
             minimumX,
             maximumX);
-        var samples = Enumerable.Range(0, MaximumIrrBracketSamples + 1)
-            .Select(index => minimumX +
+        var xValues = new List<double>(MaximumIrrBracketSamples + 2);
+        for (var index = 0;
+             index <= MaximumIrrBracketSamples;
+             index++)
+        {
+            xValues.Add(minimumX +
                 ((maximumX - minimumX) * index /
-                 MaximumIrrBracketSamples))
-            .Append(guessX)
+                 MaximumIrrBracketSamples));
+        }
+        xValues.Add(guessX);
+        var samples = xValues
             .Distinct()
             .OrderBy(static value => value)
             .Select(x => new IrrSample(x, EvaluateIrrAtX(cashFlows, x)))
             .Where(static sample => sample.Value.HasValue)
             .ToArray();
-        if (samples.Any(sample =>
-                Math.Abs(sample.Value!.Value) <= tolerance))
+
+        var bestExactDistance = double.PositiveInfinity;
+        var bestExactX = default(double);
+        var foundExact = false;
+        foreach (var sample in samples)
         {
-            var exact = samples
-                .Where(sample => Math.Abs(sample.Value!.Value) <= tolerance)
-                .MinBy(sample => Math.Abs(sample.X - guessX));
-            rate = Math.Exp(exact.X) - 1d;
+            if (Math.Abs(sample.Value!.Value) > tolerance)
+            {
+                continue;
+            }
+            var distance = Math.Abs(sample.X - guessX);
+            if (distance < bestExactDistance)
+            {
+                bestExactDistance = distance;
+                bestExactX = sample.X;
+                foundExact = true;
+            }
+        }
+        if (foundExact)
+        {
+            rate = Math.Exp(bestExactX) - 1d;
             return true;
         }
 
-        var brackets = new List<(IrrSample Left, IrrSample Right)>();
+        var foundBracket = false;
+        var bestBracketDistance = double.PositiveInfinity;
+        var leftX = default(double);
+        var rightX = default(double);
+        var leftValue = default(double);
         for (var index = 1; index < samples.Length; index++)
         {
             var left = samples[index - 1];
             var right = samples[index];
-            if (Math.Sign(left.Value!.Value) != Math.Sign(right.Value!.Value))
+            if (Math.Sign(left.Value!.Value) == Math.Sign(right.Value!.Value))
             {
-                brackets.Add((left, right));
+                continue;
+            }
+            var distance = Math.Abs(((left.X + right.X) / 2d) - guessX);
+            if (distance < bestBracketDistance)
+            {
+                bestBracketDistance = distance;
+                leftX = left.X;
+                rightX = right.X;
+                leftValue = left.Value.Value;
+                foundBracket = true;
             }
         }
-        if (brackets.Count == 0)
+        if (!foundBracket)
         {
             rate = default;
             return false;
         }
-        var bracket = brackets.MinBy(item => Math.Abs(
-            ((item.Left.X + item.Right.X) / 2d) - guessX));
-        var leftX = bracket.Left.X;
-        var rightX = bracket.Right.X;
-        var leftValue = bracket.Left.Value!.Value;
+
         for (var iteration = 0;
              iteration < MaximumIrrIterations;
              iteration++)
@@ -898,8 +940,7 @@ internal static class FinancialFormulaFunctions
             AddCompensated(ref sum, ref compensation, term);
             if (index > 0)
             {
-                var derivativeTerm =
-                    -(index * term) / discountBase;
+                var derivativeTerm = -(index * term) / discountBase;
                 if (!double.IsFinite(derivativeTerm))
                 {
                     value = default;
