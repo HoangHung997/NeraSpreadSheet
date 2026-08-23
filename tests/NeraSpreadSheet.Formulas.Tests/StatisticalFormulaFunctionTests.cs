@@ -120,7 +120,7 @@ public sealed class StatisticalFormulaFunctionTests
     }
 
     [TestMethod]
-    public void PopulationAndSampleVarianceUseStableTwoPassResults()
+    public void PopulationAndSampleVarianceUseStableOnlineResults()
     {
         var values = CreateColumn(2d, 4d, 4d, 4d, 5d, 5d, 7d, 9d);
         var engine = new NeraFormulaEngine();
@@ -249,7 +249,7 @@ public sealed class StatisticalFormulaFunctionTests
     public void StatisticalDescriptorsUseVersionedLogicalArgumentPolicy()
     {
         var registry = new BuiltInFormulaFunctionRegistry();
-        var descriptors = registry.SnapshotDescriptors();
+        var descriptors = registry.Descriptors;
 
         foreach (var name in StatisticalFunctionNames)
         {
@@ -292,7 +292,7 @@ public sealed class StatisticalFormulaFunctionTests
             .ToDictionary(static pair => pair.Key, static pair => pair.Value);
 
     private static double EvaluateNumber(
-        IFormulaEngine engine,
+        NeraFormulaEngine engine,
         string formula,
         IFormulaEvaluationContext context)
     {
