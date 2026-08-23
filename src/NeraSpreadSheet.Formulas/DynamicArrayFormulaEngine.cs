@@ -46,7 +46,7 @@ public interface IDynamicArrayFormulaEngine
 /// existing scalar formula engine. The scalar wrapper returns the top-left
 /// value so existing dependencies can continue to consume array owners.
 /// </summary>
-public sealed class NeraDynamicArrayFormulaEngine :
+public sealed partial class NeraDynamicArrayFormulaEngine :
     IDynamicArrayFormulaEngine
 {
     private readonly IFormulaEngine _scalarEngine;
@@ -115,6 +115,27 @@ public sealed class NeraDynamicArrayFormulaEngine :
                 StringComparison.OrdinalIgnoreCase))
         {
             return EvaluateTranspose(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "FILTER",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateFilter(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "SORT",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateSort(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "UNIQUE",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateUnique(function, context, dependencies);
         }
         return Failure("#NAME?", FormulaErrorCode.InvalidName, dependencies);
     }
@@ -304,6 +325,18 @@ public sealed class NeraDynamicArrayFormulaEngine :
         string.Equals(
             name,
             "TRANSPOSE",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "FILTER",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "SORT",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "UNIQUE",
             StringComparison.OrdinalIgnoreCase);
 
     private static bool TryPositiveInteger(
