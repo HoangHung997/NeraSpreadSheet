@@ -1,43 +1,38 @@
 # NeraSpreadSheet feature matrix
 
-This is Nera's own capability map. Excel, LibreOffice and DevExpress are behavior/coverage references only.
+This is Nera's capability map. Excel, LibreOffice and DevExpress are behavior/coverage references only.
 
 | Area | Current validated capability | Next implementation |
 |---|---|---|
-| Workbook / sparse cells | Excel-size sparse sheets, bulk mutation, merges, dimensions, snapshots and atomic structure transforms | manual hide/group/outline metadata and names |
+| Workbook / sparse cells | Excel-size sparse sheets, merges, dimensions, snapshots and atomic structure transforms | manual hide/group/outline metadata and names |
 | Selection / editing | Multi-range selection, reusable editor, clipboard, commands and data/view Undo/Redo | mobile IME lifecycle and richer command surfaces |
-| Styles | Direct styles, sparse whole-axis patches and exact history | named/theme styles and complete Excel format semantics |
+| Styles | Direct styles, sparse whole-axis patches and exact history | named/theme styles and complete format semantics |
+| Formula syntax/dependencies | Parser, AST, shared/structured formulas, dependency graph and affected recalculation | array/spill dependency ownership |
+| Formula surface | 92 registry + 12 special names across logical, aggregate, math, text, date/time and lookup | dynamic arrays, plugin SDK, conditional aggregate, statistical/financial |
+| Formula errors/coercion | Shared blank/Boolean/number/text/date coercion, `#NUM!`, lazy error fallbacks and aggregate propagation | complete Excel literal/reference and locale compatibility |
+| Lookup/reference | Basic INDEX/MATCH/XLOOKUP/VLOOKUP/HLOOKUP with dependency capture | advanced match/search modes, wildcards and array returns |
 | Conditional formatting | CellIs/Expression, differential styles, history, renderer and XLSX | color scales, data bars, icon sets and manager UI |
 | Data validation | Current rule types/operators, editor gate, history, diagnostics, rendering and XLSX | named/cross-sheet lists and native presenters |
-| Tables | Stable Table/column IDs, naming, structural history, calculated/totals metadata, manager snapshots and standard XLSX | complete design/resize/style manager UI |
-| Calculated columns | Bounded propagation, A1 translation, structural refill, metadata recovery and exact Undo/Redo | metadata inference from interactive formula edits and virtual very-large columns |
-| Totals / SUBTOTAL | Filter-aware Average/Count/COUNTA/Min/Max/Sum with Table filter-source dependencies | remaining aggregate codes, nested exclusion and manual hidden rows |
-| Structured references | Current canonical grammar, evaluation, dependencies and rename rewrite | richer grammar and dynamic-array interaction |
-| Rich filter predicates | Comparison, begins/ends/contains, blank/nonblank and relative date periods shared by Table/worksheet filters | top/bottom/color/icon and locale-aware date grouping |
-| Direct worksheet AutoFilter | Range/criteria model, structural history, compressed visibility and production commands | shared header buttons and native presenters |
-| Filter menu contract | Bounded values/counts/search plus cancellable generation-checked paged session foundation | native async binding, virtualization and incremental publication |
-| Native Table filters | Shared button geometry plus WPF Popup, WinForms ToolStripDropDown and responsive MAUI sheet | paged value binding and full Table manager/column menus |
-| Keyboard / focus | Alt+Down, Escape, list navigation, toggle, visible selection, open-focus and close restoration on loaded native hosts | complete IME, screen-reader, high-contrast and localization certification |
-| Formula engine | Parser, dependencies, shared formulas, six base functions plus current SUBTOTAL | broad function surface, dynamic arrays and plugin SDK |
-| Pixel scrolling / panes | Fractional offsets, freeze/split panes, independent scrolling and tile cache | enforced 60/120-Hz hardware budgets |
-| Rendering | Shared display lists across WPF, WinForms and MAUI GPU hosts; filtered-row spans affect extent and hit test | direct worksheet filter-button geometry and production performance baselines |
-| XLSX | Cells, styles, panes, shared formulas, CF, validation, Tables and worksheet AutoFilter with unknown-part preservation | top10/dynamic/date-group/sortState and external compatibility corpus |
-| Data / analysis | Basic sort, validation, Tables, direct AutoFilter, native Table filters and filter-aware totals | advanced sort, grouping, virtual data, pivot and slicers |
-| Product hardening | Deterministic multi-platform CI and loaded runtime gates | NuGet, API compatibility, fuzzing, support bundle and release gates |
+| Tables | Stable IDs, history, calculated/totals metadata, manager snapshots and standard XLSX | complete design/resize/style manager UI |
+| AutoFilter | Table + direct worksheet predicates, compressed hidden rows and paged native foundations | rich XLSX filter markup, sort state and incremental publication |
+| Rendering | Fractional scrolling and shared display lists across WPF, WinForms and MAUI GPU hosts | enforced hardware performance/accessibility baselines |
+| Page setup/PDF | Deterministic pagination, virtualized preview, staged PDF and native print adapters | remaining XLSX semantics, font/visual corpus and real printers |
+| XLSX | Cells, styles, panes, formulas, rules, Tables/filters, print settings and unknown-part preservation | manual breaks, first/even headers, custom paper and external corpus |
+| CSV/TSV | Streaming quotes/newlines, buffer boundaries, type policy, injection protection and staged output | encoding/delimiter detection, corpus and fuzzing |
+| Data / analysis | Basic sort, validation, Tables, filters and filter-aware totals | advanced sort, grouping, virtual data, pivot and slicers |
+| Product hardening | Multi-platform CI, atomic export limits, validation runner and Codex acceptance plan | packaging, API compatibility, fuzzing, recovery and release gates |
 
-## Latest validated milestone
+## Latest validated Formula Surface I milestone
 
-- Implementation commit: `023835495a5c56aea19830aff299765808ab5598`.
-- GitHub Actions: CI `#586`, run `32543422821`, `success` on August 22, 2026.
-- Core, Windows desktop, Android, iOS, Mac Catalyst and MAUI Windows gates passed.
-- New gates cover worksheet AutoFilter XLSX round-trip, malformed input, repeated opaque/extLst preservation and paged-session generations/cancellation.
-- Loaded MAUI Windows Table-filter, context-recreation and scale/orientation smokes remained green.
+- Implementation commit: `497ebf3fbaca79e2f294475af861077d47400d3c`.
+- GitHub Actions: CI `#706`, run `32613991638`, success.
+- Core, Windows, Android, iOS, Mac Catalyst and MAUI Windows gates passed.
 
 ## Weighted progress
 
-- Engine/viewport/renderer foundation: approximately **90%**.
-- Basic spreadsheet MVP: approximately **84–87%**.
-- Complete professional roadmap: approximately **56%**.
-- Production release readiness: approximately **32–35%**.
+- Engine/viewport/renderer foundation: approximately **92%**.
+- Basic spreadsheet MVP: approximately **90–93%**.
+- Complete professional roadmap: approximately **62%**.
+- Production release readiness: approximately **39–42%**.
 
 These are engineering-weighted estimates, not checkbox counts.

@@ -1,223 +1,180 @@
 # NeraSpreadSheet current implementation status
 
-This file is the handoff source of truth for the current development branch. A capability is classified as implemented only when executable source, automated tests and the applicable runtime gate exist.
+This file is the source of truth for the current development branch. A capability is implemented only when executable source, automated tests and the applicable build/runtime gate exist.
 
 ## Product rules
 
 NeraSpreadSheet is an independent spreadsheet SDK.
 
 - No runtime dependency on Microsoft Excel, LibreOffice or DevExpress.
-- No UNO/Excel command identifiers in Nera public contracts.
-- No UI control per cell.
-- Workbook, formulas, editing, layout, scrolling and commands remain independent from WPF, WinForms and MAUI.
-- Viewports use continuous `double` pixel offsets and may stop between row/column boundaries.
+- No native UI control per cell.
+- Workbook, formulas, editing, layout, scrolling, printing and commands remain independent from WPF, WinForms and MAUI.
+- Viewports and print previews use continuous `double` pixel offsets.
 - Desktop and GPU hosts consume the same workbook, viewport and display-list semantics.
 - Document-format dependencies stay inside adapter projects; OpenXml types do not enter Core public contracts.
-- Native presenters translate platform input and focus only; production mutations continue through platform-neutral controllers and history.
+- Native presenters translate platform input/focus only; production mutations use platform-neutral controllers and history.
 
 ## Implemented
 
-### Core workbook, formulas and editing
+### Core workbook, editing and structure
 
-- Excel-size sparse worksheets, multiple worksheets, values, formulas, direct styles, dimensions and native merged ranges.
-- Immutable snapshots and bounded caches for viewport/rendering work.
+- Excel-size sparse worksheets, multiple sheets, values, formulas, direct styles, dimensions and merged ranges.
+- Immutable snapshots and bounded caches.
 - Selection, clipboard, reusable editor, commands, sort and data/view Undo/Redo.
-- Structural insert/delete/reorder with overflow preflight, formula/reference/rule/Table/worksheet-filter mapping and atomic rollback.
-- Formula tokenizer, parser and AST for arithmetic, comparison, concatenation, A1 references/ranges and basic cross-sheet references.
+- Structural insert/delete/reorder with overflow preflight, formula/reference/rule/Table/filter mapping and atomic rollback.
+- Sparse whole-row/column style patches without materializing logical axes.
+
+### Formula parser, dependencies and Formula Surface I
+
+- Tokenizer, parser and AST for arithmetic, comparison, concatenation, A1 references/ranges, functions and basic cross-sheet references.
 - Dependency graph, circular-reference detection and affected-only recalculation.
+- Shared-formula import/export, structured references, Table/column rename rewrite and calculated-column propagation.
+- Shared coercion/error layer, including `#NUM!`.
+- **92 eager registry functions** plus **12 AST/reference-aware functions**, for **104 recognized function names**.
+- Logical/error/lazy functions, aggregates, math/rounding/trigonometry, text/Unicode, date/time and basic lookup/reference functions.
+- `TODAY`/`NOW` can use a deterministic clock context.
+- `INDEX`, `MATCH`, `XLOOKUP`, `VLOOKUP` and `HLOOKUP` capture inspected ranges as dependencies.
+- Numeric aggregates propagate formula errors; `MIN/MAX` return `0` on a numeric-empty set, while `AVERAGE` returns `#DIV/0!`.
+- Existing filter-aware `SUBTOTAL` and filter-source dependencies remain intact.
 
-### Sparse styles, viewport and rendering
+Full contract: `docs/formula-surface-i-contract.md`.
 
-- Sparse whole-row/column style patches compose chronologically without materializing logical axes.
+### Fractional viewport and multi-host rendering
+
 - Fractional pixel scrolling, freeze panes, split panes, independent pane offsets and pane-local scrollbars.
 - Snapshot/tile caching and split-aware dirty-region projection.
 - WPF DrawingContext/D3DImage, WinForms GDI+/Direct2D/D3D11-DXGI and shared Skia/MAUI GPU rendering.
 - Loaded desktop and MAUI Windows device/context recreation and scale/orientation gates.
 
-### Shared formulas, Conditional Formatting and Data Validation
+### Conditional Formatting and Data Validation
 
-- Shared-formula import/export with relative, mixed and absolute A1 translation and deterministic fallback.
-- `CellIs` and `Expression` Conditional Formatting with differential styles, priority, `StopIfTrue`, structural history, rendering and XLSX round-trip.
-- Whole/decimal/date/time/text-length/list/custom Data Validation with candidate-aware evaluation, Stop/Warning/Information editor policy, diagnostics, rendering, structural history and standard XLSX round-trip.
+- `CellIs` and `Expression` Conditional Formatting with differential styles, priority, `StopIfTrue`, structural history, shared rendering and XLSX round-trip.
+- Whole/decimal/date/time/text-length/list/custom Data Validation with candidate-aware evaluation, editor policy, diagnostics, rendering, history and XLSX round-trip.
 
-### Table Core model and structured references
+### Tables, structured references and totals
 
-- `SpreadsheetTable` and `SpreadsheetTableColumn` use stable `Guid` identities and remain independent from UI/OpenXml.
-- Table names are unique across a workbook; column names and identities are unique inside a Table; Tables on one worksheet cannot overlap.
-- Header, data and totals ranges derive from one canonical Table range.
-- Table state participates in immutable snapshots, structural state, rollback and production Undo/Redo.
-- Supported structured references include `Table[Column]`, `#All`, `#Data`, `#Headers`, `#Totals`, `#This Row` and `[@Column]`.
-- Structured references expand to absolute A1 references before the existing parser/evaluator runs.
-- Expanded ranges enter the dependency graph and participate in affected-only recalculation.
-- Table/column rename rewrites cell formulas and calculated/totals metadata across the workbook in one transaction.
+- Stable Table/column `Guid` identities, workbook-unique Table names and per-Table unique column names.
+- Header/data/totals ranges from one canonical Table range.
+- Table state in snapshots, structural state, rollback and production Undo/Redo.
+- Structured references including `Table[Column]`, `#All`, `#Data`, `#Headers`, `#Totals`, `#This Row` and `[@Column]`.
+- Atomic Table/column rename rewrite for formulas and calculated/totals metadata.
+- Calculated formula projection and current filter-aware totals.
 
-Full model contract: `docs/table-structured-reference-contract.md`.
+### Table and direct worksheet AutoFilter
 
-### Calculated-column formula propagation
+- Table and worksheet filters share value/blank/custom-comparison predicates.
+- Multiple columns combine by AND at row level.
+- Hidden rows are compressed into sparse spans and removed from viewport extent/hit testing.
+- Direct worksheet filters participate in structural mapping, rollback, production history and standard worksheet `autoFilter` round-trip.
+- Generation-guarded paged sessions reject stale reads/mutations and support cancellable search/refresh.
+- Shared Table/worksheet button geometry and WPF/WinForms/MAUI page-based presenter foundations.
+- Apply/Clear continues through production history.
 
-- `SpreadsheetTableFormulaProjection` projects each column's calculated formula across the Table data range.
-- Structured formulas retain one metadata expression while every data row receives a formula cell.
-- Relative/mixed/absolute A1 formulas are translated from the first data-row anchor to each destination row.
-- Formula projection preserves existing cell styles and cached values when formula text is unchanged.
-- Changing formula metadata invalidates stale cached values before recalculation.
-- Removing calculated metadata converts projected formula cells to their current values instead of discarding results.
-- Add Table, metadata mutation, Undo and Redo restore Table metadata and projected cells together.
-- Insert/delete/reorder followed by normal workbook recalculation fills newly created data rows automatically.
-- Projection is bounded to `1,000,000` formula/label cells per operation and rolls back before logical-axis materialization when exceeded.
+### XLSX interoperability and preservation
 
-### Totals-row execution and filter-aware SUBTOTAL
+- Values, cached formulas, sheets, dimensions, merges, panes, styles, Conditional Formatting, Data Validation, Tables and current filters round-trip.
+- Standard Table parts and worksheet filter relationships are imported/exported.
+- Unknown package-part preservation uses bounded atomic copy-and-patch.
+- Nested opaque parts, drawing/image relationships, custom XML and package-root relationships retain bytes/identity where owned semantics do not replace them.
+- Package preflight validates counts, IDs, types and unsafe URIs.
 
-- Totals labels and formulas are projected into the canonical totals row.
-- `SpreadsheetSession.Tables` exposes calculated-column and totals metadata commands through production history.
-- Built-in totals functions generate standard structured `SUBTOTAL` formulas.
-- Implemented function codes are `1/101` Average, `2/102` Count Numbers, `3/103` Count Nonblank, `4/104` Maximum, `5/105` Minimum and `9/109` Sum.
-- AutoFilter-hidden Table rows are excluded for all supported codes.
-- `SUBTOTAL` records both the referenced data range and every active Table filter-source range as dependencies.
-- Filter predicates may read formula-backed filter cells through the same recursive calculation context.
+### Page setup, pagination and printing
 
-### Rich shared filter predicates
+- Worksheet-associated print area, paper, orientation, margins, scale, fit-to-page, repeated titles, manual breaks, centering, grid/headings and odd header/footer settings.
+- Deterministic pagination from immutable snapshots.
+- Automatic page breaks avoid merged-cell splits; manual breaks through merges are rejected.
+- Printable page grids and header/footer token formatting.
+- Shared print display-list composition.
+- Page ranges, odd/even parity, reverse order, copies and collated/uncollated sequencing.
+- Print-job Begin/Write/Complete/Abort lifecycle.
+- Virtualized preview layout/session with continuous offsets, anchored zoom and bounded page cache.
+- Native WPF/WinForms preview controls and MAUI Skia preview foundation.
+- WPF `DocumentPaginator` and WinForms `PrintDocument` adapters.
 
-- Table and direct worksheet filters share one predicate implementation.
-- Supported comparison predicates include equal/not-equal, greater/less variants, begins-with, ends-with, contains, does-not-contain, blank and nonblank.
-- Supported relative date predicates include on/before/after date plus this/last/next week, month and year when an explicit reference date is supplied.
-- Blank values are not coerced to zero or empty text during predicate evaluation.
-- Multiple conditions may combine with AND or OR; multiple filtered columns combine with AND at row level.
+### PDF export
 
-### Direct worksheet AutoFilter
+- Single worksheet, selected workbook worksheets and print-ticket sequence export.
+- Shared print display list and page plan.
+- Staged destination replacement.
+- Page count, dimensions and byte limits.
+- Byte overflow reported after native Skia callbacks return.
+- Cancellation/output-limit failures preserve existing seekable destinations.
 
-- A worksheet may own one direct `WorksheetAutoFilter` range independent from Tables.
-- The range may exist with no active criteria and may include one header row plus a sparse data range.
-- Filter columns use range-relative column offsets and reuse `TableFilterColumn` semantics.
-- `SpreadsheetSession.WorksheetFilters` provides set-range, value-filter, custom-filter, clear-column, clear-criteria and remove-filter commands through production Undo/Redo.
-- Structural insert/delete maps the filter range and column criteria; deleting only the header row is rejected before mutation.
-- Axis reorder is allowed only when the entire filter range remains one uniform translation.
-- Direct worksheet filters cannot overlap Tables or merged cells in the current conservative contract.
-- Worksheet snapshots include the direct filter and invalidate its range when source values or criteria change.
+### XLSX print settings
 
-### Compressed filtered-row projection
+- `_xlnm.Print_Area` and `_xlnm.Print_Titles`.
+- Margins, paper codes, orientation, scale, fit width/height, centering, grid/headings and odd header/footer round-trip.
+- Schema-order-safe insertion and repeated unknown-part preservation.
 
-- Direct worksheet and Table filters share `WorksheetSnapshot.GetFilteredOutRowSpans()`.
-- Adjacent hidden rows are compressed into sparse spans rather than per-row overrides.
-- Spans from supported filter owners are merged safely before layout consumption.
-- Filtered rows consume no viewport extent, do not create row slots and are skipped by hit testing while original row sizes remain recoverable.
-- Filter/source-value changes and Undo/Redo refresh row visibility.
+### CSV and TSV
 
-### Table manager and native presenters
+- Configurable delimiter, quote, newline, culture and encoding.
+- BOM detection, CR/LF/CRLF, quoted delimiter/newline and doubled-quote handling.
+- Parser state survives escaped quotes and CRLF across buffer boundaries.
+- Optional number/Boolean/date inference and explicit formula import.
+- Value/formula export, sparse used range and cancellation.
+- Formula-like text protection by default.
+- Row/column/cell limits and staged atomic export with a default 512-MiB budget.
 
-- `SpreadsheetTablePresenterController` exposes a read-only active-worksheet Table manager snapshot using stable Table/column identities.
-- Filter menus enumerate distinct values and occurrence counts from one immutable worksheet snapshot.
-- Default bounds are `100,000` scanned data rows and `10,000` retained distinct values.
-- Search is trimmed, ordinal-ignore-case substring matching and does not discard hidden selections.
-- Select-all-visible and clear-visible affect only the current search projection.
-- Value/custom filters and clear commands use production Table history.
-- `SpreadsheetTableFilterNavigator` preserves active value identity across search/list rebuilding.
-- WPF uses a native `Popup`, WinForms a native `ToolStripDropDown`, and MAUI a responsive overlay/bottom-sheet surface.
-- Loaded native gates prove Apply, compressed visibility, Undo, Redo, reopen and focus release.
+### Validation automation
 
-Full presenter contract: `docs/table-filter-presenter-contract.md`.
-
-### Cancellable paged Table filter sessions
-
-- `SpreadsheetTableFilterPagedSession` owns one generation-checked Table filter-menu snapshot for asynchronous native consumption.
-- `RefreshAsync` cancels a prior refresh and only publishes when its generation is still current.
-- `GetPageAsync` supports search, offset, bounded page size and cancellation while preserving the published generation.
-- A worksheet mutation does not alter an already published immutable menu; the next refresh publishes a new generation.
-- Disposing the session cancels refresh work and rejects later refresh/page calls.
-- This is the platform-neutral paging foundation; WPF, WinForms and MAUI do not yet bind their native value lists to it with true virtualization.
-
-### Standard XLSX Table interoperability
-
-- Worksheet `tableParts/tablePart` relationships and standard `TableDefinitionPart` XML are imported/exported.
-- Table names, ranges, header/totals state, columns, calculated/totals metadata, totals labels, styles and current AutoFilter predicates round-trip.
-- Nera-generated packages encode stable Table and column identities; foreign packages receive deterministic fallback identities.
-- Generated packages pass `OpenXmlValidator(FileFormatVersions.Office2013)`.
-- Malformed relationships, ranges, IDs, column counts, filter indexes and unsupported Table/filter markup are rejected before workbook restoration.
-- `PreserveUnknownParts=true` refreshes owned Table parts while retaining unowned worksheet/package content and Table `extLst` payloads across repeated saves.
-
-### Standard XLSX worksheet AutoFilter interoperability
-
-- Worksheet-level `autoFilter@ref`, `filterColumn@colId`, value filters, blank matching and one/two custom comparisons import/export through `OpenXmlWorksheetAutoFilterCodec`.
-- Begins-with, ends-with, contains and does-not-contain map to supported SpreadsheetML leading/trailing `*` wildcard custom filters with escaped literal `~`, `*` and `?` characters.
-- Empty equal/not-equal custom values map to blank/nonblank predicates.
-- Generated worksheet filters pass Office 2013 schema validation.
-- Duplicate `autoFilter`, invalid ranges/indexes, conflicting filter definitions, unsupported wildcard shapes and unsupported filter children are rejected before workbook restoration.
-- `top10`, dynamic/date-group, color, icon and sort-state markup remain unsupported rather than being guessed.
-
-### Worksheet AutoFilter preservation
-
-- `PreserveUnknownParts=true` now refreshes Nera-owned worksheet `autoFilter` markup through a dedicated copy-and-patch step.
-- Preservation keeps package/worksheet opaque parts and relationships unchanged.
-- An existing AutoFilter `extLst` and namespaced attributes survive when Nera replaces filter semantics.
-- Repeated preserved saves update the filter value on each save, retain opaque bytes and continue to pass OpenXml validation.
-- The output package is fully constructed and validated before destination mutation, preserving existing save atomicity.
-
-### Package preservation and hardening
-
-- Values, cached formulas, sheets, dimensions, merges, panes, style state, Conditional Formatting, Data Validation, Tables and worksheet AutoFilter round-trip.
-- Unknown-part preservation uses bounded atomic copy-and-patch.
-- Nested opaque parts, drawing/image relationships, custom XML/properties and package-root relationships retain exact bytes/identity where owned semantics do not replace them.
-- Package preflight checks part/relationship counts, IDs, types and unsafe URIs before restoration or destination mutation.
+- `scripts/run-complete-validation.ps1` runs broad Core, Windows and MAUI gates and writes JSON.
+- `docs/CODEX_FINAL_ACCEPTANCE.md` records target hardware, real printer, independent PDF validation, fonts, physical DPI, mobile IME/accessibility, compatibility corpora and fuzzing work that hosted CI cannot fully prove.
 
 ## Implemented but intentionally conservative
 
-- Current `SUBTOTAL` support is limited to Average, Count Numbers, Count Nonblank, Maximum, Minimum and Sum.
-- Codes `1–11` versus `101–111` currently differ only in accepted function number because manual hidden-row metadata is not modeled.
-- Nested `SUBTOTAL`/`AGGREGATE` exclusion inside referenced ranges is not implemented.
-- Calculated columns do not infer new metadata from arbitrary user edits to one formula cell.
-- Formula projection is intentionally bounded; a future virtual calculated-column representation may lift the one-million-cell operation limit.
-- Native value lists still use bounded materialized menu snapshots; paged session binding/virtualization is not complete.
-- Direct worksheet AutoFilter does not yet have shared header-button geometry or native WPF/WinForms/MAUI entry points.
-- Dynamic/date-group/top10/color/icon filter markup and sort state are not represented as first-class models.
-- The Table manager is not yet a complete design/resize/style management UI.
-- MAUI virtual-keyboard and IME lifecycle is not complete.
-- Dynamic arrays, complete Excel-compatible function surface and plugin function SDK remain pending.
-- Data Validation named/cross-sheet/external list semantics remain pending.
-- Conditional Formatting color scales, data bars and icon sets remain pending.
+- Formula Surface I is broad but not a complete Excel-compatible function surface.
+- Range flattening does not preserve every coercion distinction between literal arguments and referenced values.
+- Core currently collapses empty text to blank.
+- Date arithmetic uses `.NET DateTime`/OLE Automation conversion and does not emulate Excel's fictional 1900-02-29.
+- Approximate lookup assumes correctly sorted source data; advanced XLOOKUP modes and wildcard matching are pending.
+- `TODAY`/`NOW` do not yet add automatic volatile recalculation scheduling.
+- Dynamic arrays, spills and a versioned plugin function SDK are pending.
+- Conditional aggregates, statistical, financial, engineering and database functions are pending.
+- Current `SUBTOTAL` surface is incomplete and does not fully model manual hidden rows or nested subtotal exclusion.
+- Calculated-column projection is bounded.
+- Newly added paged-filter/preview paths do not each have dedicated loaded interaction gates.
+- Direct worksheet AutoFilter does not overlap Tables or merged cells by design.
+- XLSX does not yet round-trip manual page breaks, first/even headers/footers or arbitrary custom paper dimensions.
+- Physical printer hard margins/driver behavior remain final hardware acceptance work.
+- Independent PDF validation, raster visual diff and font embedding/substitution remain pending.
+- Drawings/charts do not yet paginate.
 - Unknown-part preservation requires stable worksheet topology and remains bounded to 512 MiB.
-- Hosted CI cannot prove every physical GPU driver, monitor-DPI transition, screen-reader combination or OS-controlled context-loss mode.
 
-## Progress estimate
+## Weighted progress estimate
 
-- Engine/viewport/renderer foundation: approximately `90%`.
-- Basic spreadsheet MVP: approximately `84–87%`.
-- Complete professional roadmap: approximately `56%`.
-- Production release readiness: approximately `32–35%`.
+- Engine/viewport/renderer foundation: approximately `92%`.
+- Basic spreadsheet MVP: approximately `90–93%`.
+- Complete professional roadmap: approximately `62%`.
+- Production release readiness: approximately `39–42%`.
 
-These are weighted engineering estimates, not checkbox counts.
+These are engineering-weighted estimates, not checkbox counts.
 
 ## Next implementation work
 
-1. Bind `SpreadsheetTableFilterPagedSession` to virtualized/paged WPF, WinForms and MAUI value lists with stale-request cancellation.
-2. Add shared direct worksheet AutoFilter header-button geometry, target resolution and native entry points.
-3. Add first-class XLSX `top10`, dynamic/date-group filters and `sortState` where semantics are fully modeled.
-4. Complete Table design/resize/style manager UI.
-5. MAUI virtual keyboard/IME lifecycle plus broader accessibility, high-contrast, localization and theme hardening.
-6. External XLSX Table/AutoFilter compatibility corpus and differential tests.
-7. Formula/function surface, dynamic arrays, plugin SDK, advanced sort/grouping, printing/PDF, charts and pivot/slicers.
-8. Packaging, fuzzing, performance budgets and release hardening.
+1. Dynamic Arrays Foundation: spill ownership, collision policy, structural mapping and affected-only recalculation.
+2. Versioned plugin-function SDK and registration/security contracts.
+3. Conditional aggregate, statistical and financial function families.
+4. Drawings/images/charts model and print/PDF pagination.
+5. Advanced sort, grouping/outlines, virtual data, pivot tables and slicers.
+6. Remaining printing/XLSX semantics and independent PDF/font/visual-diff corpus.
+7. Complete Table design/resize/style manager and richer filter markup.
+8. MAUI IME/virtual keyboard, accessibility, localization/theme and release hardening.
+9. Execute `docs/CODEX_FINAL_ACCEPTANCE.md` before promoting PR #1.
 
 ## Validation policy
 
-- `NeraSpreadSheet.Core.slnx` must restore, build and test on cross-platform CI.
-- `NeraSpreadSheet.slnx` must restore/build on Windows and all tests must pass.
-- Architecture verification and Windows desktop GPU/runtime smoke are mandatory.
-- Worksheet AutoFilter work must prove Core visibility/history/structural behavior, schema-valid XLSX round-trip and repeated preservation.
-- Paged-session work must prove immutable generations, cancellation, refresh replacement and disposed-state rejection.
-- MAUI changes require real Android/iOS/Mac Catalyst/Windows builds; production lifecycle/input/scale claims require loaded native Windows gates.
+- Core restore/build/tests and architecture verification are mandatory.
+- Full Windows build/tests and desktop GPU/runtime smoke are mandatory.
+- MAUI changes require Android/iOS/Mac Catalyst/Windows builds; production lifecycle claims require loaded native gates.
+- Formula changes require error/coercion, lazy branch, range dependency, date/time and lookup regressions.
+- XLSX changes require schema-valid round-trip, malformed-input rejection and repeated preservation tests.
 - PR #1 remains Draft and must not merge while exact-head CI is red or unknown.
 
 ## Latest validated implementation milestone
 
-CI run `#586` (`32543422821`) passed at implementation commit `023835495a5c56aea19830aff299765808ab5598` on August 22, 2026.
-
-- Core restore/build/tests and architecture verification passed.
-- Rich filter, direct worksheet AutoFilter, structural mapping/history, paged-session and OpenXml/preservation tests passed.
-- Full Windows build/tests and desktop GPU runtime smoke passed.
-- MAUI Android, iOS and Mac Catalyst builds passed.
-- MAUI Windows build/handler checks and loaded Table-filter, context-recreation and scale/orientation smokes passed.
-
-The PR remains Draft and has not been merged into `develop`.
+Implementation commit `497ebf3fbaca79e2f294475af861077d47400d3c` passed CI `#706`, run `32613991638`, across Core, Windows, Android, iOS, Mac Catalyst and MAUI Windows gates.
 
 ## Independence rule
 
-Excel, LibreOffice and DevExpress may be used only as external behavior/coverage references. Their runtime engines, command IDs, controls and public types are not NeraSpreadSheet dependencies.
+Excel, LibreOffice and DevExpress are external behavior/coverage references only. Their engines, command IDs, controls and public types are not NeraSpreadSheet dependencies.
