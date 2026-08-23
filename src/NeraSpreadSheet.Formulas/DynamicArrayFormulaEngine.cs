@@ -327,7 +327,7 @@ public sealed class NeraDynamicArrayFormulaEngine :
         return true;
     }
 
-    private static IReadOnlyList<FormulaDependency> DistinctDependencies(
+    private static FormulaDependency[] DistinctDependencies(
         IEnumerable<FormulaDependency> dependencies) =>
         dependencies.Distinct().ToArray();
 
