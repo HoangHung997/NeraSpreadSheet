@@ -30,34 +30,27 @@
 - [x] Immutable spill identity in snapshots.
 - [x] Loaded context-recreation and scale/orientation gates.
 - [ ] Native spill-border/selection UX on every host.
-- [ ] Dedicated loaded interaction gates for every new filter/preview/spill path.
-- [ ] Enforced 60/120-Hz, 4K and large-array hardware budgets.
+- [ ] Dedicated loaded gates for every new filter/preview/spill path.
+- [ ] Enforced 60/120-Hz, 4K and large-range hardware budgets.
 
 ## C. Formula engine and extension SDK
 
 - [x] Tokenizer, parser, AST, dependency graph and circular-reference policy.
 - [x] Arithmetic, comparison, concatenation and A1 references/ranges.
 - [x] Shared formulas and structured references.
-- [x] Atomic Table/column formula rewrite.
-- [x] Calculated columns and current filter-aware `SUBTOTAL`.
+- [x] Atomic Table/column formula rewrite and calculated columns.
 - [x] Shared coercion/error layer, including `#NUM!` and `#SPILL!`.
-- [x] Logical/error/lazy-control functions.
-- [x] Aggregate/information functions.
-- [x] Math, rounding, logarithmic and trigonometric functions.
-- [x] Text/search/replace/Unicode functions.
-- [x] Date/time functions and deterministic clock context.
+- [x] Logical/error/lazy, aggregate/information, math, text and date/time functions.
 - [x] Basic `INDEX`, `MATCH`, `XLOOKUP`, `VLOOKUP`, `HLOOKUP`.
 - [x] `COUNTIF(S)`, `SUMIF(S)`, `AVERAGEIF(S)` and shared criteria engine.
-- [x] Immutable dynamic arrays and spill collision/dependency/history contracts.
-- [x] `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE`.
+- [x] Immutable dynamic arrays and `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE`.
 - [x] Versioned Function Extension SDK API `1.0`.
-- [x] Stable identity, versions, aliases and conflict policy.
-- [x] Capability, volatility, state and dependency declarations.
-- [x] Logical/range invocation metadata and public coercion helpers.
-- [x] Legacy registration and flattened-range arity compatibility.
-- [ ] Statistical functions foundation.
-- [ ] Financial functions foundation.
+- [x] Identity, versions, aliases, capabilities, volatility/state and dependency declarations.
+- [x] Logical/range invocation metadata, public coercion and legacy compatibility.
+- [x] Statistical Functions Foundation: median, mode, inclusive percentile/quartile, variance, standard deviation, rank, large/small.
+- [ ] Financial Functions Foundation.
 - [ ] Engineering, database and cube function families.
+- [ ] Exclusive percentiles, multi-mode, rank-average, covariance/correlation/regression and distributions.
 - [ ] Advanced lookup/reference modes and locale-aware formatting.
 - [ ] Spill-reference `A1#`, implicit intersection `@`, array constants and vectorized expressions.
 - [ ] Advanced dynamic arrays and LET/LAMBDA/higher-order functions.
@@ -65,7 +58,7 @@
 - [ ] Formula-text version pinning and plugin package manifests.
 - [ ] Plugin discovery/loading, signatures, publisher policy and isolation.
 - [ ] Automatic volatile recalculation scheduling.
-- [ ] Complete Excel coercion/criteria compatibility and fuzzing.
+- [ ] Complete Excel coercion/criteria/statistical compatibility and fuzzing.
 
 ## D. XLSX, page layout and PDF
 
@@ -79,87 +72,85 @@
 - [x] Staged PDF for worksheet/workbook/print tickets.
 - [x] WPF paginator and WinForms `PrintDocument`.
 - [x] Dynamic-array-aware owner/child XLSX document boundary.
-- [ ] Full Office dynamic-array extension metadata and external producer corpus.
+- [ ] Full Office dynamic-array metadata and external producer corpus.
 - [ ] XLSX manual breaks, first/even headers and arbitrary custom paper.
 - [ ] Independent PDF validation/raster diff and font policy.
-- [ ] First-class drawings/images/charts and print/PDF pagination.
+- [ ] Drawings/images/charts and print/PDF pagination.
 - [ ] Physical printer capability and hard-margin negotiation.
 
 ## E. Data and analysis
 
 - [x] Basic bounded in-memory sort.
-- [x] Current Data Validation evaluator and editor gate.
-- [x] Table/direct worksheet AutoFilter predicates.
-- [x] Table operations and filter-aware totals with Undo/Redo.
-- [x] Platform-neutral Table manager/filter snapshots.
-- [x] Generation-guarded paged filter sessions and bounded page cache.
-- [x] Native WPF/WinForms/MAUI paged-filter foundations.
+- [x] Data Validation evaluator and editor gate.
+- [x] Table/worksheet AutoFilter predicates and paged native foundations.
+- [x] Table operations, filter-aware totals and Undo/Redo.
 - [x] Streaming CSV/TSV and staged atomic output.
 - [x] First-generation array `FILTER`, `SORT`, `UNIQUE`.
 - [x] Conditional aggregate criteria engine and six IF/IFS aggregate names.
+- [x] Scalar order-statistic, variance and rank functions.
 - [ ] Complete Table design/resize/style manager UI.
 - [ ] Rich XLSX AutoFilter markup and `sortState`.
 - [ ] Advanced multi-key sort, grouping, outlines and subtotals.
-- [ ] Criteria indexes/caches and database criteria tables.
+- [ ] Criteria/statistical indexes and database criteria tables.
 - [ ] Pivot tables, slicers and calculated fields.
 - [ ] External/virtualized data and incremental loading.
 
 ## F. Cross-platform controls
 
 - [x] Platform-neutral command, Ribbon Core, Bars Core and DataGrid Core contracts.
-- [x] Public WPF/WinForms spreadsheet hosts.
-- [x] MAUI handler, touch state machine and pinch zoom.
+- [x] Public WPF/WinForms spreadsheet hosts and MAUI touch host.
 - [x] Native filter and print-preview foundations.
 - [x] WPF paginator and WinForms print adapter.
-- [x] Spill child edit/clear/copy/cut/paste protection through shared controllers.
+- [x] Spill child edit/clear/copy/cut/paste protection.
 - [ ] Native spill border/selection/error affordances.
-- [ ] Dedicated loaded smokes for every new native path.
-- [ ] Full Table manager and general column/context menus.
+- [ ] Dedicated loaded smokes for every native path.
+- [ ] Full Table manager and general context menus.
 - [ ] Native validation presenters.
 - [ ] MAUI virtual keyboard and IME lifecycle.
-- [ ] Responsive Ribbon/toolbar/menu/context-menu presenters.
+- [ ] Responsive Ribbon/toolbar/menu presenters.
 - [ ] Production standalone DataGrid presenter.
-- [ ] Complete theme, localization, high-contrast, accessibility and designer support.
+- [ ] Complete theme, localization, high contrast, accessibility and designer support.
 
 ## G. Product hardening
 
 - [x] Broad exact-head multi-platform CI matrix.
 - [x] Staged atomic PDF and delimited-text limits.
-- [x] Repository validation runner and Codex final-acceptance plan.
+- [x] Repository validation runner and final-acceptance plan.
 - [x] Dynamic-array shape/collision/history/clipboard/XLSX gates.
 - [x] Function SDK API/version/capability/conflict/dependency gates.
 - [x] Conditional aggregate criteria/dependency/budget gates.
-- [ ] API binary-compatibility and package-version checks.
+- [x] Statistical result/coercion/error/dependency/descriptor gates.
+- [ ] API binary compatibility and package-version checks.
 - [ ] NuGet packaging, symbols and source link.
 - [ ] Plugin package/signature/trust and isolation policy.
 - [ ] Crash recovery, safe mode and support bundle.
-- [ ] Security review and fuzzing for formulas, plugins, XLSX, CSV and clipboard.
+- [ ] Formula/plugin/XLSX/CSV/clipboard fuzzing.
 - [ ] Performance budgets enforced in CI.
-- [ ] Target printer/device/DPI/accessibility compatibility matrix.
+- [ ] Target printer/device/DPI/accessibility matrix.
 - [ ] Alpha → Beta → RC → Production release gates.
 
 ## Immediate execution order
 
-1. Statistical functions foundation.
-2. Financial functions foundation.
-3. Engineering/database functions and criteria-table support.
+1. Financial Functions Foundation.
+2. Engineering/database functions and criteria-table support.
+3. Advanced statistical distributions, covariance/correlation and regression.
 4. Advanced lookup/reference and dynamic-array helpers.
 5. Plugin packaging/discovery/isolation and API compatibility tooling.
 6. Native spill UX and drawings/images/charts.
 7. Advanced data analysis, virtual data, pivot and slicers.
-8. Remaining print/XLSX/PDF/font compatibility corpus.
+8. Remaining print/XLSX/PDF/font/formula compatibility corpus.
 9. Accessibility/IME/localization/theme and release hardening.
 10. Execute final Codex acceptance before PR promotion.
 
-## Weighted progress after Function SDK + Conditional Aggregates
+## Weighted progress after Statistical Functions Foundation
 
 - Engine/viewport/renderer foundation: approximately `92%`.
-- Basic spreadsheet MVP: approximately `94–96%`.
-- Complete professional roadmap: approximately `66%`.
-- Production release readiness: approximately `43–46%`.
+- Basic spreadsheet MVP: approximately `95–97%`.
+- Complete professional roadmap: approximately `68%`.
+- Production release readiness: approximately `45–48%`.
 
 These are engineering-weighted estimates, not checkbox counts.
 
 ## Validation rule
 
-Implementation commit `19e749473ce68f0b67b110ba70b37339a4c7e155` passed CI `#772`, run `32633548509`. PR #1 remains Draft and must not merge while a newer exact-head run is red or unknown.
+Implementation commit `6aa9b1a05f7a370d393d3222b533b3bee0088c9a` passed CI `#779`, run `32636739544`. PR #1 remains Draft and must not merge while a newer exact-head run is red or unknown.

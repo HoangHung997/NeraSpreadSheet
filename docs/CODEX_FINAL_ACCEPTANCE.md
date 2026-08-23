@@ -12,171 +12,92 @@ Run from a clean checkout:
     -RequireCleanWorkingTree
 ```
 
-Keep the generated JSON/TRX evidence. Any failure blocks promotion.
+Keep JSON/TRX evidence. Any failure blocks promotion.
 
 ## 2. Function Extension SDK packaging and compatibility
 
-Build representative extension packages covering:
+Build representative packages covering API compatibility, exact/highest version resolution, side-by-side versions, aliases/conflicts, logical/flattened arguments, scalar/range invocation, additional dependencies, volatility/state rejection and legacy registration.
 
-- API `1.0` success;
-- future/incompatible API rejection;
-- exact and highest-version resolution;
-- side-by-side versions and removal fallback;
-- alias collisions and alias stability;
-- logical versus flattened argument counting;
-- scalar and range invocation metadata;
-- additional dependency declaration;
-- deterministic and volatile functions;
-- rejection of external-state and unsupported array capabilities;
-- legacy `IFormulaFunction` registration.
+Before external distribution, validate package manifests, assembly discovery, dependency conflicts, publisher signatures, API binary compatibility, version pinning/migration, unload/reload, crash containment, isolation, filesystem/network permissions and support-bundle redaction.
 
-Before external plugin distribution is enabled, validate and document:
-
-- assembly discovery/loading locations;
-- package/manifest schema;
-- dependency version conflicts;
-- publisher/signature/trust policy;
-- API binary compatibility;
-- formula-text version pinning or migration policy;
-- unload/reload behavior;
-- crash/failure containment;
-- process or sandbox isolation decision;
-- filesystem/network permissions;
-- telemetry and support-bundle redaction.
-
-The current milestone intentionally does not claim isolated or trusted execution of arbitrary third-party code.
+The current milestone does not claim isolated or trusted execution of arbitrary third-party code.
 
 ## 3. Conditional aggregate compatibility corpus
 
-Compare `COUNTIF(S)`, `SUMIF(S)` and `AVERAGEIF(S)` with current Excel and LibreOffice using:
+Compare `COUNTIF(S)`, `SUMIF(S)` and `AVERAGEIF(S)` with current Excel and LibreOffice across operators, numbers/dates/Boolean/errors/text, blanks, wildcards/escapes, cell-supplied criteria, multiple ranges, errors, no-match cases, affected recalculation, large ranges and malformed criteria.
 
-- `=`, `<>`, `<`, `<=`, `>`, `>=`;
-- invariant number/date/Boolean/error/text operands;
-- blank and non-blank criteria;
-- `*` and `?` wildcards;
-- tilde escapes;
-- criteria supplied from cells/formulas;
-- one and multiple criteria ranges;
-- same-shape ranges at different worksheet locations;
-- matched/unmatched aggregate errors;
-- text/Boolean/blank aggregate cells;
-- no-match and no-numeric-average cases;
-- source edits and affected-only recalculation;
-- large ranges near the two-million positional-pass budget;
-- malformed and excessively long criteria.
+Record locale/coercion differences. Fuzz criteria strings and shapes under strict budgets.
 
-Record every locale/coercion difference rather than silently expanding the contract. Run criteria-string and range-shape fuzzing under strict evaluation budgets.
+## 4. Statistical compatibility, scale and fuzzing
 
-## 4. Dynamic arrays compatibility, scale and fuzzing
+Compare the following with current Excel and LibreOffice:
 
-Validate `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE` against Excel and LibreOffice using scalar, vectors, rectangles, nesting, blanks, errors, source edits, blockers, recovery, clipboard, structure, Undo/Redo and XLSX resave.
-
-Performance samples:
-
-- 1 cell;
-- 100 cells;
-- 10,000 cells;
-- 100,000 cells;
-- 1,000,000 cells.
-
-Record latency, allocation, committed memory, dependency cost, UI responsiveness and recovery. Fuzz shapes, collision maps, formulas, structural changes and clipboard ranges.
-
-The current milestone does not claim `A1#`, `@`, array constants, LET/LAMBDA, higher-order arrays or full Office extension metadata.
-
-## 5. Independent PDF validation
-
-For every generated sample run:
-
-```text
-qpdf --check
-pdfinfo
-mutool draw or equivalent rasterization
-```
-
-Cover A4/A3/Letter/Legal, portrait/landscape, fit-to-page, repeated titles, manual breaks, merged cells, headers/footers, multi-sheet numbering, 100/500/10,000 pages, cancellation and output limits. Diff print preview against rasterized PDF.
-
-## 6. Font and international text
-
-Validate Vietnamese, Latin accents, CJK, RTL, combining marks, emoji/fallback, bold/italic/underline, wrapping/clipping and deterministic substitution. Record embedding/subsetting/substitution and size impact.
-
-## 7. Native print preview and printers
-
-On supported Windows hardware:
-
-- preview 1/100/500/10,000 pages;
-- fractional scrolling and anchored zoom;
-- resize/minimize/restore/monitor DPI transitions;
-- 4K at 60/120 Hz;
-- memory, latency and GPU recovery;
-- physical/virtual printer drivers;
-- hard margins, paper/orientation/copies/cancellation.
-
-## 8. MAUI devices
-
-On Android/iOS/macOS/Windows target devices:
-
-- pan/pinch with overlays;
-- dynamic-array owner/child selection after source edits;
-- virtual keyboard and IME;
-- suspend/resume and orientation changes;
-- screen reader/focus order;
-- high contrast/large text;
-- cancellation during paging/export;
-- no orphaned focus/overlay after reopen.
-
-## 9. XLSX compatibility corpus
-
-Round-trip files from current/older Excel, LibreOffice, Google Sheets export, OpenXml SDK and common third-party writers.
+- `MEDIAN`;
+- `MODE.SNGL`;
+- `PERCENTILE.INC`;
+- `QUARTILE.INC`;
+- `VAR.P`, `VAR.S`;
+- `STDEV.P`, `STDEV.S`;
+- `RANK.EQ`;
+- `LARGE`, `SMALL`.
 
 Cover:
 
-- extension-function formulas as unknown names;
-- conditional aggregate formulas and cached values;
-- dynamic-array owner/cached-child conventions;
-- blocked/recovered spills;
-- modern Office extension metadata;
-- page setup and print titles;
-- Tables/AutoFilter;
-- drawings/images/custom XML;
-- repeated preservation saves;
-- malformed relationships and URIs.
+- odd/even and singleton sets;
+- duplicate/tied values;
+- scalar Boolean and numeric-text arguments;
+- text/Boolean/blank cells inside ranges;
+- DateTime/OLE serial values;
+- error values;
+- percentile endpoints and interpolation;
+- quartile indexes `0..4` and invalid indexes;
+- sample/population insufficient data;
+- ascending/descending rank and values absent from the reference set;
+- large/small boundary indexes;
+- source edits and affected-only recalculation;
+- large ranges near the two-million-value budget.
 
-Run OpenXml schema validation after every output.
+Run statistical input fuzzing over finite/extreme floating values, duplicates, order, mixed cell kinds, errors and range shapes. Record differences in coercion, tie grouping, floating-point precision and error codes. The current milestone does not claim exclusive percentile/quartile, MODE.MULT, RANK.AVG, covariance/correlation/regression or distribution compatibility.
 
-## 10. CSV/TSV corpus and fuzzing
+## 5. Dynamic arrays compatibility, scale and fuzzing
 
-Cover CR/LF/CRLF, quote pairs across buffers, multiline fields, huge fields/rows, alternate delimiters/encodings, formula-injection cases, malformed quotes, cancellation and output limits.
+Validate `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE` against Excel and LibreOffice using scalar/vector/rectangular results, nesting, blanks, errors, source edits, blockers, recovery, clipboard, structure, Undo/Redo and XLSX resave.
 
-## 11. Security and reliability
+Performance samples: 1, 100, 10,000, 100,000 and 1,000,000 cells. Record latency, allocation, memory, dependency cost and UI responsiveness. Fuzz shapes, collision maps, formulas and structural/clipboard operations.
 
-Run:
+## 6. Independent PDF validation
 
-- scalar/dynamic/criteria parser fuzzing;
-- extension registry/manifest/version fuzzing;
-- clipboard spill fuzzing;
-- XLSX package/relationship/URI fuzzing;
-- low-disk/access-denied replacement;
-- crash/restart during staged export;
-- memory pressure and repeated open/save/export/recalculate loops;
-- API compatibility checks;
-- NuGet/source-link/symbol verification.
+Run `qpdf --check`, `pdfinfo` and rasterization for page-size/orientation, fit-to-page, repeated titles, breaks, merged cells, headers/footers, multi-sheet output, 100/500/10,000 pages, cancellation and output limits. Diff preview against rasterized PDF.
 
-## 12. Evidence pack
+## 7. Font and international text
 
-Store:
+Validate Vietnamese, Latin accents, CJK, RTL, combining marks, emoji/fallback, styles, wrapping/clipping and deterministic substitution. Record embedding/subsetting and size impact.
 
-- exact commit SHA;
-- OS/runtime/SDK/driver/device versions;
-- JSON/TRX results;
-- external validator logs;
-- screenshots/raster diffs;
-- formula SDK/criteria/dynamic-array traces;
-- performance/memory traces;
-- printer/device matrix;
-- corpus manifest and hashes;
-- accepted limitations and blockers.
+## 8. Native preview and printers
 
-## 13. Promotion rule
+On supported Windows hardware validate large previews, fractional scrolling, anchored zoom, resize/minimize/restore, physical DPI transitions, 4K 60/120 Hz, GPU recovery, printer drivers, hard margins, custom paper and cancellation.
+
+## 9. MAUI devices
+
+On Android/iOS/macOS/Windows devices validate touch with overlays, spill owner/child selection, virtual keyboard/IME, suspend/resume, orientation, screen reader/focus, high contrast/large text and cancellation.
+
+## 10. XLSX compatibility corpus
+
+Round-trip files from current/older Excel, LibreOffice, Google Sheets export, OpenXml SDK and third-party writers. Cover extension formulas, conditional/statistical formulas and cached values, dynamic arrays, page setup, Tables/filters, unknown parts, drawings/images/custom XML and malformed relationships/URIs. Run schema validation after every output.
+
+## 11. CSV/TSV corpus and fuzzing
+
+Cover CR/LF/CRLF, cross-buffer quotes, multiline/huge fields, alternate delimiters/encodings, formula-injection cases, malformed quotes, cancellation and output limits.
+
+## 12. Security and reliability
+
+Run scalar/dynamic/criteria/statistical parser/evaluator fuzzing, extension registry/version fuzzing, clipboard spill fuzzing, XLSX package/URI fuzzing, low-disk/access-denied replacement, crash/restart during staged export, memory pressure, repeated open/save/export/recalculate loops, API compatibility and NuGet/source-link verification.
+
+## 13. Evidence pack
+
+Store exact SHA, OS/runtime/SDK/driver/device versions, JSON/TRX, external validator logs, screenshots/raster diffs, function/statistics/dynamic-array traces, performance/memory traces, printer/device matrix, corpus hashes and accepted limitations/blockers.
+
+## 14. Promotion rule
 
 PR #1 remains Draft until:
 
