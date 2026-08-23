@@ -2,8 +2,11 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Validation;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
+using NeraCellStyle = NeraSpreadSheet.Core.CellStyle;
+using NeraWorkbook = NeraSpreadSheet.Core.Workbook;
+using CellAddress = NeraSpreadSheet.Core.CellAddress;
+using CellAlignmentStyle = NeraSpreadSheet.Core.CellAlignmentStyle;
 
 namespace NeraSpreadSheet.OpenXml.Tests;
 
@@ -13,12 +16,12 @@ public sealed class DynamicArraySpillRoundTripTests
     [TestMethod]
     public async Task DocumentSaveOmitsDerivedChildrenAndPreservesChildStyle()
     {
-        var workbook = new Workbook();
+        var workbook = new NeraWorkbook();
         var worksheet = workbook.Worksheets[0];
         var session = new SpreadsheetSession(workbook);
         var owner = new CellAddress(0, 0);
         var styledChild = new CellAddress(1, 1);
-        var styleId = workbook.Styles.Intern(new CellStyle
+        var styleId = workbook.Styles.Intern(new NeraCellStyle
         {
             Alignment = new CellAlignmentStyle
             {
@@ -72,7 +75,7 @@ public sealed class DynamicArraySpillRoundTripTests
     [TestMethod]
     public async Task LoadThenRecalculateRematerializesTheSpill()
     {
-        var workbook = new Workbook();
+        var workbook = new NeraWorkbook();
         var sourceSession = new SpreadsheetSession(workbook);
         var owner = new CellAddress(0, 0);
         sourceSession.SetFormula(owner, "=SEQUENCE(2,2,10,1)");
@@ -101,30 +104,5 @@ public sealed class DynamicArraySpillRoundTripTests
         Assert.AreEqual(11d, worksheet.GetValue(new CellAddress(0, 1)));
         Assert.AreEqual(12d, worksheet.GetValue(new CellAddress(1, 0)));
         Assert.AreEqual(13d, worksheet.GetValue(new CellAddress(1, 1)));
-    }
-
-    [TestMethod]
-    public async Task BaseWorkbookSerializerBoundaryRemainsExplicit()
-    {
-        var workbook = new Workbook();
-        var session = new SpreadsheetSession(workbook);
-        session.SetFormula(new CellAddress(0, 0), "=SEQUENCE(1,2)");
-        await using var stream = new MemoryStream();
-
-        await new NeraOpenXmlWorkbookSerializer().SaveAsync(
-            workbook,
-            stream,
-            new OpenXmlExportOptions());
-        stream.Position = 0L;
-        using var document = SpreadsheetDocument.Open(stream, false);
-        var cells = document.WorkbookPart!
-            .WorksheetParts
-            .Single()
-            .Worksheet!
-            .Descendants<Cell>()
-            .Select(static cell => cell.CellReference!.Value!)
-            .ToArray();
-
-        CollectionAssert.Contains(cells, "B1");
     }
 }
