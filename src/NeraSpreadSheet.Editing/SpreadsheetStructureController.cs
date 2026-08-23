@@ -129,7 +129,7 @@ public sealed class SpreadsheetStructureController
 
         public void Execute()
         {
-            PrepareCanonicalState();
+            var clearedSpillCount = PrepareCanonicalState();
             var versionBeforeApply = Worksheet.Version;
             try
             {
@@ -141,28 +141,33 @@ public sealed class SpreadsheetStructureController
             }
             catch
             {
-                // Structural preflight is performed before Worksheet publishes
-                // any change. Avoid restoring an identical state because that
-                // would incorrectly advance Version for a rejected operation.
+                // Structural transforms preflight before publishing. Restore
+                // only when a commit actually changed the worksheet; otherwise
+                // an identical restore would incorrectly advance Version.
+                var restored = false;
                 if (Worksheet.Version != versionBeforeApply)
                 {
                     RestoreBeforeState();
+                    restored = true;
                 }
-                _session.Calculation.Recalculate(_session.Workbook);
+                if (restored || clearedSpillCount > 0)
+                {
+                    _session.Calculation.Recalculate(_session.Workbook);
+                }
                 throw;
             }
         }
 
         public void Undo() => RestoreBeforeState();
 
-        private void PrepareCanonicalState()
+        private int PrepareCanonicalState()
         {
             // Spill children are derived output. They must never be moved or
             // captured as user data by a structural transaction.
-            Worksheet.ClearAllFormulaSpills();
+            var clearedSpillCount = Worksheet.ClearAllFormulaSpills();
             if (_worksheetBefore is not null)
             {
-                return;
+                return clearedSpillCount;
             }
 
             _worksheetBefore = Worksheet.CaptureStructuralState();
@@ -189,6 +194,7 @@ public sealed class SpreadsheetStructureController
             _frozenRowsBefore = _session.View.FrozenRows;
             _frozenColumnsBefore = _session.View.FrozenColumns;
             _splitStateBefore = _session.View.SplitState;
+            return clearedSpillCount;
         }
 
         private void RestoreBeforeState()
