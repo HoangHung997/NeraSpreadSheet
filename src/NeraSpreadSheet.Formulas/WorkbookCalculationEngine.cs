@@ -93,6 +93,31 @@ public sealed class WorkbookCalculationEngine
         return RecalculateFormulaCells(workbook, candidates);
     }
 
+    /// <summary>
+    /// Recalculates formulas that depend on a changed range without forcibly
+    /// evaluating formula cells that merely reside inside that range. Spill
+    /// transactions use this path so a committed #SPILL! owner is not
+    /// immediately overwritten by scalar owner evaluation.
+    /// </summary>
+    public WorkbookCalculationResult RecalculateDependents(
+        Workbook workbook,
+        Worksheet changedWorksheet,
+        CellRange changedRange)
+    {
+        ArgumentNullException.ThrowIfNull(workbook);
+        ArgumentNullException.ThrowIfNull(changedWorksheet);
+        if (DependencyGraph.FormulaCount == 0)
+        {
+            return new WorkbookCalculationResult(0, 0, 0);
+        }
+
+        return RecalculateFormulaCells(
+            workbook,
+            DependencyGraph.GetTransitiveDependents(
+                changedWorksheet.Name,
+                changedRange));
+    }
+
     private WorkbookCalculationResult RecalculateFormulaCells(
         Workbook workbook,
         IEnumerable<FormulaCellKey> formulaCells)
