@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Globalization;
 using NeraSpreadSheet.Core;
 
@@ -28,6 +29,26 @@ public readonly record struct FormulaFunctionApiVersion :
         var major = Major.CompareTo(other.Major);
         return major != 0 ? major : Minor.CompareTo(other.Minor);
     }
+
+    public static bool operator <(
+        FormulaFunctionApiVersion left,
+        FormulaFunctionApiVersion right) =>
+        left.CompareTo(right) < 0;
+
+    public static bool operator <=(
+        FormulaFunctionApiVersion left,
+        FormulaFunctionApiVersion right) =>
+        left.CompareTo(right) <= 0;
+
+    public static bool operator >(
+        FormulaFunctionApiVersion left,
+        FormulaFunctionApiVersion right) =>
+        left.CompareTo(right) > 0;
+
+    public static bool operator >=(
+        FormulaFunctionApiVersion left,
+        FormulaFunctionApiVersion right) =>
+        left.CompareTo(right) >= 0;
 
     public override string ToString() =>
         string.Create(
@@ -64,6 +85,26 @@ public readonly record struct FormulaFunctionVersion :
         var minor = Minor.CompareTo(other.Minor);
         return minor != 0 ? minor : Patch.CompareTo(other.Patch);
     }
+
+    public static bool operator <(
+        FormulaFunctionVersion left,
+        FormulaFunctionVersion right) =>
+        left.CompareTo(right) < 0;
+
+    public static bool operator <=(
+        FormulaFunctionVersion left,
+        FormulaFunctionVersion right) =>
+        left.CompareTo(right) <= 0;
+
+    public static bool operator >(
+        FormulaFunctionVersion left,
+        FormulaFunctionVersion right) =>
+        left.CompareTo(right) > 0;
+
+    public static bool operator >=(
+        FormulaFunctionVersion left,
+        FormulaFunctionVersion right) =>
+        left.CompareTo(right) >= 0;
 
     public override string ToString() =>
         string.Create(
@@ -151,12 +192,25 @@ public sealed record FormulaFunctionDescriptor
         bool propagateArgumentErrors = true,
         IEnumerable<string>? aliases = null)
     {
+        if (string.IsNullOrWhiteSpace(identity.Namespace) ||
+            string.IsNullOrWhiteSpace(identity.Name))
+        {
+            throw new ArgumentException(
+                "A formula-function identity must be initialized.",
+                nameof(identity));
+        }
+        if (minimumHostApiVersion.Major <= 0)
+        {
+            throw new ArgumentException(
+                "The minimum host API version must be initialized.",
+                nameof(minimumHostApiVersion));
+        }
         ArgumentOutOfRangeException.ThrowIfNegative(minimumArguments);
         ArgumentOutOfRangeException.ThrowIfLessThan(
             maximumArguments,
             minimumArguments);
-        if (capabilities == FormulaFunctionCapabilities.None ||
-            (capabilities &
+        ValidateCapabilities(capabilities);
+        if ((capabilities &
              (FormulaFunctionCapabilities.ReturnsScalar |
               FormulaFunctionCapabilities.ReturnsArray)) == 0)
         {
@@ -225,13 +279,29 @@ public sealed record FormulaFunctionDescriptor
         }
     }
 
-    private static string[] NormalizeAliases(
+    internal static void ValidateCapabilities(
+        FormulaFunctionCapabilities capabilities)
+    {
+        const FormulaFunctionCapabilities known =
+            FormulaFunctionCapabilities.ScalarArguments |
+            FormulaFunctionCapabilities.RangeArguments |
+            FormulaFunctionCapabilities.ArrayArguments |
+            FormulaFunctionCapabilities.ReturnsScalar |
+            FormulaFunctionCapabilities.ReturnsArray;
+        if (capabilities == FormulaFunctionCapabilities.None ||
+            (capabilities & ~known) != FormulaFunctionCapabilities.None)
+        {
+            throw new ArgumentOutOfRangeException(nameof(capabilities));
+        }
+    }
+
+    private static IReadOnlyList<string> NormalizeAliases(
         string primaryName,
         IEnumerable<string>? aliases)
     {
         if (aliases is null)
         {
-            return [];
+            return Array.Empty<string>();
         }
         var result = aliases
             .Select(FormulaFunctionName.Normalize)
@@ -242,7 +312,7 @@ public sealed record FormulaFunctionDescriptor
             .Distinct(StringComparer.Ordinal)
             .OrderBy(static alias => alias, StringComparer.Ordinal)
             .ToArray();
-        return result;
+        return Array.AsReadOnly(result);
     }
 }
 
@@ -281,6 +351,7 @@ public sealed record FormulaFunctionRegistrationOptions
 public sealed class FormulaFunctionArgument
 {
     private readonly CellValue[] _values;
+    private readonly ReadOnlyCollection<CellValue> _readOnlyValues;
 
     private FormulaFunctionArgument(
         FormulaFunctionArgumentKind kind,
@@ -290,13 +361,14 @@ public sealed class FormulaFunctionArgument
     {
         Kind = kind;
         _values = values;
+        _readOnlyValues = Array.AsReadOnly(_values);
         SourceDependency = sourceDependency;
         ArrayValue = arrayValue;
     }
 
     public FormulaFunctionArgumentKind Kind { get; }
 
-    public IReadOnlyList<CellValue> Values => _values;
+    public IReadOnlyList<CellValue> Values => _readOnlyValues;
 
     public FormulaDependency? SourceDependency { get; }
 
@@ -341,6 +413,8 @@ public sealed class FormulaFunctionArgument
 public sealed class FormulaFunctionInvocation
 {
     private readonly FormulaFunctionArgument[] _arguments;
+    private readonly ReadOnlyCollection<FormulaFunctionArgument>
+        _readOnlyArguments;
 
     public FormulaFunctionInvocation(
         IEnumerable<FormulaFunctionArgument> arguments,
@@ -348,10 +422,12 @@ public sealed class FormulaFunctionInvocation
     {
         ArgumentNullException.ThrowIfNull(arguments);
         _arguments = arguments.ToArray();
+        _readOnlyArguments = Array.AsReadOnly(_arguments);
         Context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
-    public IReadOnlyList<FormulaFunctionArgument> Arguments => _arguments;
+    public IReadOnlyList<FormulaFunctionArgument> Arguments =>
+        _readOnlyArguments;
 
     public IFormulaEvaluationContext Context { get; }
 
@@ -518,6 +594,7 @@ public sealed class FormulaFunctionDefinition : IVersionedFormulaFunction
 public class VersionedFormulaFunctionRegistry :
     IVersionedFormulaFunctionRegistry
 {
+    private readonly object _gate = new();
     private readonly FormulaFunctionRegistryPolicy _policy;
     private readonly Dictionary<
         FormulaFunctionIdentity,
@@ -536,20 +613,46 @@ public class VersionedFormulaFunctionRegistry :
     public FormulaFunctionApiVersion HostApiVersion =>
         _policy.HostApiVersion;
 
-    public int Count => _functions.Count;
+    public int Count
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _functions.Count;
+            }
+        }
+    }
 
-    public int VersionCount => _functions.Values.Sum(static versions =>
-        versions.Count);
+    public int VersionCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _functions.Values.Sum(static versions =>
+                    versions.Count);
+            }
+        }
+    }
 
-    public IReadOnlyList<FormulaFunctionDescriptor> Descriptors =>
-        _functions.Values
-            .SelectMany(static versions => versions.Values)
-            .Select(static function => function.Descriptor)
-            .OrderBy(static descriptor =>
-                descriptor.Identity.QualifiedName,
-                StringComparer.Ordinal)
-            .ThenBy(static descriptor => descriptor.Version)
-            .ToArray();
+    public IReadOnlyList<FormulaFunctionDescriptor> Descriptors
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _functions.Values
+                    .SelectMany(static versions => versions.Values)
+                    .Select(static function => function.Descriptor)
+                    .OrderBy(static descriptor =>
+                        descriptor.Identity.QualifiedName,
+                        StringComparer.Ordinal)
+                    .ThenBy(static descriptor => descriptor.Version)
+                    .ToArray();
+            }
+        }
+    }
 
     public void Register(
         IVersionedFormulaFunction formulaFunction,
@@ -562,6 +665,104 @@ public class VersionedFormulaFunctionRegistry :
             throw new ArgumentOutOfRangeException(nameof(options));
         }
         ValidateDescriptor(formulaFunction.Descriptor);
+        lock (_gate)
+        {
+            RegisterCore(formulaFunction, options);
+        }
+    }
+
+    public void RegisterLegacy(IFormulaFunction formulaFunction)
+    {
+        ArgumentNullException.ThrowIfNull(formulaFunction);
+        if (formulaFunction is IVersionedFormulaFunction versioned)
+        {
+            Register(versioned);
+            return;
+        }
+        Register(new LegacyFormulaFunctionAdapter(formulaFunction));
+    }
+
+    public bool Unregister(
+        FormulaFunctionIdentity identity,
+        FormulaFunctionVersion version)
+    {
+        lock (_gate)
+        {
+            if (!_functions.TryGetValue(identity, out var versions) ||
+                !versions.Remove(version))
+            {
+                return false;
+            }
+            if (versions.Count > 0)
+            {
+                return true;
+            }
+
+            _functions.Remove(identity);
+            foreach (var name in _nameOwners
+                         .Where(pair => pair.Value == identity)
+                         .Select(static pair => pair.Key)
+                         .ToArray())
+            {
+                _nameOwners.Remove(name);
+            }
+            return true;
+        }
+    }
+
+    public bool TryResolve(
+        string name,
+        out IFormulaFunction formulaFunction)
+    {
+        lock (_gate)
+        {
+            if (!TryResolveVersionedCore(name, out var versioned))
+            {
+                formulaFunction = null!;
+                return false;
+            }
+            formulaFunction = versioned;
+            return true;
+        }
+    }
+
+    public bool TryGetDescriptor(
+        string name,
+        out FormulaFunctionDescriptor descriptor)
+    {
+        lock (_gate)
+        {
+            if (!TryResolveVersionedCore(name, out var function))
+            {
+                descriptor = null!;
+                return false;
+            }
+            descriptor = function.Descriptor;
+            return true;
+        }
+    }
+
+    public bool TryResolve(
+        FormulaFunctionIdentity identity,
+        FormulaFunctionVersion version,
+        out IVersionedFormulaFunction formulaFunction)
+    {
+        lock (_gate)
+        {
+            if (_functions.TryGetValue(identity, out var versions) &&
+                versions.TryGetValue(version, out formulaFunction!))
+            {
+                return true;
+            }
+            formulaFunction = null!;
+            return false;
+        }
+    }
+
+    private void RegisterCore(
+        IVersionedFormulaFunction formulaFunction,
+        FormulaFunctionRegistrationOptions options)
+    {
         var identity = formulaFunction.Descriptor.Identity;
         var names = formulaFunction.Descriptor
             .EnumerateFormulaNames()
@@ -594,11 +795,12 @@ public class VersionedFormulaFunctionRegistry :
         else
         {
             if (versions.Count > 0 &&
-                options.ConflictPolicy ==
-                FormulaFunctionRegistrationConflictPolicy.Reject)
+                options.ConflictPolicy !=
+                FormulaFunctionRegistrationConflictPolicy.AllowSideBySide)
             {
                 throw new InvalidOperationException(
-                    $"Formula function '{identity}' already has a registered version.");
+                    $"Formula function '{identity}' already has a registered " +
+                    "version; AllowSideBySide is required for a new version.");
             }
             if (versions.Count >= _policy.MaximumVersionsPerIdentity)
             {
@@ -615,83 +817,7 @@ public class VersionedFormulaFunctionRegistry :
         }
     }
 
-    public void RegisterLegacy(IFormulaFunction formulaFunction)
-    {
-        ArgumentNullException.ThrowIfNull(formulaFunction);
-        if (formulaFunction is IVersionedFormulaFunction versioned)
-        {
-            Register(versioned);
-            return;
-        }
-        Register(new LegacyFormulaFunctionAdapter(formulaFunction));
-    }
-
-    public bool Unregister(
-        FormulaFunctionIdentity identity,
-        FormulaFunctionVersion version)
-    {
-        if (!_functions.TryGetValue(identity, out var versions) ||
-            !versions.Remove(version))
-        {
-            return false;
-        }
-        if (versions.Count > 0)
-        {
-            return true;
-        }
-
-        _functions.Remove(identity);
-        foreach (var name in _nameOwners
-                     .Where(pair => pair.Value == identity)
-                     .Select(static pair => pair.Key)
-                     .ToArray())
-        {
-            _nameOwners.Remove(name);
-        }
-        return true;
-    }
-
-    public bool TryResolve(
-        string name,
-        out IFormulaFunction formulaFunction)
-    {
-        if (!TryResolveVersioned(name, out var versioned))
-        {
-            formulaFunction = null!;
-            return false;
-        }
-        formulaFunction = versioned;
-        return true;
-    }
-
-    public bool TryGetDescriptor(
-        string name,
-        out FormulaFunctionDescriptor descriptor)
-    {
-        if (!TryResolveVersioned(name, out var function))
-        {
-            descriptor = null!;
-            return false;
-        }
-        descriptor = function.Descriptor;
-        return true;
-    }
-
-    public bool TryResolve(
-        FormulaFunctionIdentity identity,
-        FormulaFunctionVersion version,
-        out IVersionedFormulaFunction formulaFunction)
-    {
-        if (_functions.TryGetValue(identity, out var versions) &&
-            versions.TryGetValue(version, out formulaFunction!))
-        {
-            return true;
-        }
-        formulaFunction = null!;
-        return false;
-    }
-
-    private bool TryResolveVersioned(
+    private bool TryResolveVersionedCore(
         string name,
         out IVersionedFormulaFunction formulaFunction)
     {
@@ -791,12 +917,14 @@ public class VersionedFormulaFunctionRegistry :
 
     private static void ValidatePolicy(FormulaFunctionRegistryPolicy policy)
     {
-        if (policy.SupportedCapabilities == FormulaFunctionCapabilities.None)
+        if (policy.HostApiVersion.Major <= 0)
         {
             throw new ArgumentException(
-                "The registry must support at least one function capability.",
+                "The registry host API version must be initialized.",
                 nameof(policy));
         }
+        FormulaFunctionDescriptor.ValidateCapabilities(
+            policy.SupportedCapabilities);
         if (!Enum.IsDefined(policy.MaximumSecurityClassification))
         {
             throw new ArgumentOutOfRangeException(nameof(policy));
