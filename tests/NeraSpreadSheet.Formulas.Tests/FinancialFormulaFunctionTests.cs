@@ -52,7 +52,6 @@ public sealed class FinancialFormulaFunctionTests
                 "=NPER(0.05/12,-188.7123364401099,10000)",
                 context),
             1e-8d);
-
         Assert.AreEqual(
             -187.9292976996945d,
             EvaluateNumber(
@@ -193,7 +192,7 @@ public sealed class FinancialFormulaFunctionTests
             [new CellAddress(0, 0)] = CellValue.FromNumber(-100d),
             [new CellAddress(1, 0)] = CellValue.FromText("ignored"),
             [new CellAddress(2, 0)] = CellValue.FromBoolean(true),
-            [new CellAddress(3, 0)] = CellValue.FromNumber(121d),
+            [new CellAddress(3, 0)] = CellValue.FromNumber(110d),
         };
         var engine = new NeraFormulaEngine();
         var context = new FormulaSurfaceTestContext(values);
