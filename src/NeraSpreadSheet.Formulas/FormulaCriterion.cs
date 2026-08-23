@@ -109,11 +109,15 @@ public sealed class FormulaCriterion
                 hasWildcards: false);
         }
 
+        var hasWildcards = HasUnescapedWildcard(operandText);
+        var literalOperand = hasWildcards
+            ? operandText
+            : UnescapePattern(operandText);
         return new FormulaCriterion(
             comparisonOperator,
-            CellValue.FromText(operandText),
+            CellValue.FromText(literalOperand),
             operandText,
-            HasUnescapedWildcard(operandText));
+            hasWildcards);
     }
 
     public bool Matches(CellValue candidate)
@@ -257,6 +261,28 @@ public sealed class FormulaCriterion
             }
         }
         return false;
+    }
+
+    private static string UnescapePattern(string pattern)
+    {
+        if (!pattern.Contains('~', StringComparison.Ordinal))
+        {
+            return pattern;
+        }
+
+        var result = new System.Text.StringBuilder(pattern.Length);
+        for (var index = 0; index < pattern.Length; index++)
+        {
+            if (pattern[index] == '~' && index + 1 < pattern.Length)
+            {
+                result.Append(pattern[++index]);
+            }
+            else
+            {
+                result.Append(pattern[index]);
+            }
+        }
+        return result.ToString();
     }
 
     private static bool WildcardMatch(string input, string pattern)
