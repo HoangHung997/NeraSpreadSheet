@@ -250,7 +250,7 @@ public sealed class DatabaseFormulaFunctionsTests
     }
 
     private static void SetRow(
-        IDictionary<CellAddress, CellValue> values,
+        Dictionary<CellAddress, CellValue> values,
         int row,
         int startColumn,
         params object[] rowValues)
@@ -262,15 +262,15 @@ public sealed class DatabaseFormulaFunctionsTests
         }
     }
 
-    private static double Variance(IReadOnlyList<double> values, bool sample)
+    private static double Variance(double[] values, bool sample)
     {
         var mean = values.Average();
         var sum = values.Sum(value => (value - mean) * (value - mean));
-        return sum / (sample ? values.Count - 1d : values.Count);
+        return sum / (sample ? values.Length - 1d : values.Length);
     }
 
     private static void AssertNumber(
-        IFormulaEngine engine,
+        NeraFormulaEngine engine,
         IFormulaEvaluationContext context,
         string formula,
         double expected)
@@ -281,7 +281,7 @@ public sealed class DatabaseFormulaFunctionsTests
     }
 
     private static void AssertError(
-        IFormulaEngine engine,
+        NeraFormulaEngine engine,
         IFormulaEvaluationContext context,
         string formula,
         string expected)
