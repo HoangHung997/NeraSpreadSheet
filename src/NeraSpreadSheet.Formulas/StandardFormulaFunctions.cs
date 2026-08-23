@@ -70,9 +70,17 @@ internal static class FormulaFunctionFactory
                 effectiveSecurity,
                 dependencyPolicy,
                 propagateErrors),
-            invocation => FormulaEvaluationResult.Success(
-                evaluator(
-                    invocation.FlattenValues(),
-                    invocation.Context)));
+            invocation =>
+            {
+                var values = invocation.FlattenValues();
+                if (values.Length < minimumArguments ||
+                    values.Length > maximumArguments)
+                {
+                    return FormulaEvaluationResult.Failure(
+                        FormulaErrorCode.InvalidValue);
+                }
+                return FormulaEvaluationResult.Success(
+                    evaluator(values, invocation.Context));
+            });
     }
 }
