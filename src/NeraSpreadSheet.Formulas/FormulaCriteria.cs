@@ -64,8 +64,8 @@ public sealed class FormulaCriteria
         }
         var (comparison, operandText) = ParseOperator(text);
         var hasWildcard =
-            comparison is FormulaCriteriaOperator.Equal or
-                FormulaCriteriaOperator.NotEqual &&
+            (comparison is FormulaCriteriaOperator.Equal or
+                FormulaCriteriaOperator.NotEqual) &&
             ContainsUnescapedWildcard(operandText);
         var parsedOperandText = hasWildcard
             ? operandText
@@ -192,7 +192,6 @@ public sealed class FormulaCriteria
                 {
                     break;
                 }
-                break;
         }
         number = default;
         return false;
