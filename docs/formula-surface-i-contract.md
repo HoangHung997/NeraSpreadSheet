@@ -1,23 +1,23 @@
 # Formula Surface I contract
 
-This document defines the validated Formula Surface I behavior of NeraSpreadSheet. It is a Nera-owned contract. Excel and LibreOffice are compatibility references only and are not runtime dependencies.
+This document defines the validated Formula Surface I behavior of NeraSpreadSheet. Excel and LibreOffice are compatibility references only and are not runtime dependencies.
 
 ## 1. Architecture boundary
 
 - `FormulaParser` and the AST own syntax.
-- `NeraFormulaEngine` owns evaluation order, lazy branches, reference-aware functions, dependency capture and error mapping.
-- `BuiltInFormulaFunctionRegistry` owns eager scalar/range functions.
-- `FormulaValueCoercion` owns shared conversion of blank, number, Boolean, text and `DateTime`.
+- `NeraFormulaEngine` owns evaluation order, lazy branches, reference-aware functions, conditional aggregates, dependency capture and error mapping.
+- `BuiltInFormulaFunctionRegistry` owns eager scalar/range functions and exposes versioned SDK metadata.
+- `FormulaValueCoercion` owns shared conversion of blank, number, Boolean, text and `DateTime`, and is public for extension functions.
+- `VersionedFormulaFunctionRegistry` owns extension identity/version/capability validation.
 - Workbook calculation continues to use the existing dependency graph and affected-only recalculation.
-- Dynamic-array values, spill ownership and array functions are specified separately in `docs/dynamic-arrays-contract.md`.
+- Dynamic-array values and spill ownership are specified in `docs/dynamic-arrays-contract.md`.
 - Platform hosts must not implement function semantics.
-- No OpenXml type enters the public formula contracts.
 
-The function registry may be supplied to `NeraFormulaEngine`, but this milestone is not yet the complete, versioned plugin-function SDK.
+Full extension contract: `docs/function-extension-sdk-contract.md`.
 
 ## 2. Error model
 
-`FormulaErrorCode` includes:
+`FormulaErrorCode` maps:
 
 - `DivisionByZero` → `#DIV/0!`;
 - `InvalidReference` → `#REF!`;
@@ -25,121 +25,146 @@ The function registry may be supplied to `NeraFormulaEngine`, but this milestone
 - `InvalidValue` → `#VALUE!`;
 - `CircularReference` → `#CIRC!`;
 - `NotAvailable` → `#N/A`;
-- `NumericError` → `#NUM!`;
+- numeric/domain failures → `#NUM!` value;
 - `Spill` → `#SPILL!`.
 
-Formula-error values propagate through ordinary scalar and numeric aggregate functions. Information functions such as `ISERROR`, `ISERR` and `ISNA`, and counting functions with explicit non-propagating contracts, inspect or count errors instead of returning them.
+Formula errors propagate through ordinary scalar and numeric aggregate functions. Information/counting functions with explicit non-propagating contracts inspect or count errors instead.
 
-`IFERROR` and `IFNA` evaluate the fallback only when required. `IF`, `IFS`, `SWITCH` and `CHOOSE` evaluate only the selected result branch.
-
-`#SPILL!` is committed by the dynamic-array materialization layer when an otherwise valid array cannot reserve its complete target range. Scalar dependents consume that committed error value.
+`IFERROR` and `IFNA` evaluate the fallback only when required. `IF`, `IFS`, `SWITCH` and `CHOOSE` evaluate only selected result branches.
 
 ## 3. Shared coercion
 
-The shared coercion layer currently follows these rules:
+The public coercion layer currently follows these rules:
 
-- finite `Number` values remain numbers;
-- Boolean converts to `1` or `0` where numeric coercion is allowed;
+- finite numbers remain numbers;
+- Boolean converts to `1`/`0` where numeric coercion is allowed;
 - blank converts to `0` in scalar numeric coercion;
-- `DateTime` converts through OLE Automation serial representation for arithmetic/numeric functions;
-- text is converted only where the function explicitly enables invariant numeric/date parsing;
-- non-finite numeric results become `#NUM!`;
+- `DateTime` converts through OLE Automation serial representation;
+- text converts only where the function explicitly enables invariant parsing;
+- non-finite numeric output becomes `#NUM!`;
 - text output is bounded to 32,767 characters.
 
-Core currently collapses empty text to blank, so a true zero-length text cell is not represented independently.
+Core currently collapses empty text to blank.
 
-## 4. Registered eager functions
+## 4. Eager built-in functions
 
-The built-in registry contains **92 names**.
+The eager built-in registry contains **92 names**, described as namespace `NERA.BUILTIN`, implementation version `1.0.0`, host API `1.0`.
 
-### Aggregate and information
+### Aggregate, logical and information
 
 `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, `COUNTA`, `COUNTBLANK`, `PRODUCT`, `SUMSQ`, `AND`, `OR`, `XOR`, `NOT`, `TRUE`, `FALSE`, `NA`, `ISBLANK`, `ISNUMBER`, `ISTEXT`, `ISLOGICAL`, `ISERROR`, `ISERR`, `ISNA`, `N`, `T`.
 
-Numeric aggregates propagate formula errors. For an argument set containing no numeric value:
+Numeric aggregates propagate errors. With no numeric input:
 
-- `SUM`, `MIN`, `MAX`, `PRODUCT` and `SUMSQ` return `0`;
-- `AVERAGE` returns `#DIV/0!`;
-- `COUNT`, `COUNTA` and `COUNTBLANK` retain their counting-specific non-propagating behavior.
+- `SUM`, `MIN`, `MAX`, `PRODUCT`, `SUMSQ` return `0`;
+- `AVERAGE` returns `#DIV/0!`.
 
 ### Math, rounding and trigonometry
 
 `ABS`, `SIGN`, `INT`, `TRUNC`, `ROUND`, `ROUNDDOWN`, `ROUNDUP`, `MOD`, `POWER`, `SQRT`, `QUOTIENT`, `EVEN`, `ODD`, `CEILING.MATH`, `FLOOR.MATH`, `PI`, `EXP`, `LN`, `LOG10`, `LOG`, `SIN`, `COS`, `TAN`, `ASIN`, `ACOS`, `ATAN`, `ATAN2`, `DEGREES`, `RADIANS`.
 
-Rounding uses midpoint-away-from-zero for `ROUND`. Invalid domains return `#NUM!`; zero divisors return `#DIV/0!`.
-
 ### Text and Unicode
 
 `LEN`, `LOWER`, `UPPER`, `PROPER`, `TRIM`, `CLEAN`, `LEFT`, `RIGHT`, `MID`, `REPT`, `EXACT`, `CONCAT`, `TEXTJOIN`, `FIND`, `SEARCH`, `REPLACE`, `SUBSTITUTE`, `VALUE`, `CHAR`, `CODE`, `UNICHAR`, `UNICODE`.
-
-Search positions are one-based. `FIND` is ordinal case-sensitive; `SEARCH` is ordinal case-insensitive. `TEXTJOIN` applies one delimiter across evaluated scalar/range values.
 
 ### Date and time
 
 `DATE`, `TIME`, `YEAR`, `MONTH`, `DAY`, `HOUR`, `MINUTE`, `SECOND`, `DAYS`, `EDATE`, `EOMONTH`, `WEEKDAY`, `DATEVALUE`, `TIMEVALUE`, `TODAY`, `NOW`.
 
-`TODAY` and `NOW` use `IFormulaClockEvaluationContext` when supplied, enabling deterministic tests, previews and batch calculations. Otherwise they use the local system clock. This milestone does not yet add automatic volatile-function scheduling to the workbook calculation graph.
+`TODAY` and `NOW` use `IFormulaClockEvaluationContext` when supplied. Their descriptors are volatile/context-read-only; automatic volatile scheduling is pending.
 
-## 5. AST/reference-aware functions
+## 5. Reference/AST-aware functions
 
-The scalar/reference engine additionally recognizes **12 special names**, bringing Formula Surface I to **104 names**:
+The evaluator recognizes **18 additional scalar/reference names**:
 
-`IF`, `IFERROR`, `IFNA`, `IFS`, `SWITCH`, `CHOOSE`, `INDEX`, `MATCH`, `XLOOKUP`, `VLOOKUP`, `HLOOKUP`, `SUBTOTAL`.
+- lazy/error: `IF`, `IFERROR`, `IFNA`, `IFS`, `SWITCH`, `CHOOSE`;
+- lookup/reference: `INDEX`, `MATCH`, `XLOOKUP`, `VLOOKUP`, `HLOOKUP`;
+- visibility aggregate: `SUBTOTAL`;
+- conditional aggregate: `COUNTIF`, `COUNTIFS`, `SUMIF`, `SUMIFS`, `AVERAGEIF`, `AVERAGEIFS`.
 
-These functions remain in the evaluator because they require lazy AST evaluation, range identity, row visibility or dependency semantics.
+The scalar/reference surface therefore contains **110 built-in names**.
 
-The separately validated dynamic-array engine recognizes five additional names — `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT` and `UNIQUE` — so the complete formula subsystem currently recognizes **109 function names**.
+The dynamic-array engine recognizes five further names — `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE` — so the complete built-in subsystem recognizes **115 names**. Registered extension functions are additional and are not included in this count.
 
-## 6. Lookup/reference semantics
+## 6. Conditional aggregates
+
+The conditional aggregate families share `FormulaCriteria`:
+
+- comparison operators `=`, `<>`, `<`, `<=`, `>`, `>=`;
+- invariant Boolean/number/date/error/text parsing;
+- case-insensitive ordinal text;
+- `*`/`?` wildcards and tilde escaping;
+- blank/non-blank and error matching.
+
+Ranges must be canonical cell/range references with identical shapes. Multiple criteria combine by AND. Aggregate errors propagate only at matched positions. Work is bounded to two million positional range passes.
+
+Full contract: `docs/conditional-aggregates-contract.md`.
+
+## 7. Lookup/reference semantics
 
 - `INDEX` uses one-based row/column indexes and returns `#REF!` outside the range.
 - `MATCH` supports exact `0` and basic approximate `1`/`-1`.
-- `XLOOKUP` currently supports exact matching and optional not-found fallback.
-- `VLOOKUP` and `HLOOKUP` support exact mode and conservative approximate mode.
-- Lookup ranges are captured as formula dependencies.
-- Approximate lookup assumes input is sorted in the required direction; the engine does not sort or silently normalize source data.
-- Wildcard matching, binary-search modes, reverse search and multiple scalar return columns are not in Formula Surface I.
-- Array-valued results are handled only by the dynamic-array functions specified in `docs/dynamic-arrays-contract.md`.
+- `XLOOKUP` supports exact matching and optional fallback.
+- `VLOOKUP`/`HLOOKUP` support exact and conservative approximate mode.
+- Lookup ranges enter the dependency graph.
+- Approximate lookup assumes correctly sorted input.
+- Wildcard/binary/reverse XLOOKUP modes remain pending.
 
-## 7. Range and dependency behavior
+## 8. Range and argument compatibility
 
-Registry functions flatten range arguments into scalar values while recording the canonical source range once. Reference-aware functions record the ranges they inspect and avoid registering unused lazy branches.
+Versioned invocation preserves logical range identity and values for extension functions.
 
-Dynamic-array functions retain rectangular shape and dependency identity instead of flattening their array inputs. Their spill output is materialized by the dynamic calculation layer, not by the scalar registry.
+Built-ins and legacy functions explicitly use `FlattenedValues` argument counting. This preserves historical behavior such as:
 
-The current scalar flattening model does not retain every Excel distinction between a literal argument and the same value coming from a referenced cell. Those finer coercion differences remain compatibility work rather than being guessed.
+- `SUM(A1:A2,5)` flattening the range;
+- `DATE(A1:A3)` supplying three values;
+- `ABS(A1:A2)` failing fixed arity rather than silently using the first value.
 
-## 8. Date representation
+New SDK extensions default to logical-argument counting.
 
-Nera stores date values as `.NET DateTime` and converts to/from OLE Automation serial values where numeric date arithmetic is required.
+## 9. Function Extension SDK
 
-This milestone does not emulate Excel's historical fictitious 1900-02-29 date. Locale-specific parsing/formatting and the `TEXT` formatting language remain pending.
+The validated SDK provides:
 
-## 9. Deliberately pending
+- stable namespace/name identity;
+- semantic implementation versions;
+- host API compatibility;
+- capabilities and state classifications;
+- alias/conflict rules;
+- logical/range invocation metadata;
+- engine or extension dependency policy;
+- shared coercion helpers;
+- legacy registration compatibility.
 
-- A complete versioned plugin-function SDK.
-- Conditional aggregate families such as `SUMIF(S)`, `COUNTIF(S)` and `AVERAGEIF(S)`.
-- Full lookup/reference families such as `OFFSET`, `INDIRECT`, `ADDRESS`, `ROW(S)` and `COLUMN(S)`.
-- Statistical, financial, engineering, database and cube functions.
-- Locale-aware `TEXT`, number-format parsing and regional function aliases.
-- Complete Excel coercion compatibility for literal versus referenced values.
-- Volatile recalculation scheduling for `NOW`/`TODAY`.
-- Advanced dynamic-array syntax and functions listed in `docs/dynamic-arrays-contract.md`.
-- External Excel/LibreOffice differential corpus and fuzzing.
+The default registry rejects external-state and array-capable extensions. Formula-text version pinning, assembly discovery, signing and isolation remain pending.
 
-## 10. Validation gates
+## 10. Date representation
 
-Promotion requires the exact head to pass:
+Nera stores dates as `.NET DateTime` and converts to/from OLE Automation serial values for numeric date arithmetic.
 
-1. Core restore/build/tests.
-2. Architecture verification.
-3. Logical/error and lazy-branch regressions.
-4. Aggregate error/empty-set regressions.
-5. Math/domain/rounding regressions.
-6. Text/Unicode/length regressions.
-7. Date/time/deterministic-clock regressions.
-8. Lookup result/dependency regressions.
-9. Dynamic-array and spill regressions.
-10. Existing Table, filter, XLSX, Windows and MAUI matrix.
+The engine does not emulate Excel's fictitious 1900-02-29. Locale-specific parsing/formatting and the `TEXT` formatting language remain pending.
+
+## 11. Deliberately pending
+
+- statistical, financial, engineering, database and cube function families;
+- `OFFSET`, `INDIRECT`, `ADDRESS`, `ROW(S)`, `COLUMN(S)`;
+- advanced lookup modes and locale-aware `TEXT`;
+- complete literal/reference coercion compatibility;
+- volatile recalculation scheduling;
+- advanced dynamic arrays and higher-order functions;
+- extension package manifests, signatures, loading and isolation;
+- external Excel/LibreOffice differential corpus and fuzzing.
+
+## 12. Validation gates
+
+Promotion requires:
+
+1. Core restore/build/tests and architecture verification;
+2. logical/error/lazy regressions;
+3. aggregate/math/text/date/lookup regressions;
+4. function SDK API/version/capability/conflict/dependency compatibility tests;
+5. criteria and all six conditional aggregate tests;
+6. affected-only dependency and scan-budget tests;
+7. dynamic-array, Table, filter, XLSX, Windows and MAUI regression matrix.
 
 PR #1 remains Draft while a newer exact-head CI is red or unknown.

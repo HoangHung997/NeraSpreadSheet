@@ -3,112 +3,96 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` into `develop` — Draft, unmerged
-- Dynamic Arrays Foundation implementation head: `705afb46f05e687a7ee13147e6ed106b82944c04`
-- GitHub Actions: CI `#746`, run `32624762199`, success
+- Implementation head: `19e749473ce68f0b67b110ba70b37339a4c7e155`
+- GitHub Actions: CI `#772`, run `32633548509`, success
 - Source of truth: `docs/current-status.md`
-- Formula Surface I: `docs/formula-surface-i-contract.md`
-- Dynamic Arrays contract: `docs/dynamic-arrays-contract.md`
+- SDK contract: `docs/function-extension-sdk-contract.md`
+- Criteria contract: `docs/conditional-aggregates-contract.md`
 - Final acceptance: `docs/CODEX_FINAL_ACCEPTANCE.md`
 
-## Batch completed: Dynamic Arrays Foundation
+## Batch completed: Function Extension SDK v1.0
 
-### Core array and spill model
+- Stable namespace/name identity.
+- Semantic implementation version and host API version.
+- Current host API `1.0`.
+- Exact and highest-version resolution.
+- Side-by-side versions, exact replacement and unregister fallback.
+- Stable aliases and deterministic name conflicts.
+- Scalar/range/array and scalar/array-return capability declarations.
+- Deterministic/volatile/external-state metadata.
+- Pure/context-read-only/external-state classification.
+- Engine-only or function-added dependency policy.
+- Logical versus flattened argument-count policy.
+- Immutable logical arguments retaining range source identity and values.
+- Public shared coercion helpers.
+- Thread-safe registry and bounded versions per identity.
+- Fail-closed API/capability/external-state validation.
+- Legacy `IFormulaFunction` compatibility.
+- All 92 eager built-ins described as `NERA.BUILTIN` version `1.0.0`.
+- `TODAY`/`NOW` marked volatile/context-read-only.
 
-- Immutable rectangular `FormulaArrayValue`, row-major, maximum one million cells.
-- One top-left formula owner per spill.
-- Worksheet and snapshot owner/child resolution.
-- Derived children remain ordinary sparse values plus optional direct styles.
-- Atomic spill replacement and obsolete-child cleanup.
+## Batch completed: Conditional Aggregates
 
-### Collision and errors
+- Shared invariant criteria parser.
+- Operators `=`, `<>`, `<`, `<=`, `>`, `>=`.
+- Error, Boolean, number, DateTime and text criteria.
+- Case-insensitive ordinal text.
+- `*`/`?` wildcards and tilde escapes.
+- Blank/non-blank matching.
+- `COUNTIF`, `COUNTIFS`.
+- `SUMIF`, `SUMIFS`.
+- `AVERAGEIF`, `AVERAGEIFS`.
+- Strict positional shape equality.
+- Multiple criteria combine by AND.
+- Matched aggregate errors propagate; unmatched errors do not.
+- Every criteria/aggregate/expression dependency enters the graph.
+- Affected-only recalculation tests.
+- Two-million positional-pass budget validated before enumeration.
 
-- Target preflight rejects non-blank values, formulas, other spills, merged ranges, Tables and worksheet bounds.
-- Direct style-only cells do not block materialization.
-- Blocked output commits `#SPILL!` while retaining owner formula and blocker state.
-- `FormulaErrorCode.Spill` is explicit.
+The built-in formula subsystem now recognizes 115 names: 92 eager, 18 reference-aware and five dynamic-array names. User-registered SDK functions are additional.
 
-### Dynamic functions
+## CI #772
 
-- `SEQUENCE`.
-- `TRANSPOSE`.
-- `FILTER` with row/column include vectors and fallback.
-- `SORT` with one stable row/column key.
-- `UNIQUE` with row/column comparison and exactly-once mode.
-- Formula subsystem total: 109 recognized names.
+Passed:
 
-### Dependency and calculation
-
-- Dynamic source/range dependencies enter the existing graph.
-- Scalar compatibility exposes top-left value.
-- Spill output changes trigger dependent-only recalculation.
-- Committed owner/child values are frozen during dependent calculation.
-- Source edits resize output and blockers can recover.
-- Stabilization is bounded to eight passes.
-
-### Editing and history
-
-- Direct child value/formula edit rejected.
-- Partial spill clear rejected.
-- Clearing owner clears complete output.
-- Undo/Redo restores owner formula and rematerializes children.
-- Row/column structural operations canonicalize away derived children, transform owner formulas and regenerate output.
-- Rejected structural preflight does not corrupt Version or leave output missing.
-
-### Clipboard
-
-- Partial spill copy/cut rejected before clipboard/history mutation.
-- Complete spill copy stores owner formula once.
-- Derived child values/formulas are omitted.
-- Direct child styles may be copied as style-only blank cells.
-- Paste into any existing spill is rejected before mutation/history.
-- Pasting a complete spill into free space creates a new owner and regenerated output.
-- Complete spill cut and Undo are covered.
-
-### XLSX boundary
-
-- `NeraOpenXmlDocumentSerializer` retains owner formulas.
-- Derived spill-child values/formulas are removed from worksheet XML.
-- Direct child styles remain.
-- Load followed by Nera recalculation rematerializes output.
-- Existing package graph, schema and unknown-part preservation gates remain intact.
-
-### CI #746
-
-- Core restore/build/tests: success.
-- Architecture verification: success.
-- Windows full build/tests: success.
-- Windows desktop GPU smoke: success.
-- Android: success.
-- iOS and Mac Catalyst: success.
-- MAUI Windows build/handler: success.
-- Loaded Table-filter, runtime context and scale/orientation smokes: success.
+- Core restore/build/tests;
+- architecture verification;
+- SDK API/version/capability/conflict/dependency tests;
+- criteria and six conditional aggregate families;
+- dynamic-array and all existing formula regressions;
+- full Windows tests and desktop GPU smoke;
+- Android;
+- iOS and Mac Catalyst;
+- MAUI Windows build/handler;
+- loaded Table-filter, runtime-context and scale/orientation smokes.
 
 ## Explicit limitations
 
-- No `A1#` spill-reference syntax or `@` implicit-intersection semantics.
-- No array constants or arbitrary vectorized binary expressions.
-- No advanced helpers such as SORTBY/TAKE/DROP/HSTACK/VSTACK.
-- No LET/LAMBDA/MAP/REDUCE families.
-- SORT currently has one key and conservative Nera value ordering.
-- No dedicated spill-border/selection affordance on every host.
-- No full Microsoft Office dynamic-array extension metadata compatibility.
-- One-million-cell target-hardware performance and fuzzing remain final acceptance work.
-- Versioned plugin-function SDK remains pending.
+- Formula text does not pin an extension version.
+- No plugin package manifest, assembly discovery or publisher signature policy.
+- No isolated execution for third-party code.
+- Default policy rejects external-state and array-capable extensions.
+- Volatile metadata exists; automatic volatile scheduling is pending.
+- Criteria parsing is invariant, not locale-specific.
+- Conditional aggregate ranges must be canonical cell/range references of equal shape.
+- Full Excel/LibreOffice criteria/coercion corpus and indexes are pending.
+- Statistical, financial, engineering and database families are pending.
 
-## Progress
+## Progress after exact-head documentation validation
 
 - Engine/viewport/renderer: about `92%`.
-- Basic spreadsheet MVP: about `92–94%`.
-- Complete professional roadmap: about `64%`.
-- Production readiness: about `41–44%`.
+- Basic spreadsheet MVP: about `94–96%`.
+- Professional roadmap: about `66%`.
+- Production readiness: about `43–46%`.
 
 ## Next batch
 
-1. Versioned Function Extension SDK.
-2. Function identity/capabilities/deterministic-volatility contracts.
-3. `SUMIF(S)`, `COUNTIF(S)`, `AVERAGEIF(S)` and criteria evaluator.
-4. Statistical/financial/engineering functions.
-5. Advanced dynamic arrays and spill UX.
-6. Exact-head Core/Windows/MAUI CI.
+1. Statistical functions foundation.
+2. Financial functions foundation.
+3. Engineering/database functions and criteria tables.
+4. Advanced lookup/reference and dynamic-array helpers.
+5. Plugin packaging/discovery/isolation and API compatibility tooling.
+6. Native spill UX, drawings/charts and advanced data.
+7. Release hardening and final Codex acceptance.
 
 PR remains Draft; do not merge while a newer exact-head CI is red or unknown.

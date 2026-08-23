@@ -1,10 +1,10 @@
 # Codex final acceptance plan
 
-This is the final repository-wide validation backlog for work that cannot be completely proven by hosted CI or by source-level tests alone. Codex must run this plan after implementation batches are complete and before PR #1 is promoted from Draft.
+This is the repository-wide validation backlog for work that cannot be completely proven by hosted CI or source-level tests alone. Codex must run this plan after implementation batches are complete and before PR #1 is promoted from Draft.
 
-## 1. Automated repository gate
+## 1. Automated exact-head gate
 
-Run from a clean exact-head checkout:
+Run from a clean checkout:
 
 ```powershell
 ./scripts/run-complete-validation.ps1 \
@@ -12,27 +12,66 @@ Run from a clean exact-head checkout:
     -RequireCleanWorkingTree
 ```
 
-Keep the generated JSON report with the release evidence. Any failure blocks promotion.
+Keep the generated JSON/TRX evidence. Any failure blocks promotion.
 
-## 2. Dynamic arrays compatibility, scale and fuzzing
+## 2. Function Extension SDK packaging and compatibility
 
-Validate `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT` and `UNIQUE` against current Excel and LibreOffice using:
+Build representative extension packages covering:
 
-- scalar, row-vector, column-vector and rectangular results;
-- nested dynamic-array functions;
-- blank, number, text, Boolean, DateTime and error values;
-- row and column filtering;
-- ascending/descending row and column sort;
-- duplicate and exactly-once uniqueness;
-- source edits that shrink and grow output;
-- dependent formulas consuming owner and child values;
-- blocked output from values, formulas, spills, merged cells, Tables and worksheet bounds;
-- blocker removal and spill recovery;
-- copy/cut/paste of complete and partial spill ranges;
-- row/column insert/delete/reorder with Undo/Redo;
-- XLSX save, external open, external resave, Nera reopen and recalculation.
+- API `1.0` success;
+- future/incompatible API rejection;
+- exact and highest-version resolution;
+- side-by-side versions and removal fallback;
+- alias collisions and alias stability;
+- logical versus flattened argument counting;
+- scalar and range invocation metadata;
+- additional dependency declaration;
+- deterministic and volatile functions;
+- rejection of external-state and unsupported array capabilities;
+- legacy `IFormulaFunction` registration.
 
-Performance and resource samples:
+Before external plugin distribution is enabled, validate and document:
+
+- assembly discovery/loading locations;
+- package/manifest schema;
+- dependency version conflicts;
+- publisher/signature/trust policy;
+- API binary compatibility;
+- formula-text version pinning or migration policy;
+- unload/reload behavior;
+- crash/failure containment;
+- process or sandbox isolation decision;
+- filesystem/network permissions;
+- telemetry and support-bundle redaction.
+
+The current milestone intentionally does not claim isolated or trusted execution of arbitrary third-party code.
+
+## 3. Conditional aggregate compatibility corpus
+
+Compare `COUNTIF(S)`, `SUMIF(S)` and `AVERAGEIF(S)` with current Excel and LibreOffice using:
+
+- `=`, `<>`, `<`, `<=`, `>`, `>=`;
+- invariant number/date/Boolean/error/text operands;
+- blank and non-blank criteria;
+- `*` and `?` wildcards;
+- tilde escapes;
+- criteria supplied from cells/formulas;
+- one and multiple criteria ranges;
+- same-shape ranges at different worksheet locations;
+- matched/unmatched aggregate errors;
+- text/Boolean/blank aggregate cells;
+- no-match and no-numeric-average cases;
+- source edits and affected-only recalculation;
+- large ranges near the two-million positional-pass budget;
+- malformed and excessively long criteria.
+
+Record every locale/coercion difference rather than silently expanding the contract. Run criteria-string and range-shape fuzzing under strict evaluation budgets.
+
+## 4. Dynamic arrays compatibility, scale and fuzzing
+
+Validate `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE` against Excel and LibreOffice using scalar, vectors, rectangles, nesting, blanks, errors, source edits, blockers, recovery, clipboard, structure, Undo/Redo and XLSX resave.
+
+Performance samples:
 
 - 1 cell;
 - 100 cells;
@@ -40,13 +79,13 @@ Performance and resource samples:
 - 100,000 cells;
 - 1,000,000 cells.
 
-Record calculation latency, allocation, committed memory, worksheet cell count, dependency-graph cost, UI responsiveness and cancellation/recovery behavior. Run mutation fuzzing over shapes, formulas, collision maps, structural changes, clipboard ranges and repeated recalculation. Respect the one-million-cell per-array limit and fail closed on excessive shapes.
+Record latency, allocation, committed memory, dependency cost, UI responsiveness and recovery. Fuzz shapes, collision maps, formulas, structural changes and clipboard ranges.
 
-The first-generation milestone does not claim compatibility for `A1#`, `@`, array constants, LET/LAMBDA, higher-order array functions or full Microsoft Office dynamic-array extension metadata. Treat those as expected limitations, not silent passes.
+The current milestone does not claim `A1#`, `@`, array constants, LET/LAMBDA, higher-order arrays or full Office extension metadata.
 
-## 3. Independent PDF validation
+## 5. Independent PDF validation
 
-For every generated sample:
+For every generated sample run:
 
 ```text
 qpdf --check
@@ -54,140 +93,95 @@ pdfinfo
 mutool draw or equivalent rasterization
 ```
 
-Required samples:
+Cover A4/A3/Letter/Legal, portrait/landscape, fit-to-page, repeated titles, manual breaks, merged cells, headers/footers, multi-sheet numbering, 100/500/10,000 pages, cancellation and output limits. Diff print preview against rasterized PDF.
 
-- A4/A3/Letter/Legal;
-- portrait and landscape;
-- fit-to-one-page and natural pagination;
-- repeated row/column titles;
-- manual breaks;
-- merged cells near every page boundary;
-- odd/even/first headers and footers;
-- multi-worksheet global page numbering;
-- 100, 500 and 10,000 pages;
-- cancellation and output-limit failures;
-- existing destination replacement.
+## 6. Font and international text
 
-Perform pixel/geometry diffs between print preview and rasterized PDF.
+Validate Vietnamese, Latin accents, CJK, RTL, combining marks, emoji/fallback, bold/italic/underline, wrapping/clipping and deterministic substitution. Record embedding/subsetting/substitution and size impact.
 
-## 4. Font and international text
-
-Validate:
-
-- Vietnamese;
-- Latin accents;
-- CJK;
-- RTL scripts;
-- emoji and unsupported glyph fallback;
-- bold/italic/underline;
-- narrow/wide columns;
-- wrapped text and clipped text;
-- deterministic substitution when the requested font is absent.
-
-Record embedded/subset/substituted font behavior and file-size impact.
-
-## 5. Native print preview and printer devices
+## 7. Native print preview and printers
 
 On supported Windows hardware:
 
-- open native preview with 1, 100, 500 and 10,000 pages;
-- continuously scroll at fractional offsets;
-- zoom around cursor/selection anchors;
-- resize, minimize/restore and change monitor DPI;
-- test 4K at 60 Hz and 120 Hz;
-- monitor memory, UI latency and GPU/device recovery;
-- print through multiple physical and virtual printer drivers;
-- validate hard margins, custom paper, orientation, copies and cancellation.
+- preview 1/100/500/10,000 pages;
+- fractional scrolling and anchored zoom;
+- resize/minimize/restore/monitor DPI transitions;
+- 4K at 60/120 Hz;
+- memory, latency and GPU recovery;
+- physical/virtual printer drivers;
+- hard margins, paper/orientation/copies/cancellation.
 
-## 6. MAUI devices
+## 8. MAUI devices
 
-On Android/iOS/macOS/Windows target hardware:
+On Android/iOS/macOS/Windows target devices:
 
-- touch pan and pinch while native filter/preview overlays exist;
-- inspect spill owner/child selection and error behavior after source edits;
-- virtual keyboard and IME lifecycle;
-- suspend/resume;
-- orientation and window-size changes;
-- screen reader and focus order;
-- high contrast and large text;
+- pan/pinch with overlays;
+- dynamic-array owner/child selection after source edits;
+- virtual keyboard and IME;
+- suspend/resume and orientation changes;
+- screen reader/focus order;
+- high contrast/large text;
 - cancellation during paging/export;
-- no orphaned native focus or overlay after close/reopen.
+- no orphaned focus/overlay after reopen.
 
-## 7. XLSX compatibility corpus
+## 9. XLSX compatibility corpus
 
-Round-trip files from:
-
-- current Microsoft Excel;
-- older Excel versions where available;
-- LibreOffice;
-- Google Sheets export;
-- OpenXml SDK-generated files;
-- common third-party XLSX writers.
+Round-trip files from current/older Excel, LibreOffice, Google Sheets export, OpenXml SDK and common third-party writers.
 
 Cover:
 
-- dynamic-array owner formulas and cached child conventions;
-- blocked and recovered spills;
-- package extension metadata used by modern Office;
-- page setup/margins/print area/print titles;
-- row/column manual breaks;
-- odd/even/first headers and footers;
-- Tables and worksheet AutoFilter;
-- unknown parts, drawings, images and custom XML;
+- extension-function formulas as unknown names;
+- conditional aggregate formulas and cached values;
+- dynamic-array owner/cached-child conventions;
+- blocked/recovered spills;
+- modern Office extension metadata;
+- page setup and print titles;
+- Tables/AutoFilter;
+- drawings/images/custom XML;
 - repeated preservation saves;
-- malformed relationships and package URIs.
+- malformed relationships and URIs.
 
-Run OpenXml schema validation after every output. Confirm that dynamic-array child cleanup does not remove unrelated styles, metadata or extension payloads.
+Run OpenXml schema validation after every output.
 
-## 8. CSV/TSV corpus and fuzzing
+## 10. CSV/TSV corpus and fuzzing
 
-Include:
+Cover CR/LF/CRLF, quote pairs across buffers, multiline fields, huge fields/rows, alternate delimiters/encodings, formula-injection cases, malformed quotes, cancellation and output limits.
 
-- CR/LF/CRLF;
-- quote pairs across buffer boundaries;
-- quoted multi-line cells;
-- very large fields and rows;
-- alternate delimiters and encodings;
-- formula-like text injection cases;
-- malformed/unclosed quotes;
-- cancellation and staged-output limits.
-
-Run mutation fuzzing with strict row/column/cell/output budgets.
-
-## 9. General security and reliability
+## 11. Security and reliability
 
 Run:
 
-- scalar and dynamic formula parser/evaluator fuzzing;
-- clipboard fuzzing, including partial/complete spill selections and paste collisions;
+- scalar/dynamic/criteria parser fuzzing;
+- extension registry/manifest/version fuzzing;
+- clipboard spill fuzzing;
 - XLSX package/relationship/URI fuzzing;
-- low-disk and access-denied file replacement;
+- low-disk/access-denied replacement;
 - crash/restart during staged export;
 - memory pressure and repeated open/save/export/recalculate loops;
 - API compatibility checks;
-- NuGet/source-link/symbol package verification.
+- NuGet/source-link/symbol verification.
 
-## 10. Evidence pack
+## 12. Evidence pack
 
 Store:
 
 - exact commit SHA;
 - OS/runtime/SDK/driver/device versions;
-- automated JSON/TRX results;
+- JSON/TRX results;
 - external validator logs;
-- screenshots and raster diffs;
-- dynamic-array result/collision/performance traces;
+- screenshots/raster diffs;
+- formula SDK/criteria/dynamic-array traces;
 - performance/memory traces;
 - printer/device matrix;
-- compatibility corpus manifest and hashes;
-- every accepted limitation and release blocker.
+- corpus manifest and hashes;
+- accepted limitations and blockers.
 
-## 11. Promotion rule
+## 13. Promotion rule
 
 PR #1 remains Draft until:
 
 1. exact-head hosted CI is green;
-2. this final acceptance plan has no unresolved blocker;
-3. documentation and feature matrix match executable behavior;
-4. release packaging/security/performance gates are approved;
+2. this plan has no unresolved release blocker;
+3. documentation matches executable behavior;
+4. packaging, trust, compatibility, performance and security gates are approved;
 5. the human owner explicitly decides to promote or merge.

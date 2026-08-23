@@ -8,12 +8,13 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 
 - No runtime dependency on Microsoft Excel, LibreOffice or DevExpress.
 - No native UI control per cell.
-- Workbook, formulas, dynamic arrays, editing, layout, scrolling, printing and commands remain independent from WPF, WinForms and MAUI.
+- Workbook, formulas, extension functions, dynamic arrays, editing, layout, scrolling, printing and commands remain independent from WPF, WinForms and MAUI.
 - Viewports and print previews use continuous `double` pixel offsets.
 - Desktop and GPU hosts consume the same workbook, viewport and display-list semantics.
-- Document-format dependencies stay inside adapter projects; OpenXml types do not enter Core public contracts.
+- Document-format dependencies stay inside adapter projects; OpenXml types do not enter Core/formula public contracts.
 - Native presenters translate platform input/focus only; production mutations use platform-neutral controllers and history.
-- Dynamic-array children are derived output owned by one top-left formula, not independent formulas or clipboard values.
+- Spill children are derived output owned by one top-left formula.
+- Extension functions must pass API, capability and state-policy validation before registration.
 
 ## Implemented
 
@@ -29,36 +30,72 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 
 - Tokenizer, parser and AST for arithmetic, comparison, concatenation, A1 references/ranges, functions and basic cross-sheet references.
 - Dependency graph, circular-reference detection and affected-only recalculation.
-- Shared-formula import/export, structured references, Table/column rename rewrite and calculated-column propagation.
-- Shared coercion/error layer, including `#NUM!` and explicit `#SPILL!` mapping.
-- **92 eager registry functions** plus **12 AST/reference-aware functions**, for **104 scalar/reference function names**.
+- Shared formulas, structured references, Table/column rename rewrite and calculated-column propagation.
+- Shared coercion/error layer, including `#NUM!` and `#SPILL!` mapping.
 - Logical/error/lazy functions, aggregates, math/rounding/trigonometry, text/Unicode, date/time and basic lookup/reference functions.
-- `TODAY`/`NOW` can use a deterministic clock context.
+- `TODAY`/`NOW` can use a deterministic clock context and are described as volatile/context-read-only functions.
 - `INDEX`, `MATCH`, `XLOOKUP`, `VLOOKUP` and `HLOOKUP` capture inspected ranges as dependencies.
-- Numeric aggregates propagate formula errors; `MIN/MAX` return `0` on a numeric-empty set, while `AVERAGE` returns `#DIV/0!`.
-- Existing filter-aware `SUBTOTAL` and filter-source dependencies remain intact.
+- Numeric aggregates propagate errors; counting/information functions retain explicit non-propagating contracts.
+- Current filter-aware `SUBTOTAL` and filter-source dependencies remain intact.
 
-Full contract: `docs/formula-surface-i-contract.md`.
+### Versioned Function Extension SDK v1.0
+
+- Stable `FormulaFunctionIdentity` with normalized namespace/name.
+- Independent semantic implementation version and host API version; current API is `1.0`.
+- Ordered version values, exact lookup and highest-version name resolution.
+- Side-by-side version registration, exact replacement and unregister fallback.
+- Global name/alias ownership and alias stability across versions.
+- Descriptor capabilities for scalar/range/array arguments and scalar/array returns.
+- Deterministic/volatile/external-state metadata.
+- Pure/context-read-only/external-state classification.
+- Engine-only or function-added dependency policy.
+- Automatic or disabled argument-error propagation.
+- Logical versus flattened argument-count policy.
+- Immutable invocation arguments preserving range source identity and values.
+- Public shared `FormulaValueCoercion` helpers for extension authors.
+- Thread-safe registry reads/writes and bounded versions per identity.
+- Fail-closed default policy rejects incompatible host APIs, unsupported array capabilities and external-state functions.
+- The 92 eager built-ins are described as `NERA.BUILTIN`, version `1.0.0`, API `1.0`.
+- Legacy `IFormulaFunction` registration remains source-compatible through a `LEGACY` adapter.
+- Built-in/legacy flattened-range arity is preserved, while new SDK functions default to logical argument counting.
+
+Full contract: `docs/function-extension-sdk-contract.md`.
+
+### Conditional aggregate criteria and functions
+
+- Shared `FormulaCriteria` supports `=`, `<>`, `<`, `<=`, `>` and `>=`.
+- Invariant error, Boolean, finite-number, DateTime and text operand parsing.
+- Ordinal case-insensitive text comparison.
+- `*` and `?` wildcards plus tilde escapes.
+- Explicit blank/non-blank and formula-error matching.
+- Criteria limited to 1,024 characters; wildcard regex is culture-invariant, non-backtracking and time-bounded.
+- Implemented `COUNTIF`, `COUNTIFS`, `SUMIF`, `SUMIFS`, `AVERAGEIF`, `AVERAGEIFS`.
+- Strict same-shape positional range rules.
+- Multiple criteria combine by AND.
+- Matched aggregate errors propagate; unmatched errors are not inspected.
+- Sum without a match returns zero; average without a numeric match returns `#DIV/0!`.
+- Criteria ranges, aggregate ranges and criterion-expression cells all enter the dependency graph.
+- Affected-only recalculation responds to both criteria and aggregate edits.
+- Work is bounded to two million positional range passes per evaluation and rejected before enumeration with `#NUM!`.
+
+These six names extend the scalar/reference surface to 110 names. Together with five dynamic-array names, the complete built-in formula subsystem recognizes **115 names**. User-registered SDK functions are not included in this count.
+
+Full contract: `docs/conditional-aggregates-contract.md`.
 
 ### Dynamic Arrays Foundation
 
-- Immutable, rectangular, row-major `FormulaArrayValue` with a one-million-cell safety limit.
+- Immutable rectangular row-major `FormulaArrayValue`, limited to one million cells.
 - Stable spill owner/child identity through `FormulaSpillRange`, worksheet APIs and immutable snapshots.
 - Spill preflight rejects non-blank values, formulas, other spills, merged ranges, Tables and worksheet-bound overflow.
-- Direct style-only target cells do not block a spill; direct child styles survive materialization, resize and clear.
-- Blocked output commits `#SPILL!` to the owner without changing the blocker or losing the owner formula.
-- Atomic materialization/replacement clears obsolete derived children and replaces ownership only after complete preflight.
-- Supported functions: `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT` and `UNIQUE`.
-- The complete formula subsystem therefore recognizes **109 names**: 104 Formula Surface I names plus five dynamic-array names.
-- Scalar compatibility returns the array top-left value while preserving source dependencies.
-- Dynamic-array calculation records source/range dependencies, performs affected-only dependent recalculation and is bounded to eight stabilization passes.
-- Committed spill values are frozen during dependent recalculation so consumers observe the materialized owner/children, including `#SPILL!`.
-- Source edits may resize output; clearing a blocker allows recovery.
+- Direct style-only cells do not block a spill; child styles survive materialization, resize and clear.
+- Blocked output commits `#SPILL!` while retaining the owner formula and blocker state.
+- Atomic materialization/replacement clears obsolete derived children only after complete preflight.
+- Supported dynamic functions: `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE`.
+- Source/range dependencies enter the shared graph and affected-only stabilization is bounded to eight passes.
+- Committed spill values are frozen during dependent recalculation.
 - Spill children cannot be edited directly; partial clear/copy/cut and paste-over-spill are rejected before history mutation.
-- Copying a complete spill stores the owner formula once and omits derived child values while preserving direct child styles.
-- Undo/Redo restores owner formulas and rematerializes output.
-- Row/column structural changes remove derived children from canonical state, transform owner formulas, then rematerialize mapped output.
-- `NeraOpenXmlDocumentSerializer` retains owner formulas, omits derived child values/formulas, preserves direct child styles and supports load-then-recalculate rematerialization.
+- Undo/Redo, row/column structural changes and clipboard copy/paste rematerialize output from the owner formula.
+- The dynamic-array-aware document serializer retains owner formulas, removes derived child values/formulas and preserves direct child styles.
 
 Full contract: `docs/dynamic-arrays-contract.md`.
 
@@ -68,7 +105,7 @@ Full contract: `docs/dynamic-arrays-contract.md`.
 - Snapshot/tile caching and split-aware dirty-region projection.
 - WPF DrawingContext/D3DImage, WinForms GDI+/Direct2D/D3D11-DXGI and shared Skia/MAUI GPU rendering.
 - Loaded desktop and MAUI Windows device/context recreation and scale/orientation gates.
-- Worksheet snapshots expose immutable spill owner/child metadata to host/rendering layers without consulting mutable worksheet state.
+- Immutable snapshots expose spill owner/child metadata without consulting mutable worksheet state.
 
 ### Conditional Formatting and Data Validation
 
@@ -77,7 +114,7 @@ Full contract: `docs/dynamic-arrays-contract.md`.
 
 ### Tables, structured references and totals
 
-- Stable Table/column `Guid` identities, workbook-unique Table names and per-Table unique column names.
+- Stable Table/column `Guid` identities, workbook-unique Table names and unique column names.
 - Header/data/totals ranges from one canonical Table range.
 - Table state in snapshots, structural state, rollback and production Undo/Redo.
 - Structured references including `Table[Column]`, `#All`, `#Data`, `#Headers`, `#Totals`, `#This Row` and `[@Column]`.
@@ -98,7 +135,7 @@ Full contract: `docs/dynamic-arrays-contract.md`.
 
 - Values, cached formulas, sheets, dimensions, merges, panes, styles, Conditional Formatting, Data Validation, Tables and current filters round-trip.
 - Standard Table parts and worksheet filter relationships are imported/exported.
-- The dynamic-array-aware document serializer removes derived spill children while retaining owner formula and direct styles.
+- The document serializer removes derived spill children while retaining owner formula and direct styles.
 - Unknown package-part preservation uses bounded atomic copy-and-patch.
 - Nested opaque parts, drawing/image relationships, custom XML and package-root relationships retain bytes/identity where owned semantics do not replace them.
 - Package preflight validates counts, IDs, types and unsafe URIs.
@@ -144,53 +181,52 @@ Full contract: `docs/dynamic-arrays-contract.md`.
 ### Validation automation
 
 - `scripts/run-complete-validation.ps1` runs broad Core, Windows and MAUI gates and writes JSON.
-- `docs/CODEX_FINAL_ACCEPTANCE.md` records target hardware, large-array performance, external dynamic-array compatibility, real printer, independent PDF validation, fonts, physical DPI, mobile IME/accessibility, compatibility corpora and fuzzing work that hosted CI cannot fully prove.
+- `docs/CODEX_FINAL_ACCEPTANCE.md` records target hardware, plugin packaging/isolation, criteria compatibility, large-array performance, real printer, PDF validation, fonts, physical DPI, mobile IME/accessibility, corpora and fuzzing work that hosted CI cannot fully prove.
 
 ## Implemented but intentionally conservative
 
-- Formula Surface I and Dynamic Arrays Foundation are broad but not complete Excel-compatible formula implementations.
-- Spill-reference syntax such as `A1#` and implicit-intersection `@` are pending.
-- Array constants and arbitrary vectorized binary expressions are pending.
-- `SORT` currently supports one key; locale-specific comparison and complete Excel ordering/coercion rules are pending.
-- Advanced arrays such as `SORTBY`, `TAKE`, `DROP`, `CHOOSECOLS`, `CHOOSEROWS`, `TOCOL`, `TOROW`, `HSTACK` and `VSTACK` are pending.
-- `LET`, `LAMBDA`, `MAP`, `REDUCE`, `SCAN`, `MAKEARRAY`, `BYROW` and `BYCOL` are pending.
-- There is not yet a dedicated spill-border/selection affordance on every native host.
-- Full Microsoft Office dynamic-array extension metadata and third-party cached-spill conventions remain external corpus work.
-- Range flattening does not preserve every coercion distinction between literal arguments and referenced values.
-- Core currently collapses empty text to blank.
-- Date arithmetic uses `.NET DateTime`/OLE Automation conversion and does not emulate Excel's fictional 1900-02-29.
-- Approximate lookup assumes correctly sorted source data; advanced XLOOKUP modes and wildcard matching are pending.
-- `TODAY`/`NOW` do not yet add automatic volatile recalculation scheduling.
-- A versioned plugin function SDK is pending.
-- Conditional aggregates, statistical, financial, engineering and database functions are pending.
-- Current `SUBTOTAL` surface is incomplete and does not fully model manual hidden rows or nested subtotal exclusion.
-- Newly added paged-filter/preview paths do not each have dedicated loaded interaction gates.
-- XLSX does not yet round-trip manual page breaks, first/even headers/footers or arbitrary custom paper dimensions.
+- Formula Surface I, conditional aggregates and Dynamic Arrays Foundation are broad but not complete Excel-compatible formula implementations.
+- SDK v1 does not yet load plugin assemblies, pin versions in formula text, verify publisher signatures or isolate third-party code.
+- The default SDK registry rejects external-state and array-capable extensions.
+- Volatility metadata exists, but automatic volatile recalculation scheduling is pending.
+- Conditional criteria parsing is invariant, not locale-specific.
+- Conditional aggregate ranges must be canonical cell/range references and have identical shape.
+- Wildcard/coercion edge cases beyond the documented contract remain external corpus work.
+- Spill-reference syntax `A1#`, implicit intersection `@`, array constants and arbitrary vectorized expressions are pending.
+- Advanced arrays and LET/LAMBDA/higher-order array functions are pending.
+- `SORT` currently supports one key; complete locale-specific ordering is pending.
+- There is no dedicated spill-border/selection affordance on every native host.
+- Full Microsoft Office dynamic-array metadata remains external corpus work.
+- Approximate lookup assumes correctly sorted source data; advanced XLOOKUP modes are pending.
+- Current `SUBTOTAL` surface does not fully model manual hidden rows or nested subtotals.
+- Statistical, financial, engineering, database and cube function families are pending.
+- Newly added filter/preview paths do not each have dedicated loaded interaction gates.
+- XLSX manual breaks, first/even headers/footers and arbitrary custom paper are pending.
 - Physical printer hard margins/driver behavior remain final hardware acceptance work.
-- Independent PDF validation, raster visual diff and font embedding/substitution remain pending.
+- Independent PDF raster diff and font embedding/substitution remain pending.
 - Drawings/charts do not yet paginate.
 - Unknown-part preservation requires stable worksheet topology and remains bounded to 512 MiB.
 
 ## Weighted progress estimate
 
 - Engine/viewport/renderer foundation: approximately `92%`.
-- Basic spreadsheet MVP: approximately `92–94%`.
-- Complete professional roadmap: approximately `64%`.
-- Production release readiness: approximately `41–44%`.
+- Basic spreadsheet MVP: approximately `94–96%`.
+- Complete professional roadmap: approximately `66%`.
+- Production release readiness: approximately `43–46%`.
 
 These are engineering-weighted estimates, not checkbox counts.
 
 ## Next implementation work
 
-1. Versioned function-extension SDK: identity, capabilities, deterministic/volatile classification, registration and compatibility gates.
-2. Conditional aggregate families: `SUMIF(S)`, `COUNTIF(S)` and `AVERAGEIF(S)`.
-3. Statistical, financial, engineering and database function families.
-4. Advanced dynamic-array syntax/functions, spill-reference operator and host spill UX.
-5. Drawings/images/charts model and print/PDF pagination.
+1. Statistical functions foundation.
+2. Financial functions foundation.
+3. Engineering/database functions and criteria-table support.
+4. Advanced lookup/reference and dynamic-array helpers.
+5. Native spill UX, drawings/images/charts and print/PDF pagination.
 6. Advanced sort, grouping/outlines, virtual data, pivot tables and slicers.
-7. Remaining printing/XLSX semantics and independent PDF/font/visual-diff corpus.
-8. Complete Table design/resize/style manager and richer filter markup.
-9. MAUI IME/virtual keyboard, accessibility, localization/theme and release hardening.
+7. Plugin packaging/discovery, API compatibility, isolation policy and release tooling.
+8. Remaining printing/XLSX semantics and external formula/PDF/font corpora.
+9. MAUI IME/accessibility/localization/theme and release hardening.
 10. Execute `docs/CODEX_FINAL_ACCEPTANCE.md` before promoting PR #1.
 
 ## Validation policy
@@ -198,14 +234,15 @@ These are engineering-weighted estimates, not checkbox counts.
 - Core restore/build/tests and architecture verification are mandatory.
 - Full Windows build/tests and desktop GPU/runtime smoke are mandatory.
 - MAUI changes require Android/iOS/Mac Catalyst/Windows builds; production lifecycle claims require loaded native gates.
-- Formula changes require error/coercion, lazy branch, range dependency, date/time, lookup and dynamic-array regressions.
-- Dynamic-array changes require shape/limit, collision, dependency, history, structure, clipboard, snapshot and XLSX boundary tests.
+- Function SDK changes require API/version/capability/security, conflicts, dependencies and backward-compatibility tests.
+- Conditional aggregate changes require criteria, shapes, errors, dependencies, affected recalculation and budget tests.
+- Dynamic-array changes require shape/limit, collision, dependency, history, structure, clipboard, snapshot and XLSX tests.
 - XLSX changes require schema-valid round-trip, malformed-input rejection and repeated preservation tests.
 - PR #1 remains Draft and must not merge while exact-head CI is red or unknown.
 
 ## Latest validated implementation milestone
 
-Implementation commit `705afb46f05e687a7ee13147e6ed106b82944c04` passed CI `#746`, run `32624762199`, across Core, architecture, Windows, desktop GPU, Android, iOS, Mac Catalyst and MAUI Windows loaded-runtime gates.
+Implementation commit `19e749473ce68f0b67b110ba70b37339a4c7e155` passed CI `#772`, run `32633548509`, across Core, architecture, Windows, desktop GPU, Android, iOS, Mac Catalyst and MAUI Windows loaded-runtime gates.
 
 ## Independence rule
 
