@@ -301,7 +301,7 @@ public sealed record FormulaFunctionDescriptor
     {
         if (aliases is null)
         {
-            return Array.Empty<string>();
+            return System.Array.Empty<string>();
         }
         var result = aliases
             .Select(FormulaFunctionName.Normalize)
@@ -312,7 +312,7 @@ public sealed record FormulaFunctionDescriptor
             .Distinct(StringComparer.Ordinal)
             .OrderBy(static alias => alias, StringComparer.Ordinal)
             .ToArray();
-        return Array.AsReadOnly(result);
+        return System.Array.AsReadOnly(result);
     }
 }
 
@@ -361,7 +361,7 @@ public sealed class FormulaFunctionArgument
     {
         Kind = kind;
         _values = values;
-        _readOnlyValues = Array.AsReadOnly(_values);
+        _readOnlyValues = System.Array.AsReadOnly(_values);
         SourceDependency = sourceDependency;
         ArrayValue = arrayValue;
     }
@@ -422,7 +422,7 @@ public sealed class FormulaFunctionInvocation
     {
         ArgumentNullException.ThrowIfNull(arguments);
         _arguments = arguments.ToArray();
-        _readOnlyArguments = Array.AsReadOnly(_arguments);
+        _readOnlyArguments = System.Array.AsReadOnly(_arguments);
         Context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
@@ -531,7 +531,7 @@ public sealed class FormulaFunctionDefinition : IVersionedFormulaFunction
             return new FormulaEvaluationResult(
                 error,
                 FormulaErrorMapping.ToErrorCode(error),
-                Array.Empty<FormulaDependency>());
+                System.Array.Empty<FormulaDependency>());
         }
 
         var result = _evaluator(invocation) ??
