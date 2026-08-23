@@ -39,10 +39,26 @@ internal static class FormulaFunctionFactory
         FormulaFunctionSecurityClassification securityClassification =
             FormulaFunctionSecurityClassification.Pure,
         FormulaFunctionDependencyPolicy dependencyPolicy =
-            FormulaFunctionDependencyPolicy.EngineCapturedOnly) =>
-        new FormulaFunctionDefinition(
+            FormulaFunctionDependencyPolicy.EngineCapturedOnly)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        var normalizedName = FormulaFunctionName.Normalize(name);
+        var readsClock = normalizedName is "TODAY" or "NOW";
+        var effectiveVolatility = readsClock &&
+                                  volatility ==
+                                  FormulaFunctionVolatility.Deterministic
+            ? FormulaFunctionVolatility.Volatile
+            : volatility;
+        var effectiveSecurity = readsClock &&
+                                securityClassification ==
+                                FormulaFunctionSecurityClassification.Pure
+            ? FormulaFunctionSecurityClassification.ContextReadOnly
+            : securityClassification;
+        return new FormulaFunctionDefinition(
             new FormulaFunctionDescriptor(
-                new FormulaFunctionIdentity("NERA.BUILTIN", name),
+                new FormulaFunctionIdentity(
+                    "NERA.BUILTIN",
+                    normalizedName),
                 new FormulaFunctionVersion(1, 0, 0),
                 FormulaFunctionApiVersion.Current,
                 minimumArguments,
@@ -50,12 +66,13 @@ internal static class FormulaFunctionFactory
                 FormulaFunctionCapabilities.ScalarArguments |
                 FormulaFunctionCapabilities.RangeArguments |
                 FormulaFunctionCapabilities.ReturnsScalar,
-                volatility,
-                securityClassification,
+                effectiveVolatility,
+                effectiveSecurity,
                 dependencyPolicy,
                 propagateErrors),
             invocation => FormulaEvaluationResult.Success(
                 evaluator(
                     invocation.FlattenValues(),
                     invocation.Context)));
+    }
 }
