@@ -3,7 +3,12 @@ using NeraSpreadSheet.Core;
 
 namespace NeraSpreadSheet.Formulas;
 
-internal static class FormulaValueCoercion
+/// <summary>
+/// Shared, deterministic coercion helpers for built-in and extension formula
+/// functions. Extension functions should use this surface instead of inventing
+/// incompatible blank/Boolean/number/date conversion rules.
+/// </summary>
+public static class FormulaValueCoercion
 {
     public static bool TryGetFirstError(
         IReadOnlyList<CellValue> values,
