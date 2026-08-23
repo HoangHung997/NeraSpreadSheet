@@ -214,7 +214,7 @@ public sealed class DynamicArrayCollectionFunctionTests
         Assert.AreEqual("A", columns.Value[0, 1].RawValue);
 
         Assert.IsTrue(engine.TryEvaluate(
-            "=SORT(UNIQUE(A1:C1),1,1,TRUE())",
+            "=SORT(UNIQUE(A1:C1,TRUE()),1,1,TRUE())",
             context,
             out var nested));
         Assert.AreEqual(1, nested.Value!.RowCount);
