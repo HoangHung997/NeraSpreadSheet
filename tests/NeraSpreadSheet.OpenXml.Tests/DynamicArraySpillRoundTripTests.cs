@@ -2,6 +2,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Validation;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraCellStyle = NeraSpreadSheet.Core.CellStyle;
 using NeraWorkbook = NeraSpreadSheet.Core.Workbook;
