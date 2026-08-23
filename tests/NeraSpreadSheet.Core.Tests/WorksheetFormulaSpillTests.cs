@@ -39,9 +39,12 @@ public sealed class WorksheetFormulaSpillTests
         var worksheet = workbook.Worksheets[0];
         var owner = new CellAddress(0, 0);
         var styledChild = new CellAddress(1, 1);
-        var styleId = workbook.Styles.Add(new CellStyle
+        var styleId = workbook.Styles.Intern(new CellStyle
         {
-            Fill = new CellFill(0xFFCC00FF),
+            Alignment = new CellAlignmentStyle
+            {
+                WrapText = true,
+            },
         });
         worksheet.SetFormula(owner, "=SEQUENCE(2,2)");
         worksheet.SetStyle(styledChild, styleId);
@@ -131,9 +134,12 @@ public sealed class WorksheetFormulaSpillTests
                 1,
                 2,
                 static (_, column) => CellValue.FromNumber(column + 1d)));
-        var styleId = workbook.Styles.Add(new CellStyle
+        var styleId = workbook.Styles.Intern(new CellStyle
         {
-            Font = new CellFont(Bold: true),
+            Font = new CellFontStyle
+            {
+                Weight = 700,
+            },
         });
 
         worksheet.SetStyle(child, styleId);
