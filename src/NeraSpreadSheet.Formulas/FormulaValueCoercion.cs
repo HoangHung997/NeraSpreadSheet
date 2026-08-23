@@ -70,25 +70,25 @@ public static class FormulaValueCoercion
 
     public static bool TryInteger(
         CellValue value,
-        out int integer,
+        out int result,
         bool allowText = false)
     {
         if (!TryNumber(value, out var number, allowText) ||
             number < int.MinValue ||
             number > int.MaxValue)
         {
-            integer = default;
+            result = default;
             return false;
         }
 
         var rounded = Math.Round(number);
         if (Math.Abs(number - rounded) > 1e-10d)
         {
-            integer = default;
+            result = default;
             return false;
         }
 
-        integer = checked((int)rounded);
+        result = checked((int)rounded);
         return true;
     }
 
