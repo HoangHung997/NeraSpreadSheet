@@ -28,7 +28,7 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 - Tokenizer, parser and AST for arithmetic, comparison, concatenation, A1 references/ranges, functions and basic cross-sheet references.
 - Dependency graph, circular-reference detection and affected-only recalculation.
 - Shared formulas, structured references, Table/column rewrite and calculated-column propagation.
-- Public coercion/error layer including `#NUM!` and `#SPILL!` values.
+- Public coercion/error layer including `#NUM!` cell values and explicit `#SPILL!` ownership errors.
 - Lazy branches for `IF`, `IFERROR`, `IFNA`, `IFS`, `SWITCH` and `CHOOSE`.
 - Current filter-aware `SUBTOTAL` and filter-source dependencies.
 
@@ -49,7 +49,7 @@ NeraSpreadSheet is an independent spreadsheet SDK.
 - Fail-closed default policy for incompatible APIs, unsupported array capabilities and external-state functions.
 - Legacy `IFormulaFunction` registration through a `LEGACY` adapter.
 
-The eager built-in registry now contains **103 names**. The original 92 functions preserve flattened-value arity; the eleven statistical functions use logical arguments through SDK v1 metadata.
+The eager built-in registry contains **113 names**. The original 92 functions preserve flattened-value arity; eleven statistical and ten financial functions use logical arguments through SDK v1 metadata.
 
 Full contract: `docs/function-extension-sdk-contract.md`.
 
@@ -57,7 +57,7 @@ Full contract: `docs/function-extension-sdk-contract.md`.
 
 - Shared invariant criteria parser with `=`, `<>`, `<`, `<=`, `>` and `>=`.
 - Boolean, number, DateTime, error and text criteria.
-- Ordinal case-insensitive text, wildcards and tilde escapes.
+- Ordinal case-insensitive text, wildcards and tilde escaping, including literal `~*` and `~?` handling.
 - Blank/non-blank matching and strict same-shape positional ranges.
 - `COUNTIF`, `COUNTIFS`, `SUMIF`, `SUMIFS`, `AVERAGEIF`, `AVERAGEIFS`.
 - Multiple criteria combine by AND.
@@ -80,20 +80,45 @@ Eleven deterministic/pure SDK v1 functions are implemented:
 - `RANK.EQ`;
 - `LARGE`, `SMALL`.
 
-Behavior includes:
-
-- logical range/scalar argument boundaries;
-- range values limited to numeric/date cells while scalar Boolean and invariant numeric text may coerce;
-- a two-million-value safety limit;
-- inclusive percentile interpolation and quartiles `0..4`;
-- numerically stable online population/sample variance;
-- explicit `#N/A`, `#NUM!`, `#DIV/0!` and `#VALUE!` outcomes;
-- range dependency capture and affected-only recalculation;
-- versioned descriptor tests for identity, API, capabilities, volatility, state and argument-count policy.
-
-The scalar/reference surface now contains 121 built-in names: 103 eager plus 18 AST/reference-aware. Together with five dynamic-array names, the complete built-in formula subsystem recognizes **126 names**. User-registered extension functions are additional.
+Behavior includes logical range/scalar boundaries, range numeric/date participation, scalar Boolean/numeric-text coercion, a two-million-value limit, inclusive percentile interpolation, stable online variance, explicit errors, dependencies and affected-only recalculation.
 
 Full contract: `docs/statistical-functions-foundation-contract.md`.
+
+### Financial Functions Foundation
+
+Ten deterministic/pure SDK v1 functions are implemented:
+
+- `PV`;
+- `FV`;
+- `PMT`;
+- `NPER`;
+- `NPV`;
+- `IRR`;
+- `IPMT`;
+- `PPMT`;
+- `SLN`;
+- `SYD`.
+
+Behavior includes:
+
+- consistent cash-flow sign conventions across `PV`, `FV`, `PMT` and `NPER`;
+- explicit zero-rate branches;
+- payment timing `0` or `1`;
+- ordered row-major cash-flow collection for `NPV` and `IRR`;
+- scalar/range coercion boundaries matching the SDK logical-argument model;
+- two-million retained-value budget for `NPV` and 100,000 for `IRR`;
+- compensated summation for discounted cash flows;
+- bounded Newton plus transformed-rate bracket/bisection solving for `IRR`;
+- comparison of Newton and bracket candidates so multiple-root output is selected nearest the supplied guess among roots found by the bounded strategy;
+- one-based period validation for `IPMT` and `PPMT`;
+- `IPMT + PPMT == PMT` reconciliation within floating-point tolerance;
+- straight-line and sum-of-years-digits depreciation;
+- range dependencies and affected-only recalculation;
+- versioned descriptor and budget tests.
+
+The scalar/reference surface now contains **131 built-in names**: 113 eager plus 18 AST/reference-aware. Together with five dynamic-array names, the complete built-in formula subsystem recognizes **136 names**. User-registered extension functions are additional.
+
+Full contract: `docs/financial-functions-foundation-contract.md`.
 
 ### Dynamic Arrays Foundation
 
@@ -137,20 +162,23 @@ Full contract: `docs/dynamic-arrays-contract.md`.
 ### Validation automation
 
 - `scripts/run-complete-validation.ps1` runs broad Core, Windows and MAUI gates and emits JSON/TRX evidence.
-- `docs/CODEX_FINAL_ACCEPTANCE.md` records external plugin, criteria/statistics, dynamic-array, printer/PDF, device, compatibility and fuzzing work that hosted CI cannot fully prove.
+- `docs/CODEX_FINAL_ACCEPTANCE.md` records external plugin, criteria/statistics/finance, dynamic-array, printer/PDF, device, compatibility and fuzzing work that hosted CI cannot fully prove.
 
 ## Implemented but intentionally conservative
 
-- Formula Surface I, conditional aggregates, statistics and Dynamic Arrays Foundation are not a complete Excel-compatible formula engine.
+- Formula Surface I, conditional aggregates, statistics, finance and Dynamic Arrays Foundation are not a complete Excel-compatible formula engine.
 - SDK v1 does not yet load plugin packages, pin versions in formula text, verify publishers or isolate third-party code.
 - Volatility metadata exists; automatic volatile scheduling is pending.
+- Numeric/domain failures carry `#NUM!` values through the current invalid-value enum path.
 - Statistical comparison uses exact `double` equality for mode/rank ties.
-- Exclusive percentile/quartile, multi-mode, rank-average, correlation/regression and probability distributions are pending.
+- Exclusive percentile/quartile, multi-mode, rank-average, correlation/regression and distributions are pending.
+- Financial compatibility does not yet include `RATE`, `XNPV`, `XIRR`, cumulative payment functions, bond/coupon/day-count or accelerated depreciation families.
+- `IRR` uses a bounded deterministic strategy; it does not claim every external producer's behavior for pathological or many-root cash flows.
 - Conditional criteria parsing is invariant, not locale-specific.
 - Spill-reference `A1#`, implicit intersection `@`, array constants and vectorized expressions are pending.
 - Advanced dynamic arrays, LET/LAMBDA and higher-order functions are pending.
 - Native spill-border/selection UX is pending.
-- Advanced XLOOKUP modes, complete `SUBTOTAL`, financial, engineering, database and cube families are pending.
+- Advanced XLOOKUP modes, complete `SUBTOTAL`, engineering, database and cube families are pending.
 - Newly added native paths do not each have dedicated loaded interaction gates.
 - XLSX manual breaks, first/even headers and arbitrary custom paper are pending.
 - Physical printer drivers, independent PDF raster diff, font embedding/substitution and drawings/charts pagination remain pending.
@@ -158,18 +186,18 @@ Full contract: `docs/dynamic-arrays-contract.md`.
 ## Weighted progress estimate
 
 - Engine/viewport/renderer foundation: approximately `92%`.
-- Basic spreadsheet MVP: approximately `95–97%`.
-- Complete professional roadmap: approximately `68%`.
-- Production release readiness: approximately `45–48%`.
+- Basic spreadsheet MVP: approximately `96–98%`.
+- Complete professional roadmap: approximately `70%`.
+- Production release readiness: approximately `47–50%`.
 
 These are engineering-weighted estimates, not checkbox counts.
 
 ## Next implementation work
 
-1. Financial Functions Foundation.
-2. Engineering/database functions and criteria-table support.
-3. Advanced statistical distributions, correlation and regression.
-4. Advanced lookup/reference and dynamic-array helpers.
+1. Engineering and Database Functions Foundation, including criteria-table support.
+2. Advanced statistical distributions, covariance/correlation and regression.
+3. Advanced lookup/reference and dynamic-array helpers.
+4. Remaining financial families: `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon and accelerated depreciation.
 5. Plugin packaging/discovery, API compatibility and isolation policy.
 6. Native spill UX, drawings/images/charts and print/PDF pagination.
 7. Advanced sort, grouping/outlines, virtual data, pivot tables and slicers.
@@ -184,11 +212,12 @@ These are engineering-weighted estimates, not checkbox counts.
 - MAUI changes require Android/iOS/Mac Catalyst/Windows builds and applicable loaded native gates.
 - SDK changes require API/version/capability/security/conflict/dependency compatibility tests.
 - Formula-family changes require result, coercion, error, dependency, affected-recalculation, budget and descriptor tests.
+- Financial changes additionally require sign/timing consistency, zero-rate branches, IRR convergence/multiple-root selection and payment reconciliation.
 - PR #1 remains Draft and must not merge while exact-head CI is red or unknown.
 
 ## Latest validated implementation milestone
 
-Implementation commit `6aa9b1a05f7a370d393d3222b533b3bee0088c9a` passed CI `#779`, run `32636739544`, across Core, architecture, full Windows, desktop GPU, Android, iOS, Mac Catalyst and MAUI Windows loaded-runtime gates.
+Implementation commit `e8c349d0b969fa8c9734452573bf7e9bcfa4df28` is associated with CI `#809`, run `32644745950`. Documentation promotes this milestone only after that exact-head implementation run concludes successfully.
 
 ## Independence rule
 

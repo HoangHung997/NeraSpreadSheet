@@ -39,7 +39,7 @@ Scalar financial arguments:
 
 Payment timing (`type`) must be integer `0` for end-of-period or `1` for beginning-of-period. Any other value returns `#VALUE!`.
 
-Rates must be finite and greater than `-1`. Invalid rates and non-finite financial results return `#NUM!`.
+Rates must be finite and greater than `-1`. Invalid rates and non-finite financial results return a `#NUM!` cell value through the current numeric/domain error path.
 
 ## 4. Time-value functions
 
@@ -79,12 +79,16 @@ Returns the nonnegative number of periods. At zero rate, zero payment returns `#
 - defaults `guess` to `0.1`;
 - accepts rates greater than `-1` and no greater than `1e10`;
 - limits retained values to 100,000;
-- attempts bounded Newton iteration first;
-- falls back to a deterministic transformed-rate bracket and bisection search;
+- evaluates a bounded Newton candidate;
+- evaluates a deterministic transformed-rate bracket/bisection candidate;
 - limits each solver phase to 100 iterations and bracket sampling to 64 intervals;
+- compares converged candidates by absolute distance to the supplied guess;
+- returns the nearest candidate, with deterministic lower-rate tie ordering inside bracket selection;
 - returns `#NUM!` when no admissible root converges.
 
-`IRR` may have multiple mathematical roots. The implementation selects a converged root nearest the supplied guess among roots found by its bounded strategy; it does not claim every Excel root-selection edge case.
+Newton may cross several attraction basins before converging. Comparing it with the independently bracketed candidate prevents a converged but farther root from silently overriding a root nearer the caller's guess. Regression coverage includes a four-period cash-flow vector with roots near `-0.8368694674` and `1.7426259408` where the unguarded Newton path crosses to the farther positive root.
+
+`IRR` may have more mathematical roots than the bounded sampler observes. The implementation selects the nearest root among candidates found by its bounded strategy; it does not claim every external producer's root-selection edge case.
 
 ## 6. Payment decomposition
 
@@ -138,7 +142,7 @@ All ten descriptors declare:
 - bond/coupon, treasury, price, yield and day-count conventions;
 - odd-first/odd-last coupon periods;
 - currency/locale/date-basis compatibility;
-- multiple-root compatibility beyond the bounded IRR strategy;
+- root discovery beyond the bounded IRR sampling strategy;
 - streaming/parallel solvers for larger cash-flow vectors;
 - external Excel/LibreOffice differential corpus and financial fuzzing.
 
@@ -148,12 +152,13 @@ Promotion requires:
 
 1. PV/FV/PMT/NPER consistency and zero-rate tests;
 2. NPV ordering and IRR convergence tests;
-3. IPMT/PPMT reconciliation and payment-timing tests;
-4. SLN/SYD boundary tests;
-5. scalar/range coercion, domain and error tests;
-6. cash-flow dependency and affected-recalculation tests;
-7. iteration/value-budget tests;
-8. versioned descriptor metadata tests;
-9. the complete Core, architecture, Windows, Android, iOS, Mac Catalyst and MAUI Windows matrix.
+3. IRR multiple-root nearest-guess and deterministic-repeat tests;
+4. IPMT/PPMT reconciliation and payment-timing tests;
+5. SLN/SYD boundary tests;
+6. scalar/range coercion, domain and error tests;
+7. cash-flow dependency and affected-recalculation tests;
+8. iteration/value-budget tests;
+9. versioned descriptor metadata tests;
+10. the complete Core, architecture, Windows, Android, iOS, Mac Catalyst and MAUI Windows matrix.
 
 PR #1 remains Draft while a newer exact-head CI is red or unknown.

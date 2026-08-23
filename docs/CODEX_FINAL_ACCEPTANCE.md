@@ -26,78 +26,83 @@ The current milestone does not claim isolated or trusted execution of arbitrary 
 
 Compare `COUNTIF(S)`, `SUMIF(S)` and `AVERAGEIF(S)` with current Excel and LibreOffice across operators, numbers/dates/Boolean/errors/text, blanks, wildcards/escapes, cell-supplied criteria, multiple ranges, errors, no-match cases, affected recalculation, large ranges and malformed criteria.
 
-Record locale/coercion differences. Fuzz criteria strings and shapes under strict budgets.
+Include literal wildcard cases `~*`, `~?`, escaped tilde, consecutive wildcards and mixed literal/wildcard patterns. Record locale/coercion differences. Fuzz criteria strings and shapes under strict budgets.
 
 ## 4. Statistical compatibility, scale and fuzzing
 
-Compare the following with current Excel and LibreOffice:
+Compare `MEDIAN`, `MODE.SNGL`, `PERCENTILE.INC`, `QUARTILE.INC`, `VAR.P`, `VAR.S`, `STDEV.P`, `STDEV.S`, `RANK.EQ`, `LARGE` and `SMALL` with current Excel and LibreOffice.
 
-- `MEDIAN`;
-- `MODE.SNGL`;
-- `PERCENTILE.INC`;
-- `QUARTILE.INC`;
-- `VAR.P`, `VAR.S`;
-- `STDEV.P`, `STDEV.S`;
-- `RANK.EQ`;
-- `LARGE`, `SMALL`.
+Cover odd/even/singleton sets, duplicate/tied values, scalar Boolean/numeric text, mixed range cell kinds, DateTime/OLE serial values, errors, percentile endpoints/interpolation, sample/population insufficient data, ascending/descending rank, absent values, boundary indexes, affected recalculation and ranges near the two-million-value budget.
 
-Cover:
+Run statistical fuzzing over finite/extreme values, duplicates, order, errors and shapes. Record coercion, tie grouping, precision and error-code differences.
 
-- odd/even and singleton sets;
-- duplicate/tied values;
-- scalar Boolean and numeric-text arguments;
-- text/Boolean/blank cells inside ranges;
-- DateTime/OLE serial values;
-- error values;
-- percentile endpoints and interpolation;
-- quartile indexes `0..4` and invalid indexes;
-- sample/population insufficient data;
-- ascending/descending rank and values absent from the reference set;
-- large/small boundary indexes;
-- source edits and affected-only recalculation;
-- large ranges near the two-million-value budget.
+## 5. Financial compatibility, scale and fuzzing
 
-Run statistical input fuzzing over finite/extreme floating values, duplicates, order, mixed cell kinds, errors and range shapes. Record differences in coercion, tie grouping, floating-point precision and error codes. The current milestone does not claim exclusive percentile/quartile, MODE.MULT, RANK.AVG, covariance/correlation/regression or distribution compatibility.
+Compare the first financial family with current Excel and LibreOffice:
 
-## 5. Dynamic arrays compatibility, scale and fuzzing
+- `PV`, `FV`, `PMT`, `NPER`;
+- `NPV`, `IRR`;
+- `IPMT`, `PPMT`;
+- `SLN`, `SYD`.
+
+Required cases:
+
+- positive, negative and zero rates;
+- end/beginning payment timing;
+- nonzero future values;
+- zero-rate linear identities;
+- sign convention round trips among PV/FV/PMT/NPER;
+- one-based first/middle/last payment decomposition;
+- NPV scalar/range ordering and mixed cell kinds;
+- IRR ordinary roots, poor guesses, flat derivatives, no root and multiple roots;
+- the hardened multiple-root vector `17, 116, -473, 74` with guesses near both admissible roots;
+- cash-flow vectors near 100,000 retained values;
+- NPV inputs near the two-million-value limit;
+- extreme finite magnitudes, cancellation and repeated deterministic evaluation;
+- range dependencies and affected-only recalculation;
+- invalid timing, period, rate, depreciation and convergence domains.
+
+Run financial fuzzing with strict iteration/value budgets. Verify that every successful IRR candidate produces a residual within the documented scaled tolerance. Record differences in coercion, root selection, error values, precision and sign conventions. The current milestone does not claim RATE/XNPV/XIRR, bond/coupon/day-count or accelerated-depreciation compatibility.
+
+## 6. Dynamic arrays compatibility, scale and fuzzing
 
 Validate `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE` against Excel and LibreOffice using scalar/vector/rectangular results, nesting, blanks, errors, source edits, blockers, recovery, clipboard, structure, Undo/Redo and XLSX resave.
 
 Performance samples: 1, 100, 10,000, 100,000 and 1,000,000 cells. Record latency, allocation, memory, dependency cost and UI responsiveness. Fuzz shapes, collision maps, formulas and structural/clipboard operations.
 
-## 6. Independent PDF validation
+## 7. Independent PDF validation
 
 Run `qpdf --check`, `pdfinfo` and rasterization for page-size/orientation, fit-to-page, repeated titles, breaks, merged cells, headers/footers, multi-sheet output, 100/500/10,000 pages, cancellation and output limits. Diff preview against rasterized PDF.
 
-## 7. Font and international text
+## 8. Font and international text
 
 Validate Vietnamese, Latin accents, CJK, RTL, combining marks, emoji/fallback, styles, wrapping/clipping and deterministic substitution. Record embedding/subsetting and size impact.
 
-## 8. Native preview and printers
+## 9. Native preview and printers
 
 On supported Windows hardware validate large previews, fractional scrolling, anchored zoom, resize/minimize/restore, physical DPI transitions, 4K 60/120 Hz, GPU recovery, printer drivers, hard margins, custom paper and cancellation.
 
-## 9. MAUI devices
+## 10. MAUI devices
 
 On Android/iOS/macOS/Windows devices validate touch with overlays, spill owner/child selection, virtual keyboard/IME, suspend/resume, orientation, screen reader/focus, high contrast/large text and cancellation.
 
-## 10. XLSX compatibility corpus
+## 11. XLSX compatibility corpus
 
-Round-trip files from current/older Excel, LibreOffice, Google Sheets export, OpenXml SDK and third-party writers. Cover extension formulas, conditional/statistical formulas and cached values, dynamic arrays, page setup, Tables/filters, unknown parts, drawings/images/custom XML and malformed relationships/URIs. Run schema validation after every output.
+Round-trip files from current/older Excel, LibreOffice, Google Sheets export, OpenXml SDK and third-party writers. Cover extension formulas, conditional/statistical/financial formulas and cached values, dynamic arrays, page setup, Tables/filters, unknown parts, drawings/images/custom XML and malformed relationships/URIs. Run schema validation after every output.
 
-## 11. CSV/TSV corpus and fuzzing
+## 12. CSV/TSV corpus and fuzzing
 
 Cover CR/LF/CRLF, cross-buffer quotes, multiline/huge fields, alternate delimiters/encodings, formula-injection cases, malformed quotes, cancellation and output limits.
 
-## 12. Security and reliability
+## 13. Security and reliability
 
-Run scalar/dynamic/criteria/statistical parser/evaluator fuzzing, extension registry/version fuzzing, clipboard spill fuzzing, XLSX package/URI fuzzing, low-disk/access-denied replacement, crash/restart during staged export, memory pressure, repeated open/save/export/recalculate loops, API compatibility and NuGet/source-link verification.
+Run scalar/dynamic/criteria/statistical/financial parser/evaluator fuzzing, extension registry/version fuzzing, clipboard spill fuzzing, XLSX package/URI fuzzing, low-disk/access-denied replacement, crash/restart during staged export, memory pressure, repeated open/save/export/recalculate loops, API compatibility and NuGet/source-link verification.
 
-## 13. Evidence pack
+## 14. Evidence pack
 
-Store exact SHA, OS/runtime/SDK/driver/device versions, JSON/TRX, external validator logs, screenshots/raster diffs, function/statistics/dynamic-array traces, performance/memory traces, printer/device matrix, corpus hashes and accepted limitations/blockers.
+Store exact SHA, OS/runtime/SDK/driver/device versions, JSON/TRX, external validator logs, screenshots/raster diffs, function/statistics/finance/dynamic-array traces, performance/memory traces, printer/device matrix, corpus hashes and accepted limitations/blockers.
 
-## 14. Promotion rule
+## 15. Promotion rule
 
 PR #1 remains Draft until:
 

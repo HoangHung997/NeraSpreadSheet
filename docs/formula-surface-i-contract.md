@@ -17,7 +17,8 @@ Related contracts:
 
 - `docs/function-extension-sdk-contract.md`;
 - `docs/conditional-aggregates-contract.md`;
-- `docs/statistical-functions-foundation-contract.md`.
+- `docs/statistical-functions-foundation-contract.md`;
+- `docs/financial-functions-foundation-contract.md`.
 
 ## 2. Error model
 
@@ -39,7 +40,7 @@ Core currently collapses empty text to blank.
 
 ## 4. Eager built-in registry
 
-The eager registry contains **103 names**.
+The eager registry contains **113 names**.
 
 ### Original 92 flattened-value functions
 
@@ -67,6 +68,12 @@ These functions preserve the historical flattened-value argument-count policy. `
 
 These use SDK v1 logical arguments so a range remains one argument with source identity. Their coercion, safety and numerical semantics are defined in `docs/statistical-functions-foundation-contract.md`.
 
+### Ten logical-argument financial functions
+
+`PV`, `FV`, `PMT`, `NPER`, `NPV`, `IRR`, `IPMT`, `PPMT`, `SLN`, `SYD`.
+
+These use SDK v1 logical arguments. `NPV` and `IRR` preserve range identity and row-major cash-flow order. Their sign, timing, budget, numerical and dependency semantics are defined in `docs/financial-functions-foundation-contract.md`.
+
 ## 5. AST/reference-aware functions
 
 The evaluator recognizes **18 additional scalar/reference names**:
@@ -76,16 +83,16 @@ The evaluator recognizes **18 additional scalar/reference names**:
 - visibility aggregate: `SUBTOTAL`;
 - conditional aggregate: `COUNTIF`, `COUNTIFS`, `SUMIF`, `SUMIFS`, `AVERAGEIF`, `AVERAGEIFS`.
 
-The scalar/reference surface therefore contains **121 names**. The dynamic-array engine recognizes five further names — `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE` — so the complete built-in subsystem recognizes **126 names**. Registered extension functions are additional.
+The scalar/reference surface therefore contains **131 names**. The dynamic-array engine recognizes five further names — `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE` — so the complete built-in subsystem recognizes **136 names**. Registered extension functions are additional.
 
 ## 6. Conditional aggregates
 
-The conditional families share `FormulaCriteria`:
+The conditional families share `FormulaCriterion`:
 
 - comparison operators `=`, `<>`, `<`, `<=`, `>`, `>=`;
 - invariant Boolean/number/date/error/text parsing;
 - ordinal case-insensitive text;
-- `*`/`?` wildcards and tilde escapes;
+- `*`/`?` wildcards and tilde escapes, including literal `~*` and `~?`;
 - blank/non-blank and error matching.
 
 Ranges must be canonical references with identical shapes. Multiple criteria combine by AND. Aggregate errors propagate only at matched positions. Work is bounded to two million positional passes.
@@ -102,7 +109,21 @@ The first statistics family provides median, single mode, inclusive percentile/q
 
 Full contract: `docs/statistical-functions-foundation-contract.md`.
 
-## 8. Lookup/reference semantics
+## 8. Financial functions
+
+The first finance family provides time-value, ordered cash-flow, payment decomposition and depreciation functions.
+
+- `PV`, `FV`, `PMT` and `NPER` share cash-flow sign and timing conventions and explicit zero-rate formulas.
+- `NPV` discounts the first retained flow at period one and uses compensated summation.
+- `IRR` treats the first retained flow as period zero, requires positive and negative flows, and uses bounded Newton plus transformed-rate bracket/bisection.
+- When both Newton and bracket candidates converge, `IRR` selects the candidate nearest the supplied guess. This prevents Newton from silently crossing into a farther root's basin.
+- `IPMT` and `PPMT` use one-based payment periods and reconcile to `PMT`.
+- `SLN` and `SYD` implement the first depreciation methods.
+- Financial ranges enter the dependency graph and affected-only recalculation.
+
+Full contract: `docs/financial-functions-foundation-contract.md`.
+
+## 9. Lookup/reference semantics
 
 - `INDEX` uses one-based indexes and returns `#REF!` outside the range.
 - `MATCH` supports exact `0` and basic approximate `1`/`-1`.
@@ -113,26 +134,27 @@ Full contract: `docs/statistical-functions-foundation-contract.md`.
 
 Advanced search modes, wildcards and broader array returns remain pending.
 
-## 9. Versioned invocation and compatibility
+## 10. Versioned invocation and compatibility
 
 Versioned invocation preserves logical scalar/range identity and values. New SDK functions default to logical argument counting. Historical built-ins and legacy adapters explicitly use flattened values.
 
-This distinction prevents range arguments in percentile/rank/order-statistic functions from being confused with control arguments while preserving legacy behavior such as `DATE(A1:A3)`.
+This distinction prevents range arguments in statistics/finance from being confused with control arguments while preserving legacy behavior such as `DATE(A1:A3)`.
 
-## 10. Function Extension SDK
+## 11. Function Extension SDK
 
 The validated SDK provides stable identity, semantic versions, host API compatibility, capabilities, volatility/state classification, aliases/conflicts, invocation metadata, dependency policy, coercion helpers and legacy compatibility.
 
 The default registry rejects external-state and array-capable extensions. Formula-text version pinning, package discovery, signing and isolation remain pending.
 
-## 11. Date representation
+## 12. Date representation
 
 Nera stores dates as `.NET DateTime` and uses OLE Automation serial conversion for numeric date arithmetic. It does not emulate Excel's fictitious 1900-02-29.
 
-## 12. Deliberately pending
+## 13. Deliberately pending
 
-- financial, engineering, database and cube families;
-- exclusive percentile/quartile, multi-mode, correlation/regression and distribution functions;
+- engineering, database and cube families;
+- `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon/day-count and accelerated depreciation functions;
+- exclusive percentile/quartile, multi-mode, correlation/regression and distributions;
 - `OFFSET`, `INDIRECT`, `ADDRESS`, `ROW(S)`, `COLUMN(S)`;
 - advanced lookup modes and locale-aware `TEXT`;
 - complete literal/reference coercion compatibility;
@@ -141,7 +163,7 @@ Nera stores dates as `.NET DateTime` and uses OLE Automation serial conversion f
 - plugin package loading/signing/isolation;
 - external Excel/LibreOffice differential corpus and fuzzing.
 
-## 13. Validation gates
+## 14. Validation gates
 
 Promotion requires:
 
@@ -150,6 +172,7 @@ Promotion requires:
 3. SDK API/version/capability/conflict/dependency tests;
 4. conditional criteria and aggregate tests;
 5. statistical result/coercion/error/dependency/descriptor tests;
-6. dynamic-array, Table, filter, XLSX, Windows and MAUI regression matrix.
+6. financial sign/timing/result/error/dependency/budget/multiple-root tests;
+7. dynamic-array, Table, filter, XLSX, Windows and MAUI regression matrix.
 
 PR #1 remains Draft while a newer exact-head CI is red or unknown.

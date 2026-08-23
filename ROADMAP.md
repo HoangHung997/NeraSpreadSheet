@@ -39,7 +39,7 @@
 - [x] Arithmetic, comparison, concatenation and A1 references/ranges.
 - [x] Shared formulas and structured references.
 - [x] Atomic Table/column formula rewrite and calculated columns.
-- [x] Shared coercion/error layer, including `#NUM!` and `#SPILL!`.
+- [x] Shared coercion/error layer, including `#NUM!` cell values and `#SPILL!`.
 - [x] Logical/error/lazy, aggregate/information, math, text and date/time functions.
 - [x] Basic `INDEX`, `MATCH`, `XLOOKUP`, `VLOOKUP`, `HLOOKUP`.
 - [x] `COUNTIF(S)`, `SUMIF(S)`, `AVERAGEIF(S)` and shared criteria engine.
@@ -48,8 +48,10 @@
 - [x] Identity, versions, aliases, capabilities, volatility/state and dependency declarations.
 - [x] Logical/range invocation metadata, public coercion and legacy compatibility.
 - [x] Statistical Functions Foundation: median, mode, inclusive percentile/quartile, variance, standard deviation, rank, large/small.
-- [ ] Financial Functions Foundation.
+- [x] Financial Functions Foundation: PV/FV/PMT/NPER, NPV/IRR, IPMT/PPMT and SLN/SYD.
+- [x] Bounded IRR Newton/bracket solver with deterministic nearest-guess candidate selection.
 - [ ] Engineering, database and cube function families.
+- [ ] `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon/day-count and accelerated depreciation functions.
 - [ ] Exclusive percentiles, multi-mode, rank-average, covariance/correlation/regression and distributions.
 - [ ] Advanced lookup/reference modes and locale-aware formatting.
 - [ ] Spill-reference `A1#`, implicit intersection `@`, array constants and vectorized expressions.
@@ -58,7 +60,7 @@
 - [ ] Formula-text version pinning and plugin package manifests.
 - [ ] Plugin discovery/loading, signatures, publisher policy and isolation.
 - [ ] Automatic volatile recalculation scheduling.
-- [ ] Complete Excel coercion/criteria/statistical compatibility and fuzzing.
+- [ ] Complete Excel coercion/criteria/statistical/financial compatibility and fuzzing.
 
 ## D. XLSX, page layout and PDF
 
@@ -88,6 +90,7 @@
 - [x] First-generation array `FILTER`, `SORT`, `UNIQUE`.
 - [x] Conditional aggregate criteria engine and six IF/IFS aggregate names.
 - [x] Scalar order-statistic, variance and rank functions.
+- [x] First-generation time-value, cash-flow, payment-decomposition and depreciation functions.
 - [ ] Complete Table design/resize/style manager UI.
 - [ ] Rich XLSX AutoFilter markup and `sortState`.
 - [ ] Advanced multi-key sort, grouping, outlines and subtotals.
@@ -120,6 +123,7 @@
 - [x] Function SDK API/version/capability/conflict/dependency gates.
 - [x] Conditional aggregate criteria/dependency/budget gates.
 - [x] Statistical result/coercion/error/dependency/descriptor gates.
+- [x] Financial sign/timing/result/error/dependency/budget/multiple-root gates.
 - [ ] API binary compatibility and package-version checks.
 - [ ] NuGet packaging, symbols and source link.
 - [ ] Plugin package/signature/trust and isolation policy.
@@ -131,9 +135,9 @@
 
 ## Immediate execution order
 
-1. Financial Functions Foundation.
-2. Engineering/database functions and criteria-table support.
-3. Advanced statistical distributions, covariance/correlation and regression.
+1. Engineering and Database Functions Foundation with criteria-table support.
+2. Advanced statistical distributions, covariance/correlation and regression.
+3. Remaining financial families: RATE/XNPV/XIRR, cumulative payment, bond/coupon and accelerated depreciation.
 4. Advanced lookup/reference and dynamic-array helpers.
 5. Plugin packaging/discovery/isolation and API compatibility tooling.
 6. Native spill UX and drawings/images/charts.
@@ -142,15 +146,15 @@
 9. Accessibility/IME/localization/theme and release hardening.
 10. Execute final Codex acceptance before PR promotion.
 
-## Weighted progress after Statistical Functions Foundation
+## Weighted progress after Financial Functions Foundation
 
 - Engine/viewport/renderer foundation: approximately `92%`.
-- Basic spreadsheet MVP: approximately `95–97%`.
-- Complete professional roadmap: approximately `68%`.
-- Production release readiness: approximately `45–48%`.
+- Basic spreadsheet MVP: approximately `96–98%`.
+- Complete professional roadmap: approximately `70%`.
+- Production release readiness: approximately `47–50%`.
 
 These are engineering-weighted estimates, not checkbox counts.
 
 ## Validation rule
 
-Implementation commit `6aa9b1a05f7a370d393d3222b533b3bee0088c9a` passed CI `#779`, run `32636739544`. PR #1 remains Draft and must not merge while a newer exact-head run is red or unknown.
+Implementation commit `e8c349d0b969fa8c9734452573bf7e9bcfa4df28` is associated with CI `#809`, run `32644745950`. PR #1 remains Draft and must not merge while that run or any newer exact-head run is red or unknown.

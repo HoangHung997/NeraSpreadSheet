@@ -1,6 +1,6 @@
 # NeraSpreadSheet
 
-> Trạng thái: **M2 — spreadsheet engine, renderer đa host, XLSX/Table/AutoFilter, printing/PDF, Dynamic Arrays, Function Extension SDK v1.0, Conditional Aggregates và Statistical Functions Foundation đã có automated gates; chưa phải bản phát hành production**.
+> Trạng thái: **M2 — spreadsheet engine, renderer đa host, XLSX/Table/AutoFilter, printing/PDF, Dynamic Arrays, Function Extension SDK v1.0, Conditional Aggregates, Statistical và Financial Functions Foundation đã có automated gates; chưa phải bản phát hành production**.
 
 NeraSpreadSheet là bộ SDK spreadsheet độc lập cho **WPF, WinForms và .NET MAUI**. Mục tiêu dài hạn là trải nghiệm bảng tính chuyên nghiệp, cuộn liên tục theo từng pixel, mô hình dữ liệu sparse, tương thích tài liệu tốt và khả năng mở rộng cho nghiệp vụ dự toán.
 
@@ -43,9 +43,10 @@ Workbook / Rules / Tables / Spill Ownership
 - Sparse whole-row/column styles, fractional scrolling, freeze/split panes và tile/display-list cache.
 - WPF, WinForms và MAUI GPU hosts cùng recovery/context lifecycle diagnostics.
 - Formula parser, dependency graph, circular-reference policy, shared và structured references.
-- **126 tên hàm built-in được nhận biết**: 103 eager registry, 18 AST/reference-aware và 5 dynamic-array.
-- Logical/error, aggregate, math, text/Unicode, date/time, lookup, conditional aggregate và statistical functions.
+- **136 tên hàm built-in được nhận biết**: 113 eager registry, 18 AST/reference-aware và 5 dynamic-array.
+- Logical/error, aggregate, math, text/Unicode, date/time, lookup, conditional aggregate, statistical và financial functions.
 - Statistical Foundation: `MEDIAN`, `MODE.SNGL`, `PERCENTILE.INC`, `QUARTILE.INC`, `VAR.P`, `VAR.S`, `STDEV.P`, `STDEV.S`, `RANK.EQ`, `LARGE`, `SMALL`.
+- Financial Foundation: `PV`, `FV`, `PMT`, `NPER`, `NPV`, `IRR`, `IPMT`, `PPMT`, `SLN`, `SYD`.
 - Conditional Aggregates: `COUNTIF(S)`, `SUMIF(S)`, `AVERAGEIF(S)` với criteria/dependency/budget contracts.
 - Function Extension SDK API `1.0`: identity, versions, capabilities, volatility/state, dependencies, aliases và compatibility gates.
 - Dynamic arrays: `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE`, spill ownership, `#SPILL!`, recalculation, history, clipboard và XLSX boundary.
@@ -62,6 +63,7 @@ Chi tiết chính xác:
 - `docs/function-extension-sdk-contract.md`;
 - `docs/conditional-aggregates-contract.md`;
 - `docs/statistical-functions-foundation-contract.md`;
+- `docs/financial-functions-foundation-contract.md`;
 - `docs/dynamic-arrays-contract.md`;
 - `ROADMAP.md`.
 
@@ -71,7 +73,7 @@ Chi tiết chính xác:
 |---|---|
 | `NeraSpreadSheet.Foundation` | Geometry và primitive dùng chung |
 | `NeraSpreadSheet.Core` | Workbook, worksheet, Table/rule/style/dimensions, printing và array/spill contracts |
-| `NeraSpreadSheet.Formulas` | Parser, scalar/dynamic functions, SDK, criteria, statistics, dependency và recalculation |
+| `NeraSpreadSheet.Formulas` | Parser, scalar/dynamic functions, SDK, criteria, statistics, finance, dependency và recalculation |
 | `NeraSpreadSheet.Layout` | Pixel offset, visible rows/columns và compressed hidden spans |
 | `NeraSpreadSheet.Scrolling` | Continuous precision scrolling |
 | `NeraSpreadSheet.Commands` | Command metadata/registry/handlers |
@@ -106,7 +108,7 @@ Mọi thay đổi đi qua pull request. Không commit trực tiếp vào `main`.
 
 ## Mốc tiếp theo
 
-Mốc tiếp theo tập trung vào **Financial Functions Foundation**, sau đó là engineering/database functions, advanced lookup/dynamic arrays, plugin packaging/isolation, drawings/charts, advanced data/pivot và release hardening.
+Mốc tiếp theo tập trung vào **Engineering và Database Functions Foundation**, sau đó là advanced statistics/lookup/dynamic arrays, plugin packaging/isolation, drawings/charts, advanced data/pivot và release hardening.
 
 ## Giấy phép
 
