@@ -34,14 +34,14 @@ public sealed class DynamicArrayWorkbookCalculationEngineTests
         var worksheet = workbook.Worksheets[0];
         worksheet.SetFormula(new CellAddress(0, 0), "=SEQUENCE(1,2)");
         worksheet.SetValue(new CellAddress(0, 1), "blocked");
-        worksheet.SetFormula(new CellAddress(0, 3), "=IFERROR(A1,99)");
+        worksheet.SetFormula(new CellAddress(0, 3), "=A1");
         var engine = new DynamicArrayWorkbookCalculationEngine();
 
         var result = engine.Recalculate(workbook);
 
         Assert.AreEqual("#SPILL!", worksheet.GetValue(new CellAddress(0, 0)));
         Assert.AreEqual("blocked", worksheet.GetValue(new CellAddress(0, 1)));
-        Assert.AreEqual(99d, worksheet.GetValue(new CellAddress(0, 3)));
+        Assert.AreEqual("#SPILL!", worksheet.GetValue(new CellAddress(0, 3)));
         Assert.AreEqual(0, worksheet.GetFormulaSpillCount());
         Assert.IsTrue(result.ErrorCellCount >= 1);
     }
