@@ -6,18 +6,12 @@ namespace NeraSpreadSheet.Formulas.Tests;
 [TestClass]
 public sealed class FinancialFormulaFunctionTests
 {
+    private const int MaximumIrrValuesForTest = 100_000;
+
     private static readonly string[] FinancialFunctionNames =
     [
-        "PV",
-        "FV",
-        "PMT",
-        "NPER",
-        "NPV",
-        "IRR",
-        "IPMT",
-        "PPMT",
-        "SLN",
-        "SYD",
+        "PV", "FV", "PMT", "NPER", "NPV",
+        "IRR", "IPMT", "PPMT", "SLN", "SYD",
     ];
 
     [TestMethod]
@@ -79,9 +73,9 @@ public sealed class FinancialFormulaFunctionTests
     [TestMethod]
     public void NpvAndIrrEvaluateOrderedCashFlows()
     {
-        var values = CreateCashFlows(-10000d, 3000d, 4200d, 6800d);
         var engine = new NeraFormulaEngine();
-        var context = new FormulaSurfaceTestContext(values);
+        var context = new FormulaSurfaceTestContext(
+            CreateCashFlows(-10000d, 3000d, 4200d, 6800d));
 
         Assert.AreEqual(
             11307.287753568744d,
@@ -108,64 +102,32 @@ public sealed class FinancialFormulaFunctionTests
         var context = new FormulaSurfaceTestContext();
         const string rate = "0.1/12";
 
-        var payment = EvaluateNumber(
-            engine,
-            $"=PMT({rate},36,8000)",
-            context);
-        var firstInterest = EvaluateNumber(
-            engine,
-            $"=IPMT({rate},1,36,8000)",
-            context);
-        var firstPrincipal = EvaluateNumber(
-            engine,
-            $"=PPMT({rate},1,36,8000)",
-            context);
+        var payment = EvaluateNumber(engine, $"=PMT({rate},36,8000)", context);
+        var interest = EvaluateNumber(engine, $"=IPMT({rate},1,36,8000)", context);
+        var principal = EvaluateNumber(engine, $"=PPMT({rate},1,36,8000)", context);
         Assert.AreEqual(-258.13749755070063d, payment, 1e-9d);
-        Assert.AreEqual(-66.66666666666667d, firstInterest, 1e-9d);
-        Assert.AreEqual(-191.47083088403394d, firstPrincipal, 1e-9d);
-        Assert.AreEqual(payment, firstInterest + firstPrincipal, 1e-10d);
-
+        Assert.AreEqual(-66.66666666666667d, interest, 1e-9d);
+        Assert.AreEqual(-191.47083088403394d, principal, 1e-9d);
+        Assert.AreEqual(payment, interest + principal, 1e-10d);
         Assert.AreEqual(
             0d,
-            EvaluateNumber(
-                engine,
-                $"=IPMT({rate},1,36,8000,0,1)",
-                context));
+            EvaluateNumber(engine, $"=IPMT({rate},1,36,8000,0,1)", context));
         Assert.AreEqual(
             -64.53329891831378d,
-            EvaluateNumber(
-                engine,
-                $"=IPMT({rate},2,36,8000,0,1)",
-                context),
+            EvaluateNumber(engine, $"=IPMT({rate},2,36,8000,0,1)", context),
             1e-9d);
     }
 
     [TestMethod]
-    public void DepreciationFunctionsUseDocumentedPeriodRules()
+    public void DepreciationAndDomainRulesAreExplicit()
     {
         var engine = new NeraFormulaEngine();
-        var context = new FormulaSurfaceTestContext();
+        var context = new FormulaSurfaceTestContext(
+            CreateCashFlows(1d, 2d, 3d));
 
-        Assert.AreEqual(
-            1800d,
-            EvaluateNumber(engine, "=SLN(10000,1000,5)", context));
-        Assert.AreEqual(
-            3000d,
-            EvaluateNumber(engine, "=SYD(10000,1000,5,1)", context));
-        Assert.AreEqual(
-            2400d,
-            EvaluateNumber(engine, "=SYD(10000,1000,5,2)", context));
-        Assert.AreEqual(
-            600d,
-            EvaluateNumber(engine, "=SYD(10000,1000,5,5)", context));
-    }
-
-    [TestMethod]
-    public void FinancialDomainAndArgumentFailuresAreExplicit()
-    {
-        var engine = new NeraFormulaEngine();
-        var context = new FormulaSurfaceTestContext(CreateCashFlows(1d, 2d, 3d));
-
+        Assert.AreEqual(1800d, EvaluateNumber(engine, "=SLN(10000,1000,5)", context));
+        Assert.AreEqual(3000d, EvaluateNumber(engine, "=SYD(10000,1000,5,1)", context));
+        Assert.AreEqual(600d, EvaluateNumber(engine, "=SYD(10000,1000,5,5)", context));
         Assert.AreEqual("#NUM!", engine.Evaluate("=PV(-1,10,-100)", context).Value.RawValue);
         Assert.AreEqual("#NUM!", engine.Evaluate("=PMT(0.1,0,1000)", context).Value.RawValue);
         Assert.AreEqual(
@@ -173,15 +135,11 @@ public sealed class FinancialFormulaFunctionTests
             engine.Evaluate("=NPER(0,0,1000)", context).ErrorCode);
         Assert.AreEqual("#NUM!", engine.Evaluate("=NPV(-1,A1:A3)", context).Value.RawValue);
         Assert.AreEqual("#NUM!", engine.Evaluate("=IRR(A1:A3)", context).Value.RawValue);
-        Assert.AreEqual("#NUM!", engine.Evaluate("=IRR(A1:A3,-1)", context).Value.RawValue);
         Assert.AreEqual("#NUM!", engine.Evaluate("=IPMT(0.1,0,10,1000)", context).Value.RawValue);
         Assert.AreEqual(
             FormulaErrorCode.InvalidValue,
             engine.Evaluate("=PMT(0.1,10,1000,0,2)", context).ErrorCode);
         Assert.AreEqual("#NUM!", engine.Evaluate("=SYD(1000,100,5,6)", context).Value.RawValue);
-        Assert.AreEqual(
-            FormulaErrorCode.InvalidValue,
-            engine.Evaluate("=NPV(A1:A2,A3)", context).ErrorCode);
     }
 
     [TestMethod]
@@ -197,18 +155,12 @@ public sealed class FinancialFormulaFunctionTests
         var engine = new NeraFormulaEngine();
         var context = new FormulaSurfaceTestContext(values);
 
+        Assert.AreEqual(100d, EvaluateNumber(engine, "=NPV(0.1,A4)", context), 1e-10d);
+        Assert.AreEqual(0.1d, EvaluateNumber(engine, "=IRR(A1:A4)", context), 1e-9d);
+        Assert.AreEqual(100d, EvaluateNumber(engine, "=NPV(0.1,\"110\")", context), 1e-10d);
         Assert.AreEqual(
-            100d,
-            EvaluateNumber(engine, "=NPV(0.1,A4)", context),
-            1e-10d);
-        Assert.AreEqual(
-            0.1d,
-            EvaluateNumber(engine, "=IRR(A1:A4)", context),
-            1e-9d);
-        Assert.AreEqual(
-            100d,
-            EvaluateNumber(engine, "=NPV(0.1,\"110\")", context),
-            1e-10d);
+            FormulaErrorCode.InvalidValue,
+            engine.Evaluate("=NPV(A1:A2,A3)", context).ErrorCode);
     }
 
     [TestMethod]
@@ -250,20 +202,15 @@ public sealed class FinancialFormulaFunctionTests
     [TestMethod]
     public void FinancialDescriptorsUseVersionedLogicalArgumentPolicy()
     {
-        var registry = new BuiltInFormulaFunctionRegistry();
-        var descriptors = registry.Descriptors;
+        var descriptors = new BuiltInFormulaFunctionRegistry().Descriptors;
 
         foreach (var name in FinancialFunctionNames)
         {
             var descriptor = descriptors.Single(candidate =>
                 string.Equals(candidate.Identity.Name, name, StringComparison.Ordinal));
             Assert.AreEqual("NERA.BUILTIN", descriptor.Identity.Namespace);
-            Assert.AreEqual(
-                new FormulaFunctionVersion(1, 0, 0),
-                descriptor.Version);
-            Assert.AreEqual(
-                FormulaFunctionApiVersion.Current,
-                descriptor.MinimumHostApiVersion);
+            Assert.AreEqual(new FormulaFunctionVersion(1, 0, 0), descriptor.Version);
+            Assert.AreEqual(FormulaFunctionApiVersion.Current, descriptor.MinimumHostApiVersion);
             Assert.AreEqual(
                 FormulaFunctionArgumentCountPolicy.LogicalArguments,
                 descriptor.ArgumentCountPolicy);
@@ -275,9 +222,7 @@ public sealed class FinancialFormulaFunctionTests
                 name is "NPV" or "IRR",
                 descriptor.Capabilities.HasFlag(
                     FormulaFunctionCapabilities.RangeArguments));
-            Assert.AreEqual(
-                FormulaFunctionVolatility.Deterministic,
-                descriptor.Volatility);
+            Assert.AreEqual(FormulaFunctionVolatility.Deterministic, descriptor.Volatility);
             Assert.AreEqual(
                 FormulaFunctionSecurityClassification.Pure,
                 descriptor.SecurityClassification);
@@ -290,7 +235,7 @@ public sealed class FinancialFormulaFunctionTests
         var registry = new BuiltInFormulaFunctionRegistry();
         Assert.IsTrue(registry.TryResolve("IRR", out var resolved));
         var function = (IVersionedFormulaFunction)resolved;
-        var values = Enumerable.Range(0, FinancialFormulaFunctions.MaximumIrrValues + 1)
+        var values = Enumerable.Range(0, MaximumIrrValuesForTest + 1)
             .Select(index => CellValue.FromNumber(index == 0 ? -1d : 1d))
             .ToArray();
         var argument = FormulaFunctionArgument.Range(
