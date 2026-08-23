@@ -81,12 +81,12 @@ internal static class StatisticalFormulaFunctions
                 largest: false));
     }
 
-    private static IFormulaFunction CreateDefinition(
+    private static FormulaFunctionDefinition CreateDefinition(
         string name,
         int minimumArguments,
         int maximumArguments,
         Func<FormulaFunctionInvocation, FormulaEvaluationResult> evaluator) =>
-        new FormulaFunctionDefinition(
+        new(
             new FormulaFunctionDescriptor(
                 new FormulaFunctionIdentity(
                     "NERA.BUILTIN",
