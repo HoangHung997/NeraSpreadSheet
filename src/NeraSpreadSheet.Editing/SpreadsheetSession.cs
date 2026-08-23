@@ -59,7 +59,7 @@ public sealed class SpreadsheetSession
 
     public UndoRedoManager History { get; } = new();
 
-    public WorkbookCalculationEngine Calculation { get; } = new();
+    public DynamicArrayWorkbookCalculationEngine Calculation { get; } = new();
 
     public SpreadsheetClipboardController Clipboard { get; }
 
@@ -114,6 +114,7 @@ public sealed class SpreadsheetSession
     public void SetValue(CellAddress address, object? value)
     {
         address = ActiveWorksheet.ResolveMergedAnchor(address);
+        EnsureSpillCellEditable(address);
         var current = ActiveWorksheet.GetCell(address);
         var next = new CellData(
             CellValue.FromObject(value),
@@ -128,6 +129,7 @@ public sealed class SpreadsheetSession
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(formula);
         address = ActiveWorksheet.ResolveMergedAnchor(address);
+        EnsureSpillCellEditable(address);
         var normalized = formula.StartsWith('=')
             ? formula
             : $"={formula}";
@@ -144,9 +146,33 @@ public sealed class SpreadsheetSession
 
     public bool ClearSelection()
     {
+        var spills = ActiveWorksheet.GetFormulaSpills();
+        foreach (var spill in spills)
+        {
+            var intersects = Selection.Ranges.Any(range =>
+                range.Intersects(spill.Range));
+            if (!intersects)
+            {
+                continue;
+            }
+            var ownerSelected = Selection.Ranges.Any(range =>
+                range.Contains(spill.Owner));
+            if (!ownerSelected)
+            {
+                throw new InvalidOperationException(
+                    "Cannot clear part of a dynamic-array spill. " +
+                    "Select its owner cell to clear the complete formula.");
+            }
+        }
+
         var updates = ActiveWorksheet.EnumerateUsedCells()
             .Where(pair =>
                 Selection.Ranges.Any(range => range.Contains(pair.Key)))
+            .Where(pair =>
+                !ActiveWorksheet.TryGetFormulaSpillOwner(
+                    pair.Key,
+                    out var owner) ||
+                pair.Key == owner)
             .Select(pair => new KeyValuePair<CellAddress, CellData>(
                 pair.Key,
                 CellData.Empty))
@@ -217,5 +243,18 @@ public sealed class SpreadsheetSession
             return;
         }
         Calculation.Recalculate(Workbook);
+    }
+
+    private void EnsureSpillCellEditable(CellAddress address)
+    {
+        if (ActiveWorksheet.TryGetFormulaSpillOwner(
+                address,
+                out var owner) &&
+            owner != address)
+        {
+            throw new InvalidOperationException(
+                $"Cell {address.ToA1()} belongs to the dynamic-array spill " +
+                $"owned by {owner.ToA1()} and cannot be edited directly.");
+        }
     }
 }
