@@ -30,6 +30,14 @@ internal static class StandardFormulaFunctions
         {
             yield return function;
         }
+        foreach (var function in EngineeringFormulaFunctions.Create())
+        {
+            yield return function;
+        }
+        foreach (var function in DatabaseFormulaFunctions.Create())
+        {
+            yield return function;
+        }
     }
 }
 
