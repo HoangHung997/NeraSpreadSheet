@@ -177,7 +177,7 @@ public sealed class EngineeringFormulaFunctionsTests
     }
 
     private static void AssertNumber(
-        IFormulaEngine engine,
+        NeraFormulaEngine engine,
         IFormulaEvaluationContext context,
         string formula,
         double expected)
@@ -188,7 +188,7 @@ public sealed class EngineeringFormulaFunctionsTests
     }
 
     private static void AssertText(
-        IFormulaEngine engine,
+        NeraFormulaEngine engine,
         IFormulaEvaluationContext context,
         string formula,
         string expected)
@@ -199,7 +199,7 @@ public sealed class EngineeringFormulaFunctionsTests
     }
 
     private static void AssertError(
-        IFormulaEngine engine,
+        NeraFormulaEngine engine,
         IFormulaEvaluationContext context,
         string formula,
         string expected)
