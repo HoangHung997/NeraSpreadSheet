@@ -210,7 +210,7 @@ public sealed class DynamicArrayWorkbookCalculationEngine
             current.Values.Count));
 
     private static void AddChange(
-        IDictionary<Worksheet, CellRange> changes,
+        Dictionary<Worksheet, CellRange> changes,
         Worksheet worksheet,
         CellRange range)
     {
