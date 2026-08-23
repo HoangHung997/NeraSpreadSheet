@@ -124,7 +124,7 @@ internal static class DatabaseFormulaFunctions
 
     private static FormulaEvaluationResult Count(
         RangeMatrix database,
-        IReadOnlyList<int> matchingRows,
+        List<int> matchingRows,
         int fieldIndex,
         bool nonBlank)
     {
@@ -144,7 +144,7 @@ internal static class DatabaseFormulaFunctions
 
     private static FormulaEvaluationResult Get(
         RangeMatrix database,
-        IReadOnlyList<int> matchingRows,
+        List<int> matchingRows,
         int fieldIndex)
     {
         if (matchingRows.Count == 0)
@@ -167,7 +167,7 @@ internal static class DatabaseFormulaFunctions
 
     private static FormulaEvaluationResult AggregateNumeric(
         RangeMatrix database,
-        IReadOnlyList<int> matchingRows,
+        List<int> matchingRows,
         int fieldIndex,
         DatabaseAggregateKind kind)
     {
@@ -216,7 +216,7 @@ internal static class DatabaseFormulaFunctions
         };
     }
 
-    private static FormulaEvaluationResult Product(IReadOnlyList<double> numbers)
+    private static FormulaEvaluationResult Product(List<double> numbers)
     {
         if (numbers.Count == 0)
         {
@@ -235,7 +235,7 @@ internal static class DatabaseFormulaFunctions
     }
 
     private static FormulaEvaluationResult Variance(
-        IReadOnlyList<double> numbers,
+        List<double> numbers,
         bool sample,
         bool squareRoot)
     {
@@ -343,7 +343,7 @@ internal static class DatabaseFormulaFunctions
 
     private static bool TryResolveField(
         FormulaFunctionArgument argument,
-        IReadOnlyDictionary<string, int> headers,
+        Dictionary<string, int> headers,
         int columnCount,
         out int fieldIndex,
         out FormulaEvaluationResult error)
@@ -410,7 +410,7 @@ internal static class DatabaseFormulaFunctions
 
     private static bool TryCompileCriteria(
         RangeMatrix criteria,
-        IReadOnlyDictionary<string, int> databaseHeaders,
+        Dictionary<string, int> databaseHeaders,
         out DatabaseCondition[][] criteriaRows,
         out FormulaEvaluationResult error)
     {
