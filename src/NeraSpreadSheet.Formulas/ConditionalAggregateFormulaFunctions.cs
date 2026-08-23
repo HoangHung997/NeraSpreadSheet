@@ -107,7 +107,7 @@ public sealed partial class NeraFormulaEngine
         {
             return criteriaError;
         }
-        if (!IsWithinConditionalAggregateLimit(range))
+        if (!IsWithinConditionalAggregateLimit(range, rangePasses: 1))
         {
             return CellValue.FromError("#NUM!");
         }
@@ -150,7 +150,9 @@ public sealed partial class NeraFormulaEngine
             return error;
         }
         var shape = pairs[0].Range;
-        if (!IsWithinConditionalAggregateLimit(shape))
+        if (!IsWithinConditionalAggregateLimit(
+                shape,
+                pairs.Length))
         {
             return CellValue.FromError("#NUM!");
         }
@@ -217,7 +219,9 @@ public sealed partial class NeraFormulaEngine
         {
             return CellValue.FromError("#VALUE!");
         }
-        if (!IsWithinConditionalAggregateLimit(criteriaRange))
+        if (!IsWithinConditionalAggregateLimit(
+                criteriaRange,
+                rangePasses: 2))
         {
             return CellValue.FromError("#NUM!");
         }
@@ -263,7 +267,9 @@ public sealed partial class NeraFormulaEngine
         {
             return CellValue.FromError("#VALUE!");
         }
-        if (!IsWithinConditionalAggregateLimit(aggregateRange))
+        if (!IsWithinConditionalAggregateLimit(
+                aggregateRange,
+                checked(pairs.Length + 1)))
         {
             return CellValue.FromError("#NUM!");
         }
@@ -470,9 +476,18 @@ public sealed partial class NeraFormulaEngine
         left.ColumnCount == right.ColumnCount;
 
     private static bool IsWithinConditionalAggregateLimit(
-        RangeOperand range) =>
-        checked((long)range.RowCount * range.ColumnCount) <=
-        MaximumConditionalAggregatePositions;
+        RangeOperand range,
+        int rangePasses)
+    {
+        if (rangePasses <= 0)
+        {
+            return false;
+        }
+        var positions = checked(
+            (long)range.RowCount * range.ColumnCount);
+        return positions <=
+               MaximumConditionalAggregatePositions / rangePasses;
+    }
 
     private static bool TryConditionalAggregateNumber(
         CellValue value,
