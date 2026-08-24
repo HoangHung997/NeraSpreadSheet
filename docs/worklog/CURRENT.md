@@ -3,121 +3,100 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` into `develop` — Draft, unmerged
-- Implementation head: `c13960a403b6e249bd85ffc718ee0acdfbca7ca8`
-- GitHub Actions: CI `#838`, run `32725386326`, success
+- Implementation head: `ea61fe227919358539355b814d4c2baf5f05b538`
+- GitHub Actions: CI `#844`, run `32734262232`, success
+- Formula tests: `179/179`
 - Source of truth: `docs/current-status.md`
-- SDK contract: `docs/function-extension-sdk-contract.md`
 - Financial contract: `docs/financial-functions-foundation-contract.md`
 - Final acceptance: `docs/CODEX_FINAL_ACCEPTANCE.md`
 
-## Batch completed: RATE, XNPV and XIRR
+## Batch completed: cumulative payment and declining-balance depreciation
 
-This batch intentionally stopped at three tightly related functions. It did not include cumulative payment/principal functions, bond conventions or accelerated depreciation.
+| Work item | Result | Status |
+|---|---|---|
+| Registry recovery | Restored one delegated registry and removed duplicate family registration | Complete |
+| `CUMIPMT` | Inclusive cumulative interest with PMT/IPMT timing/sign consistency | Complete |
+| `CUMPRINC` | Inclusive cumulative principal and PMT reconciliation | Complete |
+| `DB` | Three-decimal fixed rate, first-year month and final stub | Complete |
+| `DDB` | Factor-based declining charge capped at salvage | Complete |
+| `VDB` | Partial periods, optional straight-line switch and no-switch path | Complete |
+| Resource policy | Maximum 2,000,000 schedule/depreciation periods | Complete |
+| Formula regressions | 179 passed, zero failed | Green |
+| Hosted matrix | Core, Windows, Android, iOS, Mac Catalyst, MAUI Windows loaded smokes | Green |
+| Pull request | Remains Draft and unmerged | Locked |
 
-### `RATE`
+## Architecture repair
 
-- Signature: `RATE(nper, pmt, pv, [fv], [type], [guess])`.
-- Scalar-only deterministic/pure SDK v1 descriptor.
-- Defaults: `fv=0`, `type=0`, `guess=0.1`.
-- Positive `nper`, timing `0/1` and rate domain greater than `-1`.
-- Dedicated zero-rate residual and derivative.
-- Stable near-zero `log(1+r)` and `exp(x)-1` paths.
-- Newton iteration with bounded backtracking.
-- Independent transformed-rate bracket sampling and bisection.
-- Deterministic nearest-guess selection among converged candidates.
-- 100 root iterations, 128 bracket intervals, 20 backtracking reductions and `1e10` maximum solver rate.
-- Non-convergence returns `#NUM!`.
+The previous head contained two parallel RATE/XNPV/XIRR code paths and rewrote the built-in registry to register families manually a second time. CI #843 correctly failed. This batch:
 
-### `XNPV`
+1. restored `BuiltInFormulaFunctionRegistry` as a thin delegate over one `VersionedFormulaFunctionRegistry`;
+2. restored `StandardFormulaFunctions.CreateAll()` as the single family aggregation path;
+3. replaced the duplicate `RemainingFinancialFormulaFunctions` implementation with the five functions in this batch;
+4. replaced duplicate RATE/XNPV/XIRR tests with targeted cumulative/depreciation regressions.
 
-- Signature: `XNPV(rate, values, dates)`.
-- Scalar/range deterministic/pure SDK v1 descriptor.
-- Positional value/date pairing with equal nonzero flattened counts.
-- First date is the baseline; no date may precede it; later positions may be unordered.
-- Numeric date serials are truncated to whole days.
-- Discount exponent uses a 365-day year.
-- Requires positive and negative cash-flow signs.
-- Compensated summation and a 2,000,000-position budget.
-- Value/date dependencies enter affected-only recalculation.
+No old tolerance or reference value was weakened.
 
-### `XIRR`
+## Functional contracts
 
-- Signature: `XIRR(values, dates, [guess])`.
-- Shares positional schedule and 365-day contracts with `XNPV`.
-- Requires at least two positions, sign diversity and at least one later date.
-- Defaults `guess` to `0.1`.
-- Uses the same bounded Newton/backtracking plus transformed-rate bracket/bisection solver as `RATE`.
-- Direct dated residual/derivative evaluation.
-- 100,000-position budget.
-- Non-convergence returns `#NUM!`.
+### Cumulative loan schedules
 
-## Automated regressions
+- `CUMIPMT` and `CUMPRINC` require positive rate/nper/pv.
+- Start/end are one-based whole periods and inclusive.
+- Timing is `0` or `1`; beginning-of-period period 1 has zero interest.
+- A single payment is calculated, then interest/principal is accumulated with compensated summation.
+- More than 2,000,000 requested periods returns `#NUM!`.
 
-Tests cover:
+### Declining-balance depreciation
 
-- positive, negative and zero RATE roots;
-- RATE/PMT round trips and beginning/end timing;
-- invalid horizon, timing, guess, no-root and range-capability cases;
-- XNPV/XIRR reference values on an irregular payment schedule;
-- `XNPV(XIRR(...), ...)` round trip;
-- post-first date reordering;
-- numeric date truncation;
-- mismatched lengths, earlier dates, invalid range kinds, invalid rates and missing sign diversity;
-- value/date dependency identity and affected recalculation;
-- descriptor identity/version/API/capability/volatility/security contracts;
-- XIRR value-budget rejection at 100,001 positions;
-- registry-count regressions at 186 eager/versioned names.
+- `DB` uses a three-decimal rounded fixed rate, optional month in `1..12` and an optional final stub period.
+- `DDB` applies `opening_book * factor / life`, capped at remaining depreciable basis.
+- `VDB` integrates full-period charges over fractional interval overlap.
+- `VDB` switches once to straight-line when it is larger unless `no_switch` is true.
+- All three prevent book value from falling below salvage and reject excessive schedules.
 
-## CI sequence and findings
+## Regression coverage
 
-### CI #837 — implementation probe
-
-- Build completed with zero warnings and zero errors.
-- New RATE/XNPV/XIRR result, schedule, dependency and resource tests passed.
-- 170 formula tests passed.
-- Two failures remained: old registry-count assertions expected 183 while the implementation correctly registered 186 names.
-- No solver tolerance or expected financial result was weakened.
-
-### CI #838 — corrected exact implementation head
-
-- Core restore/build/tests: success.
-- Architecture verification: success.
-- Full Windows build/tests: success.
-- Windows desktop GPU runtime smoke: success.
-- Android build: success.
-- iOS and Mac Catalyst builds: success.
-- MAUI Windows build and handler resolution: success.
-- Loaded Table-filter, runtime/context and scale/orientation smokes: success.
+- Official cumulative-interest and cumulative-principal references.
+- Cumulative interest + principal reconciliation to PMT.
+- Beginning-of-period first interest.
+- DB first period and final stub.
+- DDB default/custom factor and late period.
+- VDB daily/monthly/yearly references, multi-period intervals, partial period and switch/no-switch.
+- Invalid domains, timing, factor, month, period and scalar capability.
+- 2,000,001-period fail-closed boundaries.
+- SDK identity/version/API/capability/volatility/security.
+- Registry count at 191 eager/versioned names.
 
 ## Formula counts
 
-- Eager/versioned built-ins: 186 names.
-- AST/reference-aware built-ins: 18 names.
-- Dynamic-array built-ins: 5 names.
-- Complete built-in subsystem: 209 names.
+- Eager/versioned built-ins: 191.
+- AST/reference-aware built-ins: 18.
+- Dynamic-array built-ins: 5.
+- Complete built-in subsystem: 214.
 
 ## Explicit limitations
 
-- Root discovery is bounded and does not claim every mathematical root.
-- External Excel/LibreOffice financial differential corpus and solver fuzzing are pending.
-- Locale/date-basis compatibility beyond the explicit 365-day irregular schedule is pending.
-- `CUMIPMT`, `CUMPRINC`, `ISPMT`, accelerated depreciation, bond/coupon/day-count/duration/yield and treasury functions are pending.
-- Statistical hypothesis tests, advanced lookup/arrays, special engineering, plugin isolation, native spill UX, drawings/charts, advanced data/pivot and release hardening are pending.
+- `ISPMT`, EFFECT/NOMINAL, RRI/PDURATION remain pending.
+- AMOR/date-basis and bond/coupon/treasury/price/yield/duration remain pending.
+- Current DB life/period/month and DDB target period are whole-number contracts.
+- External producer differential corpus and financial fuzzing remain pending.
+- Statistical hypothesis tests, advanced arrays/lookups, plugin isolation, drawings/charts, pivots and release hardening remain pending.
 
 ## Progress
 
 - Engine/viewport/renderer: about `92%`.
 - Basic spreadsheet MVP: about `96–98%`.
-- Complete professional roadmap: about `75%`.
-- Production readiness: about `52–55%`.
+- Complete professional roadmap: about `76%`.
+- Production readiness: about `53–56%`.
 
 ## Next stable batch
 
-1. `CUMIPMT`.
-2. `CUMPRINC`.
-3. `ISPMT`.
-4. Shared payment-schedule iteration and sign/timing contracts.
-5. Reconciliation, domain, resource and dependency regressions.
-6. Exact-head Core/Windows/MAUI CI.
+1. `ISPMT`.
+2. `EFFECT`.
+3. `NOMINAL`.
+4. `RRI`.
+5. `PDURATION`.
+6. Shared scalar rate/domain/coercion regressions.
+7. Exact-head Core/Windows/MAUI CI.
 
 PR remains Draft; do not merge while a newer exact-head CI is red or unknown.

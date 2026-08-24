@@ -1,89 +1,73 @@
 # Formula Surface I contract
 
-This document defines the validated scalar/reference formula behavior of NeraSpreadSheet. Dynamic arrays are specified separately in `docs/dynamic-arrays-contract.md`; third-party extension contracts are specified in `docs/function-extension-sdk-contract.md`.
+This document defines the validated scalar/reference formula behavior of NeraSpreadSheet. Dynamic arrays and third-party extension contracts are specified separately.
 
 ## 1. Architecture boundary
 
 - `FormulaParser` and AST own syntax.
 - `NeraFormulaEngine` owns evaluation order, lazy branches, reference-aware functions, dependency capture and error mapping.
-- `BuiltInFormulaFunctionRegistry` owns eager versioned functions.
+- `BuiltInFormulaFunctionRegistry` owns eager versioned lookup through one internal `VersionedFormulaFunctionRegistry`.
+- `StandardFormulaFunctions.CreateAll()` is the sole built-in aggregation path.
 - `FormulaValueCoercion` owns shared blank/number/Boolean/text/DateTime conversion.
 - Platform hosts and OpenXml adapters do not implement formula semantics.
 
 ## 2. Current function counts
 
-- Eager/versioned built-ins: **186**.
+- Eager/versioned built-ins: **191**.
 - AST/reference-aware built-ins: **18**.
-- Scalar/reference total: **204**.
+- Scalar/reference total: **209**.
 - Dynamic-array built-ins: **5**.
-- Complete built-in subsystem: **209 names**.
+- Complete built-in subsystem: **214 names**.
 
-The 186 eager/versioned names comprise the original 92 functions plus 11 Statistical Foundation functions, 39 Advanced Statistical functions, 13 financial, 19 engineering and 12 database functions.
+The eager/versioned surface comprises 92 original functions, 11 Statistical Foundation functions, 39 Advanced Statistical functions, 18 financial, 19 engineering and 12 database functions.
 
 ## 3. Error and coercion model
 
-Supported cell error values include `#DIV/0!`, `#REF!`, `#NAME?`, `#VALUE!`, `#CIRC!`, `#N/A`, `#NUM!` and `#SPILL!`. Lazy control functions evaluate only selected branches. Numeric aggregates propagate matched errors according to their explicit contract.
+Supported errors include `#DIV/0!`, `#REF!`, `#NAME?`, `#VALUE!`, `#CIRC!`, `#N/A`, `#NUM!` and `#SPILL!`. Shared coercion supports finite numbers, Booleans, blank, DateTime/OLE serial conversion and explicitly allowed invariant text. Non-finite results fail closed.
 
-Shared coercion currently supports finite numbers, Booleans, blank, DateTime/OLE serial conversion and explicitly allowed invariant numeric/date text. Non-finite results fail closed. Text output is bounded to 32,767 characters.
-
-Numerical root functions use bounded deterministic solvers. They return `#NUM!` when no admissible root reaches the family tolerance.
+Numerical roots and long schedules have bounded iterations/evaluations. Invalid domains or exhausted budgets return explicit spreadsheet errors instead of hanging or leaking exceptions.
 
 ## 4. Function families
 
-### Logical, information and aggregates
+### Logical, aggregate, math, text and date/time
 
-`IF`, `IFERROR`, `IFNA`, `IFS`, `SWITCH`, `CHOOSE`, `AND`, `OR`, `XOR`, `NOT`, `TRUE`, `FALSE`, `NA`, information predicates, `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, `COUNTA`, `COUNTBLANK`, `PRODUCT`, `SUMSQ`, `SUBTOTAL`.
+The current surface includes lazy control flow, information predicates, aggregates, rounding, logarithmic/trigonometric functions, Unicode/text operations, date construction/extraction/arithmetic and clock-context functions.
 
-### Math, text and date/time
+### Lookup/reference and criteria
 
-The current surface includes rounding, logarithmic/trigonometric, Unicode/text, search/replace, date construction/extraction/arithmetic and deterministic clock-context functions documented by automated tests.
+`INDEX`, `MATCH`, `XLOOKUP`, `VLOOKUP`, `HLOOKUP`, plus `COUNTIF(S)`, `SUMIF(S)`, `AVERAGEIF(S)` with dependencies and bounded criteria enumeration.
 
-### Lookup/reference
+### Statistical
 
-`INDEX`, `MATCH`, `XLOOKUP`, `VLOOKUP`, `HLOOKUP` with dependency capture and conservative exact/basic-approximate behavior.
-
-### Conditional aggregates
-
-`COUNTIF`, `COUNTIFS`, `SUMIF`, `SUMIFS`, `AVERAGEIF`, `AVERAGEIFS` use shared invariant criteria, wildcard/tilde escaping, same-shape positional ranges and bounded enumeration.
-
-### Statistical Foundation
-
-`MEDIAN`, `MODE.SNGL`, `PERCENTILE.INC`, `QUARTILE.INC`, `VAR.P`, `VAR.S`, `STDEV.P`, `STDEV.S`, `RANK.EQ`, `LARGE`, `SMALL`.
-
-### Advanced Statistical Foundation
-
-- Pairwise analysis: `COVARIANCE.P`, `COVARIANCE.S`, `CORREL`, `PEARSON`, `SLOPE`, `INTERCEPT`, `RSQ`, `STEYX`, `FORECAST.LINEAR`.
-- Transformations: `STANDARDIZE`, `FISHER`, `FISHERINV`.
-- Normal/log-normal/exponential/discrete/Weibull families.
-- Beta, gamma, chi-square, Student-t and F density, cumulative, right/two-tail and inverse families.
-
-Full contract: `docs/advanced-statistical-functions-foundation-contract.md`.
+- Median/mode/percentile/quartile, variance/deviation, rank/order statistics.
+- Covariance/correlation/regression/forecast.
+- Normal/log-normal/exponential/binomial/Poisson/Weibull/beta/gamma/chi-square/Student-t/F families.
 
 ### Financial
 
-`PV`, `FV`, `PMT`, `NPER`, `RATE`, `NPV`, `IRR`, `XNPV`, `XIRR`, `IPMT`, `PPMT`, `SLN`, `SYD`.
+`PV`, `FV`, `PMT`, `NPER`, `RATE`, `NPV`, `IRR`, `XNPV`, `XIRR`, `IPMT`, `PPMT`, `CUMIPMT`, `CUMPRINC`, `SLN`, `SYD`, `DB`, `DDB`, `VDB`.
 
-`RATE`, `IRR` and `XIRR` use bounded iterative solvers. `XNPV` and `XIRR` preserve positional value/date schedules, a 365-day basis, dependencies and affected-only recalculation. Full contract: `docs/financial-functions-foundation-contract.md`.
+- Root functions use deterministic bounded solvers.
+- Irregular schedules preserve value/date positions and dependencies.
+- Cumulative loan functions reconcile interest plus principal to PMT over inclusive whole-period ranges.
+- DB/DDB/VDB provide fixed, factor-based and variable declining-balance depreciation; VDB supports partial periods and optional straight-line switching.
 
-### Engineering
+Full contract: `docs/financial-functions-foundation-contract.md`.
 
-`DELTA`, `GESTEP`, five bit/shift functions and twelve binary/octal/hex/decimal conversion functions. Full contract: `docs/engineering-functions-foundation-contract.md`.
+### Engineering and database
 
-### Database
-
-`DSUM`, `DCOUNT`, `DCOUNTA`, `DAVERAGE`, `DMAX`, `DMIN`, `DPRODUCT`, `DGET`, `DSTDEV`, `DSTDEVP`, `DVAR`, `DVARP`. Full contract: `docs/database-functions-foundation-contract.md`.
+Nineteen engineering functions cover bit/shift/radix/comparison behavior. Twelve database functions cover criteria-table aggregates with range identity and budgets.
 
 ## 5. Dependency behavior
 
-Range-aware functions preserve source identity and dependencies. Lazy functions omit unused branches. Pairwise statistical, periodic/dated financial and database ranges enter ordinary dependencies and affected-only recalculation. Scalar engineering, financial and distribution references enter the shared graph. Current deterministic functions declare no hidden dependency.
+Range-aware functions preserve source identity and row-major values. Lazy functions omit unused branches. Pairwise statistical, periodic/dated financial and database ranges participate in affected-only recalculation. Current cumulative/depreciation functions are scalar-only and declare no hidden dependency.
 
 ## 6. Deliberately pending
 
-- Complete Excel coercion compatibility.
-- Locale-aware `TEXT`/criteria and regional aliases.
-- Advanced lookup/reference functions and modes.
-- Financial cumulative payment/principal, accelerated depreciation and bond/coupon/day-count/duration/yield families.
-- Statistical hypothesis tests, confidence intervals, additional distributions and extreme-tail corpus.
+- Complete Excel coercion and locale compatibility.
+- Advanced lookup/reference modes.
+- `ISPMT`, EFFECT/NOMINAL, RRI/PDURATION, AMOR/date-basis and bond/coupon/treasury/price/yield/duration functions.
+- Statistical hypothesis tests, confidence intervals and additional distributions.
 - Complex/unit/special engineering functions.
 - Formula-expression database criteria and cube functions.
 - Advanced dynamic arrays and LET/LAMBDA.
@@ -91,6 +75,6 @@ Range-aware functions preserve source identity and dependencies. Lazy functions 
 
 ## 7. Validation gates
 
-Formula changes require parser/error/coercion tests, descriptor tests, family-specific result/domain/numerical-stability/convergence tests, dependency and affected-recalculation tests, resource-budget tests, plus the complete Core/architecture/Windows/MAUI matrix.
+Formula changes require parser/error/coercion tests, descriptor tests, family-specific result/domain/numerical-stability/convergence/reconciliation tests, dependency tests where applicable, resource-budget tests and the complete hosted CI matrix.
 
 PR #1 remains Draft while exact-head CI is red or unknown.

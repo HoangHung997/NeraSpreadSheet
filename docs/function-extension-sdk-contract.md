@@ -4,102 +4,69 @@ This document defines NeraSpreadSheet's validated versioned function-extension c
 
 ## 1. Identity and versions
 
-Each versioned function declares:
-
-- stable namespace/name identity;
-- semantic implementation version;
-- minimum host API version;
-- aliases;
-- minimum/maximum logical arguments;
-- argument-count policy;
-- capabilities;
-- volatility/state classification;
-- security classification;
-- dependency policy;
-- argument-error propagation policy.
-
-Current host API: `1.0`.
+Each versioned function declares stable namespace/name identity, semantic implementation version, minimum host API, aliases, logical argument bounds, capabilities, volatility/state, security, dependency policy and error-propagation policy. Current host API: `1.0`.
 
 ## 2. Registry behavior
 
 - Thread-safe registration and lookup.
-- Exact version lookup.
-- Highest compatible version selection.
-- Side-by-side versions under one identity.
-- Exact replacement only when explicitly requested.
-- Unregister with fallback to next highest version.
+- Exact version and highest-compatible selection.
+- Side-by-side versions and explicit exact replacement.
+- Unregister with fallback.
 - Global name/alias ownership and deterministic conflict rejection.
 - Bounded versions per identity.
-- Legacy `IFormulaFunction` registration through a `LEGACY` adapter.
+- Legacy `IFormulaFunction` adapter.
+- One authoritative built-in aggregation path; the public built-in registry delegates to one internal versioned registry and does not re-register families manually.
 
 ## 3. Capabilities and invocation
 
-Capabilities distinguish scalar/range/array arguments and scalar/array return. Invocation arguments are immutable and preserve scalar value or range source identity, shape and row-major values. Descriptor validation rejects unsupported array features, incompatible host APIs and disallowed external-state functions before registration.
+Capabilities distinguish scalar/range/array arguments and scalar/array returns. Invocation arguments are immutable and preserve scalar values or range source identity, shape and row-major values. Unsupported argument kinds are rejected before evaluation.
 
-Argument-count policy is either:
+Argument counting is logical or flattened-value, according to the descriptor.
 
-- logical arguments; or
-- flattened values for legacy-compatible aggregate-style functions.
+## 4. State, security and dependencies
 
-## 4. State and security
+Volatility classifications are deterministic, volatile and external-state. Security classifications are pure, context-read-only and external-state. The default policy fails closed on unsupported/external-state combinations.
 
-Volatility classifications include deterministic, volatile and external-state. Security classifications distinguish pure, context-read-only and external-state functions. The default registry policy allows current built-ins and safe extensions but fails closed on unsupported/external-state capability combinations.
+Descriptors either use engine-captured dependencies only or permit additional declared dependencies. Returned dependencies are merged and deduplicated before entering the graph.
 
-Volatility metadata exists; automatic workbook volatile scheduling remains pending.
+## 5. Built-in registry milestone
 
-## 5. Dependencies
-
-A descriptor chooses engine-captured dependencies only or permits additional function-declared dependencies. Returned dependencies are merged with expression/range dependencies and deduplicated before entering the graph.
-
-Range arguments preserve source identity, shape and row-major values. This allows pairwise statistical, dated financial and database functions to participate in the same affected-only recalculation graph without host-specific code.
-
-## 6. Built-in registry milestone
-
-The validated eager/versioned built-in registry contains **186 names**:
+The eager/versioned registry contains **191 names**:
 
 - 92 original flattened-value functions;
 - 11 Statistical Foundation functions;
 - 39 Advanced Statistical functions;
-- 13 financial functions;
+- 18 financial functions;
 - 19 engineering functions;
 - 12 database functions.
 
-The 39 Advanced Statistical functions use logical argument counting. Pairwise functions expose scalar/range capabilities; transformation and distribution functions are scalar-only.
+The broader formula subsystem adds 18 AST/reference-aware and five dynamic-array names, totaling **214 built-in names**.
 
-Financial functions use logical argument counting. `NPV`, `IRR`, `XNPV` and `XIRR` expose scalar/range capabilities; the other financial functions are scalar-only. Root-based financial evaluators are deterministic/pure and enforce their own bounded convergence/resource contracts inside invocation.
+Financial metadata:
 
-Engineering functions are scalar-only. Database functions preserve logical range identity and set `propagateArgumentErrors=false` so matched-row semantics can inspect errors selectively.
+- `NPV`, `IRR`, `XNPV`, `XIRR` expose scalar/range arguments.
+- The remaining financial functions, including `CUMIPMT`, `CUMPRINC`, `DB`, `DDB`, `VDB`, are scalar-only.
+- All current financial descriptors are deterministic/pure, return a scalar and use logical argument counting.
+- Root and schedule resource contracts are enforced inside invocation.
 
-The broader formula subsystem adds 18 AST/reference-aware and five dynamic-array names, totaling **209 built-in names**.
+## 6. Compatibility and failure policy
 
-## 7. Compatibility and failure policy
+Registration rejects incompatible APIs, unsupported capabilities, invalid argument bounds, conflicting names/aliases, duplicate exact versions without replacement and disallowed external state.
 
-Registration rejects:
+Evaluation rejects unsupported argument kinds. Function exceptions are converted through the fail-closed engine boundary. Family implementations return explicit errors for invalid domains, exhausted budgets or non-convergence.
 
-- minimum host API newer than current host;
-- unsupported capability combinations;
-- invalid argument bounds;
-- conflicting name/alias ownership;
-- duplicate exact versions without explicit replacement;
-- external-state functions under the default restrictive policy.
+## 7. Deliberately pending
 
-Evaluation rejects unsupported argument kinds before invocation. Function exceptions are converted through the engine's fail-closed error boundary; they do not escape into UI hosts.
-
-Family implementations additionally reject invalid domains, resource limits and numerical non-convergence through explicit spreadsheet errors.
-
-## 8. Deliberately pending
-
-- Plugin manifest/package format.
-- Discovery/loading/unloading.
+- Plugin manifest/package format and discovery.
 - Publisher signatures and trust policy.
-- Process/AppDomain/WASM isolation and resource quotas.
+- Isolation and resource quotas for third-party code.
 - Formula-text version pinning.
 - NuGet/plugin packaging and API compatibility tooling.
-- Third-party array return contract and host spill integration.
-- External state permission prompts and auditing.
+- Third-party array return integration.
+- External-state permission prompts and auditing.
 
-## 9. Validation gates
+## 8. Validation gates
 
-SDK changes require version ordering, exact/highest resolution, conflict/replacement/unregister behavior, API/capability/security rejection, range identity/shape, additional dependency, legacy adapter and built-in descriptor/count regressions, followed by the complete hosted matrix.
+SDK changes require version ordering, exact/highest resolution, conflict/replacement/unregister behavior, API/capability/security rejection, range identity/shape, dependency policy, legacy adaptation and built-in descriptor/count regressions, followed by the complete hosted matrix.
 
 PR #1 remains Draft while exact-head CI is red or unknown.
