@@ -187,6 +187,12 @@ internal static class FinancialCalendarFormulaFunctions
         out FinancialCouponPeriod period,
         out FormulaEvaluationResult error)
     {
+        settlement = default;
+        maturity = default;
+        frequency = default;
+        basis = default;
+        period = default;
+
         if (!TryGetScalarDate(
                 invocation.Arguments[0],
                 out settlement,
@@ -200,19 +206,15 @@ internal static class FinancialCalendarFormulaFunctions
                 out frequency,
                 out error))
         {
-            basis = default;
-            period = default;
             return false;
         }
 
-        basis = 0;
         if (invocation.Arguments.Count == 4 &&
             !TryGetTruncatedInteger(
                 invocation.Arguments[3],
                 out basis,
                 out error))
         {
-            period = default;
             return false;
         }
 
