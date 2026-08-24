@@ -53,17 +53,18 @@ A descriptor chooses engine-captured dependencies only or permits additional fun
 
 ## 6. Built-in registry milestone
 
-The validated eager/versioned built-in registry contains **144 names**:
+The validated eager/versioned built-in registry contains **183 names**:
 
 - 92 original flattened-value functions;
-- 11 statistical functions;
+- 11 Statistical Foundation functions;
+- 39 Advanced Statistical functions;
 - 10 financial functions;
 - 19 engineering functions;
 - 12 database functions.
 
-All new engineering/database functions use SDK v1 descriptors. Engineering is scalar-only. Database functions preserve logical range identity and set `propagateArgumentErrors=false` so matched-row semantics can inspect errors selectively.
+The 39 Advanced Statistical functions use logical argument counting. Pairwise functions expose scalar/range capabilities; transformation and distribution functions are scalar-only. Engineering is scalar-only. Database functions preserve logical range identity and set `propagateArgumentErrors=false` so matched-row semantics can inspect errors selectively.
 
-The broader formula subsystem adds 18 AST/reference-aware and five dynamic-array names, totaling **167 built-in names**.
+The broader formula subsystem adds 18 AST/reference-aware and five dynamic-array names, totaling **206 built-in names**.
 
 ## 7. Compatibility and failure policy
 

@@ -1,6 +1,6 @@
 # NeraSpreadSheet
 
-> Trạng thái: **M2 — spreadsheet engine, renderer đa host, XLSX/Table/AutoFilter, printing/PDF, Dynamic Arrays, Function Extension SDK v1.0, Conditional Aggregates, Statistical, Financial, Engineering và Database Functions Foundation đã có automated gates; chưa phải bản phát hành production**.
+> Trạng thái: **M2 — spreadsheet engine, renderer đa host, XLSX/Table/AutoFilter, printing/PDF, Dynamic Arrays, Function Extension SDK v1.0, Conditional Aggregates, Statistical, Advanced Statistical, Financial, Engineering và Database Functions Foundation đã có automated gates; chưa phải bản phát hành production**.
 
 NeraSpreadSheet là SDK spreadsheet độc lập cho **WPF, WinForms và .NET MAUI**, hướng tới cuộn liên tục theo pixel, mô hình sparse, tương thích tài liệu tốt và khả năng mở rộng nghiệp vụ dự toán.
 
@@ -42,8 +42,9 @@ Workbook / Rules / Tables / Spill Ownership
 - Structural insert/delete/reorder có formula/rule/Table/filter/spill mapping và rollback.
 - Fractional scrolling, freeze/split panes và multi-host display-list rendering.
 - Function Extension SDK API `1.0`.
-- **167 built-in function names**: 144 eager/versioned, 18 AST/reference-aware và 5 dynamic-array.
-- Conditional aggregates, statistical, financial, engineering và database function foundations.
+- **206 built-in function names**: 183 eager/versioned, 18 AST/reference-aware và 5 dynamic-array.
+- Conditional aggregates, statistical, advanced statistical, financial, engineering và database function foundations.
+- Advanced statistics: covariance/correlation/regression, normal/log-normal/exponential/binomial/Poisson/Weibull, beta/gamma/chi-square/Student-t/F density, cumulative, tail và inverse functions.
 - Engineering: bitwise/shift, radix conversions, `DELTA`, `GESTEP`.
 - Database: `DSUM`, `DCOUNT`, `DCOUNTA`, `DAVERAGE`, `DMAX`, `DMIN`, `DPRODUCT`, `DGET`, `DSTDEV`, `DSTDEVP`, `DVAR`, `DVARP`.
 - Dynamic arrays: `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE` cùng spill ownership, `#SPILL!`, history, clipboard và XLSX boundary.
@@ -56,6 +57,7 @@ Tài liệu nguồn sự thật:
 
 - `docs/current-status.md`;
 - `docs/function-extension-sdk-contract.md`;
+- `docs/advanced-statistical-functions-foundation-contract.md`;
 - `docs/engineering-functions-foundation-contract.md`;
 - `docs/database-functions-foundation-contract.md`;
 - `docs/dynamic-arrays-contract.md`;
@@ -82,7 +84,7 @@ Mọi thay đổi đi qua pull request; không commit trực tiếp vào `main`.
 
 ## Mốc tiếp theo
 
-**Advanced Statistical Functions Foundation**: covariance, correlation, regression và distributions; sau đó remaining finance (`RATE`, `XNPV`, `XIRR`), advanced lookup/dynamic arrays, plugin packaging/isolation, drawings/charts, advanced data/pivot và release hardening.
+**Remaining Financial Functions**: `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon/day-count và accelerated depreciation; sau đó statistical hypothesis tests, advanced lookup/dynamic arrays, plugin packaging/isolation, drawings/charts, advanced data/pivot và release hardening.
 
 ## Giấy phép
 

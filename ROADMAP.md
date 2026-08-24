@@ -43,13 +43,14 @@
 - [x] Logical/error, aggregate, math, text/Unicode, date/time and lookup foundations.
 - [x] Conditional aggregates: `COUNTIF(S)`, `SUMIF(S)`, `AVERAGEIF(S)`.
 - [x] Statistical Foundation: median/mode, inclusive percentile/quartile, variance/deviation, rank/order statistics.
+- [x] Advanced Statistical Foundation: covariance, correlation, regression, forecast and 30 transformation/distribution functions.
 - [x] Financial Foundation: PV/FV/PMT/NPER, NPV/IRR, IPMT/PPMT, SLN/SYD.
 - [x] Engineering Foundation: 19 bit/shift/radix/comparison functions.
 - [x] Database Foundation: 12 criteria-table aggregate functions.
 - [x] Function Extension SDK API `1.0` with identity/version/capability/state/dependency/conflict contracts.
 - [x] Immutable dynamic arrays, spill ownership and affected recalculation.
 - [x] `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE`.
-- [ ] Advanced statistics: covariance, correlation, regression and distributions.
+- [ ] Statistical hypothesis tests, confidence intervals, additional distributions and broader compatibility aliases.
 - [ ] Remaining finance: `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon/day-count and accelerated depreciation.
 - [ ] Advanced lookup/reference modes and functions.
 - [ ] Spill-reference `A1#`, implicit-intersection `@`, array constants and vectorized expressions.
@@ -119,7 +120,7 @@
 - [x] Broad exact-head multi-platform CI matrix.
 - [x] Staged atomic PDF and delimited-text output limits.
 - [x] Repository-wide validation runner and Codex final-acceptance plan.
-- [x] Formula SDK, criteria, statistical, financial, engineering, database and dynamic-array automated gates.
+- [x] Formula SDK, criteria, statistical, advanced-statistical, financial, engineering, database and dynamic-array automated gates.
 - [ ] API compatibility and package-version checks.
 - [ ] NuGet/plugin packaging, symbols and source link.
 - [ ] Plugin publisher verification and isolation/resource policy.
@@ -131,8 +132,8 @@
 
 ## Immediate execution order
 
-1. Advanced Statistical Functions Foundation: covariance, correlation, regression and distributions.
-2. Remaining financial families: `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon/day-count and accelerated depreciation.
+1. Remaining financial families: `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon/day-count and accelerated depreciation.
+2. Statistical hypothesis tests, confidence intervals and remaining distribution compatibility.
 3. Advanced lookup/reference and dynamic-array helpers.
 4. Plugin packaging/discovery, API compatibility and isolation policy.
 5. Native spill UX, drawings/images/charts and print/PDF pagination.
@@ -141,15 +142,15 @@
 8. MAUI IME/accessibility/localization/theme and release hardening.
 9. Execute final Codex acceptance before PR promotion.
 
-## Weighted progress after Engineering + Database Functions Foundation
+## Weighted progress after Advanced Statistical Functions Foundation
 
 - Engine/viewport/renderer foundation: approximately `92%`.
 - Basic spreadsheet MVP: approximately `96–98%`.
-- Complete professional roadmap: approximately `72%`.
-- Production release readiness: approximately `49–52%`.
+- Complete professional roadmap: approximately `74%`.
+- Production release readiness: approximately `51–54%`.
 
 These are engineering-weighted estimates, not checkbox counts.
 
 ## Validation rule
 
-Implementation commit `ba7d0ce079c451f6390f5aafcb0cf861ccad0caa` passed CI `#819`, run `32651011596`. PR #1 remains Draft and must not merge while a newer exact-head run is red or unknown.
+Implementation commit `e713182d460f5c280e2c29e5642769eedf190d2f` passed CI `#835`, run `32720631933`. PR #1 remains Draft and must not merge while a newer exact-head run is red or unknown.

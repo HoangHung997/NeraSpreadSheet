@@ -12,13 +12,13 @@ This document defines the validated scalar/reference formula behavior of NeraSpr
 
 ## 2. Current function counts
 
-- Eager/versioned built-ins: **144**.
+- Eager/versioned built-ins: **183**.
 - AST/reference-aware built-ins: **18**.
-- Scalar/reference total: **162**.
+- Scalar/reference total: **201**.
 - Dynamic-array built-ins: **5**.
-- Complete built-in subsystem: **167 names**.
+- Complete built-in subsystem: **206 names**.
 
-The 144 eager/versioned names comprise the original 92 functions plus 11 statistical, 10 financial, 19 engineering and 12 database functions.
+The 183 eager/versioned names comprise the original 92 functions plus 11 Statistical Foundation functions, 39 Advanced Statistical functions, 10 financial, 19 engineering and 12 database functions.
 
 ## 3. Error and coercion model
 
@@ -44,9 +44,18 @@ The current surface includes rounding, logarithmic/trigonometric, Unicode/text, 
 
 `COUNTIF`, `COUNTIFS`, `SUMIF`, `SUMIFS`, `AVERAGEIF`, `AVERAGEIFS` use shared invariant criteria, wildcard/tilde escaping, same-shape positional ranges and bounded enumeration.
 
-### Statistical
+### Statistical Foundation
 
 `MEDIAN`, `MODE.SNGL`, `PERCENTILE.INC`, `QUARTILE.INC`, `VAR.P`, `VAR.S`, `STDEV.P`, `STDEV.S`, `RANK.EQ`, `LARGE`, `SMALL`.
+
+### Advanced Statistical Foundation
+
+- Pairwise analysis: `COVARIANCE.P`, `COVARIANCE.S`, `CORREL`, `PEARSON`, `SLOPE`, `INTERCEPT`, `RSQ`, `STEYX`, `FORECAST.LINEAR`.
+- Transformations: `STANDARDIZE`, `FISHER`, `FISHERINV`.
+- Normal/log-normal/exponential/discrete/Weibull families.
+- Beta, gamma, chi-square, Student-t and F density, cumulative, right/two-tail and inverse families.
+
+Full contract: `docs/advanced-statistical-functions-foundation-contract.md`.
 
 ### Financial
 
@@ -62,14 +71,14 @@ The current surface includes rounding, logarithmic/trigonometric, Unicode/text, 
 
 ## 5. Dependency behavior
 
-Range-aware functions preserve source identity and dependencies. Lazy functions omit unused branches. Engineering scalar references enter ordinary dependencies. Database functions capture database, field-selector and criteria ranges. All current built-ins participate in affected-only recalculation through the shared graph.
+Range-aware functions preserve source identity and dependencies. Lazy functions omit unused branches. Pairwise statistical and database ranges enter ordinary dependencies and affected-only recalculation. Scalar engineering, financial and distribution references enter the shared graph. Current deterministic distribution functions declare no hidden or volatile dependency.
 
 ## 6. Deliberately pending
 
 - Complete Excel coercion compatibility.
 - Locale-aware `TEXT`/criteria and regional aliases.
 - Advanced lookup/reference functions and modes.
-- Covariance/correlation/regression and distributions.
+- Statistical hypothesis tests, confidence intervals, additional distributions and extreme-tail corpus.
 - Remaining finance and accelerated depreciation.
 - Complex/unit/special engineering functions.
 - Formula-expression database criteria and cube functions.
@@ -78,6 +87,6 @@ Range-aware functions preserve source identity and dependencies. Lazy functions 
 
 ## 7. Validation gates
 
-Formula changes require parser/error/coercion tests, descriptor tests, family-specific result/domain tests, dependency and affected-recalculation tests, resource-budget tests, plus the complete Core/architecture/Windows/MAUI matrix.
+Formula changes require parser/error/coercion tests, descriptor tests, family-specific result/domain/numerical-stability tests, dependency and affected-recalculation tests, resource-budget tests, plus the complete Core/architecture/Windows/MAUI matrix.
 
 PR #1 remains Draft while exact-head CI is red or unknown.

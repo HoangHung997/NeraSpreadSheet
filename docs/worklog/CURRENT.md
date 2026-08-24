@@ -3,107 +3,117 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` into `develop` — Draft, unmerged
-- Engineering + Database implementation head: `ba7d0ce079c451f6390f5aafcb0cf861ccad0caa`
-- GitHub Actions: CI `#819`, run `32651011596`, success
+- Advanced Statistical implementation head: `e713182d460f5c280e2c29e5642769eedf190d2f`
+- GitHub Actions: CI `#835`, run `32720631933`, success
 - Source of truth: `docs/current-status.md`
 - SDK contract: `docs/function-extension-sdk-contract.md`
+- Advanced Statistical contract: `docs/advanced-statistical-functions-foundation-contract.md`
 - Engineering contract: `docs/engineering-functions-foundation-contract.md`
 - Database contract: `docs/database-functions-foundation-contract.md`
 - Final acceptance: `docs/CODEX_FINAL_ACCEPTANCE.md`
 
-## Batch completed: Engineering + Database Functions Foundation
+## Batch completed: Advanced Statistical Functions Foundation
 
-### Engineering functions
+### Covariance, correlation and regression — 9 functions
 
-Nineteen SDK v1 functions:
-
-- `DELTA`, `GESTEP`;
-- `BITAND`, `BITOR`, `BITXOR`, `BITLSHIFT`, `BITRSHIFT`;
-- `DEC2BIN`, `DEC2OCT`, `DEC2HEX`;
-- `BIN2DEC`, `OCT2DEC`, `HEX2DEC`;
-- `BIN2OCT`, `BIN2HEX`, `OCT2BIN`, `OCT2HEX`, `HEX2BIN`, `HEX2OCT`.
+- `COVARIANCE.P`, `COVARIANCE.S`;
+- `CORREL`, `PEARSON`;
+- `SLOPE`, `INTERCEPT`, `RSQ`, `STEYX`;
+- `FORECAST.LINEAR`.
 
 Key contracts:
 
-- deterministic/pure, scalar-only SDK descriptors;
-- bit values bounded to `0..2^48-1`;
-- shift magnitude bounded to 53 with negative direction reversal;
-- 10-bit binary, 30-bit octal and 40-bit hexadecimal two's-complement negative conventions;
-- optional positive-output `places` from 1 through 10;
-- target-range and checked-overflow validation;
-- explicit `#NUM!`/`#VALUE!` failures.
+- equal flattened pair counts;
+- numeric/DateTime range pairs participate and nonnumeric range pairs are skipped;
+- stable online bivariate moments;
+- explicit `#N/A`, `#DIV/0!`, `#VALUE!` and `#NUM!` paths;
+- dependency capture and affected-only recalculation;
+- 2,000,000-position pair budget.
 
-### Database functions
+### Transformations and first distribution group — 13 functions
 
-Twelve SDK v1 functions:
+- `STANDARDIZE`, `FISHER`, `FISHERINV`;
+- `NORM.DIST`, `NORM.S.DIST`, `NORM.INV`, `NORM.S.INV`;
+- `LOGNORM.DIST`, `LOGNORM.INV`;
+- `EXPON.DIST`, `BINOM.DIST`, `POISSON.DIST`, `WEIBULL.DIST`.
 
-- `DSUM`, `DCOUNT`, `DCOUNTA`, `DAVERAGE`;
-- `DMAX`, `DMIN`, `DPRODUCT`, `DGET`;
-- `DSTDEV`, `DSTDEVP`, `DVAR`, `DVARP`.
+### Continuous distribution group — 17 functions
 
-Key contracts:
+- `BETA.DIST`, `BETA.INV`;
+- `GAMMA.DIST`, `GAMMA.INV`;
+- `CHISQ.DIST`, `CHISQ.DIST.RT`, `CHISQ.INV`, `CHISQ.INV.RT`;
+- `T.DIST`, `T.DIST.RT`, `T.DIST.2T`, `T.INV`, `T.INV.2T`;
+- `F.DIST`, `F.DIST.RT`, `F.INV`, `F.INV.RT`.
 
-- rectangular database range with unique nonblank headers;
-- field by header or one-based index;
-- criteria-table AND within rows and OR across rows;
-- duplicate criteria headers for same-field AND;
-- shared comparison/wildcard/tilde parser;
-- blank criteria ignored and empty criteria row matches all;
-- compensated sums and stable online variance/deviation;
-- exact-one-record `DGET`;
-- database/field/criteria dependencies and affected recalculation;
-- database, criteria and comparison budgets.
+Key numerical contracts:
+
+- bounded regularized beta/gamma series and continued fractions;
+- bounded inverse bracketing and bisection;
+- right-tail/two-tail paths avoid unnecessary cancellation where dedicated primitives exist;
+- inverse midpoint accepted before bracket mutation;
+- deterministic endpoint/domain policy;
+- degrees of freedom truncated toward zero and bounded to 10,000,000,000;
+- discrete cumulative summation bounded to 1,000,000 terms;
+- non-convergence fails closed with `#N/A`.
 
 ### SDK and formula counts
 
-- Built-in eager/versioned registry: 144 names.
+- Built-in eager/versioned registry: 183 names.
 - AST/reference-aware built-ins: 18 names.
 - Dynamic-array built-ins: 5 names.
-- Complete built-in subsystem: 167 names.
+- Complete built-in subsystem: 206 names.
 
-### CI #819
+## Automated regressions
 
-- Core restore/build/tests: success.
-- Architecture verification: success.
-- 141 formula tests and complete Core matrix: success.
-- Full Windows build/tests: success.
-- Desktop GPU runtime smoke: success.
-- Android: success.
-- iOS and Mac Catalyst: success.
-- MAUI Windows build/handler: success.
-- Loaded Table-filter, runtime-context and scale/orientation smokes: success.
+Tests cover:
+
+- descriptor identity/version/API/capability/security/volatility contracts;
+- covariance/correlation/regression/forecast values and degenerate data;
+- large-offset pairwise stability and distribution tails;
+- density, cumulative and inverse reference values;
+- forward/inverse round trips and endpoint policy;
+- degrees-of-freedom truncation and resource/domain failures;
+- scalar-only capability rejection;
+- exact-midpoint inverse regressions for beta, gamma, chi-square, Student-t and F;
+- existing full formula, dependency, editing, rendering, XLSX and host matrices.
 
 ## Problems found and fixed during the batch
 
-- Analyzer CA1859 findings in database implementation and test helpers were fixed with concrete internal collection types.
-- Registry count regression was updated from 113 to 144 after all 31 new functions were registered.
-- No formula-result regression remained after the analyzer fixes; engineering/database semantics passed the full formula suite.
+- Registering the final 17 continuous-distribution functions raised the eager registry from 166 to 183, while two count regressions still expected 166. Both were updated and descriptor coverage was expanded to all new names.
+- The first new round-trip regression exposed a real inverse-search defect: an accepted midpoint was followed by bracket mutation and the routine returned the midpoint of the narrowed half-interval. Beta returned 2.5 instead of 3 in an exact round trip.
+- The same pattern existed in inverse beta, inverse gamma and inverse Student-t. All three now return the accepted midpoint before changing either bracket; F and chi-square inherit the corrected primitives.
+- The regression expectation was not weakened; targeted midpoint tests lock all affected families.
+
+## CI #835
+
+- Core restore/build/tests and architecture verification: success.
+- Full Windows build/tests and desktop GPU runtime smoke: success.
+- Android build: success.
+- iOS and Mac Catalyst builds: success.
+- MAUI Windows build, handler resolution and loaded Table-filter/runtime/scale smokes: success.
 
 ## Explicit limitations
 
-- Engineering complex-number, unit conversion, Bessel and error-function families are pending.
-- Database criteria cells do not execute formula expressions.
-- Database headers must be unique.
-- Database processing is a bounded scan, not an indexed query engine.
-- Criteria parsing is invariant, not locale-specific.
-- Advanced statistics/distributions, remaining finance, advanced lookup/arrays and cube functions are pending.
-- Plugin package loading/signatures/isolation and volatile scheduling are pending.
-- External Excel/LibreOffice engineering/database corpora and fuzzing remain final acceptance work.
+- Statistical hypothesis tests, confidence intervals and additional discrete distributions are pending.
+- Exclusive percentile/quartile, percent-rank, `MODE.MULT`, `RANK.AVG` and broader legacy aliases are pending.
+- Extreme-tail differential corpus, external Excel/LibreOffice statistical corpus and fuzzing are pending.
+- Remaining finance, advanced lookup/arrays, special engineering and plugin isolation are pending.
+- Native spill UX, drawings/charts, advanced data/pivot and final release hardening are pending.
 
 ## Progress
 
 - Engine/viewport/renderer: about `92%`.
 - Basic spreadsheet MVP: about `96–98%`.
-- Complete professional roadmap: about `72%`.
-- Production readiness: about `49–52%`.
+- Complete professional roadmap: about `74%`.
+- Production readiness: about `51–54%`.
 
 ## Next batch
 
-1. Advanced Statistical Functions Foundation.
-2. Covariance, correlation and regression helpers.
-3. Normal and related distribution primitives with bounded numerical methods.
-4. Dependency/domain/precision/resource regressions.
+1. Remaining Financial Functions: `RATE`, `XNPV`, `XIRR`.
+2. Cumulative payment and principal families.
+3. Bond/coupon/day-count and accelerated depreciation.
+4. Financial domain/convergence/dependency/resource regressions.
 5. Exact-head Core/Windows/MAUI CI.
-6. Then remaining finance and advanced lookup/dynamic arrays.
+6. Then statistical hypothesis tests and advanced lookup/dynamic arrays.
 
 PR remains Draft; do not merge while a newer exact-head CI is red or unknown.

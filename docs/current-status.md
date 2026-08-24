@@ -25,10 +25,10 @@ This file is the source of truth for the current development branch. A capabilit
 - Parser/AST, A1/cross-sheet references, dependency graph, circular detection and affected-only recalculation.
 - Shared/structured formulas and Table formula rewrite/projection.
 - Function Extension SDK v1.0 with identity, implementation/API versions, aliases, side-by-side versions, capabilities, volatility/state, dependency policy, argument-count policy, registration conflict rules and legacy adapter.
-- Built-in eager/versioned registry: **144 names**.
+- Built-in eager/versioned registry: **183 names**.
 - AST/reference-aware built-ins: **18 names**.
 - Dynamic-array built-ins: **5 names**.
-- Complete built-in subsystem: **167 names**.
+- Complete built-in subsystem: **206 names**.
 
 ### Conditional aggregates
 
@@ -37,6 +37,19 @@ This file is the source of truth for the current development branch. A capabilit
 ### Statistical Foundation
 
 `MEDIAN`, `MODE.SNGL`, `PERCENTILE.INC`, `QUARTILE.INC`, `VAR.P`, `VAR.S`, `STDEV.P`, `STDEV.S`, `RANK.EQ`, `LARGE`, `SMALL` with bounded value retention, stable variance and affected recalculation.
+
+### Advanced Statistical Functions Foundation
+
+Thirty-nine deterministic/pure SDK v1 functions now cover:
+
+- covariance/correlation/regression: `COVARIANCE.P`, `COVARIANCE.S`, `CORREL`, `PEARSON`, `SLOPE`, `INTERCEPT`, `RSQ`, `STEYX`, `FORECAST.LINEAR`;
+- transforms: `STANDARDIZE`, `FISHER`, `FISHERINV`;
+- normal/log-normal/exponential/discrete/Weibull: `NORM.DIST`, `NORM.S.DIST`, `NORM.INV`, `NORM.S.INV`, `LOGNORM.DIST`, `LOGNORM.INV`, `EXPON.DIST`, `BINOM.DIST`, `POISSON.DIST`, `WEIBULL.DIST`;
+- beta/gamma/chi-square/Student-t/F density, cumulative, tail and inverse families.
+
+Pairwise functions use bounded stable online moments and affected recalculation. Distribution functions use bounded regularized beta/gamma, log-space discrete summation and finite bracketing/bisection. Non-convergence fails closed. Exact accepted bisection midpoints are returned before bracket mutation.
+
+Full contract: `docs/advanced-statistical-functions-foundation-contract.md`.
 
 ### Financial Foundation
 
@@ -91,9 +104,11 @@ Full contract: `docs/database-functions-foundation-contract.md`.
 
 - Formula surface is not complete Excel compatibility.
 - SDK v1 does not yet load signed plugin packages or isolate third-party code.
+- Statistical hypothesis tests, confidence intervals, additional discrete distributions, exclusive percentile/quartile and broader legacy aliases are pending.
+- Extreme-tail differential testing and external Excel/LibreOffice statistical corpora are pending.
 - Engineering complex-number, unit conversion, Bessel and error-function families are pending.
 - Database criteria cells do not execute formula expressions; processing is a bounded scan and headers must be unique.
-- Advanced statistics, distributions, `RATE`, `XNPV`, `XIRR`, bond/coupon/day-count and accelerated depreciation are pending.
+- `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon/day-count and accelerated depreciation are pending.
 - Spill-reference `A1#`, implicit intersection `@`, advanced arrays and LET/LAMBDA are pending.
 - Native spill UX, full external dynamic-array metadata, drawings/charts pagination, real-printer validation, independent PDF/font corpus and final packaging/security/performance gates are pending.
 
@@ -101,15 +116,15 @@ Full contract: `docs/database-functions-foundation-contract.md`.
 
 - Engine/viewport/renderer foundation: approximately `92%`.
 - Basic spreadsheet MVP: approximately `96–98%`.
-- Complete professional roadmap: approximately `72%`.
-- Production release readiness: approximately `49–52%`.
+- Complete professional roadmap: approximately `74%`.
+- Production release readiness: approximately `51–54%`.
 
 These are engineering-weighted estimates, not checkbox counts.
 
 ## Next implementation work
 
-1. Advanced Statistical Functions Foundation: covariance, correlation, regression and distributions.
-2. Remaining finance: `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon and accelerated depreciation.
+1. Remaining finance: `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon/day-count and accelerated depreciation.
+2. Statistical hypothesis tests, confidence intervals and additional distribution compatibility.
 3. Advanced lookup/reference and dynamic-array helpers.
 4. Plugin packaging/discovery, compatibility and isolation.
 5. Native spill UX, drawings/images/charts and print/PDF pagination.
@@ -118,8 +133,8 @@ These are engineering-weighted estimates, not checkbox counts.
 
 ## Validation policy
 
-Core, architecture, full Windows, desktop GPU, Android, iOS, Mac Catalyst and MAUI Windows loaded-runtime gates are mandatory. Formula families additionally require result, descriptor, coercion/error, dependency, affected-recalculation and resource-budget regressions.
+Core, architecture, full Windows, desktop GPU, Android, iOS, Mac Catalyst and MAUI Windows loaded-runtime gates are mandatory. Formula families additionally require result, descriptor, coercion/error, dependency, affected-recalculation, numerical-stability and resource-budget regressions.
 
 ## Latest validated implementation milestone
 
-Implementation commit `ba7d0ce079c451f6390f5aafcb0cf861ccad0caa` passed CI `#819`, run `32651011596`, across the full hosted matrix.
+Implementation commit `e713182d460f5c280e2c29e5642769eedf190d2f` passed CI `#835`, run `32720631933`, across the full hosted matrix. PR #1 remains Draft and must not merge while a newer exact-head run is red or unknown.
