@@ -21,6 +21,23 @@ public sealed class StatisticalDistributionFunctionTests
         "BINOM.DIST",
         "POISSON.DIST",
         "WEIBULL.DIST",
+        "BETA.DIST",
+        "BETA.INV",
+        "GAMMA.DIST",
+        "GAMMA.INV",
+        "CHISQ.DIST",
+        "CHISQ.DIST.RT",
+        "CHISQ.INV",
+        "CHISQ.INV.RT",
+        "T.DIST",
+        "T.DIST.RT",
+        "T.DIST.2T",
+        "T.INV",
+        "T.INV.2T",
+        "F.DIST",
+        "F.DIST.RT",
+        "F.INV",
+        "F.INV.RT",
     ];
 
     [TestMethod]
@@ -186,8 +203,8 @@ public sealed class StatisticalDistributionFunctionTests
     {
         var registry = new BuiltInFormulaFunctionRegistry();
 
-        Assert.AreEqual(166, registry.Count);
-        Assert.AreEqual(166, registry.VersionCount);
+        Assert.AreEqual(183, registry.Count);
+        Assert.AreEqual(183, registry.VersionCount);
     }
 
     private static void AssertNumericError(
