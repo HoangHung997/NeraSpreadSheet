@@ -8,6 +8,7 @@
 - Formula tests: `192/192`
 - Source of truth: `docs/current-status.md`
 - Financial contract: `docs/financial-functions-foundation-contract.md`
+- Master formula schedule: `docs/formula-completion-master-schedule.md`
 
 ## Batch completed: financial calendar and day-count foundation
 
@@ -81,6 +82,17 @@ Every coupon candidate is recalculated directly from maturity and its month offs
 - Complete built-in subsystem: 226.
 - Financial functions: 30.
 
+## Formula completion operating rule
+
+The formula program now follows `docs/formula-completion-master-schedule.md`.
+
+- Every public progress report contains exactly five newly completed function names.
+- Infrastructure/refactor work does not replace a function name in the five-name milestone.
+- Before each batch, audit the live registry and skip any name already implemented.
+- A batch remains incomplete until result/domain/metadata/resource regressions and exact-head hosted CI are green.
+- After a five-function report, automatically lock the next five Pending names without asking the user to choose a family.
+- PR remains Draft throughout the sequence.
+
 ## Explicit limitations
 
 - Current coupon schedules are regular maturity-anchored schedules.
@@ -96,16 +108,14 @@ Every coupon candidate is recalculated directly from maturity and its month offs
 - Complete professional roadmap: about `78%`.
 - Production readiness: about `55–58%`.
 
-## Next stable batch
+## Next five — F001
 
 1. `ACCRINTM`.
 2. `DISC`.
 3. `INTRATE`.
 4. `RECEIVED`.
 5. `PRICEDISC`.
-6. `YIELDDISC`.
-7. Shared maturity-security equations, basis/domain and inverse/reconciliation regressions.
-8. Add `PRICEMAT`/`YIELDMAT` only if the first six remain one coherent green batch.
-9. Exact-head Core/Windows/MAUI CI.
+
+Supporting work in F001 includes shared maturity-security equations, basis/domain handling, inverse/reconciliation regressions, registry-count updates, documentation and exact-head Core/Windows/MAUI CI. `YIELDDISC` begins F002; do not report F001 until all five names above and exact-head CI are green.
 
 PR remains Draft; do not merge while a newer exact-head CI is red or unknown.
