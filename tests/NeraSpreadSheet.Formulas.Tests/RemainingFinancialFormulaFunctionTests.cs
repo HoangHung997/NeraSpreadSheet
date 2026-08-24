@@ -6,151 +6,274 @@ namespace NeraSpreadSheet.Formulas.Tests;
 [TestClass]
 public sealed class RemainingFinancialFormulaFunctionTests
 {
+    private static readonly string[] RemainingFinancialNames =
+    [
+        "CUMIPMT",
+        "CUMPRINC",
+        "DB",
+        "DDB",
+        "VDB",
+    ];
+
     [TestMethod]
-    public void RateMatchesExactReferenceAndZeroRateLimit()
+    public void CumulativePaymentsMatchReferencesAndReconcile()
+    {
+        var engine = new NeraFormulaEngine();
+        var context = new FormulaSurfaceTestContext();
+
+        var cumulativeInterest = EvaluateNumber(
+            engine,
+            "=CUMIPMT(0.09/12,30*12,125000,13,24,0)",
+            context);
+        var cumulativePrincipal = EvaluateNumber(
+            engine,
+            "=CUMPRINC(0.09/12,30*12,125000,13,24,0)",
+            context);
+        var payment = EvaluateNumber(
+            engine,
+            "=PMT(0.09/12,30*12,125000)",
+            context);
+
+        Assert.AreEqual(
+            -11135.232130750845d,
+            cumulativeInterest,
+            2e-9d);
+        Assert.AreEqual(
+            -934.1071234208765d,
+            cumulativePrincipal,
+            2e-9d);
+        Assert.AreEqual(
+            payment * 12d,
+            cumulativeInterest + cumulativePrincipal,
+            2e-9d);
+        Assert.AreEqual(
+            0d,
+            EvaluateNumber(
+                engine,
+                "=CUMIPMT(0.09/12,30*12,125000,1,1,1)",
+                context),
+            1e-14d);
+    }
+
+    [TestMethod]
+    public void FixedDecliningBalanceMatchesReferencePeriods()
     {
         var engine = new NeraFormulaEngine();
         var context = new FormulaSurfaceTestContext();
 
         Assert.AreEqual(
-            0.1d,
-            EvaluateNumber(engine, "=RATE(1,-110,100)", context),
-            2e-10d);
+            186083.33333333334d,
+            EvaluateNumber(
+                engine,
+                "=DB(1000000,100000,6,1,7)",
+                context),
+            2e-8d);
         Assert.AreEqual(
-            0d,
-            EvaluateNumber(engine, "=RATE(10,-100,1000)", context),
-            2e-11d);
-    }
-
-    [TestMethod]
-    public void XnpvUsesActualDayFractionsAndCapturesBothRanges()
-    {
-        var values = CreateIrregularExactSchedule(0.1d, 180d);
-        var engine = new NeraFormulaEngine();
-        var context = new FormulaSurfaceTestContext(values);
-
-        var result = engine.Evaluate(
-            "=XNPV(0.1,A1:A2,B1:B2)",
-            context);
-
-        Assert.IsTrue(result.IsSuccess);
-        Assert.AreEqual(0d, (double)result.Value.RawValue!, 2e-10d);
-        Assert.AreEqual(2, result.Dependencies.Count);
-    }
-
-    [TestMethod]
-    public void XirrRoundTripsIrregularScheduleThroughXnpv()
-    {
-        var values = CreateIrregularExactSchedule(0.125d, 217d);
-        var engine = new NeraFormulaEngine();
-        var context = new FormulaSurfaceTestContext(values);
-
-        var rate = EvaluateNumber(
-            engine,
-            "=XIRR(A1:A2,B1:B2)",
-            context);
-
-        Assert.AreEqual(0.125d, rate, 3e-9d);
-        values[new CellAddress(0, 2)] = CellValue.FromNumber(rate);
+            15845.098473848071d,
+            EvaluateNumber(
+                engine,
+                "=DB(1000000,100000,6,7,7)",
+                context),
+            2e-8d);
         Assert.AreEqual(
             0d,
             EvaluateNumber(
                 engine,
-                "=XNPV(C1,A1:A2,B1:B2)",
-                new FormulaSurfaceTestContext(values)),
-            2e-8d);
+                "=DB(1000,1000,5,1)",
+                context),
+            1e-14d);
     }
 
     [TestMethod]
-    public void XirrChoosesRootNearestGuessWhenMultipleRootsExist()
+    public void DoubleDecliningBalanceMatchesReferencePeriods()
+    {
+        var engine = new NeraFormulaEngine();
+        var context = new FormulaSurfaceTestContext();
+
+        Assert.AreEqual(
+            480d,
+            EvaluateNumber(
+                engine,
+                "=DDB(2400,300,10,1)",
+                context),
+            1e-12d);
+        Assert.AreEqual(
+            306d,
+            EvaluateNumber(
+                engine,
+                "=DDB(2400,300,10,2,1.5)",
+                context),
+            1e-12d);
+        Assert.AreEqual(
+            22.1225472000001d,
+            EvaluateNumber(
+                engine,
+                "=DDB(2400,300,10,10)",
+                context),
+            2e-12d);
+    }
+
+    [TestMethod]
+    public void VariableDecliningBalanceSupportsPartialPeriodsAndSwitching()
+    {
+        var engine = new NeraFormulaEngine();
+        var context = new FormulaSurfaceTestContext();
+
+        Assert.AreEqual(
+            1.3150684931506849d,
+            EvaluateNumber(
+                engine,
+                "=VDB(2400,300,10*365,0,1)",
+                context),
+            2e-12d);
+        Assert.AreEqual(
+            396.3060532647509d,
+            EvaluateNumber(
+                engine,
+                "=VDB(2400,300,10*12,6,18)",
+                context),
+            2e-10d);
+        Assert.AreEqual(
+            311.8089366582341d,
+            EvaluateNumber(
+                engine,
+                "=VDB(2400,300,10*12,6,18,1.5)",
+                context),
+            2e-10d);
+        Assert.AreEqual(
+            315d,
+            EvaluateNumber(
+                engine,
+                "=VDB(2400,300,10,0,0.875,1.5)",
+                context),
+            2e-12d);
+        Assert.IsTrue(
+            EvaluateNumber(
+                engine,
+                "=VDB(2400,300,10,0,10,1.5,FALSE())",
+                context) >
+            EvaluateNumber(
+                engine,
+                "=VDB(2400,300,10,0,10,1.5,TRUE())",
+                context));
+    }
+
+    [TestMethod]
+    public void RemainingFinancialDomainsAndCapabilitiesAreExplicit()
     {
         var values = new Dictionary<CellAddress, CellValue>
         {
-            [new CellAddress(0, 0)] = CellValue.FromNumber(-100d),
-            [new CellAddress(1, 0)] = CellValue.FromNumber(230d),
-            [new CellAddress(2, 0)] = CellValue.FromNumber(-132d),
-            [new CellAddress(0, 1)] = CellValue.FromNumber(45000d),
-            [new CellAddress(1, 1)] = CellValue.FromNumber(45365d),
-            [new CellAddress(2, 1)] = CellValue.FromNumber(45730d),
+            [new CellAddress(0, 0)] = CellValue.FromNumber(1d),
+            [new CellAddress(1, 0)] = CellValue.FromNumber(2d),
         };
         var engine = new NeraFormulaEngine();
         var context = new FormulaSurfaceTestContext(values);
 
-        Assert.AreEqual(
-            0.1d,
-            EvaluateNumber(engine, "=XIRR(A1:A3,B1:B3,0.09)", context),
-            3e-9d);
-        Assert.AreEqual(
-            0.2d,
-            EvaluateNumber(engine, "=XIRR(A1:A3,B1:B3,0.21)", context),
-            3e-9d);
-    }
-
-    [TestMethod]
-    public void RemainingFinancialDomainsFailClosed()
-    {
-        var values = CreateIrregularExactSchedule(0.1d, 180d);
-        var context = new FormulaSurfaceTestContext(values);
-        var engine = new NeraFormulaEngine();
-
-        AssertNumericError(engine, "=RATE(0,-100,1000)", context);
-        AssertNumericError(engine, "=RATE(10,-100,1000,0,2)", context);
-        AssertNumericError(engine, "=RATE(10,-100,1000,0,0,-1)", context);
-        AssertNumericError(engine, "=XNPV(-1,A1:A2,B1:B2)", context);
-        AssertNumericError(engine, "=XNPV(0.1,A1:A1,B1:B2)", context);
-        AssertNumericError(engine, "=XIRR(A1:A2,B1:B1)", context);
-
-        values[new CellAddress(1, 1)] = CellValue.FromNumber(44000d);
         AssertNumericError(
             engine,
-            "=XIRR(A1:A2,B1:B2)",
-            new FormulaSurfaceTestContext(values));
+            "=CUMIPMT(0,360,125000,1,12,0)",
+            context);
+        AssertNumericError(
+            engine,
+            "=CUMPRINC(0.01,360,125000,13,12,0)",
+            context);
+        AssertNumericError(
+            engine,
+            "=CUMIPMT(0.01,360,125000,1,12,2)",
+            context);
+        AssertNumericError(
+            engine,
+            "=DB(1000,100,5,1,0)",
+            context);
+        AssertNumericError(
+            engine,
+            "=DDB(1000,100,5,1,0)",
+            context);
+        AssertNumericError(
+            engine,
+            "=DDB(1000,1100,5,1)",
+            context);
+        AssertNumericError(
+            engine,
+            "=VDB(1000,100,5,3,2)",
+            context);
+        AssertNumericError(
+            engine,
+            "=VDB(1000,100,5,0,6)",
+            context);
+        Assert.AreEqual(
+            FormulaErrorCode.InvalidValue,
+            engine.Evaluate(
+                "=DB(A1:A2,100,5,1)",
+                context).ErrorCode);
+        Assert.AreEqual(
+            FormulaErrorCode.InvalidValue,
+            engine.Evaluate(
+                "=VDB(1000,100,5,0,1,2,\"maybe\")",
+                context).ErrorCode);
     }
 
     [TestMethod]
-    public void RemainingFinancialDescriptorsAreVersionedPureAndBounded()
+    public void RemainingFinancialDescriptorsAreVersionedPureAndScalarOnly()
     {
         var registry = new BuiltInFormulaFunctionRegistry();
 
-        foreach (var name in new[] { "RATE", "XNPV", "XIRR" })
+        foreach (var name in RemainingFinancialNames)
         {
             var descriptor = registry.Descriptors.Single(candidate =>
                 candidate.Identity.Name == name);
-            Assert.AreEqual("NERA.BUILTIN", descriptor.Identity.Namespace);
+            Assert.AreEqual(
+                "NERA.BUILTIN",
+                descriptor.Identity.Namespace);
             Assert.AreEqual(
                 new FormulaFunctionVersion(1, 0, 0),
                 descriptor.Version);
             Assert.AreEqual(
+                FormulaFunctionApiVersion.Current,
+                descriptor.MinimumHostApiVersion);
+            Assert.AreEqual(
                 FormulaFunctionArgumentCountPolicy.LogicalArguments,
                 descriptor.ArgumentCountPolicy);
+            Assert.IsTrue(descriptor.Capabilities.HasFlag(
+                FormulaFunctionCapabilities.ScalarArguments));
+            Assert.IsFalse(descriptor.Capabilities.HasFlag(
+                FormulaFunctionCapabilities.RangeArguments));
+            Assert.IsTrue(descriptor.Capabilities.HasFlag(
+                FormulaFunctionCapabilities.ReturnsScalar));
             Assert.AreEqual(
                 FormulaFunctionVolatility.Deterministic,
                 descriptor.Volatility);
             Assert.AreEqual(
                 FormulaFunctionSecurityClassification.Pure,
                 descriptor.SecurityClassification);
-            Assert.IsTrue(descriptor.Capabilities.HasFlag(
-                FormulaFunctionCapabilities.ReturnsScalar));
         }
 
-        Assert.AreEqual(186, registry.Count);
-        Assert.AreEqual(186, registry.VersionCount);
+        Assert.AreEqual(191, registry.Count);
+        Assert.AreEqual(191, registry.VersionCount);
     }
 
-    private static Dictionary<CellAddress, CellValue>
-        CreateIrregularExactSchedule(double rate, double days)
+    [TestMethod]
+    public void RemainingFinancialResourceBudgetsFailClosed()
     {
-        const double presentValue = 1000d;
-        var futureValue = presentValue * Math.Pow(
-            1d + rate,
-            days / 365d);
-        return new Dictionary<CellAddress, CellValue>
-        {
-            [new CellAddress(0, 0)] = CellValue.FromNumber(-presentValue),
-            [new CellAddress(1, 0)] = CellValue.FromNumber(futureValue),
-            [new CellAddress(0, 1)] = CellValue.FromNumber(45000d),
-            [new CellAddress(1, 1)] = CellValue.FromNumber(45000d + days),
-        };
+        var engine = new NeraFormulaEngine();
+        var context = new FormulaSurfaceTestContext();
+
+        AssertNumericError(
+            engine,
+            "=CUMIPMT(0.01,3000000,1000,1,2000001,0)",
+            context);
+        AssertNumericError(
+            engine,
+            "=DB(1000,100,3000000,2000001)",
+            context);
+        AssertNumericError(
+            engine,
+            "=DDB(1000,100,3000000,2000001)",
+            context);
+        AssertNumericError(
+            engine,
+            "=VDB(1000,100,3000000,0,2000001)",
+            context);
     }
 
     private static void AssertNumericError(

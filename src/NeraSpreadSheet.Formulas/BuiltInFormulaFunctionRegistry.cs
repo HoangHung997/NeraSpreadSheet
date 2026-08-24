@@ -1,65 +1,57 @@
 namespace NeraSpreadSheet.Formulas;
 
-/// <summary>
-/// Default registry containing NeraSpreadSheet's platform-neutral built-in
-/// formula functions.
-/// </summary>
 public sealed class BuiltInFormulaFunctionRegistry :
-    VersionedFormulaFunctionRegistry
+    IVersionedFormulaFunctionRegistry
 {
+    private readonly VersionedFormulaFunctionRegistry _registry = new();
+
     public BuiltInFormulaFunctionRegistry()
     {
         foreach (var function in StandardFormulaFunctions.CreateAll())
         {
             Register(function);
         }
-        foreach (var function in AggregateLogicalFormulaFunctions.CreateAll())
-        {
-            Register(function);
-        }
-        foreach (var function in MathFormulaFunctions.CreateAll())
-        {
-            Register(function);
-        }
-        foreach (var function in TextFormulaFunctions.CreateAll())
-        {
-            Register(function);
-        }
-        foreach (var function in DateTimeFormulaFunctions.CreateAll())
-        {
-            Register(function);
-        }
-        foreach (var function in ConditionalAggregateFormulaFunctions.CreateAll())
-        {
-            Register(function);
-        }
-        foreach (var function in StatisticalFormulaFunctions.CreateAll())
-        {
-            Register(function);
-        }
-        foreach (var function in AdvancedStatisticalFormulaFunctions.CreateAll())
-        {
-            Register(function);
-        }
-        foreach (var function in ContinuousDistributionFormulaFunctions.CreateAll())
-        {
-            Register(function);
-        }
-        foreach (var function in FinancialFormulaFunctions.CreateAll())
-        {
-            Register(function);
-        }
-        foreach (var function in RemainingFinancialFormulaFunctions.CreateAll())
-        {
-            Register(function);
-        }
-        foreach (var function in EngineeringFormulaFunctions.CreateAll())
-        {
-            Register(function);
-        }
-        foreach (var function in DatabaseFormulaFunctions.CreateAll())
-        {
-            Register(function);
-        }
     }
+
+    public FormulaFunctionApiVersion HostApiVersion =>
+        _registry.HostApiVersion;
+
+    public int Count => _registry.Count;
+
+    public int VersionCount => _registry.VersionCount;
+
+    public IReadOnlyList<FormulaFunctionDescriptor> Descriptors =>
+        _registry.Descriptors;
+
+    public void Register(IFormulaFunction formulaFunction)
+    {
+        ArgumentNullException.ThrowIfNull(formulaFunction);
+        _registry.RegisterLegacy(formulaFunction);
+    }
+
+    public void Register(
+        IVersionedFormulaFunction formulaFunction,
+        FormulaFunctionRegistrationOptions? options = null) =>
+        _registry.Register(formulaFunction, options);
+
+    public bool Unregister(
+        FormulaFunctionIdentity identity,
+        FormulaFunctionVersion version) =>
+        _registry.Unregister(identity, version);
+
+    public bool TryResolve(
+        string name,
+        out IFormulaFunction formulaFunction) =>
+        _registry.TryResolve(name, out formulaFunction);
+
+    public bool TryGetDescriptor(
+        string name,
+        out FormulaFunctionDescriptor descriptor) =>
+        _registry.TryGetDescriptor(name, out descriptor);
+
+    public bool TryResolve(
+        FormulaFunctionIdentity identity,
+        FormulaFunctionVersion version,
+        out IVersionedFormulaFunction formulaFunction) =>
+        _registry.TryResolve(identity, version, out formulaFunction);
 }
