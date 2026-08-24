@@ -98,6 +98,11 @@ internal static class AdvancedDistributionNumerics
                 result = default;
                 return false;
             }
+            if (Math.Abs(value - probability) <= InverseTolerance)
+            {
+                result = middle;
+                return true;
+            }
             if (value < probability)
             {
                 lower = middle;
@@ -106,8 +111,7 @@ internal static class AdvancedDistributionNumerics
             {
                 upper = middle;
             }
-            if (Math.Abs(value - probability) <= InverseTolerance ||
-                upper - lower <= InverseTolerance *
+            if (upper - lower <= InverseTolerance *
                 Math.Max(1d, middle))
             {
                 result = lower + ((upper - lower) / 2d);
@@ -231,6 +235,11 @@ internal static class AdvancedDistributionNumerics
                 result = default;
                 return false;
             }
+            if (Math.Abs(value - probability) <= InverseTolerance)
+            {
+                result = middle;
+                return true;
+            }
             if (value < probability)
             {
                 lower = middle;
@@ -239,8 +248,7 @@ internal static class AdvancedDistributionNumerics
             {
                 upper = middle;
             }
-            if (Math.Abs(value - probability) <= InverseTolerance ||
-                upper - lower <= InverseTolerance)
+            if (upper - lower <= InverseTolerance)
             {
                 result = lower + ((upper - lower) / 2d);
                 return true;
@@ -368,6 +376,11 @@ internal static class AdvancedDistributionNumerics
                 result = default;
                 return false;
             }
+            if (Math.Abs(value - target) <= InverseTolerance)
+            {
+                result = negative ? -middle : middle;
+                return true;
+            }
             if (value < target)
             {
                 lower = middle;
@@ -376,8 +389,7 @@ internal static class AdvancedDistributionNumerics
             {
                 upper = middle;
             }
-            if (Math.Abs(value - target) <= InverseTolerance ||
-                upper - lower <= InverseTolerance *
+            if (upper - lower <= InverseTolerance *
                 Math.Max(1d, middle))
             {
                 var magnitude = lower + ((upper - lower) / 2d);
