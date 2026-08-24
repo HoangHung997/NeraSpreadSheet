@@ -4,25 +4,8 @@ namespace NeraSpreadSheet.Formulas;
 
 internal static partial class AdditionalFinancialFormulaFunctions
 {
-    private static double LogOnePlus(double value)
-    {
-        if (Math.Abs(value) > 1e-4d)
-        {
-            return Math.Log(1d + value);
-        }
-
-        var term = value;
-        var sum = 0d;
-        for (var index = 1; index <= 32; index++)
-        {
-            var contribution = term / index;
-            sum += (index & 1) == 1
-                ? contribution
-                : -contribution;
-            term *= value;
-        }
-        return sum;
-    }
+    private static double LogOnePlus(double value) =>
+        double.LogP1(value);
 
     private static double ExponentialMinusOne(double value)
     {
