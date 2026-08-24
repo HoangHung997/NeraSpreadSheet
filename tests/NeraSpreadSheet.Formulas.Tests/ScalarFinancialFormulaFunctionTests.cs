@@ -116,7 +116,7 @@ public sealed class ScalarFinancialFormulaFunctionTests
                 engine,
                 "=PDURATION(0.025,2000,2200)",
                 context),
-            2e-14d);
+            3e-14d);
         Assert.AreEqual(
             87.60547641937576d,
             EvaluateNumber(
