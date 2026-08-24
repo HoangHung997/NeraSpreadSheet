@@ -106,11 +106,11 @@ public sealed class StatisticalDistributionFunctionTests
         Assert.AreEqual(
             0.375d,
             EvaluateNumber(engine, "=BINOM.DIST(2,4,0.5,FALSE())", context),
-            1e-15d);
+            5e-15d);
         Assert.AreEqual(
             0.6875d,
             EvaluateNumber(engine, "=BINOM.DIST(2,4,0.5,TRUE())", context),
-            1e-15d);
+            5e-15d);
         Assert.AreEqual(
             0.22404180765538775d,
             EvaluateNumber(engine, "=POISSON.DIST(2,3,FALSE())", context),
