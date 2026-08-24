@@ -10,25 +10,29 @@ This document defines the validated financial-function family owned by NeraSprea
 - Current financial functions return scalars only.
 - Root solvers, schedules and numerical primitives are deterministic, bounded and fail closed.
 - `StandardFormulaFunctions.CreateAll()` is the single built-in aggregation path.
+- `FinancialDateMath` is the single source for basis, coupon dates and coupon-period day counts used by future security functions.
 
 ## 2. Registered functions
 
-Twenty-three financial names are registered:
+Thirty financial names are registered:
 
 - `PV`, `FV`, `PMT`, `NPER`, `RATE`;
 - `NPV`, `IRR`, `XNPV`, `XIRR`;
 - `IPMT`, `PPMT`, `CUMIPMT`, `CUMPRINC`, `ISPMT`;
 - `SLN`, `SYD`, `DB`, `DDB`, `VDB`;
-- `EFFECT`, `NOMINAL`, `RRI`, `PDURATION`.
+- `EFFECT`, `NOMINAL`, `RRI`, `PDURATION`;
+- `YEARFRAC`, `COUPDAYBS`, `COUPDAYS`, `COUPDAYSNC`, `COUPNCD`, `COUPPCD`, `COUPNUM`.
 
-The eager/versioned registry contains **196 names**. Together with 18 AST/reference-aware and five dynamic-array names, the built-in subsystem recognizes **219 names**.
+The eager/versioned registry contains **203 names**. Together with 18 AST/reference-aware and five dynamic-array names, the built-in subsystem recognizes **226 names**.
 
 ## 3. Coercion and errors
 
-- Required scalars accept finite number/date values, Boolean coercion and invariant numeric text.
-- Unsupported range use or nonnumeric scalar text returns `#VALUE!`.
+- Required scalars accept finite number/date values, Boolean coercion and invariant numeric/date text where shared coercion allows it.
+- Financial dates are reduced to date-only values before day-count evaluation.
+- Unsupported range use or failed scalar coercion returns `#VALUE!`.
 - Supplied formula errors propagate before invocation.
-- Invalid domains, excessive budgets, non-finite results and numerical non-convergence return `#NUM!`.
+- Invalid basis/frequency/date order, excessive budgets, non-finite results and numerical non-convergence return `#NUM!`.
+- Basis and frequency arguments are truncated toward zero before validation.
 
 ## 4. Existing annuity, cash-flow, schedule and depreciation contracts
 
@@ -37,105 +41,109 @@ Earlier validated behavior remains unchanged:
 - `PV`, `FV`, `PMT`, `NPER`, `RATE` share annuity signs/timing and bounded roots.
 - `NPV`, `IRR`, `XNPV`, `XIRR` preserve ordering, dated schedules, dependencies and resource limits.
 - `IPMT`, `PPMT`, `CUMIPMT`, `CUMPRINC` share payment/balance equations and reconciliation.
+- `ISPMT` uses a zero-based equal-principal schedule.
 - `SLN`, `SYD`, `DB`, `DDB`, `VDB` preserve salvage caps, optional factors, partial intervals and bounded schedules.
+- `EFFECT`, `NOMINAL`, `RRI`, `PDURATION` use stable logarithmic/exponential primitives and inverse round trips.
 
-## 5. Scalar helper batch
+## 5. Financial day-count basis
 
-### `ISPMT(rate, per, nper, pv)`
+The shared basis enumeration is:
 
-- scalar-only deterministic/pure function;
-- models equal principal repayment rather than equal total payment;
-- requires finite `nper > 0` and `0 <= per <= nper`;
-- period coordinate is zero-based;
-- returns:
+| Basis | Convention | Numerator | Denominator / coupon period |
+|---:|---|---|---|
+| 0 | US NASD 30/360 | US 30/360 with February/end-of-month rules | 360 |
+| 1 | Actual/Actual | Actual calendar days | leap-aware actual year or multi-year average |
+| 2 | Actual/360 | Actual calendar days | 360 |
+| 3 | Actual/365 | Actual calendar days | 365 |
+| 4 | European 30/360 | both day values capped at 30 | 360 |
 
-```text
-pv * rate * (per / nper - 1)
-```
+`YEARFRAC(start_date,end_date,[basis])` returns the signed fraction between dates. Equal dates return zero. Reversed dates return the negative of the corresponding ordered interval under Nera's explicit signed-interval contract.
 
-- positive principal/rate normally produces negative interest; a negative principal flips the sign.
+Actual/Actual behavior:
 
-### `EFFECT(nominal_rate, npery)`
+- one calendar year wholly inside a leap year uses 366;
+- a short cross-year interval uses 366 when it includes February 29, otherwise 365;
+- spans longer than one year divide by the average length of the covered calendar years.
 
-- requires `nominal_rate > 0`;
-- truncates `npery` toward zero and requires the result to be at least 1;
-- computes:
+## 6. Coupon schedule construction
 
-```text
-expm1(npery * log1p(nominal_rate / npery))
-```
-
-- overflow or non-finite results return `#NUM!`.
-
-### `NOMINAL(effect_rate, npery)`
-
-- requires `effect_rate > 0`;
-- uses the same truncated `npery` contract;
-- computes:
+Coupon functions accept:
 
 ```text
-npery * expm1(log1p(effect_rate) / npery)
+(settlement, maturity, frequency, [basis])
 ```
 
-- automated tests require `NOMINAL(EFFECT(r,n),n) == r` within floating-point tolerance.
+Contracts:
 
-### `RRI(nper, pv, fv)`
+- settlement must be strictly earlier than maturity;
+- frequency is truncated and must be `1`, `2` or `4`;
+- basis defaults to 0 and must be in `0..4`;
+- coupon months are `12/frequency`;
+- dates are generated directly from the maturity anchor for every step;
+- an end-of-month maturity remains end-of-month in every coupon month, including leap-year February;
+- search is bounded at 100.000 coupon periods;
+- the previous coupon may equal settlement; the next coupon is always strictly after settlement.
 
-- requires positive finite `nper`, `pv` and `fv`;
-- computes the equivalent periodic growth rate:
+Anchoring every candidate to maturity, rather than repeatedly subtracting from the prior candidate, prevents permanent day drift after a short month.
 
-```text
-expm1(log(fv / pv) / nper)
-```
+## 7. Coupon functions
 
-- uses a stable logarithmic ratio path; equal `pv`/`fv` returns zero.
+### `COUPPCD`
 
-### `PDURATION(rate, pv, fv)`
+Returns the coupon date on or immediately before settlement.
 
-- requires positive finite `rate`, `pv` and `fv`;
-- computes:
+### `COUPNCD`
 
-```text
-log(fv / pv) / log1p(rate)
-```
+Returns the coupon date immediately after settlement.
 
-- equal `pv`/`fv` returns zero;
-- tests require `PDURATION(RRI(...),...)` and `RRI(PDURATION(...),...)` round trips.
+### `COUPNUM`
 
-## 6. Financial `log1p` primitive
+Returns the number of coupon dates strictly after settlement through maturity. The count is derived from the same bounded schedule used by PCD/NCD.
 
-To avoid cancellation in `log(1+x)`:
+### `COUPDAYBS`
 
-- for `|x| <= 0.5`, Nera evaluates the alternating Taylor series for 64 terms;
-- outside that interval it uses `Math.Log(1+x)`;
-- `expm1` retains a bounded series near zero;
-- this path is used by `RATE`, `EFFECT`, `NOMINAL`, `RRI` and `PDURATION`;
-- regression includes nominal rates at `1e-12` with one million compounding periods.
+Returns the basis-specific day count from previous coupon to settlement.
 
-## 7. SDK metadata
+### `COUPDAYS`
 
-All 23 financial descriptors are deterministic/pure, return one scalar and use logical argument counting. `NPV`, `IRR`, `XNPV`, `XIRR` accept ranges; all other current financial functions are scalar-only.
+Returns days in the coupon period:
 
-## 8. Automated validation
+- basis 1: actual days from PCD to NCD;
+- bases 0, 2 and 4: `360/frequency`;
+- basis 3: `365/frequency`.
 
-Financial promotion requires:
+### `COUPDAYSNC`
 
-1. annuity/root and dated cash-flow regressions;
-2. payment and cumulative reconciliation;
-3. depreciation references and schedule budgets;
-4. ISPMT zero-based reference/sign/domain tests;
-5. EFFECT/NOMINAL references, truncation and inverse round trips;
-6. RRI/PDURATION references, equal-value endpoints and inverse round trips;
-7. near-zero numerical-stability tests;
-8. descriptor/capability/coercion/error and registry-count regressions;
-9. complete Core/architecture/Windows/Android/iOS/Mac Catalyst/MAUI Windows matrix.
+Returns days from settlement to next coupon:
 
-## 9. Deliberately pending
+- bases 1, 2 and 3: actual/basis day count from settlement to NCD;
+- bases 0 and 4: fixed coupon-period days minus `COUPDAYBS`.
 
-- shared financial basis/calendar layer;
-- `YEARFRAC` and coupon-date functions;
-- AMOR, bond/coupon, treasury, price, yield and duration families;
-- odd-first/odd-last coupon periods;
+## 8. SDK metadata
+
+All 30 financial descriptors are deterministic/pure, scalar-returning and logical-argument-counted. `NPV`, `IRR`, `XNPV`, `XIRR` accept ranges; all other current financial functions are scalar-only. Calendar functions declare no hidden or volatile dependency.
+
+## 9. Automated validation
+
+Financial calendar promotion requires:
+
+1. `YEARFRAC` references for every basis;
+2. signed and equal-date intervals;
+3. leap-year, February last-day and US/European 30/360 differences;
+4. official semiannual PCD/NCD/day/count references;
+5. basis-specific coupon-period days;
+6. maturity-anchored end-of-month behavior across February;
+7. exact-coupon-date PCD/NCD/count behavior;
+8. frequency/basis truncation and validation;
+9. scalar-only, coercion, descriptor and registry-count regressions;
+10. complete Core/architecture/Windows/Android/iOS/Mac Catalyst/MAUI Windows matrix.
+
+## 10. Deliberately pending
+
+- discount/maturity security functions;
+- fixed-coupon price, yield and duration functions;
+- treasury, AMOR and odd-first/odd-last coupon periods;
+- business-day/holiday adjustment conventions;
 - external Excel/LibreOffice differential corpus and financial fuzzing;
 - exhaustive symbolic root discovery.
 

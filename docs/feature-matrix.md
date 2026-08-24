@@ -9,10 +9,11 @@ Excel, LibreOffice and DevExpress are behavior/coverage references only.
 | Styles | Direct styles, sparse whole-axis patches and exact history | named/theme styles and complete format semantics |
 | Formula syntax/dependencies | Parser, AST, shared/structured formulas, graph and affected recalculation | volatile scheduling, spill references and vectorized expressions |
 | Function SDK | API 1.0 identity/version/aliases/capabilities/state/dependency/conflict; one registry path | package discovery, publisher trust and isolation |
-| Formula surface | 196 eager/versioned + 18 special + 5 dynamic = 219 names | financial calendar, hypothesis tests and advanced lookup/arrays |
+| Formula surface | 203 eager/versioned + 18 special + 5 dynamic = 226 names | maturity securities, hypothesis tests and advanced lookup/arrays |
 | Conditional aggregates | COUNTIF(S), SUMIF(S), AVERAGEIF(S), criteria parser and positional dependencies | locale-specific criteria compatibility |
 | Statistics | Descriptive/order statistics, covariance/regression and 30 transformation/distribution functions | hypothesis tests, confidence intervals and additional distributions |
-| Finance | 23 functions: roots, dated schedules, cumulative payments, depreciation and scalar rate/growth helpers | basis 0–4, YEARFRAC, coupon dates, bonds and yields |
+| Finance | 30 functions: roots, dated schedules, payments, depreciation, rate helpers and basis/coupon calendar | discount/maturity securities, then fixed-coupon PRICE/YIELD/DURATION |
+| Financial calendar | Basis 0–4, YEARFRAC, PCD/NCD/day/count helpers, maturity anchor and EOM preservation | odd coupons, business-day conventions and external corpus |
 | Engineering | 19 deterministic bit/shift/radix/comparison functions | complex numbers, CONVERT, Bessel/error functions |
 | Database | 12 criteria-table aggregates with dependencies and budgets | expression criteria, locale parsing and indexing |
 | Dynamic arrays | Immutable spills and SEQUENCE/TRANSPOSE/FILTER/SORT/UNIQUE | A1#, @, advanced helpers and LET/LAMBDA |
@@ -26,16 +27,16 @@ Excel, LibreOffice and DevExpress are behavior/coverage references only.
 
 ## Latest validated implementation milestone
 
-- Implementation commit: `e2d3bb4b296292ae83dc4c1a5e35a442f6574e4f`.
-- GitHub Actions: CI `#849`, run `32740594038`, success.
-- Formula tests: `185/185`.
+- Implementation commit: `eeb74ad4ee596f7cb56343b8459f2311538c8243`.
+- GitHub Actions: CI `#854`, run `32745296544`, success.
+- Formula tests: `192/192`.
 - Core, architecture, full Windows, desktop GPU, Android, iOS, Mac Catalyst and MAUI Windows loaded-runtime gates passed.
 
 ## Weighted progress
 
 - Engine/viewport/renderer foundation: approximately **92%**.
 - Basic spreadsheet MVP: approximately **96–98%**.
-- Complete professional roadmap: approximately **77%**.
-- Production release readiness: approximately **54–57%**.
+- Complete professional roadmap: approximately **78%**.
+- Production release readiness: approximately **55–58%**.
 
 These are engineering-weighted estimates, not checkbox counts.

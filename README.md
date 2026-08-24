@@ -11,6 +11,7 @@ NeraSpreadSheet là SDK spreadsheet cho **WPF, WinForms và .NET MAUI**, hướn
 - Extension functions khai báo identity, version, capabilities, volatility/state, dependency và argument-count policy.
 - Mọi solver, schedule loop và numerical primitive đều deterministic, bounded và fail closed.
 - Built-ins chỉ đi qua một đường tổng hợp registry duy nhất.
+- Lịch tài chính được xây từ một calendar/day-count layer dùng chung, không sao chép quy tắc ngày vào từng hàm chứng khoán.
 
 ## Kiến trúc
 
@@ -20,6 +21,8 @@ Workbook / Rules / Tables / Spill Ownership
  Formula Parser + Versioned Function Registry
                     |
  Criteria / Statistics / Finance / Engineering / Database
+                    |
+      Financial Calendar + Day-count Basis
                     |
          Dependency + Recalculation
                     |
@@ -40,12 +43,12 @@ Workbook / Rules / Tables / Spill Ownership
 - Structural insert/delete/reorder có formula/rule/Table/filter/spill mapping.
 - Fractional scrolling, freeze/split panes và multi-host display-list rendering.
 - Function Extension SDK API `1.0`.
-- **219 built-in function names**: 196 eager/versioned, 18 AST/reference-aware và 5 dynamic-array.
+- **226 built-in function names**: 203 eager/versioned, 18 AST/reference-aware và 5 dynamic-array.
 - Conditional aggregates, statistical, advanced statistical, financial, engineering và database foundations.
-- Finance hiện có 23 hàm: annuity/root, periodic/dated cash flow, payment decomposition, cumulative loan schedule, depreciation và scalar rate helpers.
-- `ISPMT`, `EFFECT`, `NOMINAL`, `RRI`, `PDURATION` dùng scalar-only deterministic/pure descriptors.
-- `EFFECT`/`NOMINAL` truncate số kỳ ghép lãi; `RRI`/`PDURATION` khóa inverse round-trip.
-- Financial `log1p` dùng chuỗi 64 hạng khi `|x| <= 0.5` để giữ chính xác ở lãi suất cực nhỏ.
+- Finance hiện có **30 hàm**, gồm annuity/root, periodic/dated cash flow, payment schedules, depreciation, rate helpers và calendar/day-count.
+- Financial calendar hỗ trợ basis `0..4`, frequency `1/2/4`, `YEARFRAC`, `COUPDAYBS`, `COUPDAYS`, `COUPDAYSNC`, `COUPNCD`, `COUPPCD`, `COUPNUM`.
+- Coupon schedule được neo trực tiếp theo maturity, giữ quy tắc end-of-month qua tháng 2 và không tích lũy date drift.
+- Lịch coupon bị giới hạn ở 100.000 kỳ; settlement phải nhỏ hơn maturity; input frequency/basis được truncate hướng về 0.
 - Dynamic arrays: `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE` cùng spill ownership và `#SPILL!`.
 - Conditional Formatting, Data Validation, Tables, AutoFilter, XLSX, pagination, staged PDF và streaming CSV/TSV.
 
@@ -78,7 +81,7 @@ Mọi thay đổi đi qua pull request; không commit trực tiếp vào `main`.
 
 ## Mốc tiếp theo
 
-**Financial calendar/day-count foundation**: shared basis `0..4`, `YEARFRAC`, `COUPDAYBS`, `COUPDAYS`, `COUPDAYSNC`, `COUPNCD`, `COUPPCD`, `COUPNUM`; sau đó bond/treasury/price/yield/duration, hypothesis tests, advanced lookup/arrays, plugin isolation, drawings/charts, pivot và release hardening.
+**Discount/maturity securities**: `ACCRINTM`, `DISC`, `INTRATE`, `RECEIVED`, `PRICEDISC`, `YIELDDISC`, sau đó `PRICEMAT`/`YIELDMAT`. Fixed-coupon `PRICE`, `YIELD`, `DURATION`, `MDURATION` chỉ triển khai sau khi batch discount/maturity dùng calendar layer hiện tại đã được khóa độc lập.
 
 ## Giấy phép
 

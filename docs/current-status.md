@@ -11,6 +11,7 @@ This file is the source of truth for the current development branch. A capabilit
 - Extension functions pass API, capability, state and resource validation before registration.
 - Numerical solvers, schedule loops and special-function primitives are deterministic, bounded and fail closed.
 - Built-ins use one authoritative aggregation path.
+- Financial coupon/date semantics live in one shared layer so later PRICE/YIELD/DURATION families cannot diverge silently.
 
 ## Implemented
 
@@ -26,10 +27,10 @@ This file is the source of truth for the current development branch. A capabilit
 - Parser/AST, A1/cross-sheet references, dependency graph, circular detection and affected-only recalculation.
 - Shared/structured formulas and Table formula rewrite/projection.
 - Function Extension SDK v1.0 with identity, implementation/API versions, aliases, side-by-side versions, capabilities, volatility/state, dependency policy, argument-count policy, conflict rules and legacy adapter.
-- Built-in eager/versioned registry: **196 names**.
+- Built-in eager/versioned registry: **203 names**.
 - AST/reference-aware built-ins: **18 names**.
 - Dynamic-array built-ins: **5 names**.
-- Complete built-in subsystem: **219 names**.
+- Complete built-in subsystem: **226 names**.
 
 ### Formula families
 
@@ -40,23 +41,29 @@ This file is the source of truth for the current development branch. A capabilit
 
 ### Financial Functions Foundation
 
-Twenty-three deterministic/pure SDK v1 functions are implemented:
+Thirty deterministic/pure SDK v1 functions are implemented:
 
 - annuities and roots: `PV`, `FV`, `PMT`, `NPER`, `RATE`;
 - periodic/irregular cash flows: `NPV`, `IRR`, `XNPV`, `XIRR`;
 - payment decomposition/schedules: `IPMT`, `PPMT`, `CUMIPMT`, `CUMPRINC`, `ISPMT`;
 - depreciation: `SLN`, `SYD`, `DB`, `DDB`, `VDB`;
-- rate/growth helpers: `EFFECT`, `NOMINAL`, `RRI`, `PDURATION`.
+- rate/growth helpers: `EFFECT`, `NOMINAL`, `RRI`, `PDURATION`;
+- calendar/day-count: `YEARFRAC`, `COUPDAYBS`, `COUPDAYS`, `COUPDAYSNC`, `COUPNCD`, `COUPPCD`, `COUPNUM`.
 
-Key contracts:
+Key calendar/day-count contracts:
 
-- `ISPMT` uses the equal-principal formula and a zero-based period coordinate in `0..nper`.
-- `EFFECT` and `NOMINAL` truncate compounding periods toward zero and require at least one period.
-- `RRI` requires positive periods/present/future values; equal present/future values return zero growth.
-- `PDURATION` requires positive rate/present/future values; equal values return zero duration.
-- `EFFECT`/`NOMINAL` and `RRI`/`PDURATION` are covered by forward/inverse round trips.
-- Shared financial `log1p` evaluates a 64-term convergent series for `|x| <= 0.5`, avoiding cancellation at rates down to `1e-12` and below.
-- Root, dated-cash-flow, cumulative-payment and depreciation contracts from earlier milestones remain unchanged.
+- Financial dates are normalized to whole dates before calculation.
+- Basis values are `0` US NASD 30/360, `1` Actual/Actual, `2` Actual/360, `3` Actual/365 and `4` European 30/360.
+- Basis and coupon frequency are truncated toward zero; valid frequencies are annual `1`, semiannual `2` and quarterly `4`.
+- Coupon functions require settlement strictly earlier than maturity.
+- Coupon schedules are generated from the maturity anchor rather than chaining prior results, preventing date drift.
+- End-of-month maturity remains end-of-month across shorter months and leap-year February.
+- `COUPPCD` may equal settlement when settlement is exactly a coupon date; `COUPNCD` remains strictly later.
+- `COUPDAYS` uses actual coupon-period length for basis 1, `360/frequency` for bases 0/2/4 and `365/frequency` for basis 3.
+- `YEARFRAC` supports signed intervals and an Actual/Actual denominator that handles leap-year and multi-year spans.
+- Coupon search is bounded to 100.000 periods.
+
+Earlier root, cash-flow, cumulative-payment, depreciation and scalar-rate contracts remain unchanged.
 
 Full contract: `docs/financial-functions-foundation-contract.md`.
 
@@ -72,8 +79,8 @@ Full contract: `docs/financial-functions-foundation-contract.md`.
 
 - Formula surface is not complete Excel compatibility.
 - SDK v1 does not yet load signed plugin packages or isolate third-party code.
-- Financial basis/calendar, `YEARFRAC`, coupon-date helpers, AMOR, bond/treasury/price/yield/duration families remain pending.
-- `ISPMT` currently follows the explicit zero-based period contract; broader external differential compatibility remains pending.
+- Discount/maturity security functions, fixed-coupon PRICE/YIELD/DURATION, treasury and AMOR/odd-coupon families remain pending.
+- Current coupon schedules are regular maturity-anchored schedules; odd-first/odd-last periods and business-day adjustment are pending.
 - External Excel/LibreOffice financial corpus, locale compatibility and fuzzing remain pending.
 - Statistical hypothesis tests, confidence intervals, additional distributions and broader aliases remain pending.
 - Advanced lookup/reference, special engineering, formula-expression database criteria and advanced arrays remain pending.
@@ -83,25 +90,26 @@ Full contract: `docs/financial-functions-foundation-contract.md`.
 
 - Engine/viewport/renderer foundation: approximately `92%`.
 - Basic spreadsheet MVP: approximately `96–98%`.
-- Complete professional roadmap: approximately `77%`.
-- Production release readiness: approximately `54–57%`.
+- Complete professional roadmap: approximately `78%`.
+- Production release readiness: approximately `55–58%`.
 
 These are engineering-weighted estimates, not checkbox counts.
 
 ## Next implementation work
 
-1. Financial calendar/day-count basis `0..4`.
-2. `YEARFRAC` and coupon-date helpers: `COUPDAYBS`, `COUPDAYS`, `COUPDAYSNC`, `COUPNCD`, `COUPPCD`, `COUPNUM`.
-3. Bond/treasury/price/yield/duration and AMOR families.
-4. Statistical hypothesis tests and confidence intervals.
-5. Advanced lookup/reference and dynamic-array helpers.
-6. Plugin packaging/discovery, compatibility and isolation.
-7. Native spill UX, drawings/charts, advanced data/pivot and release hardening.
+1. Discount/maturity securities: `ACCRINTM`, `DISC`, `INTRATE`, `RECEIVED`, `PRICEDISC`, `YIELDDISC`.
+2. `PRICEMAT` and `YIELDMAT` after the common equations are locked.
+3. Fixed-coupon `PRICE`, `YIELD`, `DURATION`, `MDURATION`.
+4. Treasury, AMOR and odd-first/odd-last coupon families.
+5. Statistical hypothesis tests and confidence intervals.
+6. Advanced lookup/reference and dynamic-array helpers.
+7. Plugin packaging/discovery, compatibility and isolation.
+8. Native spill UX, drawings/charts, advanced data/pivot and release hardening.
 
 ## Validation policy
 
-Core, architecture, full Windows, desktop GPU, Android, iOS, Mac Catalyst and MAUI Windows loaded-runtime gates are mandatory. Formula families additionally require result, descriptor, coercion/error, numerical-stability, inverse/reconciliation and resource-budget regressions.
+Core, architecture, full Windows, desktop GPU, Android, iOS, Mac Catalyst and MAUI Windows loaded-runtime gates are mandatory. Financial calendar changes additionally require all basis variants, leap-year, February/end-of-month, exact-coupon-date, frequency, domain, scalar-capability and registry-count regressions.
 
 ## Latest validated implementation milestone
 
-Implementation commit `e2d3bb4b296292ae83dc4c1a5e35a442f6574e4f` passed CI `#849`, run `32740594038`, including 185 formula tests and the complete hosted matrix. PR #1 remains Draft and must not merge while a newer exact-head run is red or unknown.
+Implementation commit `eeb74ad4ee596f7cb56343b8459f2311538c8243` passed CI `#854`, run `32745296544`, including 192 formula tests and the complete hosted matrix. PR #1 remains Draft and must not merge while a newer exact-head run is red or unknown.

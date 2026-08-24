@@ -3,78 +3,89 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` into `develop` — Draft, unmerged
-- Implementation head: `e2d3bb4b296292ae83dc4c1a5e35a442f6574e4f`
-- GitHub Actions: CI `#849`, run `32740594038`, success
-- Formula tests: `185/185`
+- Implementation head: `eeb74ad4ee596f7cb56343b8459f2311538c8243`
+- GitHub Actions: CI `#854`, run `32745296544`, success
+- Formula tests: `192/192`
 - Source of truth: `docs/current-status.md`
 - Financial contract: `docs/financial-functions-foundation-contract.md`
 
-## Batch completed: scalar financial rate helpers
+## Batch completed: financial calendar and day-count foundation
 
 | Work item | Result | Status |
 |---|---|---|
-| `ISPMT` | Zero-based equal-principal interest schedule | Complete |
-| `EFFECT` | Nominal-to-effective conversion with truncated compounding count | Complete |
-| `NOMINAL` | Effective-to-nominal inverse conversion | Complete |
-| `RRI` | Equivalent periodic growth rate | Complete |
-| `PDURATION` | Period count needed to grow PV to FV | Complete |
-| Numerical primitive | 64-term `log1p` series for `|x| <= 0.5` | Complete |
-| Formula regressions | 185 passed, zero failed | Green |
+| Shared date layer | Whole-date normalization and one platform-neutral service | Complete |
+| Basis `0..4` | US 30/360, Actual/Actual, Actual/360, Actual/365, European 30/360 | Complete |
+| Coupon frequency | Annual, semiannual and quarterly after truncation | Complete |
+| `YEARFRAC` | Signed year fraction with leap/multi-year rules | Complete |
+| `COUPPCD` / `COUPNCD` | Maturity-anchored previous/next coupon dates | Complete |
+| `COUPDAYBS` / `COUPDAYS` / `COUPDAYSNC` | Basis-specific coupon day counts | Complete |
+| `COUPNUM` | Remaining coupon count through maturity | Complete |
+| End-of-month | Leap-February and month-end anchor preserved | Complete |
+| Resource policy | Maximum 100.000 coupon periods | Complete |
+| Formula regressions | 192 passed, zero failed | Green |
 | Hosted matrix | Core, Windows, Android, iOS, Mac Catalyst, MAUI Windows loaded smokes | Green |
 | Pull request | Remains Draft and unmerged | Locked |
 
 ## Functional contracts
 
-### ISPMT
+### Dates, basis and frequency
 
-- Scalar-only deterministic/pure SDK v1.
-- Requires `nper > 0` and zero-based `per` in `0..nper`.
-- Equal-principal interest formula: `pv * rate * (per/nper - 1)`.
-- Sign follows principal/rate inputs.
+- Date inputs are normalized to date-only values.
+- Basis/frequency numeric inputs are truncated toward zero.
+- Basis values: 0 US NASD 30/360, 1 Actual/Actual, 2 Actual/360, 3 Actual/365, 4 European 30/360.
+- Coupon frequency is 1, 2 or 4.
+- Coupon functions require settlement earlier than maturity.
+- Invalid/coercion/range input returns `#VALUE!`; invalid financial domains return `#NUM!`.
 
-### EFFECT and NOMINAL
+### Maturity-anchored coupon schedule
 
-- Positive rate domains.
-- Compounding count is truncated toward zero and must remain at least 1.
-- Stable `log1p`/`expm1` forms.
-- Forward/inverse round trips are locked.
+Every coupon candidate is recalculated directly from maturity and its month offset. The engine does not repeatedly subtract months from the previously rounded date. This preserves an August-31 maturity as February-29/28 and August-31 coupon dates instead of drifting permanently to the 28th/29th.
 
-### RRI and PDURATION
+- PCD is the coupon on or before settlement.
+- NCD is the coupon strictly after settlement.
+- Settlement exactly on a coupon date therefore has `COUPDAYBS = 0`.
+- Search is capped at 100.000 periods.
 
-- Require positive periods/rate and positive PV/FV as applicable.
-- Stable logarithmic ratio avoids direct `fv/pv` overflow where possible.
-- Equal PV/FV returns zero.
-- Inverse round trips are locked.
+### Day-count outputs
 
-## Numerical issue found and fixed
+- `YEARFRAC` supports signed intervals and equal-date zero.
+- `COUPDAYS` is actual PCD→NCD for basis 1, `360/frequency` for bases 0/2/4 and `365/frequency` for basis 3.
+- `COUPDAYSNC` is actual/basis settlement→NCD for bases 1/2/3; bases 0/4 subtract days-before from the fixed coupon period.
+- `COUPDAYBS` always uses the selected basis from PCD to settlement.
 
-CI probes exposed two distinct precision concerns:
+## Probe sequence and findings
 
-1. old registry-count assertions still expected 191 instead of 196;
-2. `Math.Log(1+x)` lost several picounits for small monthly rates and collapsed an EFFECT/NOMINAL case at `1e-12`.
+### CI #852 — compile probe
 
-A first attempt using `double.LogP1` on the hosted runtime retained the same cancellation behavior. The final primitive uses a 64-term convergent series for `|x| <= 0.5`, and `Math.Log(1+x)` only outside that interval. No financial reference was changed to hide the defect.
+- Three C# definite-assignment errors exposed uninitialized `out` parameters in the shared coupon argument reader.
+- No runtime or reference adjustment was attempted before fixing the compile contract.
 
-## CI sequence
+### CI #853 — functional probe
 
-- CI #846: build clean; 181/185 formula tests passed; three count assertions and one PDURATION precision threshold remained.
-- CI #847: counts corrected; 184/185 passed; one small-rate PDURATION case remained.
-- CI #848: direct `double.LogP1` probe exposed unchanged cancellation and the near-zero round-trip failure.
-- CI #849: final bounded-series implementation passed 185/185 and the complete hosted matrix.
+- Build succeeded.
+- All new YEARFRAC/coupon result, domain, EOM, leap-year and metadata tests passed.
+- 188/192 formula tests passed.
+- The only failures were four old registry-count assertions expecting 196 instead of the correct 203.
+
+### CI #854 — final implementation
+
+- Registry assertions updated to 203 without changing numerical references.
+- 192/192 formula tests passed.
+- Architecture and full hosted matrix passed.
 
 ## Counts
 
-- Eager/versioned built-ins: 196.
+- Eager/versioned built-ins: 203.
 - AST/reference-aware built-ins: 18.
 - Dynamic-array built-ins: 5.
-- Complete built-in subsystem: 219.
-- Financial functions: 23.
+- Complete built-in subsystem: 226.
+- Financial functions: 30.
 
 ## Explicit limitations
 
-- Shared day-count/calendar basis is pending.
-- YEARFRAC, coupon-date, AMOR, bond/treasury/price/yield/duration functions are pending.
-- ISPMT currently locks the explicit zero-based compatibility contract.
+- Current coupon schedules are regular maturity-anchored schedules.
+- Odd-first/odd-last coupons, business-day calendars and holiday adjustment remain pending.
+- Discount/maturity securities and fixed-coupon price/yield/duration remain pending.
 - External producer differential corpora and financial fuzzing remain pending.
 - Hypothesis tests, advanced lookup/arrays, plugin isolation, drawings/charts, pivots and release hardening remain pending.
 
@@ -82,17 +93,19 @@ A first attempt using `double.LogP1` on the hosted runtime retained the same can
 
 - Engine/viewport/renderer: about `92%`.
 - Basic spreadsheet MVP: about `96–98%`.
-- Complete professional roadmap: about `77%`.
-- Production readiness: about `54–57%`.
+- Complete professional roadmap: about `78%`.
+- Production readiness: about `55–58%`.
 
 ## Next stable batch
 
-1. Shared financial date normalization and coupon frequency.
-2. Basis `0..4` day-count engine.
-3. `YEARFRAC`.
-4. `COUPDAYBS`, `COUPDAYS`, `COUPDAYSNC`.
-5. `COUPNCD`, `COUPPCD`, `COUPNUM`.
-6. Leap-year, month-end, frequency, basis and round-trip regressions.
-7. Exact-head Core/Windows/MAUI CI.
+1. `ACCRINTM`.
+2. `DISC`.
+3. `INTRATE`.
+4. `RECEIVED`.
+5. `PRICEDISC`.
+6. `YIELDDISC`.
+7. Shared maturity-security equations, basis/domain and inverse/reconciliation regressions.
+8. Add `PRICEMAT`/`YIELDMAT` only if the first six remain one coherent green batch.
+9. Exact-head Core/Windows/MAUI CI.
 
 PR remains Draft; do not merge while a newer exact-head CI is red or unknown.
