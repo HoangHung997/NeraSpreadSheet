@@ -51,20 +51,26 @@ Volatility metadata exists; automatic workbook volatile scheduling remains pendi
 
 A descriptor chooses engine-captured dependencies only or permits additional function-declared dependencies. Returned dependencies are merged with expression/range dependencies and deduplicated before entering the graph.
 
+Range arguments preserve source identity, shape and row-major values. This allows pairwise statistical, dated financial and database functions to participate in the same affected-only recalculation graph without host-specific code.
+
 ## 6. Built-in registry milestone
 
-The validated eager/versioned built-in registry contains **183 names**:
+The validated eager/versioned built-in registry contains **186 names**:
 
 - 92 original flattened-value functions;
 - 11 Statistical Foundation functions;
 - 39 Advanced Statistical functions;
-- 10 financial functions;
+- 13 financial functions;
 - 19 engineering functions;
 - 12 database functions.
 
-The 39 Advanced Statistical functions use logical argument counting. Pairwise functions expose scalar/range capabilities; transformation and distribution functions are scalar-only. Engineering is scalar-only. Database functions preserve logical range identity and set `propagateArgumentErrors=false` so matched-row semantics can inspect errors selectively.
+The 39 Advanced Statistical functions use logical argument counting. Pairwise functions expose scalar/range capabilities; transformation and distribution functions are scalar-only.
 
-The broader formula subsystem adds 18 AST/reference-aware and five dynamic-array names, totaling **206 built-in names**.
+Financial functions use logical argument counting. `NPV`, `IRR`, `XNPV` and `XIRR` expose scalar/range capabilities; the other financial functions are scalar-only. Root-based financial evaluators are deterministic/pure and enforce their own bounded convergence/resource contracts inside invocation.
+
+Engineering functions are scalar-only. Database functions preserve logical range identity and set `propagateArgumentErrors=false` so matched-row semantics can inspect errors selectively.
+
+The broader formula subsystem adds 18 AST/reference-aware and five dynamic-array names, totaling **209 built-in names**.
 
 ## 7. Compatibility and failure policy
 
@@ -78,6 +84,8 @@ Registration rejects:
 - external-state functions under the default restrictive policy.
 
 Evaluation rejects unsupported argument kinds before invocation. Function exceptions are converted through the engine's fail-closed error boundary; they do not escape into UI hosts.
+
+Family implementations additionally reject invalid domains, resource limits and numerical non-convergence through explicit spreadsheet errors.
 
 ## 8. Deliberately pending
 

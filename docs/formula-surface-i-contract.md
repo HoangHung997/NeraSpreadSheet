@@ -12,19 +12,21 @@ This document defines the validated scalar/reference formula behavior of NeraSpr
 
 ## 2. Current function counts
 
-- Eager/versioned built-ins: **183**.
+- Eager/versioned built-ins: **186**.
 - AST/reference-aware built-ins: **18**.
-- Scalar/reference total: **201**.
+- Scalar/reference total: **204**.
 - Dynamic-array built-ins: **5**.
-- Complete built-in subsystem: **206 names**.
+- Complete built-in subsystem: **209 names**.
 
-The 183 eager/versioned names comprise the original 92 functions plus 11 Statistical Foundation functions, 39 Advanced Statistical functions, 10 financial, 19 engineering and 12 database functions.
+The 186 eager/versioned names comprise the original 92 functions plus 11 Statistical Foundation functions, 39 Advanced Statistical functions, 13 financial, 19 engineering and 12 database functions.
 
 ## 3. Error and coercion model
 
 Supported cell error values include `#DIV/0!`, `#REF!`, `#NAME?`, `#VALUE!`, `#CIRC!`, `#N/A`, `#NUM!` and `#SPILL!`. Lazy control functions evaluate only selected branches. Numeric aggregates propagate matched errors according to their explicit contract.
 
 Shared coercion currently supports finite numbers, Booleans, blank, DateTime/OLE serial conversion and explicitly allowed invariant numeric/date text. Non-finite results fail closed. Text output is bounded to 32,767 characters.
+
+Numerical root functions use bounded deterministic solvers. They return `#NUM!` when no admissible root reaches the family tolerance.
 
 ## 4. Function families
 
@@ -59,7 +61,9 @@ Full contract: `docs/advanced-statistical-functions-foundation-contract.md`.
 
 ### Financial
 
-`PV`, `FV`, `PMT`, `NPER`, `NPV`, `IRR`, `IPMT`, `PPMT`, `SLN`, `SYD`.
+`PV`, `FV`, `PMT`, `NPER`, `RATE`, `NPV`, `IRR`, `XNPV`, `XIRR`, `IPMT`, `PPMT`, `SLN`, `SYD`.
+
+`RATE`, `IRR` and `XIRR` use bounded iterative solvers. `XNPV` and `XIRR` preserve positional value/date schedules, a 365-day basis, dependencies and affected-only recalculation. Full contract: `docs/financial-functions-foundation-contract.md`.
 
 ### Engineering
 
@@ -71,22 +75,22 @@ Full contract: `docs/advanced-statistical-functions-foundation-contract.md`.
 
 ## 5. Dependency behavior
 
-Range-aware functions preserve source identity and dependencies. Lazy functions omit unused branches. Pairwise statistical and database ranges enter ordinary dependencies and affected-only recalculation. Scalar engineering, financial and distribution references enter the shared graph. Current deterministic distribution functions declare no hidden or volatile dependency.
+Range-aware functions preserve source identity and dependencies. Lazy functions omit unused branches. Pairwise statistical, periodic/dated financial and database ranges enter ordinary dependencies and affected-only recalculation. Scalar engineering, financial and distribution references enter the shared graph. Current deterministic functions declare no hidden dependency.
 
 ## 6. Deliberately pending
 
 - Complete Excel coercion compatibility.
 - Locale-aware `TEXT`/criteria and regional aliases.
 - Advanced lookup/reference functions and modes.
+- Financial cumulative payment/principal, accelerated depreciation and bond/coupon/day-count/duration/yield families.
 - Statistical hypothesis tests, confidence intervals, additional distributions and extreme-tail corpus.
-- Remaining finance and accelerated depreciation.
 - Complex/unit/special engineering functions.
 - Formula-expression database criteria and cube functions.
 - Advanced dynamic arrays and LET/LAMBDA.
-- External differential corpus and fuzzing.
+- External differential corpora and fuzzing.
 
 ## 7. Validation gates
 
-Formula changes require parser/error/coercion tests, descriptor tests, family-specific result/domain/numerical-stability tests, dependency and affected-recalculation tests, resource-budget tests, plus the complete Core/architecture/Windows/MAUI matrix.
+Formula changes require parser/error/coercion tests, descriptor tests, family-specific result/domain/numerical-stability/convergence tests, dependency and affected-recalculation tests, resource-budget tests, plus the complete Core/architecture/Windows/MAUI matrix.
 
 PR #1 remains Draft while exact-head CI is red or unknown.

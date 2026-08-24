@@ -44,14 +44,15 @@
 - [x] Conditional aggregates: `COUNTIF(S)`, `SUMIF(S)`, `AVERAGEIF(S)`.
 - [x] Statistical Foundation: median/mode, inclusive percentile/quartile, variance/deviation, rank/order statistics.
 - [x] Advanced Statistical Foundation: covariance, correlation, regression, forecast and 30 transformation/distribution functions.
-- [x] Financial Foundation: PV/FV/PMT/NPER, NPV/IRR, IPMT/PPMT, SLN/SYD.
+- [x] Financial Foundation: PV/FV/PMT/NPER/RATE, NPV/IRR/XNPV/XIRR, IPMT/PPMT, SLN/SYD.
 - [x] Engineering Foundation: 19 bit/shift/radix/comparison functions.
 - [x] Database Foundation: 12 criteria-table aggregate functions.
 - [x] Function Extension SDK API `1.0` with identity/version/capability/state/dependency/conflict contracts.
 - [x] Immutable dynamic arrays, spill ownership and affected recalculation.
 - [x] `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE`.
+- [ ] Financial schedules: `CUMIPMT`, `CUMPRINC`, `ISPMT`.
+- [ ] Financial accelerated depreciation, bond/coupon/day-count/duration/yield families.
 - [ ] Statistical hypothesis tests, confidence intervals, additional distributions and broader compatibility aliases.
-- [ ] Remaining finance: `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon/day-count and accelerated depreciation.
 - [ ] Advanced lookup/reference modes and functions.
 - [ ] Spill-reference `A1#`, implicit-intersection `@`, array constants and vectorized expressions.
 - [ ] Advanced dynamic-array helpers and LET/LAMBDA/higher-order functions.
@@ -132,25 +133,26 @@
 
 ## Immediate execution order
 
-1. Remaining financial families: `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon/day-count and accelerated depreciation.
-2. Statistical hypothesis tests, confidence intervals and remaining distribution compatibility.
-3. Advanced lookup/reference and dynamic-array helpers.
-4. Plugin packaging/discovery, API compatibility and isolation policy.
-5. Native spill UX, drawings/images/charts and print/PDF pagination.
-6. Advanced data analysis, grouping/outlines, virtual data, pivot and slicers.
-7. Remaining print/XLSX/PDF/font/external formula corpora.
-8. MAUI IME/accessibility/localization/theme and release hardening.
-9. Execute final Codex acceptance before PR promotion.
+1. Financial payment schedules: `CUMIPMT`, `CUMPRINC`, `ISPMT`.
+2. Accelerated depreciation and bond/coupon/day-count/duration/yield families.
+3. Statistical hypothesis tests, confidence intervals and remaining distribution compatibility.
+4. Advanced lookup/reference and dynamic-array helpers.
+5. Plugin packaging/discovery, API compatibility and isolation policy.
+6. Native spill UX, drawings/images/charts and print/PDF pagination.
+7. Advanced data analysis, grouping/outlines, virtual data, pivot and slicers.
+8. Remaining print/XLSX/PDF/font/external formula corpora.
+9. MAUI IME/accessibility/localization/theme and release hardening.
+10. Execute final Codex acceptance before PR promotion.
 
-## Weighted progress after Advanced Statistical Functions Foundation
+## Weighted progress after RATE, XNPV and XIRR
 
 - Engine/viewport/renderer foundation: approximately `92%`.
 - Basic spreadsheet MVP: approximately `96–98%`.
-- Complete professional roadmap: approximately `74%`.
-- Production release readiness: approximately `51–54%`.
+- Complete professional roadmap: approximately `75%`.
+- Production release readiness: approximately `52–55%`.
 
 These are engineering-weighted estimates, not checkbox counts.
 
 ## Validation rule
 
-Implementation commit `e713182d460f5c280e2c29e5642769eedf190d2f` passed CI `#835`, run `32720631933`. PR #1 remains Draft and must not merge while a newer exact-head run is red or unknown.
+Implementation commit `c13960a403b6e249bd85ffc718ee0acdfbca7ca8` passed CI `#838`, run `32725386326`. PR #1 remains Draft and must not merge while a newer exact-head run is red or unknown.

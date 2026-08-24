@@ -12,6 +12,7 @@ NeraSpreadSheet là SDK spreadsheet độc lập cho **WPF, WinForms và .NET MA
 - Spill children là derived output của một owner formula.
 - Extension functions phải khai báo identity, version, capabilities, volatility/state, dependency và argument-count policy.
 - Mọi formula family có resource budget và fail-closed behavior.
+- Numerical solvers phải deterministic, bounded và không trả nghiệm chưa hội tụ.
 - Excel, LibreOffice và DevExpress chỉ là nguồn tham khảo hành vi, không phải runtime dependency.
 
 ## Kiến trúc
@@ -42,9 +43,11 @@ Workbook / Rules / Tables / Spill Ownership
 - Structural insert/delete/reorder có formula/rule/Table/filter/spill mapping và rollback.
 - Fractional scrolling, freeze/split panes và multi-host display-list rendering.
 - Function Extension SDK API `1.0`.
-- **206 built-in function names**: 183 eager/versioned, 18 AST/reference-aware và 5 dynamic-array.
+- **209 built-in function names**: 186 eager/versioned, 18 AST/reference-aware và 5 dynamic-array.
 - Conditional aggregates, statistical, advanced statistical, financial, engineering và database function foundations.
 - Advanced statistics: covariance/correlation/regression, normal/log-normal/exponential/binomial/Poisson/Weibull, beta/gamma/chi-square/Student-t/F density, cumulative, tail và inverse functions.
+- Finance: `PV`, `FV`, `PMT`, `NPER`, `RATE`, `NPV`, `IRR`, `XNPV`, `XIRR`, `IPMT`, `PPMT`, `SLN`, `SYD`.
+- `RATE`/`XIRR` dùng Newton có backtracking cùng transformed-rate bracket/bisection; `XNPV`/`XIRR` dùng lịch ngày–dòng tiền 365 ngày, dependency tracking và resource budgets.
 - Engineering: bitwise/shift, radix conversions, `DELTA`, `GESTEP`.
 - Database: `DSUM`, `DCOUNT`, `DCOUNTA`, `DAVERAGE`, `DMAX`, `DMIN`, `DPRODUCT`, `DGET`, `DSTDEV`, `DSTDEVP`, `DVAR`, `DVARP`.
 - Dynamic arrays: `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE` cùng spill ownership, `#SPILL!`, history, clipboard và XLSX boundary.
@@ -58,6 +61,7 @@ Tài liệu nguồn sự thật:
 - `docs/current-status.md`;
 - `docs/function-extension-sdk-contract.md`;
 - `docs/advanced-statistical-functions-foundation-contract.md`;
+- `docs/financial-functions-foundation-contract.md`;
 - `docs/engineering-functions-foundation-contract.md`;
 - `docs/database-functions-foundation-contract.md`;
 - `docs/dynamic-arrays-contract.md`;
@@ -84,7 +88,7 @@ Mọi thay đổi đi qua pull request; không commit trực tiếp vào `main`.
 
 ## Mốc tiếp theo
 
-**Remaining Financial Functions**: `RATE`, `XNPV`, `XIRR`, cumulative payment, bond/coupon/day-count và accelerated depreciation; sau đó statistical hypothesis tests, advanced lookup/dynamic arrays, plugin packaging/isolation, drawings/charts, advanced data/pivot và release hardening.
+**Financial Payment Schedules**: `CUMIPMT`, `CUMPRINC`, `ISPMT`; sau đó accelerated depreciation, bond/coupon/day-count/duration/yield, statistical hypothesis tests, advanced lookup/dynamic arrays, plugin packaging/isolation, drawings/charts, advanced data/pivot và release hardening.
 
 ## Giấy phép
 
