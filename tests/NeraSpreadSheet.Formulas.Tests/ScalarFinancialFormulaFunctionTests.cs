@@ -267,8 +267,8 @@ public sealed class ScalarFinancialFormulaFunctionTests
                 descriptor.SecurityClassification);
         }
 
-        Assert.AreEqual(203, registry.Count);
-        Assert.AreEqual(203, registry.VersionCount);
+        Assert.AreEqual(208, registry.Count);
+        Assert.AreEqual(208, registry.VersionCount);
     }
 
     private static void AssertNumericError(

@@ -4,221 +4,165 @@ using NeraSpreadSheet.Core;
 namespace NeraSpreadSheet.Formulas.Tests;
 
 [TestClass]
-public sealed class RemainingFinancialFormulaFunctionTests
+public sealed class MaturitySecurityFormulaFunctionTests
 {
-    private static readonly string[] RemainingFinancialNames =
+    private static readonly string[] FunctionNames =
     [
-        "CUMIPMT",
-        "CUMPRINC",
-        "DB",
-        "DDB",
-        "VDB",
+        "ACCRINTM",
+        "DISC",
+        "INTRATE",
+        "RECEIVED",
+        "PRICEDISC",
     ];
 
     [TestMethod]
-    public void CumulativePaymentsMatchReferencesAndReconcile()
+    public void AccrintmMatchesReferenceAndSupportsDefaultPar()
     {
         var engine = new NeraFormulaEngine();
         var context = new FormulaSurfaceTestContext();
 
-        var cumulativeInterest = EvaluateNumber(
-            engine,
-            "=CUMIPMT(0.09/12,30*12,125000,13,24,0)",
-            context);
-        var cumulativePrincipal = EvaluateNumber(
-            engine,
-            "=CUMPRINC(0.09/12,30*12,125000,13,24,0)",
-            context);
-        var payment = EvaluateNumber(
-            engine,
-            "=PMT(0.09/12,30*12,125000)",
-            context);
-
         Assert.AreEqual(
-            -11135.232130750845d,
-            cumulativeInterest,
-            2e-9d);
-        Assert.AreEqual(
-            -934.1071234208765d,
-            cumulativePrincipal,
-            2e-9d);
-        Assert.AreEqual(
-            payment * 12d,
-            cumulativeInterest + cumulativePrincipal,
-            2e-9d);
-        Assert.AreEqual(
-            0d,
+            20.54794520547945d,
             EvaluateNumber(
                 engine,
-                "=CUMIPMT(0.09/12,30*12,125000,1,1,1)",
+                "=ACCRINTM(DATE(2008,4,1),DATE(2008,6,15),0.1,1000,3)",
                 context),
-            1e-14d);
+            2e-13d);
+        Assert.AreEqual(
+            50d,
+            EvaluateNumber(
+                engine,
+                "=ACCRINTM(DATE(2024,1,1),DATE(2024,7,1),0.1)",
+                context),
+            2e-13d);
     }
 
     [TestMethod]
-    public void FixedDecliningBalanceMatchesReferencePeriods()
+    public void IntrateAndReceivedMatchPublishedReferences()
     {
         var engine = new NeraFormulaEngine();
         var context = new FormulaSurfaceTestContext();
+        const string dates =
+            "DATE(2008,2,15),DATE(2008,5,15)";
 
         Assert.AreEqual(
-            186083.33333333334d,
+            0.05768d,
             EvaluateNumber(
                 engine,
-                "=DB(1000000,100000,6,1,7)",
+                $"=INTRATE({dates},1000000,1014420,2)",
+                context),
+            2e-14d);
+        Assert.AreEqual(
+            1014584.6544071021d,
+            EvaluateNumber(
+                engine,
+                $"=RECEIVED({dates},1000000,0.0575,2)",
                 context),
             2e-8d);
-        Assert.AreEqual(
-            15845.098473848071d,
-            EvaluateNumber(
-                engine,
-                "=DB(1000000,100000,6,7,7)",
-                context),
-            2e-8d);
-        Assert.AreEqual(
-            0d,
-            EvaluateNumber(
-                engine,
-                "=DB(1000,1000,5,1)",
-                context),
-            1e-14d);
     }
 
     [TestMethod]
-    public void DoubleDecliningBalanceMatchesReferencePeriods()
+    public void PricediscMatchesReferenceAndDiscRoundTrips()
+    {
+        var engine = new NeraFormulaEngine();
+        var context = new FormulaSurfaceTestContext();
+        const string settlement = "DATE(2008,2,16)";
+        const string maturity = "DATE(2008,3,1)";
+
+        Assert.AreEqual(
+            99.79583333333333d,
+            EvaluateNumber(
+                engine,
+                $"=PRICEDISC({settlement},{maturity},0.0525,100,2)",
+                context),
+            2e-13d);
+        Assert.AreEqual(
+            0.0525d,
+            EvaluateNumber(
+                engine,
+                $"=DISC({settlement},{maturity}," +
+                $"PRICEDISC({settlement},{maturity},0.0525,100,2),100,2)",
+                context),
+            2e-14d);
+    }
+
+    [TestMethod]
+    public void MaturitySecurityFunctionsRespectBasisTruncation()
     {
         var engine = new NeraFormulaEngine();
         var context = new FormulaSurfaceTestContext();
 
         Assert.AreEqual(
-            480d,
             EvaluateNumber(
                 engine,
-                "=DDB(2400,300,10,1)",
+                "=DISC(DATE(2024,1,1),DATE(2024,7,1),97,100,2)",
                 context),
-            1e-12d);
-        Assert.AreEqual(
-            306d,
             EvaluateNumber(
                 engine,
-                "=DDB(2400,300,10,2,1.5)",
+                "=DISC(DATE(2024,1,1),DATE(2024,7,1),97,100,2.9)",
                 context),
-            1e-12d);
-        Assert.AreEqual(
-            22.1225472000001d,
-            EvaluateNumber(
-                engine,
-                "=DDB(2400,300,10,10)",
-                context),
-            2e-12d);
+            1e-15d);
     }
 
     [TestMethod]
-    public void VariableDecliningBalanceSupportsPartialPeriodsAndSwitching()
-    {
-        var engine = new NeraFormulaEngine();
-        var context = new FormulaSurfaceTestContext();
-
-        Assert.AreEqual(
-            1.3150684931506849d,
-            EvaluateNumber(
-                engine,
-                "=VDB(2400,300,10*365,0,1)",
-                context),
-            2e-12d);
-        Assert.AreEqual(
-            396.3060532647509d,
-            EvaluateNumber(
-                engine,
-                "=VDB(2400,300,10*12,6,18)",
-                context),
-            2e-10d);
-        Assert.AreEqual(
-            311.8089366582341d,
-            EvaluateNumber(
-                engine,
-                "=VDB(2400,300,10*12,6,18,1.5)",
-                context),
-            2e-10d);
-        Assert.AreEqual(
-            315d,
-            EvaluateNumber(
-                engine,
-                "=VDB(2400,300,10,0,0.875,1.5)",
-                context),
-            2e-12d);
-        Assert.IsTrue(
-            EvaluateNumber(
-                engine,
-                "=VDB(2400,300,10,0,10,1.5,FALSE())",
-                context) >
-            EvaluateNumber(
-                engine,
-                "=VDB(2400,300,10,0,10,1.5,TRUE())",
-                context));
-    }
-
-    [TestMethod]
-    public void RemainingFinancialDomainsAndCapabilitiesAreExplicit()
+    public void MaturitySecurityDomainsAndScalarCapabilitiesAreExplicit()
     {
         var values = new Dictionary<CellAddress, CellValue>
         {
-            [new CellAddress(0, 0)] = CellValue.FromNumber(1d),
-            [new CellAddress(1, 0)] = CellValue.FromNumber(2d),
+            [new CellAddress(0, 0)] =
+                CellValue.FromDateTime(new DateTime(2024, 1, 1)),
+            [new CellAddress(1, 0)] =
+                CellValue.FromDateTime(new DateTime(2024, 7, 1)),
         };
         var engine = new NeraFormulaEngine();
         var context = new FormulaSurfaceTestContext(values);
 
         AssertNumericError(
             engine,
-            "=CUMIPMT(0,360,125000,1,12,0)",
+            "=ACCRINTM(DATE(2024,7,1),DATE(2024,1,1),0.05,1000,0)",
             context);
         AssertNumericError(
             engine,
-            "=CUMPRINC(0.01,360,125000,13,12,0)",
+            "=ACCRINTM(DATE(2024,1,1),DATE(2024,7,1),0,1000,0)",
             context);
         AssertNumericError(
             engine,
-            "=CUMIPMT(0.01,360,125000,1,12,2)",
+            "=DISC(DATE(2024,1,1),DATE(2024,7,1),0,100,0)",
             context);
         AssertNumericError(
             engine,
-            "=DB(1000,100,5,1,0)",
+            "=INTRATE(DATE(2024,1,1),DATE(2024,7,1),1000,0,0)",
             context);
         AssertNumericError(
             engine,
-            "=DDB(1000,100,5,1,0)",
+            "=RECEIVED(DATE(2024,1,1),DATE(2025,1,1),1000,1,0)",
             context);
         AssertNumericError(
             engine,
-            "=DDB(1000,1100,5,1)",
+            "=PRICEDISC(DATE(2024,1,1),DATE(2025,1,1),1,100,0)",
             context);
         AssertNumericError(
             engine,
-            "=VDB(1000,100,5,3,2)",
-            context);
-        AssertNumericError(
-            engine,
-            "=VDB(1000,100,5,0,6)",
+            "=PRICEDISC(DATE(2024,1,1),DATE(2024,7,1),0.05,100,5)",
             context);
         Assert.AreEqual(
             FormulaErrorCode.InvalidValue,
             engine.Evaluate(
-                "=DB(A1:A2,100,5,1)",
+                "=DISC(A1:A2,DATE(2025,1,1),95,100,0)",
                 context).ErrorCode);
         Assert.AreEqual(
             FormulaErrorCode.InvalidValue,
             engine.Evaluate(
-                "=VDB(1000,100,5,0,1,2,\"maybe\")",
+                "=INTRATE(\"bad\",DATE(2025,1,1),1000,1100,0)",
                 context).ErrorCode);
     }
 
     [TestMethod]
-    public void RemainingFinancialDescriptorsAreVersionedPureAndScalarOnly()
+    public void MaturitySecurityDescriptorsAreVersionedPureAndScalarOnly()
     {
         var registry = new BuiltInFormulaFunctionRegistry();
 
-        foreach (var name in RemainingFinancialNames)
+        foreach (var name in FunctionNames)
         {
             var descriptor = registry.Descriptors.Single(candidate =>
                 candidate.Identity.Name == name);
@@ -250,30 +194,6 @@ public sealed class RemainingFinancialFormulaFunctionTests
 
         Assert.AreEqual(208, registry.Count);
         Assert.AreEqual(208, registry.VersionCount);
-    }
-
-    [TestMethod]
-    public void RemainingFinancialResourceBudgetsFailClosed()
-    {
-        var engine = new NeraFormulaEngine();
-        var context = new FormulaSurfaceTestContext();
-
-        AssertNumericError(
-            engine,
-            "=CUMIPMT(0.01,3000000,1000,1,2000001,0)",
-            context);
-        AssertNumericError(
-            engine,
-            "=DB(1000,100,3000000,2000001)",
-            context);
-        AssertNumericError(
-            engine,
-            "=DDB(1000,100,3000000,2000001)",
-            context);
-        AssertNumericError(
-            engine,
-            "=VDB(1000,100,3000000,0,2000001)",
-            context);
     }
 
     private static void AssertNumericError(
