@@ -248,8 +248,8 @@ public sealed class RemainingFinancialFormulaFunctionTests
                 descriptor.SecurityClassification);
         }
 
-        Assert.AreEqual(196, registry.Count);
-        Assert.AreEqual(196, registry.VersionCount);
+        Assert.AreEqual(203, registry.Count);
+        Assert.AreEqual(203, registry.VersionCount);
     }
 
     [TestMethod]
