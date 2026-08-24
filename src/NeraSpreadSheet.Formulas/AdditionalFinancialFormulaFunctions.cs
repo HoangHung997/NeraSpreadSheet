@@ -1,7 +1,8 @@
 namespace NeraSpreadSheet.Formulas;
 
 /// <summary>
-/// Adds bounded solvers for annuity rates and irregular dated cash flows.
+/// Adds bounded financial solvers, irregular dated cash flows and closed-form
+/// scalar rate helpers.
 /// </summary>
 internal static partial class AdditionalFinancialFormulaFunctions
 {
@@ -36,6 +37,31 @@ internal static partial class AdditionalFinancialFormulaFunctions
             3,
             EvaluateExtendedInternalRateOfReturn,
             allowRanges: true);
+        yield return CreateDefinition(
+            "ISPMT",
+            4,
+            4,
+            EvaluateInterestOnEqualPrincipalSchedule);
+        yield return CreateDefinition(
+            "EFFECT",
+            2,
+            2,
+            EvaluateEffectiveAnnualRate);
+        yield return CreateDefinition(
+            "NOMINAL",
+            2,
+            2,
+            EvaluateNominalAnnualRate);
+        yield return CreateDefinition(
+            "RRI",
+            3,
+            3,
+            EvaluateEquivalentGrowthRate);
+        yield return CreateDefinition(
+            "PDURATION",
+            3,
+            3,
+            EvaluatePeriodicDuration);
     }
 
     private static FormulaFunctionDefinition CreateDefinition(
