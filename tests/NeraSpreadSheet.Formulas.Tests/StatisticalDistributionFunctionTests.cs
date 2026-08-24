@@ -203,8 +203,8 @@ public sealed class StatisticalDistributionFunctionTests
     {
         var registry = new BuiltInFormulaFunctionRegistry();
 
-        Assert.AreEqual(183, registry.Count);
-        Assert.AreEqual(183, registry.VersionCount);
+        Assert.AreEqual(186, registry.Count);
+        Assert.AreEqual(186, registry.VersionCount);
     }
 
     private static void AssertNumericError(
