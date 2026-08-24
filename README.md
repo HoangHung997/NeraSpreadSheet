@@ -1,19 +1,16 @@
 # NeraSpreadSheet
 
-> Trạng thái: **M2 — spreadsheet engine, renderer đa host, XLSX/Table/AutoFilter, printing/PDF, Dynamic Arrays, Function Extension SDK v1.0, Conditional Aggregates, Statistical, Financial, Engineering và Database Functions Foundation đã có automated gates; chưa phải bản phát hành production**.
+> Trạng thái: **M2 — spreadsheet engine độc lập, renderer đa host, XLSX/Table/AutoFilter, printing/PDF, Dynamic Arrays, Function Extension SDK v1.0 và các nền tảng hàm chính đã có automated gates; chưa phải bản phát hành production**.
 
-NeraSpreadSheet là SDK spreadsheet độc lập cho **WPF, WinForms và .NET MAUI**, hướng tới cuộn liên tục theo pixel, mô hình sparse, tương thích tài liệu tốt và khả năng mở rộng nghiệp vụ dự toán.
+NeraSpreadSheet là SDK spreadsheet cho **WPF, WinForms và .NET MAUI**, hướng tới cuộn liên tục theo pixel, mô hình sparse, khả năng mở rộng nghiệp vụ và không phụ thuộc runtime Excel, LibreOffice hoặc DevExpress.
 
 ## Nguyên tắc kỹ thuật
 
 - Không tạo native control cho từng ô.
-- Viewport và print preview dùng offset `double`.
-- Workbook, formula engine, extension functions, dynamic arrays, layout, scrolling và printing không phụ thuộc host UI.
-- Spill children là derived output của một owner formula.
+- Workbook, formula engine, dynamic arrays, layout, scrolling và printing không phụ thuộc host UI.
 - Extension functions khai báo identity, version, capabilities, volatility/state, dependency và argument-count policy.
-- Mọi formula family có resource budget và fail-closed behavior.
-- Numerical solvers và schedule loops phải deterministic, bounded, không trả kết quả chưa hội tụ hoặc vượt ngân sách.
-- Excel, LibreOffice và DevExpress chỉ là nguồn tham khảo hành vi, không phải runtime dependency.
+- Mọi solver, schedule loop và numerical primitive đều deterministic, bounded và fail closed.
+- Built-ins chỉ đi qua một đường tổng hợp registry duy nhất.
 
 ## Kiến trúc
 
@@ -39,34 +36,25 @@ Workbook / Rules / Tables / Spill Ownership
 
 ## Phần đã có automated gates
 
-- Sparse workbook/worksheet, selection, clipboard, editor, commands và Undo/Redo.
-- Structural insert/delete/reorder có formula/rule/Table/filter/spill mapping và rollback.
+- Sparse workbook/worksheet, editing, commands, clipboard và Undo/Redo.
+- Structural insert/delete/reorder có formula/rule/Table/filter/spill mapping.
 - Fractional scrolling, freeze/split panes và multi-host display-list rendering.
 - Function Extension SDK API `1.0`.
-- **214 built-in function names**: 191 eager/versioned, 18 AST/reference-aware và 5 dynamic-array.
-- Conditional aggregates, statistical, advanced statistical, financial, engineering và database function foundations.
-- Finance: `PV`, `FV`, `PMT`, `NPER`, `RATE`, `NPV`, `IRR`, `XNPV`, `XIRR`, `IPMT`, `PPMT`, `CUMIPMT`, `CUMPRINC`, `SLN`, `SYD`, `DB`, `DDB`, `VDB`.
-- `CUMIPMT`/`CUMPRINC` dùng cùng schedule/sign/timing contract với `PMT`/`IPMT`/`PPMT`.
-- `DB` khóa fixed declining rate làm tròn ba chữ số, `DDB` khóa declining-factor cap, `VDB` hỗ trợ partial periods và chuyển sang straight-line.
-- Các vòng schedule/depreciation bị giới hạn ở 2.000.000 kỳ.
-- Advanced statistics gồm covariance/correlation/regression và normal/log-normal/exponential/binomial/Poisson/Weibull/beta/gamma/chi-square/Student-t/F.
-- Engineering gồm bitwise/shift, radix conversions, `DELTA`, `GESTEP`.
-- Database gồm 12 criteria-table aggregate functions.
-- Dynamic arrays: `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE` cùng spill ownership, `#SPILL!`, history, clipboard và XLSX boundary.
-- Conditional Formatting, Data Validation, Tables, worksheet AutoFilter và paged native presenters.
-- XLSX values/formulas/styles/panes/rules/Tables/filters/printing và unknown-part preservation.
-- Deterministic pagination, virtualized preview, staged PDF và native printer adapters.
-- Streaming CSV/TSV, cancellation, output limits và formula-injection protection.
+- **219 built-in function names**: 196 eager/versioned, 18 AST/reference-aware và 5 dynamic-array.
+- Conditional aggregates, statistical, advanced statistical, financial, engineering và database foundations.
+- Finance hiện có 23 hàm: annuity/root, periodic/dated cash flow, payment decomposition, cumulative loan schedule, depreciation và scalar rate helpers.
+- `ISPMT`, `EFFECT`, `NOMINAL`, `RRI`, `PDURATION` dùng scalar-only deterministic/pure descriptors.
+- `EFFECT`/`NOMINAL` truncate số kỳ ghép lãi; `RRI`/`PDURATION` khóa inverse round-trip.
+- Financial `log1p` dùng chuỗi 64 hạng khi `|x| <= 0.5` để giữ chính xác ở lãi suất cực nhỏ.
+- Dynamic arrays: `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE` cùng spill ownership và `#SPILL!`.
+- Conditional Formatting, Data Validation, Tables, AutoFilter, XLSX, pagination, staged PDF và streaming CSV/TSV.
 
 Tài liệu nguồn sự thật:
 
 - `docs/current-status.md`;
 - `docs/function-extension-sdk-contract.md`;
-- `docs/advanced-statistical-functions-foundation-contract.md`;
 - `docs/financial-functions-foundation-contract.md`;
-- `docs/engineering-functions-foundation-contract.md`;
-- `docs/database-functions-foundation-contract.md`;
-- `docs/dynamic-arrays-contract.md`;
+- `docs/feature-matrix.md`;
 - `ROADMAP.md`.
 
 ## Build và test
@@ -90,7 +78,7 @@ Mọi thay đổi đi qua pull request; không commit trực tiếp vào `main`.
 
 ## Mốc tiếp theo
 
-**Financial scalar helpers**: `ISPMT`, `EFFECT`, `NOMINAL`, `RRI`, `PDURATION`; sau đó AMOR/date-basis, bond/coupon/treasury/price/yield/duration, statistical hypothesis tests, advanced lookup/dynamic arrays, plugin isolation, drawings/charts, advanced data/pivot và release hardening.
+**Financial calendar/day-count foundation**: shared basis `0..4`, `YEARFRAC`, `COUPDAYBS`, `COUPDAYS`, `COUPDAYSNC`, `COUPNCD`, `COUPPCD`, `COUPNUM`; sau đó bond/treasury/price/yield/duration, hypothesis tests, advanced lookup/arrays, plugin isolation, drawings/charts, pivot và release hardening.
 
 ## Giấy phép
 
