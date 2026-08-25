@@ -22,6 +22,10 @@ internal static class StandardFormulaFunctions
         {
             yield return function;
         }
+        foreach (var function in DateCompatibilityFormulaFunctions.Create())
+        {
+            yield return function;
+        }
         foreach (var function in StatisticalFormulaFunctions.Create())
         {
             yield return function;
@@ -71,6 +75,10 @@ internal static class StandardFormulaFunctions
             yield return function;
         }
         foreach (var function in OddCouponFormulaFunctions.Create())
+        {
+            yield return function;
+        }
+        foreach (var function in OddLastYieldFormulaFunctions.Create())
         {
             yield return function;
         }
