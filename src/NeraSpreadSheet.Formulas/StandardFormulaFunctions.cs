@@ -38,6 +38,14 @@ internal static class StandardFormulaFunctions
         {
             yield return function;
         }
+        foreach (var function in LookupFormulaFunctions.Create())
+        {
+            yield return function;
+        }
+        foreach (var function in PercentOfFormulaFunctions.Create())
+        {
+            yield return function;
+        }
         foreach (var function in StatisticalFormulaFunctions.Create())
         {
             yield return function;

@@ -9,10 +9,12 @@ internal static class ReferenceIntrospectionFormulaEvaluation
     public static bool IsReferenceCandidate(FormulaNode node) =>
         node is CellNode or RangeNode ||
         node is FunctionNode function &&
-        string.Equals(
-            function.Name,
-            "CHOOSE",
-            StringComparison.OrdinalIgnoreCase);
+        (string.Equals(
+             function.Name,
+             "CHOOSE",
+             StringComparison.OrdinalIgnoreCase) ||
+         AdvancedReferenceFormulaEvaluation.IsReferenceFunction(
+             function.Name));
 
     public static bool TryResolveReferenceNode(
         FormulaNode node,
@@ -218,18 +220,15 @@ public sealed partial class NeraFormulaEngine
         out CellRange range,
         out CellValue error)
     {
-        if (!ReferenceIntrospectionFormulaEvaluation.TryResolveReferenceNode(
+        if (!AdvancedReferenceFormulaEvaluation.TryResolve(
                 node,
                 candidate => EvaluateNode(
                     candidate,
                     context,
                     dependencies),
-                out var reference,
-                out error) ||
-            !ReferenceIntrospectionFormulaEvaluation.TryGetRange(
-                reference,
-                out worksheetName,
-                out range))
+                context,
+                out var target,
+                out error))
         {
             worksheetName = null;
             range = default;
@@ -240,6 +239,8 @@ public sealed partial class NeraFormulaEngine
             return false;
         }
 
+        worksheetName = target.WorksheetName;
+        range = target.Range;
         return true;
     }
 }

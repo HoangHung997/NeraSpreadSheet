@@ -35,21 +35,19 @@ public sealed partial class NeraDynamicArrayFormulaEngine
                 FormulaErrorCode.InvalidValue,
                 dependencies);
         }
-        if (!ReferenceIntrospectionFormulaEvaluation.TryResolveReferenceNode(
+        if (!AdvancedReferenceFormulaEvaluation.TryResolve(
                 function.Arguments[0],
                 node => EvaluateScalarNode(
                     node,
                     context,
                     dependencies),
-                out var reference,
-                out var error) ||
-            !ReferenceIntrospectionFormulaEvaluation.TryGetRange(
-                reference,
-                out _,
-                out var range))
+                context,
+                out var target,
+                out var error))
         {
             return ReferenceError(error, dependencies);
         }
+        var range = target.Range;
 
         return FormulaArrayEvaluationResult.Success(
             FormulaArrayValue.Create(
@@ -95,22 +93,19 @@ public sealed partial class NeraDynamicArrayFormulaEngine
 
         if (ReferenceIntrospectionFormulaEvaluation.IsReferenceCandidate(node))
         {
-            if (!ReferenceIntrospectionFormulaEvaluation
-                    .TryResolveReferenceNode(
-                        node,
-                        candidate => EvaluateScalarNode(
-                            candidate,
-                            context,
-                            dependencies),
-                        out var reference,
-                        out var referenceError) ||
-                !ReferenceIntrospectionFormulaEvaluation.TryGetRange(
-                    reference,
-                    out _,
-                    out var range))
+            if (!AdvancedReferenceFormulaEvaluation.TryResolve(
+                    node,
+                    candidate => EvaluateScalarNode(
+                        candidate,
+                        context,
+                        dependencies),
+                    context,
+                    out var target,
+                    out var referenceError))
             {
                 return ReferenceError(referenceError, dependencies);
             }
+            var range = target.Range;
 
             return FormulaArrayEvaluationResult.Success(
                 new FormulaArrayValue(
