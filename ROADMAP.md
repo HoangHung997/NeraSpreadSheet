@@ -19,16 +19,28 @@
 - [x] Function Extension SDK API `1.0` và một authoritative registry path.
 - [x] Statistical, financial, engineering, database và dynamic-array foundations.
 - [x] F001–F006 financial/date milestones.
-- [x] F007: `NETWORKDAYS`, `NETWORKDAYS.INTL`, `WORKDAY`, `WORKDAY.INTL`, `NUMBERVALUE`.
-- [ ] F008: `ADDRESS`, `AREAS`, `CHOOSE`, `CHOOSECOLS`, `CHOOSEROWS`.
-- [ ] Advanced lookup/reference và dynamic-array projection.
+- [x] F007 business calendar và locale-number parsing.
+- [x] F008: `ADDRESS`, `AREAS`, `CHOOSE`, `CHOOSECOLS`, `CHOOSEROWS`.
+- [ ] F009: `COLUMN`, `COLUMNS`, `DROP`, `EXPAND`, `FORMULATEXT`.
+- [ ] Remaining advanced lookup/reference và dynamic-array projection.
 - [ ] LET/LAMBDA, lexical scope, higher-order arrays và recursion budgets.
 - [ ] Full text/regex/byte-width compatibility.
 - [ ] Complex/unit/special engineering và legacy aliases.
 - [ ] Cube/web/data-type/external-state providers và isolation.
 - [ ] Final Microsoft/OpenFormula catalog delta = zero.
 
-## C. Calendar và financial foundations
+## C. Reference và dynamic-array foundations
+
+- [x] A1/cross-sheet references, range identity và source dependency capture.
+- [x] Missing optional arguments và parenthesized reference-union AST.
+- [x] `AREAS` geometry counting không đọc cell values.
+- [x] Lazy scalar/reference selection qua `CHOOSE`.
+- [x] `CHOOSECOLS`/`CHOOSEROWS` với negative index, duplicate/order preservation và spill ownership.
+- [ ] Intersection operator, `A1#`, implicit intersection `@` và full reference-return algebra.
+- [ ] CHOOSE selector-array compatibility và array constants.
+- [ ] Broader external Excel/LibreOffice differential corpus.
+
+## D. Calendar và financial foundations
 
 - [x] Day-count basis `0..4`, YEARFRAC và coupon date/day/count helpers.
 - [x] Maturity securities, regular coupon, treasury bill và odd-coupon price/yield families.
@@ -38,7 +50,7 @@
 - [x] Deterministic locale-number context và `NUMBERVALUE`.
 - [ ] Broader holiday/date/locale differential corpus.
 
-## D. XLSX, data, printing và PDF
+## E. XLSX, data, printing và PDF
 
 - [x] Cells, formulas, styles, panes, rules, Tables/filters và current print settings.
 - [x] Unknown package-part preservation.
@@ -46,7 +58,7 @@
 - [x] Deterministic pagination, staged PDF và desktop print adapters.
 - [ ] Full dynamic-array metadata, drawings/charts, custom paper và independent visual corpus.
 
-## E. Data controls và product hardening
+## F. Data controls và product hardening
 
 - [x] Sort, validation, Tables, filters, totals và paged native presenters.
 - [x] Exact-head multi-platform CI matrix và repository validation runner.
@@ -65,19 +77,19 @@ Mỗi public milestone chứa đúng năm tên hàm mới và chỉ hoàn thành
 5. **F005 complete:** `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE`.
 6. **F006 complete:** `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM`.
 7. **F007 complete:** `NETWORKDAYS`, `NETWORKDAYS.INTL`, `WORKDAY`, `WORKDAY.INTL`, `NUMBERVALUE`.
-8. **F008 next:** `ADDRESS`, `AREAS`, `CHOOSE`, `CHOOSECOLS`, `CHOOSEROWS`.
-9. Tiếp tục theo dependency pools trong master schedule.
-10. Kết thúc bằng catalog audit, differential corpora, fuzzing và Codex final acceptance.
+8. **F008 complete:** `ADDRESS`, `AREAS`, `CHOOSE`, `CHOOSECOLS`, `CHOOSEROWS`.
+9. **F009 next:** `COLUMN`, `COLUMNS`, `DROP`, `EXPAND`, `FORMULATEXT`.
+10. Tiếp tục theo dependency pools trong master schedule, rồi catalog audit/differential/fuzz/Codex final acceptance.
 
-## Weighted progress after F007
+## Weighted progress after F008
 
 - Engine/viewport/renderer foundation: khoảng `92%`.
 - Basic spreadsheet MVP: khoảng `97–98%`.
-- Complete professional roadmap: khoảng `83–84%`.
-- Production release readiness: khoảng `61–64%`.
+- Complete professional roadmap: khoảng `84–85%`.
+- Production release readiness: khoảng `62–65%`.
 
 Đây là engineering-weighted estimates, không phải checkbox counts.
 
 ## Validation rule
 
-F007 implementation head `95748373b9dde1f0faffe2c61d2ad1262cff7532` build với zero warnings/errors, qua architecture verification và **229/229 formula tests** trong CI #878. PR #1 giữ Draft và chưa merge; public milestone chỉ được khóa sau documentation/handoff exact-head CI xanh.
+F008 implementation head `775a24dfa2fa9dc059896d5445179077b4ffe641` build với zero warnings/errors, qua architecture verification và **234/234 formula tests** trong CI #880. PR #1 giữ Draft và chưa merge; public milestone chỉ được khóa sau documentation/handoff exact-head CI xanh.

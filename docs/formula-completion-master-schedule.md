@@ -6,14 +6,14 @@
 
 | Chỉ số | Giá trị |
 |---|---:|
-| Eager/versioned built-ins | 238 |
-| AST/reference-aware | 18 |
-| Dynamic-array built-ins | 5 |
-| Tổng built-ins | 261 |
+| Eager/versioned built-ins | 239 |
+| AST/reference-aware | 20 |
+| Dynamic-array built-ins | 7 |
+| Tổng built-ins | 266 |
 | Financial functions | 56 |
-| Formula tests | 229 |
-| Batch hoàn thành | F001–F007 |
-| Batch kế tiếp | F008 |
+| Formula tests | 234 |
+| Batch hoàn thành | F001–F008 |
+| Batch kế tiếp | F009 |
 | PR | #1 · Draft · chưa merge |
 
 ## 2. Baseline đích
@@ -52,7 +52,8 @@ Trước mỗi batch, registry audit loại mọi tên đã có và lấy năm t
 | F005 | `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE` | ✅ Complete |
 | F006 | `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM` | ✅ Complete |
 | F007 | `NETWORKDAYS`, `NETWORKDAYS.INTL`, `WORKDAY`, `WORKDAY.INTL`, `NUMBERVALUE` | ✅ Complete |
-| F008 | `ADDRESS`, `AREAS`, `CHOOSE`, `CHOOSECOLS`, `CHOOSEROWS` | **Next** |
+| F008 | `ADDRESS`, `AREAS`, `CHOOSE`, `CHOOSECOLS`, `CHOOSEROWS` | ✅ Complete |
+| F009 | `COLUMN`, `COLUMNS`, `DROP`, `EXPAND`, `FORMULATEXT` | **Next** |
 
 Nếu audit thấy tên đã tồn tại, tên đó được thay bằng tên Pending đầu tiên của pool kế tiếp để batch vẫn đủ đúng năm hàm mới.
 
@@ -60,26 +61,25 @@ Nếu audit thấy tên đã tồn tại, tên đó được thay bằng tên Pe
 
 ### P02 — Lookup, reference và dynamic-array projection
 
-F008 lấy năm tên đầu:
+F009 lấy năm tên đầu còn lại:
 
 ```text
-ADDRESS
-AREAS
-CHOOSE
-CHOOSECOLS
-CHOOSEROWS
+COLUMN
+COLUMNS
+DROP
+EXPAND
+FORMULATEXT
 ```
 
 Phần còn lại:
 
 ```text
-COLUMN COLUMNS DROP EXPAND FORMULATEXT GETPIVOTDATA GROUPBY HSTACK
-HYPERLINK INDIRECT LOOKUP OFFSET PERCENTOF PIVOTBY ROW ROWS SHEET
-SHEETS SORTBY TAKE TOCOL TOROW TRIMRANGE VSTACK WRAPCOLS WRAPROWS
-XMATCH
+GETPIVOTDATA GROUPBY HSTACK HYPERLINK INDIRECT LOOKUP OFFSET
+PERCENTOF PIVOTBY ROW ROWS SHEET SHEETS SORTBY TAKE TOCOL TOROW
+TRIMRANGE VSTACK WRAPCOLS WRAPROWS XMATCH
 ```
 
-Phase này phải khóa reference identity, scalar/reference/array capability, negative column/row indices, shape propagation và dependency capture.
+Phase này phải khóa current-cell context, reference identity, formula-text access, shape propagation, padding/error semantics và dependency capture.
 
 ### P03 — LET/LAMBDA, higher-order arrays và logical
 
@@ -185,9 +185,9 @@ Chỉ tuyên bố đủ hàm khi:
 ## 7. Next five
 
 ```text
-ADDRESS
-AREAS
-CHOOSE
-CHOOSECOLS
-CHOOSEROWS
+COLUMN
+COLUMNS
+DROP
+EXPAND
+FORMULATEXT
 ```

@@ -13,17 +13,17 @@ Mỗi function khai báo namespace/name identity, implementation version, minimu
 - Side-by-side versions, explicit replacement và unregister fallback.
 - Global name/alias conflict rejection.
 - Legacy `IFormulaFunction` adaptation.
-- Một authoritative built-in aggregation path.
+- Một authoritative eager built-in aggregation path.
 
 ## 3. Invocation
 
 Invocation arguments giữ scalar values hoặc range source identity, shape và row-major values. Unsupported scalar/range/array combinations bị từ chối trước evaluator. Argument counting dùng logical hoặc flattened policy theo metadata.
 
-Engine capture range dependency trước invocation. F007 sử dụng contract này để holiday ranges trong NETWORKDAYS/WORKDAY tham gia affected-only recalculation mà không khai báo hidden dependency.
+Engine capture range dependency trước invocation. Reference-aware AST functions và dynamic-array functions dùng engine-owned paths vì cần lazy evaluation hoặc spill ownership; chúng không tạo registry thứ hai.
 
 ## 4. Built-in milestone
 
-Eager/versioned registry chứa **238 names**:
+Eager/versioned registry chứa **239 names**:
 
 - 92 original flattened-value functions;
 - 11 Statistical Foundation functions;
@@ -31,32 +31,34 @@ Eager/versioned registry chứa **238 names**:
 - 56 financial functions;
 - 19 engineering functions;
 - 12 database functions;
-- 9 later date/business-calendar/locale functions ngoài financial count.
+- 9 date/business-calendar/locale functions ngoài financial count;
+- 1 F008 eager reference-text function: `ADDRESS`.
 
-Broader subsystem bổ sung 18 AST/reference-aware và 5 dynamic-array names, tổng **261 built-ins**.
+Broader subsystem bổ sung **20 AST/reference-aware** và **7 dynamic-array** names, tổng **266 built-ins**.
 
-F007 metadata:
+F008 metadata:
 
-- `NETWORKDAYS`, `NETWORKDAYS.INTL`, `WORKDAY`, `WORKDAY.INTL` expose scalar + range capability, deterministic/pure, scalar-returning và logical-argument-counted.
-- Range capability chỉ dành cho holiday argument; evaluator vẫn enforce scalar start/end/days/weekend.
-- `NUMBERVALUE` scalar-only, deterministic, scalar-returning, logical-argument-counted và `ContextReadOnly`.
-- `IFormulaLocaleEvaluationContext` là optional deterministic context contract; không phải external-state permission.
+- `ADDRESS` scalar-only, deterministic/pure, scalar-returning và logical-argument-counted.
+- `AREAS`/`CHOOSE` nằm trong AST/reference-aware engine vì cần reference identity/lazy branch.
+- `CHOOSECOLS`/`CHOOSEROWS` nằm trong dynamic engine vì cần array shape và spill ownership.
+- Các path này dùng cùng parser, dependency model và public function-name namespace; không đăng ký duplicate eager descriptors.
 
 ## 5. Failure và resource policy
 
 Registration reject incompatible API, unsupported capabilities, invalid bounds, conflicts, duplicate exact versions without replacement và disallowed external state. Evaluation reject unsupported argument kinds. Family implementations trả explicit spreadsheet errors cho invalid domains, budgets hoặc non-finite results.
 
-F007 caps:
+F008 caps:
 
-- holiday arguments: 2.000.000 values;
-- NUMBERVALUE text: 1.000.000 characters;
-- business-day shift: bounded by DateTime domain và logarithmic search iterations.
+- CHOOSE value arguments: 254;
+- projection output: 1.000.000 cells;
+- ADDRESS row/column: worksheet limits;
+- unsupported reference union as value: fail closed.
 
 ## 6. Shared services và test counts
 
-- `FinancialDateMath` là internal shared financial service, không phải registry thứ hai.
-- `BusinessDayCalendarMath` là internal shared calendar service, không phải registry thứ hai.
-- Formula count regressions đọc `BuiltInFormulaTestCounts.EagerVersioned`; mỗi batch cập nhật một hằng authoritative.
+- `FinancialDateMath`, `BusinessDayCalendarMath` và reference-selection helpers là internal shared services, không phải registry thứ hai.
+- Formula count regressions đọc `BuiltInFormulaTestCounts.EagerVersioned`; F008 tăng shared eager count từ 238 lên 239.
+- Complete count được báo theo unique public names: 239 eager + 20 AST/reference-aware + 7 dynamic = 266.
 
 ## 7. Pending
 

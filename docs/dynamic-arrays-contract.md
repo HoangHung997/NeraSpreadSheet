@@ -1,6 +1,6 @@
 # Dynamic Arrays Foundation contract
 
-This document defines the validated first-generation dynamic-array behavior of NeraSpreadSheet. Excel and LibreOffice are compatibility references only and are not runtime dependencies.
+This document defines the validated dynamic-array behavior of NeraSpreadSheet. Excel and LibreOffice are compatibility references only and are not runtime dependencies.
 
 ## 1. Architecture boundary
 
@@ -13,7 +13,7 @@ This document defines the validated first-generation dynamic-array behavior of N
 - OpenXml behavior remains inside `NeraSpreadSheet.OpenXml`.
 - SDK array capabilities exist in metadata but are rejected by the default v1 registry until plugin-array spill integration exists.
 
-The built-in subsystem currently recognizes 121 scalar/reference names and five dynamic-array names, for 126 names total. User extensions are additional.
+The complete built-in subsystem currently contains **266 unique names**: 239 eager/versioned, 20 AST/reference-aware and 7 dynamic-array names.
 
 ## 2. Array value and safety limits
 
@@ -59,6 +59,8 @@ Replacement validates owner/shape, preflights target, clears obsolete children p
 - Source edits may resize output.
 - Blocked spills recover after blocker removal.
 - Stabilization is bounded to eight passes.
+- F008 CHOOSE spill bridge captures selector plus selected source only.
+- CHOOSECOLS/CHOOSEROWS capture source and index ranges/arrays.
 
 The `A1#` operator is not implemented.
 
@@ -69,8 +71,21 @@ The `A1#` operator is not implemented.
 - `FILTER(array,include,[if_empty])`: row/column Boolean vector filtering; mismatch `#VALUE!`, no match fallback or `#CALC!`.
 - `SORT(array,[sort_index],[sort_order],[by_col])`: one stable row/column key.
 - `UNIQUE(array,[by_col],[exactly_once])`: first-occurrence row/column uniqueness.
+- `CHOOSECOLS(array,col_num1,...)`: ordered/duplicate/negative column projection.
+- `CHOOSEROWS(array,row_num1,...)`: ordered/duplicate/negative row projection.
+- `CHOOSE(index_num,...)`: AST/reference-aware name with a dynamic-array bridge when the selected branch is a range/supported nested array.
 
-## 8. Editing and history
+## 8. Projection semantics
+
+- Index values may come from scalars, ranges or supported nested arrays.
+- Values are consumed row-major.
+- Numeric values truncate toward zero.
+- Positive indices start at 1; negative indices count from the end.
+- Zero/out-of-range returns `#VALUE!`.
+- Requested order and duplicates are preserved.
+- Output over 1,000,000 cells returns `#NUM!`.
+
+## 9. Editing and history
 
 - Child value/formula edits are rejected.
 - Partial clear is rejected.
@@ -79,11 +94,11 @@ The `A1#` operator is not implemented.
 - Source edits trigger affected recalculation.
 - Ordinary non-spill editing is unchanged.
 
-## 9. Structural operations
+## 10. Structural operations
 
 Derived children are removed from canonical structural state before row/column transforms. Owner formulas and ordinary data move/rewrite, then dynamic calculation regenerates output. Undo/Redo uses the same rule. Rejected preflight restores/rematerializes cleared output without false version advancement.
 
-## 10. Clipboard
+## 11. Clipboard
 
 - Partial spill copy/cut is rejected.
 - Complete copy stores owner formula once.
@@ -93,25 +108,26 @@ Derived children are removed from canonical structural state before row/column t
 - Paste intersecting a spill is rejected before history.
 - Complete cut and Undo are supported.
 
-## 11. Snapshot and rendering boundary
+## 12. Snapshot and rendering boundary
 
 `WorksheetSnapshot` captures immutable spill ownership with materialized values. Renderers display sparse cells while selection/hit-test/UI can identify ownership without mutable worksheet access. Dedicated spill-border/selection UX is pending.
 
-## 12. XLSX document boundary
+## 13. XLSX document boundary
 
 `NeraOpenXmlDocumentSerializer` retains owner formula, removes derived child values/formulas, retains child styles and supports load-then-recalculate rematerialization. Package graph validation and unknown-part preservation remain active.
 
 Full Microsoft Office extension metadata and producer cached-spill conventions remain corpus work.
 
-## 13. Function SDK boundary
+## 14. Function SDK boundary
 
 The SDK can describe array arguments/returns and carry `FormulaArrayValue`, but default v1 rejects array-capable extensions until invocation, spill ownership, dependencies and package metadata are integrated end to end.
 
-## 14. Deliberately pending
+## 15. Deliberately pending
 
 - `A1#` and `@`;
 - array constants/vectorized operators;
-- advanced helpers (`SORTBY`, `TAKE`, `DROP`, column/row/stack/wrap families);
+- advanced helpers (`SORTBY`, `TAKE`, `DROP`, stack/wrap families);
+- CHOOSE selector arrays;
 - LET/LAMBDA and higher-order arrays;
 - multi-key/locale sort and complete coercion;
 - native spill UX;
@@ -119,8 +135,8 @@ The SDK can describe array arguments/returns and carry `FormulaArrayValue`, but 
 - large-array hardware budgets/fuzzing;
 - array-returning extensions.
 
-## 15. Validation gates
+## 16. Validation gates
 
-Promotion requires array shape/limit, ownership/collision, dynamic function/dependency, stabilization, edit/history, structure, clipboard, snapshot, XLSX and SDK/Core/Windows/MAUI tests.
+Promotion requires array shape/limit, ownership/collision, dynamic function/dependency, projection order/index, stabilization, edit/history, structure, clipboard, snapshot, XLSX and SDK/Core/Windows/MAUI tests.
 
 PR #1 remains Draft while a newer exact-head CI is red or unknown.

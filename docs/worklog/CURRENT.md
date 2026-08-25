@@ -3,56 +3,56 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` into `develop` — Draft, unmerged
-- F007 exact implementation head: `95748373b9dde1f0faffe2c61d2ad1262cff7532`
-- F007 implementation CI: #878, run `32824453543` — success
-- Formula tests: `229/229`
-- Eager/versioned built-ins: `238`
-- AST/reference-aware built-ins: `18`
-- Dynamic-array built-ins: `5`
-- Complete built-ins: `261`
+- F008 exact implementation head: `775a24dfa2fa9dc059896d5445179077b4ffe641`
+- F008 implementation CI: #880, run `32831433700` — success
+- Formula tests: `234/234`
+- Eager/versioned built-ins: `239`
+- AST/reference-aware built-ins: `20`
+- Dynamic-array built-ins: `7`
+- Complete built-ins: `266`
 - Financial functions: `56`
 - Source of truth: `docs/current-status.md`
 - Master schedule: `docs/formula-completion-master-schedule.md`
 
-## F007 — business calendar và locale-number parsing
+## F008 — reference selection và array projection
 
 | Function | Result | Status |
 |---|---|---|
-| `NETWORKDAYS` | Inclusive default-weekend business-day count | Complete |
-| `NETWORKDAYS.INTL` | Signed count với weekend code/mask | Complete |
-| `WORKDAY` | Default-weekend business-day shifting | Complete |
-| `WORKDAY.INTL` | Custom-weekend business-day shifting | Complete |
-| `NUMBERVALUE` | Explicit/context locale number parsing | Complete |
+| `ADDRESS` | A1/R1C1 reference text với abs modes và sheet prefix | Complete |
+| `AREAS` | Static/union/CHOOSE-selected reference area count | Complete |
+| `CHOOSE` | Lazy scalar/reference selection và selected-range identity | Complete |
+| `CHOOSECOLS` | Ordered/duplicate/negative column projection | Complete |
+| `CHOOSEROWS` | Ordered/duplicate/negative row projection | Complete |
 
 Key gates:
 
-- Published inclusive/signed NETWORKDAYS references.
-- Numeric weekend codes, Monday-first masks và all-weekend behavior.
-- Positive/negative/zero WORKDAY references và holiday exclusions.
-- Holiday duplicate/weekend/blank normalization.
-- Exact holiday range dependency capture.
-- NUMBERVALUE explicit/context separators, whitespace, multi-character separators và repeated percent suffixes.
-- 2.000.000 holiday-value cap, 1.000.000-character text cap và DateTime-domain bounded shifting.
-- Build zero warnings/errors, 229/229 formula tests và architecture verification.
-- CI #878 exact implementation head passed the complete hosted matrix.
+- ADDRESS A1/R1C1, abs modes, missing arguments, quoted sheets và worksheet bounds.
+- Parser missing-argument node và parenthesized reference-union node.
+- AREAS static geometry without value dependencies.
+- AREAS(CHOOSE(...)) selector-only dependency behavior.
+- CHOOSE fractional truncation, lazy unselected branches, selected scalar/range dependency và dynamic spill bridge.
+- CHOOSECOLS/CHOOSEROWS scalar/range/dynamic indexes, negative indices, duplicates và requested ordering.
+- Projection output cap 1.000.000 cells.
+- Build zero warnings/errors, 234/234 formula tests và architecture verification.
+- CI #880 exact implementation head passed the complete hosted matrix.
 
 ## Whole-project snapshot
 
 - Sparse workbook, editing, structural transforms, rules, Tables/AutoFilter và Undo/Redo foundations complete.
-- Parser/AST/dependency graph, SDK API 1.0, 261 built-ins và first-generation dynamic arrays validated.
+- Parser/AST/dependency graph, SDK API 1.0, 266 built-ins và seven dynamic-array names validated.
 - Fractional pixel scrolling, WPF/WinForms/MAUI GPU hosts, XLSX preservation, streaming text, pagination và PDF validated.
 - Major production blockers remain formula/catalog breadth, charts/pivots, packaging/API policy, plugin trust/isolation, security/fuzzing, recovery, localization/accessibility và broad differential/visual corpora.
 
 ## Documentation/handoff gate
 
-This handoff commit synchronizes README, roadmap, current status, feature matrix, formula/SDK contracts, master schedule and F007 worklog. Public F007 completion requires the exact documentation-head hosted CI to remain green.
+This handoff commit synchronizes README, roadmap, current status, feature matrix, reference/dynamic/SDK contracts, master schedule and F008 worklog. Public F008 completion requires the exact documentation-head hosted CI to remain green.
 
-## Next five — F008
+## Next five — F009
 
-1. `ADDRESS`.
-2. `AREAS`.
-3. `CHOOSE`.
-4. `CHOOSECOLS`.
-5. `CHOOSEROWS`.
+1. `COLUMN`.
+2. `COLUMNS`.
+3. `DROP`.
+4. `EXPAND`.
+5. `FORMULATEXT`.
 
-F008 must lock reference identity, selection laziness, negative indices, array shape propagation, spill behavior and dependency capture. PR remains Draft; do not merge while a newer exact-head CI is red or unknown.
+F009 must lock current-cell context, reference shape/introspection, formula-text access, DROP negative/zero semantics, EXPAND shape/padding and dependency capture. PR remains Draft; do not merge while a newer exact-head CI is red or unknown.
