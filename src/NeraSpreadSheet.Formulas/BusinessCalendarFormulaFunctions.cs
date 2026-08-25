@@ -5,8 +5,8 @@ using NeraSpreadSheet.Core;
 namespace NeraSpreadSheet.Formulas;
 
 /// <summary>
-/// Business-day calendar functions and locale-independent numeric text parsing.
-/// Holiday ranges retain their source identity through the versioned SDK.
+/// Business-day calendar functions and deterministic locale-sensitive number
+/// parsing. Holiday ranges preserve source identity through engine capture.
 /// </summary>
 internal static class BusinessCalendarFormulaFunctions
 {
@@ -20,33 +20,25 @@ internal static class BusinessCalendarFormulaFunctions
             "NETWORKDAYS",
             2,
             3,
-            invocation => EvaluateNetworkDays(
-                invocation,
-                international: false),
+            invocation => EvaluateNetworkDays(invocation, false),
             allowRanges: true);
         yield return CreateDefinition(
             "NETWORKDAYS.INTL",
             2,
             4,
-            invocation => EvaluateNetworkDays(
-                invocation,
-                international: true),
+            invocation => EvaluateNetworkDays(invocation, true),
             allowRanges: true);
         yield return CreateDefinition(
             "WORKDAY",
             2,
             3,
-            invocation => EvaluateWorkday(
-                invocation,
-                international: false),
+            invocation => EvaluateWorkday(invocation, false),
             allowRanges: true);
         yield return CreateDefinition(
             "WORKDAY.INTL",
             2,
             4,
-            invocation => EvaluateWorkday(
-                invocation,
-                international: true),
+            invocation => EvaluateWorkday(invocation, true),
             allowRanges: true);
         yield return CreateDefinition(
             "NUMBERVALUE",
@@ -54,8 +46,7 @@ internal static class BusinessCalendarFormulaFunctions
             3,
             EvaluateNumberValue,
             allowRanges: false,
-            securityClassification:
-                FormulaFunctionSecurityClassification.ContextReadOnly);
+            FormulaFunctionSecurityClassification.ContextReadOnly);
     }
 
     private static FormulaFunctionDefinition CreateDefinition(
@@ -99,7 +90,7 @@ internal static class BusinessCalendarFormulaFunctions
             return error;
         }
 
-        var weekendMask = BusinessWeekendMask.SaturdaySunday;
+        var weekend = BusinessWeekendMask.SaturdaySunday;
         var holidayIndex = 2;
         if (international)
         {
@@ -108,7 +99,7 @@ internal static class BusinessCalendarFormulaFunctions
                 !TryGetWeekendMask(
                     invocation.Arguments[2],
                     allowNoWorkdays: true,
-                    out weekendMask,
+                    out weekend,
                     out error))
             {
                 return error;
@@ -119,7 +110,7 @@ internal static class BusinessCalendarFormulaFunctions
         if (invocation.Arguments.Count > holidayIndex &&
             !TryGetHolidays(
                 invocation.Arguments[holidayIndex],
-                weekendMask,
+                weekend,
                 out holidays,
                 out error))
         {
@@ -136,7 +127,7 @@ internal static class BusinessCalendarFormulaFunctions
         var count = BusinessDayCalendarMath.CountBusinessDaysInclusive(
             startDate,
             endDate,
-            weekendMask,
+            weekend,
             holidays);
         return Number(sign * count);
     }
@@ -149,7 +140,7 @@ internal static class BusinessCalendarFormulaFunctions
                 invocation.Arguments[0],
                 out var startDate,
                 out var error) ||
-            !TryGetTruncatedInt64(
+            !TryGetTruncatedInt32(
                 invocation.Arguments[1],
                 out var dayOffset,
                 out error))
@@ -157,7 +148,7 @@ internal static class BusinessCalendarFormulaFunctions
             return error;
         }
 
-        var weekendMask = BusinessWeekendMask.SaturdaySunday;
+        var weekend = BusinessWeekendMask.SaturdaySunday;
         var holidayIndex = 2;
         if (international)
         {
@@ -166,7 +157,7 @@ internal static class BusinessCalendarFormulaFunctions
                 !TryGetWeekendMask(
                     invocation.Arguments[2],
                     allowNoWorkdays: false,
-                    out weekendMask,
+                    out weekend,
                     out error))
             {
                 return error;
@@ -177,7 +168,7 @@ internal static class BusinessCalendarFormulaFunctions
         if (invocation.Arguments.Count > holidayIndex &&
             !TryGetHolidays(
                 invocation.Arguments[holidayIndex],
-                weekendMask,
+                weekend,
                 out holidays,
                 out error))
         {
@@ -187,7 +178,7 @@ internal static class BusinessCalendarFormulaFunctions
         if (!BusinessDayCalendarMath.TryShiftBusinessDays(
                 startDate,
                 dayOffset,
-                weekendMask,
+                weekend,
                 holidays,
                 out var result))
         {
@@ -212,7 +203,6 @@ internal static class BusinessCalendarFormulaFunctions
         {
             return NumericError();
         }
-
         if (!TryGetNumberSeparators(
                 invocation,
                 out var decimalSeparator,
@@ -221,26 +211,25 @@ internal static class BusinessCalendarFormulaFunctions
         {
             return error;
         }
-
         if (!TryParseNumberValue(
                 text,
                 decimalSeparator,
                 groupSeparator,
-                out var value))
+                out var number))
         {
             return InvalidValue();
         }
 
-        return Number(value);
+        return Number(number);
     }
 
     private static bool TryGetWeekendMask(
         FormulaFunctionArgument argument,
         bool allowNoWorkdays,
-        out BusinessWeekendMask mask,
+        out BusinessWeekendMask weekend,
         out FormulaEvaluationResult error)
     {
-        mask = default;
+        weekend = default;
         if (argument.Kind != FormulaFunctionArgumentKind.Scalar)
         {
             error = InvalidValue();
@@ -251,9 +240,9 @@ internal static class BusinessCalendarFormulaFunctions
         if (value.Kind == CellValueKind.Text)
         {
             var text = (string)value.RawValue!;
-            if (BusinessWeekendMask.TryFromString(text, out mask))
+            if (BusinessWeekendMask.TryFromString(text, out weekend))
             {
-                if (!allowNoWorkdays && mask.WorkdayCount == 0)
+                if (!allowNoWorkdays && weekend.WorkdayCount == 0)
                 {
                     error = InvalidValue();
                     return false;
@@ -261,6 +250,12 @@ internal static class BusinessCalendarFormulaFunctions
 
                 error = default!;
                 return true;
+            }
+
+            if (text.Length > 2)
+            {
+                error = InvalidValue();
+                return false;
             }
         }
 
@@ -279,7 +274,7 @@ internal static class BusinessCalendarFormulaFunctions
             truncated > int.MaxValue ||
             !BusinessWeekendMask.TryFromCode(
                 checked((int)truncated),
-                out mask))
+                out weekend))
         {
             error = NumericError();
             return false;
@@ -291,7 +286,7 @@ internal static class BusinessCalendarFormulaFunctions
 
     private static bool TryGetHolidays(
         FormulaFunctionArgument argument,
-        BusinessWeekendMask weekendMask,
+        BusinessWeekendMask weekend,
         out long[] holidays,
         out FormulaEvaluationResult error)
     {
@@ -303,7 +298,7 @@ internal static class BusinessCalendarFormulaFunctions
             return false;
         }
 
-        var values = new HashSet<long>();
+        var uniqueDays = new HashSet<long>();
         foreach (var value in argument.Values)
         {
             if (value.Kind == CellValueKind.Blank ||
@@ -312,25 +307,20 @@ internal static class BusinessCalendarFormulaFunctions
             {
                 continue;
             }
-
-            if (!TryGetHolidayDate(
-                    value,
-                    out var date,
-                    out error))
+            if (!TryGetHolidayDate(value, out var date, out error))
             {
                 holidays = NoHolidays;
                 return false;
             }
-
-            if (!weekendMask.IsWeekend(date))
+            if (!weekend.IsWeekend(date))
             {
-                values.Add(
+                uniqueDays.Add(
                     BusinessDayCalendarMath.GetDayNumber(date));
             }
         }
 
-        holidays = values
-            .OrderBy(static value => value)
+        holidays = uniqueDays
+            .OrderBy(static day => day)
             .ToArray();
         error = default!;
         return true;
@@ -341,39 +331,30 @@ internal static class BusinessCalendarFormulaFunctions
         out DateTime date,
         out FormulaEvaluationResult error)
     {
-        switch (value.Kind)
+        if (value.Kind == CellValueKind.DateTime)
         {
-            case CellValueKind.DateTime:
-                date = ((DateTime)value.RawValue!).Date;
-                error = default!;
-                return true;
-            case CellValueKind.Number:
-                try
-                {
-                    date = DateTime.FromOADate(
-                        (double)value.RawValue!).Date;
-                    error = default!;
-                    return true;
-                }
-                catch (ArgumentException)
-                {
-                    date = default;
-                    error = NumericError();
-                    return false;
-                }
-            case CellValueKind.Text:
-                if (DateTime.TryParse(
-                        (string)value.RawValue!,
-                        CultureInfo.InvariantCulture,
-                        DateTimeStyles.AllowWhiteSpaces |
-                        DateTimeStyles.RoundtripKind,
-                        out date))
-                {
-                    date = date.Date;
-                    error = default!;
-                    return true;
-                }
-                break;
+            date = ((DateTime)value.RawValue!).Date;
+            error = default!;
+            return true;
+        }
+        if (value.Kind == CellValueKind.Number)
+        {
+            return TryGetOaDate(
+                (double)value.RawValue!,
+                out date,
+                out error);
+        }
+        if (value.Kind == CellValueKind.Text &&
+            DateTime.TryParse(
+                (string)value.RawValue!,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AllowWhiteSpaces |
+                DateTimeStyles.RoundtripKind,
+                out date))
+        {
+            date = date.Date;
+            error = default!;
+            return true;
         }
 
         date = default;
@@ -396,21 +377,11 @@ internal static class BusinessCalendarFormulaFunctions
         var value = argument.ScalarValue;
         if (value.Kind == CellValueKind.Number)
         {
-            try
-            {
-                date = DateTime.FromOADate(
-                    (double)value.RawValue!).Date;
-                error = default!;
-                return true;
-            }
-            catch (ArgumentException)
-            {
-                date = default;
-                error = NumericError();
-                return false;
-            }
+            return TryGetOaDate(
+                (double)value.RawValue!,
+                out date,
+                out error);
         }
-
         if (!FormulaValueCoercion.TryDateTime(
                 value,
                 out date,
@@ -426,9 +397,28 @@ internal static class BusinessCalendarFormulaFunctions
         return true;
     }
 
-    private static bool TryGetTruncatedInt64(
+    private static bool TryGetOaDate(
+        double serial,
+        out DateTime date,
+        out FormulaEvaluationResult error)
+    {
+        try
+        {
+            date = DateTime.FromOADate(serial).Date;
+            error = default!;
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            date = default;
+            error = NumericError();
+            return false;
+        }
+    }
+
+    private static bool TryGetTruncatedInt32(
         FormulaFunctionArgument argument,
-        out long value,
+        out int value,
         out FormulaEvaluationResult error)
     {
         if (argument.Kind != FormulaFunctionArgumentKind.Scalar ||
@@ -444,8 +434,7 @@ internal static class BusinessCalendarFormulaFunctions
         }
 
         var truncated = Math.Truncate(number);
-        if (truncated < int.MinValue ||
-            truncated > int.MaxValue)
+        if (truncated < int.MinValue || truncated > int.MaxValue)
         {
             value = default;
             error = NumericError();
@@ -480,6 +469,8 @@ internal static class BusinessCalendarFormulaFunctions
         out char? groupSeparator,
         out FormulaEvaluationResult error)
     {
+        decimalSeparator = null;
+        groupSeparator = null;
         var defaultDecimal = ".";
         var defaultGroup = ",";
         if (invocation.Context is IFormulaLocaleEvaluationContext locale)
@@ -495,8 +486,11 @@ internal static class BusinessCalendarFormulaFunctions
                 defaultDecimal,
                 allowWhitespace: false,
                 out decimalSeparator,
-                out error) ||
-            !TryGetSeparator(
+                out error))
+        {
+            return false;
+        }
+        if (!TryGetSeparator(
                 invocation.Arguments.Count >= 3
                     ? invocation.Arguments[2]
                     : null,
@@ -507,7 +501,6 @@ internal static class BusinessCalendarFormulaFunctions
         {
             return false;
         }
-
         if (decimalSeparator.HasValue &&
             groupSeparator.HasValue &&
             decimalSeparator.Value == groupSeparator.Value)
@@ -522,23 +515,13 @@ internal static class BusinessCalendarFormulaFunctions
 
     private static bool TryGetSeparator(
         FormulaFunctionArgument? argument,
-        string defaultValue,
+        string fallback,
         bool allowWhitespace,
         out char? separator,
         out FormulaEvaluationResult error)
     {
-        string value;
-        if (argument is null)
-        {
-            value = defaultValue;
-            if (string.IsNullOrEmpty(value))
-            {
-                separator = null;
-                error = default!;
-                return true;
-            }
-        }
-        else
+        var text = fallback;
+        if (argument is not null)
         {
             if (argument.Kind != FormulaFunctionArgumentKind.Scalar)
             {
@@ -547,17 +530,20 @@ internal static class BusinessCalendarFormulaFunctions
                 return false;
             }
 
-            value = FormulaValueCoercion.ToText(argument.ScalarValue);
-            if (value.Length == 0)
-            {
-                separator = null;
-                error = default!;
-                return true;
-            }
+            text = FormulaValueCoercion.ToText(argument.ScalarValue);
         }
 
-        var candidate = value[0];
-        if (!IsValidSeparator(candidate, allowWhitespace))
+        if (string.IsNullOrEmpty(text))
+        {
+            separator = null;
+            error = default!;
+            return true;
+        }
+
+        var candidate = text[0];
+        if (char.IsDigit(candidate) ||
+            !allowWhitespace && char.IsWhiteSpace(candidate) ||
+            candidate is '+' or '-' or '%' or 'e' or 'E')
         {
             separator = null;
             error = InvalidValue();
@@ -569,100 +555,72 @@ internal static class BusinessCalendarFormulaFunctions
         return true;
     }
 
-    private static bool IsValidSeparator(
-        char value,
-        bool allowWhitespace) =>
-        !char.IsDigit(value) &&
-        (allowWhitespace || !char.IsWhiteSpace(value)) &&
-        value is not '+' and not '-' and not '%' and
-        not 'e' and not 'E';
-
     private static bool TryParseNumberValue(
         string text,
         char? decimalSeparator,
         char? groupSeparator,
         out double value)
     {
-        if (text.Length == 0)
-        {
-            value = 0d;
-            return true;
-        }
-
-        var compact = new StringBuilder(text.Length);
+        var compactBuilder = new StringBuilder(text.Length);
         foreach (var character in text)
         {
             if (!char.IsWhiteSpace(character))
             {
-                compact.Append(character);
+                compactBuilder.Append(character);
             }
         }
 
-        if (compact.Length == 0)
+        if (compactBuilder.Length == 0)
         {
             value = 0d;
             return true;
         }
 
         var percentCount = 0;
-        while (compact.Length > 0 &&
-               compact[^1] == '%')
+        while (compactBuilder.Length > 0 &&
+               compactBuilder[compactBuilder.Length - 1] == '%')
         {
             percentCount++;
-            compact.Length--;
+            compactBuilder.Length--;
         }
-        if (compact.Length == 0 ||
-            compact.ToString().Contains('%'))
+        if (compactBuilder.Length == 0 ||
+            compactBuilder.ToString().IndexOf('%') >= 0)
         {
             value = default;
             return false;
         }
 
-        var normalized = compact.ToString();
-        var decimalIndex = -1;
-        if (decimalSeparator.HasValue)
+        var compact = compactBuilder.ToString();
+        var normalized = new StringBuilder(compact.Length);
+        var decimalSeen = false;
+        foreach (var character in compact)
         {
-            decimalIndex = normalized.IndexOf(decimalSeparator.Value);
-            if (decimalIndex >= 0 &&
-                normalized.IndexOf(
-                    decimalSeparator.Value,
-                    decimalIndex + 1) >= 0)
+            if (groupSeparator.HasValue &&
+                character == groupSeparator.Value)
             {
-                value = default;
-                return false;
-            }
-        }
-
-        if (groupSeparator.HasValue)
-        {
-            var groupIndex = normalized.IndexOf(groupSeparator.Value);
-            while (groupIndex >= 0)
-            {
-                if (decimalIndex >= 0 &&
-                    groupIndex > decimalIndex)
+                if (decimalSeen)
                 {
                     value = default;
                     return false;
                 }
 
-                normalized = normalized.Remove(groupIndex, 1);
-                if (decimalIndex >= 0 &&
-                    groupIndex < decimalIndex)
-                {
-                    decimalIndex--;
-                }
-                groupIndex = normalized.IndexOf(groupSeparator.Value);
+                continue;
             }
-        }
+            if (decimalSeparator.HasValue &&
+                character == decimalSeparator.Value)
+            {
+                if (decimalSeen)
+                {
+                    value = default;
+                    return false;
+                }
 
-        if (decimalSeparator.HasValue &&
-            decimalIndex >= 0 &&
-            decimalSeparator.Value != '.')
-        {
-            normalized =
-                normalized[..decimalIndex] +
-                "." +
-                normalized[(decimalIndex + 1)..];
+                decimalSeen = true;
+                normalized.Append('.');
+                continue;
+            }
+
+            normalized.Append(character);
         }
 
         const NumberStyles styles =
@@ -670,7 +628,7 @@ internal static class BusinessCalendarFormulaFunctions
             NumberStyles.AllowDecimalPoint |
             NumberStyles.AllowExponent;
         if (!double.TryParse(
-                normalized,
+                normalized.ToString(),
                 styles,
                 CultureInfo.InvariantCulture,
                 out value) ||
