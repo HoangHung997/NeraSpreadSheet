@@ -14,8 +14,12 @@ public sealed class FormulaFunctionSdkTests
     {
         var registry = new BuiltInFormulaFunctionRegistry();
 
-        Assert.AreEqual(208, registry.Count);
-        Assert.AreEqual(208, registry.VersionCount);
+        Assert.AreEqual(
+            BuiltInFormulaTestCounts.EagerVersioned,
+            registry.Count);
+        Assert.AreEqual(
+            BuiltInFormulaTestCounts.EagerVersioned,
+            registry.VersionCount);
         Assert.AreEqual(
             FormulaFunctionApiVersion.Current,
             registry.HostApiVersion);
