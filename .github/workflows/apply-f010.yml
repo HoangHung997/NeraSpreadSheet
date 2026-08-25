@@ -46,11 +46,13 @@ jobs:
               "AdvancedReferenceAndAggregationFormulaFunctionTests.cs"
           )
           text = path.read_text(encoding="utf-8")
-          old = "IReadOnlyList<FormulaPivotFieldItem> LastPivotItems"
-          new = "FormulaPivotFieldItem[] LastPivotItems"
-          if old not in text:
+          old_type = "IReadOnlyList<FormulaPivotFieldItem> LastPivotItems"
+          new_type = "FormulaPivotFieldItem[] LastPivotItems"
+          if old_type not in text:
               raise SystemExit("Expected LastPivotItems declaration was not found.")
-          path.write_text(text.replace(old, new), encoding="utf-8")
+          text = text.replace(old_type, new_type)
+          text = text.replace("LastPivotItems.Count", "LastPivotItems.Length")
+          path.write_text(text, encoding="utf-8")
           PY
 
       - name: Restore
