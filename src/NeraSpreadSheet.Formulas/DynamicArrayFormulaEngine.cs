@@ -155,6 +155,34 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
         {
             return EvaluateChooseRows(function, context, dependencies);
         }
+        if (string.Equals(
+                function.Name,
+                "COLUMN",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateColumnArray(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "COLUMNS",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateColumnsArray(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "DROP",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateDrop(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "EXPAND",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateExpand(function, context, dependencies);
+        }
         return Failure("#NAME?", FormulaErrorCode.InvalidName, dependencies);
     }
 
@@ -320,7 +348,8 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
                     "#VALUE!",
                     FormulaErrorCode.InvalidValue,
                     dependencies);
-            case FunctionNode function when IsDynamicFunction(function.Name):
+            case FunctionNode function
+                when IsDynamicFunction(function.Name):
                 return EvaluateFunction(function, context, dependencies);
             default:
                 var scalar = EvaluateScalarNode(node, context, dependencies);
@@ -384,6 +413,22 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
         string.Equals(
             name,
             "CHOOSEROWS",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "COLUMN",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "COLUMNS",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "DROP",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "EXPAND",
             StringComparison.OrdinalIgnoreCase);
 
     private static bool TryPositiveInteger(

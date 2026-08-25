@@ -179,6 +179,27 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
         }
         if (string.Equals(
                 function.Name,
+                "COLUMN",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateColumn(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "COLUMNS",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateColumns(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "FORMULATEXT",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateFormulaText(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
                 "IF",
                 StringComparison.OrdinalIgnoreCase))
         {

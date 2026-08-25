@@ -76,6 +76,24 @@ public interface IFilterAwareFormulaEvaluationContext
         CellRange referencedRange);
 }
 
+/// <summary>
+/// Exposes the current formula-cell identity and formula text without forcing
+/// value evaluation. Reference-introspection functions use this optional
+/// contract to preserve laziness and exact metadata dependencies.
+/// </summary>
+public interface IFormulaReferenceIntrospectionContext
+    : IFormulaEvaluationContext
+{
+    string CurrentWorksheetName { get; }
+
+    CellAddress CurrentCellAddress { get; }
+
+    bool TryGetCellFormula(
+        string? worksheetName,
+        CellAddress address,
+        out string? formula);
+}
+
 public interface IFormulaEngine
 {
     FormulaEvaluationResult Evaluate(

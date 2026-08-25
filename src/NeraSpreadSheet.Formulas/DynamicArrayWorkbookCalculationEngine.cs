@@ -130,7 +130,9 @@ public sealed class DynamicArrayWorkbookCalculationEngine
                             AddChange(
                                 changes,
                                 worksheet,
-                                Union(previous?.Range, new CellRange(address, address)));
+                                Union(
+                                    previous?.Range,
+                                    new CellRange(address, address)));
                             updatedCellCount = checked(
                                 updatedCellCount +
                                 (previous?.Values.Count ?? 0) + 1);
@@ -154,7 +156,9 @@ public sealed class DynamicArrayWorkbookCalculationEngine
                         AddChange(
                             changes,
                             worksheet,
-                            Union(previous?.Range, new CellRange(address, address)));
+                            Union(
+                                previous?.Range,
+                                new CellRange(address, address)));
                         updatedCellCount = checked(
                             updatedCellCount +
                             (previous?.Values.Count ?? 0) + 1);
@@ -251,12 +255,14 @@ public sealed class DynamicArrayWorkbookCalculationEngine
 
     private sealed class DynamicCalculationContext :
         IStructuredReferenceEvaluationContext,
-        IFilterAwareFormulaEvaluationContext
+        IFilterAwareFormulaEvaluationContext,
+        IFormulaReferenceIntrospectionContext
     {
         private readonly Workbook _workbook;
         private readonly Worksheet _currentWorksheet;
         private readonly CellAddress _formulaAddress;
-        private readonly Dictionary<Worksheet, WorksheetSnapshot> _snapshots = [];
+        private readonly Dictionary<Worksheet, WorksheetSnapshot>
+            _snapshots = [];
 
         public DynamicCalculationContext(
             Workbook workbook,
@@ -267,6 +273,10 @@ public sealed class DynamicArrayWorkbookCalculationEngine
             _currentWorksheet = currentWorksheet;
             _formulaAddress = formulaAddress;
         }
+
+        public string CurrentWorksheetName => _currentWorksheet.Name;
+
+        public CellAddress CurrentCellAddress => _formulaAddress;
 
         public string ExpandStructuredReferences(string formula) =>
             StructuredReferenceFormulaEngine.Expand(
@@ -281,6 +291,23 @@ public sealed class DynamicArrayWorkbookCalculationEngine
             TryResolveWorksheet(worksheetName, out var worksheet)
                 ? worksheet.GetCell(address).Value
                 : CellValue.FromError("#REF!");
+
+        public bool TryGetCellFormula(
+            string? worksheetName,
+            CellAddress address,
+            out string? formula)
+        {
+            if (!TryResolveWorksheet(
+                    worksheetName,
+                    out var worksheet))
+            {
+                formula = null;
+                return false;
+            }
+
+            formula = worksheet.GetCell(address).Formula;
+            return true;
+        }
 
         public bool IsRowVisible(
             string? worksheetName,
@@ -314,14 +341,17 @@ public sealed class DynamicArrayWorkbookCalculationEngine
                     continue;
                 }
                 var top = Math.Max(referencedRange.Top, dataRange.Top);
-                var bottom = Math.Min(referencedRange.Bottom, dataRange.Bottom);
+                var bottom = Math.Min(
+                    referencedRange.Bottom,
+                    dataRange.Bottom);
                 if (top > bottom)
                 {
                     continue;
                 }
                 foreach (var filter in table.AutoFilter.Columns)
                 {
-                    var columnIndex = table.GetColumnIndex(filter.ColumnId);
+                    var columnIndex = table.GetColumnIndex(
+                        filter.ColumnId);
                     dependencies.Add(new FormulaDependency(
                         worksheetName,
                         new CellRange(

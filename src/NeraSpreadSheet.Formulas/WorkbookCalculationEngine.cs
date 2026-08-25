@@ -295,7 +295,8 @@ public sealed class WorkbookCalculationEngine
 
     private sealed class CalculationContext
         : IStructuredReferenceEvaluationContext,
-          IFilterAwareFormulaEvaluationContext
+          IFilterAwareFormulaEvaluationContext,
+          IFormulaReferenceIntrospectionContext
     {
         private readonly WorkbookCalculationEngine _owner;
         private readonly Workbook _workbook;
@@ -323,6 +324,10 @@ public sealed class WorkbookCalculationEngine
             _frozenRange = frozenRange;
         }
 
+        public string CurrentWorksheetName => _currentWorksheet.Name;
+
+        public CellAddress CurrentCellAddress => _currentAddress;
+
         public string ExpandStructuredReferences(string formula) =>
             StructuredReferenceFormulaTranslator.Translate(
                 formula,
@@ -348,6 +353,23 @@ public sealed class WorkbookCalculationEngine
                 _states,
                 _cache,
                 _frozenRange);
+        }
+
+        public bool TryGetCellFormula(
+            string? worksheetName,
+            CellAddress address,
+            out string? formula)
+        {
+            if (!TryResolveWorksheet(
+                    worksheetName,
+                    out var worksheet))
+            {
+                formula = null;
+                return false;
+            }
+
+            formula = worksheet.GetCell(address).Formula;
+            return true;
         }
 
         public bool IsRowVisible(
