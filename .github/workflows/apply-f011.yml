@@ -1,0 +1,62 @@
+name: Apply corrective F011
+
+on:
+  push:
+    branches:
+      - feature/bootstrap-architecture-v0.1
+    paths:
+      - .github/workflows/apply-f011.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-corrective-f011
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: feature/bootstrap-architecture-v0.1
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Apply F011 payload
+        run: python .github/f011_payload.py
+
+      - name: Restore
+        run: dotnet restore NeraSpreadSheet.Core.slnx
+
+      - name: Build
+        run: dotnet build NeraSpreadSheet.Core.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test NeraSpreadSheet.Core.slnx -c Release --no-build
+
+      - name: Verify architecture
+        shell: pwsh
+        run: ./scripts/verify-architecture.ps1
+
+      - name: Verify patch formatting
+        run: git diff --check
+
+      - name: Commit generated F011
+        shell: bash
+        run: |
+          rm -f .github/f011_payload.py
+          rm -f .github/workflows/apply-f011.yml
+          rm -f .chatgpt-probe
+          rm -f .github/f011-mini.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: add corrective F011 reference and projection functions"
+          git push origin HEAD:feature/bootstrap-architecture-v0.1
