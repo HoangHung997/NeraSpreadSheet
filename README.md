@@ -43,11 +43,13 @@ Workbook / Rules / Tables / Spill Ownership
 - Structural transforms có formula/rule/Table/filter/spill mapping.
 - Fractional scrolling, freeze/split panes và multi-host rendering.
 - Function Extension SDK API `1.0`.
-- **236 built-in function names**: 213 eager/versioned, 18 AST/reference-aware và 5 dynamic-array.
-- Finance hiện có **40 hàm**.
-- F002 bổ sung `YIELDDISC`, `PRICEMAT`, `YIELDMAT`, `ACCRINT`, `FVSCHEDULE`.
-- `PRICEMAT`/`YIELDMAT` có inverse regression; `ACCRINT` dùng quasi-coupon schedule; `FVSCHEDULE` hỗ trợ range, blank và dependency capture.
-- Count regression được gom về một hằng test chung để các batch sau chỉ cập nhật một vị trí.
+- **246 built-in function names**: 223 eager/versioned, 18 AST/reference-aware và 5 dynamic-array.
+- Finance hiện có **50 hàm**.
+- F003 bổ sung `PRICE`, `YIELD`, `DURATION`, `MDURATION`, `MIRR`.
+- F004 bổ sung `TBILLEQ`, `TBILLPRICE`, `TBILLYIELD`, `DOLLARDE`, `DOLLARFR`.
+- Fixed-coupon price/yield dùng cùng coupon state; yield solver bị chặn số vòng lặp; duration/modified duration và MIRR có regression đối chiếu/round-trip.
+- Treasury-bill functions dùng actual settlement-to-maturity days và giới hạn một năm lịch; DOLLAR functions truncate mẫu số, khóa lỗi và round-trip cả số âm.
+- Count regression được gom về một hằng test chung để mỗi batch chỉ cập nhật một vị trí.
 - Dynamic arrays, Conditional Formatting, Data Validation, Tables, AutoFilter, XLSX, pagination, staged PDF và streaming CSV/TSV.
 
 Tài liệu nguồn sự thật:
@@ -78,7 +80,7 @@ Mọi thay đổi đi qua pull request; không commit trực tiếp vào `main`.
 
 ## Mốc tiếp theo
 
-**F003:** `PRICE`, `YIELD`, `DURATION`, `MDURATION`, `MIRR`. Sau mỗi đúng năm hàm và exact-head CI xanh, hệ thống báo một bảng rồi tự tiếp tục batch sau.
+**F005:** `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE`. Sau mỗi đúng năm hàm và exact-head CI xanh, hệ thống báo một bảng rồi tự tiếp tục batch sau.
 
 ## Giấy phép
 

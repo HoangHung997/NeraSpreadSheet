@@ -21,12 +21,14 @@
 - [x] Day-count basis `0..4`, YEARFRAC and coupon-date/day helpers.
 - [x] F001: `ACCRINTM`, `DISC`, `INTRATE`, `RECEIVED`, `PRICEDISC`.
 - [x] F002: `YIELDDISC`, `PRICEMAT`, `YIELDMAT`, `ACCRINT`, `FVSCHEDULE`.
+- [x] F003: `PRICE`, `YIELD`, `DURATION`, `MDURATION`, `MIRR`.
+- [x] F004: `TBILLEQ`, `TBILLPRICE`, `TBILLYIELD`, `DOLLARDE`, `DOLLARFR`.
 - [x] Engineering Foundation: 19 functions.
 - [x] Database Foundation: 12 functions.
 - [x] Dynamic arrays and SEQUENCE/TRANSPOSE/FILTER/SORT/UNIQUE.
 - [x] Master catalog-audit schedule with exact five-function reporting.
-- [ ] F003: `PRICE`, `YIELD`, `DURATION`, `MDURATION`, `MIRR`.
-- [ ] Treasury, AMOR and odd-coupon functions.
+- [ ] F005: `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE`.
+- [ ] Remaining AMOR and odd-coupon functions.
 - [ ] Statistical hypothesis tests and confidence intervals.
 - [ ] Advanced lookup/reference, dynamic arrays, LET/LAMBDA and higher-order functions.
 - [ ] Full text/regex/byte-width compatibility.
@@ -42,8 +44,11 @@
 - [x] Maturity-interest price/yield inverse equations.
 - [x] Quasi-coupon accrued-interest schedule.
 - [x] Variable-rate future-value range function.
-- [ ] Fixed-coupon price/yield/duration cash-flow engine.
-- [ ] Odd-first/odd-last schedules and business-day calendars.
+- [x] Fixed-coupon price/yield/duration cash-flow engine.
+- [x] Treasury-bill price/yield/equivalent-yield equations.
+- [x] Fractional-dollar/decimal-dollar conversions.
+- [ ] AMOR depreciation and odd-first/odd-last coupon schedules.
+- [ ] Business-day/holiday calendars.
 
 ## D. XLSX, printing and PDF
 
@@ -67,22 +72,22 @@ Every public milestone contains exactly five new function names and advances onl
 
 1. **F001 complete:** `ACCRINTM`, `DISC`, `INTRATE`, `RECEIVED`, `PRICEDISC`.
 2. **F002 complete:** `YIELDDISC`, `PRICEMAT`, `YIELDMAT`, `ACCRINT`, `FVSCHEDULE`.
-3. **F003 next:** `PRICE`, `YIELD`, `DURATION`, `MDURATION`, `MIRR`.
-4. **F004:** `TBILLEQ`, `TBILLPRICE`, `TBILLYIELD`, `DOLLARDE`, `DOLLARFR`.
-5. **F005:** `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE`.
+3. **F003 complete:** `PRICE`, `YIELD`, `DURATION`, `MDURATION`, `MIRR`.
+4. **F004 complete:** `TBILLEQ`, `TBILLPRICE`, `TBILLYIELD`, `DOLLARDE`, `DOLLARFR`.
+5. **F005 next:** `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE`.
 6. **F006:** `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM`.
 7. Continue automatically through the ordered pools in the master schedule.
 8. Finish differential corpora, fuzzing, catalog audit and Codex final acceptance before PR promotion.
 
-## Weighted progress after F002
+## Weighted progress after F004
 
 - Engine/viewport/renderer foundation: approximately `92%`.
 - Basic spreadsheet MVP: approximately `96–98%`.
-- Complete professional roadmap: approximately `80%`.
-- Production release readiness: approximately `57–60%`.
+- Complete professional roadmap: approximately `80–81%`.
+- Production release readiness: approximately `58–61%`.
 
 These are engineering-weighted estimates, not checkbox counts.
 
 ## Validation rule
 
-F002 implementation commit `70051299a1531016ce82df981a49753f09d1d8a6` passed Core/architecture and 204/204 formula tests in CI #861. PR #1 remains Draft and unmerged; the documentation exact-head matrix must be green before the public F002 report.
+F003 exact implementation head `48012398a3a020bfb12829bee46cfa88bc1c7fed` passed CI #866. F004 exact implementation head and its hosted CI are recorded in `docs/worklog/CURRENT.md`. PR #1 remains Draft and unmerged; public completion is reported only after the documentation/handoff exact-head matrix is green.

@@ -6,14 +6,14 @@
 
 | Chỉ số | Giá trị |
 |---|---:|
-| Eager/versioned built-ins | 213 |
+| Eager/versioned built-ins | 223 |
 | AST/reference-aware | 18 |
 | Dynamic-array built-ins | 5 |
-| Tổng built-ins | 236 |
-| Financial functions | 40 |
-| Formula tests | 204 |
-| Batch hoàn thành | F001, F002 |
-| Batch kế tiếp | F003 |
+| Tổng built-ins | 246 |
+| Financial functions | 50 |
+| Formula tests | 214 |
+| Batch hoàn thành | F001, F002, F003, F004 |
+| Batch kế tiếp | F005 |
 | PR | #1 · Draft · chưa merge |
 
 ## 2. Baseline đích
@@ -46,9 +46,9 @@ Trước mỗi batch, registry audit loại mọi tên đã có và lấy năm t
 |---:|---|---|
 | F001 | `ACCRINTM`, `DISC`, `INTRATE`, `RECEIVED`, `PRICEDISC` | ✅ Complete |
 | F002 | `YIELDDISC`, `PRICEMAT`, `YIELDMAT`, `ACCRINT`, `FVSCHEDULE` | ✅ Complete |
-| F003 | `PRICE`, `YIELD`, `DURATION`, `MDURATION`, `MIRR` | **Next** |
-| F004 | `TBILLEQ`, `TBILLPRICE`, `TBILLYIELD`, `DOLLARDE`, `DOLLARFR` | Pending |
-| F005 | `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE` | Pending |
+| F003 | `PRICE`, `YIELD`, `DURATION`, `MDURATION`, `MIRR` | ✅ Complete |
+| F004 | `TBILLEQ`, `TBILLPRICE`, `TBILLYIELD`, `DOLLARDE`, `DOLLARFR` | ✅ Complete |
+| F005 | `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE` | **Next** |
 | F006 | `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM` | Pending |
 
 Nếu audit thấy một tên đã tồn tại, tên đó được thay bằng tên Pending đầu tiên của pool tiếp theo để batch vẫn đủ đúng năm hàm mới.
@@ -208,9 +208,9 @@ Chỉ tuyên bố đủ hàm khi:
 ## 8. Next five
 
 ```text
-PRICE
-YIELD
-DURATION
-MDURATION
-MIRR
+AMORLINC
+AMORDEGRC
+ODDFPRICE
+ODDFYIELD
+ODDLPRICE
 ```

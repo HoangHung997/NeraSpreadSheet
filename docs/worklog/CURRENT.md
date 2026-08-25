@@ -3,53 +3,63 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` into `develop` — Draft, unmerged
-- F002 implementation head: `70051299a1531016ce82df981a49753f09d1d8a6`
-- Formula tests: `204/204`
-- Eager/versioned built-ins: `213`
-- Complete built-ins: `236`
-- Financial functions: `40`
+- F003 exact implementation head: `48012398a3a020bfb12829bee46cfa88bc1c7fed`
+- F003 hosted CI: #866 — success
+- F004 exact implementation head: `85a3982b9c23fdbaf524d7e868c04f0701182407`
+- F004 hosted CI: #868 — success
+- Formula tests: `214/214`
+- Eager/versioned built-ins: `223`
+- Complete built-ins: `246`
+- Financial functions: `50`
 - Source of truth: `docs/current-status.md`
 - Master schedule: `docs/formula-completion-master-schedule.md`
 
-## F002 — advanced maturity security and schedule functions
+## F003 — regular coupon bond and MIRR
 
 | Function | Result | Status |
 |---|---|---|
-| `YIELDDISC` | Discounted-security yield and price relationship | Complete |
-| `PRICEMAT` | Price for interest paid at maturity | Complete |
-| `YIELDMAT` | Algebraic inverse of PRICEMAT | Complete |
-| `ACCRINT` | Bounded quasi-coupon accrued-interest schedule | Complete |
-| `FVSCHEDULE` | Range/scalar variable-rate future value | Complete |
-| Registry | 208 → 213 eager names | Complete |
-| Formula regressions | 204 passed, zero failed | Green |
-| Architecture | Verification passed | Green |
-| Formula count maintenance | Shared authoritative test constant | Complete |
-| Hosted matrix | Documentation exact-head run required | Pending gate |
-| Pull request | Draft and unmerged | Locked |
+| `PRICE` | Shared regular-coupon clean-price equation | Complete |
+| `YIELD` | Bounded inverse of PRICE | Complete |
+| `DURATION` | Macaulay present-value duration | Complete |
+| `MDURATION` | Modified-duration reconciliation | Complete |
+| `MIRR` | Position-preserving range/scalar modified IRR | Complete |
 
-## Key contracts
+Key gates:
 
-- `YIELDDISC` uses price rather than redemption in its denominator.
-- `PRICEMAT` and `YIELDMAT` share one maturity-value/accrued-interest model and round trip.
-- `ACCRINT` generates every coupon boundary from the first-interest anchor, preserves end-of-month dates and caps traversal at 100,000 periods.
-- `calc_method=FALSE` starts at first interest only after that date; the three published pre-first-interest examples remain compatible.
-- `FVSCHEDULE` accepts scalar/range schedules, treats blank cells as zero rates, rejects text/Boolean/date cells, captures dependencies and caps at 2,000,000 values.
+- PRICE/YIELD published reference and nested round trips.
+- DURATION/MDURATION published references and reconciliation.
+- MIRR range dependency, blanks, signs, rates and 2,000,000-value cap.
+- CI #866 exact head passed the full hosted matrix.
 
-## CI #861
+## F004 — treasury bills and fractional dollars
 
-- Build succeeded with zero warnings and zero errors.
-- Formula tests: 204/204.
-- Architecture verification passed.
-- Android and Core jobs passed; remaining hosted jobs complete before the public milestone report.
+| Function | Result | Status |
+|---|---|---|
+| `TBILLEQ` | Bond-equivalent treasury-bill yield | Complete |
+| `TBILLPRICE` | Price per 100 face value | Complete |
+| `TBILLYIELD` | Treasury-bill yield from price | Complete |
+| `DOLLARDE` | Fractional-dollar to decimal-dollar conversion | Complete |
+| `DOLLARFR` | Decimal-dollar to fractional-dollar conversion | Complete |
 
-## Next five — F003
+Key contracts:
 
-1. `PRICE`.
-2. `YIELD`.
-3. `DURATION`.
-4. `MDURATION`.
-5. `MIRR`.
+- Actual whole-day `DSM` with a one-calendar-year upper boundary.
+- Overflow-safe maximum-date handling, covered by a year-9999 regression.
+- Treasury price/yield/equivalent-yield denominators fail closed.
+- DOLLAR denominator truncation and distinct `#NUM!`/`#DIV/0!` domains.
+- Signed DOLLAR round trips and published 16/32 denominator references.
+- CI #868 exact implementation head passed Core, architecture, Windows/GPU, Android, iOS, Mac Catalyst and MAUI Windows loaded smokes.
 
-F003 requires a shared fixed-coupon cash-flow engine, bounded yield root solving, duration weighting, modified-duration reconciliation and MIRR range/dependency/root-domain tests.
+## Documentation/handoff gate
 
-PR remains Draft; do not merge while a newer exact-head run is red or unknown.
+This handoff commit synchronizes README, roadmap, current status, feature matrix, financial/formula/SDK contracts, master schedule and F003/F004 worklogs. Public F004 completion requires the exact documentation-head hosted CI to be green.
+
+## Next five — F005
+
+1. `AMORLINC`.
+2. `AMORDEGRC`.
+3. `ODDFPRICE`.
+4. `ODDFYIELD`.
+5. `ODDLPRICE`.
+
+F005 must introduce a bounded AMOR depreciation state and explicit odd-first-coupon schedule/quasi-coupon contracts before the public names are promoted. PR remains Draft; do not merge while a newer exact-head run is red or unknown.

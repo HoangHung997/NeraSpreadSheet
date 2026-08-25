@@ -9,12 +9,12 @@ Excel, LibreOffice and DevExpress are behavior/coverage references only.
 | Styles | Direct styles, sparse whole-axis patches and exact history | named/theme styles and complete format semantics |
 | Formula syntax/dependencies | Parser, AST, shared/structured formulas, graph and affected recalculation | volatile scheduling, spill references and vectorized expressions |
 | Function SDK | API 1.0 identity/version/capabilities/state/dependency/conflict; one registry path | package discovery, publisher trust and isolation |
-| Formula surface | 213 eager/versioned + 18 special + 5 dynamic = 236 names | F003 fixed-coupon price/yield/duration + MIRR |
+| Formula surface | 223 eager/versioned + 18 special + 5 dynamic = 246 names | F005 AMOR and odd-first/odd-last coupon functions |
 | Conditional aggregates | COUNTIF(S), SUMIF(S), AVERAGEIF(S), criteria parser and positional dependencies | locale criteria compatibility |
 | Statistics | Descriptive/order, covariance/regression and 30 transformation/distribution functions | hypothesis tests and confidence intervals |
-| Finance | 40 functions through F002 | PRICE/YIELD/DURATION/MDURATION/MIRR |
+| Finance | 50 functions through F004 | `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE` |
 | Financial calendar | Basis 0–4, YEARFRAC, coupon dates/days/count and EOM anchor | odd coupons and business-day conventions |
-| Maturity securities | Discount, maturity-interest price/yield, periodic accrual and variable-rate FV | fixed-coupon cash-flow engine |
+| Securities | Maturity, regular fixed-coupon and treasury-bill equations; DOLLAR conversions | AMOR and odd-period engines |
 | Engineering | 19 bit/shift/radix/comparison functions | complex numbers, CONVERT and special functions |
 | Database | 12 criteria-table aggregates with dependencies and budgets | expression criteria and indexing |
 | Dynamic arrays | Immutable spills and SEQUENCE/TRANSPOSE/FILTER/SORT/UNIQUE | A1#, @, advanced helpers and LET/LAMBDA |
@@ -23,17 +23,24 @@ Excel, LibreOffice and DevExpress are behavior/coverage references only.
 | Page setup/PDF | Deterministic pagination, preview, staged PDF and print adapters | remaining XLSX semantics, font/visual corpus and printers |
 | Product hardening | Multi-platform CI, atomic exports, shared formula-count gate and validation runner | packaging, API compatibility, security/fuzzing and recovery |
 
-## F002 validation
+## F003 validation
 
-- Implementation commit: `70051299a1531016ce82df981a49753f09d1d8a6`.
-- Build succeeded with zero warnings/errors.
-- Formula tests: **204/204**.
-- Architecture verification passed.
-- Exact documentation/handoff hosted matrix is required before the public milestone report.
+- Implementation commit: `aa276e0a560029a3a7af22d948a49f1cad7ec085`.
+- Exact correction head: `48012398a3a020bfb12829bee46cfa88bc1c7fed`.
+- Formula tests: **209/209**.
+- CI #866: Core/architecture, Windows/GPU, Android, iOS, Mac Catalyst and MAUI Windows passed.
+
+## F004 validation
+
+- Implementation commit: `2d05b076cbf59912d52400440ecec422d398f625`.
+- Calendar-boundary hardening head and current CI are recorded in `docs/worklog/CURRENT.md`.
+- Formula tests: **214/214** at the implementation gate.
+- Registry: **223** eager/versioned names; complete subsystem **246** names.
+- Public milestone report remains gated by documentation/handoff exact-head hosted CI.
 
 ## Weighted progress
 
 - Engine/viewport/renderer foundation: approximately **92%**.
 - Basic spreadsheet MVP: approximately **96–98%**.
-- Complete professional roadmap: approximately **80%**.
-- Production release readiness: approximately **57–60%**.
+- Complete professional roadmap: approximately **80–81%**.
+- Production release readiness: approximately **58–61%**.

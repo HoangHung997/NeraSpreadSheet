@@ -25,11 +25,11 @@ This file is the source of truth for the current development branch. A capabilit
 - Parser/AST, A1/cross-sheet references, dependency graph, circular detection and affected-only recalculation.
 - Shared/structured formulas and Table formula rewrite/projection.
 - Function Extension SDK v1.0 with identity/version/API/capability/state/dependency/conflict contracts.
-- Built-in eager/versioned registry: **213 names**.
+- Built-in eager/versioned registry: **223 names**.
 - AST/reference-aware built-ins: **18 names**.
 - Dynamic-array built-ins: **5 names**.
-- Complete built-in subsystem: **236 names**.
-- Formula test registry count now uses one shared test constant rather than repeated literals.
+- Complete built-in subsystem: **246 names**.
+- Formula test registry count uses one shared test constant rather than repeated literals.
 
 ### Formula families
 
@@ -39,32 +39,37 @@ This file is the source of truth for the current development branch. A capabilit
 
 ### Financial Functions Foundation
 
-Forty deterministic/pure SDK v1 financial functions are implemented. F002 adds:
+Fifty deterministic/pure SDK v1 financial functions are implemented.
 
-- `YIELDDISC` — yield of a discounted security;
-- `PRICEMAT` — price per 100 face value for interest paid at maturity;
-- `YIELDMAT` — inverse yield for that maturity-interest price;
-- `ACCRINT` — periodic accrued interest with frequency, basis and calculation-method rules;
-- `FVSCHEDULE` — future value under an ordered scalar/range schedule of rates.
+F003 adds:
 
-Key F002 contracts:
+- `PRICE` and `YIELD` over one maturity-anchored fixed-coupon cash-flow state;
+- `DURATION` and `MDURATION` over the same coupon timing and present-value weights;
+- `MIRR` with range dependency capture, positional cash-flow timing and bounded input size.
 
-- `YIELDDISC` uses `(redemption-price)/(price×YEARFRAC)` and accepts basis `0..4` after truncation.
-- `PRICEMAT` and `YIELDMAT` share issue→settlement, settlement→maturity and issue→maturity fractions and are round-trip tested.
-- `ACCRINT` builds bounded quasi-coupon periods anchored to `first_interest`, preserves end-of-month behavior and supports annual/semiannual/quarterly frequency.
-- `calc_method=FALSE` accrues from `first_interest` only when settlement is later than that date; pre-first-coupon references continue to accrue from issue.
-- `FVSCHEDULE` accepts a scalar or range, treats blanks as zero rates, rejects nonnumeric schedule cells, preserves dependencies and is capped at 2,000,000 values.
+F004 adds:
+
+- `TBILLEQ`, `TBILLPRICE`, `TBILLYIELD` with actual settlement-to-maturity days and a one-calendar-year boundary;
+- `DOLLARDE`, `DOLLARFR` with truncated positive denominator, decimal-place scale and signed round-trip behavior.
+
+Key contracts:
+
+- `PRICE` subtracts accrued coupon interest from discounted cash flows; `YIELD` is a bounded inverse solver over the same equation.
+- `DURATION` uses Macaulay present-value weights; `MDURATION = DURATION / (1 + yld/frequency)`.
+- `MIRR` requires at least one positive and one negative participating cash flow and accepts at most 2,000,000 positions.
+- Treasury-bill functions reject invalid date order, maturity beyond one calendar year, nonpositive discount/price and non-finite denominators.
+- DOLLAR denominator is truncated toward zero; a negative input denominator returns `#NUM!`, while a truncated value below one returns `#DIV/0!`.
 - Unsupported argument kinds/coercion return `#VALUE!`; invalid financial domains, non-finite results and exhausted budgets return `#NUM!`.
 
-Earlier annuity/root, cash-flow, payment, depreciation, scalar-rate, calendar and F001 maturity-security contracts remain unchanged.
+Earlier annuity/root, cash-flow, payment, depreciation, scalar-rate, calendar, F001 and F002 contracts remain unchanged.
 
 Full contract: `docs/financial-functions-foundation-contract.md`.
 
 ## Conservative limitations
 
 - Formula surface is not complete Excel compatibility.
-- Fixed-coupon `PRICE`, `YIELD`, `DURATION`, `MDURATION`, treasury, AMOR and odd-coupon families remain pending.
-- Current coupon schedules are regular maturity-anchored schedules; business-day/holiday adjustment remains pending.
+- AMOR, odd-first/odd-last coupon, business-day and holiday families remain pending.
+- Current regular coupon schedules are maturity anchored; odd-period quasi-coupon engines still require separate contracts.
 - External Excel/LibreOffice differential corpora, locale compatibility and financial fuzzing remain pending.
 - Statistical hypothesis tests, advanced lookup/reference, advanced arrays, special engineering, provider isolation and release hardening remain pending.
 
@@ -72,16 +77,16 @@ Full contract: `docs/financial-functions-foundation-contract.md`.
 
 - Engine/viewport/renderer foundation: approximately `92%`.
 - Basic spreadsheet MVP: approximately `96–98%`.
-- Complete professional roadmap: approximately `80%`.
-- Production release readiness: approximately `57–60%`.
+- Complete professional roadmap: approximately `80–81%`.
+- Production release readiness: approximately `58–61%`.
 
 These are engineering-weighted estimates, not checkbox counts.
 
 ## Next implementation work
 
-1. F003: `PRICE`, `YIELD`, `DURATION`, `MDURATION`, `MIRR`.
+1. F005: `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE`.
 2. Continue automatically through `docs/formula-completion-master-schedule.md` in exact five-function milestones.
 
 ## Validation state
 
-F002 implementation commit `70051299a1531016ce82df981a49753f09d1d8a6` passed Core build, architecture and **204/204 formula tests** in CI #861. The public F002 milestone requires the documentation/handoff exact-head hosted matrix to be fully green. PR #1 remains Draft and unmerged.
+F003 exact implementation head `48012398a3a020bfb12829bee46cfa88bc1c7fed` passed CI #866. F004 exact implementation head and current validation are recorded in `docs/worklog/CURRENT.md`. The formula suite contains **214 passing tests** at the F004 implementation gate. PR #1 remains Draft and unmerged.
