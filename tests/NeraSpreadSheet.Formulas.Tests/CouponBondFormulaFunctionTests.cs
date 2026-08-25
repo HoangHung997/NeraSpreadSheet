@@ -22,27 +22,27 @@ public sealed class CouponBondFormulaFunctionTests
         var context = new FormulaSurfaceTestContext();
         const string common =
             "DATE(2008,2,15),DATE(2016,11,15),0.0575";
-
         var price = EvaluateNumber(
             engine,
             $"=PRICE({common},0.065,100,2,0)",
             context);
-        Assert.AreEqual(
-            95.04287439939205d,
-            price,
-            2e-11d);
+
+        Assert.AreEqual(95.04287439939205d, price, 2e-11d);
+        var invariantPrice = price.ToString(
+            "R",
+            System.Globalization.CultureInfo.InvariantCulture);
         Assert.AreEqual(
             0.065d,
             EvaluateNumber(
                 engine,
-                $"=YIELD({common},{price.ToString("R", System.Globalization.CultureInfo.InvariantCulture)},100,2,0)",
+                $"=YIELD({common},{invariantPrice},100,2,0)",
                 context),
             2e-10d);
         Assert.AreEqual(
             price,
             EvaluateNumber(
                 engine,
-                $"=PRICE({common},YIELD({common},{price.ToString("R", System.Globalization.CultureInfo.InvariantCulture)},100,2,0),100,2,0)",
+                $"=PRICE({common},YIELD({common},{invariantPrice},100,2,0),100,2,0)",
                 context),
             2e-9d);
     }
@@ -54,7 +54,6 @@ public sealed class CouponBondFormulaFunctionTests
         var context = new FormulaSurfaceTestContext();
         const string arguments =
             "DATE(2008,1,1),DATE(2016,1,1),0.08,0.09,2,1";
-
         var duration = EvaluateNumber(
             engine,
             $"=DURATION({arguments})",
@@ -64,14 +63,8 @@ public sealed class CouponBondFormulaFunctionTests
             $"=MDURATION({arguments})",
             context);
 
-        Assert.AreEqual(
-            5.993774955545185d,
-            duration,
-            2e-12d);
-        Assert.AreEqual(
-            5.735669813918838d,
-            modifiedDuration,
-            2e-12d);
+        Assert.AreEqual(5.993774955545185d, duration, 2e-12d);
+        Assert.AreEqual(5.735669813918838d, modifiedDuration, 2e-12d);
         Assert.AreEqual(
             duration / (1d + (0.09d / 2d)),
             modifiedDuration,
@@ -95,17 +88,16 @@ public sealed class CouponBondFormulaFunctionTests
         };
         var context = new FormulaSurfaceTestContext(values);
         var engine = new NeraFormulaEngine();
-
         var reference = engine.Evaluate(
             "=MIRR(A1:A6,0.1,0.12)",
             context);
+
         Assert.IsTrue(reference.IsSuccess);
         Assert.AreEqual(
             0.1260941303659051d,
             (double)reference.Value.RawValue!,
             2e-14d);
         Assert.AreEqual(1, reference.Dependencies.Count);
-
         Assert.AreEqual(
             0.1d,
             EvaluateNumber(
@@ -128,60 +120,40 @@ public sealed class CouponBondFormulaFunctionTests
         var context = new FormulaSurfaceTestContext(values);
         var engine = new NeraFormulaEngine();
 
-        AssertNumericError(
-            engine,
+        foreach (var formula in new[]
+        {
             "=PRICE(DATE(2025,1,1),DATE(2025,1,1),0.05,0.06,100,2,0)",
-            context);
-        AssertNumericError(
-            engine,
             "=PRICE(DATE(2024,1,1),DATE(2025,1,1),-0.05,0.06,100,2,0)",
-            context);
-        AssertNumericError(
-            engine,
             "=PRICE(DATE(2024,1,1),DATE(2025,1,1),0.05,-0.06,100,2,0)",
-            context);
-        AssertNumericError(
-            engine,
             "=YIELD(DATE(2024,1,1),DATE(2025,1,1),0.05,0,100,2,0)",
-            context);
-        AssertNumericError(
-            engine,
             "=DURATION(DATE(2024,1,1),DATE(2025,1,1),-0.05,0.06,2,0)",
-            context);
-        AssertNumericError(
-            engine,
             "=MDURATION(DATE(2024,1,1),DATE(2025,1,1),0.05,-0.06,2,0)",
-            context);
-        AssertNumericError(
-            engine,
             "=PRICE(DATE(2024,1,1),DATE(2025,1,1),0.05,0.06,100,3,0)",
-            context);
-        AssertNumericError(
-            engine,
             "=PRICE(DATE(2024,1,1),DATE(2025,1,1),0.05,0.06,100,2,5)",
-            context);
-        AssertNumericError(
-            engine,
             "=MIRR(B1:B2,-1,0.1)",
-            context);
+        })
+        {
+            AssertNumericError(engine, formula, context);
+        }
 
-        var oneSign = engine.Evaluate(
+        foreach (var formula in new[]
+        {
             "=MIRR(B1:B2,0.1,0.1)",
-            context);
-        Assert.AreEqual("#DIV/0!", oneSign.Value.RawValue);
-        Assert.AreEqual(
-            FormulaErrorCode.DivisionByZero,
-            oneSign.ErrorCode);
+            "=MIRR(\"bad\",0.1,0.1)",
+        })
+        {
+            var result = engine.Evaluate(formula, context);
+            Assert.AreEqual("#DIV/0!", result.Value.RawValue, formula);
+            Assert.AreEqual(
+                FormulaErrorCode.DivisionByZero,
+                result.ErrorCode,
+                formula);
+        }
 
         Assert.AreEqual(
             FormulaErrorCode.InvalidValue,
             engine.Evaluate(
                 "=PRICE(A1:A2,DATE(2025,1,1),0.05,0.06,100,2,0)",
-                context).ErrorCode);
-        Assert.AreEqual(
-            FormulaErrorCode.InvalidValue,
-            engine.Evaluate(
-                "=MIRR(\"bad\",0.1,0.1)",
                 context).ErrorCode);
     }
 
@@ -189,14 +161,11 @@ public sealed class CouponBondFormulaFunctionTests
     public void CouponBondDescriptorsAreVersionedPureAndCapabilityBounded()
     {
         var registry = new BuiltInFormulaFunctionRegistry();
-
         foreach (var name in CouponBondNames)
         {
             var descriptor = registry.Descriptors.Single(candidate =>
                 candidate.Identity.Name == name);
-            Assert.AreEqual(
-                "NERA.BUILTIN",
-                descriptor.Identity.Namespace);
+            Assert.AreEqual("NERA.BUILTIN", descriptor.Identity.Namespace);
             Assert.AreEqual(
                 new FormulaFunctionVersion(1, 0, 0),
                 descriptor.Version);
