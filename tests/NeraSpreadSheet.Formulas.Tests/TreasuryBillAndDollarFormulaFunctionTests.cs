@@ -82,6 +82,10 @@ public sealed class TreasuryBillAndDollarFormulaFunctionTests
             engine,
             "=TBILLYIELD(DATE(2025,1,1),DATE(2025,1,1),99)",
             context);
+        Assert.IsTrue(
+            engine.Evaluate(
+                "=TBILLPRICE(DATE(9999,1,1),DATE(9999,12,31),0.05)",
+                context).IsSuccess);
     }
 
     [TestMethod]

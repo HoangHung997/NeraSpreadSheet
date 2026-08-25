@@ -213,7 +213,7 @@ internal static class TreasuryBillAndDollarFormulaFunctions
         }
 
         if (settlement >= maturity ||
-            maturity > settlement.AddYears(1))
+            !IsWithinOneCalendarYear(settlement, maturity))
         {
             error = NumericError();
             return false;
@@ -229,6 +229,18 @@ internal static class TreasuryBillAndDollarFormulaFunctions
 
         error = default!;
         return true;
+    }
+
+    private static bool IsWithinOneCalendarYear(
+        DateTime settlement,
+        DateTime maturity)
+    {
+        if (settlement.Year == DateTime.MaxValue.Year)
+        {
+            return true;
+        }
+
+        return maturity <= settlement.AddYears(1);
     }
 
     private static bool TryGetDollarArguments(
