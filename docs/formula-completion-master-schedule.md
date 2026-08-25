@@ -1,137 +1,25 @@
 # NeraSpreadSheet Master Formula Completion Schedule
 
-> Mỗi milestone công khai gồm đúng 5 tên hàm mới và chỉ hoàn thành khi implementation, regression, documentation và exact-head hosted CI đều xanh.
+Each public batch now contains exactly **10 new function names** and completes only after implementation, regression, documentation and exact-head hosted CI are green.
 
-## Trạng thái trực tiếp
-
-| Chỉ số | Giá trị |
+| Counter | Value |
 |---|---:|
-| Eager/versioned built-ins | 239 |
-| AST/reference-aware | 23 |
-| Dynamic-array unique names | 9 |
-| Tổng built-ins | 271 |
-| Tổng mục tiêu hiện khóa | **tối thiểu 538** |
-| Formula tests | 239 |
-| Batch hoàn thành | F001–F009 |
-| Batch kế tiếp | F010 |
-| PR | #1 · Draft · chưa merge |
+| Eager/versioned | 242 |
+| AST/reference-aware | 30 |
+| Dynamic-array unique | 14 |
+| **Total functions** | **286 / at least 538** |
+| Formula tests | 254 |
+| Complete | F001–F011 |
+| Next | F012 |
 
-P11 Microsoft/OpenFormula catalog delta có thể làm tổng mục tiêu tăng trên 538.
+F010: `GETPIVOTDATA`, `GROUPBY`, `HSTACK`, `HYPERLINK`, `INDIRECT`.
 
-## Batches
+F011: `LOOKUP`, `OFFSET`, `PERCENTOF`, `PIVOTBY`, `ROW`, `ROWS`, `SHEET`, `SHEETS`, `SORTBY`, `TAKE`.
 
-| Batch | Năm hàm | Trạng thái |
-|---:|---|---|
-| F001 | ACCRINTM, DISC, INTRATE, RECEIVED, PRICEDISC | ✅ |
-| F002 | YIELDDISC, PRICEMAT, YIELDMAT, ACCRINT, FVSCHEDULE | ✅ |
-| F003 | PRICE, YIELD, DURATION, MDURATION, MIRR | ✅ |
-| F004 | TBILLEQ, TBILLPRICE, TBILLYIELD, DOLLARDE, DOLLARFR | ✅ |
-| F005 | AMORLINC, AMORDEGRC, ODDFPRICE, ODDFYIELD, ODDLPRICE | ✅ |
-| F006 | ODDLYIELD, DATEDIF, DAYS360, ISOWEEKNUM, WEEKNUM | ✅ |
-| F007 | NETWORKDAYS, NETWORKDAYS.INTL, WORKDAY, WORKDAY.INTL, NUMBERVALUE | ✅ |
-| F008 | ADDRESS, AREAS, CHOOSE, CHOOSECOLS, CHOOSEROWS | ✅ |
-| F009 | COLUMN, COLUMNS, DROP, EXPAND, FORMULATEXT | ✅ |
-| F010 | GETPIVOTDATA, GROUPBY, HSTACK, HYPERLINK, INDIRECT | **Next** |
-
-## Remaining dependency pools
-
-### P02 — Lookup/reference/projection
+F012 next:
 
 ```text
-LOOKUP OFFSET PERCENTOF PIVOTBY ROW ROWS SHEET SHEETS SORTBY TAKE
-TOCOL TOROW TRIMRANGE VSTACK WRAPCOLS WRAPROWS XMATCH
+TOCOL TOROW TRIMRANGE VSTACK WRAPCOLS WRAPROWS XMATCH IFERROR IFNA SWITCH
 ```
 
-### P03 — LET/LAMBDA/higher-order/logical
-
-```text
-BYCOL BYROW IFS IFERROR IFNA ISOMITTED LAMBDA LET MAKEARRAY MAP
-REDUCE SCAN SWITCH XOR
-```
-
-### P04 — Text/regex/byte-width/conversion
-
-```text
-ARRAYTOTEXT ASC BAHTTEXT CHAR CLEAN CONCAT CONCATENATE DBCS DOLLAR
-EXACT FINDB FIXED JIS LEFTB LENB MIDB PHONETIC REGEXEXTRACT
-REGEXREPLACE REGEXTEST REPLACE REPLACEB RIGHTB SEARCHB T TEXT
-TEXTAFTER TEXTBEFORE TEXTSPLIT VALUE VALUETOTEXT
-```
-
-### P05 — Math/trigonometry/combinatorics/matrix
-
-```text
-ACOT ACOTH AGGREGATE ARABIC BASE CEILING.MATH CEILING.PRECISE COMBIN
-COMBINA COT COTH CSC CSCH DECIMAL DEGREES EVEN EXP FACTDOUBLE
-FLOOR.MATH FLOOR.PRECISE GCD ISO.CEILING LCM MDETERM MINVERSE MMULT
-MROUND MULTINOMIAL MUNIT ODD QUOTIENT RADIANS RANDARRAY ROMAN SEC
-SECH SERIESSUM SQRTPI SUMPRODUCT SUMSQ SUMX2MY2 SUMX2PY2 SUMXMY2
-```
-
-### P06 — Statistics/tests/confidence/forecast
-
-```text
-AVEDEV AVERAGEA BINOM.DIST.RANGE BINOM.INV CHISQ.TEST CONFIDENCE.NORM
-CONFIDENCE.T DEVSQ F.TEST FORECAST FORECAST.ETS FORECAST.ETS.CONFINT
-FORECAST.ETS.SEASONALITY FORECAST.ETS.STAT FREQUENCY GAMMA GAMMALN
-GAMMALN.PRECISE GAUSS GEOMEAN GROWTH HARMEAN HYPGEOM.DIST KURT
-LINEST LOGEST MAXA MAXIFS MINA MINIFS MODE.MULT NEGBINOM.DIST
-PERCENTRANK.EXC PERCENTRANK.INC PERMUT PERMUTATIONA PHI PROB SKEW
-SKEW.P TREND TRIMMEAN T.TEST Z.TEST
-```
-
-### P07 — Compatibility/legacy
-
-```text
-BETADIST BETAINV BINOMDIST CEILING CHIDIST CHIINV CHITEST CONFIDENCE
-COVAR CRITBINOM EXPONDIST FDIST FINV FLOOR FTEST GAMMADIST GAMMAINV
-HYPGEOMDIST LOGINV LOGNORMDIST MODE NEGBINOMDIST NORMDIST NORMINV
-NORMSDIST NORMSINV PERCENTILE PERCENTRANK POISSON QUARTILE RANK STDEV
-STDEVP TDIST TINV TTEST VAR VARP WEIBULL ZTEST
-```
-
-### P08 — Engineering special/complex/conversion
-
-```text
-BESSELI BESSELJ BESSELK BESSELY COMPLEX CONVERT ERF ERF.PRECISE ERFC
-ERFC.PRECISE IMABS IMAGINARY IMARGUMENT IMCONJUGATE IMCOS IMCOSH
-IMCOT IMCSC IMCSCH IMDIV IMEXP IMLN IMLOG10 IMLOG2 IMPOWER IMPRODUCT
-IMREAL IMSEC IMSECH IMSIN IMSINH IMSQRT IMSUB IMSUM IMTAN
-```
-
-### P09 — Information/introspection/reference identity
-
-```text
-CELL ERROR.TYPE INFO N NA TYPE ISBLANK ISERR ISERROR ISEVEN ISFORMULA
-ISLOGICAL ISNA ISNONTEXT ISNUMBER ISODD ISREF ISTEXT
-```
-
-### P10 — Cube/web/data types/external state
-
-```text
-CUBEKPIMEMBER CUBEMEMBER CUBEMEMBERPROPERTY CUBERANKEDMEMBER CUBESET
-CUBESETCOUNT CUBEVALUE ENCODEURL EUROCONVERT FILTERXML WEBSERVICE
-FIELDVALUE STOCKHISTORY IMAGE DETECTLANGUAGE TRANSLATE RTD CALL
-REGISTER.ID COPILOT
-```
-
-### P11 — Catalog delta
-
-```text
-MissingOpenFormula = OpenFormulaTarget - Registry
-MissingMicrosoft   = MicrosoftSnapshotTarget - Registry
-```
-
-## Completion rule
-
-Chỉ tuyên bố đủ hàm khi Pending=0 cho snapshots đã khóa, aliases có differential tests, external providers có trust/isolation contracts, parser/LET/LAMBDA hạ tầng đủ, resource budgets được enforce và exact-head CI/final acceptance đều xanh.
-
-## Next five
-
-```text
-GETPIVOTDATA
-GROUPBY
-HSTACK
-HYPERLINK
-INDIRECT
-```
+Remaining work proceeds through higher-order/LET/LAMBDA, text/regex, math/matrix, statistics, compatibility, engineering special, information and external-provider pools, then Microsoft/OpenFormula catalog delta audit. The locked target is a minimum; P11 audit may increase it.
