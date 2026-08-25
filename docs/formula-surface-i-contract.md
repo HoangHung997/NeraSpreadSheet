@@ -1,65 +1,45 @@
 # Formula Surface I contract
 
-Tài liệu này định nghĩa validated scalar/reference formula behavior. Dynamic arrays, business calendar và third-party extension contracts có tài liệu bổ sung riêng.
+Tài liệu này định nghĩa validated scalar/reference formula behavior.
 
-## 1. Architecture boundary
+## Architecture boundary
 
-- Parser/AST sở hữu syntax, missing arguments và parenthesized reference unions.
-- `NeraFormulaEngine` sở hữu evaluation, lazy branches, references, dependencies và errors.
-- `NeraDynamicArrayFormulaEngine` sở hữu supported array projection và spill-shaped results.
-- `BuiltInFormulaFunctionRegistry` delegate tới một versioned registry nội bộ.
-- `StandardFormulaFunctions.CreateAll()` là eager built-in aggregation path duy nhất.
-- Platform hosts và OpenXml adapters không triển khai formula semantics.
+- Parser/AST sở hữu syntax, missing arguments và reference unions.
+- `NeraFormulaEngine` sở hữu scalar/reference evaluation, lazy branches, dependencies và errors.
+- `NeraDynamicArrayFormulaEngine` sở hữu array shape, projection và spill results.
+- `IFormulaReferenceIntrospectionContext` cung cấp current-cell/formula metadata mà không buộc host UI triển khai semantics.
+- Eager built-ins chỉ đi qua `StandardFormulaFunctions.CreateAll()`.
 
-## 2. Counts
+## Counts
 
-- Eager/versioned built-ins: **239**.
-- AST/reference-aware built-ins: **20**.
-- Scalar/reference total: **259**.
-- Dynamic-array built-ins: **7**.
-- Complete built-in subsystem: **266 names**.
+- Eager/versioned: **239**.
+- AST/reference-aware: **23**.
+- Scalar/reference total: **262**.
+- Dynamic-array unique names: **9**.
+- Complete subsystem: **271 names**.
+- Locked target: **tối thiểu 538 names**.
 
-## 3. Families
+## F009 behavior
 
-- Logical, information, aggregate, math, text/Unicode và date/time foundations.
-- Lookup/reference, lazy selection và conditional aggregate foundations.
-- Descriptive/order statistics, covariance/regression và advanced distributions.
-- Fifty-six financial functions qua F006.
-- F007 business calendar và locale-number parsing.
-- F008 reference selection và dynamic-array projection.
-- Nineteen engineering functions và twelve database aggregates.
+- `COLUMN()` dùng current formula-cell column; reference nhiều cột có horizontal spill.
+- `COLUMNS` đọc shape của scalar/reference/dynamic array.
+- `FORMULATEXT` đọc exact formula metadata, hỗ trợ selected reference và self-reference.
+- Static geometry không tạo value dependency.
+- `FORMULATEXT` tạo exact target dependency để affected recalculation cập nhật đúng.
+- `DROP`/`EXPAND` dùng dynamic engine và existing spill ownership.
 
-## 4. F008 behavior
+Full contract: `docs/reference-introspection-and-array-shaping-contract.md`.
 
-- `ADDRESS` là scalar-only versioned function cho A1/R1C1 text, abs modes và optional sheet prefix.
-- `AREAS` đếm reference geometry/union mà không đọc static cell values.
-- `CHOOSE` truncate scalar selector, chỉ đánh giá selected branch và giữ selected range identity.
-- Range được chọn bởi CHOOSE có thể vào eager range-aware function mà không flatten mất dependency source.
-- Top-level CHOOSE có dynamic spill bridge cho selected range/supported nested array.
-- `CHOOSECOLS` và `CHOOSEROWS` giữ requested order, duplicate và negative-from-end indices.
-- Projection index arguments có thể là scalar/range/supported dynamic array; output bị giới hạn 1.000.000 cells.
+## Errors và budgets
 
-Full contract: `docs/reference-selection-and-projection-contract.md`.
+- Invalid reference/coercion/shape trả `#VALUE!`.
+- DROP zero hoặc xóa toàn bộ dimension trả `#CALC!`.
+- FORMULATEXT target không có formula hoặc unavailable trả `#N/A`.
+- Array output trên 1.000.000 cells trả `#NUM!`.
+- Formula text được giới hạn 8.192 ký tự.
 
-## 5. Errors và dependencies
+## Pending
 
-- Unsupported argument kinds, invalid reference context hoặc failed coercion trả `#VALUE!`.
-- Invalid index, zero/out-of-range projection và malformed union-as-value trả `#VALUE!`.
-- Resource/shape overflow trả `#NUM!`.
-- Lazy functions capture selector và selected-branch dependencies only.
-- Dynamic projection preserves source/index dependencies and uses existing spill recalculation.
-- Formula families không khai báo hidden volatile dependency.
+F010: `GETPIVOTDATA`, `GROUPBY`, `HSTACK`, `HYPERLINK`, `INDIRECT`; sau đó remaining reference/projection, LET/LAMBDA, full text/statistics/engineering/compatibility/external providers.
 
-## 6. Pending
-
-- F009: COLUMN, COLUMNS, DROP, EXPAND và FORMULATEXT.
-- Reference intersection, `A1#`, `@`, array constants và selector-array CHOOSE.
-- Remaining advanced lookup/reference/projection, LET/LAMBDA và higher-order functions.
-- Statistical hypothesis tests và confidence intervals.
-- Full text/regex/byte-width, special engineering, compatibility aliases và external providers.
-
-## 7. Gates
-
-F008 yêu cầu ADDRESS descriptor/bounds/missing-argument tests, AREAS reference-union tests, CHOOSE lazy/dependency/spill tests, projection shape/index tests, shared registry count, 234/234 formula tests và complete hosted CI matrix.
-
-PR #1 giữ Draft trong khi exact-head CI mới nhất đỏ hoặc unknown.
+PR #1 giữ Draft khi exact-head CI mới nhất đỏ hoặc unknown.
