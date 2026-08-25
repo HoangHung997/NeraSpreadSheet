@@ -26,6 +26,10 @@ internal static class StandardFormulaFunctions
         {
             yield return function;
         }
+        foreach (var function in BusinessCalendarFormulaFunctions.Create())
+        {
+            yield return function;
+        }
         foreach (var function in StatisticalFormulaFunctions.Create())
         {
             yield return function;
