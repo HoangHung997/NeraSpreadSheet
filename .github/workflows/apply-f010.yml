@@ -35,37 +35,50 @@ jobs:
           base64 --decode scripts/.f010-payload.b64 | gzip --decompress > scripts/apply-f010.py
           python scripts/apply-f010.py
 
-      - name: Fix generated analyzer contract
+      - name: Harden generated F010 source and tests
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          path = Path(
+          test_path = Path(
               "tests/NeraSpreadSheet.Formulas.Tests/"
               "AdvancedReferenceAndAggregationFormulaFunctionTests.cs"
           )
-          text = path.read_text(encoding="utf-8")
+          test_text = test_path.read_text(encoding="utf-8")
           old_type = "IReadOnlyList<FormulaPivotFieldItem> LastPivotItems"
           new_type = "FormulaPivotFieldItem[] LastPivotItems"
-          if old_type not in text:
+          if old_type not in test_text:
               raise SystemExit("Expected LastPivotItems declaration was not found.")
-          text = text.replace(old_type, new_type)
-          text = text.replace("LastPivotItems.Count", "LastPivotItems.Length")
-          path.write_text(text, encoding="utf-8")
-          PY
+          test_text = test_text.replace(old_type, new_type)
+          test_text = test_text.replace(
+              "LastPivotItems.Count",
+              "LastPivotItems.Length",
+          )
+          test_path.write_text(test_text, encoding="utf-8")
 
-      - name: Publish generated source to temporary diagnostic branch
-        shell: bash
-        run: |
-          set -euo pipefail
-          base_sha="$(git rev-parse HEAD)"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "chore: expose generated F010 source for diagnosis"
-          git push --force origin HEAD:refs/heads/diagnostic/f010-generated
-          git reset --mixed "$base_sha"
+          indirect_path = Path(
+              "src/NeraSpreadSheet.Formulas/"
+              "IndirectAndPivotFormulaEngine.cs"
+          )
+          indirect_text = indirect_path.read_text(encoding="utf-8")
+          old_guard = """        if (trimmed.Length == 0 ||
+            trimmed.Contains('[') ||
+            trimmed.Contains(']') ||
+            !TrySplitWorksheet(
+"""
+          new_guard = """        if (trimmed.Length == 0 ||
+            !TrySplitWorksheet(
+"""
+          if indirect_text.count(old_guard) != 1:
+              raise SystemExit(
+                  "Expected INDIRECT bracket guard was not found exactly once."
+              )
+          indirect_path.write_text(
+              indirect_text.replace(old_guard, new_guard),
+              encoding="utf-8",
+          )
+          PY
 
       - name: Restore
         run: dotnet restore NeraSpreadSheet.Core.slnx
