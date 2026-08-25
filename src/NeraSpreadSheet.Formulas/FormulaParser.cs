@@ -118,15 +118,12 @@ internal sealed class FormulaParser
         }
         if (_current.Kind == FormulaTokenKind.LeftParenthesis)
         {
-            MoveNext();
-            var nested = ParseComparison();
-            Expect(FormulaTokenKind.RightParenthesis);
-            MoveNext();
-            return nested;
+            return ParseParenthesizedExpression();
         }
         if (_current.Kind != FormulaTokenKind.Identifier)
         {
-            throw new FormatException($"Expected a value but found '{_current.Text}'.");
+            throw new FormatException(
+                $"Expected a value but found '{_current.Text}'.");
         }
 
         var identifier = _current.Text;
@@ -135,11 +132,17 @@ internal sealed class FormulaParser
         {
             return ParseFunction(identifier);
         }
-        if (string.Equals(identifier, "TRUE", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(
+                identifier,
+                "TRUE",
+                StringComparison.OrdinalIgnoreCase))
         {
             return new ConstantNode(CellValue.FromBoolean(true));
         }
-        if (string.Equals(identifier, "FALSE", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(
+                identifier,
+                "FALSE",
+                StringComparison.OrdinalIgnoreCase))
         {
             return new ConstantNode(CellValue.FromBoolean(false));
         }
@@ -152,7 +155,8 @@ internal sealed class FormulaParser
             MoveNext();
             if (_current.Kind != FormulaTokenKind.Identifier)
             {
-                throw new FormatException("Expected a cell address after '!'.");
+                throw new FormatException(
+                    "Expected a cell address after '!'.");
             }
             addressText = _current.Text;
             MoveNext();
@@ -168,12 +172,48 @@ internal sealed class FormulaParser
 
         MoveNext();
         if (_current.Kind != FormulaTokenKind.Identifier ||
-            !CellAddress.TryParseA1(_current.Text, out var secondAddress))
+            !CellAddress.TryParseA1(
+                _current.Text,
+                out var secondAddress))
         {
-            throw new FormatException("Expected a valid cell address after ':'.");
+            throw new FormatException(
+                "Expected a valid cell address after ':'.");
         }
         MoveNext();
-        return new RangeNode(worksheetName, new CellRange(firstAddress, secondAddress));
+        return new RangeNode(
+            worksheetName,
+            new CellRange(firstAddress, secondAddress));
+    }
+
+    private FormulaNode ParseParenthesizedExpression()
+    {
+        MoveNext();
+        if (_current.Kind == FormulaTokenKind.RightParenthesis)
+        {
+            throw new FormatException(
+                "A parenthesized formula expression cannot be empty.");
+        }
+
+        var areas = new List<FormulaNode>
+        {
+            ParseComparison(),
+        };
+        while (_current.Kind == FormulaTokenKind.Comma)
+        {
+            MoveNext();
+            if (_current.Kind == FormulaTokenKind.RightParenthesis)
+            {
+                throw new FormatException(
+                    "A reference union cannot contain a missing area.");
+            }
+            areas.Add(ParseComparison());
+        }
+
+        Expect(FormulaTokenKind.RightParenthesis);
+        MoveNext();
+        return areas.Count == 1
+            ? areas[0]
+            : new ReferenceUnionNode(areas);
     }
 
     private FunctionNode ParseFunction(string name)
@@ -188,7 +228,16 @@ internal sealed class FormulaParser
 
         while (true)
         {
-            arguments.Add(ParseComparison());
+            if (_current.Kind is FormulaTokenKind.Comma or
+                FormulaTokenKind.RightParenthesis)
+            {
+                arguments.Add(new MissingArgumentNode());
+            }
+            else
+            {
+                arguments.Add(ParseComparison());
+            }
+
             if (_current.Kind == FormulaTokenKind.RightParenthesis)
             {
                 MoveNext();
@@ -203,7 +252,8 @@ internal sealed class FormulaParser
     {
         if (_current.Kind != kind)
         {
-            throw new FormatException($"Expected {kind} but found '{_current.Text}'.");
+            throw new FormatException(
+                $"Expected {kind} but found '{_current.Text}'.");
         }
     }
 

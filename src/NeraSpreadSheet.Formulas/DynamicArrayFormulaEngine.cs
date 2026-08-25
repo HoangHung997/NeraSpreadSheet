@@ -42,9 +42,9 @@ public interface IDynamicArrayFormulaEngine
 }
 
 /// <summary>
-/// Evaluates first-generation dynamic-array functions while preserving the
-/// existing scalar formula engine. The scalar wrapper returns the top-left
-/// value so existing dependencies can continue to consume array owners.
+/// Evaluates dynamic-array functions while preserving the existing scalar
+/// formula engine. The scalar wrapper returns the top-left value so existing
+/// dependencies can continue to consume array owners.
 /// </summary>
 public sealed partial class NeraDynamicArrayFormulaEngine :
     IDynamicArrayFormulaEngine
@@ -79,10 +79,7 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
             }
 
             var dependencies = new List<FormulaDependency>();
-            result = EvaluateFunction(
-                function,
-                context,
-                dependencies);
+            result = EvaluateFunction(function, context, dependencies);
             return true;
         }
         catch (FormatException)
@@ -137,6 +134,27 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
         {
             return EvaluateUnique(function, context, dependencies);
         }
+        if (string.Equals(
+                function.Name,
+                "CHOOSE",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateChooseArray(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "CHOOSECOLS",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateChooseColumns(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "CHOOSEROWS",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateChooseRows(function, context, dependencies);
+        }
         return Failure("#NAME?", FormulaErrorCode.InvalidName, dependencies);
     }
 
@@ -164,6 +182,12 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
              index < function.Arguments.Count;
              index++)
         {
+            if (function.Arguments[index] is MissingArgumentNode &&
+                index > 0)
+            {
+                continue;
+            }
+
             var scalar = EvaluateScalarNode(
                 function.Arguments[index],
                 context,
@@ -261,6 +285,10 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
     {
         switch (node)
         {
+            case MissingArgumentNode:
+                return FormulaArrayEvaluationResult.Success(
+                    new FormulaArrayValue(1, 1, [CellValue.Blank]),
+                    DistinctDependencies(dependencies));
             case RangeNode range:
                 dependencies.Add(new FormulaDependency(
                     range.WorksheetName,
@@ -287,13 +315,15 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
                             cell.WorksheetName,
                             cell.Address)]),
                     DistinctDependencies(dependencies));
+            case ReferenceUnionNode:
+                return Failure(
+                    "#VALUE!",
+                    FormulaErrorCode.InvalidValue,
+                    dependencies);
             case FunctionNode function when IsDynamicFunction(function.Name):
                 return EvaluateFunction(function, context, dependencies);
             default:
-                var scalar = EvaluateScalarNode(
-                    node,
-                    context,
-                    dependencies);
+                var scalar = EvaluateScalarNode(node, context, dependencies);
                 return scalar.Kind == CellValueKind.Error
                     ? FormulaArrayEvaluationResult.Failure(
                         scalar,
@@ -310,6 +340,11 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
         IFormulaEvaluationContext context,
         List<FormulaDependency> dependencies)
     {
+        if (node is MissingArgumentNode)
+        {
+            return CellValue.Blank;
+        }
+
         var result = _scalarEngine.Evaluate(
             FormulaNodeWriter.Write(node),
             context);
@@ -337,6 +372,18 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
         string.Equals(
             name,
             "UNIQUE",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "CHOOSE",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "CHOOSECOLS",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "CHOOSEROWS",
             StringComparison.OrdinalIgnoreCase);
 
     private static bool TryPositiveInteger(
@@ -394,6 +441,7 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
             "#NAME?" => FormulaErrorCode.InvalidName,
             "#CIRC!" => FormulaErrorCode.CircularReference,
             "#N/A" => FormulaErrorCode.NotAvailable,
+            "#SPILL!" => FormulaErrorCode.Spill,
             _ => FormulaErrorCode.InvalidValue,
         };
     }
@@ -414,6 +462,8 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
                 case ConstantNode constant:
                     AppendConstant(builder, constant.Value);
                     break;
+                case MissingArgumentNode:
+                    break;
                 case CellNode cell:
                     AppendWorksheet(builder, cell.WorksheetName);
                     builder.Append(cell.Address.ToA1());
@@ -423,6 +473,20 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
                     builder.Append(range.Range.TopLeft.ToA1());
                     builder.Append(':');
                     builder.Append(range.Range.BottomRight.ToA1());
+                    break;
+                case ReferenceUnionNode union:
+                    builder.Append('(');
+                    for (var index = 0;
+                         index < union.Areas.Count;
+                         index++)
+                    {
+                        if (index > 0)
+                        {
+                            builder.Append(',');
+                        }
+                        Append(builder, union.Areas[index]);
+                    }
+                    builder.Append(')');
                     break;
                 case UnaryNode unary:
                     builder.Append(unary.Operator == FormulaTokenKind.Minus

@@ -27,10 +27,7 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
                 : formula;
             var node = new FormulaParser(effectiveFormula).Parse();
             var dependencies = new List<FormulaDependency>();
-            var value = EvaluateNode(
-                node,
-                context,
-                dependencies);
+            var value = EvaluateNode(node, context, dependencies);
             var error = FormulaErrorMapping.ToErrorCode(value);
             return error == FormulaErrorCode.None
                 ? FormulaEvaluationResult.Success(value, dependencies)
@@ -58,19 +55,12 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
         node switch
         {
             ConstantNode constant => constant.Value,
-            CellNode cell => EvaluateCell(
-                cell,
-                context,
-                dependencies),
+            MissingArgumentNode => CellValue.Blank,
+            CellNode cell => EvaluateCell(cell, context, dependencies),
             RangeNode => CellValue.FromError("#VALUE!"),
-            UnaryNode unary => EvaluateUnary(
-                unary,
-                context,
-                dependencies),
-            BinaryNode binary => EvaluateBinary(
-                binary,
-                context,
-                dependencies),
+            ReferenceUnionNode => CellValue.FromError("#VALUE!"),
+            UnaryNode unary => EvaluateUnary(unary, context, dependencies),
+            BinaryNode binary => EvaluateBinary(binary, context, dependencies),
             FunctionNode function => EvaluateFunction(
                 function,
                 context,
@@ -96,10 +86,7 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
         IFormulaEvaluationContext context,
         List<FormulaDependency> dependencies)
     {
-        var value = EvaluateNode(
-            unary.Operand,
-            context,
-            dependencies);
+        var value = EvaluateNode(unary.Operand, context, dependencies);
         if (!TryNumber(value, out var number))
         {
             return CellValue.FromError("#VALUE!");
@@ -115,14 +102,8 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
         IFormulaEvaluationContext context,
         List<FormulaDependency> dependencies)
     {
-        var left = EvaluateNode(
-            binary.Left,
-            context,
-            dependencies);
-        var right = EvaluateNode(
-            binary.Right,
-            context,
-            dependencies);
+        var left = EvaluateNode(binary.Left, context, dependencies);
+        var right = EvaluateNode(binary.Right, context, dependencies);
         if (left.Kind == CellValueKind.Error)
         {
             return left;
@@ -133,8 +114,7 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
         }
         if (binary.Operator == FormulaTokenKind.Concat)
         {
-            return CellValue.FromText(
-                left.ToString() + right.ToString());
+            return CellValue.FromText(left.ToString() + right.ToString());
         }
         if (binary.Operator is FormulaTokenKind.Equal or
             FormulaTokenKind.NotEqual or
@@ -172,9 +152,7 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
             FormulaTokenKind.Minus => leftNumber - rightNumber,
             FormulaTokenKind.Multiply => leftNumber * rightNumber,
             FormulaTokenKind.Divide => leftNumber / rightNumber,
-            FormulaTokenKind.Power => Math.Pow(
-                leftNumber,
-                rightNumber),
+            FormulaTokenKind.Power => Math.Pow(leftNumber, rightNumber),
             _ => double.NaN,
         };
         return SafeNumber(value);
@@ -187,23 +165,31 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
     {
         if (string.Equals(
                 function.Name,
+                "AREAS",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateAreas(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "CHOOSE",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateChoose(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
                 "IF",
                 StringComparison.OrdinalIgnoreCase))
         {
-            return EvaluateIf(
-                function,
-                context,
-                dependencies);
+            return EvaluateIf(function, context, dependencies);
         }
         if (string.Equals(
                 function.Name,
                 "SUBTOTAL",
                 StringComparison.OrdinalIgnoreCase))
         {
-            return EvaluateSubtotal(
-                function,
-                context,
-                dependencies);
+            return EvaluateSubtotal(function, context, dependencies);
         }
         if (TryEvaluateConditionalAggregate(
                 function,
@@ -222,9 +208,19 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
 
         var invocationArguments =
             new List<FormulaFunctionArgument>(function.Arguments.Count);
-        foreach (var argument in function.Arguments)
+        foreach (var argumentNode in function.Arguments)
         {
-            if (argument is RangeNode range)
+            if (TryEvaluateChooseInvocationArgument(
+                    argumentNode,
+                    context,
+                    dependencies,
+                    out var chooseArgument))
+            {
+                invocationArguments.Add(chooseArgument);
+                continue;
+            }
+
+            if (argumentNode is RangeNode range)
             {
                 var dependency = new FormulaDependency(
                     range.WorksheetName,
@@ -243,7 +239,7 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
                 invocationArguments.Add(
                     FormulaFunctionArgument.Scalar(
                         EvaluateNode(
-                            argument,
+                            argumentNode,
                             context,
                             dependencies)));
             }
@@ -400,10 +396,8 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
         }
 
         var numbers = values
-            .Where(static value =>
-                value.Kind == CellValueKind.Number)
-            .Select(static value =>
-                (double)value.RawValue!)
+            .Where(static value => value.Kind == CellValueKind.Number)
+            .Select(static value => (double)value.RawValue!)
             .ToArray();
         return kind switch
         {
@@ -450,10 +444,7 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
              row <= range.Range.Bottom;
              row++)
         {
-            if (!IsRowVisible(
-                    context,
-                    range.WorksheetName,
-                    row))
+            if (!IsRowVisible(context, range.WorksheetName, row))
             {
                 continue;
             }
@@ -584,9 +575,7 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
         }
     }
 
-    private static int Compare(
-        CellValue left,
-        CellValue right)
+    private static int Compare(CellValue left, CellValue right)
     {
         if (TryNumber(left, out var leftNumber) &&
             TryNumber(right, out var rightNumber))
