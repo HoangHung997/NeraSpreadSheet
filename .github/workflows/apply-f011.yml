@@ -5,7 +5,7 @@ on:
     branches:
       - automation/f011-apply
     paths:
-      - scripts/.f011.part.*
+      - scripts/apply-f011-existing.py
       - .github/workflows/apply-f011.yml
 
 permissions:
@@ -29,13 +29,22 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Rebuild and verify F011 patch
+      - name: Stage remaining F011 source and apply anchors
         shell: bash
         run: |
           cat scripts/.f011.part.* | base64 --decode | gzip --decompress > /tmp/f011.patch
           echo "3aeb6ca3750dc57f3c6d5e132c9f8422eb3012652b74ce306353db4c4a78ad50  /tmp/f011.patch" | sha256sum --check
-          git apply --check /tmp/f011.patch
-          git apply /tmp/f011.patch
+          git apply --check \
+            --include='src/NeraSpreadSheet.Formulas/DynamicArrayReferenceAndOrderingFormulaFunctions.cs' \
+            --include='src/NeraSpreadSheet.Formulas/PivotByFormulaFunction.cs' \
+            --include='tests/NeraSpreadSheet.Formulas.Tests/LookupReferencePivotAndOrderingFormulaFunctionTests.cs' \
+            /tmp/f011.patch
+          git apply \
+            --include='src/NeraSpreadSheet.Formulas/DynamicArrayReferenceAndOrderingFormulaFunctions.cs' \
+            --include='src/NeraSpreadSheet.Formulas/PivotByFormulaFunction.cs' \
+            --include='tests/NeraSpreadSheet.Formulas.Tests/LookupReferencePivotAndOrderingFormulaFunctionTests.cs' \
+            /tmp/f011.patch
+          python scripts/apply-f011-existing.py .
           git diff --check
 
       - name: Restore
@@ -54,7 +63,8 @@ jobs:
       - name: Commit validated implementation
         shell: bash
         run: |
-          rm scripts/.f011.part.* .github/workflows/apply-f011.yml
+          rm -f scripts/.f011.part.* scripts/.f011.bundle.part.*
+          rm -f scripts/apply-f011-existing.py .github/workflows/apply-f011.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
