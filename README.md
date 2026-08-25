@@ -11,7 +11,7 @@ NeraSpreadSheet là SDK spreadsheet cho **WPF, WinForms và .NET MAUI**, hướn
 - Extension functions khai báo identity, version, capabilities, volatility/state, dependency và argument-count policy.
 - Mọi solver, schedule loop và numerical primitive đều deterministic, bounded và fail closed.
 - Built-ins chỉ đi qua một đường tổng hợp registry duy nhất.
-- Lịch tài chính được xây từ một calendar/day-count layer dùng chung, không sao chép quy tắc ngày vào từng hàm chứng khoán.
+- Lịch và day-count tài chính dùng một lớp platform-neutral chung cho coupon và security functions.
 
 ## Kiến trúc
 
@@ -22,7 +22,7 @@ Workbook / Rules / Tables / Spill Ownership
                     |
  Criteria / Statistics / Finance / Engineering / Database
                     |
-      Financial Calendar + Day-count Basis
+      Financial Calendar + Security Equations
                     |
          Dependency + Recalculation
                     |
@@ -43,12 +43,10 @@ Workbook / Rules / Tables / Spill Ownership
 - Structural insert/delete/reorder có formula/rule/Table/filter/spill mapping.
 - Fractional scrolling, freeze/split panes và multi-host display-list rendering.
 - Function Extension SDK API `1.0`.
-- **226 built-in function names**: 203 eager/versioned, 18 AST/reference-aware và 5 dynamic-array.
+- **231 built-in function names**: 208 eager/versioned, 18 AST/reference-aware và 5 dynamic-array.
 - Conditional aggregates, statistical, advanced statistical, financial, engineering và database foundations.
-- Finance hiện có **30 hàm**, gồm annuity/root, periodic/dated cash flow, payment schedules, depreciation, rate helpers và calendar/day-count.
-- Financial calendar hỗ trợ basis `0..4`, frequency `1/2/4`, `YEARFRAC`, `COUPDAYBS`, `COUPDAYS`, `COUPDAYSNC`, `COUPNCD`, `COUPPCD`, `COUPNUM`.
-- Coupon schedule được neo trực tiếp theo maturity, giữ quy tắc end-of-month qua tháng 2 và không tích lũy date drift.
-- Lịch coupon bị giới hạn ở 100.000 kỳ; settlement phải nhỏ hơn maturity; input frequency/basis được truncate hướng về 0.
+- Finance hiện có **35 hàm**. F001 bổ sung `ACCRINTM`, `DISC`, `INTRATE`, `RECEIVED`, `PRICEDISC` trên cùng basis `0..4` đã khóa.
+- Official/reference values, date/value domains, scalar capabilities và `DISC` ↔ `PRICEDISC` round trip được kiểm thử.
 - Dynamic arrays: `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE` cùng spill ownership và `#SPILL!`.
 - Conditional Formatting, Data Validation, Tables, AutoFilter, XLSX, pagination, staged PDF và streaming CSV/TSV.
 
@@ -57,7 +55,7 @@ Tài liệu nguồn sự thật:
 - `docs/current-status.md`;
 - `docs/function-extension-sdk-contract.md`;
 - `docs/financial-functions-foundation-contract.md`;
-- `docs/feature-matrix.md`;
+- `docs/formula-completion-master-schedule.md`;
 - `ROADMAP.md`.
 
 ## Build và test
@@ -81,7 +79,7 @@ Mọi thay đổi đi qua pull request; không commit trực tiếp vào `main`.
 
 ## Mốc tiếp theo
 
-**Discount/maturity securities**: `ACCRINTM`, `DISC`, `INTRATE`, `RECEIVED`, `PRICEDISC`, `YIELDDISC`, sau đó `PRICEMAT`/`YIELDMAT`. Fixed-coupon `PRICE`, `YIELD`, `DURATION`, `MDURATION` chỉ triển khai sau khi batch discount/maturity dùng calendar layer hiện tại đã được khóa độc lập.
+**F002:** `YIELDDISC`, `PRICEMAT`, `YIELDMAT`, `ACCRINT`, `FVSCHEDULE`. Sau mỗi đúng năm hàm và exact-head CI xanh, một bảng tiến độ được phát ra rồi hàng đợi tự chuyển sang batch kế tiếp.
 
 ## Giấy phép
 

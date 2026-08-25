@@ -3,119 +3,50 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` into `develop` — Draft, unmerged
-- Implementation head: `eeb74ad4ee596f7cb56343b8459f2311538c8243`
-- GitHub Actions: CI `#854`, run `32745296544`, success
-- Formula tests: `192/192`
+- F001 implementation head: `3ea2ae2d576e40b72e91c02ab493f1e244ffe0bd`
+- Formula tests: `198/198`
+- Eager/versioned built-ins: `208`
+- Complete built-ins: `231`
+- Financial functions: `35`
 - Source of truth: `docs/current-status.md`
-- Financial contract: `docs/financial-functions-foundation-contract.md`
-- Master formula schedule: `docs/formula-completion-master-schedule.md`
+- Master schedule: `docs/formula-completion-master-schedule.md`
 
-## Batch completed: financial calendar and day-count foundation
+## F001 — first five maturity-security functions
 
-| Work item | Result | Status |
+| Function | Contract | Status |
 |---|---|---|
-| Shared date layer | Whole-date normalization and one platform-neutral service | Complete |
-| Basis `0..4` | US 30/360, Actual/Actual, Actual/360, Actual/365, European 30/360 | Complete |
-| Coupon frequency | Annual, semiannual and quarterly after truncation | Complete |
-| `YEARFRAC` | Signed year fraction with leap/multi-year rules | Complete |
-| `COUPPCD` / `COUPNCD` | Maturity-anchored previous/next coupon dates | Complete |
-| `COUPDAYBS` / `COUPDAYS` / `COUPDAYSNC` | Basis-specific coupon day counts | Complete |
-| `COUPNUM` | Remaining coupon count through maturity | Complete |
-| End-of-month | Leap-February and month-end anchor preserved | Complete |
-| Resource policy | Maximum 100.000 coupon periods | Complete |
-| Formula regressions | 192 passed, zero failed | Green |
-| Hosted matrix | Core, Windows, Android, iOS, Mac Catalyst, MAUI Windows loaded smokes | Green |
-| Pull request | Remains Draft and unmerged | Locked |
+| `ACCRINTM` | Accrued interest at maturity; default par 1000; basis 0..4 | Complete |
+| `DISC` | Annual discount rate from price/redemption | Complete |
+| `INTRATE` | Annual interest rate from investment/redemption | Complete |
+| `RECEIVED` | Maturity proceeds from investment/discount | Complete |
+| `PRICEDISC` | Price of a discounted security | Complete |
+| Registry | 203 → 208 eager names | Complete |
+| Formula regressions | 198 passed, zero failed | Green |
+| Architecture | Verification passed | Green |
+| Hosted matrix | Exact-head rerun required after Apple checkout DNS failure | Pending gate |
+| Pull request | Draft and unmerged | Locked |
 
-## Functional contracts
+## Functional decisions
 
-### Dates, basis and frequency
+- All five functions are deterministic/pure SDK v1, scalar-only and logical-argument-counted.
+- Dates are normalized to whole dates.
+- Basis is truncated toward zero and validated in `0..4`.
+- All formulas reuse `FinancialDateMath.GetYearFraction`.
+- Unsupported ranges/coercion return `#VALUE!`; invalid date/value/denominator domains return `#NUM!`.
+- `DISC(PRICEDISC(...))` recovers the original discount within deterministic tolerance.
 
-- Date inputs are normalized to date-only values.
-- Basis/frequency numeric inputs are truncated toward zero.
-- Basis values: 0 US NASD 30/360, 1 Actual/Actual, 2 Actual/360, 3 Actual/365, 4 European 30/360.
-- Coupon frequency is 1, 2 or 4.
-- Coupon functions require settlement earlier than maturity.
-- Invalid/coercion/range input returns `#VALUE!`; invalid financial domains return `#NUM!`.
+## CI #859 finding
 
-### Maturity-anchored coupon schedule
+Core build, architecture and 198/198 formula tests passed. The Apple job never checked out source because its hosted runner returned `Could not resolve host: github.com`; no compiler or runtime code ran there. A documentation/handoff commit triggers a fresh exact-head matrix. F001 is not publicly reported complete until that run is entirely green.
 
-Every coupon candidate is recalculated directly from maturity and its month offset. The engine does not repeatedly subtract months from the previously rounded date. This preserves an August-31 maturity as February-29/28 and August-31 coupon dates instead of drifting permanently to the 28th/29th.
+## Next five — F002
 
-- PCD is the coupon on or before settlement.
-- NCD is the coupon strictly after settlement.
-- Settlement exactly on a coupon date therefore has `COUPDAYBS = 0`.
-- Search is capped at 100.000 periods.
+1. `YIELDDISC`.
+2. `PRICEMAT`.
+3. `YIELDMAT`.
+4. `ACCRINT`.
+5. `FVSCHEDULE`.
 
-### Day-count outputs
+F002 must lock maturity-interest equations, full accrued-interest schedule behavior, range-aware schedule multiplication, inverse/reconciliation regressions and the same exact-head hosted gates.
 
-- `YEARFRAC` supports signed intervals and equal-date zero.
-- `COUPDAYS` is actual PCD→NCD for basis 1, `360/frequency` for bases 0/2/4 and `365/frequency` for basis 3.
-- `COUPDAYSNC` is actual/basis settlement→NCD for bases 1/2/3; bases 0/4 subtract days-before from the fixed coupon period.
-- `COUPDAYBS` always uses the selected basis from PCD to settlement.
-
-## Probe sequence and findings
-
-### CI #852 — compile probe
-
-- Three C# definite-assignment errors exposed uninitialized `out` parameters in the shared coupon argument reader.
-- No runtime or reference adjustment was attempted before fixing the compile contract.
-
-### CI #853 — functional probe
-
-- Build succeeded.
-- All new YEARFRAC/coupon result, domain, EOM, leap-year and metadata tests passed.
-- 188/192 formula tests passed.
-- The only failures were four old registry-count assertions expecting 196 instead of the correct 203.
-
-### CI #854 — final implementation
-
-- Registry assertions updated to 203 without changing numerical references.
-- 192/192 formula tests passed.
-- Architecture and full hosted matrix passed.
-
-## Counts
-
-- Eager/versioned built-ins: 203.
-- AST/reference-aware built-ins: 18.
-- Dynamic-array built-ins: 5.
-- Complete built-in subsystem: 226.
-- Financial functions: 30.
-
-## Formula completion operating rule
-
-The formula program now follows `docs/formula-completion-master-schedule.md`.
-
-- Every public progress report contains exactly five newly completed function names.
-- Infrastructure/refactor work does not replace a function name in the five-name milestone.
-- Before each batch, audit the live registry and skip any name already implemented.
-- A batch remains incomplete until result/domain/metadata/resource regressions and exact-head hosted CI are green.
-- After a five-function report, automatically lock the next five Pending names without asking the user to choose a family.
-- PR remains Draft throughout the sequence.
-
-## Explicit limitations
-
-- Current coupon schedules are regular maturity-anchored schedules.
-- Odd-first/odd-last coupons, business-day calendars and holiday adjustment remain pending.
-- Discount/maturity securities and fixed-coupon price/yield/duration remain pending.
-- External producer differential corpora and financial fuzzing remain pending.
-- Hypothesis tests, advanced lookup/arrays, plugin isolation, drawings/charts, pivots and release hardening remain pending.
-
-## Progress
-
-- Engine/viewport/renderer: about `92%`.
-- Basic spreadsheet MVP: about `96–98%`.
-- Complete professional roadmap: about `78%`.
-- Production readiness: about `55–58%`.
-
-## Next five — F001
-
-1. `ACCRINTM`.
-2. `DISC`.
-3. `INTRATE`.
-4. `RECEIVED`.
-5. `PRICEDISC`.
-
-Supporting work in F001 includes shared maturity-security equations, basis/domain handling, inverse/reconciliation regressions, registry-count updates, documentation and exact-head Core/Windows/MAUI CI. `YIELDDISC` begins F002; do not report F001 until all five names above and exact-head CI are green.
-
-PR remains Draft; do not merge while a newer exact-head CI is red or unknown.
+PR remains Draft; do not merge while a newer exact-head run is red or unknown.

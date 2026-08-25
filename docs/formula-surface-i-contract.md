@@ -8,66 +8,60 @@ This document defines validated scalar/reference formula behavior. Dynamic array
 - `NeraFormulaEngine` owns evaluation, lazy branches, references, dependencies and errors.
 - `BuiltInFormulaFunctionRegistry` delegates to one internal versioned registry.
 - `StandardFormulaFunctions.CreateAll()` is the sole built-in aggregation path.
-- `FinancialDateMath` owns financial date normalization, day-count basis and regular coupon schedules.
+- `FinancialDateMath` owns financial date normalization and day-count basis.
 - Platform hosts and OpenXml adapters do not implement formula semantics.
 
 ## 2. Counts
 
-- Eager/versioned built-ins: **203**.
+- Eager/versioned built-ins: **208**.
 - AST/reference-aware built-ins: **18**.
-- Scalar/reference total: **221**.
+- Scalar/reference total: **226**.
 - Dynamic-array built-ins: **5**.
-- Complete built-in subsystem: **226 names**.
+- Complete built-in subsystem: **231 names**.
 
 ## 3. Families
 
 - Logical, information, aggregate, math, text/Unicode and date/time foundations.
 - Lookup/reference and conditional aggregate foundations.
 - Descriptive/order statistics, covariance/regression and advanced distributions.
-- Thirty financial functions, including calendar/day-count functions.
+- Thirty-five financial functions, including seven calendar/day-count and five maturity-security functions.
 - Nineteen engineering functions and twelve database aggregate functions.
 
-## 4. Financial calendar behavior
+## 4. Maturity-security behavior
 
-The financial formula surface now includes:
+The surface includes:
 
-- `YEARFRAC(start_date,end_date,[basis])`;
-- `COUPDAYBS(settlement,maturity,frequency,[basis])`;
-- `COUPDAYS(settlement,maturity,frequency,[basis])`;
-- `COUPDAYSNC(settlement,maturity,frequency,[basis])`;
-- `COUPNCD(settlement,maturity,frequency,[basis])`;
-- `COUPPCD(settlement,maturity,frequency,[basis])`;
-- `COUPNUM(settlement,maturity,frequency,[basis])`.
+- `ACCRINTM(issue,settlement,rate,[par],[basis])`;
+- `DISC(settlement,maturity,price,redemption,[basis])`;
+- `INTRATE(settlement,maturity,investment,redemption,[basis])`;
+- `RECEIVED(settlement,maturity,investment,discount,[basis])`;
+- `PRICEDISC(settlement,maturity,discount,redemption,[basis])`.
 
 Shared contracts:
 
 - scalar-only, deterministic/pure, logical argument counting;
-- whole-date normalization;
-- basis `0..4` and frequencies `1/2/4` after truncation;
-- settlement strictly before maturity for coupon functions;
-- maturity-anchored coupon generation with end-of-month preservation;
-- bounded 100.000-period search;
-- explicit `#VALUE!` for unsupported argument kinds/coercion and `#NUM!` for invalid financial domains.
-
-`COUPPCD` may equal settlement on a coupon date; `COUPNCD` is strictly later. Coupon period/day/count functions share the same generated PCD/NCD pair and cannot drift independently.
+- whole-date normalization and basis `0..4` after truncation;
+- ordered issue/settlement/maturity dates;
+- positive required par/investment/redemption/rate/discount values;
+- common `FinancialDateMath.GetYearFraction` primitive;
+- `#VALUE!` for unsupported argument kind/coercion and `#NUM!` for invalid financial domains;
+- inverse regression between `DISC` and `PRICEDISC`.
 
 Full contract: `docs/financial-functions-foundation-contract.md`.
 
 ## 5. Errors and dependencies
 
-Unsupported argument kinds or failed coercion return `#VALUE!`. Invalid domains, resource exhaustion and non-convergence return `#NUM!`. Range-aware functions preserve source identity and participate in affected-only recalculation. Current financial calendar functions are scalar-only and declare no hidden dependency.
+Unsupported argument kinds or failed coercion return `#VALUE!`. Invalid domains, resource exhaustion and non-convergence return `#NUM!`. Range-aware functions preserve source identity and participate in affected-only recalculation. Current maturity-security functions are scalar-only and declare no hidden dependency.
 
 ## 6. Pending
 
-- Complete locale/coercion compatibility.
-- Discount/maturity security functions.
-- Fixed-coupon bond price/yield/duration, treasury, AMOR and odd-coupon functions.
+- F002: YIELDDISC, PRICEMAT, YIELDMAT, ACCRINT and FVSCHEDULE.
+- Fixed-coupon bonds, treasury, AMOR and odd-coupon functions.
 - Statistical hypothesis tests and confidence intervals.
-- Advanced lookup/reference, arrays and LET/LAMBDA.
-- Special engineering, database expression criteria, cube functions and external differential corpora.
+- Advanced lookup/reference, arrays, LET/LAMBDA, special engineering, compatibility aliases and external providers.
 
 ## 7. Gates
 
-Formula calendar changes require result/domain/coercion/descriptor tests, basis-specific references, leap-year/end-of-month/exact-coupon-date tests, schedule-bound tests, registry counts and the complete hosted CI matrix.
+Maturity-security changes require reference/domain/coercion/descriptor tests, basis/date-order tests, equation round trips, registry counts and the complete hosted CI matrix.
 
 PR #1 remains Draft while exact-head CI is red or unknown.
