@@ -6,14 +6,14 @@
 
 | Chỉ số | Giá trị |
 |---|---:|
-| Eager/versioned built-ins | 233 |
+| Eager/versioned built-ins | 238 |
 | AST/reference-aware | 18 |
 | Dynamic-array built-ins | 5 |
-| Tổng built-ins | 256 |
+| Tổng built-ins | 261 |
 | Financial functions | 56 |
-| Formula tests | 224 |
-| Batch hoàn thành | F001, F002, F003, F004, F005, F006 |
-| Batch kế tiếp | F007 |
+| Formula tests | 229 |
+| Batch hoàn thành | F001–F007 |
+| Batch kế tiếp | F008 |
 | PR | #1 · Draft · chưa merge |
 
 ## 2. Baseline đích
@@ -51,34 +51,35 @@ Trước mỗi batch, registry audit loại mọi tên đã có và lấy năm t
 | F004 | `TBILLEQ`, `TBILLPRICE`, `TBILLYIELD`, `DOLLARDE`, `DOLLARFR` | ✅ Complete |
 | F005 | `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE` | ✅ Complete |
 | F006 | `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM` | ✅ Complete |
-| F007 | `NETWORKDAYS`, `NETWORKDAYS.INTL`, `WORKDAY`, `WORKDAY.INTL`, `NUMBERVALUE` | **Next** |
+| F007 | `NETWORKDAYS`, `NETWORKDAYS.INTL`, `WORKDAY`, `WORKDAY.INTL`, `NUMBERVALUE` | ✅ Complete |
+| F008 | `ADDRESS`, `AREAS`, `CHOOSE`, `CHOOSECOLS`, `CHOOSEROWS` | **Next** |
 
 Nếu audit thấy tên đã tồn tại, tên đó được thay bằng tên Pending đầu tiên của pool kế tiếp để batch vẫn đủ đúng năm hàm mới.
 
 ## 5. Hàng đợi theo dependency
 
-### P01 — Business-day, date/time và locale number
-
-F007 lấy toàn bộ pool đầu:
-
-```text
-NETWORKDAYS
-NETWORKDAYS.INTL
-WORKDAY
-WORKDAY.INTL
-NUMBERVALUE
-```
-
-Phase này phải khóa weekend masks, holiday range dependencies, signed day traversal, maximum calendar budgets và locale decimal/group separators.
-
 ### P02 — Lookup, reference và dynamic-array projection
 
+F008 lấy năm tên đầu:
+
 ```text
-ADDRESS AREAS CHOOSE CHOOSECOLS CHOOSEROWS COLUMN COLUMNS
-DROP EXPAND FORMULATEXT GETPIVOTDATA GROUPBY HSTACK HYPERLINK
-INDIRECT LOOKUP OFFSET PERCENTOF PIVOTBY ROW ROWS SHEET SHEETS
-SORTBY TAKE TOCOL TOROW TRIMRANGE VSTACK WRAPCOLS WRAPROWS XMATCH
+ADDRESS
+AREAS
+CHOOSE
+CHOOSECOLS
+CHOOSEROWS
 ```
+
+Phần còn lại:
+
+```text
+COLUMN COLUMNS DROP EXPAND FORMULATEXT GETPIVOTDATA GROUPBY HSTACK
+HYPERLINK INDIRECT LOOKUP OFFSET PERCENTOF PIVOTBY ROW ROWS SHEET
+SHEETS SORTBY TAKE TOCOL TOROW TRIMRANGE VSTACK WRAPCOLS WRAPROWS
+XMATCH
+```
+
+Phase này phải khóa reference identity, scalar/reference/array capability, negative column/row indices, shape propagation và dependency capture.
 
 ### P03 — LET/LAMBDA, higher-order arrays và logical
 
@@ -132,8 +133,6 @@ NORMSDIST NORMSINV PERCENTILE PERCENTRANK POISSON QUARTILE RANK
 STDEV STDEVP TDIST TINV TTEST VAR VARP WEIBULL ZTEST
 ```
 
-Compatibility names ưu tiên adapter tới primitive hiện đại nhưng vẫn phải khóa signature, tail/cumulative mode và error behavior.
-
 ### P08 — Engineering special, complex numbers và unit conversion
 
 ```text
@@ -149,8 +148,6 @@ IMPRODUCT IMREAL IMSEC IMSECH IMSIN IMSINH IMSQRT IMSUB IMSUM IMTAN
 CELL ERROR.TYPE INFO N NA TYPE ISBLANK ISERR ISERROR ISEVEN ISFORMULA
 ISLOGICAL ISNA ISNONTEXT ISNUMBER ISODD ISREF ISTEXT
 ```
-
-Tên đã tồn tại tự bị audit bỏ qua.
 
 ### P10 — Cube, web, data types và external state
 
@@ -170,54 +167,27 @@ MissingOpenFormula = OpenFormulaTarget - Registry
 MissingMicrosoft   = MicrosoftSnapshotTarget - Registry
 ```
 
-Tên còn lại được sắp theo dependency và tự chia batch năm hàm cho tới khi cả hai tập bằng 0.
+Các tên còn lại được sắp theo dependency và tự chia batch năm hàm cho tới khi cả hai tập bằng 0.
 
-## 6. Mẫu báo cáo sau mỗi năm hàm
-
-```markdown
-## Batch <ID>
-| Hàm | Implementation | Tests | Status |
-|---|---|---|---|
-| FUNCTION_1 | ... | ... | ✅ |
-| FUNCTION_2 | ... | ... | ✅ |
-| FUNCTION_3 | ... | ... | ✅ |
-| FUNCTION_4 | ... | ... | ✅ |
-| FUNCTION_5 | ... | ... | ✅ |
-
-| Gate | Kết quả |
-|---|---|
-| Formula tests | x/x |
-| Registry | trước → sau |
-| Architecture | pass |
-| Windows/GPU | pass |
-| Android/iOS/Mac Catalyst | pass |
-| MAUI Windows loaded smokes | pass |
-| Exact-head CI | run / success |
-| PR | Draft, unmerged |
-
-## Báo cáo toàn dự án
-Workbook/editing · formula/SDK · rendering/hosts · XLSX/data · printing/PDF · hardening · weighted progress · blockers.
-```
-
-## 7. Điều kiện kết thúc toàn bộ formula program
+## 6. Điều kiện kết thúc toàn bộ formula program
 
 Chỉ tuyên bố đủ hàm khi:
 
-1. `Pending = 0` cho Microsoft snapshot và OpenFormula target đã khóa;
+1. `Pending = 0` cho snapshot Microsoft và OpenFormula đã khóa;
 2. không còn duplicate identity/alias hoặc registration path song song;
 3. compatibility aliases có differential tests;
 4. external/cube/data-type functions có provider contract, fake-provider tests và offline fail-closed path;
 5. parser hỗ trợ LET/LAMBDA/dynamic references cần thiết;
-6. mọi solver, recursion, array, schedule và external request có resource budget;
+6. mọi solver, recursion, array, schedule, calendar và external request có resource budget;
 7. external Excel/LibreOffice/ODS differential corpus và fuzzing không còn blocker;
-8. exact-head hosted CI và final acceptance đều xanh.
+8. exact-head hosted CI và Codex final acceptance đều xanh.
 
-## 8. Next five
+## 7. Next five
 
 ```text
-NETWORKDAYS
-NETWORKDAYS.INTL
-WORKDAY
-WORKDAY.INTL
-NUMBERVALUE
+ADDRESS
+AREAS
+CHOOSE
+CHOOSECOLS
+CHOOSEROWS
 ```

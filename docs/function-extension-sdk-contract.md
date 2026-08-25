@@ -1,6 +1,6 @@
 # Function Extension SDK v1.0 contract
 
-Tài liệu này định nghĩa validated versioned function-extension contract của NeraSpreadSheet.
+Tài liệu này định nghĩa versioned function-extension contract đã được validate của NeraSpreadSheet.
 
 ## 1. Descriptor contract
 
@@ -17,43 +17,46 @@ Mỗi function khai báo namespace/name identity, implementation version, minimu
 
 ## 3. Invocation
 
-Invocation arguments giữ scalar values hoặc range source identity, shape và row-major values. Unsupported scalar/range/array combinations bị reject trước evaluator execution. Argument counting là logical hoặc flattened-value theo metadata.
+Invocation arguments giữ scalar values hoặc range source identity, shape và row-major values. Unsupported scalar/range/array combinations bị từ chối trước evaluator. Argument counting dùng logical hoặc flattened policy theo metadata.
+
+Engine capture range dependency trước invocation. F007 sử dụng contract này để holiday ranges trong NETWORKDAYS/WORKDAY tham gia affected-only recalculation mà không khai báo hidden dependency.
 
 ## 4. Built-in milestone
 
-Eager/versioned registry có **233 names**:
+Eager/versioned registry chứa **238 names**:
 
 - 92 original flattened-value functions;
 - 11 Statistical Foundation functions;
 - 39 Advanced Statistical functions;
 - 56 financial functions;
-- 4 F006 date-compatibility functions;
 - 19 engineering functions;
-- 12 database functions.
+- 12 database functions;
+- 9 later date/business-calendar/locale functions ngoài financial count.
 
-Broader subsystem thêm 18 AST/reference-aware và 5 dynamic-array names, tổng **256 built-ins**.
+Broader subsystem bổ sung 18 AST/reference-aware và 5 dynamic-array names, tổng **261 built-ins**.
 
-F006 SDK metadata:
+F007 metadata:
 
-- `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM` là scalar-only.
-- Tất cả deterministic/pure, scalar-returning và logical-argument-counted.
-- Không function nào đọc clock, file, network hoặc external state.
-- Date-only normalization và day/week semantics nằm trong formula layer, không nằm trong host UI.
+- `NETWORKDAYS`, `NETWORKDAYS.INTL`, `WORKDAY`, `WORKDAY.INTL` expose scalar + range capability, deterministic/pure, scalar-returning và logical-argument-counted.
+- Range capability chỉ dành cho holiday argument; evaluator vẫn enforce scalar start/end/days/weekend.
+- `NUMBERVALUE` scalar-only, deterministic, scalar-returning, logical-argument-counted và `ContextReadOnly`.
+- `IFormulaLocaleEvaluationContext` là optional deterministic context contract; không phải external-state permission.
 
-Financial SDK metadata:
+## 5. Failure và resource policy
 
-- `NPV`, `IRR`, `XNPV`, `XIRR`, `FVSCHEDULE`, `MIRR` expose range capability.
-- Current financial functions còn lại scalar-only.
-- Tất cả current financial descriptors deterministic/pure và scalar-returning.
-- `FVSCHEDULE` và `MIRR` dùng engine-captured dependencies; security/calendar/date functions không có hidden dependency.
+Registration reject incompatible API, unsupported capabilities, invalid bounds, conflicts, duplicate exact versions without replacement và disallowed external state. Evaluation reject unsupported argument kinds. Family implementations trả explicit spreadsheet errors cho invalid domains, budgets hoặc non-finite results.
 
-## 5. Failure policy
+F007 caps:
 
-Registration reject incompatible APIs, unsupported capabilities, invalid bounds, conflicts, duplicate exact versions without replacement và disallowed external state. Evaluation reject unsupported argument kinds. Family implementations trả explicit spreadsheet errors cho invalid domains, budgets hoặc non-finite results.
+- holiday arguments: 2.000.000 values;
+- NUMBERVALUE text: 1.000.000 characters;
+- business-day shift: bounded by DateTime domain và logarithmic search iterations.
 
 ## 6. Shared services và test counts
 
-`FinancialDateMath` là internal platform-neutral service được coupon/security built-ins tái sử dụng, không phải registry thứ hai. Date compatibility là một family đăng ký qua cùng aggregation path. Formula registry-count regressions đọc `BuiltInFormulaTestCounts.EagerVersioned`, nên mỗi batch chỉ cập nhật một authoritative constant.
+- `FinancialDateMath` là internal shared financial service, không phải registry thứ hai.
+- `BusinessDayCalendarMath` là internal shared calendar service, không phải registry thứ hai.
+- Formula count regressions đọc `BuiltInFormulaTestCounts.EagerVersioned`; mỗi batch cập nhật một hằng authoritative.
 
 ## 7. Pending
 
@@ -67,6 +70,6 @@ Registration reject incompatible APIs, unsupported capabilities, invalid bounds,
 
 ## 8. Gates
 
-SDK changes yêu cầu version ordering, resolution, conflict/replacement/unregister behavior, API/capability/security rejection, range identity, dependency policy, legacy adaptation và shared built-in count regressions, sau đó là complete hosted matrix.
+SDK changes yêu cầu version ordering, resolution, conflict/replacement/unregister, API/capability/security rejection, range identity, dependency policy, legacy adaptation và shared built-in count regressions, sau đó là complete hosted matrix.
 
-PR #1 giữ Draft khi exact-head CI red hoặc unknown.
+PR #1 giữ Draft trong khi exact-head CI mới nhất đỏ hoặc unknown.

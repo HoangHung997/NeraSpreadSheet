@@ -7,11 +7,11 @@ NeraSpreadSheet là SDK spreadsheet cho **WPF, WinForms và .NET MAUI**, hướn
 ## Nguyên tắc kỹ thuật
 
 - Không tạo native control cho từng ô.
-- Workbook, formula engine, dynamic arrays, layout, scrolling và printing không phụ thuộc host UI.
+- Workbook, formula engine, dynamic arrays, layout, scrolling, calendar và printing không phụ thuộc host UI.
 - Extension functions khai báo identity, version, capabilities, volatility/state, dependency và argument-count policy.
-- Solver, schedule loop và numerical primitive đều deterministic, bounded và fail closed.
+- Solver, schedule loop, calendar traversal và numerical primitive đều deterministic, bounded và fail closed.
 - Built-ins chỉ đi qua một đường tổng hợp registry.
-- Lịch/day-count tài chính và date compatibility dùng các lớp platform-neutral dùng chung.
+- Financial day-count, odd-coupon, business-day và locale-number semantics dùng các service platform-neutral.
 
 ## Kiến trúc
 
@@ -22,7 +22,7 @@ Workbook / Rules / Tables / Spill Ownership
                     |
  Criteria / Statistics / Finance / Engineering / Database
                     |
- Financial Calendar + Date Compatibility + Security Equations
+Financial + Date/Week + Business Calendar + Locale Number
                     |
          Dependency + Recalculation
                     |
@@ -46,9 +46,9 @@ Workbook / Rules / Tables / Spill Ownership
 | Structural transforms | Formula/rule/Table/filter/spill mapping nguyên tử khi chèn/xóa/di chuyển cấu trúc |
 | Formula engine | Parser/AST, A1/cross-sheet, dependency graph, circular detection và affected-only recalculation |
 | Formula SDK | API `1.0`, version/capability/state/security/dependency/conflict contracts và một registration path |
-| Built-ins | **256 tên**: 233 eager/versioned, 18 AST/reference-aware và 5 dynamic-array |
+| Built-ins | **261 tên**: 238 eager/versioned, 18 AST/reference-aware và 5 dynamic-array |
 | Finance | **56 hàm**, hoàn thành F001–F006 |
-| Date compatibility | `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM` cùng semantics platform-neutral |
+| Calendar/locale F007 | `NETWORKDAYS`, `NETWORKDAYS.INTL`, `WORKDAY`, `WORKDAY.INTL`, `NUMBERVALUE` |
 | Data/rules | Conditional Formatting, Data Validation, Tables, AutoFilter, totals, sort và paged presenters |
 | Dynamic arrays | Immutable spills cùng `SEQUENCE`, `TRANSPOSE`, `FILTER`, `SORT`, `UNIQUE` |
 | Rendering | Fractional pixel scrolling, freeze/split panes, WPF/WinForms/MAUI display-list GPU hosts |
@@ -61,14 +61,16 @@ Workbook / Rules / Tables / Spill Ownership
 - F004: `TBILLEQ`, `TBILLPRICE`, `TBILLYIELD`, `DOLLARDE`, `DOLLARFR`.
 - F005: `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE`.
 - F006: `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM`.
-- F006 hoàn tất odd-last price/yield round trip và bổ sung date/week compatibility với scalar-only SDK metadata.
-- Registry-count regression được gom về một hằng test chung để mỗi batch chỉ cập nhật một vị trí.
+- F007: `NETWORKDAYS`, `NETWORKDAYS.INTL`, `WORKDAY`, `WORKDAY.INTL`, `NUMBERVALUE`.
+- Holiday ranges giữ dependency source, loại duplicate/weekend và giới hạn 2.000.000 giá trị.
+- Workday shifting dùng week counting và bounded binary search thay vì quét từng ngày.
+- `NUMBERVALUE` dùng explicit separator hoặc `IFormulaLocaleEvaluationContext`, không đọc process-global culture.
 
 Tài liệu nguồn sự thật:
 
 - `docs/current-status.md`;
 - `docs/feature-matrix.md`;
-- `docs/financial-functions-foundation-contract.md`;
+- `docs/business-calendar-and-numbervalue-contract.md`;
 - `docs/formula-completion-master-schedule.md`;
 - `ROADMAP.md`.
 
@@ -93,7 +95,7 @@ Mọi thay đổi đi qua pull request; không commit trực tiếp vào `main`.
 
 ## Mốc tiếp theo
 
-**F007:** `NETWORKDAYS`, `NETWORKDAYS.INTL`, `WORKDAY`, `WORKDAY.INTL`, `NUMBERVALUE`. Sau mỗi đúng năm hàm và exact-head CI xanh, hệ thống báo một bảng tổng thể toàn dự án rồi tự tiếp tục batch sau.
+**F008:** `ADDRESS`, `AREAS`, `CHOOSE`, `CHOOSECOLS`, `CHOOSEROWS`. Sau mỗi đúng năm hàm và exact-head CI xanh, hệ thống báo một bảng tổng thể toàn dự án rồi tự tiếp tục batch sau.
 
 ## Giấy phép
 

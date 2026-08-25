@@ -3,71 +3,56 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` into `develop` — Draft, unmerged
-- F006 implementation head: `c43bf362054110940f149a144546c4bba13387e3`
-- F006 hosted CI: #874, run `32818957096` — success
-- Formula tests: `224/224`
-- Eager/versioned built-ins: `233`
+- F007 exact implementation head: `95748373b9dde1f0faffe2c61d2ad1262cff7532`
+- F007 implementation CI: #878, run `32824453543` — success
+- Formula tests: `229/229`
+- Eager/versioned built-ins: `238`
 - AST/reference-aware built-ins: `18`
 - Dynamic-array built-ins: `5`
-- Complete built-ins: `256`
+- Complete built-ins: `261`
 - Financial functions: `56`
 - Source of truth: `docs/current-status.md`
 - Master schedule: `docs/formula-completion-master-schedule.md`
 
-## F006 — odd-last yield và date compatibility
+## F007 — business calendar và locale-number parsing
 
 | Function | Result | Status |
 |---|---|---|
-| `ODDLYIELD` | Exact algebraic inverse của odd-last price state | Complete |
-| `DATEDIF` | Legacy year/month/day và residual units | Complete |
-| `DAYS360` | Signed US NASD / European 30/360 | Complete |
-| `ISOWEEKNUM` | ISO 8601 week number | Complete |
-| `WEEKNUM` | System-one start-day modes và ISO return type 21 | Complete |
+| `NETWORKDAYS` | Inclusive default-weekend business-day count | Complete |
+| `NETWORKDAYS.INTL` | Signed count với weekend code/mask | Complete |
+| `WORKDAY` | Default-weekend business-day shifting | Complete |
+| `WORKDAY.INTL` | Custom-weekend business-day shifting | Complete |
+| `NUMBERVALUE` | Explicit/context locale number parsing | Complete |
 
-Key contracts:
+Key gates:
 
-- `ODDLPRICE` và `ODDLYIELD` dùng cùng `last_coupon < settlement < maturity` state, frequency `1/2/4`, basis `0..4` và theoretical coupon boundary on-or-after maturity.
-- `ODDLYIELD` yêu cầu rate không âm, price/redemption dương và giữ finite signed yield.
-- `DATEDIF` units: `Y`, `M`, `D`, `MD`, `YM`, `YD`; start > end hoặc unknown unit trả `#NUM!`.
-- Legacy `MD` có thể trả âm ở month-end edge cases.
-- `DAYS360` mặc định US NASD; optional method true dùng European 30/360; reversed interval đổi dấu.
-- `ISOWEEKNUM` và `WEEKNUM(...,21)` dùng ISO week-year; `WEEKNUM` hỗ trợ return type `1`, `2`, `11..17`, `21`.
-- Tất cả descriptors scalar-only, deterministic/pure và logical-argument-counted.
-
-## F006 validation
-
-| Gate | Result |
-|---|---|
-| Build/analyzers | 0 warnings, 0 errors |
-| Formula tests | 224/224 |
-| Registry | 233 eager/versioned |
-| Architecture verification | Pass |
-| Windows build/tests + GPU smoke | Pass |
-| Android build | Pass |
-| iOS + Mac Catalyst builds | Pass |
-| MAUI Windows build/handler | Pass |
-| Table-filter loaded smoke | Pass |
-| Runtime/context loaded smoke | Pass |
-| Scale/orientation loaded smoke | Pass |
-| Exact implementation CI | #874 — success |
+- Published inclusive/signed NETWORKDAYS references.
+- Numeric weekend codes, Monday-first masks và all-weekend behavior.
+- Positive/negative/zero WORKDAY references và holiday exclusions.
+- Holiday duplicate/weekend/blank normalization.
+- Exact holiday range dependency capture.
+- NUMBERVALUE explicit/context separators, whitespace, multi-character separators và repeated percent suffixes.
+- 2.000.000 holiday-value cap, 1.000.000-character text cap và DateTime-domain bounded shifting.
+- Build zero warnings/errors, 229/229 formula tests và architecture verification.
+- CI #878 exact implementation head passed the complete hosted matrix.
 
 ## Whole-project snapshot
 
-- Sparse Excel-size workbook, editing, clipboard, commands, sort và Undo/Redo.
-- Atomic formula/rule/Table/filter/spill structural mapping.
-- Parser/AST, dependency graph, shared/structured formulas và affected-only recalculation.
-- Function SDK API 1.0 và một authoritative registry path.
-- 256 built-ins, 56 financial functions, 19 engineering functions, 12 database functions và 5 dynamic arrays.
-- Fractional pixel scrolling và WPF/WinForms/MAUI rendering hosts.
-- XLSX preservation, streaming CSV/TSV, deterministic pagination, staged PDF và desktop print adapters.
-- Exact-head CI matrix trên Core, Windows, Android, iOS, Mac Catalyst và MAUI Windows.
+- Sparse workbook, editing, structural transforms, rules, Tables/AutoFilter và Undo/Redo foundations complete.
+- Parser/AST/dependency graph, SDK API 1.0, 261 built-ins và first-generation dynamic arrays validated.
+- Fractional pixel scrolling, WPF/WinForms/MAUI GPU hosts, XLSX preservation, streaming text, pagination và PDF validated.
+- Major production blockers remain formula/catalog breadth, charts/pivots, packaging/API policy, plugin trust/isolation, security/fuzzing, recovery, localization/accessibility và broad differential/visual corpora.
 
-## Next five — F007
+## Documentation/handoff gate
 
-1. `NETWORKDAYS`.
-2. `NETWORKDAYS.INTL`.
-3. `WORKDAY`.
-4. `WORKDAY.INTL`.
-5. `NUMBERVALUE`.
+This handoff commit synchronizes README, roadmap, current status, feature matrix, formula/SDK contracts, master schedule and F007 worklog. Public F007 completion requires the exact documentation-head hosted CI to remain green.
 
-F007 phải dùng một shared holiday/weekend calendar service, capture range dependencies, cap traversal và giữ signed behavior trước khi public names được promote. PR giữ Draft; không merge khi exact-head CI mới hơn red hoặc unknown.
+## Next five — F008
+
+1. `ADDRESS`.
+2. `AREAS`.
+3. `CHOOSE`.
+4. `CHOOSECOLS`.
+5. `CHOOSEROWS`.
+
+F008 must lock reference identity, selection laziness, negative indices, array shape propagation, spill behavior and dependency capture. PR remains Draft; do not merge while a newer exact-head CI is red or unknown.
