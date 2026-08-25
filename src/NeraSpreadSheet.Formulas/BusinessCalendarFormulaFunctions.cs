@@ -584,7 +584,7 @@ internal static class BusinessCalendarFormulaFunctions
             compactBuilder.Length--;
         }
         if (compactBuilder.Length == 0 ||
-            compactBuilder.ToString().IndexOf('%') >= 0)
+            compactBuilder.ToString().Contains('%'))
         {
             value = default;
             return false;
