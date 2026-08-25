@@ -33,7 +33,7 @@ The eager/versioned registry contains **223 names**. Together with 18 AST/refere
 - Financial dates are reduced to date-only values.
 - Basis/frequency and DOLLAR denominator are truncated toward zero before validation.
 - Unsupported range use or failed scalar coercion returns `#VALUE!`.
-- Invalid date order, basis/frequency, required value domains, denominators, non-finite results or budgets return `#NUM!`.
+- Invalid date order, basis/frequency, required value domains, zero/non-finite denominators, non-finite results or budgets return `#NUM!`.
 - A DOLLAR denominator that truncates below one returns `#DIV/0!`; a negative denominator returns `#NUM!`.
 - Formula errors propagate before invocation.
 
@@ -127,7 +127,7 @@ Let `DSM` be the actual number of days from settlement to maturity. Settlement m
 100 × (1 - discount × DSM / 360)
 ```
 
-Discount and resulting price must be positive.
+Discount must be positive. The published equation is returned whenever finite, including a negative price under an extreme positive discount.
 
 ### `TBILLYIELD(settlement,maturity,price)`
 
@@ -143,7 +143,7 @@ Price must be positive. A price above 100 may therefore produce a finite negativ
 365 × discount / (360 - discount × DSM)
 ```
 
-Discount and denominator must be positive.
+Discount must be positive. The denominator must be finite and nonzero; a negative finite denominator produces a negative finite equivalent yield rather than a domain error.
 
 The calendar-year upper-bound check is overflow-safe even for valid dates in year 9999. Date inputs are normalized to whole dates before `DSM` is calculated.
 
@@ -180,7 +180,7 @@ F003/F004 promotion requires:
 1. published references for PRICE/YIELD/DURATION/MDURATION/MIRR and all three treasury-bill functions;
 2. `PRICE`/`YIELD`, duration/modified-duration, treasury-price/yield and DOLLAR round-trip/reconciliation tests;
 3. MIRR range, position, sign, rate, dependency and resource-domain tests;
-4. treasury date/order/calendar-year/discount/price and maximum-date boundary tests;
+4. treasury date/order/calendar-year, discount/price, zero-denominator, signed finite-result and maximum-date boundary tests;
 5. DOLLAR truncation, negative, zero, signed and nonnumeric tests;
 6. descriptor/capability tests and shared registry count at 223 eager names;
 7. complete Core/architecture/Windows/Android/iOS/Mac Catalyst/MAUI Windows matrix.

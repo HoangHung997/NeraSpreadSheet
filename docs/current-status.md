@@ -57,7 +57,7 @@ Key contracts:
 - `PRICE` subtracts accrued coupon interest from discounted cash flows; `YIELD` is a bounded inverse solver over the same equation.
 - `DURATION` uses Macaulay present-value weights; `MDURATION = DURATION / (1 + yld/frequency)`.
 - `MIRR` requires at least one positive and one negative participating cash flow and accepts at most 2,000,000 positions.
-- Treasury-bill functions reject invalid date order, maturity beyond one calendar year, nonpositive discount/price and non-finite denominators.
+- Treasury-bill functions reject invalid date order, maturity beyond one calendar year, nonpositive discount, nonpositive `TBILLYIELD` price and zero/non-finite denominators. Finite negative `TBILLPRICE` and `TBILLEQ` outputs remain valid under their published equations.
 - DOLLAR denominator is truncated toward zero; a negative input denominator returns `#NUM!`, while a truncated value below one returns `#DIV/0!`.
 - Unsupported argument kinds/coercion return `#VALUE!`; invalid financial domains, non-finite results and exhausted budgets return `#NUM!`.
 
@@ -89,4 +89,4 @@ These are engineering-weighted estimates, not checkbox counts.
 
 ## Validation state
 
-F003 exact implementation head `48012398a3a020bfb12829bee46cfa88bc1c7fed` passed CI #866. F004 exact implementation head and current validation are recorded in `docs/worklog/CURRENT.md`. The formula suite contains **214 passing tests** at the F004 implementation gate. PR #1 remains Draft and unmerged.
+F003 exact implementation head `48012398a3a020bfb12829bee46cfa88bc1c7fed` passed CI #866. F004 exact compatibility-correction head `b836976733acbfc50696aa096d53547bcad856c7` passed CI #870. The formula suite contains **214 passing tests** at the F004 implementation gate. PR #1 remains Draft and unmerged.

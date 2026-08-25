@@ -5,8 +5,8 @@
 - Pull request: `#1` into `develop` — Draft, unmerged
 - F003 exact implementation head: `48012398a3a020bfb12829bee46cfa88bc1c7fed`
 - F003 hosted CI: #866 — success
-- F004 exact implementation head: `85a3982b9c23fdbaf524d7e868c04f0701182407`
-- F004 hosted CI: #868 — success
+- F004 exact compatibility-correction head: `b836976733acbfc50696aa096d53547bcad856c7`
+- F004 hosted CI: #870 — success
 - Formula tests: `214/214`
 - Eager/versioned built-ins: `223`
 - Complete built-ins: `246`
@@ -45,14 +45,15 @@ Key contracts:
 
 - Actual whole-day `DSM` with a one-calendar-year upper boundary.
 - Overflow-safe maximum-date handling, covered by a year-9999 regression.
-- Treasury price/yield/equivalent-yield denominators fail closed.
+- Extreme positive discounts preserve finite signed `TBILLPRICE` and `TBILLEQ` results; only zero/non-finite equivalent-yield denominators fail closed.
+- `TBILLYIELD` still requires a positive price and may return a finite negative yield for a price above 100.
 - DOLLAR denominator truncation and distinct `#NUM!`/`#DIV/0!` domains.
 - Signed DOLLAR round trips and published 16/32 denominator references.
-- CI #868 exact implementation head passed Core, architecture, Windows/GPU, Android, iOS, Mac Catalyst and MAUI Windows loaded smokes.
+- CI #870 exact compatibility-correction head passed Core, architecture, Windows/GPU, Android, iOS, Mac Catalyst and MAUI Windows loaded smokes.
 
 ## Documentation/handoff gate
 
-This handoff commit synchronizes README, roadmap, current status, feature matrix, financial/formula/SDK contracts, master schedule and F003/F004 worklogs. Public F004 completion requires the exact documentation-head hosted CI to be green.
+This handoff update synchronizes current status, feature matrix, financial contract and F004 worklogs with the compatibility correction. Public F004 completion requires the exact documentation-head hosted CI to be green.
 
 ## Next five — F005
 

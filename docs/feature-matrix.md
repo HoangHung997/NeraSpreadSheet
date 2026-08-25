@@ -33,9 +33,11 @@ Excel, LibreOffice and DevExpress are behavior/coverage references only.
 ## F004 validation
 
 - Implementation commit: `2d05b076cbf59912d52400440ecec422d398f625`.
-- Calendar-boundary hardening head and current CI are recorded in `docs/worklog/CURRENT.md`.
-- Formula tests: **214/214** at the implementation gate.
+- Calendar-boundary hardening head: `85a3982b9c23fdbaf524d7e868c04f0701182407`.
+- Exact compatibility-correction head: `b836976733acbfc50696aa096d53547bcad856c7`.
+- Formula tests: **214/214**.
 - Registry: **223** eager/versioned names; complete subsystem **246** names.
+- CI #870: Core/architecture, Windows/GPU, Android, iOS, Mac Catalyst and MAUI Windows passed.
 - Public milestone report remains gated by documentation/handoff exact-head hosted CI.
 
 ## Weighted progress
