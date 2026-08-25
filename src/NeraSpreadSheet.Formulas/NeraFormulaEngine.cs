@@ -180,6 +180,41 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
         }
         if (string.Equals(
                 function.Name,
+                "OFFSET",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateOffset(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "ROW",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateRow(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "ROWS",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateRows(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "SHEET",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateSheet(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "SHEETS",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateSheets(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
                 "AREAS",
                 StringComparison.OrdinalIgnoreCase))
         {
@@ -253,6 +288,15 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
                     out var indirectArgument))
             {
                 invocationArguments.Add(indirectArgument);
+                continue;
+            }
+            if (TryEvaluateAdvancedReferenceInvocationArgument(
+                    argumentNode,
+                    context,
+                    dependencies,
+                    out var advancedReferenceArgument))
+            {
+                invocationArguments.Add(advancedReferenceArgument);
                 continue;
             }
             if (TryEvaluateChooseInvocationArgument(

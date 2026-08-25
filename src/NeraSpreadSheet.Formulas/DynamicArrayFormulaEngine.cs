@@ -204,6 +204,48 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
         {
             return EvaluateIndirectArray(function, context, dependencies);
         }
+        if (string.Equals(
+                function.Name,
+                "OFFSET",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateOffsetArray(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "PIVOTBY",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluatePivotBy(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "ROW",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateRowArray(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "ROWS",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateRowsArray(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "SORTBY",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateSortBy(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "TAKE",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateTake(function, context, dependencies);
+        }
         return Failure("#NAME?", FormulaErrorCode.InvalidName, dependencies);
     }
 
@@ -462,6 +504,30 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
         string.Equals(
             name,
             "INDIRECT",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "OFFSET",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "PIVOTBY",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "ROW",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "ROWS",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "SORTBY",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "TAKE",
             StringComparison.OrdinalIgnoreCase);
 
     private static bool TryPositiveInteger(

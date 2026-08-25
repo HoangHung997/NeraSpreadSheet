@@ -256,7 +256,8 @@ public sealed class DynamicArrayWorkbookCalculationEngine
     private sealed class DynamicCalculationContext :
         IStructuredReferenceEvaluationContext,
         IFilterAwareFormulaEvaluationContext,
-        IFormulaReferenceIntrospectionContext
+        IFormulaReferenceIntrospectionContext,
+        IFormulaWorkbookMetadataEvaluationContext
     {
         private readonly Workbook _workbook;
         private readonly Worksheet _currentWorksheet;
@@ -277,6 +278,29 @@ public sealed class DynamicArrayWorkbookCalculationEngine
         public string CurrentWorksheetName => _currentWorksheet.Name;
 
         public CellAddress CurrentCellAddress => _formulaAddress;
+
+        public int WorksheetCount => _workbook.Worksheets.Count;
+
+        public bool TryGetWorksheetIndex(
+            string? worksheetName,
+            out int oneBasedIndex)
+        {
+            var effectiveName = worksheetName ?? _currentWorksheet.Name;
+            for (var index = 0; index < _workbook.Worksheets.Count; index++)
+            {
+                if (string.Equals(
+                        _workbook.Worksheets[index].Name,
+                        effectiveName,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    oneBasedIndex = index + 1;
+                    return true;
+                }
+            }
+
+            oneBasedIndex = default;
+            return false;
+        }
 
         public string ExpandStructuredReferences(string formula) =>
             StructuredReferenceFormulaEngine.Expand(
