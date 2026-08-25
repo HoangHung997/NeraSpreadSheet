@@ -1,0 +1,62 @@
+name: Apply F011 candidate
+
+on:
+  push:
+    branches:
+      - automation/f011-apply
+    paths:
+      - scripts/.f011.part.*
+      - .github/workflows/apply-f011.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-f011
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Rebuild and verify F011 patch
+        shell: bash
+        run: |
+          cat scripts/.f011.part.* | base64 --decode | gzip --decompress > /tmp/f011.patch
+          echo "3aeb6ca3750dc57f3c6d5e132c9f8422eb3012652b74ce306353db4c4a78ad50  /tmp/f011.patch" | sha256sum --check
+          git apply --check /tmp/f011.patch
+          git apply /tmp/f011.patch
+          git diff --check
+
+      - name: Restore
+        run: dotnet restore NeraSpreadSheet.Core.slnx
+
+      - name: Build
+        run: dotnet build NeraSpreadSheet.Core.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test NeraSpreadSheet.Core.slnx -c Release --no-build
+
+      - name: Verify architecture
+        shell: pwsh
+        run: ./scripts/verify-architecture.ps1
+
+      - name: Commit validated implementation
+        shell: bash
+        run: |
+          rm scripts/.f011.part.* .github/workflows/apply-f011.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: implement F011 lookup reference pivot and ordering"
+          git push origin HEAD:automation/f011-apply
