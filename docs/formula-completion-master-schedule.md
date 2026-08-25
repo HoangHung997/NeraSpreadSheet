@@ -6,14 +6,14 @@
 
 | Chỉ số | Giá trị |
 |---|---:|
-| Eager/versioned built-ins | 228 |
+| Eager/versioned built-ins | 233 |
 | AST/reference-aware | 18 |
 | Dynamic-array built-ins | 5 |
-| Tổng built-ins | 251 |
-| Financial functions | 55 |
-| Formula tests | 219 |
-| Batch hoàn thành | F001, F002, F003, F004, F005 |
-| Batch kế tiếp | F006 |
+| Tổng built-ins | 256 |
+| Financial functions | 56 |
+| Formula tests | 224 |
+| Batch hoàn thành | F001, F002, F003, F004, F005, F006 |
+| Batch kế tiếp | F007 |
 | PR | #1 · Draft · chưa merge |
 
 ## 2. Baseline đích
@@ -27,18 +27,19 @@ Blocked     = names waiting for mandatory parser/provider/security infrastructur
 Pending     = Target - Implemented - Blocked
 ```
 
-Trước mỗi batch, registry audit loại mọi tên đã có và lấy năm tên `Pending` đầu tiên theo thứ tự dependency. Tổng đích không hard-code vì catalog Microsoft/OpenFormula có thể thay đổi.
+Trước mỗi batch, registry audit loại mọi tên đã có và lấy năm tên `Pending` đầu tiên theo thứ tự dependency. Tổng đích không hard-code vì Microsoft/OpenFormula catalog có thể thay đổi.
 
 ## 3. Quy tắc batch
 
-1. Báo cáo milestone chứa đúng 5 public function names mới.
+1. Báo cáo milestone chứa đúng năm public function names mới.
 2. Refactor, parser, provider, test, corpus và docs không thay thế một tên hàm.
-3. Một alias chỉ tính khi có mapping, descriptor, coercion/error và regression riêng.
-4. Một hàm hoàn thành khi có implementation, SDK metadata, result/domain tests và dependency/resource/convergence tests khi áp dụng.
-5. CI đỏ hoặc chưa xác định nghĩa là batch chưa hoàn thành.
+3. Alias chỉ được tính khi có mapping, descriptor, coercion/error và regression riêng.
+4. Function hoàn thành khi có implementation, SDK metadata, result/domain tests và dependency/resource/convergence tests nếu áp dụng.
+5. CI đỏ hoặc unknown nghĩa là batch chưa hoàn thành.
 6. Sau mỗi milestone, tự khóa năm tên kế tiếp; không hỏi lại người dùng.
 7. PR #1 giữ Draft trong toàn bộ chuỗi.
-8. Registry-count assertions dùng một hằng test chung và được cập nhật một lần mỗi batch.
+8. Registry-count assertions dùng một shared test constant.
+9. Báo cáo sau batch phải gồm cả tiến độ **toàn bộ dự án**, không chỉ riêng formula batch.
 
 ## 4. Các batch đầu
 
@@ -49,13 +50,16 @@ Trước mỗi batch, registry audit loại mọi tên đã có và lấy năm t
 | F003 | `PRICE`, `YIELD`, `DURATION`, `MDURATION`, `MIRR` | ✅ Complete |
 | F004 | `TBILLEQ`, `TBILLPRICE`, `TBILLYIELD`, `DOLLARDE`, `DOLLARFR` | ✅ Complete |
 | F005 | `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE` | ✅ Complete |
-| F006 | `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM` | **Next** |
+| F006 | `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM` | ✅ Complete |
+| F007 | `NETWORKDAYS`, `NETWORKDAYS.INTL`, `WORKDAY`, `WORKDAY.INTL`, `NUMBERVALUE` | **Next** |
 
-Nếu audit thấy một tên đã tồn tại, tên đó được thay bằng tên Pending đầu tiên của pool tiếp theo để batch vẫn đủ đúng năm hàm mới.
+Nếu audit thấy tên đã tồn tại, tên đó được thay bằng tên Pending đầu tiên của pool kế tiếp để batch vẫn đủ đúng năm hàm mới.
 
 ## 5. Hàng đợi theo dependency
 
 ### P01 — Business-day, date/time và locale number
+
+F007 lấy toàn bộ pool đầu:
 
 ```text
 NETWORKDAYS
@@ -64,6 +68,8 @@ WORKDAY
 WORKDAY.INTL
 NUMBERVALUE
 ```
+
+Phase này phải khóa weekend masks, holiday range dependencies, signed day traversal, maximum calendar budgets và locale decimal/group separators.
 
 ### P02 — Lookup, reference và dynamic-array projection
 
@@ -144,7 +150,7 @@ CELL ERROR.TYPE INFO N NA TYPE ISBLANK ISERR ISERROR ISEVEN ISFORMULA
 ISLOGICAL ISNA ISNONTEXT ISNUMBER ISODD ISREF ISTEXT
 ```
 
-Tên đã tồn tại sẽ tự bị audit bỏ qua.
+Tên đã tồn tại tự bị audit bỏ qua.
 
 ### P10 — Cube, web, data types và external state
 
@@ -164,7 +170,7 @@ MissingOpenFormula = OpenFormulaTarget - Registry
 MissingMicrosoft   = MicrosoftSnapshotTarget - Registry
 ```
 
-Các tên còn lại được sắp theo dependency và tự chia batch năm hàm cho tới khi cả hai tập bằng 0.
+Tên còn lại được sắp theo dependency và tự chia batch năm hàm cho tới khi cả hai tập bằng 0.
 
 ## 6. Mẫu báo cáo sau mỗi năm hàm
 
@@ -188,27 +194,30 @@ Các tên còn lại được sắp theo dependency và tự chia batch năm hà
 | MAUI Windows loaded smokes | pass |
 | Exact-head CI | run / success |
 | PR | Draft, unmerged |
+
+## Báo cáo toàn dự án
+Workbook/editing · formula/SDK · rendering/hosts · XLSX/data · printing/PDF · hardening · weighted progress · blockers.
 ```
 
 ## 7. Điều kiện kết thúc toàn bộ formula program
 
 Chỉ tuyên bố đủ hàm khi:
 
-1. `Pending = 0` cho snapshot Microsoft và OpenFormula đã khóa;
+1. `Pending = 0` cho Microsoft snapshot và OpenFormula target đã khóa;
 2. không còn duplicate identity/alias hoặc registration path song song;
 3. compatibility aliases có differential tests;
 4. external/cube/data-type functions có provider contract, fake-provider tests và offline fail-closed path;
-5. parser hỗ trợ cú pháp LET/LAMBDA/dynamic references cần thiết;
+5. parser hỗ trợ LET/LAMBDA/dynamic references cần thiết;
 6. mọi solver, recursion, array, schedule và external request có resource budget;
 7. external Excel/LibreOffice/ODS differential corpus và fuzzing không còn blocker;
-8. exact-head hosted CI và Codex final acceptance đều xanh.
+8. exact-head hosted CI và final acceptance đều xanh.
 
 ## 8. Next five
 
 ```text
-ODDLYIELD
-DATEDIF
-DAYS360
-ISOWEEKNUM
-WEEKNUM
+NETWORKDAYS
+NETWORKDAYS.INTL
+WORKDAY
+WORKDAY.INTL
+NUMBERVALUE
 ```

@@ -1,56 +1,86 @@
 # Formula Surface I contract
 
-This document defines validated scalar/reference formula behavior. Dynamic arrays and third-party extension contracts are specified separately.
+Tài liệu này định nghĩa validated scalar/reference formula behavior. Dynamic arrays và third-party extension contracts được đặc tả riêng.
 
 ## 1. Architecture boundary
 
-- Parser/AST own syntax.
-- `NeraFormulaEngine` owns evaluation, lazy branches, references, dependencies and errors.
-- `BuiltInFormulaFunctionRegistry` delegates to one internal versioned registry.
-- `StandardFormulaFunctions.CreateAll()` is the sole built-in aggregation path.
-- `FinancialDateMath` owns financial date normalization, day-count basis and bounded coupon-period ratios.
-- Platform hosts and OpenXml adapters do not implement formula semantics.
+- Parser/AST sở hữu syntax.
+- `NeraFormulaEngine` sở hữu evaluation, lazy branches, references, dependencies và errors.
+- `BuiltInFormulaFunctionRegistry` delegate tới một internal versioned registry.
+- `StandardFormulaFunctions.CreateAll()` là sole built-in aggregation path.
+- `FinancialDateMath` sở hữu financial date normalization, basis và coupon/quasi-coupon semantics.
+- `DateCompatibilityFormulaFunctions` sở hữu DATEDIF/DAYS360/week-number behavior độc lập với UI host.
+- Platform hosts và OpenXml adapters không implement formula semantics.
 
 ## 2. Counts
 
-- Eager/versioned built-ins: **228**.
+- Eager/versioned built-ins: **233**.
 - AST/reference-aware built-ins: **18**.
-- Scalar/reference total: **246**.
+- Scalar/reference total: **251**.
 - Dynamic-array built-ins: **5**.
-- Complete built-in subsystem: **251 names**.
+- Complete built-in subsystem: **256 names**.
+- Automated formula suite: **224/224**.
 
 ## 3. Families
 
-- Logical, information, aggregate, math, text/Unicode and date/time foundations.
-- Lookup/reference and conditional aggregate foundations.
-- Descriptive/order statistics, covariance/regression and advanced distributions.
-- Fifty-five financial functions through F005.
-- Nineteen engineering functions and twelve database aggregates.
+- Logical, information, aggregate, math, text/Unicode và date/time foundations.
+- Lookup/reference và conditional aggregate foundations.
+- Descriptive/order statistics, covariance/regression và advanced distributions.
+- Fifty-six financial functions qua F006.
+- Date compatibility: `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM`.
+- Nineteen engineering functions và twelve database aggregates.
 
-## 4. F005 financial behavior
+## 4. F005/F006 financial behavior
 
-- `AMORLINC` and `AMORDEGRC` are scalar-only French-accounting depreciation functions with date-only normalization, supported basis restrictions and explicit period/resource bounds.
-- `ODDFPRICE` and `ODDFYIELD` share one strict odd-first quasi-coupon state and one exact clean-price equation.
-- `ODDFYIELD` uses bounded log-domain bisection and is round-trip tested against `ODDFPRICE`.
-- `ODDLPRICE` derives odd-last period ratios from the next theoretical coupon boundary on or after maturity.
-- All five F005 descriptors are deterministic/pure, scalar-returning and logical-argument-counted.
-- Quasi-coupon traversal is capped at 100,000 periods; odd-first yield solving is capped at 256 iterations.
+- `AMORLINC` và `AMORDEGRC` dùng bounded French-depreciation states.
+- `ODDFPRICE` và `ODDFYIELD` chia odd-first period thành bounded quasi-coupon ratios và dùng cùng exact equation.
+- `ODDLPRICE` và `ODDLYIELD` dùng cùng odd-last date state và là algebraic inverses.
+- Odd-coupon functions chỉ nhận scalar arguments, frequency `1/2/4`, basis `0..4` và strict date order.
+- Yield/domain/schedule operations đều finite-checked và bounded.
 
-Full contract: `docs/financial-functions-foundation-contract.md`.
+Full financial contract: `docs/financial-functions-foundation-contract.md`.
 
-## 5. Errors and dependencies
+## 5. F006 date compatibility behavior
 
-Unsupported argument kinds or failed coercion return `#VALUE!`. Invalid domains, resource exhaustion and non-finite results return `#NUM!`. DOLLAR denominators that truncate below one return `#DIV/0!`. Range-aware functions preserve source identity and participate in affected-only recalculation. `FVSCHEDULE` and `MIRR` capture range dependencies; current security/calendar functions declare no hidden dependency.
+### `DATEDIF(start_date,end_date,unit)`
 
-## 6. Pending
+- Units không phân biệt hoa thường: `Y`, `M`, `D`, `MD`, `YM`, `YD`.
+- `Y` và `M` trả completed units; `D` trả actual whole days.
+- `MD`, `YM`, `YD` giữ legacy residual-unit behavior.
+- `MD` có thể trả âm trong known month-end scenarios để giữ compatibility.
+- start lớn hơn end hoặc unit không hợp lệ trả `#NUM!`.
 
-- F006: `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM`.
-- Business-day and holiday functions.
-- Statistical hypothesis tests and confidence intervals.
-- Advanced lookup/reference, arrays, LET/LAMBDA, special engineering, compatibility aliases and external providers.
+### `DAYS360(start_date,end_date,[method])`
 
-## 7. Gates
+- method false/omitted: US NASD 30/360.
+- method true: European 30/360.
+- Date-only normalization.
+- Reversed interval đổi dấu kết quả.
 
-F005 requires published-reference, domain, coercion, descriptor and round-trip regressions, bounded schedule/solver behavior, shared registry counts and the complete hosted CI matrix.
+### `ISOWEEKNUM(date)`
 
-PR #1 remains Draft while exact-head CI is red or unknown.
+ISO 8601 week number với Monday-start và first week chứa ít nhất bốn ngày của năm mới.
+
+### `WEEKNUM(date,[return_type])`
+
+- System-one modes: `1`, `2`, `11..17`.
+- ISO system-two mode: `21`.
+- Invalid return type trả `#NUM!`.
+
+## 6. Errors và dependencies
+
+Unsupported argument kinds hoặc failed coercion trả `#VALUE!`. Invalid domains, exhausted budgets và non-finite results trả `#NUM!`. DOLLAR denominators truncate dưới một trả `#DIV/0!`. Range-aware functions giữ source identity và tham gia affected-only recalculation. `FVSCHEDULE` và `MIRR` capture range dependencies; current security/date functions không có hidden dependency.
+
+## 7. Pending
+
+- F007: NETWORKDAYS/WORKDAY families và NUMBERVALUE.
+- Statistical hypothesis tests và confidence intervals.
+- Advanced lookup/reference, arrays, LET/LAMBDA, special engineering và compatibility aliases.
+- External providers, trust/isolation và offline behavior.
+- Full Microsoft/OpenFormula catalog audit và differential/fuzz corpus.
+
+## 8. Gates
+
+F006 yêu cầu published/reference values, inverse/reconciliation regressions, date/week edge tests, domain/coercion/descriptor tests, shared registry counts và complete hosted CI matrix.
+
+PR #1 giữ Draft khi exact-head CI red hoặc unknown.
