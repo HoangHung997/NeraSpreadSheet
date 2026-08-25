@@ -55,6 +55,25 @@ jobs:
           path.write_text(text, encoding="utf-8")
           PY
 
+      - name: Show relative R1C1 diagnostic
+        shell: bash
+        run: |
+          echo "=== failing regression context ==="
+          nl -ba tests/NeraSpreadSheet.Formulas.Tests/AdvancedReferenceAndAggregationFormulaFunctionTests.cs | sed -n '145,170p'
+          echo "=== generated files ==="
+          git diff --name-only
+          echo "=== INDIRECT and R1C1 implementation ==="
+          while IFS= read -r file; do
+            case "$file" in
+              src/NeraSpreadSheet.Formulas/*.cs)
+                if grep -Eq 'INDIRECT|Indirect|R1C1' "$file"; then
+                  echo "--- $file"
+                  nl -ba "$file"
+                fi
+                ;;
+            esac
+          done < <(git diff --name-only)
+
       - name: Restore
         run: dotnet restore NeraSpreadSheet.Core.slnx
 
