@@ -16,7 +16,7 @@ internal readonly record struct FinancialCouponPeriod(
 
 /// <summary>
 /// Platform-neutral financial date arithmetic shared by YEARFRAC, coupon
-/// helpers and the later bond-price/yield families.
+/// helpers and security price/yield families.
 /// </summary>
 internal static class FinancialDateMath
 {
@@ -79,6 +79,107 @@ internal static class FinancialDateMath
         }
 
         period = default;
+        return false;
+    }
+
+    public static bool TryGetCouponPeriodRatio(
+        DateTime startDate,
+        DateTime endDate,
+        DateTime anchorDate,
+        int frequency,
+        FinancialDayCountBasis basis,
+        out double ratio)
+    {
+        startDate = startDate.Date;
+        endDate = endDate.Date;
+        anchorDate = anchorDate.Date;
+        if (!IsSupportedFrequency(frequency) ||
+            !IsSupportedBasis((int)basis))
+        {
+            ratio = default;
+            return false;
+        }
+        if (startDate == endDate)
+        {
+            ratio = 0d;
+            return true;
+        }
+
+        var sign = 1d;
+        if (startDate > endDate)
+        {
+            (startDate, endDate) = (endDate, startDate);
+            sign = -1d;
+        }
+
+        if (!TryFindCouponPeriod(
+                startDate,
+                anchorDate,
+                frequency,
+                out var previousCoupon,
+                out var nextCoupon,
+                out var nextCouponIndex))
+        {
+            ratio = default;
+            return false;
+        }
+
+        var monthsPerCoupon = 12 / frequency;
+        var cursor = startDate;
+        var sum = 0d;
+        var compensation = 0d;
+        for (var segmentIndex = 0;
+             segmentIndex <= MaximumCouponPeriods;
+             segmentIndex++)
+        {
+            var segmentEnd = endDate < nextCoupon
+                ? endDate
+                : nextCoupon;
+            var couponDays = GetCouponDays(
+                new FinancialCouponPeriod(
+                    previousCoupon,
+                    nextCoupon,
+                    0),
+                frequency,
+                basis);
+            var segmentDays = GetDayCount(
+                cursor,
+                segmentEnd,
+                basis);
+            if (!double.IsFinite(couponDays) ||
+                couponDays <= 0d ||
+                !double.IsFinite(segmentDays) ||
+                segmentDays < 0d)
+            {
+                ratio = default;
+                return false;
+            }
+
+            AddCompensated(
+                ref sum,
+                ref compensation,
+                segmentDays / couponDays);
+            if (segmentEnd == endDate)
+            {
+                ratio = sign * sum;
+                return double.IsFinite(ratio);
+            }
+
+            cursor = nextCoupon;
+            previousCoupon = nextCoupon;
+            nextCouponIndex++;
+            if (!TryAddCouponMonths(
+                    anchorDate,
+                    nextCouponIndex * monthsPerCoupon,
+                    out nextCoupon) ||
+                nextCoupon <= previousCoupon)
+            {
+                ratio = default;
+                return false;
+            }
+        }
+
+        ratio = default;
         return false;
     }
 
@@ -189,16 +290,16 @@ internal static class FinancialDateMath
             basis);
     }
 
-    private static bool TryAddCouponMonths(
-        DateTime maturity,
+    public static bool TryAddCouponMonths(
+        DateTime anchorDate,
         long monthOffset,
         out DateTime result)
     {
-        maturity = maturity.Date;
-        var maturityMonthIndex =
-            (((long)maturity.Year - 1L) * 12L) +
-            maturity.Month - 1L;
-        var targetMonthIndex = maturityMonthIndex + monthOffset;
+        anchorDate = anchorDate.Date;
+        var anchorMonthIndex =
+            (((long)anchorDate.Year - 1L) * 12L) +
+            anchorDate.Month - 1L;
+        var targetMonthIndex = anchorMonthIndex + monthOffset;
         const long maximumMonthIndex = (9999L * 12L) - 1L;
         if (targetMonthIndex < 0L ||
             targetMonthIndex > maximumMonthIndex)
@@ -210,15 +311,89 @@ internal static class FinancialDateMath
         var year = checked((int)(targetMonthIndex / 12L) + 1);
         var month = checked((int)(targetMonthIndex % 12L) + 1);
         var targetMonthDays = DateTime.DaysInMonth(year, month);
-        var maturityIsEndOfMonth =
-            maturity.Day == DateTime.DaysInMonth(
-                maturity.Year,
-                maturity.Month);
-        var day = maturityIsEndOfMonth
+        var anchorIsEndOfMonth =
+            anchorDate.Day == DateTime.DaysInMonth(
+                anchorDate.Year,
+                anchorDate.Month);
+        var day = anchorIsEndOfMonth
             ? targetMonthDays
-            : Math.Min(maturity.Day, targetMonthDays);
+            : Math.Min(anchorDate.Day, targetMonthDays);
         result = new DateTime(year, month, day);
         return true;
+    }
+
+    private static bool TryFindCouponPeriod(
+        DateTime date,
+        DateTime anchorDate,
+        int frequency,
+        out DateTime previousCoupon,
+        out DateTime nextCoupon,
+        out long nextCouponIndex)
+    {
+        var monthsPerCoupon = 12 / frequency;
+        if (date < anchorDate)
+        {
+            nextCoupon = anchorDate;
+            nextCouponIndex = 0L;
+            for (long couponIndex = 1;
+                 couponIndex <= MaximumCouponPeriods;
+                 couponIndex++)
+            {
+                var previousIndex = -couponIndex;
+                if (!TryAddCouponMonths(
+                        anchorDate,
+                        previousIndex * monthsPerCoupon,
+                        out var candidate))
+                {
+                    previousCoupon = default;
+                    nextCoupon = default;
+                    nextCouponIndex = default;
+                    return false;
+                }
+
+                if (candidate <= date)
+                {
+                    previousCoupon = candidate;
+                    return true;
+                }
+
+                nextCoupon = candidate;
+                nextCouponIndex = previousIndex;
+            }
+        }
+        else
+        {
+            previousCoupon = anchorDate;
+            for (long couponIndex = 1;
+                 couponIndex <= MaximumCouponPeriods;
+                 couponIndex++)
+            {
+                if (!TryAddCouponMonths(
+                        anchorDate,
+                        couponIndex * monthsPerCoupon,
+                        out var candidate))
+                {
+                    previousCoupon = default;
+                    nextCoupon = default;
+                    nextCouponIndex = default;
+                    return false;
+                }
+
+                if (candidate > date)
+                {
+                    nextCoupon = candidate;
+                    nextCouponIndex = couponIndex;
+                    return true;
+                }
+
+                previousCoupon = candidate;
+            }
+        }
+
+        previousCoupon = default;
+        nextCoupon = default;
+        nextCouponIndex = default;
+        return false;
     }
 
     private static double GetDayCountOrdered(
@@ -323,6 +498,17 @@ internal static class FinancialDateMath
         }
 
         return includesLeapDay ? 366d : 365d;
+    }
+
+    private static void AddCompensated(
+        ref double sum,
+        ref double compensation,
+        double value)
+    {
+        var adjusted = value - compensation;
+        var next = sum + adjusted;
+        compensation = (next - sum) - adjusted;
+        sum = next;
     }
 
     private static bool IsLastDayOfFebruary(DateTime date) =>
