@@ -81,7 +81,7 @@ internal static class TreasuryBillAndDollarFormulaFunctions
 
         var denominator = TreasuryBillYearDays -
                           (discount * daysToMaturity);
-        if (!double.IsFinite(denominator) || denominator <= 0d)
+        if (!double.IsFinite(denominator) || denominator == 0d)
         {
             return NumericError();
         }
@@ -112,7 +112,7 @@ internal static class TreasuryBillAndDollarFormulaFunctions
                     (1d -
                      (discount * daysToMaturity /
                       TreasuryBillYearDays));
-        return price > 0d ? Number(price) : NumericError();
+        return Number(price);
     }
 
     private static FormulaEvaluationResult EvaluateTreasuryBillYield(

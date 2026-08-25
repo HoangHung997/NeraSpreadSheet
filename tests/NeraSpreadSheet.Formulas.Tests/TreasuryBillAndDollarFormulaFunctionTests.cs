@@ -86,6 +86,25 @@ public sealed class TreasuryBillAndDollarFormulaFunctionTests
             engine.Evaluate(
                 "=TBILLPRICE(DATE(9999,1,1),DATE(9999,12,31),0.05)",
                 context).IsSuccess);
+
+        Assert.AreEqual(
+            -3.3333333333333437d,
+            EvaluateNumber(
+                engine,
+                "=TBILLPRICE(DATE(2025,1,1),DATE(2025,2,1),12)",
+                context),
+            2e-14d);
+        Assert.AreEqual(
+            -365d,
+            EvaluateNumber(
+                engine,
+                "=TBILLEQ(DATE(2025,1,1),DATE(2025,2,1),12)",
+                context),
+            1e-12d);
+        AssertNumericError(
+            engine,
+            "=TBILLEQ(DATE(2025,1,1),DATE(2025,1,31),12)",
+            context);
     }
 
     [TestMethod]
@@ -141,8 +160,6 @@ public sealed class TreasuryBillAndDollarFormulaFunctionTests
             "=TBILLEQ(DATE(2025,1,1),DATE(2025,2,1),0)",
             "=TBILLPRICE(DATE(2025,1,1),DATE(2025,2,1),-0.01)",
             "=TBILLPRICE(DATE(2025,1,1),DATE(2026,2,1),0.05)",
-            "=TBILLPRICE(DATE(2025,1,1),DATE(2025,2,1),12)",
-            "=TBILLEQ(DATE(2025,1,1),DATE(2025,2,1),12)",
             "=TBILLYIELD(DATE(2025,1,1),DATE(2025,2,1),0)",
             "=DOLLARDE(1.02,-16)",
             "=DOLLARFR(1.125,-16)",
