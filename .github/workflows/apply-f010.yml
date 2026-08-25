@@ -55,18 +55,17 @@ jobs:
           path.write_text(text, encoding="utf-8")
           PY
 
-      - name: Show relative R1C1 diagnostic
+      - name: Publish generated source to temporary diagnostic branch
         shell: bash
         run: |
-          echo "=== failing regression context ==="
-          nl -ba tests/NeraSpreadSheet.Formulas.Tests/AdvancedReferenceAndAggregationFormulaFunctionTests.cs | sed -n '145,170p'
-          echo "=== generated and modified files ==="
-          git status --short
-          echo "=== INDIRECT and R1C1 implementation files ==="
-          while IFS= read -r file; do
-            echo "--- $file"
-            nl -ba "$file"
-          done < <(grep -R -l -E 'INDIRECT|Indirect|R1C1' src/NeraSpreadSheet.Formulas --include='*.cs' | sort -u)
+          set -euo pipefail
+          base_sha="$(git rev-parse HEAD)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: expose generated F010 source for diagnosis"
+          git push --force origin HEAD:refs/heads/diagnostic/f010-generated
+          git reset --mixed "$base_sha"
 
       - name: Restore
         run: dotnet restore NeraSpreadSheet.Core.slnx
