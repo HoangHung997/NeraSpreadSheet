@@ -35,6 +35,24 @@ jobs:
           base64 --decode scripts/.f010-payload.b64 | gzip --decompress > scripts/apply-f010.py
           python scripts/apply-f010.py
 
+      - name: Fix generated analyzer contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path(
+              "tests/NeraSpreadSheet.Formulas.Tests/"
+              "AdvancedReferenceAndAggregationFormulaFunctionTests.cs"
+          )
+          text = path.read_text(encoding="utf-8")
+          old = "IReadOnlyList<FormulaPivotFieldItem> LastPivotItems"
+          new = "FormulaPivotFieldItem[] LastPivotItems"
+          if old not in text:
+              raise SystemExit("Expected LastPivotItems declaration was not found.")
+          path.write_text(text.replace(old, new), encoding="utf-8")
+          PY
+
       - name: Restore
         run: dotnet restore NeraSpreadSheet.Core.slnx
 
