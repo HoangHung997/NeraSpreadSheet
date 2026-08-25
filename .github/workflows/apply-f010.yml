@@ -32,8 +32,8 @@ jobs:
       - name: Rebuild and apply F010 source
         shell: bash
         run: |
-          base64 --decode scripts/.f010-payload.b64 | gzip --decompress > /tmp/apply-f010.py
-          python /tmp/apply-f010.py
+          base64 --decode scripts/.f010-payload.b64 | gzip --decompress > scripts/apply-f010.py
+          python scripts/apply-f010.py
 
       - name: Restore
         run: dotnet restore NeraSpreadSheet.Core.slnx
@@ -54,7 +54,7 @@ jobs:
       - name: Commit generated implementation
         shell: bash
         run: |
-          rm scripts/.f010-payload.b64 .github/workflows/apply-f010.yml
+          rm scripts/apply-f010.py scripts/.f010-payload.b64 .github/workflows/apply-f010.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
