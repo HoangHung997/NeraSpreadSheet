@@ -56,6 +56,7 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
         {
             ConstantNode constant => constant.Value,
             MissingArgumentNode => CellValue.Blank,
+            NameNode => CellValue.FromError("#NAME?"),
             CellNode cell => EvaluateCell(cell, context, dependencies),
             RangeNode => CellValue.FromError("#VALUE!"),
             ReferenceUnionNode => CellValue.FromError("#VALUE!"),
@@ -165,6 +166,20 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
     {
         if (string.Equals(
                 function.Name,
+                "GETPIVOTDATA",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateGetPivotData(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "INDIRECT",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateIndirect(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
                 "AREAS",
                 StringComparison.OrdinalIgnoreCase))
         {
@@ -231,6 +246,15 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
             new List<FormulaFunctionArgument>(function.Arguments.Count);
         foreach (var argumentNode in function.Arguments)
         {
+            if (TryEvaluateIndirectInvocationArgument(
+                    argumentNode,
+                    context,
+                    dependencies,
+                    out var indirectArgument))
+            {
+                invocationArguments.Add(indirectArgument);
+                continue;
+            }
             if (TryEvaluateChooseInvocationArgument(
                     argumentNode,
                     context,

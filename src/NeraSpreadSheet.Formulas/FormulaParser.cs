@@ -163,7 +163,12 @@ internal sealed class FormulaParser
         }
         if (!CellAddress.TryParseA1(addressText, out var firstAddress))
         {
-            throw new FormatException($"Unknown name '{identifier}'.");
+            if (worksheetName is not null)
+            {
+                throw new FormatException(
+                    $"Unknown reference '{worksheetName}!{addressText}'.");
+            }
+            return new NameNode(identifier);
         }
         if (_current.Kind != FormulaTokenKind.Colon)
         {
