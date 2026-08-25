@@ -183,6 +183,27 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
         {
             return EvaluateExpand(function, context, dependencies);
         }
+        if (string.Equals(
+                function.Name,
+                "GROUPBY",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateGroupBy(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "HSTACK",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateHStack(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "INDIRECT",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateIndirectArray(function, context, dependencies);
+        }
         return Failure("#NAME?", FormulaErrorCode.InvalidName, dependencies);
     }
 
@@ -429,6 +450,18 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
         string.Equals(
             name,
             "EXPAND",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "GROUPBY",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "HSTACK",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "INDIRECT",
             StringComparison.OrdinalIgnoreCase);
 
     private static bool TryPositiveInteger(
@@ -508,6 +541,9 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
                     AppendConstant(builder, constant.Value);
                     break;
                 case MissingArgumentNode:
+                    break;
+                case NameNode name:
+                    builder.Append(name.Name);
                     break;
                 case CellNode cell:
                     AppendWorksheet(builder, cell.WorksheetName);
