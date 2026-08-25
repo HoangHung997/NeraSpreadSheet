@@ -229,8 +229,12 @@ public sealed class AdvancedMaturitySecurityFormulaFunctionTests
                 descriptor.SecurityClassification);
         }
 
-        Assert.AreEqual(213, registry.Count);
-        Assert.AreEqual(213, registry.VersionCount);
+        Assert.AreEqual(
+            BuiltInFormulaTestCounts.EagerVersioned,
+            registry.Count);
+        Assert.AreEqual(
+            BuiltInFormulaTestCounts.EagerVersioned,
+            registry.VersionCount);
     }
 
     private static void AssertNumericError(

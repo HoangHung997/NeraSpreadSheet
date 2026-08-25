@@ -21,32 +21,31 @@ Invocation arguments preserve scalar values or range source identity, shape and 
 
 ## 4. Built-in milestone
 
-The eager/versioned registry contains **208 names**:
+The eager/versioned registry contains **213 names**:
 
 - 92 original flattened-value functions;
 - 11 Statistical Foundation functions;
 - 39 Advanced Statistical functions;
-- 35 financial functions;
+- 40 financial functions;
 - 19 engineering functions;
 - 12 database functions.
 
-The broader subsystem adds 18 AST/reference-aware and five dynamic-array names, totaling **231 built-ins**.
+The broader subsystem adds 18 AST/reference-aware and five dynamic-array names, totaling **236 built-ins**.
 
 Financial SDK metadata:
 
-- `NPV`, `IRR`, `XNPV`, `XIRR` expose scalar/range arguments.
-- All other current financial functions, including the five F001 maturity-security functions, are scalar-only.
+- `NPV`, `IRR`, `XNPV`, `XIRR`, and `FVSCHEDULE` expose range capability.
+- Other current financial functions are scalar-only.
 - All current financial descriptors are deterministic/pure, scalar-returning and logical-argument-counted.
-- Calendar and maturity-security functions declare no hidden or volatile dependency.
-- Invalid basis/date ordering/value domains fail closed inside invocation.
+- `FVSCHEDULE` uses engine-captured dependencies; security/calendar functions declare no hidden dependency.
 
 ## 5. Failure policy
 
-Registration rejects incompatible APIs, unsupported capabilities, invalid bounds, conflicting names/aliases, duplicate exact versions without replacement and disallowed external state. Evaluation rejects unsupported argument kinds; evaluator exceptions remain inside the fail-closed engine boundary. Family implementations return explicit spreadsheet errors for invalid domains, budgets or non-convergence.
+Registration rejects incompatible APIs, unsupported capabilities, invalid bounds, conflicts, duplicate exact versions without replacement and disallowed external state. Evaluation rejects unsupported argument kinds. Family implementations return explicit spreadsheet errors for invalid domains, budgets or non-finite results.
 
-## 6. Shared implementation services
+## 6. Shared services and test counts
 
-SDK descriptors remain separate from implementation services. `FinancialDateMath` is an internal platform-neutral service reused by coupon and maturity-security built-ins, not a second registry or an OpenXml/UI dependency.
+`FinancialDateMath` is an internal platform-neutral service reused by coupon and security built-ins, not a second registry. Formula registry-count regressions now read `BuiltInFormulaTestCounts.EagerVersioned`, so each batch updates one authoritative test constant.
 
 ## 7. Pending
 
@@ -60,6 +59,6 @@ SDK descriptors remain separate from implementation services. `FinancialDateMath
 
 ## 8. Gates
 
-SDK changes require version ordering, resolution, conflict/replacement/unregister behavior, API/capability/security rejection, range identity, dependency policy, legacy adaptation and built-in descriptor/count regressions followed by the complete hosted matrix.
+SDK changes require version ordering, resolution, conflict/replacement/unregister behavior, API/capability/security rejection, range identity, dependency policy, legacy adaptation and shared built-in count regressions followed by the complete hosted matrix.
 
 PR #1 remains Draft while exact-head CI is red or unknown.

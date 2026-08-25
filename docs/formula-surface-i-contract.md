@@ -13,55 +13,44 @@ This document defines validated scalar/reference formula behavior. Dynamic array
 
 ## 2. Counts
 
-- Eager/versioned built-ins: **208**.
+- Eager/versioned built-ins: **213**.
 - AST/reference-aware built-ins: **18**.
-- Scalar/reference total: **226**.
+- Scalar/reference total: **231**.
 - Dynamic-array built-ins: **5**.
-- Complete built-in subsystem: **231 names**.
+- Complete built-in subsystem: **236 names**.
 
 ## 3. Families
 
 - Logical, information, aggregate, math, text/Unicode and date/time foundations.
 - Lookup/reference and conditional aggregate foundations.
 - Descriptive/order statistics, covariance/regression and advanced distributions.
-- Thirty-five financial functions, including seven calendar/day-count and five maturity-security functions.
-- Nineteen engineering functions and twelve database aggregate functions.
+- Forty financial functions through F002.
+- Nineteen engineering functions and twelve database aggregates.
 
-## 4. Maturity-security behavior
+## 4. F002 financial behavior
 
-The surface includes:
-
-- `ACCRINTM(issue,settlement,rate,[par],[basis])`;
-- `DISC(settlement,maturity,price,redemption,[basis])`;
-- `INTRATE(settlement,maturity,investment,redemption,[basis])`;
-- `RECEIVED(settlement,maturity,investment,discount,[basis])`;
-- `PRICEDISC(settlement,maturity,discount,redemption,[basis])`.
-
-Shared contracts:
-
-- scalar-only, deterministic/pure, logical argument counting;
-- whole-date normalization and basis `0..4` after truncation;
-- ordered issue/settlement/maturity dates;
-- positive required par/investment/redemption/rate/discount values;
-- common `FinancialDateMath.GetYearFraction` primitive;
-- `#VALUE!` for unsupported argument kind/coercion and `#NUM!` for invalid financial domains;
-- inverse regression between `DISC` and `PRICEDISC`.
+- `YIELDDISC` computes discounted-security yield using the shared year fraction.
+- `PRICEMAT` and `YIELDMAT` share maturity value, accrued interest and settlement-to-maturity fractions and are inverse tested.
+- `ACCRINT` supports frequency 1/2/4, basis 0..4, calculation method and bounded first-interest-anchored quasi-coupon schedules.
+- `FVSCHEDULE` accepts scalar/range schedules, treats blanks as zero, rejects nonnumeric values, records dependencies and caps schedule size.
+- All five functions are deterministic/pure and logical-argument-counted.
+- `FVSCHEDULE` is range-capable; the other four are scalar-only.
 
 Full contract: `docs/financial-functions-foundation-contract.md`.
 
 ## 5. Errors and dependencies
 
-Unsupported argument kinds or failed coercion return `#VALUE!`. Invalid domains, resource exhaustion and non-convergence return `#NUM!`. Range-aware functions preserve source identity and participate in affected-only recalculation. Current maturity-security functions are scalar-only and declare no hidden dependency.
+Unsupported argument kinds or failed coercion return `#VALUE!`. Invalid domains, resource exhaustion and non-finite results return `#NUM!`. Range-aware functions preserve source identity and participate in affected-only recalculation. `FVSCHEDULE` captures its schedule dependency; current security functions declare no hidden dependency.
 
 ## 6. Pending
 
-- F002: YIELDDISC, PRICEMAT, YIELDMAT, ACCRINT and FVSCHEDULE.
-- Fixed-coupon bonds, treasury, AMOR and odd-coupon functions.
+- F003: PRICE, YIELD, DURATION, MDURATION and MIRR.
+- Treasury, AMOR and odd-coupon functions.
 - Statistical hypothesis tests and confidence intervals.
 - Advanced lookup/reference, arrays, LET/LAMBDA, special engineering, compatibility aliases and external providers.
 
 ## 7. Gates
 
-Maturity-security changes require reference/domain/coercion/descriptor tests, basis/date-order tests, equation round trips, registry counts and the complete hosted CI matrix.
+F002 requires reference/domain/coercion/descriptor tests, inverse and calculation-method regressions, range/dependency/resource tests, shared registry counts and the complete hosted CI matrix.
 
 PR #1 remains Draft while exact-head CI is red or unknown.

@@ -3,50 +3,53 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` into `develop` — Draft, unmerged
-- F001 implementation head: `3ea2ae2d576e40b72e91c02ab493f1e244ffe0bd`
-- Formula tests: `198/198`
-- Eager/versioned built-ins: `208`
-- Complete built-ins: `231`
-- Financial functions: `35`
+- F002 implementation head: `70051299a1531016ce82df981a49753f09d1d8a6`
+- Formula tests: `204/204`
+- Eager/versioned built-ins: `213`
+- Complete built-ins: `236`
+- Financial functions: `40`
 - Source of truth: `docs/current-status.md`
 - Master schedule: `docs/formula-completion-master-schedule.md`
 
-## F001 — first five maturity-security functions
+## F002 — advanced maturity security and schedule functions
 
-| Function | Contract | Status |
+| Function | Result | Status |
 |---|---|---|
-| `ACCRINTM` | Accrued interest at maturity; default par 1000; basis 0..4 | Complete |
-| `DISC` | Annual discount rate from price/redemption | Complete |
-| `INTRATE` | Annual interest rate from investment/redemption | Complete |
-| `RECEIVED` | Maturity proceeds from investment/discount | Complete |
-| `PRICEDISC` | Price of a discounted security | Complete |
-| Registry | 203 → 208 eager names | Complete |
-| Formula regressions | 198 passed, zero failed | Green |
+| `YIELDDISC` | Discounted-security yield and price relationship | Complete |
+| `PRICEMAT` | Price for interest paid at maturity | Complete |
+| `YIELDMAT` | Algebraic inverse of PRICEMAT | Complete |
+| `ACCRINT` | Bounded quasi-coupon accrued-interest schedule | Complete |
+| `FVSCHEDULE` | Range/scalar variable-rate future value | Complete |
+| Registry | 208 → 213 eager names | Complete |
+| Formula regressions | 204 passed, zero failed | Green |
 | Architecture | Verification passed | Green |
-| Hosted matrix | Exact-head rerun required after Apple checkout DNS failure | Pending gate |
+| Formula count maintenance | Shared authoritative test constant | Complete |
+| Hosted matrix | Documentation exact-head run required | Pending gate |
 | Pull request | Draft and unmerged | Locked |
 
-## Functional decisions
+## Key contracts
 
-- All five functions are deterministic/pure SDK v1, scalar-only and logical-argument-counted.
-- Dates are normalized to whole dates.
-- Basis is truncated toward zero and validated in `0..4`.
-- All formulas reuse `FinancialDateMath.GetYearFraction`.
-- Unsupported ranges/coercion return `#VALUE!`; invalid date/value/denominator domains return `#NUM!`.
-- `DISC(PRICEDISC(...))` recovers the original discount within deterministic tolerance.
+- `YIELDDISC` uses price rather than redemption in its denominator.
+- `PRICEMAT` and `YIELDMAT` share one maturity-value/accrued-interest model and round trip.
+- `ACCRINT` generates every coupon boundary from the first-interest anchor, preserves end-of-month dates and caps traversal at 100,000 periods.
+- `calc_method=FALSE` starts at first interest only after that date; the three published pre-first-interest examples remain compatible.
+- `FVSCHEDULE` accepts scalar/range schedules, treats blank cells as zero rates, rejects text/Boolean/date cells, captures dependencies and caps at 2,000,000 values.
 
-## CI #859 finding
+## CI #861
 
-Core build, architecture and 198/198 formula tests passed. The Apple job never checked out source because its hosted runner returned `Could not resolve host: github.com`; no compiler or runtime code ran there. A documentation/handoff commit triggers a fresh exact-head matrix. F001 is not publicly reported complete until that run is entirely green.
+- Build succeeded with zero warnings and zero errors.
+- Formula tests: 204/204.
+- Architecture verification passed.
+- Android and Core jobs passed; remaining hosted jobs complete before the public milestone report.
 
-## Next five — F002
+## Next five — F003
 
-1. `YIELDDISC`.
-2. `PRICEMAT`.
-3. `YIELDMAT`.
-4. `ACCRINT`.
-5. `FVSCHEDULE`.
+1. `PRICE`.
+2. `YIELD`.
+3. `DURATION`.
+4. `MDURATION`.
+5. `MIRR`.
 
-F002 must lock maturity-interest equations, full accrued-interest schedule behavior, range-aware schedule multiplication, inverse/reconciliation regressions and the same exact-head hosted gates.
+F003 requires a shared fixed-coupon cash-flow engine, bounded yield root solving, duration weighting, modified-duration reconciliation and MIRR range/dependency/root-domain tests.
 
 PR remains Draft; do not merge while a newer exact-head run is red or unknown.
