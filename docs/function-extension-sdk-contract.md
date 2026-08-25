@@ -21,21 +21,21 @@ Invocation arguments preserve scalar values or range source identity, shape and 
 
 ## 4. Built-in milestone
 
-The eager/versioned registry contains **223 names**:
+The eager/versioned registry contains **228 names**:
 
 - 92 original flattened-value functions;
 - 11 Statistical Foundation functions;
 - 39 Advanced Statistical functions;
-- 50 financial functions;
+- 55 financial functions;
 - 19 engineering functions;
 - 12 database functions.
 
-The broader subsystem adds 18 AST/reference-aware and five dynamic-array names, totaling **246 built-ins**.
+The broader subsystem adds 18 AST/reference-aware and five dynamic-array names, totaling **251 built-ins**.
 
 Financial SDK metadata:
 
 - `NPV`, `IRR`, `XNPV`, `XIRR`, `FVSCHEDULE`, and `MIRR` expose range capability.
-- Other current financial functions are scalar-only.
+- Other current financial functions, including all five F005 names, are scalar-only.
 - All current financial descriptors are deterministic/pure, scalar-returning and logical-argument-counted.
 - `FVSCHEDULE` and `MIRR` use engine-captured dependencies; security/calendar functions declare no hidden dependency.
 
@@ -45,7 +45,7 @@ Registration rejects incompatible APIs, unsupported capabilities, invalid bounds
 
 ## 6. Shared services and test counts
 
-`FinancialDateMath` is an internal platform-neutral service reused by coupon and security built-ins, not a second registry. Formula registry-count regressions read `BuiltInFormulaTestCounts.EagerVersioned`, so each batch updates one authoritative test constant.
+`FinancialDateMath` is an internal platform-neutral service reused by regular and odd coupon/security built-ins, not a second registry. Formula registry-count regressions read `BuiltInFormulaTestCounts.EagerVersioned`, so each batch updates one authoritative test constant. F005 advances this constant from 223 to 228 and the formula suite from 214 to 219 passing tests.
 
 ## 7. Pending
 

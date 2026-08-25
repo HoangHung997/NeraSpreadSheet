@@ -3,64 +3,78 @@
 - Repository: `HoangHung997/NeraSpreadSheet`
 - Branch: `feature/bootstrap-architecture-v0.1`
 - Pull request: `#1` into `develop` — Draft, unmerged
-- F003 exact implementation head: `48012398a3a020bfb12829bee46cfa88bc1c7fed`
-- F003 hosted CI: #866 — success
-- F004 exact compatibility-correction head: `b836976733acbfc50696aa096d53547bcad856c7`
-- F004 hosted CI: #870 — success
-- Formula tests: `214/214`
-- Eager/versioned built-ins: `223`
-- Complete built-ins: `246`
-- Financial functions: `50`
+- F005 implementation head: `bbd4e7c70e7d8426ad79843373cc3aff744d9466`
+- F005 hosted implementation CI: #872 — success
+- Formula tests: `219/219`
+- Eager/versioned built-ins: `228`
+- AST/reference-aware built-ins: `18`
+- Dynamic-array built-ins: `5`
+- Complete built-ins: `251`
+- Financial functions: `55`
 - Source of truth: `docs/current-status.md`
 - Master schedule: `docs/formula-completion-master-schedule.md`
 
-## F003 — regular coupon bond and MIRR
+## F005 — French depreciation and odd coupon securities
 
 | Function | Result | Status |
 |---|---|---|
-| `PRICE` | Shared regular-coupon clean-price equation | Complete |
-| `YIELD` | Bounded inverse of PRICE | Complete |
-| `DURATION` | Macaulay present-value duration | Complete |
-| `MDURATION` | Modified-duration reconciliation | Complete |
-| `MIRR` | Position-preserving range/scalar modified IRR | Complete |
+| `AMORLINC` | Prorated French linear depreciation | Complete |
+| `AMORDEGRC` | Accelerated French depreciation with useful-life coefficient | Complete |
+| `ODDFPRICE` | Odd-first clean price over quasi-coupon ratios | Complete |
+| `ODDFYIELD` | Bounded inverse of ODDFPRICE | Complete |
+| `ODDLPRICE` | Odd-last clean price | Complete |
 
-Key gates:
+Key implementation decisions:
 
-- PRICE/YIELD published reference and nested round trips.
-- DURATION/MDURATION published references and reconciliation.
-- MIRR range dependency, blanks, signs, rates and 2,000,000-value cap.
-- CI #866 exact head passed the full hosted matrix.
+- AMOR uses basis `0`, `1`, `3`, `4`, whole-date normalization and truncated period/basis values.
+- AMORDEGRC uses compatibility useful-life coefficients, whole-unit rounding and a 100,000-period cap.
+- `FinancialDateMath` now owns bounded coupon-period ratios in addition to regular coupon dates/day counts.
+- ODDF price/yield require strict date ordering and a frequency-aligned regular tail after the first coupon.
+- ODDFYIELD solves the exact ODDFPRICE equation in log-periodic-yield space with at most 256 bisection iterations.
+- ODDLPRICE derives period ratios from the next theoretical frequency-aligned coupon boundary on or after maturity.
+- All five functions are SDK v1 scalar-only, deterministic/pure and logical-argument-counted.
 
-## F004 — treasury bills and fractional dollars
+## F005 regression gates
 
-| Function | Result | Status |
-|---|---|---|
-| `TBILLEQ` | Bond-equivalent treasury-bill yield | Complete |
-| `TBILLPRICE` | Price per 100 face value | Complete |
-| `TBILLYIELD` | Treasury-bill yield from price | Complete |
-| `DOLLARDE` | Fractional-dollar to decimal-dollar conversion | Complete |
-| `DOLLARFR` | Decimal-dollar to fractional-dollar conversion | Complete |
+| Gate | Result |
+|---|---|
+| AMORLINC published reference | 360 — pass |
+| AMORDEGRC published reference | 776 — pass |
+| ODDFPRICE published reference | 113.59771747407883 — pass |
+| ODDFYIELD published reference | 0.07724554159782439 — pass |
+| ODDLPRICE published reference | 99.87828601472134 — pass |
+| Short odd-first round trip | pass |
+| Long odd-first round trip | pass |
+| Domain/coercion/capability tests | pass |
+| Registry count | 228 — pass |
+| Formula suite | 219/219 — pass |
+| Core build/analyzers | zero warnings/errors — pass |
+| Architecture verification | pass |
+| Windows desktop/GPU | pass |
+| Android/iOS/Mac Catalyst | pass |
+| MAUI Windows build/handler/loaded smokes | pass |
+| Implementation CI | #872 — success |
 
-Key contracts:
+## Whole-project handoff snapshot
 
-- Actual whole-day `DSM` with a one-calendar-year upper boundary.
-- Overflow-safe maximum-date handling, covered by a year-9999 regression.
-- Extreme positive discounts preserve finite signed `TBILLPRICE` and `TBILLEQ` results; only zero/non-finite equivalent-yield denominators fail closed.
-- `TBILLYIELD` still requires a positive price and may return a finite negative yield for a price above 100.
-- DOLLAR denominator truncation and distinct `#NUM!`/`#DIV/0!` domains.
-- Signed DOLLAR round trips and published 16/32 denominator references.
-- CI #870 exact compatibility-correction head passed Core, architecture, Windows/GPU, Android, iOS, Mac Catalyst and MAUI Windows loaded smokes.
+- Sparse Excel-size workbook, editing, commands, clipboard, sort and Undo/Redo are implemented.
+- Structural transforms preserve formula/rule/Table/filter/spill mapping.
+- Parser/AST, dependency graph, circular detection, shared/structured formulas and affected-only recalculation are implemented.
+- Function SDK v1.0 and one authoritative built-in registration path are implemented.
+- Conditional rules, Tables, AutoFilter, dynamic arrays, XLSX preservation, CSV/TSV, pagination, PDF and desktop print adapters are implemented.
+- Fractional scrolling and WPF/WinForms/MAUI GPU hosts are under the exact-head matrix.
+- Production blockers remain: catalog completion, advanced lookup/arrays/LET/LAMBDA, drawings/charts/pivots, plugin isolation, security/fuzzing, localization/accessibility, packaging/recovery and release gates.
 
 ## Documentation/handoff gate
 
-This handoff update synchronizes current status, feature matrix, financial contract and F004 worklogs with the compatibility correction. Public F004 completion requires the exact documentation-head hosted CI to be green.
+This documentation commit synchronizes README, roadmap, current status, feature matrix, financial/formula/SDK contracts, master schedule and F005 worklog. Public F005 completion requires the documentation exact-head hosted CI to be green.
 
-## Next five — F005
+## Next five — F006
 
-1. `AMORLINC`.
-2. `AMORDEGRC`.
-3. `ODDFPRICE`.
-4. `ODDFYIELD`.
-5. `ODDLPRICE`.
+1. `ODDLYIELD`.
+2. `DATEDIF`.
+3. `DAYS360`.
+4. `ISOWEEKNUM`.
+5. `WEEKNUM`.
 
-F005 must introduce a bounded AMOR depreciation state and explicit odd-first-coupon schedule/quasi-coupon contracts before the public names are promoted. PR remains Draft; do not merge while a newer exact-head run is red or unknown.
+F006 must reuse the F005 odd-last price state for `ODDLYIELD`, then lock date/week compatibility semantics without introducing host-specific calendar logic. PR remains Draft; do not merge while a newer exact-head run is red or unknown.

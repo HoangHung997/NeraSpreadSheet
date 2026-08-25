@@ -6,14 +6,14 @@
 
 | Chỉ số | Giá trị |
 |---|---:|
-| Eager/versioned built-ins | 223 |
+| Eager/versioned built-ins | 228 |
 | AST/reference-aware | 18 |
 | Dynamic-array built-ins | 5 |
-| Tổng built-ins | 246 |
-| Financial functions | 50 |
-| Formula tests | 214 |
-| Batch hoàn thành | F001, F002, F003, F004 |
-| Batch kế tiếp | F005 |
+| Tổng built-ins | 251 |
+| Financial functions | 55 |
+| Formula tests | 219 |
+| Batch hoàn thành | F001, F002, F003, F004, F005 |
+| Batch kế tiếp | F006 |
 | PR | #1 · Draft · chưa merge |
 
 ## 2. Baseline đích
@@ -48,8 +48,8 @@ Trước mỗi batch, registry audit loại mọi tên đã có và lấy năm t
 | F002 | `YIELDDISC`, `PRICEMAT`, `YIELDMAT`, `ACCRINT`, `FVSCHEDULE` | ✅ Complete |
 | F003 | `PRICE`, `YIELD`, `DURATION`, `MDURATION`, `MIRR` | ✅ Complete |
 | F004 | `TBILLEQ`, `TBILLPRICE`, `TBILLYIELD`, `DOLLARDE`, `DOLLARFR` | ✅ Complete |
-| F005 | `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE` | **Next** |
-| F006 | `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM` | Pending |
+| F005 | `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE` | ✅ Complete |
+| F006 | `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM` | **Next** |
 
 Nếu audit thấy một tên đã tồn tại, tên đó được thay bằng tên Pending đầu tiên của pool tiếp theo để batch vẫn đủ đúng năm hàm mới.
 
@@ -188,8 +188,6 @@ Các tên còn lại được sắp theo dependency và tự chia batch năm hà
 | MAUI Windows loaded smokes | pass |
 | Exact-head CI | run / success |
 | PR | Draft, unmerged |
-
-Next five: `...`
 ```
 
 ## 7. Điều kiện kết thúc toàn bộ formula program
@@ -208,9 +206,9 @@ Chỉ tuyên bố đủ hàm khi:
 ## 8. Next five
 
 ```text
-AMORLINC
-AMORDEGRC
-ODDFPRICE
-ODDFYIELD
-ODDLPRICE
+ODDLYIELD
+DATEDIF
+DAYS360
+ISOWEEKNUM
+WEEKNUM
 ```

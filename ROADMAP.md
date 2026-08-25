@@ -23,12 +23,13 @@
 - [x] F002: `YIELDDISC`, `PRICEMAT`, `YIELDMAT`, `ACCRINT`, `FVSCHEDULE`.
 - [x] F003: `PRICE`, `YIELD`, `DURATION`, `MDURATION`, `MIRR`.
 - [x] F004: `TBILLEQ`, `TBILLPRICE`, `TBILLYIELD`, `DOLLARDE`, `DOLLARFR`.
+- [x] F005: `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE`.
 - [x] Engineering Foundation: 19 functions.
 - [x] Database Foundation: 12 functions.
 - [x] Dynamic arrays and SEQUENCE/TRANSPOSE/FILTER/SORT/UNIQUE.
 - [x] Master catalog-audit schedule with exact five-function reporting.
-- [ ] F005: `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE`.
-- [ ] Remaining AMOR and odd-coupon functions.
+- [ ] F006: `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM`.
+- [ ] Business-day functions and locale number parsing.
 - [ ] Statistical hypothesis tests and confidence intervals.
 - [ ] Advanced lookup/reference, dynamic arrays, LET/LAMBDA and higher-order functions.
 - [ ] Full text/regex/byte-width compatibility.
@@ -47,7 +48,9 @@
 - [x] Fixed-coupon price/yield/duration cash-flow engine.
 - [x] Treasury-bill price/yield/equivalent-yield equations.
 - [x] Fractional-dollar/decimal-dollar conversions.
-- [ ] AMOR depreciation and odd-first/odd-last coupon schedules.
+- [x] French-accounting linear and accelerated depreciation.
+- [x] Odd-first price/yield and odd-last price with bounded quasi-coupon ratios.
+- [ ] Odd-last yield and broader differential odd-coupon corpus.
 - [ ] Business-day/holiday calendars.
 
 ## D. XLSX, printing and PDF
@@ -74,20 +77,20 @@ Every public milestone contains exactly five new function names and advances onl
 2. **F002 complete:** `YIELDDISC`, `PRICEMAT`, `YIELDMAT`, `ACCRINT`, `FVSCHEDULE`.
 3. **F003 complete:** `PRICE`, `YIELD`, `DURATION`, `MDURATION`, `MIRR`.
 4. **F004 complete:** `TBILLEQ`, `TBILLPRICE`, `TBILLYIELD`, `DOLLARDE`, `DOLLARFR`.
-5. **F005 next:** `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE`.
-6. **F006:** `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM`.
+5. **F005 complete:** `AMORLINC`, `AMORDEGRC`, `ODDFPRICE`, `ODDFYIELD`, `ODDLPRICE`.
+6. **F006 next:** `ODDLYIELD`, `DATEDIF`, `DAYS360`, `ISOWEEKNUM`, `WEEKNUM`.
 7. Continue automatically through the ordered pools in the master schedule.
 8. Finish differential corpora, fuzzing, catalog audit and Codex final acceptance before PR promotion.
 
-## Weighted progress after F004
+## Weighted progress after F005
 
 - Engine/viewport/renderer foundation: approximately `92%`.
 - Basic spreadsheet MVP: approximately `96–98%`.
-- Complete professional roadmap: approximately `80–81%`.
-- Production release readiness: approximately `58–61%`.
+- Complete professional roadmap: approximately `81–82%`.
+- Production release readiness: approximately `59–62%`.
 
 These are engineering-weighted estimates, not checkbox counts.
 
 ## Validation rule
 
-F003 exact implementation head `48012398a3a020bfb12829bee46cfa88bc1c7fed` passed CI #866. F004 exact implementation head and its hosted CI are recorded in `docs/worklog/CURRENT.md`. PR #1 remains Draft and unmerged; public completion is reported only after the documentation/handoff exact-head matrix is green.
+F005 implementation head `bbd4e7c70e7d8426ad79843373cc3aff744d9466` passed 219/219 formula tests, Core/architecture and the applicable hosted matrix in CI #872 before documentation promotion. PR #1 remains Draft and unmerged; public completion is reported only after the documentation/handoff exact-head matrix is green.
