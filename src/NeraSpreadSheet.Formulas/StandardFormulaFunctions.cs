@@ -58,6 +58,10 @@ internal static class StandardFormulaFunctions
         {
             yield return function;
         }
+        foreach (var function in CouponBondFormulaFunctions.Create())
+        {
+            yield return function;
+        }
         foreach (var function in EngineeringFormulaFunctions.Create())
         {
             yield return function;
