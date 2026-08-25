@@ -62,14 +62,16 @@ jobs:
               "IndirectAndPivotFormulaEngine.cs"
           )
           indirect_text = indirect_path.read_text(encoding="utf-8")
-          old_guard = """        if (trimmed.Length == 0 ||
-            trimmed.Contains('[') ||
-            trimmed.Contains(']') ||
-            !TrySplitWorksheet(
-"""
-          new_guard = """        if (trimmed.Length == 0 ||
-            !TrySplitWorksheet(
-"""
+          old_guard = (
+              "        if (trimmed.Length == 0 ||\n"
+              "            trimmed.Contains('[') ||\n"
+              "            trimmed.Contains(']') ||\n"
+              "            !TrySplitWorksheet(\n"
+          )
+          new_guard = (
+              "        if (trimmed.Length == 0 ||\n"
+              "            !TrySplitWorksheet(\n"
+          )
           if indirect_text.count(old_guard) != 1:
               raise SystemExit(
                   "Expected INDIRECT bracket guard was not found exactly once."
