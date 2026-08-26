@@ -166,6 +166,34 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
     {
         if (string.Equals(
                 function.Name,
+                "IFERROR",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateIfError(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "IFNA",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateIfNa(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "SWITCH",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateSwitch(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "XMATCH",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateXMatch(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
                 "GETPIVOTDATA",
                 StringComparison.OrdinalIgnoreCase))
         {
