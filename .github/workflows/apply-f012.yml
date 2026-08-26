@@ -5,7 +5,7 @@ on:
     branches:
       - automation/f012-apply
     paths:
-      - scripts/.f012-payload.b64
+      - scripts/.f012.part.*
       - .github/workflows/apply-f012.yml
 
 permissions:
@@ -32,7 +32,7 @@ jobs:
       - name: Rebuild and apply F012 source
         shell: bash
         run: |
-          base64 --decode scripts/.f012-payload.b64 | gzip --decompress > /tmp/apply_f012.py
+          cat scripts/.f012.part.* | base64 --decode | gzip --decompress > /tmp/apply_f012.py
           echo "2c12ce48c9d71db90322b5a5a1abb4feebf6770af0d37eae96458ae96903a251  /tmp/apply_f012.py" | sha256sum --check
           python /tmp/apply_f012.py
           git diff --check
@@ -53,7 +53,7 @@ jobs:
       - name: Commit validated implementation
         shell: bash
         run: |
-          rm scripts/.f012-payload.b64 .github/workflows/apply-f012.yml
+          rm -f scripts/.f012-payload.b64 scripts/.f012.part.* .github/workflows/apply-f012.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
