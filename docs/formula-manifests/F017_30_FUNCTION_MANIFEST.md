@@ -28,16 +28,16 @@ The manifest is created before implementation. Each row owns one separately name
 | `PERCENTILE` | A | `LegacyStatisticalAliasFormulaFunctions.Part2.cs` | `F017GroupALegacyStatisticalAliasTests.cs` | `Percentile_LegacyName_MatchesInclusivePercentile` | `tested` | k in [0,1]; interpolation; empty input | A |
 | `QUARTILE` | A | `LegacyStatisticalAliasFormulaFunctions.Part2.cs` | `F017GroupALegacyStatisticalAliasTests.cs` | `Quartile_LegacyName_MatchesInclusiveQuartile` | `tested` | quartile 0..4; interpolation | A |
 | `FORECAST` | A | `LegacyStatisticalAliasFormulaFunctions.Part2.cs` | `F017GroupALegacyStatisticalAliasTests.cs` | `Forecast_LegacyName_MatchesForecastLinear` | `tested` | equal-sized numeric pairs; zero x variance | A |
-| `STDEV` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `Stdev_LegacyName_MatchesSampleStandardDeviation` | `pending` | sample requires at least two values | B |
-| `STDEVP` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `StdevP_LegacyName_MatchesPopulationStandardDeviation` | `pending` | population requires at least one value | B |
-| `VAR` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `Var_LegacyName_MatchesSampleVariance` | `pending` | sample denominator n-1 | B |
-| `VARP` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `VarP_LegacyName_MatchesPopulationVariance` | `pending` | population denominator n | B |
-| `TINV` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `TInv_LegacyName_MatchesTwoTailedInverse` | `pending` | probability (0,1]; positive degrees of freedom | B |
-| `TDIST` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `TDist_LegacyName_SelectsOneOrTwoTailDistribution` | `pending` | x >= 0; tails only 1 or 2; df truncation | B |
-| `CONFIDENCE` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `Confidence_LegacyName_MatchesConfidenceNorm` | `pending` | alpha open interval; positive sigma; size >= 1 | B |
-| `CONFIDENCE.NORM` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `ConfidenceNorm_ReturnsNormalMarginOfError` | `pending` | two-sided alpha; sample size truncation | B |
-| `CONFIDENCE.T` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `ConfidenceT_ReturnsStudentTMarginOfError` | `pending` | size >= 2; two-tailed inverse | B |
-| `PROB` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `Prob_SumsProbabilityMassWithinClosedInterval` | `pending` | equal shapes; probabilities in [0,1]; total approximately 1 | B |
+| `STDEV` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `Stdev_LegacyName_MatchesSampleStandardDeviation` | `tested` | sample requires at least two values | B |
+| `STDEVP` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `StdevP_LegacyName_MatchesPopulationStandardDeviation` | `tested` | population requires at least one value | B |
+| `VAR` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `Var_LegacyName_MatchesSampleVariance` | `tested` | sample denominator n-1 | B |
+| `VARP` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `VarP_LegacyName_MatchesPopulationVariance` | `tested` | population denominator n | B |
+| `TINV` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `TInv_LegacyName_MatchesTwoTailedInverse` | `tested` | probability (0,1]; positive degrees of freedom | B |
+| `TDIST` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `TDist_LegacyName_SelectsOneOrTwoTailDistribution` | `tested` | x >= 0; tails only 1 or 2; df truncation | B |
+| `CONFIDENCE` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `Confidence_LegacyName_MatchesConfidenceNorm` | `tested` | alpha open interval; positive sigma; size >= 1 | B |
+| `CONFIDENCE.NORM` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `ConfidenceNorm_ReturnsNormalMarginOfError` | `tested` | two-sided alpha; sample size truncation | B |
+| `CONFIDENCE.T` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `ConfidenceT_ReturnsStudentTMarginOfError` | `tested` | size >= 2; two-tailed inverse | B |
+| `PROB` | B | `StatisticalCompatibilityFormulaFunctions.GroupB.cs` | `F017GroupBStatisticalCompatibilityTests.cs` | `Prob_SumsProbabilityMassWithinClosedInterval` | `tested` | equal shapes; probabilities in [0,1]; total approximately 1 | B |
 | `BINOM.INV` | C | `DiscreteAndHypothesisStatisticalFormulaFunctions.GroupC.cs` | `F017GroupCDiscreteAndHypothesisTests.cs` | `BinomInv_ReturnsSmallestSuccessCountMeetingProbability` | `pending` | trials truncation; alpha [0,1]; bounded binary search | C |
 | `NEGBINOM.DIST` | C | `DiscreteAndHypothesisStatisticalFormulaFunctions.GroupC.cs` | `F017GroupCDiscreteAndHypothesisTests.cs` | `NegBinomDist_ReturnsMassAndCumulativeProbability` | `pending` | failures >= 0; successes >= 1; p in [0,1] | C |
 | `HYPGEOM.DIST` | C | `DiscreteAndHypothesisStatisticalFormulaFunctions.GroupC.cs` | `F017GroupCDiscreteAndHypothesisTests.cs` | `HypGeomDist_ReturnsMassAndCumulativeProbability` | `pending` | finite population bounds; feasible sample successes | C |
@@ -53,11 +53,11 @@ The manifest is created before implementation. Each row owns one separately name
 
 | Item | Before | After | Status |
 |---|---:|---:|---|
-| Eager/versioned functions | 342 | 352 | Group A count passed |
-| Total functions | 396 | 406 | Group A count passed |
-| Formula tests | 364 | 374 | Group A suite passed |
+| Eager/versioned functions | 342 | 362 | Groups A+B count passed |
+| Total functions | 396 | 416 | Groups A+B count passed |
+| Formula tests | 364 | 384 | Groups A+B suites passed |
 | Group A CLI gate | 0/10 | 10/10 | build 0 warnings/errors; filtered and full formula suites passed |
-| Group B CLI gate | 0/10 | pending | pending |
+| Group B CLI gate | 0/10 | 10/10 | build 0 warnings/errors; filtered and full formula suites passed |
 | Group C CLI gate | 0/10 | pending | pending |
 | Full Core tests | — | — | pending |
 | Architecture verification | — | — | pending |
