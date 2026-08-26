@@ -38,6 +38,10 @@ internal static class StandardFormulaFunctions
         {
             yield return function;
         }
+        foreach (var function in ComplexEngineeringFormulaFunctionsPartA.Create())
+        {
+            yield return function;
+        }
         foreach (var function in TextFormulaFunctions.Create())
         {
             yield return function;
