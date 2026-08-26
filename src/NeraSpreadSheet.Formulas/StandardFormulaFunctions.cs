@@ -22,6 +22,22 @@ internal static class StandardFormulaFunctions
         {
             yield return function;
         }
+        foreach (var function in AdvancedRoundingFormulaFunctions.Create())
+        {
+            yield return function;
+        }
+        foreach (var function in AdvancedVectorMathFormulaFunctions.Create())
+        {
+            yield return function;
+        }
+        foreach (var function in BaseAndRomanFormulaFunctions.Create())
+        {
+            yield return function;
+        }
+        foreach (var function in ParityInformationFormulaFunctions.Create())
+        {
+            yield return function;
+        }
         foreach (var function in TextFormulaFunctions.Create())
         {
             yield return function;
