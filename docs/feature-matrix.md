@@ -3,9 +3,10 @@
 | Area | Current validated capability | Next |
 |---|---|---|
 | Workbook/editing | Excel-size sparse sheets, structural transforms, selection, clipboard and Undo/Redo | axis grouping and native spill UX |
-| Formula surface | **286 / at least 538 functions**, 254 tests | F012 ten-function batch |
+| Formula surface | **296 / at least 538 functions**, 264 tests | F013 ten-function batch |
 | Reference | ADDRESS/AREAS/CHOOSE/COLUMN/COLUMNS/FORMULATEXT/INDIRECT/OFFSET/ROW/ROWS/SHEET/SHEETS | 3-D references and full algebra |
-| Dynamic arrays | 14 unique names including GROUPBY/HSTACK/PIVOTBY/SORTBY/TAKE | TOCOL/TOROW/VSTACK/wrap family |
+| Dynamic arrays | 20 unique names including TOCOL/TOROW/TRIMRANGE/VSTACK/WRAPCOLS/WRAPROWS | remaining array and higher-order families |
+| Lookup/logical | LOOKUP/XMATCH plus lazy IF/IFERROR/IFNA/SWITCH paths | advanced lookup and LET/LAMBDA |
 | Finance | 56 functions | differential/fuzz corpus |
 | Engineering | 19 functions | complex numbers and CONVERT |
 | Database | 12 aggregates | expression criteria/indexing |

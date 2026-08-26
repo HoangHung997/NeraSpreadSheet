@@ -1,11 +1,11 @@
 # Formula Surface I contract
 
 - Eager/versioned: 242.
-- AST/reference-aware: 30.
-- Dynamic-array unique: 14.
-- Complete subsystem: **286 / at least 538 names**.
-- Formula tests: 254.
+- AST/reference-aware: 34.
+- Dynamic-array unique: 20.
+- Complete subsystem: **296 / at least 538 names**.
+- Formula tests: 264.
 
-F011 adds approximate LOOKUP, reference-returning OFFSET, PERCENTOF, two-axis PIVOTBY, row/sheet introspection, stable SORTBY and bounded TAKE. Reference identity and workbook metadata remain engine-owned and platform-neutral.
+F012 adds flattening, trimming, vertical stacking, vector wrapping, `XMATCH`, lazy scalar error handling and array-aware error replacement. Dependency capture, lazy branch selection and spill ownership remain engine-owned and platform-neutral.
 
-See `docs/lookup-reference-pivot-ordering-contract.md`.
+See `docs/flatten-wrap-xmatch-lazy-errors-contract.md`.
