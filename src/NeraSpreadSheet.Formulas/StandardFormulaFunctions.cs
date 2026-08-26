@@ -42,6 +42,10 @@ internal static class StandardFormulaFunctions
         {
             yield return function;
         }
+        foreach (var function in ComplexEngineeringFormulaFunctionsPartB.Create())
+        {
+            yield return function;
+        }
         foreach (var function in TextFormulaFunctions.Create())
         {
             yield return function;
@@ -83,6 +87,10 @@ internal static class StandardFormulaFunctions
             yield return function;
         }
         foreach (var function in ContinuousDistributionFormulaFunctions.Create())
+        {
+            yield return function;
+        }
+        foreach (var function in LegacyStatisticalAliasFormulaFunctions.Create())
         {
             yield return function;
         }
