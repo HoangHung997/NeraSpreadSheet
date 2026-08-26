@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: |
           base64 --decode scripts/.f012-payload.b64 | gzip --decompress > /tmp/apply_f012.py
-          echo "a63c7da7a4dfda493c1e151fd47990b4c8adab71f76fb441401afa4506f14a3f  /tmp/apply_f012.py" | sha256sum --check
+          echo "2c12ce48c9d71db90322b5a5a1abb4feebf6770af0d37eae96458ae96903a251  /tmp/apply_f012.py" | sha256sum --check
           python /tmp/apply_f012.py
           git diff --check
 
