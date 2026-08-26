@@ -4,17 +4,17 @@
 
 | Counter | Value |
 |---|---:|
-| Eager/versioned | 252 |
+| Eager/versioned | 262 |
 | AST/reference-aware | 34 |
 | Dynamic-array unique | 20 |
-| **Total** | **306 / at least 538** |
-| Tests | 274/274 |
-| Complete batches | F001–F013 |
+| **Total** | **316 / at least 538** |
+| Tests | 284/284 |
+| Complete batches | F001–F014 |
 
-F013 adds `ACOT`, `ACOTH`, `COT`, `COTH`, `CSC`, `CSCH`, `SEC`, `SECH`, `ASINH` and `ACOSH`. `DEGREES` and `RADIANS` were already present and were not counted twice.
+F014 adds `ATANH`, `SINH`, `COSH`, `TANH`, `COMBIN`, `COMBINA`, `FACT`, `FACTDOUBLE`, `GCD` and `LCM` through the authoritative eager/versioned registry.
 
 The workbook/editing, dependency graph, rules/Tables/AutoFilter, WPF/WinForms/MAUI render hosts, XLSX preservation and print/PDF foundations remain validated. Production blockers still include catalog breadth, charts/pivots UI, packaging/API compatibility, plugin trust/isolation, security/fuzzing, recovery, localization/accessibility and broad differential/visual corpora.
 
-Full F013 contract: `docs/advanced-trigonometric-and-hyperbolic-contract.md`.
+Full F014 contract: `docs/hyperbolic-combinatorics-and-integer-contract.md`.
 
-Next: F014 with `ATANH`, `SINH`, `COSH`, `TANH`, `COMBIN`, `COMBINA`, `FACT`, `FACTDOUBLE`, `GCD`, `LCM`.
+Next: F015 with `MROUND`, `CEILING`, `FLOOR`, `CEILING.PRECISE`, `FLOOR.PRECISE`, `ISO.CEILING`, `MULTINOMIAL`, `SERIESSUM`, `SUMSQ`, `SUMPRODUCT`.

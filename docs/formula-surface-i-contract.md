@@ -1,11 +1,11 @@
 # Formula Surface I contract
 
-- Eager/versioned: 252.
+- Eager/versioned: 262.
 - AST/reference-aware: 34.
 - Dynamic-array unique: 20.
-- Complete subsystem: **306 / at least 538 names**.
-- Formula tests: 274.
+- Complete subsystem: **316 / at least 538 names**.
+- Formula tests: 284.
 
-F013 adds ten deterministic scalar math functions through the authoritative eager/versioned registry. Domain errors, reciprocal singularities and the reciprocal-family magnitude guard fail closed with spreadsheet error values.
+F014 adds ten pure deterministic scalar math functions through the authoritative eager/versioned registry. Hyperbolic domains, combination iteration budgets, factorial finite limits and the exact-integer boundary for `GCD`/`LCM` fail closed with spreadsheet errors.
 
-See `docs/advanced-trigonometric-and-hyperbolic-contract.md`.
+See `docs/hyperbolic-combinatorics-and-integer-contract.md`.
