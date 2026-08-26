@@ -1,0 +1,37 @@
+name: f018-local-cli-bootstrap
+
+on:
+  push:
+    branches:
+      - automation/f018-local-cli-bootstrap
+
+permissions:
+  contents: read
+
+jobs:
+  package-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact F017 head
+        uses: actions/checkout@v6
+        with:
+          ref: 0c6f8d5938b50485fa93023e9311261850b7d592
+          fetch-depth: 0
+
+      - name: Package exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar \
+            --exclude=.git \
+            --exclude='**/bin' \
+            --exclude='**/obj' \
+            -czf "$RUNNER_TEMP/f018-source.tar.gz" .
+
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: f018-source
+          path: ${{ runner.temp }}/f018-source.tar.gz
+          retention-days: 1
+          compression-level: 0
