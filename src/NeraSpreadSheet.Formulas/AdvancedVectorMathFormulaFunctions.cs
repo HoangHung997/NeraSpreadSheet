@@ -48,7 +48,7 @@ internal static class AdvancedVectorMathFormulaFunctions
                 PairwiseOperation.DifferenceSquared));
     }
 
-    private static IFormulaFunction CreateLogical(
+    private static FormulaFunctionDefinition CreateLogical(
         string name,
         int minimumArguments,
         int maximumArguments,
