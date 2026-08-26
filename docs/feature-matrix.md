@@ -3,8 +3,9 @@
 | Area | Current validated capability | Next |
 |---|---|---|
 | Workbook/editing | Excel-size sparse sheets, structural transforms, selection, clipboard and Undo/Redo | axis grouping and native spill UX |
-| Formula surface | **316 / at least 538 functions**, 284 tests | F015 ten-function batch |
-| Math | arithmetic, rounding, logs, direct/inverse/reciprocal/hyperbolic functions, combinatorics, factorials and integer GCD/LCM | precision rounding, series and product families |
+| Formula surface | **336 / at least 538 functions**, 304 tests; 20 new names per public batch from F015 | F016 twenty-function batch after duplicate audit |
+| Math | arithmetic, logs, trigonometry, hyperbolic functions, combinatorics, precision/legacy rounding, vector sums/products, radix and Roman conversions | matrix and remaining advanced math catalog |
+| Information | parity and non-text predicates plus existing information foundation | remaining information and error-introspection functions |
 | Reference | ADDRESS/AREAS/CHOOSE/COLUMN/COLUMNS/FORMULATEXT/INDIRECT/OFFSET/ROW/ROWS/SHEET/SHEETS | 3-D references and full algebra |
 | Dynamic arrays | 20 unique names including TOCOL/TOROW/TRIMRANGE/VSTACK/WRAPCOLS/WRAPROWS | remaining array and higher-order families |
 | Lookup/logical | LOOKUP/XMATCH plus lazy IF/IFERROR/IFNA/SWITCH paths | advanced lookup and LET/LAMBDA |

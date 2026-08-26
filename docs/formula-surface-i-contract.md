@@ -1,11 +1,14 @@
 # Formula Surface I contract
 
-- Eager/versioned: 262.
+- Eager/versioned: 282.
 - AST/reference-aware: 34.
 - Dynamic-array unique: 20.
-- Complete subsystem: **316 / at least 538 names**.
-- Formula tests: 284.
+- Complete subsystem: **336 / at least 538 names**.
+- Formula tests: 304.
+- Public batch size from F015: 20 new names.
 
-F014 adds ten pure deterministic scalar math functions through the authoritative eager/versioned registry. Hyperbolic domains, combination iteration budgets, factorial finite limits and the exact-integer boundary for `GCD`/`LCM` fail closed with spreadsheet errors.
+F015 adds twenty deterministic built-ins through the authoritative registry. Scalar rounding and conversion functions use shared coercion; `MULTINOMIAL`, `SERIESSUM`, `SUMPRODUCT` and the `SUMX*` family preserve logical argument/range shape. Value traversal is capped at 1,000,000 items, radix text at 255 characters and exact-integer operations at 2^53−1. Unsupported domains fail closed with spreadsheet errors.
 
-See `docs/hyperbolic-combinatorics-and-integer-contract.md`.
+`SUMSQ` and `PRODUCT` already existed and were not counted again.
+
+See `docs/advanced-math-compatibility-contract.md`.
