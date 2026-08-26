@@ -1,8 +1,8 @@
 # Function Extension SDK v1.0 contract
 
-- Eager/versioned registry: 242 names.
+- Eager/versioned registry: 252 names.
 - AST/reference-aware: 34 names.
 - Dynamic-array unique: 20 names.
-- Total built-ins: **296 / at least 538**.
+- Total built-ins: **306 / at least 538**.
 
-F012 does not add eager registry entries. Its ten names remain engine-owned because they require lazy error branches, lookup-array identity, array shape or spill ownership. No parallel registry is introduced.
+F013 adds ten pure deterministic scalar functions through `StandardFormulaFunctions.CreateAll()` and the existing Function Extension SDK descriptor path. No parallel registry or platform-specific evaluator is introduced.

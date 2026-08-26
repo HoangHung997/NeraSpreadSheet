@@ -8,19 +8,19 @@ NeraSpreadSheet is an independent spreadsheet SDK for WPF, WinForms and .NET MAU
 
 | Item | Value |
 |---|---:|
-| Eager/versioned functions | 242 |
+| Eager/versioned functions | 252 |
 | AST/reference-aware functions | 34 |
 | Dynamic-array unique functions | 20 |
-| **Total functions** | **296 / at least 538** |
-| Formula tests | 264/264 |
-| Completed formula batches | F001–F012 |
+| **Total functions** | **306 / at least 538** |
+| Formula tests | 274/274 |
+| Completed formula batches | F001–F013 |
 | Pull request | #1 Draft, unmerged |
 
 Latest batches:
 
-- F011: `LOOKUP`, `OFFSET`, `PERCENTOF`, `PIVOTBY`, `ROW`, `ROWS`, `SHEET`, `SHEETS`, `SORTBY`, `TAKE`.
 - F012: `TOCOL`, `TOROW`, `TRIMRANGE`, `VSTACK`, `WRAPCOLS`, `WRAPROWS`, `XMATCH`, `IFERROR`, `IFNA`, `SWITCH`.
-- F013 next: `ACOT`, `ACOTH`, `COT`, `COTH`, `CSC`, `CSCH`, `DEGREES`, `RADIANS`, `SEC`, `SECH`.
+- F013: `ACOT`, `ACOTH`, `COT`, `COTH`, `CSC`, `CSCH`, `SEC`, `SECH`, `ASINH`, `ACOSH`.
+- F014 next: `ATANH`, `SINH`, `COSH`, `TANH`, `COMBIN`, `COMBINA`, `FACT`, `FACTDOUBLE`, `GCD`, `LCM`.
 
 Build and validation:
 
