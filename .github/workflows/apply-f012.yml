@@ -1,0 +1,61 @@
+name: Apply F012 candidate
+
+on:
+  push:
+    branches:
+      - automation/f012-apply
+    paths:
+      - scripts/.f012-payload.b64
+      - .github/workflows/apply-f012.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-f012
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Rebuild and apply F012 source
+        shell: bash
+        run: |
+          base64 --decode scripts/.f012-payload.b64 | gzip --decompress > /tmp/apply_f012.py
+          echo "a63c7da7a4dfda493c1e151fd47990b4c8adab71f76fb441401afa4506f14a3f  /tmp/apply_f012.py" | sha256sum --check
+          python /tmp/apply_f012.py
+          git diff --check
+
+      - name: Restore
+        run: dotnet restore NeraSpreadSheet.Core.slnx
+
+      - name: Build
+        run: dotnet build NeraSpreadSheet.Core.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test NeraSpreadSheet.Core.slnx -c Release --no-build
+
+      - name: Verify architecture
+        shell: pwsh
+        run: ./scripts/verify-architecture.ps1
+
+      - name: Commit validated implementation
+        shell: bash
+        run: |
+          rm scripts/.f012-payload.b64 .github/workflows/apply-f012.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: implement F012 flatten wrap lookup and lazy errors"
+          git push origin HEAD:automation/f012-apply
