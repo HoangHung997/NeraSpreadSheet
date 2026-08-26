@@ -8,23 +8,21 @@ NeraSpreadSheet is an independent spreadsheet SDK for WPF, WinForms and .NET MAU
 
 | Item | Value |
 |---|---:|
-| Eager/versioned functions | 342 |
+| Eager/versioned functions | 372 |
 | AST/reference-aware functions | 34 |
 | Dynamic-array unique functions | 20 |
-| **Total functions** | **396 / at least 538** |
-| Formula tests | 364/364 |
-| Completed formula cycles | F001–F016 |
+| **Total functions** | **426 / at least 538** |
+| Formula tests | 394/394 |
+| Completed formula cycles | F001–F017 |
 | Pull request | #1 Draft, unmerged |
 
-F016 is the first locked 60-function cycle: three sequential commits A/B/C of 20 names each, one manifest and 60 separately named regressions. A compile-time definite-assignment error was isolated to Group A, repaired by replacing the owning commit, and the final history remains exactly three commits.
+F017 establishes the 30-function process: manifest first, groups A/B/C of ten names, a green CLI gate after every group, three commits pushed together, then one exact-head GitHub CI.
 
 Build and validation:
 
 ```powershell
-dotnet restore .\NeraSpreadSheet.slnx
-dotnet build .\NeraSpreadSheet.slnx -c Release
+dotnet restore .\NeraSpreadSheet.Core.slnx
+dotnet build .\NeraSpreadSheet.Core.slnx -c Release --no-restore
 dotnet test .\NeraSpreadSheet.Core.slnx -c Release --no-build
 ./scripts/verify-architecture.ps1
 ```
-
-F017 will use the same 60-function A/B/C process after duplicate and catalog audit.

@@ -3,10 +3,10 @@
 | Area | Current validated capability | Next |
 |---|---|---|
 | Workbook/editing | Excel-size sparse sheets, structural transforms, selection, clipboard and Undo/Redo | axis grouping and native spill UX |
-| Formula surface | **396 / at least 538 functions**, 364 separately named formula tests; F016 uses 60-name A/B/C cycles | F017 after duplicate/catalog audit |
-| Math | arithmetic, logs, trigonometry, hyperbolic, combinatorics, precision/legacy rounding, vector sums/products, radix and Roman conversions | matrix and remaining advanced math catalog |
-| Statistics | descriptive/order statistics, regression, advanced distributions, legacy aliases, A-coercion, exclusive percentiles and percent ranks | remaining compatibility and differential corpus |
-| Engineering | 45 names including fixed-width conversions, bit operations and 26 complex-number functions | `CONVERT` and remaining engineering special functions |
+| Formula surface | **426 / at least 538 functions**, 394 separately named formula tests; 30-name A/B/C cycles with per-group CLI gates | F018 after duplicate/catalog audit |
+| Math | arithmetic, logs, trigonometry, hyperbolic, combinatorics, rounding, vector math, radix and Roman conversions | matrix and remaining advanced math catalog |
+| Statistics | descriptive/order statistics, regression, advanced and discrete distributions, confidence, F/Z tests, modern and legacy compatibility | remaining compatibility and differential corpus |
+| Engineering | 45 names including fixed-width conversions, bit operations and complex-number functions | `CONVERT` and remaining engineering special functions |
 | Information | parity and non-text predicates plus existing information foundation | remaining information and error-introspection functions |
 | Reference | ADDRESS/AREAS/CHOOSE/COLUMN/COLUMNS/FORMULATEXT/INDIRECT/OFFSET/ROW/ROWS/SHEET/SHEETS | 3-D references and full algebra |
 | Dynamic arrays | 20 unique names including TOCOL/TOROW/TRIMRANGE/VSTACK/WRAPCOLS/WRAPROWS | remaining array and higher-order families |
