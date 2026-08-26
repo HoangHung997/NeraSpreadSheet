@@ -25,6 +25,15 @@ internal static class AdvancedTrigonometricFormulaFunctions
             static (arguments, _) => InverseHyperbolicCosine(
                 arguments[0]));
         yield return FormulaFunctionFactory.Create(
+            "ATANH",
+            1,
+            1,
+            static (arguments, _) => InverseHyperbolicTangent(
+                arguments[0]));
+        yield return UnaryNumber("SINH", Math.Sinh);
+        yield return UnaryNumber("COSH", Math.Cosh);
+        yield return UnaryNumber("TANH", Math.Tanh);
+        yield return FormulaFunctionFactory.Create(
             "COT",
             1,
             1,
@@ -115,6 +124,21 @@ internal static class AdvancedTrigonometricFormulaFunctions
         return number < 1d
             ? FormulaValueCoercion.Error("#NUM!")
             : FormulaValueCoercion.SafeNumber(Math.Acosh(number));
+    }
+
+    private static CellValue InverseHyperbolicTangent(
+        CellValue value)
+    {
+        if (!FormulaValueCoercion.TryNumber(
+                value,
+                out var number,
+                allowText: true))
+        {
+            return FormulaValueCoercion.Error("#VALUE!");
+        }
+        return number is <= -1d or >= 1d
+            ? FormulaValueCoercion.Error("#NUM!")
+            : FormulaValueCoercion.SafeNumber(Math.Atanh(number));
     }
 
     private static CellValue Reciprocal(

@@ -18,6 +18,10 @@ internal static class StandardFormulaFunctions
         {
             yield return function;
         }
+        foreach (var function in CombinatoricsAndIntegerFormulaFunctions.Create())
+        {
+            yield return function;
+        }
         foreach (var function in TextFormulaFunctions.Create())
         {
             yield return function;
