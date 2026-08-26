@@ -246,6 +246,76 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
         {
             return EvaluateTake(function, context, dependencies);
         }
+        if (string.Equals(
+                function.Name,
+                "TOCOL",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateToColumn(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "TOROW",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateToRow(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "TRIMRANGE",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateTrimRange(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "VSTACK",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateVStack(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "WRAPCOLS",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateWrapColumns(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "WRAPROWS",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateWrapRows(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "XMATCH",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateXMatchArray(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "IFERROR",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateIfErrorArray(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "IFNA",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateIfNaArray(function, context, dependencies);
+        }
+        if (string.Equals(
+                function.Name,
+                "SWITCH",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateSwitchArray(function, context, dependencies);
+        }
         return Failure("#NAME?", FormulaErrorCode.InvalidName, dependencies);
     }
 
@@ -528,6 +598,46 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
         string.Equals(
             name,
             "TAKE",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "TOCOL",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "TOROW",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "TRIMRANGE",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "VSTACK",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "WRAPCOLS",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "WRAPROWS",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "XMATCH",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "IFERROR",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "IFNA",
+            StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(
+            name,
+            "SWITCH",
             StringComparison.OrdinalIgnoreCase);
 
     private static bool TryPositiveInteger(
