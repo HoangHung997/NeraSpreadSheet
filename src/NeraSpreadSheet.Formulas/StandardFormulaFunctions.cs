@@ -94,6 +94,10 @@ internal static class StandardFormulaFunctions
         {
             yield return function;
         }
+        foreach (var function in DescriptiveCompatibilityStatisticalFormulaFunctions.Create())
+        {
+            yield return function;
+        }
         foreach (var function in FinancialFormulaFunctionsHardened.Create())
         {
             yield return function;

@@ -1,14 +1,14 @@
 # Formula Surface I contract
 
-- Eager/versioned: 282.
+- Eager/versioned: 342.
 - AST/reference-aware: 34.
 - Dynamic-array unique: 20.
-- Complete subsystem: **336 / at least 538 names**.
-- Formula tests: 304.
-- Public batch size from F015: 20 new names.
+- Complete subsystem: **396 / at least 538 names**.
+- Formula tests: 364.
+- Formula-cycle size from F016: **60 new names**, split A/B/C as 20/20/20.
 
-F015 adds twenty deterministic built-ins through the authoritative registry. Scalar rounding and conversion functions use shared coercion; `MULTINOMIAL`, `SERIESSUM`, `SUMPRODUCT` and the `SUMX*` family preserve logical argument/range shape. Value traversal is capped at 1,000,000 items, radix text at 255 characters and exact-integer operations at 2^53−1. Unsupported domains fail closed with spreadsheet errors.
+F016 adds 26 complex engineering functions, 14 legacy statistical compatibility names and 20 descriptive/ranking statistical functions through the authoritative registry. Every public name has a separately named regression in its owning A/B/C test class.
 
-`SUMSQ` and `PRODUCT` already existed and were not counted again.
+Complex parsing and canonical formatting are centralized in `ComplexFormulaMath`; mixed `i`/`j` suffixes and non-finite results fail closed. Legacy statistical names delegate to existing modern numerical implementations without duplicating solvers. Descriptive collectors are capped at 2,000,000 values and preserve logical scalar/range coercion rules.
 
-See `docs/advanced-math-compatibility-contract.md`.
+Manifest and per-function edge cases: `docs/formula-manifests/F016_60_FUNCTION_MANIFEST.md`.

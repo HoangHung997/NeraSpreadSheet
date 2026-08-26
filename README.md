@@ -8,22 +8,15 @@ NeraSpreadSheet is an independent spreadsheet SDK for WPF, WinForms and .NET MAU
 
 | Item | Value |
 |---|---:|
-| Eager/versioned functions | 282 |
+| Eager/versioned functions | 342 |
 | AST/reference-aware functions | 34 |
 | Dynamic-array unique functions | 20 |
-| **Total functions** | **336 / at least 538** |
-| Formula tests | 304/304 |
-| Completed formula batches | F001–F015 |
-| Public batch size from F015 | 20 new names |
+| **Total functions** | **396 / at least 538** |
+| Formula tests | 364/364 |
+| Completed formula cycles | F001–F016 |
 | Pull request | #1 Draft, unmerged |
 
-Latest batches:
-
-- F014: `ATANH`, `SINH`, `COSH`, `TANH`, `COMBIN`, `COMBINA`, `FACT`, `FACTDOUBLE`, `GCD`, `LCM`.
-- F015: `MROUND`, `CEILING`, `FLOOR`, `CEILING.PRECISE`, `FLOOR.PRECISE`, `ISO.CEILING`, `MULTINOMIAL`, `SERIESSUM`, `SUMPRODUCT`, `SQRTPI`, `SUMX2MY2`, `SUMX2PY2`, `SUMXMY2`, `BASE`, `DECIMAL`, `ARABIC`, `ROMAN`, `ISEVEN`, `ISODD`, `ISNONTEXT`.
-- F016 next: 20 new names after duplicate and catalog audit.
-
-`SUMSQ` and `PRODUCT` already existed before F015 and were not counted twice.
+F016 is the first locked 60-function cycle: three sequential commits A/B/C of 20 names each, one manifest and 60 separately named regressions. A compile-time definite-assignment error was isolated to Group A, repaired by replacing the owning commit, and the final history remains exactly three commits.
 
 Build and validation:
 
@@ -31,5 +24,7 @@ Build and validation:
 dotnet restore .\NeraSpreadSheet.slnx
 dotnet build .\NeraSpreadSheet.slnx -c Release
 dotnet test .\NeraSpreadSheet.Core.slnx -c Release --no-build
-./scripts/run-complete-validation.ps1 -Configuration Release -RequireCleanWorkingTree
+./scripts/verify-architecture.ps1
 ```
+
+F017 will use the same 60-function A/B/C process after duplicate and catalog audit.
