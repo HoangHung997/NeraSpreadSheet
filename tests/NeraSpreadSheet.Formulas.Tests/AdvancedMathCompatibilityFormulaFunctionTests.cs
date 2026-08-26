@@ -208,7 +208,7 @@ public sealed class AdvancedMathCompatibilityFormulaFunctionTests
         AssertBoolean("=ISNONTEXT(1/0)", true);
     }
 
-    private static IFormulaEvaluationContext PairContext() =>
+    private static TestContext PairContext() =>
         Context(
             (0, 0, 1d),
             (1, 0, 2d),
@@ -217,7 +217,7 @@ public sealed class AdvancedMathCompatibilityFormulaFunctionTests
             (1, 1, 5d),
             (2, 1, 6d));
 
-    private static IFormulaEvaluationContext Context(
+    private static TestContext Context(
         params (int Row, int Column, double Value)[] cells)
     {
         var values = cells.ToDictionary(
