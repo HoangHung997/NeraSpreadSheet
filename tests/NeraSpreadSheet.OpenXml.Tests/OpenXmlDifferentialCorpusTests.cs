@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
+using CellStyle = NeraSpreadSheet.Core.CellStyle;
 using CellValue = NeraSpreadSheet.Core.CellValue;
 using NeraWorkbook = NeraSpreadSheet.Core.Workbook;
 using OpenXmlCell = DocumentFormat.OpenXml.Spreadsheet.Cell;
