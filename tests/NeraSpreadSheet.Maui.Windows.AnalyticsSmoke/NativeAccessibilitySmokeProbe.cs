@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Microsoft.Maui;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
@@ -6,6 +7,7 @@ using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Maui;
 using NeraSpreadSheet.Rendering.Spreadsheet;
+using SkiaSharp.Views.Maui.Handlers;
 using SkiaSharp.Views.Windows;
 using MauiAutomationProperties = Microsoft.Maui.Controls.AutomationProperties;
 using MauiSemanticProperties = Microsoft.Maui.Controls.SemanticProperties;
@@ -15,18 +17,92 @@ namespace NeraSpreadSheet.Maui.Windows.AnalyticsSmoke;
 
 internal static class NativeAccessibilitySmokeProbe
 {
+    private const string MapperKey = "NeraSpreadSheet.AnalyticsSmoke.NativeAccessibility";
     private const double BoundsTolerance = 2d;
+    private static readonly ConditionalWeakTable<NeraSpreadsheetView, ProbeState> States = new();
+    private static int s_registered;
 
-    internal static int Validate(
+    internal static void Register()
+    {
+        if (Interlocked.Exchange(ref s_registered, 1) != 0)
+        {
+            return;
+        }
+
+        SKGLViewHandler.SKGLViewMapper.AppendToMapping(
+            MapperKey,
+            static (_, virtualView) =>
+            {
+                if (virtualView is NeraSpreadsheetView view)
+                {
+                    var state = States.GetValue(view, static key => new ProbeState(key));
+                    state.Attach();
+                }
+            });
+    }
+
+    private sealed class ProbeState
+    {
+        private readonly NeraSpreadsheetView _view;
+        private bool _attached;
+        private bool _validated;
+
+        internal ProbeState(NeraSpreadsheetView view)
+        {
+            _view = view;
+        }
+
+        internal void Attach()
+        {
+            if (_attached)
+            {
+                return;
+            }
+
+            _attached = true;
+            _view.PaintSurface += OnPaintSurface;
+        }
+
+        private void OnPaintSurface(object? sender, SkiaSharp.Views.Maui.SKPaintGLSurfaceEventArgs e)
+        {
+            if (_validated || !ReferenceEquals(sender, _view))
+            {
+                return;
+            }
+
+            var nodes = _view.AnalyticsAccessibilityNodes;
+            if (nodes.Count == 0)
+            {
+                return;
+            }
+
+            var node = nodes.Single();
+            Validate(
+                _view,
+                node,
+                e.Info.Width,
+                e.Info.Height,
+                expectedSelected: node.IsSelected);
+
+            if (!node.IsSelected)
+            {
+                Invoke(_view, node);
+                Require(
+                    _view.Session?.AnalyticsInteraction.SelectedItem == node.Item,
+                    "Invoking the native analytics accessibility child did not select the analytics item.");
+            }
+
+            _validated = true;
+        }
+    }
+
+    private static int Validate(
         NeraSpreadsheetView view,
         SpreadsheetAnalyticsAccessibleNode node,
         int surfaceWidth,
         int surfaceHeight,
         bool expectedSelected)
     {
-        ArgumentNullException.ThrowIfNull(view);
-        ArgumentNullException.ThrowIfNull(node);
-
         Require(
             MauiAutomationProperties.GetIsInAccessibleTree(view) == true,
             "The loaded MAUI spreadsheet was not exposed through the accessibility tree.");
@@ -95,14 +171,11 @@ internal static class NativeAccessibilitySmokeProbe
         Require(
             peer.GetPattern(PatternInterface.Invoke) is not null,
             "The native analytics accessibility child did not expose the Invoke pattern.");
-        var peerBounds = peer.GetBoundingRectangle();
-        Require(peerBounds.Width > 0d && peerBounds.Height > 0d,
-            "The native UI Automation peer exposed empty screen bounds.");
 
         return RuntimeHelpers.GetHashCode(proxy);
     }
 
-    internal static void Invoke(
+    private static void Invoke(
         NeraSpreadsheetView view,
         SpreadsheetAnalyticsAccessibleNode node)
     {
