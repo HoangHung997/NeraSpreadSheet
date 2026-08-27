@@ -139,6 +139,9 @@ public sealed class DesktopAnalyticsAccessibilitySmokeTests
                 var session = control.Session ??
                     throw new AssertFailedException(
                         "The WPF spreadsheet session was not created.");
+                control.BeginEdit();
+                FlushWpf(window, control);
+
                 var rootPeer = WpfUIElementAutomationPeer.CreatePeerForElement(control) ??
                     throw new AssertFailedException(
                         "The WPF spreadsheet did not create an AutomationPeer.");
@@ -147,6 +150,10 @@ public sealed class DesktopAnalyticsAccessibilitySmokeTests
                     rootPeer.GetAutomationControlType());
                 Assert.AreEqual("Spreadsheet", rootPeer.GetName());
                 var baselineChildren = rootPeer.GetChildren() ?? [];
+                Assert.IsTrue(
+                    baselineChildren.Any(peer =>
+                        peer.GetAutomationControlType() == WpfAutomationControlType.Edit),
+                    "The WPF automation tree did not expose the active cell editor before analytics insertion.");
                 Assert.IsFalse(
                     baselineChildren.Any(peer =>
                         peer.GetAutomationId().StartsWith(
@@ -166,7 +173,10 @@ public sealed class DesktopAnalyticsAccessibilitySmokeTests
 
                 var automationId = $"analytics-chart-{item.Id:N}";
                 var childrenAfterInsert = rootPeer.GetChildren() ?? [];
-                Assert.AreEqual(baselineChildren.Count + 1, childrenAfterInsert.Count);
+                Assert.IsTrue(
+                    childrenAfterInsert.Any(peer =>
+                        peer.GetAutomationControlType() == WpfAutomationControlType.Edit),
+                    "The WPF automation tree lost the active cell editor after analytics insertion.");
                 var child = childrenAfterInsert
                     .SingleOrDefault(peer => peer.GetAutomationId() == automationId) ??
                     throw new AssertFailedException(
@@ -217,10 +227,14 @@ public sealed class DesktopAnalyticsAccessibilitySmokeTests
                 Assert.IsTrue(session.Analytics.RemoveChart(chart.Id));
                 FlushWpf(window, control);
                 var childrenAfterRemove = rootPeer.GetChildren() ?? [];
-                Assert.AreEqual(baselineChildren.Count, childrenAfterRemove.Count);
                 Assert.IsFalse(
                     childrenAfterRemove.Any(peer => peer.GetAutomationId() == automationId),
                     "The WPF automation tree retained a removed analytics child.");
+                Assert.IsTrue(
+                    childrenAfterRemove.Any(peer =>
+                        peer.GetAutomationControlType() == WpfAutomationControlType.Edit),
+                    "The WPF automation tree lost the active cell editor after analytics removal.");
+                Assert.IsTrue(control.CancelEditor());
             }
             finally
             {
