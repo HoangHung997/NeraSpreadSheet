@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using CoreGraphics;
 using Foundation;
 using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Rendering.Spreadsheet;
 using SkiaSharp.Views.Maui;
