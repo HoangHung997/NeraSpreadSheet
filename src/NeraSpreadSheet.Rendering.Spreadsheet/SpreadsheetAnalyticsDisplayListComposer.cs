@@ -370,8 +370,8 @@ public static class SpreadsheetAnalyticsDisplayListComposer
             builder.FillRectangle(
                 new RectD(legendLeft, y + 4d, 12d, 12d),
                 color);
-            var percentage = (slices[sliceIndex].Value!.Value / total)
-                .ToString("P0", CultureInfo.InvariantCulture);
+            var percentage = ((slices[sliceIndex].Value!.Value / total) * 100d)
+                .ToString("0", CultureInfo.InvariantCulture) + "%";
             builder.DrawText(
                 $"{slices[sliceIndex].Category} {percentage}",
                 new RectD(
