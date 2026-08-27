@@ -171,7 +171,7 @@ public sealed class OpenXmlDifferentialCorpusTests
 
     private static CellValue CreateValue(int seed, int sheetIndex, int index)
     {
-        return (seed + (sheetIndex * 7) + index) % 9 switch
+        return ((seed + (sheetIndex * 7) + index) % 9) switch
         {
             0 => CellValue.FromNumber(0d),
             1 => CellValue.FromNumber(-987654.25d + seed),
