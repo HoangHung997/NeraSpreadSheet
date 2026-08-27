@@ -467,36 +467,35 @@ public sealed class NeraSpreadsheetControl : FrameworkElement, IDisposable
 
         if (_session.AnalyticsInteraction.SelectedItem.HasValue)
         {
-            if (e.Key == Key.Escape)
+            var analyticsKey = e.Key switch
             {
-                _analyticsInput?.Cancel();
-                _session.AnalyticsInteraction.ClearSelection();
-                e.Handled = true;
-                return;
-            }
-            if (e.Key == Key.Delete)
-            {
-                e.Handled = EnsureAnalyticsInput().DeleteSelected();
-                return;
-            }
-
-            var analyticsDelta = e.Key switch
-            {
-                Key.Left => new PointD(-1d, 0d),
-                Key.Right => new PointD(1d, 0d),
-                Key.Up => new PointD(0d, -1d),
-                Key.Down => new PointD(0d, 1d),
-                _ => default,
+                Key.Left => SpreadsheetAnalyticsKeyboardKey.Left,
+                Key.Right => SpreadsheetAnalyticsKeyboardKey.Right,
+                Key.Up => SpreadsheetAnalyticsKeyboardKey.Up,
+                Key.Down => SpreadsheetAnalyticsKeyboardKey.Down,
+                Key.Delete => SpreadsheetAnalyticsKeyboardKey.Delete,
+                Key.Escape => SpreadsheetAnalyticsKeyboardKey.Escape,
+                _ => (SpreadsheetAnalyticsKeyboardKey?)null,
             };
-            if (analyticsDelta != default)
+            if (analyticsKey.HasValue)
             {
-                var step = (Keyboard.Modifiers & ModifierKeys.Shift) != 0
-                    ? SpreadsheetAnalyticsViewportInteractionController.LargeKeyboardNudge
-                    : SpreadsheetAnalyticsViewportInteractionController.DefaultKeyboardNudge;
-                e.Handled = EnsureAnalyticsInput().NudgeSelected(
-                    analyticsDelta.X * step,
-                    analyticsDelta.Y * step);
-                return;
+                var modifiers = SpreadsheetAnalyticsKeyboardModifiers.None;
+                if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
+                {
+                    modifiers |= SpreadsheetAnalyticsKeyboardModifiers.Shift;
+                }
+                if ((Keyboard.Modifiers & ModifierKeys.Control) != 0)
+                {
+                    modifiers |= SpreadsheetAnalyticsKeyboardModifiers.Control;
+                }
+
+                e.Handled = EnsureAnalyticsInput().Keyboard(
+                    analyticsKey.Value,
+                    modifiers);
+                if (e.Handled)
+                {
+                    return;
+                }
             }
             if (e.Key == Key.F2)
             {
