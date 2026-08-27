@@ -7,13 +7,15 @@ namespace NeraSpreadSheet.Viewport;
 
 /// <summary>
 /// Host-neutral bridge between viewport coordinates and the analytics interaction/editing
-/// state. Hosts feed body-local pointer coordinates here instead of reimplementing chart/pivot
-/// hit-testing and transform history semantics.
+/// state. Hosts feed body-local pointer coordinates and normalized keyboard events here instead
+/// of reimplementing chart/pivot hit-testing, transform history, or accessibility ordering.
 /// </summary>
 public sealed class SpreadsheetAnalyticsViewportInteractionController
 {
-    public const double DefaultKeyboardNudge = 1d;
-    public const double LargeKeyboardNudge = 10d;
+    public const double DefaultKeyboardNudge =
+        SpreadsheetAnalyticsKeyboardMapper.DefaultNudgeStep;
+    public const double LargeKeyboardNudge =
+        SpreadsheetAnalyticsKeyboardMapper.AcceleratedNudgeStep;
 
     private readonly SpreadsheetViewportEngine _viewport;
     private readonly SpreadsheetSession _session;
@@ -26,6 +28,9 @@ public sealed class SpreadsheetAnalyticsViewportInteractionController
     }
 
     public bool IsTransforming => _session.AnalyticsInteraction.IsTransforming;
+
+    public SpreadsheetAnalyticsInteractionSnapshot Snapshot =>
+        _session.AnalyticsInteraction.Snapshot;
 
     public bool PointerPressed(
         PointD bodyPoint,
@@ -78,6 +83,41 @@ public sealed class SpreadsheetAnalyticsViewportInteractionController
     }
 
     public bool Cancel() => _session.AnalyticsInteraction.CancelTransform();
+
+    public bool Keyboard(
+        SpreadsheetAnalyticsKeyboardKey key,
+        SpreadsheetAnalyticsKeyboardModifiers modifiers =
+            SpreadsheetAnalyticsKeyboardModifiers.None,
+        double minimumWidth =
+            SpreadsheetAnalyticsTransformMath.DefaultMinimumWidth,
+        double minimumHeight =
+            SpreadsheetAnalyticsTransformMath.DefaultMinimumHeight) =>
+        Keyboard(
+            SpreadsheetAnalyticsKeyboardMapper.Map(key, modifiers),
+            minimumWidth,
+            minimumHeight);
+
+    public bool Keyboard(
+        SpreadsheetAnalyticsKeyboardIntent intent,
+        double minimumWidth =
+            SpreadsheetAnalyticsTransformMath.DefaultMinimumWidth,
+        double minimumHeight =
+            SpreadsheetAnalyticsTransformMath.DefaultMinimumHeight) =>
+        SpreadsheetAnalyticsKeyboardEditing.Execute(
+            intent,
+            _session.AnalyticsInteraction,
+            _session.AnalyticsPlacements,
+            _session.Analytics,
+            minimumWidth,
+            minimumHeight);
+
+    public IReadOnlyList<SpreadsheetAnalyticsAccessibleNode> GetAccessibilityNodes(
+        ViewportLayout layout,
+        Func<SpreadsheetAnalyticsItemKey, string?>? nameResolver = null) =>
+        SpreadsheetAnalyticsAccessibilityProjector.Project(
+            _viewport.GetAnalyticsInteractionTargets(layout),
+            _session.AnalyticsInteraction.SelectedItem,
+            nameResolver);
 
     public bool NudgeSelected(double deltaX, double deltaY)
     {
