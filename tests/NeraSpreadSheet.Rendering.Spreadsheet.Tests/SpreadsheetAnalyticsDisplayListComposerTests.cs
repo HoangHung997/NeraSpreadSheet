@@ -89,16 +89,82 @@ public sealed class SpreadsheetAnalyticsDisplayListComposerTests
     }
 
     [TestMethod]
-    public void PieChartFailsExplicitlyInsteadOfHostSpecificApproximation()
+    public void PieChartProducesVectorSectorsAndLegend()
     {
         var projection = CreateChartProjection(SpreadsheetChartType.Pie);
+        var bounds = new RectD(0d, 0d, 420d, 260d);
 
-        var exception = Assert.ThrowsExactly<NotSupportedException>(() =>
-            SpreadsheetAnalyticsDisplayListComposer.ComposeChart(
-                projection,
-                new RectD(0d, 0d, 300d, 200d)));
+        var displayList = SpreadsheetAnalyticsDisplayListComposer.ComposeChart(
+            projection,
+            bounds);
+        var sectors = displayList.Commands
+            .OfType<FillPolygonCommand>()
+            .ToArray();
 
-        StringAssert.Contains(exception.Message, "filled-path primitive");
+        Assert.AreEqual(2, sectors.Length);
+        Assert.IsTrue(sectors.All(static sector => sector.Points.Count >= 4));
+        Assert.IsTrue(displayList.Commands
+            .OfType<DrawTextCommand>()
+            .Any(command => command.Text == "Q1 40%"));
+        Assert.IsTrue(displayList.Commands
+            .OfType<DrawTextCommand>()
+            .Any(command => command.Text == "Q2 60%"));
+        foreach (var sector in sectors)
+        {
+            foreach (var point in sector.Points)
+            {
+                Assert.IsTrue(point.X >= bounds.Left && point.X <= bounds.Right);
+                Assert.IsTrue(point.Y >= bounds.Top && point.Y <= bounds.Bottom);
+            }
+        }
+    }
+
+    [TestMethod]
+    public void PieChartWithNoPositiveValuesProducesExplicitEmptyState()
+    {
+        var projection = new SpreadsheetChartProjection(
+            Guid.NewGuid(),
+            SpreadsheetChartType.Pie,
+            "Invalid pie",
+            [
+                new SpreadsheetChartProjectedSeries(
+                    "Values",
+                    [
+                        new SpreadsheetChartPoint("Zero", 0d),
+                        new SpreadsheetChartPoint("Negative", -3d),
+                        new SpreadsheetChartPoint("Missing", null),
+                    ]),
+            ]);
+
+        var displayList = SpreadsheetAnalyticsDisplayListComposer.ComposeChart(
+            projection,
+            new RectD(0d, 0d, 320d, 200d));
+
+        Assert.AreEqual(
+            0,
+            displayList.Commands.OfType<FillPolygonCommand>().Count());
+        Assert.IsTrue(displayList.Commands
+            .OfType<DrawTextCommand>()
+            .Any(command => command.Text == "Pie requires positive values"));
+    }
+
+    [TestMethod]
+    public void FilledPolygonBuilderRejectsInvalidGeometry()
+    {
+        var builder = new DisplayListBuilder();
+
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            builder.FillPolygon(
+                [new PointD(0d, 0d), new PointD(1d, 1d)],
+                ColorRgba.Black));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+            builder.FillPolygon(
+                [
+                    new PointD(0d, 0d),
+                    new PointD(double.NaN, 1d),
+                    new PointD(1d, 0d),
+                ],
+                ColorRgba.Black));
     }
 
     [TestMethod]
