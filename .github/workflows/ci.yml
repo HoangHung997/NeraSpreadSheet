@@ -151,10 +151,26 @@ jobs:
           EMULATOR_LOG="$RUNNER_TEMP/nera-android-emulator.log"
           PACKAGE="com.neraspreadsheet.androidanalyticssmoke"
           LOG_TAG="NeraAnalyticsSmoke"
+          export ANDROID_USER_HOME="$RUNNER_TEMP/nera-android-user"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
 
+          echo "ANDROID_USER_HOME=$ANDROID_USER_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "emulator" "$SYSTEM_IMAGE"
-          echo no | "$AVDMANAGER" create avd -f -n "$AVD_NAME" -k "$SYSTEM_IMAGE"
+          printf 'no\n' | "$AVDMANAGER" create avd -f -n "$AVD_NAME" -k "$SYSTEM_IMAGE"
+
+          echo "AVDs reported by avdmanager:"
+          "$AVDMANAGER" list avd
+          echo "AVDs reported by emulator:"
+          AVAILABLE_AVDS="$("$EMULATOR" -list-avds)"
+          printf '%s\n' "$AVAILABLE_AVDS"
+          if ! printf '%s\n' "$AVAILABLE_AVDS" | grep -Fxq "$AVD_NAME"; then
+            echo "Created Android AVD is not visible to the emulator."
+            find "$ANDROID_USER_HOME" -maxdepth 3 -type f -print || true
+            exit 1
+          fi
 
           ACCEL="off"
           if [ -e /dev/kvm ]; then
