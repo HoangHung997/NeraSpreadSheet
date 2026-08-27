@@ -108,30 +108,38 @@ internal sealed class NeraSpreadsheetAccessibleObject : Control.ControlAccessibl
 
     public override AccessibleRole Role => AccessibleRole.Table;
 
-    public override int GetChildCount() => GetChildren().Length;
+    public override int GetChildCount() =>
+        GetBaseChildCount() + GetAnalyticsChildren().Length;
 
     public override AccessibleObject? GetChild(int index)
     {
-        var children = GetChildren();
-        return index >= 0 && index < children.Length
-            ? children[index]
+        if (index < 0)
+        {
+            return null;
+        }
+
+        var baseCount = GetBaseChildCount();
+        if (index < baseCount)
+        {
+            return base.GetChild(index);
+        }
+
+        var analytics = GetAnalyticsChildren();
+        var analyticsIndex = index - baseCount;
+        return analyticsIndex < analytics.Length
+            ? analytics[analyticsIndex]
             : null;
     }
 
-    public override AccessibleObject? GetFocused() => GetSelected();
+    public override AccessibleObject? GetFocused() =>
+        GetSelectedAnalyticsChild() ?? base.GetFocused();
 
-    public override AccessibleObject? GetSelected()
-    {
-        var selected = _owner.Session?.AnalyticsInteraction.SelectedItem;
-        return selected.HasValue &&
-               _analyticsChildren.TryGetValue(selected.Value, out var child)
-            ? child
-            : null;
-    }
+    public override AccessibleObject? GetSelected() =>
+        GetSelectedAnalyticsChild() ?? base.GetSelected();
 
     public override AccessibleObject? HitTest(int x, int y)
     {
-        foreach (var child in GetChildren().Reverse())
+        foreach (var child in GetAnalyticsChildren().Reverse())
         {
             if (child.Bounds.Contains(x, y))
             {
@@ -141,7 +149,23 @@ internal sealed class NeraSpreadsheetAccessibleObject : Control.ControlAccessibl
         return base.HitTest(x, y);
     }
 
-    private NeraSpreadsheetAnalyticsAccessibleObject[] GetChildren()
+    private int GetBaseChildCount() => Math.Max(0, base.GetChildCount());
+
+    private NeraSpreadsheetAnalyticsAccessibleObject? GetSelectedAnalyticsChild()
+    {
+        var selected = _owner.Session?.AnalyticsInteraction.SelectedItem;
+        if (!selected.HasValue)
+        {
+            return null;
+        }
+
+        GetAnalyticsChildren();
+        return _analyticsChildren.TryGetValue(selected.Value, out var child)
+            ? child
+            : null;
+    }
+
+    private NeraSpreadsheetAnalyticsAccessibleObject[] GetAnalyticsChildren()
     {
         var nodes = _owner.GetNativeAnalyticsAccessibilityNodes();
         if (nodes.Count == 0)
