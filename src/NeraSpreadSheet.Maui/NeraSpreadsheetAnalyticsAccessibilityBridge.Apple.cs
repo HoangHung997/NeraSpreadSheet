@@ -1,4 +1,5 @@
 #if IOS || MACCATALYST
+using System.Runtime.CompilerServices;
 using CoreGraphics;
 using Foundation;
 using NeraSpreadSheet.Core;
