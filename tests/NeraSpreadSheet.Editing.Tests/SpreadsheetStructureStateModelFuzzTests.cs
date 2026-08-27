@@ -46,8 +46,16 @@ public sealed class SpreadsheetStructureStateModelFuzzTests
                 {
                     var rowIndex = random.Next(32);
                     var count = 1 + random.Next(3);
-                    session.Structure.InsertRows(rowIndex, count);
-                    model.InsertRows(rowIndex, count);
+                    if (model.CanInsertRows(rowIndex, count))
+                    {
+                        session.Structure.InsertRows(rowIndex, count);
+                        model.InsertRows(rowIndex, count);
+                    }
+                    else
+                    {
+                        Assert.ThrowsExactly<InvalidOperationException>(
+                            () => session.Structure.InsertRows(rowIndex, count));
+                    }
                 }
                 else if (action < 44)
                 {
@@ -60,8 +68,16 @@ public sealed class SpreadsheetStructureStateModelFuzzTests
                 {
                     var columnIndex = random.Next(24);
                     var count = 1 + random.Next(3);
-                    session.Structure.InsertColumns(columnIndex, count);
-                    model.InsertColumns(columnIndex, count);
+                    if (model.CanInsertColumns(columnIndex, count))
+                    {
+                        session.Structure.InsertColumns(columnIndex, count);
+                        model.InsertColumns(columnIndex, count);
+                    }
+                    else
+                    {
+                        Assert.ThrowsExactly<InvalidOperationException>(
+                            () => session.Structure.InsertColumns(columnIndex, count));
+                    }
                 }
                 else if (action < 80)
                 {
@@ -197,6 +213,16 @@ public sealed class SpreadsheetStructureStateModelFuzzTests
         public bool CanUndo => _undo.Count > 0;
 
         public bool CanRedo => _redo.Count > 0;
+
+        public bool CanInsertRows(int index, int count) =>
+            _cells.Keys.All(address =>
+                address.RowIndex < index ||
+                (long)address.RowIndex + count < SpreadsheetLimits.MaxRows);
+
+        public bool CanInsertColumns(int index, int count) =>
+            _cells.Keys.All(address =>
+                address.ColumnIndex < index ||
+                (long)address.ColumnIndex + count < SpreadsheetLimits.MaxColumns);
 
         public void InsertRows(int index, int count) =>
             Record(TransformRows(_cells, index, count, insert: true));
