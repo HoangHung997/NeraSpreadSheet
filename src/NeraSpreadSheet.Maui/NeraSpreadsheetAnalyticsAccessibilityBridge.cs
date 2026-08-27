@@ -1,0 +1,327 @@
+using System.Runtime.CompilerServices;
+using Microsoft.Maui;
+using NeraSpreadSheet.Foundation;
+using NeraSpreadSheet.Interaction;
+using NeraSpreadSheet.Rendering.Spreadsheet;
+using SkiaSharp.Views.Maui;
+using SkiaSharp.Views.Maui.Handlers;
+using MauiAutomationProperties = Microsoft.Maui.Controls.AutomationProperties;
+using MauiSemanticProperties = Microsoft.Maui.Controls.SemanticProperties;
+#if WINDOWS
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using SkiaSharp.Views.Windows;
+using WinAccessibilityView = Microsoft.UI.Xaml.Automation.Peers.AccessibilityView;
+using WinAutomationControlType = Microsoft.UI.Xaml.Automation.Peers.AutomationControlType;
+using WinAutomationProperties = Microsoft.UI.Xaml.Automation.AutomationProperties;
+#endif
+
+namespace NeraSpreadSheet.Maui;
+
+/// <summary>
+/// Projects host-neutral analytics accessibility nodes into MAUI semantics and,
+/// on Windows, lightweight native UI Automation children layered over the GPU surface.
+/// </summary>
+internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
+{
+    private const string MapperKey = "NeraSpreadSheet.AnalyticsAccessibility";
+    private static readonly ConditionalWeakTable<NeraSpreadsheetView, BridgeState> States = new();
+    private static int s_registered;
+
+    internal static void Register()
+    {
+        if (Interlocked.Exchange(ref s_registered, 1) != 0)
+        {
+            return;
+        }
+
+        SKGLViewHandler.SKGLViewMapper.AppendToMapping(
+            MapperKey,
+            static (_, virtualView) =>
+            {
+                if (virtualView is NeraSpreadsheetView view)
+                {
+                    Attach(view);
+                }
+            });
+    }
+
+    private static void Attach(NeraSpreadsheetView view)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        var state = States.GetValue(view, static key => new BridgeState(key));
+        state.Attach();
+    }
+
+    private sealed class BridgeState
+    {
+        private readonly NeraSpreadsheetView _view;
+        private string? _lastDescription;
+        private bool _attached;
+#if WINDOWS
+        private readonly Dictionary<SpreadsheetAnalyticsItemKey, Button> _windowsProxies = [];
+        private SKSwapChainPanel? _windowsPanel;
+#endif
+
+        internal BridgeState(NeraSpreadsheetView view)
+        {
+            _view = view;
+        }
+
+        internal void Attach()
+        {
+            if (_attached)
+            {
+                return;
+            }
+
+            _attached = true;
+            _view.PaintSurface += OnPaintSurface;
+            UpdateMauiSemantics([]);
+        }
+
+        private void OnPaintSurface(object? sender, SKPaintGLSurfaceEventArgs e)
+        {
+            if (!ReferenceEquals(sender, _view))
+            {
+                return;
+            }
+
+            var nodes = _view.AnalyticsAccessibilityNodes;
+            UpdateMauiSemantics(nodes);
+#if WINDOWS
+            UpdateWindowsAccessibility(nodes, e);
+#endif
+        }
+
+        private void UpdateMauiSemantics(
+            IReadOnlyList<SpreadsheetAnalyticsAccessibleNode> nodes)
+        {
+            var description = BuildDescription(nodes);
+            if (string.Equals(_lastDescription, description, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _lastDescription = description;
+            MauiSemanticProperties.SetDescription(_view, description);
+            MauiSemanticProperties.SetHint(
+                _view,
+                "Biểu đồ và bảng tổng hợp có thể được chọn và thao tác bằng công cụ trợ năng của nền tảng.");
+#if WINDOWS
+            MauiAutomationProperties.SetIsInAccessibleTree(_view, true);
+#endif
+        }
+
+        private static string BuildDescription(
+            IReadOnlyList<SpreadsheetAnalyticsAccessibleNode> nodes)
+        {
+            if (nodes.Count == 0)
+            {
+                return "Bảng tính.";
+            }
+
+            var selected = nodes.FirstOrDefault(static node => node.IsSelected);
+            if (selected is not null)
+            {
+                return $"Bảng tính. Có {nodes.Count} đối tượng phân tích. Đang chọn {selected.Name}.";
+            }
+
+            if (nodes.Count == 1)
+            {
+                return $"Bảng tính. Có 1 đối tượng phân tích: {nodes[0].Name}.";
+            }
+
+            return $"Bảng tính. Có {nodes.Count} đối tượng phân tích.";
+        }
+
+#if WINDOWS
+        private void UpdateWindowsAccessibility(
+            IReadOnlyList<SpreadsheetAnalyticsAccessibleNode> nodes,
+            SKPaintGLSurfaceEventArgs frame)
+        {
+            if (_view.Handler?.PlatformView is not SKSwapChainPanel panel)
+            {
+                DetachWindowsPanel();
+                return;
+            }
+
+            if (!ReferenceEquals(panel, _windowsPanel))
+            {
+                DetachWindowsPanel();
+                _windowsPanel = panel;
+            }
+
+            var activeItems = nodes.Select(static node => node.Item).ToHashSet();
+            foreach (var staleItem in _windowsProxies.Keys
+                         .Where(item => !activeItems.Contains(item))
+                         .ToArray())
+            {
+                var staleProxy = _windowsProxies[staleItem];
+                panel.Children.Remove(staleProxy);
+                _windowsProxies.Remove(staleItem);
+            }
+
+            var chrome = SpreadsheetChromeGeometry.Calculate(
+                frame.Info.Width / _view.Zoom,
+                frame.Info.Height / _view.Zoom,
+                _view.RenderTheme);
+            var viewportWidth = ResolveViewportDimension(_view.Width, frame.Info.Width);
+            var viewportHeight = ResolveViewportDimension(_view.Height, frame.Info.Height);
+            var canvasUnitsPerViewportUnitX = frame.Info.Width / viewportWidth;
+            var canvasUnitsPerViewportUnitY = frame.Info.Height / viewportHeight;
+
+            for (var index = 0; index < nodes.Count; index++)
+            {
+                var node = nodes[index];
+                if (!_windowsProxies.TryGetValue(node.Item, out var proxy))
+                {
+                    proxy = CreateWindowsProxy(node.Item);
+                    _windowsProxies.Add(node.Item, proxy);
+                    panel.Children.Add(proxy);
+                }
+
+                UpdateWindowsProxyMetadata(proxy, node, index + 1, nodes.Count);
+                UpdateWindowsProxyBounds(
+                    proxy,
+                    node,
+                    chrome,
+                    canvasUnitsPerViewportUnitX,
+                    canvasUnitsPerViewportUnitY);
+            }
+        }
+
+        private Button CreateWindowsProxy(SpreadsheetAnalyticsItemKey item)
+        {
+            var proxy = new Button
+            {
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+                IsHitTestVisible = false,
+                IsTabStop = false,
+                MinWidth = 0d,
+                MinHeight = 0d,
+                Opacity = 0.001d,
+            };
+            proxy.Click += (_, _) => SelectWindowsAnalyticsItem(item);
+            WinAutomationProperties.SetAccessibilityView(
+                proxy,
+                WinAccessibilityView.Content);
+            return proxy;
+        }
+
+        private void SelectWindowsAnalyticsItem(SpreadsheetAnalyticsItemKey item)
+        {
+            var session = _view.Session;
+            if (session is null)
+            {
+                return;
+            }
+
+            session.AnalyticsInteraction.Select(item);
+            _view.InvalidateSurface();
+        }
+
+        private static void UpdateWindowsProxyMetadata(
+            Button proxy,
+            SpreadsheetAnalyticsAccessibleNode node,
+            int position,
+            int size)
+        {
+            WinAutomationProperties.SetName(proxy, node.Name);
+            WinAutomationProperties.SetAutomationId(proxy, node.AutomationId);
+            WinAutomationProperties.SetAutomationControlType(
+                proxy,
+                node.Role == SpreadsheetAnalyticsAccessibleRole.PivotTable
+                    ? WinAutomationControlType.Table
+                    : WinAutomationControlType.Group);
+            WinAutomationProperties.SetLocalizedControlType(
+                proxy,
+                node.Role == SpreadsheetAnalyticsAccessibleRole.PivotTable
+                    ? "bảng tổng hợp"
+                    : "biểu đồ");
+            WinAutomationProperties.SetHelpText(proxy, BuildHelpText(node));
+            WinAutomationProperties.SetPositionInSet(proxy, position);
+            WinAutomationProperties.SetSizeOfSet(proxy, size);
+        }
+
+        private static string BuildHelpText(SpreadsheetAnalyticsAccessibleNode node)
+        {
+            var actions = node.Actions
+                .Select(static action => action switch
+                {
+                    "Select" => "Chọn",
+                    "Move" => "Di chuyển",
+                    "Resize" => "Thay đổi kích thước",
+                    "Delete" => "Xóa",
+                    _ => action,
+                });
+            var actionText = string.Join(", ", actions);
+            return node.IsSelected
+                ? $"Đang chọn. Thao tác: {actionText}."
+                : $"Thao tác: {actionText}.";
+        }
+
+        private void UpdateWindowsProxyBounds(
+            Button proxy,
+            SpreadsheetAnalyticsAccessibleNode node,
+            SpreadsheetChromeMetrics chrome,
+            double canvasUnitsPerViewportUnitX,
+            double canvasUnitsPerViewportUnitY)
+        {
+            var visible = node.ViewportBounds.Intersect(node.ClipBounds);
+            if (visible.IsEmpty)
+            {
+                proxy.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            var zoom = _view.Zoom;
+            var left = ((chrome.RowHeaderWidth + visible.Left) * zoom) /
+                canvasUnitsPerViewportUnitX;
+            var top = ((chrome.ColumnHeaderHeight + visible.Top) * zoom) /
+                canvasUnitsPerViewportUnitY;
+            var width = (visible.Width * zoom) / canvasUnitsPerViewportUnitX;
+            var height = (visible.Height * zoom) / canvasUnitsPerViewportUnitY;
+
+            if (!double.IsFinite(left) ||
+                !double.IsFinite(top) ||
+                !double.IsFinite(width) ||
+                !double.IsFinite(height) ||
+                width <= 0d ||
+                height <= 0d)
+            {
+                proxy.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            proxy.Margin = new Thickness(left, top, 0d, 0d);
+            proxy.Width = width;
+            proxy.Height = height;
+            proxy.Visibility = Visibility.Visible;
+        }
+
+        private void DetachWindowsPanel()
+        {
+            if (_windowsPanel is null)
+            {
+                return;
+            }
+
+            foreach (var proxy in _windowsProxies.Values)
+            {
+                _windowsPanel.Children.Remove(proxy);
+            }
+            _windowsProxies.Clear();
+            _windowsPanel = null;
+        }
+
+        private static double ResolveViewportDimension(
+            double viewportDimension,
+            int fallbackCanvasDimension) =>
+            double.IsFinite(viewportDimension) && viewportDimension > 0d
+                ? viewportDimension
+                : fallbackCanvasDimension;
+#endif
+    }
+}
