@@ -11,6 +11,7 @@ RESULT="${2:-${RUNNER_TEMP:-/tmp}/nera-maccatalyst-analytics-smoke.json}"
 WORK_DIR="${RUNNER_TEMP:-/tmp}/nera-maccatalyst-smoke-launch"
 LAUNCHER="$WORK_DIR/LaunchNeraMacCatalystSmoke.swift"
 INFO_PLIST="$APP/Contents/Info.plist"
+EXPECTED_BUNDLE_ID="com.neraspreadsheet.maccatalystanalyticssmoke"
 
 if [ ! -d "$APP" ]; then
   echo "Mac Catalyst smoke app bundle does not exist: $APP" >&2
@@ -25,10 +26,18 @@ mkdir -p "$WORK_DIR" "$(dirname "$RESULT")"
 rm -f "$RESULT"
 
 PROCESS_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO_PLIST" 2>/dev/null || true)"
+BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO_PLIST" 2>/dev/null || true)"
 if [ -z "$PROCESS_NAME" ]; then
   echo "Could not resolve CFBundleExecutable from $INFO_PLIST" >&2
   exit 1
 fi
+if [ "$BUNDLE_ID" != "$EXPECTED_BUNDLE_ID" ]; then
+  echo "Unexpected Mac Catalyst smoke bundle id: '$BUNDLE_ID' (expected '$EXPECTED_BUNDLE_ID')." >&2
+  exit 1
+fi
+
+echo "Mac Catalyst smoke bundle id: $BUNDLE_ID"
+echo "Mac Catalyst smoke executable: $PROCESS_NAME"
 
 print_diagnostics() {
   echo "--- Mac Catalyst smoke process ---"
