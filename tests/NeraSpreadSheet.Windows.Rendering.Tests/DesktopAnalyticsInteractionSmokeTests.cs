@@ -151,11 +151,11 @@ public sealed class DesktopAnalyticsInteractionSmokeTests
         WinFormsBaseControl target,
         WinFormsKeys keyData)
     {
-        var method = typeof(WinFormsBaseControl).GetMethod(
+        var method = target.GetType().GetMethod(
             "OnKeyDown",
             BindingFlags.Instance | BindingFlags.NonPublic) ??
             throw new AssertFailedException(
-                "System.Windows.Forms.Control.OnKeyDown was not found.");
+                $"{target.GetType().FullName}.OnKeyDown was not found.");
         var args = new WinFormsKeyEventArgs(keyData);
         method.Invoke(target, [args]);
         Assert.IsTrue(args.Handled);
@@ -168,11 +168,11 @@ public sealed class DesktopAnalyticsInteractionSmokeTests
         string methodName,
         WinFormsMouseEventArgs args)
     {
-        var method = typeof(WinFormsBaseControl).GetMethod(
+        var method = target.GetType().GetMethod(
             methodName,
             BindingFlags.Instance | BindingFlags.NonPublic) ??
             throw new AssertFailedException(
-                $"System.Windows.Forms.Control.{methodName} was not found.");
+                $"{target.GetType().FullName}.{methodName} was not found.");
         method.Invoke(target, [args]);
         WinFormsApplication.DoEvents();
     }
