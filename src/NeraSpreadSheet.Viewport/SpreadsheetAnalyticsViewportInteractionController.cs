@@ -64,10 +64,17 @@ public sealed class SpreadsheetAnalyticsViewportInteractionController
             return false;
         }
 
-        SpreadsheetAnalyticsInteractionEditing.ApplyTransformCommit(
-            _session.AnalyticsPlacements,
-            commit);
-        return true;
+        try
+        {
+            return !commit.HasChanges ||
+                   SpreadsheetAnalyticsInteractionEditing.ApplyTransformCommit(
+                       _session.AnalyticsPlacements,
+                       commit);
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     public bool Cancel() => _session.AnalyticsInteraction.CancelTransform();
