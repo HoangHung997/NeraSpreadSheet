@@ -36,12 +36,25 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
         state.Update(nodes, frame);
     }
 
-    private sealed class AndroidBridgeState
+    internal static void Detach(NeraSpreadsheetView view)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        if (!States.TryGetValue(view, out var state))
+        {
+            return;
+        }
+
+        state.Dispose();
+        States.Remove(view);
+    }
+
+    private sealed class AndroidBridgeState : IDisposable
     {
         private readonly NeraSpreadsheetView _view;
         private Android.Views.View? _platformView;
         private NeraAccessibilityDelegate? _delegate;
         private NeraAccessibilityNodeProvider? _provider;
+        private bool _disposed;
 
         internal AndroidBridgeState(NeraSpreadsheetView view)
         {
@@ -52,6 +65,7 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
             IReadOnlyList<SpreadsheetAnalyticsAccessibleNode> nodes,
             SKPaintGLSurfaceEventArgs frame)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (_view.Handler?.PlatformView is not Android.Views.View platformView)
             {
                 DetachPlatformView();
@@ -60,6 +74,18 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
 
             EnsurePlatformView(platformView);
             _provider!.Update(nodes, frame, _view.Zoom, _view.RenderTheme);
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            DetachPlatformView();
+            _disposed = true;
+            GC.SuppressFinalize(this);
         }
 
         private void EnsurePlatformView(Android.Views.View platformView)
@@ -86,11 +112,14 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
 
         private void DetachPlatformView()
         {
-            if (_platformView is not null && _provider is not null)
+            if (_platformView is not null)
             {
                 _platformView.SetOnHoverListener(null);
+                ViewCompat.SetAccessibilityDelegate(_platformView, null);
             }
 
+            _delegate?.Dispose();
+            _provider?.Dispose();
             _provider = null;
             _delegate = null;
             _platformView = null;
@@ -157,6 +186,10 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
         Android.Views.View.IOnHoverListener
     {
         private const int RootViewId = Android.Views.View.NoId;
+        private const int ActionClickId = 16;
+        private const int ActionAccessibilityFocusId = 64;
+        private const int ActionClearAccessibilityFocusId = 128;
+
         private readonly Android.Views.View _host;
         private readonly NeraSpreadsheetView _view;
         private readonly AccessibilityDelegateCompat? _rootDelegate;
@@ -182,8 +215,7 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
             double zoom,
             SpreadsheetRenderTheme theme)
         {
-            _nodesById.Clear();
-
+            var nextNodes = new Dictionary<int, VirtualNodeSnapshot>();
             var chrome = SpreadsheetChromeGeometry.Calculate(
                 frame.Info.Width / zoom,
                 frame.Info.Height / zoom,
@@ -213,11 +245,18 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
                 }
 
                 var virtualId = GetOrCreateVirtualId(node.Item);
-                _nodesById[virtualId] = new VirtualNodeSnapshot(
+                nextNodes[virtualId] = new VirtualNodeSnapshot(
                     virtualId,
                     node,
                     bounds,
                     BuildContentDescription(node));
+            }
+
+            var contentChanged = !SnapshotSetsEquivalent(_nodesById, nextNodes);
+            _nodesById.Clear();
+            foreach (var pair in nextNodes)
+            {
+                _nodesById.Add(pair.Key, pair.Value);
             }
 
             if (_accessibilityFocusedId != RootViewId &&
@@ -230,7 +269,10 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
                 _hoveredId = RootViewId;
             }
 
-            SendEvent(RootViewId, EventTypes.WindowContentChanged, null);
+            if (contentChanged)
+            {
+                SendEvent(RootViewId, EventTypes.WindowContentChanged, null);
+            }
         }
 
         public override AccessibilityNodeInfoCompat? CreateAccessibilityNodeInfo(int virtualViewId)
@@ -272,22 +314,13 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
                 return false;
             }
 
-            if (action == AccessibilityNodeInfoCompat.AccessibilityActionCompat.ActionClick.Id)
+            return action switch
             {
-                return Select(snapshot);
-            }
-
-            if (action == AccessibilityNodeInfoCompat.AccessibilityActionCompat.ActionAccessibilityFocus.Id)
-            {
-                return RequestAccessibilityFocus(virtualViewId, snapshot);
-            }
-
-            if (action == AccessibilityNodeInfoCompat.AccessibilityActionCompat.ActionClearAccessibilityFocus.Id)
-            {
-                return ClearAccessibilityFocus(virtualViewId, snapshot);
-            }
-
-            return false;
+                ActionClickId => Select(snapshot),
+                ActionAccessibilityFocusId => RequestAccessibilityFocus(virtualViewId, snapshot),
+                ActionClearAccessibilityFocusId => ClearAccessibilityFocus(virtualViewId, snapshot),
+                _ => false,
+            };
         }
 
         public bool OnHover(Android.Views.View? view, MotionEvent? motionEvent)
@@ -482,24 +515,25 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
             EventTypes eventType,
             VirtualNodeSnapshot? snapshot)
         {
-            if (!_host.IsShown || _host.Parent is null)
+            var parent = _host.Parent;
+            if (!_host.IsShown || parent is null)
             {
                 return;
             }
 
-#pragma warning disable CS0618
-            using var accessibilityEvent = AccessibilityEvent.Obtain(eventType);
-#pragma warning restore CS0618
-            accessibilityEvent.PackageName = _host.Context?.PackageName;
-            accessibilityEvent.ClassName = snapshot?.Node.Role == SpreadsheetAnalyticsAccessibleRole.PivotTable
-                ? "android.widget.TableLayout"
-                : "android.view.View";
+            using var accessibilityEvent = new AccessibilityEvent(eventType)
+            {
+                PackageName = _host.Context?.PackageName,
+                ClassName = snapshot?.Node.Role == SpreadsheetAnalyticsAccessibleRole.PivotTable
+                    ? "android.widget.TableLayout"
+                    : "android.view.View",
+            };
             if (snapshot is not null)
             {
                 accessibilityEvent.ContentDescription = snapshot.ContentDescription;
             }
             accessibilityEvent.SetSource(_host, virtualViewId);
-            _host.Parent.RequestSendAccessibilityEvent(_host, accessibilityEvent);
+            parent.RequestSendAccessibilityEvent(_host, accessibilityEvent);
         }
 
         private int GetOrCreateVirtualId(SpreadsheetAnalyticsItemKey item)
@@ -513,6 +547,41 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
             _virtualIds.Add(item, virtualId);
             return virtualId;
         }
+
+        private static bool SnapshotSetsEquivalent(
+            IReadOnlyDictionary<int, VirtualNodeSnapshot> left,
+            IReadOnlyDictionary<int, VirtualNodeSnapshot> right)
+        {
+            if (left.Count != right.Count)
+            {
+                return false;
+            }
+
+            foreach (var pair in left)
+            {
+                if (!right.TryGetValue(pair.Key, out var other) ||
+                    !SnapshotsEquivalent(pair.Value, other))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static bool SnapshotsEquivalent(
+            VirtualNodeSnapshot left,
+            VirtualNodeSnapshot right) =>
+            left.VirtualId == right.VirtualId &&
+            left.Node.Item == right.Node.Item &&
+            string.Equals(left.Node.Name, right.Node.Name, StringComparison.Ordinal) &&
+            left.Node.Role == right.Node.Role &&
+            left.Node.ZIndex == right.Node.ZIndex &&
+            left.Node.IsSelected == right.Node.IsSelected &&
+            string.Equals(left.ContentDescription, right.ContentDescription, StringComparison.Ordinal) &&
+            left.BoundsInParent.Left == right.BoundsInParent.Left &&
+            left.BoundsInParent.Top == right.BoundsInParent.Top &&
+            left.BoundsInParent.Right == right.BoundsInParent.Right &&
+            left.BoundsInParent.Bottom == right.BoundsInParent.Bottom;
 
         private static string BuildContentDescription(SpreadsheetAnalyticsAccessibleNode node)
         {
