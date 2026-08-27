@@ -85,8 +85,8 @@ public static class SpreadsheetAnalyticsOverlayDisplayListComposer
 
     private static DisplayList? ComposeItem(
         Worksheet worksheet,
-        IReadOnlyDictionary<Guid, SpreadsheetChartDefinition> charts,
-        IReadOnlyDictionary<Guid, SpreadsheetPivotDefinition> pivots,
+        Dictionary<Guid, SpreadsheetChartDefinition> charts,
+        Dictionary<Guid, SpreadsheetPivotDefinition> pivots,
         SpreadsheetAnalyticsPlacement placement)
     {
         var bounds = new RectD(
