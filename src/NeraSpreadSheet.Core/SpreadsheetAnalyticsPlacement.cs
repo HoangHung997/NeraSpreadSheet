@@ -47,6 +47,12 @@ public sealed record SpreadsheetAnalyticsPlacement
         RectD documentBounds,
         int zIndex)
     {
+        if (item.Id == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "Analytics placement items must have a non-empty ID.",
+                nameof(item));
+        }
         if (documentBounds.IsEmpty)
         {
             throw new ArgumentException(
@@ -59,10 +65,7 @@ public sealed record SpreadsheetAnalyticsPlacement
                 nameof(documentBounds),
                 "Analytics placement coordinates must be non-negative document coordinates.");
         }
-        if (zIndex < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(zIndex));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(zIndex);
 
         Item = item;
         DocumentBounds = documentBounds;
