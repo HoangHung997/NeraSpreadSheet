@@ -37,7 +37,8 @@ public sealed class SpreadsheetAnalyticsPlacementChangedEventArgs : EventArgs
 /// <summary>
 /// Owns floating chart/pivot placement in document coordinates. Item lifetime follows the
 /// analytics controller, while user transforms participate in the shared SpreadsheetSession
-/// Undo/Redo history.
+/// Undo/Redo history. Reads may occur from a GPU render thread while host input commits
+/// placement changes on the UI thread, so all placement-map access is synchronized.
 /// </summary>
 public sealed class SpreadsheetAnalyticsPlacementController
 {
@@ -49,6 +50,7 @@ public sealed class SpreadsheetAnalyticsPlacementController
 
     private readonly SpreadsheetSession _session;
     private readonly SpreadsheetAnalyticsController _analytics;
+    private readonly object _placementGate = new();
     private readonly Dictionary<Worksheet, Dictionary<SpreadsheetAnalyticsItemKey, SpreadsheetAnalyticsPlacement>>
         _placements = [];
     private readonly Dictionary<Worksheet, Dictionary<SpreadsheetAnalyticsItemKey, SpreadsheetAnalyticsPlacement>>
@@ -72,18 +74,27 @@ public sealed class SpreadsheetAnalyticsPlacementController
         Worksheet worksheet)
     {
         EnsureWorksheet(worksheet);
-        return GetPlacementMap(worksheet)
-            .Values
-            .OrderBy(static placement => placement.ZIndex)
-            .ThenBy(static placement => placement.Item.Kind)
-            .ThenBy(static placement => placement.Item.Id)
-            .ToArray();
+        lock (_placementGate)
+        {
+            return GetPlacementMapUnsafe(worksheet)
+                .Values
+                .OrderBy(static placement => placement.ZIndex)
+                .ThenBy(static placement => placement.Item.Kind)
+                .ThenBy(static placement => placement.Item.Id)
+                .ToArray();
+        }
     }
 
     public bool TryGetPlacement(
         SpreadsheetAnalyticsItemKey item,
-        out SpreadsheetAnalyticsPlacement placement) =>
-        GetPlacementMap(_session.ActiveWorksheet).TryGetValue(item, out placement!);
+        out SpreadsheetAnalyticsPlacement placement)
+    {
+        lock (_placementGate)
+        {
+            return GetPlacementMapUnsafe(_session.ActiveWorksheet)
+                .TryGetValue(item, out placement!);
+        }
+    }
 
     public SpreadsheetAnalyticsPlacement GetPlacement(
         SpreadsheetAnalyticsItemKey item)
@@ -101,16 +112,21 @@ public sealed class SpreadsheetAnalyticsPlacementController
         RectD documentBounds)
     {
         var worksheet = _session.ActiveWorksheet;
-        var map = GetPlacementMap(worksheet);
-        if (!map.TryGetValue(item, out var current))
+        SpreadsheetAnalyticsPlacement current;
+        SpreadsheetAnalyticsPlacement next;
+        lock (_placementGate)
         {
-            return false;
-        }
+            var map = GetPlacementMapUnsafe(worksheet);
+            if (!map.TryGetValue(item, out current!))
+            {
+                return false;
+            }
 
-        var next = current.WithBounds(documentBounds);
-        if (next == current)
-        {
-            return false;
+            next = current.WithBounds(documentBounds);
+            if (next == current)
+            {
+                return false;
+            }
         }
 
         ExecutePlacementChange(
@@ -153,21 +169,27 @@ public sealed class SpreadsheetAnalyticsPlacementController
     public bool BringToFront(SpreadsheetAnalyticsItemKey item)
     {
         var worksheet = _session.ActiveWorksheet;
-        var map = GetPlacementMap(worksheet);
-        if (!map.TryGetValue(item, out var current))
+        SpreadsheetAnalyticsPlacement current;
+        SpreadsheetAnalyticsPlacement next;
+        lock (_placementGate)
         {
-            return false;
+            var map = GetPlacementMapUnsafe(worksheet);
+            if (!map.TryGetValue(item, out current!))
+            {
+                return false;
+            }
+
+            var maximum = map.Count == 0
+                ? 0
+                : map.Values.Max(static placement => placement.ZIndex);
+            if (current.ZIndex >= maximum)
+            {
+                return false;
+            }
+
+            next = current.WithZIndex(checked(maximum + 1));
         }
 
-        var maximum = map.Count == 0
-            ? 0
-            : map.Values.Max(static placement => placement.ZIndex);
-        if (current.ZIndex >= maximum)
-        {
-            return false;
-        }
-
-        var next = current.WithZIndex(checked(maximum + 1));
         ExecutePlacementChange(
             worksheet,
             current,
@@ -198,7 +220,10 @@ public sealed class SpreadsheetAnalyticsPlacementController
         SpreadsheetAnalyticsPlacement placement,
         SpreadsheetAnalyticsPlacementChangeKind changeKind)
     {
-        GetPlacementMap(worksheet)[placement.Item] = placement;
+        lock (_placementGate)
+        {
+            GetPlacementMapUnsafe(worksheet)[placement.Item] = placement;
+        }
         Publish(worksheet, changeKind, placement.Item, placement);
     }
 
@@ -237,36 +262,39 @@ public sealed class SpreadsheetAnalyticsPlacementController
         Worksheet worksheet,
         SpreadsheetAnalyticsItemKey item)
     {
-        var map = GetPlacementMap(worksheet);
-        if (map.ContainsKey(item))
-        {
-            return;
-        }
-
-        var detached = GetDetachedPlacementMap(worksheet);
         SpreadsheetAnalyticsPlacement placement;
-        if (detached.Remove(item, out var preserved))
+        lock (_placementGate)
         {
-            placement = preserved;
-        }
-        else
-        {
-            var slot = map.Count % CascadeSlots;
-            var inset = DefaultInset + (slot * CascadeStep);
-            var zIndex = map.Count == 0
-                ? 0
-                : checked(map.Values.Max(static value => value.ZIndex) + 1);
-            placement = new SpreadsheetAnalyticsPlacement(
-                item,
-                new RectD(
-                    inset,
-                    inset,
-                    DefaultWidth,
-                    DefaultHeight),
-                zIndex);
-        }
+            var map = GetPlacementMapUnsafe(worksheet);
+            if (map.ContainsKey(item))
+            {
+                return;
+            }
 
-        map.Add(item, placement);
+            var detached = GetDetachedPlacementMapUnsafe(worksheet);
+            if (detached.Remove(item, out var preserved))
+            {
+                placement = preserved;
+            }
+            else
+            {
+                var slot = map.Count % CascadeSlots;
+                var inset = DefaultInset + (slot * CascadeStep);
+                var zIndex = map.Count == 0
+                    ? 0
+                    : checked(map.Values.Max(static value => value.ZIndex) + 1);
+                placement = new SpreadsheetAnalyticsPlacement(
+                    item,
+                    new RectD(
+                        inset,
+                        inset,
+                        DefaultWidth,
+                        DefaultHeight),
+                    zIndex);
+            }
+
+            map.Add(item, placement);
+        }
         Publish(
             worksheet,
             SpreadsheetAnalyticsPlacementChangeKind.Added,
@@ -278,13 +306,17 @@ public sealed class SpreadsheetAnalyticsPlacementController
         Worksheet worksheet,
         SpreadsheetAnalyticsItemKey item)
     {
-        var map = GetPlacementMap(worksheet);
-        if (!map.Remove(item, out var placement))
+        SpreadsheetAnalyticsPlacement placement;
+        lock (_placementGate)
         {
-            return;
-        }
+            var map = GetPlacementMapUnsafe(worksheet);
+            if (!map.Remove(item, out placement!))
+            {
+                return;
+            }
 
-        GetDetachedPlacementMap(worksheet)[item] = placement;
+            GetDetachedPlacementMapUnsafe(worksheet)[item] = placement;
+        }
         Publish(
             worksheet,
             SpreadsheetAnalyticsPlacementChangeKind.Removed,
@@ -309,7 +341,7 @@ public sealed class SpreadsheetAnalyticsPlacementController
         };
 
     private Dictionary<SpreadsheetAnalyticsItemKey, SpreadsheetAnalyticsPlacement>
-        GetPlacementMap(Worksheet worksheet)
+        GetPlacementMapUnsafe(Worksheet worksheet)
     {
         if (!_placements.TryGetValue(worksheet, out var map))
         {
@@ -320,7 +352,7 @@ public sealed class SpreadsheetAnalyticsPlacementController
     }
 
     private Dictionary<SpreadsheetAnalyticsItemKey, SpreadsheetAnalyticsPlacement>
-        GetDetachedPlacementMap(Worksheet worksheet)
+        GetDetachedPlacementMapUnsafe(Worksheet worksheet)
     {
         if (!_detachedPlacements.TryGetValue(worksheet, out var map))
         {
