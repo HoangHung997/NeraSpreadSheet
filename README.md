@@ -12,11 +12,11 @@ NeraSpreadSheet is an independent spreadsheet SDK for WPF, WinForms and .NET MAU
 | AST/reference-aware functions | 40 |
 | Dynamic-array unique functions | 38 |
 | **Total functions** | **546 / 546 locked catalog names** |
-| Formula tests | 514/514 |
-| Completed formula cycles | F001–F019 (local-green; exact-head CI pending) |
+| Formula/hardening tests | 518/518 |
+| Formula implementation | DONE — F001–F019, exact-head CI #922 green |
 | Pull request | #1 Draft, unmerged |
 
-F019 adds another 60 locked catalog names in A/B/C groups of 20. Every group passed an analyzer-clean CLI build, 20 named regressions and the full formula suite; the final local gate passed 1,075 Core-solution tests plus architecture verification. The locked catalog now contains 546 names; a final catalog-delta audit may still add future compatibility names.
+Formula implementation is now closed at 546/546 locked catalog names. Q001 starts the post-formula hardening phase with a checked-in differential corpus plus deterministic arithmetic, dependency and malformed-input fuzzing. Q001 passes 518/518 formula/hardening tests, 1,079/1,079 Core-solution tests and architecture verification. The next active item is Q002 workbook/editing state-model fuzz plus an OpenXML round-trip differential corpus.
 
 Build and validation:
 

@@ -2,17 +2,13 @@
 
 | Area | Current validated capability | Next |
 |---|---|---|
-| Workbook/editing | Excel-size sparse sheets, structural transforms, selection, clipboard and Undo/Redo | axis grouping and native spill UX |
-| Formula surface | **546 / 546 locked catalog names**, 514 separately named formula tests; F019 used 60 names in A/B/C with per-group CLI gates | final Microsoft/OpenFormula/Calc catalog-delta audit |
-| Math | arithmetic, logs, trig/hyperbolic, combinatorics, rounding, vector math, radix/Roman, error functions, determinant and volatile random functions | remaining matrix/advanced math catalog |
-| Statistics | descriptive/order statistics, regression, distributions, confidence, F/Z/chi-square/t tests, legacy compatibility | differential corpus and remaining delta |
-| Engineering | complex functions, fixed-width conversions, bit operations, `CONVERT`, ERF/ERFC and Bessel surface | remaining engineering special functions |
-| Information | parity/non-text plus `CELL`, `ERROR.TYPE`, `ISFORMULA`, `ISREF`, `TYPE` | remaining metadata/data-type functions |
-| Reference/lookup | ADDRESS/AREAS/CHOOSE/COLUMN/COLUMNS/FORMULATEXT/INDIRECT/OFFSET/ROW/ROWS/SHEET/SHEETS plus INDEX/MATCH/XLOOKUP/HLOOKUP/VLOOKUP | 3-D references and full algebra |
-| Dynamic arrays | 38 unique names including MUNIT, FREQUENCY, ETS/regression/matrix spills and higher-order array functions | remaining catalog-delta families |
-| Lookup/logical | LOOKUP/XMATCH/XLOOKUP plus lazy IF/IFERROR/IFNA/SWITCH paths | LET/LAMBDA and remaining advanced lookup |
-| Finance | 56 functions | differential/fuzz corpus |
-| Database | 12 aggregates | expression criteria/indexing |
-| Rendering | fractional scrolling and WPF/WinForms/MAUI GPU hosts | hardware budgets/accessibility |
-| XLSX/print/PDF | preservation, pagination, preview and PDF | charts/drawings/full metadata |
-| Hardening | architecture and hosted CI gates | packaging, isolation, security and recovery |
+| Workbook/editing | Excel-size sparse sheets, structural transforms, selection, clipboard and Undo/Redo | Q002 state-model fuzz; axis grouping and native spill UX |
+| Formula surface | **546 / 546 locked catalog names**; catalog closed | compatibility audit only when evidence warrants reopening |
+| Formula hardening | Q001 locked scalar corpus + deterministic arithmetic/dependency/malformed-input fuzz | extend corpus to workbook/OpenXML and cross-engine reference files |
+| Math/statistics/engineering | locked catalog coverage with deterministic regression suite | differential corpus expansion only |
+| Reference/lookup | reference-aware AST, 3-D-sensitive infrastructure, INDEX/MATCH/XLOOKUP/HLOOKUP/VLOOKUP and advanced references | broader 3-D/algebra corpus |
+| Dynamic arrays | 38 unique names including higher-order arrays, matrix/statistical spills | native spill UX and visual regression corpus |
+| Finance/database | broad financial/database coverage | differential/fuzz corpus |
+| Rendering | fractional scrolling and WPF/WinForms/MAUI GPU hosts | hardware budgets, visual corpus and accessibility |
+| XLSX/print/PDF | preservation, pagination, preview and PDF | Q002 OpenXML round-trip corpus; charts/drawings/full metadata |
+| Hardening | architecture + hosted CI gates; Q001 deterministic fuzz foundation | security fuzz, packaging, isolation and recovery |

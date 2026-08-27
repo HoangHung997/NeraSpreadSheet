@@ -1,6 +1,6 @@
 # NeraSpreadSheet current implementation status
 
-## Formula snapshot
+## Formula subsystem — closed
 
 | Counter | Value |
 |---|---:|
@@ -8,13 +8,26 @@
 | AST/reference-aware | 40 |
 | Dynamic-array unique | 38 |
 | **Total** | **546 / 546 locked catalog names** |
-| Formula tests | 514/514 |
-| Complete cycles | F001–F019 local-green; exact-head CI pending |
+| Formula regressions before hardening | 514/514 |
+| Formula/hardening tests after Q001 | 518/518 |
+| Completed formula cycles | F001-F019 |
 
-F019 adds 60 names in three 20-function groups. A covers Calc/date/text compatibility, B covers ETS/regression/matrix/external-data functions, and C adds higher-order lambda functions plus explicit external-state add-in/cube/RTD/Copilot boundaries.
+The formula catalog is now considered complete. New formula names are no longer a standing roadmap item; they may be added only if a future compatibility audit identifies a concrete missing name that is worth reopening the catalog for.
 
-The authoritative eager registry remains `StandardFormulaFunctions.CreateAll()`. `CELL`, `ISFORMULA` and `ISREF` stay AST/reference-aware. `MUNIT` and `FREQUENCY` stay in the dynamic-array engine. Resource caps remain fail-closed.
+## Q001 — differential and fuzz hardening foundation
 
-Workbook/editing, dependency graph, Tables/AutoFilter, WPF/WinForms/MAUI hosts, XLSX preservation and print/PDF foundations remain in the validation matrix. Production blockers still include the catalog delta, charts/pivots UI, packaging/API compatibility, plugin trust/isolation, security/fuzzing, recovery, localization/accessibility and broad differential/visual corpora.
+Q001 adds four deterministic hardening gates without adding any formula functions:
 
-Manifest: `docs/formula-manifests/F019_60_FUNCTION_MANIFEST.md`.
+- checked-in scalar differential corpus with stable case IDs and exact expected outcomes;
+- 1,000 seeded generated arithmetic expressions compared with an independent reference oracle;
+- 250 seeded cell-reference expressions compared with an independent value/dependency model;
+- 2,000 seeded malformed formulas that must never escape as ordinary unhandled exceptions.
+
+Local validation after Q001:
+
+- formula/hardening tests: **518/518**;
+- complete Core solution: **1079/1079**;
+- architecture verification: **passed**;
+- analyzer-clean build: **0 warnings, 0 errors**.
+
+Workbook/editing, dependency graph, Tables/AutoFilter, WPF/WinForms/MAUI hosts, XLSX preservation and print/PDF foundations remain validated. The next work item is Q002: workbook/editing state-model fuzzing and OpenXML round-trip differential corpus. Production blockers after that remain charts/pivots UI, packaging/API compatibility, plugin trust/isolation, security/recovery, localization/accessibility and broad visual corpora.
