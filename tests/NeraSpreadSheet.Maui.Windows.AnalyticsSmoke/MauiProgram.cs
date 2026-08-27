@@ -5,9 +5,12 @@ namespace NeraSpreadSheet.Maui.Windows.AnalyticsSmoke;
 
 public static class MauiProgram
 {
-    public static MauiApp CreateMauiApp() =>
-        MauiApp.CreateBuilder()
+    public static MauiApp CreateMauiApp()
+    {
+        var builder = MauiApp.CreateBuilder()
             .UseMauiApp<SmokeApplication>()
-            .UseNeraSpreadSheet()
-            .Build();
+            .UseNeraSpreadSheet();
+        NativeAccessibilitySmokeProbe.Register();
+        return builder.Build();
+    }
 }
