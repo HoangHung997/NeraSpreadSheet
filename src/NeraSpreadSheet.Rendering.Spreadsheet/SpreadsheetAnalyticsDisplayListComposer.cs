@@ -469,8 +469,12 @@ public static class SpreadsheetAnalyticsDisplayListComposer
         RectD plot,
         int categoryCount)
     {
-        var firstSeries = projection.Series.FirstOrDefault();
-        if (firstSeries is null || firstSeries.Points.Count == 0)
+        if (projection.Series.Count == 0)
+        {
+            return;
+        }
+        var firstSeries = projection.Series[0];
+        if (firstSeries.Points.Count == 0)
         {
             return;
         }
