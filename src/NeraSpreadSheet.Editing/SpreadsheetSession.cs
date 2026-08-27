@@ -32,6 +32,9 @@ public sealed class SpreadsheetSession
         Validation = new SpreadsheetDataValidationController(this);
         Tables = new SpreadsheetTableController(this);
         Analytics = new SpreadsheetAnalyticsController(this);
+        AnalyticsPlacements = new SpreadsheetAnalyticsPlacementController(
+            this,
+            Analytics);
         WorksheetFilter =
             new SpreadsheetWorksheetAutoFilterController(this);
         Editor = new SpreadsheetCellEditorController(this);
@@ -78,6 +81,8 @@ public sealed class SpreadsheetSession
     public SpreadsheetTableController Tables { get; }
 
     public SpreadsheetAnalyticsController Analytics { get; }
+
+    public SpreadsheetAnalyticsPlacementController AnalyticsPlacements { get; }
 
     public SpreadsheetWorksheetAutoFilterController
         WorksheetFilter { get; }
