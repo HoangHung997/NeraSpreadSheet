@@ -322,3 +322,16 @@ jobs:
 
       - name: Build MAUI Mac Catalyst target
         run: dotnet build src/NeraSpreadSheet.Maui/NeraSpreadSheet.Maui.csproj -c Release -f net10.0-maccatalyst -p:NeraMauiTargetFrameworks=net10.0-maccatalyst
+
+      - name: Build loaded MAUI Mac Catalyst analytics accessibility smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(uname -m)" = "arm64" ]; then
+            RID="maccatalyst-arm64"
+          else
+            RID="maccatalyst-x64"
+          fi
+          echo "NERA_MACCATALYST_SMOKE_RID=$RID" >> "$GITHUB_ENV"
+          echo "Mac Catalyst smoke RID: $RID"
+          dotnet build tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke.csproj -c Release -f net10.0-maccatalyst -r "$RID" -p:NeraMauiTargetFrameworks=net10.0-maccatalyst
