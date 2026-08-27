@@ -3,6 +3,8 @@ using Microsoft.Maui.Controls;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
+using NeraSpreadSheet.Interaction;
+using NeraSpreadSheet.Layout;
 using NeraSpreadSheet.Rendering.Skia;
 using NeraSpreadSheet.Rendering.Spreadsheet;
 using NeraSpreadSheet.Scrolling;
@@ -34,9 +36,12 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
     private readonly SkiaDisplayListRenderer _renderer = new();
     private readonly NeraGpuContextLifecycle _gpuLifecycle = new();
     private readonly NeraSpreadsheetInputController _input;
+    private readonly NeraSpreadsheetAnalyticsTouchRouter _analyticsTouch;
     private SpreadsheetSession? _session;
     private SpreadsheetViewportEngine? _viewport;
+    private SpreadsheetAnalyticsViewportInteractionController? _analyticsInput;
     private Worksheet? _subscribedWorksheet;
+    private ViewportLayout? _lastLayout;
     private SpreadsheetRenderTheme _renderTheme = new() { ShowHeaders = true };
     private double _lastSurfaceWidth;
     private double _lastSurfaceHeight;
@@ -58,6 +63,11 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
             SelectAt,
             MinimumZoom,
             MaximumZoom);
+        _analyticsTouch = new NeraSpreadsheetAnalyticsTouchRouter(
+            () => _analyticsInput,
+            () => _lastLayout,
+            _input.CancelAll,
+            InvalidateSurface);
         IgnorePixelScaling = true;
         EnableTouchEvents = true;
         HasRenderLoop = false;
@@ -101,6 +111,9 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
 
     public NeraSpreadsheetInputDiagnostics InputDiagnostics =>
         _input.Diagnostics;
+
+    public IReadOnlyList<SpreadsheetAnalyticsAccessibleNode>
+        AnalyticsAccessibilityNodes => GetAnalyticsAccessibilityNodes();
 
     public event EventHandler? ZoomChanged;
 
@@ -157,7 +170,9 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
     public void ResetView()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        _analyticsTouch.CancelAll();
         _input.CancelAll();
+        _lastLayout = null;
         _zoom = 1d;
         _scroll.Reset();
         HasRenderLoop = false;
@@ -198,6 +213,20 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
             out address);
     }
 
+    public IReadOnlyList<SpreadsheetAnalyticsAccessibleNode>
+        GetAnalyticsAccessibilityNodes()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_analyticsInput is null || _lastLayout is null || _session is null)
+        {
+            return [];
+        }
+
+        return _analyticsInput.GetAccessibilityNodes(
+            _lastLayout,
+            ResolveAnalyticsName);
+    }
+
     protected override void OnPaintSurface(SKPaintGLSurfaceEventArgs e)
     {
         var context = GRContext;
@@ -222,6 +251,7 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
             canvas.Clear(ToSkColor(_renderTheme.Background));
             _lastSurfaceWidth = e.Info.Width;
             _lastSurfaceHeight = e.Info.Height;
+            _lastLayout = null;
 
             if (!_disposed &&
                 _session is not null &&
@@ -250,6 +280,7 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
                         chrome.BodyHeight,
                         ValidateOverscan(OverscanPixels),
                         _renderTheme);
+                    _lastLayout = frame.Layout;
                     var displayList = SpreadsheetChromeDisplayListComposer.Compose(
                         frame.DisplayList,
                         frame.Layout,
@@ -293,7 +324,9 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
 
     protected override void OnHandlerChanging(HandlerChangingEventArgs args)
     {
+        _analyticsTouch.CancelAll();
         _input.CancelAll();
+        _lastLayout = null;
         if (args.OldHandler is not null &&
             !ReferenceEquals(args.OldHandler, args.NewHandler))
         {
@@ -315,6 +348,33 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(input);
+
+        var width = Math.Max(
+            0d,
+            _lastSurfaceWidth > 0d ? _lastSurfaceWidth : Width);
+        var height = Math.Max(
+            0d,
+            _lastSurfaceHeight > 0d ? _lastSurfaceHeight : Height);
+        var fullWidth = width / _zoom;
+        var fullHeight = height / _zoom;
+        var logicalX = input.Location.X / _zoom;
+        var logicalY = input.Location.Y / _zoom;
+        var hit = SpreadsheetChromeGeometry.HitTest(
+            logicalX,
+            logicalY,
+            fullWidth,
+            fullHeight,
+            _renderTheme);
+        var bodyPoint = new PointD(hit.BodyX, hit.BodyY);
+        if (_analyticsTouch.Process(
+                input,
+                bodyPoint,
+                hit.Region == SpreadsheetChromeRegion.Body))
+        {
+            input.Handled = true;
+            return;
+        }
+
         _input.Process(input);
         input.Handled = true;
     }
@@ -326,6 +386,7 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
             return;
         }
 
+        _analyticsTouch.CancelAll();
         _disposed = true;
         _input.Dispose();
         _gpuLifecycle.Dispose();
@@ -346,7 +407,9 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
     private void SetWorkbookCore(Workbook? workbook)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        _analyticsTouch.CancelAll();
         _input.CancelAll();
+        _lastLayout = null;
         if (ReferenceEquals(_session?.Workbook, workbook))
         {
             return;
@@ -355,12 +418,18 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
         DetachSession();
         _session = workbook is null ? null : new SpreadsheetSession(workbook);
         _viewport = _session is null ? null : new SpreadsheetViewportEngine(_session);
+        _analyticsInput = _viewport is null
+            ? null
+            : new SpreadsheetAnalyticsViewportInteractionController(_viewport);
         _scroll.Reset();
         if (_session is not null)
         {
             _session.ActiveWorksheetChanged += OnActiveWorksheetChanged;
             _session.Selection.Changed += OnVisualStateChanged;
             _session.View.Changed += OnVisualStateChanged;
+            _session.Analytics.Changed += OnVisualStateChanged;
+            _session.AnalyticsPlacements.Changed += OnVisualStateChanged;
+            _session.AnalyticsInteraction.Changed += OnVisualStateChanged;
             EnsureWorksheetSubscription();
         }
         InvalidateSurface();
@@ -374,9 +443,14 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
             _session.ActiveWorksheetChanged -= OnActiveWorksheetChanged;
             _session.Selection.Changed -= OnVisualStateChanged;
             _session.View.Changed -= OnVisualStateChanged;
+            _session.Analytics.Changed -= OnVisualStateChanged;
+            _session.AnalyticsPlacements.Changed -= OnVisualStateChanged;
+            _session.AnalyticsInteraction.Changed -= OnVisualStateChanged;
         }
         _session = null;
         _viewport = null;
+        _analyticsInput = null;
+        _lastLayout = null;
     }
 
     private void EnsureWorksheetSubscription()
@@ -409,7 +483,9 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
 
     private void OnActiveWorksheetChanged(object? sender, EventArgs e)
     {
+        _analyticsTouch.CancelAll();
         _input.CancelAll();
+        _lastLayout = null;
         EnsureWorksheetSubscription();
         _viewport?.InvalidateMetrics();
         _scroll.Reset();
@@ -418,6 +494,7 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
 
     private void OnDimensionsChanged(object? sender, EventArgs e)
     {
+        _lastLayout = null;
         _viewport?.InvalidateMetrics();
         InvalidateSurface();
     }
@@ -426,6 +503,28 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
 
     private SpreadsheetViewportEngine EnsureViewport() =>
         _viewport ?? throw new InvalidOperationException("A workbook is required before viewport composition.");
+
+    private string? ResolveAnalyticsName(SpreadsheetAnalyticsItemKey item)
+    {
+        if (_session is null)
+        {
+            return null;
+        }
+
+        var worksheet = _session.ActiveWorksheet;
+        return item.Kind switch
+        {
+            SpreadsheetAnalyticsItemKind.Chart =>
+                _session.Analytics.GetCharts(worksheet)
+                    .FirstOrDefault(value => value.Id == item.Id)
+                    ?.Name,
+            SpreadsheetAnalyticsItemKind.Pivot =>
+                _session.Analytics.GetPivots(worksheet)
+                    .FirstOrDefault(value => value.Id == item.Id)
+                    ?.Name,
+            _ => null,
+        };
+    }
 
     private void AdvanceAnimatedScroll()
     {
