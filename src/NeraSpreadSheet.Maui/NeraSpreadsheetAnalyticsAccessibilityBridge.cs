@@ -36,6 +36,18 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
         state.Attach();
     }
 
+    internal static void Detach(NeraSpreadsheetView view)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        if (!States.TryGetValue(view, out var state))
+        {
+            return;
+        }
+
+        state.Detach();
+        States.Remove(view);
+    }
+
     private sealed class BridgeState
     {
         private readonly NeraSpreadsheetView _view;
@@ -61,6 +73,23 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
             _attached = true;
             _view.PaintSurface += OnPaintSurface;
             UpdateMauiSemantics([]);
+        }
+
+        internal void Detach()
+        {
+            if (!_attached)
+            {
+                return;
+            }
+
+            _view.PaintSurface -= OnPaintSurface;
+#if WINDOWS
+            DetachWindowsPanel();
+#endif
+#if ANDROID
+            NeraSpreadsheetAndroidAnalyticsAccessibilityBridge.Detach(_view);
+#endif
+            _attached = false;
         }
 
         private void OnPaintSurface(object? sender, MauiPaintGLSurfaceEventArgs e)
