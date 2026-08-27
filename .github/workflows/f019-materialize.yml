@@ -1,0 +1,53 @@
+name: f019-materialize-commits
+
+on:
+  push:
+    branches:
+      - automation/f019-materialize
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout helper payload
+        uses: actions/checkout@v6
+        with:
+          ref: automation/f019-materialize
+          path: helper
+          fetch-depth: 1
+
+      - name: Checkout exact F018 head
+        uses: actions/checkout@v6
+        with:
+          ref: d50332d51f9b42b5dd10f89baba90e69ccee428b
+          path: repo
+          fetch-depth: 0
+
+      - name: Materialize three locally validated F019 commits
+        working-directory: repo
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_base="d50332d51f9b42b5dd10f89baba90e69ccee428b"
+          test "$(git rev-parse HEAD)" = "$expected_base"
+
+          cat "$GITHUB_WORKSPACE"/helper/.f019-publish/part-* > "$RUNNER_TEMP/F019_60_FUNCTIONS.mbox.gz.b64"
+          base64 -d "$RUNNER_TEMP/F019_60_FUNCTIONS.mbox.gz.b64" > "$RUNNER_TEMP/F019_60_FUNCTIONS.mbox.gz"
+          echo "616be938603522be5fe8201c2fda5764db6f8fa6e36594b096fb121fa932d60d  $RUNNER_TEMP/F019_60_FUNCTIONS.mbox.gz" | sha256sum -c -
+          gzip -dc "$RUNNER_TEMP/F019_60_FUNCTIONS.mbox.gz" > "$RUNNER_TEMP/F019_60_FUNCTIONS.mbox"
+
+          git config user.name "HoangHung997"
+          git config user.email "103053981+HoangHung997@users.noreply.github.com"
+          git am --3way "$RUNNER_TEMP/F019_60_FUNCTIONS.mbox"
+
+          test "$(git rev-list --count "$expected_base"..HEAD)" = "3"
+          mapfile -t subjects < <(git log --reverse --format=%s "$expected_base"..HEAD)
+          test "${subjects[0]}" = "feat(formulas): add F019 group A compatibility functions (20 functions)"
+          test "${subjects[1]}" = "feat(formulas): add F019 group B statistics matrix and external functions (20 functions)"
+          test "${subjects[2]}" = "feat(formulas): add F019 group C higher-order external functions and finalize cycle (20 functions)"
+
+          git log --oneline -3
+          git push --force origin HEAD:refs/heads/automation/f019-materialized
