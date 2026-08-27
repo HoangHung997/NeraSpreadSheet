@@ -155,7 +155,13 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "emulator" "$SYSTEM_IMAGE"
           echo no | "$AVDMANAGER" create avd -f -n "$AVD_NAME" -k "$SYSTEM_IMAGE"
-          sudo chmod 666 /dev/kvm || true
+
+          ACCEL="off"
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm || true
+            ACCEL="on"
+          fi
+          echo "Android emulator acceleration mode: $ACCEL"
 
           nohup "$EMULATOR" \
             -avd "$AVD_NAME" \
@@ -164,12 +170,23 @@ jobs:
             -no-boot-anim \
             -no-snapshot \
             -gpu swiftshader_indirect \
-            -accel on \
+            -accel "$ACCEL" \
             >"$EMULATOR_LOG" 2>&1 &
+          EMULATOR_PID=$!
 
-          "$ADB" wait-for-device
+          if ! timeout 180 "$ADB" wait-for-device; then
+            echo "Android emulator did not expose an adb device within 180 seconds."
+            tail -n 200 "$EMULATOR_LOG" || true
+            exit 1
+          fi
+
           booted=0
           for _ in $(seq 1 120); do
+            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+              echo "Android emulator exited before boot completed."
+              tail -n 200 "$EMULATOR_LOG" || true
+              exit 1
+            fi
             if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
               booted=1
               break
@@ -178,10 +195,12 @@ jobs:
           done
           if [ "$booted" -ne 1 ]; then
             echo "Android emulator did not finish booting."
+            "$ADB" devices -l || true
             tail -n 200 "$EMULATOR_LOG" || true
             exit 1
           fi
 
+          "$ADB" devices -l
           APK="$(find tests/NeraSpreadSheet.Maui.Android.AnalyticsSmoke/bin/Release/net10.0-android -type f -name '*-Signed.apk' | head -n 1)"
           if [ -z "$APK" ]; then
             APK="$(find tests/NeraSpreadSheet.Maui.Android.AnalyticsSmoke/bin/Release/net10.0-android -type f -name '*.apk' | head -n 1)"
@@ -191,7 +210,7 @@ jobs:
             exit 1
           fi
 
-          "$ADB" install -r "$APK"
+          timeout 120 "$ADB" install -r "$APK"
           "$ADB" logcat -c
           "$ADB" shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 >/dev/null
 
