@@ -21,9 +21,10 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private readonly Grid _host = new();
     private readonly Workbook _workbook = CreateWorkbook();
     private NeraSpreadsheetView? _view;
-    private SpreadsheetAnalyticsItemKey _item;
+    private SpreadsheetAnalyticsItemKey _chartItem;
+    private SpreadsheetAnalyticsItemKey _pivotItem;
     private int _frameCount;
-    private int _chartInserted;
+    private int _analyticsInserted;
     private int _finished;
     private bool _disposed;
 
@@ -91,13 +92,13 @@ internal sealed class SmokePage : ContentPage, IDisposable
         {
             _frameCount++;
             ValidateLoadedHost(view);
-            if (Volatile.Read(ref _chartInserted) == 0)
+            if (Volatile.Read(ref _analyticsInserted) == 0)
             {
-                QueueChartCreation(view);
+                QueueAnalyticsCreation(view);
                 return;
             }
 
-            if (view.AnalyticsAccessibilityNodes.Count == 1)
+            if (view.AnalyticsAccessibilityNodes.Count == 2)
             {
                 ValidateNativeAccessibility(view);
             }
@@ -120,9 +121,9 @@ internal sealed class SmokePage : ContentPage, IDisposable
             "The Mac Catalyst analytics smoke observed a failed GPU frame.");
     }
 
-    private void QueueChartCreation(NeraSpreadsheetView view)
+    private void QueueAnalyticsCreation(NeraSpreadsheetView view)
     {
-        if (Interlocked.CompareExchange(ref _chartInserted, -1, 0) != 0)
+        if (Interlocked.CompareExchange(ref _analyticsInserted, -1, 0) != 0)
         {
             return;
         }
@@ -133,21 +134,29 @@ internal sealed class SmokePage : ContentPage, IDisposable
             {
                 var session = view.Session
                     ?? throw new InvalidOperationException(
-                        "The Mac Catalyst analytics smoke lost its session before chart creation.");
+                        "The Mac Catalyst analytics smoke lost its session before analytics creation.");
+                var sourceRange = new CellRange(
+                    new CellAddress(0, 0),
+                    new CellAddress(3, 1));
                 var chart = session.Analytics.InsertChart(
-                    new CellRange(
-                        new CellAddress(0, 0),
-                        new CellAddress(3, 1)),
+                    sourceRange,
                     SpreadsheetChartType.Column,
                     title: "Mac Catalyst accessibility",
                     requestedName: "MacAccessibilityChart");
-                _item = SpreadsheetAnalyticsItemKey.ForChart(chart.Id);
-                Volatile.Write(ref _chartInserted, 1);
+                var pivot = session.Analytics.InsertPivot(
+                    sourceRange,
+                    rowFieldColumnIndex: 0,
+                    valueFieldColumnIndex: 1,
+                    SpreadsheetPivotAggregation.Sum,
+                    requestedName: "MacAccessibilityPivot");
+                _chartItem = SpreadsheetAnalyticsItemKey.ForChart(chart.Id);
+                _pivotItem = SpreadsheetAnalyticsItemKey.ForPivot(pivot.Id);
+                Volatile.Write(ref _analyticsInserted, 1);
                 view.InvalidateSurface();
             }
             catch (Exception exception)
             {
-                Volatile.Write(ref _chartInserted, 1);
+                Volatile.Write(ref _analyticsInserted, 1);
                 Fail(exception);
             }
         });
@@ -162,30 +171,90 @@ internal sealed class SmokePage : ContentPage, IDisposable
             "The GPU host should be an accessibility container, not one monolithic element.");
         Require(host is IUIAccessibilityContainer,
             "The GPU host does not expose the native UIAccessibilityContainer protocol.");
-        var container = (IUIAccessibilityContainer)host;
 
+        var projectedNodes = view.AnalyticsAccessibilityNodes;
+        Require(projectedNodes.Count == 2,
+            $"Expected two projected analytics nodes but found {projectedNodes.Count}.");
+        Require(projectedNodes.Any(node =>
+                node.Item == _chartItem &&
+                node.Name == "MacAccessibilityChart" &&
+                node.Role == SpreadsheetAnalyticsAccessibleRole.Chart),
+            "The Mac Catalyst projection omitted the inserted chart node.");
+        Require(projectedNodes.Any(node =>
+                node.Item == _pivotItem &&
+                node.Name == "MacAccessibilityPivot" &&
+                node.Role == SpreadsheetAnalyticsAccessibleRole.PivotTable),
+            "The Mac Catalyst projection omitted the inserted pivot node.");
+
+        var container = (IUIAccessibilityContainer)host;
         var rawElements = container.GetAccessibilityElements()
             ?? throw new InvalidOperationException(
                 "The Mac Catalyst accessibility container did not expose accessibilityElements.");
         Require(rawElements is NSArray,
             "The Mac Catalyst accessibilityElements payload was not an NSArray.");
         var nativeElements = ((NSArray)rawElements).ToArray<UIAccessibilityElement>();
-        Require(nativeElements.Length == 1,
-            $"Expected one native analytics accessibility element but found {nativeElements.Length}.");
+        Require(nativeElements.Length == 2,
+            $"Expected two native analytics accessibility elements but found {nativeElements.Length}.");
 
-        var element = nativeElements[0]
-            ?? throw new InvalidOperationException(
-                "The Mac Catalyst accessibility array contained a null element.");
-        Require(element.AccessibilityLabel == "MacAccessibilityChart",
-            "The native Mac Catalyst accessibility label did not match the chart name.");
-        Require(element.AccessibilityIdentifier == $"analytics-chart-{_item.Id:N}",
-            "The native Mac Catalyst accessibility identifier was not deterministic.");
+        var chart = FindNativeElement(
+            nativeElements,
+            $"analytics-chart-{_chartItem.Id:N}");
+        var pivot = FindNativeElement(
+            nativeElements,
+            $"analytics-pivot-{_pivotItem.Id:N}");
+        ValidateNativeElement(
+            chart,
+            "MacAccessibilityChart",
+            "Biểu đồ",
+            "chart");
+        ValidateNativeElement(
+            pivot,
+            "MacAccessibilityPivot",
+            "Bảng tổng hợp",
+            "pivot");
+
+        ActivateAndRequireSelection(view, chart, _chartItem, "chart");
+        ActivateAndRequireSelection(view, pivot, _pivotItem, "pivot");
+
+        Complete(new
+        {
+            status = "success",
+            frameCount = _frameCount,
+            nativeElementCount = nativeElements.Length,
+            chart = DescribeNativeElement(chart),
+            pivot = DescribeNativeElement(pivot),
+            chartActivationVerified = true,
+            pivotActivationVerified = true,
+            selectedItem = view.Session?.AnalyticsInteraction.SelectedItem?.ToString(),
+            cachedTypefaces = view.CachedTypefaceCount,
+        });
+    }
+
+    private static UIAccessibilityElement FindNativeElement(
+        IEnumerable<UIAccessibilityElement> elements,
+        string identifier) =>
+        elements.SingleOrDefault(element =>
+            string.Equals(
+                element.AccessibilityIdentifier,
+                identifier,
+                StringComparison.Ordinal))
+        ?? throw new InvalidOperationException(
+            $"The Mac Catalyst accessibility container did not expose '{identifier}'.");
+
+    private static void ValidateNativeElement(
+        UIAccessibilityElement element,
+        string expectedLabel,
+        string expectedRole,
+        string itemKind)
+    {
+        Require(element.AccessibilityLabel == expectedLabel,
+            $"The native Mac Catalyst {itemKind} label did not match the analytics name.");
         Require(
-            element.AccessibilityValue?.Contains("Biểu đồ", StringComparison.Ordinal) == true,
-            "The native Mac Catalyst accessibility value omitted the localized chart role.");
+            element.AccessibilityValue?.Contains(expectedRole, StringComparison.Ordinal) == true,
+            $"The native Mac Catalyst {itemKind} value omitted the localized role.");
         Require(
             element.AccessibilityHint?.Contains("Chạm hai lần để chọn", StringComparison.Ordinal) == true,
-            "The native Mac Catalyst accessibility hint omitted activation guidance.");
+            $"The native Mac Catalyst {itemKind} hint omitted activation guidance.");
 
         var frame = element.AccessibilityFrame;
         Require(!frame.IsEmpty &&
@@ -195,26 +264,36 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 double.IsFinite(frame.Height) &&
                 frame.Width > 0d &&
                 frame.Height > 0d,
-            "The native Mac Catalyst accessibility element exposed invalid screen bounds.");
+            $"The native Mac Catalyst {itemKind} element exposed invalid screen bounds.");
 
-        var activationSelector = new Selector("accessibilityActivate");
+        using var activationSelector = new Selector("accessibilityActivate");
         Require(element.RespondsToSelector(activationSelector),
-            "The native Mac Catalyst chart element does not expose accessibilityActivate.");
+            $"The native Mac Catalyst {itemKind} element does not expose accessibilityActivate.");
+    }
+
+    private static void ActivateAndRequireSelection(
+        NeraSpreadsheetView view,
+        UIAccessibilityElement element,
+        SpreadsheetAnalyticsItemKey expectedItem,
+        string itemKind)
+    {
+        using var activationSelector = new Selector("accessibilityActivate");
         Require(
             UIApplication.SharedApplication.SendAction(
                 activationSelector,
                 element,
                 null,
                 null),
-            "UIKit did not dispatch accessibilityActivate to the native chart element.");
-        Require(view.Session?.AnalyticsInteraction.SelectedItem == _item,
-            "Mac Catalyst accessibilityActivate did not select the chart in the spreadsheet session.");
+            $"UIKit did not dispatch accessibilityActivate to the native {itemKind} element.");
+        Require(view.Session?.AnalyticsInteraction.SelectedItem == expectedItem,
+            $"Mac Catalyst accessibilityActivate did not select the {itemKind} in the spreadsheet session.");
+    }
 
-        Complete(new
+    private static object DescribeNativeElement(UIAccessibilityElement element)
+    {
+        var frame = element.AccessibilityFrame;
+        return new
         {
-            status = "success",
-            frameCount = _frameCount,
-            nativeElementCount = nativeElements.Length,
             label = element.AccessibilityLabel,
             identifier = element.AccessibilityIdentifier,
             value = element.AccessibilityValue,
@@ -226,10 +305,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 width = frame.Width,
                 height = frame.Height,
             },
-            activationVerified = true,
-            selectedItem = view.Session?.AnalyticsInteraction.SelectedItem?.ToString(),
-            cachedTypefaces = view.CachedTypefaceCount,
-        });
+        };
     }
 
     private void Complete(object result)
@@ -256,7 +332,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             {
                 status = "failure",
                 frameCount = _frameCount,
-                chartInserted = Volatile.Read(ref _chartInserted),
+                analyticsInserted = Volatile.Read(ref _analyticsInserted),
                 accessibilityNodeCount = _view?.AnalyticsAccessibilityNodes.Count,
                 error = exception.ToString(),
             });
