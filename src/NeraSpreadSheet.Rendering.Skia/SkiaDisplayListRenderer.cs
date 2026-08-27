@@ -196,17 +196,18 @@ public sealed class SkiaDisplayListRenderer : IDisposable
 
     private void DrawPolygon(SKCanvas canvas, FillPolygonCommand command)
     {
-        using var path = new SKPath();
-        path.MoveTo(
+        using var builder = new SKPathBuilder();
+        builder.MoveTo(
             checked((float)command.Points[0].X),
             checked((float)command.Points[0].Y));
         for (var index = 1; index < command.Points.Count; index++)
         {
-            path.LineTo(
+            builder.LineTo(
                 checked((float)command.Points[index].X),
                 checked((float)command.Points[index].Y));
         }
-        path.Close();
+        builder.Close();
+        using var path = builder.Detach();
         ConfigurePaint(command.Color, SKPaintStyle.Fill, strokeWidth: 1f);
         canvas.DrawPath(path, _paint);
     }
