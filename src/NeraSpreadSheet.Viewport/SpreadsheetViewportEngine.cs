@@ -59,11 +59,27 @@ public sealed class SpreadsheetViewportEngine
             _session.View.FrozenColumns));
         var worksheet = _session.ActiveWorksheet;
         var selection = _session.Selection.Capture();
-        var displayList = _cacheOptions.Enabled
+        var cellDisplayList = _cacheOptions.Enabled
             ? ComposeCachedDisplayList(layoutEngine, layout, worksheet, selection, theme, overscan)
             : ComposeFreshDisplayList(worksheet, layout, selection, theme);
+        var displayList = ComposeAnalyticsOverlay(
+            worksheet,
+            layout,
+            cellDisplayList);
 
         return new SpreadsheetViewportFrame(layout, displayList, worksheet.Version, selection.Version);
+    }
+
+    public IReadOnlyList<SpreadsheetAnalyticsInteractionTarget>
+        GetAnalyticsInteractionTargets(ViewportLayout layout)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+        var placements = SpreadsheetAnalyticsInteractionProjection.ApplyPreview(
+            _session.AnalyticsPlacements.GetPlacements(_session.ActiveWorksheet),
+            _session.AnalyticsInteraction.Snapshot);
+        return SpreadsheetAnalyticsInteractionTargetMapper.Map(
+            placements,
+            layout);
     }
 
     public bool TryHitTest(double viewportX, double viewportY, double scrollX, double scrollY, out CellAddress address)
@@ -160,6 +176,38 @@ public sealed class SpreadsheetViewportEngine
     }
 
     public void ClearDisplayListCache() => _displayListCache.Clear();
+
+    private DisplayList ComposeAnalyticsOverlay(
+        Worksheet worksheet,
+        ViewportLayout layout,
+        DisplayList cellDisplayList)
+    {
+        var placements = _session.AnalyticsPlacements.GetPlacements(worksheet);
+        if (placements.Count == 0)
+        {
+            return cellDisplayList;
+        }
+
+        var projectedPlacements = SpreadsheetAnalyticsInteractionProjection.ApplyPreview(
+            placements,
+            _session.AnalyticsInteraction.Snapshot);
+        var overlay = SpreadsheetAnalyticsOverlayDisplayListComposer.Compose(
+            worksheet,
+            _session.Analytics.GetCharts(worksheet),
+            _session.Analytics.GetPivots(worksheet),
+            projectedPlacements,
+            layout,
+            _session.AnalyticsInteraction.SelectedItem);
+        if (overlay.Commands.Count == 0)
+        {
+            return cellDisplayList;
+        }
+
+        var builder = new DisplayListBuilder();
+        builder.Append(cellDisplayList);
+        builder.Append(overlay);
+        return builder.Build();
+    }
 
     private static bool TryHitTestAxis(
         SparseAxisMetricIndex axis,
