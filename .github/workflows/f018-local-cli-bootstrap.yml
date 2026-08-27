@@ -33,16 +33,31 @@ jobs:
           set -euo pipefail
           expected_base="0c6f8d5938b50485fa93023e9311261850b7d592"
           test "$(git rev-parse HEAD)" = "$expected_base"
-          base64 -d "$GITHUB_WORKSPACE/helper/.f018-publish/payload.b64" > "$RUNNER_TEMP/F018_60_FUNCTIONS.mbox.gz"
-          echo "4ad5473e3ede620f1e1178acd30368c8bf0d6b9fcdaaffdf80c08e4c6fe46994  $RUNNER_TEMP/F018_60_FUNCTIONS.mbox.gz" | sha256sum -c -
-          gzip -dc "$RUNNER_TEMP/F018_60_FUNCTIONS.mbox.gz" > "$RUNNER_TEMP/F018_60_FUNCTIONS.mbox"
+
+          cat \
+            "$GITHUB_WORKSPACE/helper/.f018-publish/chunk-00" \
+            "$GITHUB_WORKSPACE/helper/.f018-publish/chunk-01" \
+            "$GITHUB_WORKSPACE/helper/.f018-publish/chunk-02" \
+            "$GITHUB_WORKSPACE/helper/.f018-publish/chunk-03" \
+            "$GITHUB_WORKSPACE/helper/.f018-publish/chunk-04" \
+            > "$RUNNER_TEMP/F018_60_FUNCTIONS.mbox.gz.b64"
+
+          base64 -d "$RUNNER_TEMP/F018_60_FUNCTIONS.mbox.gz.b64" \
+            > "$RUNNER_TEMP/F018_60_FUNCTIONS.mbox.gz"
+          echo "4ad5473e3ede620f1e1178acd30368c8bf0d6b9fcdaaffdf80c08e4c6fe46994  $RUNNER_TEMP/F018_60_FUNCTIONS.mbox.gz" \
+            | sha256sum -c -
+          gzip -dc "$RUNNER_TEMP/F018_60_FUNCTIONS.mbox.gz" \
+            > "$RUNNER_TEMP/F018_60_FUNCTIONS.mbox"
+
           git config user.name "HoangHung997"
           git config user.email "103053981+HoangHung997@users.noreply.github.com"
           git am --3way "$RUNNER_TEMP/F018_60_FUNCTIONS.mbox"
+
           test "$(git rev-list --count "$expected_base"..HEAD)" = "3"
           mapfile -t subjects < <(git log --reverse --format=%s "$expected_base"..HEAD)
           test "${subjects[0]}" = "feat(formulas): add F018 group A text compatibility (20 functions)"
           test "${subjects[1]}" = "feat(formulas): add F018 group B information and statistics (20 functions)"
           test "${subjects[2]}" = "feat(formulas): add F018 group C engineering lookup and finalize 60-function cycle"
           git log --oneline -3
+
           git push --force origin HEAD:refs/heads/automation/f018-materialized
