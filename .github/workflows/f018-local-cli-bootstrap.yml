@@ -1,4 +1,4 @@
-name: f018-local-cli-bootstrap
+name: f018-materialize-commits
 
 on:
   push:
@@ -6,32 +6,43 @@ on:
       - automation/f018-local-cli-bootstrap
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  package-source:
+  materialize:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout helper payload
+        uses: actions/checkout@v6
+        with:
+          ref: automation/f018-local-cli-bootstrap
+          path: helper
+          fetch-depth: 1
+
       - name: Checkout exact F017 head
         uses: actions/checkout@v6
         with:
           ref: 0c6f8d5938b50485fa93023e9311261850b7d592
+          path: repo
           fetch-depth: 0
 
-      - name: Package exact source
+      - name: Materialize three locally validated F018 commits
+        working-directory: repo
         shell: bash
         run: |
           set -euo pipefail
-          tar \
-            --exclude=.git \
-            --exclude='**/bin' \
-            --exclude='**/obj' \
-            -czf "$RUNNER_TEMP/f018-source.tar.gz" .
-
-      - name: Upload source snapshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: f018-source
-          path: ${{ runner.temp }}/f018-source.tar.gz
-          retention-days: 1
-          compression-level: 0
+          expected_base="0c6f8d5938b50485fa93023e9311261850b7d592"
+          test "$(git rev-parse HEAD)" = "$expected_base"
+          base64 -d "$GITHUB_WORKSPACE/helper/.f018-publish/payload.b64" > "$RUNNER_TEMP/F018_60_FUNCTIONS.mbox.gz"
+          echo "4ad5473e3ede620f1e1178acd30368c8bf0d6b9fcdaaffdf80c08e4c6fe46994  $RUNNER_TEMP/F018_60_FUNCTIONS.mbox.gz" | sha256sum -c -
+          gzip -dc "$RUNNER_TEMP/F018_60_FUNCTIONS.mbox.gz" > "$RUNNER_TEMP/F018_60_FUNCTIONS.mbox"
+          git config user.name "HoangHung997"
+          git config user.email "103053981+HoangHung997@users.noreply.github.com"
+          git am --3way "$RUNNER_TEMP/F018_60_FUNCTIONS.mbox"
+          test "$(git rev-list --count "$expected_base"..HEAD)" = "3"
+          mapfile -t subjects < <(git log --reverse --format=%s "$expected_base"..HEAD)
+          test "${subjects[0]}" = "feat(formulas): add F018 group A text compatibility (20 functions)"
+          test "${subjects[1]}" = "feat(formulas): add F018 group B information and statistics (20 functions)"
+          test "${subjects[2]}" = "feat(formulas): add F018 group C engineering lookup and finalize 60-function cycle"
+          git log --oneline -3
+          git push --force origin HEAD:refs/heads/automation/f018-materialized
