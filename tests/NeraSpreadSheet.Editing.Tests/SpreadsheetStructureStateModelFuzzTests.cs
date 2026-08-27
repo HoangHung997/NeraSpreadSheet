@@ -188,7 +188,7 @@ public sealed class SpreadsheetStructureStateModelFuzzTests
             _cells = Copy(initial);
         }
 
-        public IReadOnlyDictionary<CellAddress, CellValue> Cells => _cells;
+        public Dictionary<CellAddress, CellValue> Cells => _cells;
 
         public int UndoCount => _undo.Count;
 
