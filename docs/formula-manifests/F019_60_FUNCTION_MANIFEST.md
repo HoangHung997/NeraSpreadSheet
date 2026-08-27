@@ -55,36 +55,36 @@
 | `TRANSLATE` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Translate_Contract_IsValidated` | `tested` | source/target language; external provider | B |
 | `WEBSERVICE` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Webservice_Contract_IsValidated` | `tested` | external provider; URL validation; size cap | B |
 | `STOCKHISTORY` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Stockhistory_Contract_IsValidated` | `tested` | external provider; dates/interval/headers/properties | B |
-| `BYCOL` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Bycol_Contract_IsValidated` | `pending` | lambda arity 1; one result per column; spill | C |
-| `BYROW` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Byrow_Contract_IsValidated` | `pending` | lambda arity 1; one result per row; spill | C |
-| `MAKEARRAY` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Makearray_Contract_IsValidated` | `pending` | positive dimensions; lambda(row,col); max cells | C |
-| `MAP` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Map_Contract_IsValidated` | `pending` | same-shape arrays; lambda arity matches arrays | C |
-| `REDUCE` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Reduce_Contract_IsValidated` | `pending` | left-to-right accumulator; lambda(acc,value) | C |
-| `SCAN` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Scan_Contract_IsValidated` | `pending` | intermediate accumulator spill | C |
-| `LAMBDA` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Lambda_Contract_IsValidated` | `pending` | parameter validation; standalone returns calc error equivalent | C |
-| `LET` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Let_Contract_IsValidated` | `pending` | name/value pairs; lexical shadowing; final expression | C |
-| `ISOMITTED` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Isomitted_Contract_IsValidated` | `pending` | lambda omitted sentinel only | C |
-| `CALL` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Call_Contract_IsValidated` | `pending` | external add-in provider only; blocked by default | C |
-| `REGISTER.ID` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `RegisterId_Contract_IsValidated` | `pending` | external add-in provider only; blocked by default | C |
-| `CUBEKPIMEMBER` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Cubekpimember_Contract_IsValidated` | `pending` | cube provider; external-state failure | C |
-| `CUBEMEMBER` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Cubemember_Contract_IsValidated` | `pending` | cube provider; tuple validation | C |
-| `CUBEMEMBERPROPERTY` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Cubememberproperty_Contract_IsValidated` | `pending` | cube provider; property validation | C |
-| `CUBERANKEDMEMBER` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Cuberankedmember_Contract_IsValidated` | `pending` | cube provider; rank >=1 | C |
-| `CUBESET` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Cubeset_Contract_IsValidated` | `pending` | cube provider; set expression | C |
-| `CUBESETCOUNT` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Cubesetcount_Contract_IsValidated` | `pending` | cube set handle/provider | C |
-| `CUBEVALUE` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Cubevalue_Contract_IsValidated` | `pending` | cube provider; member tuple arguments | C |
-| `RTD` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Rtd_Contract_IsValidated` | `pending` | realtime provider; topic arguments | C |
-| `COPILOT` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Copilot_Contract_IsValidated` | `pending` | AI provider; explicit external-state context; no silent network | C |
+| `BYCOL` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Bycol_Contract_IsValidated` | `tested` | lambda arity 1; one result per column; spill | C |
+| `BYROW` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Byrow_Contract_IsValidated` | `tested` | lambda arity 1; one result per row; spill | C |
+| `MAKEARRAY` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Makearray_Contract_IsValidated` | `tested` | positive dimensions; lambda(row,col); max cells | C |
+| `MAP` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Map_Contract_IsValidated` | `tested` | same-shape arrays; lambda arity matches arrays | C |
+| `REDUCE` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Reduce_Contract_IsValidated` | `tested` | left-to-right accumulator; lambda(acc,value) | C |
+| `SCAN` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Scan_Contract_IsValidated` | `tested` | intermediate accumulator spill | C |
+| `LAMBDA` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Lambda_Contract_IsValidated` | `tested` | parameter validation; standalone returns calc error equivalent | C |
+| `LET` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Let_Contract_IsValidated` | `tested` | name/value pairs; lexical shadowing; final expression | C |
+| `ISOMITTED` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Isomitted_Contract_IsValidated` | `tested` | lambda omitted sentinel only | C |
+| `CALL` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Call_Contract_IsValidated` | `tested` | external add-in provider only; blocked by default | C |
+| `REGISTER.ID` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `RegisterId_Contract_IsValidated` | `tested` | external add-in provider only; blocked by default | C |
+| `CUBEKPIMEMBER` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Cubekpimember_Contract_IsValidated` | `tested` | cube provider; external-state failure | C |
+| `CUBEMEMBER` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Cubemember_Contract_IsValidated` | `tested` | cube provider; tuple validation | C |
+| `CUBEMEMBERPROPERTY` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Cubememberproperty_Contract_IsValidated` | `tested` | cube provider; property validation | C |
+| `CUBERANKEDMEMBER` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Cuberankedmember_Contract_IsValidated` | `tested` | cube provider; rank >=1 | C |
+| `CUBESET` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Cubeset_Contract_IsValidated` | `tested` | cube provider; set expression | C |
+| `CUBESETCOUNT` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Cubesetcount_Contract_IsValidated` | `tested` | cube set handle/provider | C |
+| `CUBEVALUE` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Cubevalue_Contract_IsValidated` | `tested` | cube provider; member tuple arguments | C |
+| `RTD` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Rtd_Contract_IsValidated` | `tested` | realtime provider; topic arguments | C |
+| `COPILOT` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Copilot_Contract_IsValidated` | `tested` | AI provider; explicit external-state context; no silent network | C |
 
 ## Validation ledger
 
 | Item | Before | After | Status |
 |---|---:|---:|---|
 | Total functions | 486 | 546 | pending |
-| Formula tests | 454 | 514 | A checkpoint 474/474; B checkpoint 494/494; final pending |
+| Formula tests | 454 | 514 | A 474/474; B 494/494; final 514/514 passed |
 | Group A CLI gate | 0/20 | 20/20 | build 0 warnings/errors; filtered 20/20; full formula 474/474 |
 | Group B CLI gate | 0/20 | 20/20 | build 0 warnings/errors; filtered 20/20; full formula 494/494 |
-| Group C CLI gate | 0/20 | — | pending |
-| Full Core tests | — | — | pending |
-| Architecture verification | — | — | pending |
-| Exact-head GitHub CI | — | — | not started |
+| Group C CLI gate | 0/20 | 20/20 | build 0 warnings/errors; filtered 20/20; full formula 514/514 |
+| Full Core tests | — | 1075/1075 | passed by local CLI |
+| Architecture verification | — | passed | local PowerShell CLI |
+| Exact-head GitHub CI | — | — | pending until A/B/C are pushed together |

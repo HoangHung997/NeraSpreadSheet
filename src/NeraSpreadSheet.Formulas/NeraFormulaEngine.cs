@@ -164,6 +164,18 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
         IFormulaEvaluationContext context,
         List<FormulaDependency> dependencies)
     {
+        if (string.Equals(function.Name, "LET", StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateF019Let(function, context, dependencies);
+        }
+        if (string.Equals(function.Name, "LAMBDA", StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateF019Lambda(function);
+        }
+        if (string.Equals(function.Name, "ISOMITTED", StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateF019IsOmitted(function);
+        }
         if (string.Equals(
                 function.Name,
                 "IFERROR",

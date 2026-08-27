@@ -8,15 +8,15 @@ NeraSpreadSheet is an independent spreadsheet SDK for WPF, WinForms and .NET MAU
 
 | Item | Value |
 |---|---:|
-| Eager/versioned functions | 427 |
-| AST/reference-aware functions | 37 |
-| Dynamic-array unique functions | 22 |
-| **Total functions** | **486 / at least 538** |
-| Formula tests | 454/454 |
-| Completed formula cycles | F001–F018 |
+| Eager/versioned functions | 468 |
+| AST/reference-aware functions | 40 |
+| Dynamic-array unique functions | 38 |
+| **Total functions** | **546 / 546 locked catalog names** |
+| Formula tests | 514/514 |
+| Completed formula cycles | F001–F019 (local-green; exact-head CI pending) |
 | Pull request | #1 Draft, unmerged |
 
-F018 is a 60-function cycle split into A/B/C groups of 20. Every group passed an analyzer-clean local CLI build, its 20 named regressions and the full formula suite before the next group started. The final local gate passed 1,015 Core-solution tests plus architecture verification before the three commits were eligible for one branch update and one exact-head GitHub CI.
+F019 adds another 60 locked catalog names in A/B/C groups of 20. Every group passed an analyzer-clean CLI build, 20 named regressions and the full formula suite; the final local gate passed 1,075 Core-solution tests plus architecture verification. The locked catalog now contains 546 names; a final catalog-delta audit may still add future compatibility names.
 
 Build and validation:
 
