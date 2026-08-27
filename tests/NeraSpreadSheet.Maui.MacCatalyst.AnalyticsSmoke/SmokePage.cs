@@ -13,6 +13,8 @@ namespace NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke;
 internal sealed class SmokePage : ContentPage, IDisposable
 {
     private const string ResultArgument = "--nera-smoke-result";
+    private const string UnifiedLogResultMarker = "NERA_MAUI_SMOKE_RESULT:";
+    private const string UnifiedLogFileErrorMarker = "NERA_MAUI_SMOKE_RESULT_FILE_ERROR:";
     private static readonly TimeSpan SmokeTimeout = TimeSpan.FromSeconds(45d);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -316,7 +318,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             return;
         }
 
-        WriteResult(result);
+        EmitResult(result);
         Environment.Exit(0);
     }
 
@@ -327,21 +329,15 @@ internal sealed class SmokePage : ContentPage, IDisposable
             return;
         }
 
-        try
+        EmitResult(new
         {
-            WriteResult(new
-            {
-                status = "failure",
-                frameCount = _frameCount,
-                analyticsInserted = Volatile.Read(ref _analyticsInserted),
-                accessibilityNodeCount = _view?.AnalyticsAccessibilityNodes.Count,
-                error = exception.ToString(),
-            });
-        }
-        finally
-        {
-            Environment.Exit(1);
-        }
+            status = "failure",
+            frameCount = _frameCount,
+            analyticsInserted = Volatile.Read(ref _analyticsInserted),
+            accessibilityNodeCount = _view?.AnalyticsAccessibilityNodes.Count,
+            error = exception.ToString(),
+        });
+        Environment.Exit(1);
     }
 
     private async Task MonitorTimeoutAsync()
@@ -362,16 +358,31 @@ internal sealed class SmokePage : ContentPage, IDisposable
         });
     }
 
-    private static void WriteResult(object result)
+    private static void EmitResult(object result)
     {
-        var fullPath = Path.GetFullPath(ResolveResultPath());
-        Directory.CreateDirectory(
-            Path.GetDirectoryName(fullPath)
-            ?? throw new InvalidOperationException(
-                "The Mac Catalyst smoke result file has no parent directory."));
-        File.WriteAllText(
-            fullPath,
-            JsonSerializer.Serialize(result, JsonOptions));
+        var compactJson = JsonSerializer.Serialize(result);
+        ObjCRuntime.Runtime.NSLog(UnifiedLogResultMarker + compactJson);
+
+        try
+        {
+            var fullPath = Path.GetFullPath(ResolveResultPath());
+            Directory.CreateDirectory(
+                Path.GetDirectoryName(fullPath)
+                ?? throw new InvalidOperationException(
+                    "The Mac Catalyst smoke result file has no parent directory."));
+            File.WriteAllText(
+                fullPath,
+                JsonSerializer.Serialize(result, JsonOptions));
+        }
+        catch (Exception exception)
+        {
+            ObjCRuntime.Runtime.NSLog(
+                UnifiedLogFileErrorMarker +
+                JsonSerializer.Serialize(new
+                {
+                    error = exception.ToString(),
+                }));
+        }
     }
 
     private static string ResolveResultPath()
