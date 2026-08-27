@@ -167,6 +167,14 @@ public sealed class Direct2DRendererSmokeTests
             new PointD(width - 4d, height - 4d),
             1d,
             new ColorRgba(128, 128, 128));
+        rootBuilder.FillPolygon(
+            [
+                new PointD(36d, 78d),
+                new PointD(112d, 64d),
+                new PointD(146d, 118d),
+                new PointD(72d, 132d),
+            ],
+            new ColorRgba(68, 114, 196));
         rootBuilder.PushTranslation(4.25d, 2.5d);
         rootBuilder.DrawDisplayList(child);
         rootBuilder.PopTranslation();
