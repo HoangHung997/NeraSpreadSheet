@@ -35,6 +35,7 @@ public sealed class NeraSpreadsheetControl : Control
     private readonly TextBox _editor;
     private SpreadsheetSession? _session;
     private SpreadsheetViewportEngine? _viewport;
+    private SpreadsheetAnalyticsViewportInteractionController? _analyticsInput;
     private SpreadsheetCellEditorController? _cellEditor;
     private Worksheet? _subscribedWorksheet;
     private Direct2DHwndDisplayListRenderer? _direct2DRenderer;
@@ -168,6 +169,10 @@ public sealed class NeraSpreadsheetControl : Control
     protected override void OnMouseWheel(MouseEventArgs e)
     {
         base.OnMouseWheel(e);
+        if (_analyticsInput?.IsTransforming == true)
+        {
+            return;
+        }
         var notches = e.Delta / 120d;
         var delta = -notches * WheelPixelsPerNotch;
         if ((ModifierKeys & Keys.Shift) != 0)
@@ -243,7 +248,20 @@ public sealed class NeraSpreadsheetControl : Control
                 return;
         }
 
-        if (!EnsureViewport().TryHitTest(hit.BodyX, hit.BodyY, scroll.OffsetX, scroll.OffsetY, out var address))
+        var viewport = EnsureViewport();
+        if (_lastLayout is not null &&
+            EnsureAnalyticsInput().PointerPressed(
+                new PointD(hit.BodyX, hit.BodyY),
+                _lastLayout))
+        {
+            Capture = true;
+            Cursor = GetAnalyticsCursor(
+                _session.AnalyticsInteraction.Snapshot.ActiveHandle);
+            Invalidate();
+            return;
+        }
+
+        if (!viewport.TryHitTest(hit.BodyX, hit.BodyY, scroll.OffsetX, scroll.OffsetY, out var address))
         {
             return;
         }
@@ -274,32 +292,68 @@ public sealed class NeraSpreadsheetControl : Control
             Cursor = GetResizeCursor(resize.Axis);
             return;
         }
-        UpdateHeaderResizeCursor(e.X, e.Y);
+        if (_analyticsInput?.IsTransforming == true)
+        {
+            _analyticsInput.PointerMoved(ToBodyPoint(e.X, e.Y));
+            Cursor = _session is null
+                ? Cursors.Default
+                : GetAnalyticsCursor(
+                    _session.AnalyticsInteraction.Snapshot.ActiveHandle);
+            Invalidate();
+            return;
+        }
+        UpdatePointerCursor(e.X, e.Y);
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
-        if (e.Button != MouseButtons.Left || _headerResize is not { } resize)
+        if (e.Button != MouseButtons.Left)
         {
             return;
         }
 
-        ApplyHeaderResize(resize, e.X, e.Y);
-        _headerResize = null;
-        Capture = false;
-        UpdateHeaderResizeCursor(e.X, e.Y);
+        if (_headerResize is { } resize)
+        {
+            ApplyHeaderResize(resize, e.X, e.Y);
+            _headerResize = null;
+            Capture = false;
+            UpdatePointerCursor(e.X, e.Y);
+            return;
+        }
+        if (_analyticsInput?.IsTransforming == true)
+        {
+            _analyticsInput.PointerReleased(ToBodyPoint(e.X, e.Y));
+            Capture = false;
+            UpdatePointerCursor(e.X, e.Y);
+            Invalidate();
+        }
     }
 
     protected override void OnMouseCaptureChanged(EventArgs e)
     {
         base.OnMouseCaptureChanged(e);
-        if (Capture || _headerResize is null)
+        if (Capture)
         {
             return;
         }
-        _headerResize = null;
-        Cursor = Cursors.Default;
+
+        var changed = false;
+        if (_headerResize is not null)
+        {
+            _headerResize = null;
+            changed = true;
+        }
+        if (_analyticsInput?.IsTransforming == true)
+        {
+            _analyticsInput.Cancel();
+            changed = true;
+        }
+        if (changed)
+        {
+            Cursor = Cursors.Default;
+            Invalidate();
+        }
     }
 
     protected override bool IsInputKey(Keys keyData)
@@ -353,6 +407,47 @@ public sealed class NeraSpreadsheetControl : Control
             }
         }
 
+        if (_session.AnalyticsInteraction.SelectedItem.HasValue)
+        {
+            var analyticsKey = e.KeyCode switch
+            {
+                Keys.Left => SpreadsheetAnalyticsKeyboardKey.Left,
+                Keys.Right => SpreadsheetAnalyticsKeyboardKey.Right,
+                Keys.Up => SpreadsheetAnalyticsKeyboardKey.Up,
+                Keys.Down => SpreadsheetAnalyticsKeyboardKey.Down,
+                Keys.Delete => SpreadsheetAnalyticsKeyboardKey.Delete,
+                Keys.Escape => SpreadsheetAnalyticsKeyboardKey.Escape,
+                _ => (SpreadsheetAnalyticsKeyboardKey?)null,
+            };
+            if (analyticsKey.HasValue)
+            {
+                var modifiers = SpreadsheetAnalyticsKeyboardModifiers.None;
+                if (e.Shift)
+                {
+                    modifiers |= SpreadsheetAnalyticsKeyboardModifiers.Shift;
+                }
+                if (e.Control)
+                {
+                    modifiers |= SpreadsheetAnalyticsKeyboardModifiers.Control;
+                }
+
+                e.Handled = EnsureAnalyticsInput().Keyboard(
+                    analyticsKey.Value,
+                    modifiers);
+                if (e.Handled)
+                {
+                    e.SuppressKeyPress = true;
+                    return;
+                }
+            }
+            if (e.KeyCode == Keys.F2)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+        }
+
         if (e.KeyCode == Keys.Delete)
         {
             e.Handled = _session.ClearSelection();
@@ -401,7 +496,10 @@ public sealed class NeraSpreadsheetControl : Control
     protected override void OnKeyPress(KeyPressEventArgs e)
     {
         base.OnKeyPress(e);
-        if (_session is null || IsEditing || char.IsControl(e.KeyChar))
+        if (_session is null ||
+            IsEditing ||
+            _session.AnalyticsInteraction.SelectedItem.HasValue ||
+            char.IsControl(e.KeyChar))
         {
             return;
         }
@@ -562,6 +660,14 @@ public sealed class NeraSpreadsheetControl : Control
     private SpreadsheetChromeMetrics GetChromeMetrics() =>
         SpreadsheetChromeGeometry.Calculate(ClientSize.Width, ClientSize.Height, RenderTheme);
 
+    private PointD ToBodyPoint(double x, double y)
+    {
+        var chrome = GetChromeMetrics();
+        return new PointD(
+            x - chrome.RowHeaderWidth,
+            y - chrome.ColumnHeaderHeight);
+    }
+
     private bool TryBeginHeaderResize(double x, double y)
     {
         if (_lastLayout is null ||
@@ -601,7 +707,7 @@ public sealed class NeraSpreadsheetControl : Control
         }
     }
 
-    private void UpdateHeaderResizeCursor(double x, double y)
+    private void UpdatePointerCursor(double x, double y)
     {
         if (_lastLayout is not null &&
             SpreadsheetHeaderResizeGeometry.TryHitResizeHandle(
@@ -616,11 +722,51 @@ public sealed class NeraSpreadsheetControl : Control
             Cursor = GetResizeCursor(resize.Axis);
             return;
         }
-        Cursor = Cursors.Default;
+        if (_session is null || _lastLayout is null || _viewport is null)
+        {
+            Cursor = Cursors.Default;
+            return;
+        }
+
+        var hit = SpreadsheetChromeGeometry.HitTest(
+            x,
+            y,
+            ClientSize.Width,
+            ClientSize.Height,
+            RenderTheme);
+        if (hit.Region != SpreadsheetChromeRegion.Body)
+        {
+            Cursor = Cursors.Default;
+            return;
+        }
+
+        var analyticsHit = SpreadsheetAnalyticsHitTester.HitTest(
+            _viewport.GetAnalyticsInteractionTargets(_lastLayout),
+            new PointD(hit.BodyX, hit.BodyY),
+            _session.AnalyticsInteraction.SelectedItem);
+        Cursor = analyticsHit.HasValue
+            ? GetAnalyticsCursor(analyticsHit.Value.Handle)
+            : Cursors.Default;
     }
 
     private static Cursor GetResizeCursor(WorksheetAxis axis) =>
         axis == WorksheetAxis.Row ? Cursors.SizeNS : Cursors.SizeWE;
+
+    private static Cursor GetAnalyticsCursor(
+        SpreadsheetAnalyticsResizeHandle handle) =>
+        handle switch
+        {
+            SpreadsheetAnalyticsResizeHandle.Move => Cursors.SizeAll,
+            SpreadsheetAnalyticsResizeHandle.North or
+                SpreadsheetAnalyticsResizeHandle.South => Cursors.SizeNS,
+            SpreadsheetAnalyticsResizeHandle.East or
+                SpreadsheetAnalyticsResizeHandle.West => Cursors.SizeWE,
+            SpreadsheetAnalyticsResizeHandle.NorthWest or
+                SpreadsheetAnalyticsResizeHandle.SouthEast => Cursors.SizeNWSE,
+            SpreadsheetAnalyticsResizeHandle.NorthEast or
+                SpreadsheetAnalyticsResizeHandle.SouthWest => Cursors.SizeNESW,
+            _ => Cursors.Default,
+        };
 
     private void EnsureSelectedGpuRenderer()
     {
@@ -734,6 +880,10 @@ public sealed class NeraSpreadsheetControl : Control
     private SpreadsheetViewportEngine EnsureViewport() => _viewport ??= new SpreadsheetViewportEngine(
         _session ?? throw new InvalidOperationException("A spreadsheet session is required."));
 
+    private SpreadsheetAnalyticsViewportInteractionController EnsureAnalyticsInput() =>
+        _analyticsInput ??= new SpreadsheetAnalyticsViewportInteractionController(
+            EnsureViewport());
+
     private void SetSession(SpreadsheetSession? value)
     {
         if (ReferenceEquals(_session, value))
@@ -743,6 +893,9 @@ public sealed class NeraSpreadsheetControl : Control
         DetachSessionEvents();
         _session = value;
         _viewport = value is null ? null : new SpreadsheetViewportEngine(value);
+        _analyticsInput = _viewport is null
+            ? null
+            : new SpreadsheetAnalyticsViewportInteractionController(_viewport);
         _cellEditor = value?.Editor;
         _lastLayout = null;
         _headerResize = null;
@@ -762,6 +915,9 @@ public sealed class NeraSpreadsheetControl : Control
         _session.ActiveWorksheetChanged += OnActiveWorksheetChanged;
         _session.Selection.Changed += OnSelectionChanged;
         _session.View.Changed += OnViewChanged;
+        _session.Analytics.Changed += OnAnalyticsChanged;
+        _session.AnalyticsPlacements.Changed += OnAnalyticsPlacementChanged;
+        _session.AnalyticsInteraction.Changed += OnAnalyticsInteractionChanged;
         EnsureWorksheetSubscription();
     }
 
@@ -772,6 +928,9 @@ public sealed class NeraSpreadsheetControl : Control
             _session.ActiveWorksheetChanged -= OnActiveWorksheetChanged;
             _session.Selection.Changed -= OnSelectionChanged;
             _session.View.Changed -= OnViewChanged;
+            _session.Analytics.Changed -= OnAnalyticsChanged;
+            _session.AnalyticsPlacements.Changed -= OnAnalyticsPlacementChanged;
+            _session.AnalyticsInteraction.Changed -= OnAnalyticsInteractionChanged;
         }
         DetachWorksheetSubscription();
     }
@@ -833,6 +992,31 @@ public sealed class NeraSpreadsheetControl : Control
         UpdateEditorBounds();
         Invalidate();
     }
+
+    private void OnAnalyticsChanged(
+        object? sender,
+        SpreadsheetAnalyticsChangedEventArgs e)
+    {
+        if (_session is not null &&
+            ReferenceEquals(e.Worksheet, _session.ActiveWorksheet))
+        {
+            Invalidate();
+        }
+    }
+
+    private void OnAnalyticsPlacementChanged(
+        object? sender,
+        SpreadsheetAnalyticsPlacementChangedEventArgs e)
+    {
+        if (_session is not null &&
+            ReferenceEquals(e.Worksheet, _session.ActiveWorksheet))
+        {
+            Invalidate();
+        }
+    }
+
+    private void OnAnalyticsInteractionChanged(object? sender, EventArgs e) =>
+        Invalidate();
 
     private void OnCellsChanged(object? sender, CellsChangedEventArgs e)
     {
