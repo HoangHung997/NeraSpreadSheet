@@ -1,19 +1,20 @@
 using System.Text.Json;
-using Android.Graphics;
-using Android.Views;
 using AndroidX.Core.View;
 using Microsoft.Maui.Controls;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Maui;
 using SkiaSharp.Views.Maui;
+using AndroidLog = global::Android.Util.Log;
+using AndroidRect = global::Android.Graphics.Rect;
+using AndroidView = global::Android.Views.View;
 
 namespace NeraSpreadSheet.Maui.Android.AnalyticsSmoke;
 
 internal sealed class SmokePage : ContentPage, IDisposable
 {
-    private const string LogTag = "NeraAndroidAnalyticsSmoke";
-    private const int RootVirtualViewId = Android.Views.View.NoId;
+    private const string LogTag = "NeraAnalyticsSmoke";
+    private const int RootVirtualViewId = AndroidView.NoId;
     private const int FirstAnalyticsVirtualViewId = 1;
     private const int ActionClickId = 16;
     private const int ActionAccessibilityFocusId = 64;
@@ -113,7 +114,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     private static void ValidateLoadedHost(NeraSpreadsheetView view)
     {
-        Require(view.Handler?.PlatformView is Android.Views.View,
+        Require(view.Handler?.PlatformView is AndroidView,
             "The Android analytics smoke did not receive a native Android View.");
         Require(view.GRContext is not null,
             "The Android analytics smoke did not receive a live Skia GRContext.");
@@ -158,7 +159,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     private void ValidateNativeAccessibility(NeraSpreadsheetView view)
     {
-        var host = view.Handler?.PlatformView as Android.Views.View
+        var host = view.Handler?.PlatformView as AndroidView
             ?? throw new InvalidOperationException(
                 "The Android analytics smoke lost its native Android View.");
         var projectedNode = view.AnalyticsAccessibilityNodes.Single();
@@ -197,7 +198,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Require(!child.Selected,
             "The Android virtual chart was selected before ACTION_CLICK.");
 
-        using var bounds = new Rect();
+        using var bounds = new AndroidRect();
         child.GetBoundsInScreen(bounds);
         Require(!bounds.IsEmpty,
             "The Android virtual chart exposed empty screen bounds.");
@@ -259,7 +260,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             return;
         }
 
-        Android.Util.Log.Info(LogTag, JsonSerializer.Serialize(result));
+        AndroidLog.Info(LogTag, JsonSerializer.Serialize(result));
     }
 
     private void Fail(Exception exception)
@@ -269,7 +270,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             return;
         }
 
-        Android.Util.Log.Error(
+        AndroidLog.Error(
             LogTag,
             JsonSerializer.Serialize(new
             {
