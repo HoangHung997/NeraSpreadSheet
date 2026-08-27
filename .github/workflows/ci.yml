@@ -155,6 +155,17 @@ jobs:
           export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
           mkdir -p "$ANDROID_AVD_HOME"
 
+          print_runtime_diagnostics() {
+            echo "--- package process ---"
+            "$ADB" shell pidof "$PACKAGE" || true
+            echo "--- resolved launcher ---"
+            "$ADB" shell cmd package resolve-activity --brief -c android.intent.category.LAUNCHER "$PACKAGE" || true
+            echo "--- foreground/activity state ---"
+            "$ADB" shell dumpsys activity activities | grep -E -A 20 -B 5 "$PACKAGE|mResumedActivity|topResumedActivity" || true
+            echo "--- targeted app/runtime logcat ---"
+            "$ADB" logcat -d | grep -E -i "$LOG_TAG|$PACKAGE|AndroidRuntime|mono-rt|dotnet|crash|FATAL EXCEPTION" | tail -n 400 || true
+          }
+
           echo "ANDROID_USER_HOME=$ANDROID_USER_HOME"
           echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
@@ -185,6 +196,7 @@ jobs:
             -noaudio \
             -no-boot-anim \
             -no-snapshot \
+            -no-metrics \
             -gpu swiftshader_indirect \
             -accel "$ACCEL" \
             >"$EMULATOR_LOG" 2>&1 &
@@ -228,7 +240,37 @@ jobs:
 
           timeout 120 "$ADB" install -r "$APK"
           "$ADB" logcat -c
-          "$ADB" shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 >/dev/null
+
+          RESOLVED_OUTPUT="$("$ADB" shell cmd package resolve-activity --brief -c android.intent.category.LAUNCHER "$PACKAGE" | tr -d '\r' || true)"
+          printf '%s\n' "$RESOLVED_OUTPUT"
+          ACTIVITY="$(printf '%s\n' "$RESOLVED_OUTPUT" | grep -E '^[A-Za-z0-9_.]+/[A-Za-z0-9_.$]+' | tail -n 1 || true)"
+          if [ -z "$ACTIVITY" ]; then
+            echo "Android analytics smoke package has no resolvable launcher activity."
+            "$ADB" shell dumpsys package "$PACKAGE" | head -n 300 || true
+            exit 1
+          fi
+
+          echo "Launching Android analytics smoke activity: $ACTIVITY"
+          if ! timeout 60 "$ADB" shell am start -W -S -n "$ACTIVITY"; then
+            echo "Android analytics smoke launcher failed."
+            print_runtime_diagnostics
+            exit 1
+          fi
+
+          PID=""
+          for _ in $(seq 1 20); do
+            PID="$("$ADB" shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' | awk '{print $1}')"
+            if [ -n "$PID" ]; then
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$PID" ]; then
+            echo "Android analytics smoke process did not stay alive after launch."
+            print_runtime_diagnostics
+            exit 1
+          fi
+          echo "Android analytics smoke PID: $PID"
 
           for _ in $(seq 1 60); do
             OUTPUT="$("$ADB" logcat -d -s "$LOG_TAG:I" '*:S' || true)"
@@ -239,14 +281,22 @@ jobs:
             fi
             if printf '%s\n' "$OUTPUT" | grep -Fq '"status":"failure"'; then
               printf '%s\n' "$OUTPUT"
+              print_runtime_diagnostics
               "$ADB" shell am force-stop "$PACKAGE" || true
+              exit 1
+            fi
+
+            CURRENT_PID="$("$ADB" shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' | awk '{print $1}')"
+            if [ -z "$CURRENT_PID" ]; then
+              echo "Android analytics smoke process exited before producing a result marker."
+              print_runtime_diagnostics
               exit 1
             fi
             sleep 2
           done
 
           echo "Android analytics accessibility smoke timed out."
-          "$ADB" logcat -d | tail -n 300 || true
+          print_runtime_diagnostics
           tail -n 200 "$EMULATOR_LOG" || true
           "$ADB" shell am force-stop "$PACKAGE" || true
           exit 1
