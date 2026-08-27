@@ -54,6 +54,16 @@ public sealed class DesktopAnalyticsAccessibilitySmokeTests
             var session = control.Session ??
                 throw new AssertFailedException(
                     "The WinForms spreadsheet session was not created.");
+            ForceWinFormsPaint(control);
+            var root = control.AccessibilityObject;
+            Assert.AreEqual(System.Windows.Forms.AccessibleRole.Table, root.Role);
+            Assert.AreEqual("Spreadsheet", root.Name);
+            var baselineChildCount = root.GetChildCount();
+            Assert.IsFalse(
+                EnumerateWinFormsChildren(root)
+                    .Any(candidate => candidate?.Name == "AccessibleChart"),
+                "The WinForms accessibility tree exposed an analytics child before insertion.");
+
             var chart = session.Analytics.InsertChart(
                 new CellRange(
                     new CellAddress(0, 0),
@@ -64,14 +74,8 @@ public sealed class DesktopAnalyticsAccessibilitySmokeTests
             var item = SpreadsheetAnalyticsItemKey.ForChart(chart.Id);
 
             ForceWinFormsPaint(control);
-
-            var root = control.AccessibilityObject;
-            Assert.AreEqual(System.Windows.Forms.AccessibleRole.Table, root.Role);
-            Assert.AreEqual("Spreadsheet", root.Name);
-            Assert.IsTrue(root.GetChildCount() >= 1);
-
-            var child = Enumerable.Range(0, root.GetChildCount())
-                .Select(root.GetChild)
+            Assert.AreEqual(baselineChildCount + 1, root.GetChildCount());
+            var child = EnumerateWinFormsChildren(root)
                 .SingleOrDefault(candidate => candidate?.Name == "AccessibleChart") ??
                 throw new AssertFailedException(
                     "The WinForms accessibility root did not expose its chart child.");
@@ -91,6 +95,14 @@ public sealed class DesktopAnalyticsAccessibilitySmokeTests
             Assert.AreSame(child, root.HitTest(
                 child.Bounds.Left + (child.Bounds.Width / 2),
                 child.Bounds.Top + (child.Bounds.Height / 2)));
+
+            Assert.IsTrue(session.Analytics.RemoveChart(chart.Id));
+            ForceWinFormsPaint(control);
+            Assert.AreEqual(baselineChildCount, root.GetChildCount());
+            Assert.IsFalse(
+                EnumerateWinFormsChildren(root)
+                    .Any(candidate => candidate?.Name == "AccessibleChart"),
+                "The WinForms accessibility tree retained a removed analytics child.");
 
             form.Close();
             WinFormsApplication.DoEvents();
@@ -127,6 +139,21 @@ public sealed class DesktopAnalyticsAccessibilitySmokeTests
                 var session = control.Session ??
                     throw new AssertFailedException(
                         "The WPF spreadsheet session was not created.");
+                var rootPeer = WpfUIElementAutomationPeer.CreatePeerForElement(control) ??
+                    throw new AssertFailedException(
+                        "The WPF spreadsheet did not create an AutomationPeer.");
+                Assert.AreEqual(
+                    WpfAutomationControlType.DataGrid,
+                    rootPeer.GetAutomationControlType());
+                Assert.AreEqual("Spreadsheet", rootPeer.GetName());
+                var baselineChildren = rootPeer.GetChildren() ?? [];
+                Assert.IsFalse(
+                    baselineChildren.Any(peer =>
+                        peer.GetAutomationId().StartsWith(
+                            "analytics-",
+                            StringComparison.Ordinal)),
+                    "The WPF automation tree exposed an analytics child before insertion.");
+
                 var chart = session.Analytics.InsertChart(
                     new CellRange(
                         new CellAddress(0, 0),
@@ -137,16 +164,10 @@ public sealed class DesktopAnalyticsAccessibilitySmokeTests
                 var item = SpreadsheetAnalyticsItemKey.ForChart(chart.Id);
                 FlushWpf(window, control);
 
-                var rootPeer = WpfUIElementAutomationPeer.CreatePeerForElement(control) ??
-                    throw new AssertFailedException(
-                        "The WPF spreadsheet did not create an AutomationPeer.");
-                Assert.AreEqual(
-                    WpfAutomationControlType.DataGrid,
-                    rootPeer.GetAutomationControlType());
-                Assert.AreEqual("Spreadsheet", rootPeer.GetName());
-
                 var automationId = $"analytics-chart-{item.Id:N}";
-                var child = (rootPeer.GetChildren() ?? [])
+                var childrenAfterInsert = rootPeer.GetChildren() ?? [];
+                Assert.AreEqual(baselineChildren.Count + 1, childrenAfterInsert.Count);
+                var child = childrenAfterInsert
                     .SingleOrDefault(peer => peer.GetAutomationId() == automationId) ??
                     throw new AssertFailedException(
                         "The WPF AutomationPeer did not expose its chart child.");
@@ -192,6 +213,14 @@ public sealed class DesktopAnalyticsAccessibilitySmokeTests
                 Assert.AreEqual(moved.Y, resized.Y, 1e-6);
                 Assert.AreEqual(moved.Width + 20d, resized.Width, 1e-6);
                 Assert.AreEqual(moved.Height + 10d, resized.Height, 1e-6);
+
+                Assert.IsTrue(session.Analytics.RemoveChart(chart.Id));
+                FlushWpf(window, control);
+                var childrenAfterRemove = rootPeer.GetChildren() ?? [];
+                Assert.AreEqual(baselineChildren.Count, childrenAfterRemove.Count);
+                Assert.IsFalse(
+                    childrenAfterRemove.Any(peer => peer.GetAutomationId() == automationId),
+                    "The WPF automation tree retained a removed analytics child.");
             }
             finally
             {
@@ -203,6 +232,11 @@ public sealed class DesktopAnalyticsAccessibilitySmokeTests
             }
         });
     }
+
+    private static IEnumerable<System.Windows.Forms.AccessibleObject?> EnumerateWinFormsChildren(
+        System.Windows.Forms.AccessibleObject root) =>
+        Enumerable.Range(0, root.GetChildCount())
+            .Select(root.GetChild);
 
     private static Workbook CreateWorkbook()
     {
