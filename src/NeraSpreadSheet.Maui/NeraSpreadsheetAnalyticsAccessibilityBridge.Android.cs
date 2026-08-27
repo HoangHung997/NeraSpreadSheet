@@ -521,19 +521,32 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
                 return;
             }
 
-            using var accessibilityEvent = new AccessibilityEvent((int)eventType)
+            using var accessibilityEvent = CreateAccessibilityEvent(eventType);
+            if (accessibilityEvent is null)
             {
-                PackageName = _host.Context?.PackageName,
-                ClassName = snapshot?.Node.Role == SpreadsheetAnalyticsAccessibleRole.PivotTable
-                    ? "android.widget.TableLayout"
-                    : "android.view.View",
-            };
+                return;
+            }
+
+            accessibilityEvent.PackageName = _host.Context?.PackageName;
+            accessibilityEvent.ClassName = snapshot?.Node.Role == SpreadsheetAnalyticsAccessibleRole.PivotTable
+                ? "android.widget.TableLayout"
+                : "android.view.View";
             if (snapshot is not null)
             {
                 accessibilityEvent.ContentDescription = snapshot.ContentDescription;
             }
             accessibilityEvent.SetSource(_host, virtualViewId);
             parent.RequestSendAccessibilityEvent(_host, accessibilityEvent);
+        }
+
+        private static AccessibilityEvent? CreateAccessibilityEvent(EventTypes eventType)
+        {
+            if (OperatingSystem.IsAndroidVersionAtLeast(30))
+            {
+                return new AccessibilityEvent((int)eventType);
+            }
+
+            return AccessibilityEvent.Obtain(eventType);
         }
 
         private int GetOrCreateVirtualId(SpreadsheetAnalyticsItemKey item)
