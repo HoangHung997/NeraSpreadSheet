@@ -7,6 +7,9 @@ namespace NeraSpreadSheet.Interaction.Tests;
 [TestClass]
 public sealed class SpreadsheetAnalyticsKeyboardAccessibilityTests
 {
+    private static readonly string[] ExpectedActions =
+        ["Select", "Move", "Resize", "Delete"];
+
     [TestMethod]
     public void KeyboardMapperUsesDeterministicMoveResizeAndAccelerationSemantics()
     {
@@ -79,8 +82,6 @@ public sealed class SpreadsheetAnalyticsKeyboardAccessibilityTests
         Assert.AreEqual(SpreadsheetAnalyticsAccessibleRole.PivotTable, nodes[1].Role);
         Assert.IsTrue(nodes[1].IsSelected);
         Assert.IsTrue(nodes[1].IsPartiallyClipped);
-        CollectionAssert.AreEqual(
-            new[] { "Select", "Move", "Resize", "Delete" },
-            nodes[1].Actions.ToArray());
+        CollectionAssert.AreEqual(ExpectedActions, nodes[1].Actions.ToArray());
     }
 }
