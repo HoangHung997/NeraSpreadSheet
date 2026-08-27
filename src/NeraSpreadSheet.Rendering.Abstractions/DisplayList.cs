@@ -26,6 +26,11 @@ public sealed class DisplayListBuilder
     public void FillRectangle(RectD bounds, ColorRgba color) =>
         _commands.Add(new FillRectangleCommand(bounds, color));
 
+    public void FillPolygon(
+        IEnumerable<PointD> points,
+        ColorRgba color) =>
+        _commands.Add(new FillPolygonCommand(points, color));
+
     public void DrawLine(PointD start, PointD end, double strokeWidth, ColorRgba color)
     {
         if (!double.IsFinite(strokeWidth) || strokeWidth <= 0d)
