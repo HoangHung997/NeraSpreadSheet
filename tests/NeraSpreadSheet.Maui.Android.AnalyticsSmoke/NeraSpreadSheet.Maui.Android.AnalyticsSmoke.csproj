@@ -15,7 +15,7 @@
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <AndroidLinkMode>None</AndroidLinkMode>
     <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
-    <AotAssemblies>false</AotAssemblies>
+    <RunAOTCompilation>false</RunAOTCompilation>
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
     <IsPackable>false</IsPackable>
     <Description>Loaded MAUI Android TalkBack virtual analytics accessibility smoke for NeraSpreadSheet. AOT is intentionally disabled only for this host-level runtime probe so native accessibility can be isolated from x86_64 Release-AOT startup failures; the production Android target remains built separately in Release.</Description>
