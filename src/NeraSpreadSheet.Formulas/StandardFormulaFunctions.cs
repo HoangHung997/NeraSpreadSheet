@@ -50,6 +50,10 @@ internal static class StandardFormulaFunctions
         {
             yield return function;
         }
+        foreach (var function in F018InfoAndStatisticalFormulaFunctions.Create())
+        {
+            yield return function;
+        }
         foreach (var function in TextFormulaFunctions.Create())
         {
             yield return function;
