@@ -114,7 +114,7 @@ public sealed class NeraSpreadsheetAnalyticsTouchRouterTests
         Assert.IsFalse(harness.Process(
             0L,
             SKTouchAction.WheelChanged,
-            PointD.Zero,
+            new PointD(0d, 0d),
             isBodyRegion: false,
             wheelDelta: -120));
         Assert.IsFalse(harness.Router.HasActiveTouch);
