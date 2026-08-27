@@ -1,17 +1,20 @@
 using System.Runtime.CompilerServices;
 using Microsoft.Maui;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation.Peers;
-using Microsoft.UI.Xaml.Controls;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Maui;
 using NeraSpreadSheet.Rendering.Spreadsheet;
 using SkiaSharp.Views.Maui.Handlers;
-using SkiaSharp.Views.Windows;
 using MauiAutomationProperties = Microsoft.Maui.Controls.AutomationProperties;
 using MauiSemanticProperties = Microsoft.Maui.Controls.SemanticProperties;
+using WinAccessibilityView = Microsoft.UI.Xaml.Automation.Peers.AccessibilityView;
+using WinAutomationControlType = Microsoft.UI.Xaml.Automation.Peers.AutomationControlType;
 using WinAutomationProperties = Microsoft.UI.Xaml.Automation.AutomationProperties;
+using WinButton = Microsoft.UI.Xaml.Controls.Button;
+using WinButtonAutomationPeer = Microsoft.UI.Xaml.Automation.Peers.ButtonAutomationPeer;
+using WinPatternInterface = Microsoft.UI.Xaml.Automation.Peers.PatternInterface;
+using WinSwapChainPanel = SkiaSharp.Views.Windows.SKSwapChainPanel;
+using WinVisibility = Microsoft.UI.Xaml.Visibility;
 
 namespace NeraSpreadSheet.Maui.Windows.AnalyticsSmoke;
 
@@ -96,7 +99,7 @@ internal static class NativeAccessibilitySmokeProbe
         }
     }
 
-    private static int Validate(
+    private static void Validate(
         NeraSpreadsheetView view,
         SpreadsheetAnalyticsAccessibleNode node,
         int surfaceWidth,
@@ -114,11 +117,11 @@ internal static class NativeAccessibilitySmokeProbe
             !expectedSelected || semanticDescription.Contains("Đang chọn", StringComparison.Ordinal),
             "The loaded MAUI spreadsheet semantic description did not reflect analytics selection.");
 
-        var panel = view.Handler?.PlatformView as SKSwapChainPanel
+        var panel = view.Handler?.PlatformView as WinSwapChainPanel
             ?? throw new InvalidOperationException(
                 "The loaded analytics view did not resolve to the native Windows SKSwapChainPanel.");
         var proxy = panel.Children
-            .OfType<Button>()
+            .OfType<WinButton>()
             .SingleOrDefault(child =>
                 string.Equals(
                     WinAutomationProperties.GetAutomationId(child),
@@ -131,10 +134,10 @@ internal static class NativeAccessibilitySmokeProbe
             "The native analytics accessibility proxy must not intercept spreadsheet pointer input.");
         Require(!proxy.IsTabStop,
             "The native analytics accessibility proxy must not create a duplicate tab stop.");
-        Require(proxy.Visibility == Visibility.Visible,
+        Require(proxy.Visibility == WinVisibility.Visible,
             "The visible analytics item was collapsed in the native accessibility layer.");
         Require(
-            WinAutomationProperties.GetAccessibilityView(proxy) == AccessibilityView.Content,
+            WinAutomationProperties.GetAccessibilityView(proxy) == WinAccessibilityView.Content,
             "The native analytics accessibility proxy was not exposed in the content view.");
         Require(
             WinAutomationProperties.GetName(proxy) == node.Name,
@@ -142,8 +145,8 @@ internal static class NativeAccessibilitySmokeProbe
         Require(
             WinAutomationProperties.GetAutomationControlType(proxy) ==
                 (node.Role == SpreadsheetAnalyticsAccessibleRole.PivotTable
-                    ? AutomationControlType.Table
-                    : AutomationControlType.Group),
+                    ? WinAutomationControlType.Table
+                    : WinAutomationControlType.Group),
             "The native analytics accessibility role did not match the host-neutral node.");
         Require(
             WinAutomationProperties.GetPositionInSet(proxy) == 1 &&
@@ -157,7 +160,7 @@ internal static class NativeAccessibilitySmokeProbe
 
         ValidateBounds(view, node, proxy, surfaceWidth, surfaceHeight);
 
-        var peer = new ButtonAutomationPeer(proxy);
+        var peer = new WinButtonAutomationPeer(proxy);
         Require(peer.GetName() == node.Name,
             "The native UI Automation peer returned the wrong analytics name.");
         Require(peer.GetAutomationId() == node.AutomationId,
@@ -165,37 +168,35 @@ internal static class NativeAccessibilitySmokeProbe
         Require(
             peer.GetAutomationControlType() ==
                 (node.Role == SpreadsheetAnalyticsAccessibleRole.PivotTable
-                    ? AutomationControlType.Table
-                    : AutomationControlType.Group),
+                    ? WinAutomationControlType.Table
+                    : WinAutomationControlType.Group),
             "The native UI Automation peer returned the wrong analytics control type.");
         Require(
-            peer.GetPattern(PatternInterface.Invoke) is not null,
+            peer.GetPattern(WinPatternInterface.Invoke) is not null,
             "The native analytics accessibility child did not expose the Invoke pattern.");
-
-        return RuntimeHelpers.GetHashCode(proxy);
     }
 
     private static void Invoke(
         NeraSpreadsheetView view,
         SpreadsheetAnalyticsAccessibleNode node)
     {
-        var panel = view.Handler?.PlatformView as SKSwapChainPanel
+        var panel = view.Handler?.PlatformView as WinSwapChainPanel
             ?? throw new InvalidOperationException(
                 "The loaded analytics view lost its native Windows platform view.");
         var proxy = panel.Children
-            .OfType<Button>()
+            .OfType<WinButton>()
             .Single(child =>
                 string.Equals(
                     WinAutomationProperties.GetAutomationId(child),
                     node.AutomationId,
                     StringComparison.Ordinal));
-        new ButtonAutomationPeer(proxy).Invoke();
+        new WinButtonAutomationPeer(proxy).Invoke();
     }
 
     private static void ValidateBounds(
         NeraSpreadsheetView view,
         SpreadsheetAnalyticsAccessibleNode node,
-        Button proxy,
+        WinButton proxy,
         int surfaceWidth,
         int surfaceHeight)
     {
