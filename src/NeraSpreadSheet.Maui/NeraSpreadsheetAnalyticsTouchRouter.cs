@@ -45,9 +45,9 @@ internal sealed class NeraSpreadsheetAnalyticsTouchRouter
     {
         ArgumentNullException.ThrowIfNull(input);
 
-        if (_activeTouchId.HasValue)
+        if (_activeTouchId is long ownedTouchId)
         {
-            return ProcessOwnedTouch(input, bodyPoint);
+            return ProcessOwnedTouch(input, bodyPoint, ownedTouchId);
         }
 
         if (input.ActionType != SKTouchAction.Pressed || !isBodyRegion)
@@ -84,9 +84,10 @@ internal sealed class NeraSpreadsheetAnalyticsTouchRouter
 
     private bool ProcessOwnedTouch(
         SKTouchEventArgs input,
-        PointD bodyPoint)
+        PointD bodyPoint,
+        long ownedTouchId)
     {
-        if (input.Id != _activeTouchId.Value)
+        if (input.Id != ownedTouchId)
         {
             return true;
         }
