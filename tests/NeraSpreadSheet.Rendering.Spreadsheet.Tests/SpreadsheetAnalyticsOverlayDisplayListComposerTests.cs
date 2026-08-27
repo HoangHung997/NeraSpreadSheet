@@ -12,7 +12,7 @@ public sealed class SpreadsheetAnalyticsOverlayDisplayListComposerTests
     [TestMethod]
     public void OverlayUsesViewportTranslationAndSelectionHandles()
     {
-        var worksheet = new Worksheet("Sheet1");
+        var worksheet = new Workbook().Worksheets[0];
         PopulateSource(worksheet);
         var chart = new SpreadsheetChartDefinition(
             Guid.NewGuid(),
@@ -57,7 +57,7 @@ public sealed class SpreadsheetAnalyticsOverlayDisplayListComposerTests
     [TestMethod]
     public void OverlayDuplicatesContentOnlyForVisibleFreezeFragments()
     {
-        var worksheet = new Worksheet("Sheet1");
+        var worksheet = new Workbook().Worksheets[0];
         PopulateSource(worksheet);
         var pivot = new SpreadsheetPivotDefinition(
             Guid.NewGuid(),
@@ -98,7 +98,7 @@ public sealed class SpreadsheetAnalyticsOverlayDisplayListComposerTests
     [TestMethod]
     public void MissingDefinitionIsIgnoredWithoutLeakingRenderState()
     {
-        var worksheet = new Worksheet("Sheet1");
+        var worksheet = new Workbook().Worksheets[0];
         var placement = new SpreadsheetAnalyticsPlacement(
             SpreadsheetAnalyticsItemKey.ForChart(Guid.NewGuid()),
             new RectD(10d, 10d, 240d, 160d),
