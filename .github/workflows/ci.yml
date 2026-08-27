@@ -149,8 +149,9 @@ jobs:
           SYSTEM_IMAGE="system-images;android-35;google_apis;x86_64"
           EMULATOR_LOG="$RUNNER_TEMP/nera-android-emulator.log"
           PACKAGE="com.neraspreadsheet.androidanalyticssmoke"
-          LOG_TAG="NeraAndroidAnalyticsSmoke"
+          LOG_TAG="NeraAnalyticsSmoke"
 
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "emulator" "$SYSTEM_IMAGE"
           echo no | "$AVDMANAGER" create avd -f -n "$AVD_NAME" -k "$SYSTEM_IMAGE"
           sudo chmod 666 /dev/kvm || true
