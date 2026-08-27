@@ -37,6 +37,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private SmokeStage _stage;
     private int _frameCount;
     private int _finished;
+    private int _touchValidationStarted;
     private int _surfaceWidth;
     private int _surfaceHeight;
     private int _historyBeforeDrag;
@@ -122,7 +123,13 @@ internal sealed class SmokePage : ContentPage, IDisposable
                     QueueTouchTransform(view);
                     break;
                 case SmokeStage.AwaitTouchValidation when Volatile.Read(ref _touchApplied):
-                    ValidateTouchAndComplete(view);
+                    if (Interlocked.CompareExchange(
+                            ref _touchValidationStarted,
+                            1,
+                            0) == 0)
+                    {
+                        ValidateTouchAndComplete(view);
+                    }
                     break;
             }
         }
@@ -428,6 +435,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 activeHandleAfterPress = _activeHandleAfterPress.ToString(),
                 historyBeforeDrag = _historyBeforeDrag,
                 historyAfterRelease = _historyAfterRelease,
+                touchValidationStarted = Volatile.Read(ref _touchValidationStarted),
                 surfaceWidth = _surfaceWidth,
                 surfaceHeight = _surfaceHeight,
                 viewportWidth = _view?.Width,
