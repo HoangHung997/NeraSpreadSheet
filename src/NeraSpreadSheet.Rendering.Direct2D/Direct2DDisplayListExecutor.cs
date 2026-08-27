@@ -6,7 +6,6 @@ using SharpGen.Runtime;
 using Vortice.Direct2D1;
 using Vortice.DirectWrite;
 using Vortice.Mathematics;
-using static Vortice.Direct2D1.D2D1;
 using static Vortice.DirectWrite.DWrite;
 
 namespace NeraSpreadSheet.Rendering.Direct2D;
@@ -21,10 +20,12 @@ internal sealed class Direct2DDisplayListExecutor : IDisposable
     private ID2D1RenderTarget? _brushTarget;
     private bool _disposed;
 
-    public Direct2DDisplayListExecutor(int textLayoutCacheCapacity)
+    public Direct2DDisplayListExecutor(
+        ID2D1Factory1 d2dFactory,
+        int textLayoutCacheCapacity)
     {
+        _d2dFactory = d2dFactory ?? throw new ArgumentNullException(nameof(d2dFactory));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(textLayoutCacheCapacity);
-        _d2dFactory = D2D1CreateFactory<ID2D1Factory1>();
         _writeFactory = DWriteCreateFactory<IDWriteFactory1>();
         _textLayouts = new BoundedLruCache<TextLayoutKey, IDWriteTextLayout>(
             textLayoutCacheCapacity,
@@ -96,7 +97,6 @@ internal sealed class Direct2DDisplayListExecutor : IDisposable
         }
         _textFormats.Clear();
         _writeFactory.Dispose();
-        _d2dFactory.Dispose();
         _disposed = true;
     }
 
