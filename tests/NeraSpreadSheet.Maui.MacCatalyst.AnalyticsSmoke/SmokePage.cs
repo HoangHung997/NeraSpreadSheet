@@ -147,7 +147,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                     sourceRange,
                     rowFieldColumnIndex: 0,
                     valueFieldColumnIndex: 1,
-                    SpreadsheetPivotAggregation.Sum,
+                    aggregation: SpreadsheetPivotAggregation.Sum,
                     requestedName: "MacAccessibilityPivot");
                 _chartItem = SpreadsheetAnalyticsItemKey.ForChart(chart.Id);
                 _pivotItem = SpreadsheetAnalyticsItemKey.ForPivot(pivot.Id);
@@ -266,7 +266,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 frame.Height > 0d,
             $"The native Mac Catalyst {itemKind} element exposed invalid screen bounds.");
 
-        using var activationSelector = new Selector("accessibilityActivate");
+        var activationSelector = new Selector("accessibilityActivate");
         Require(element.RespondsToSelector(activationSelector),
             $"The native Mac Catalyst {itemKind} element does not expose accessibilityActivate.");
     }
@@ -277,7 +277,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
         SpreadsheetAnalyticsItemKey expectedItem,
         string itemKind)
     {
-        using var activationSelector = new Selector("accessibilityActivate");
+        var activationSelector = new Selector("accessibilityActivate");
         Require(
             UIApplication.SharedApplication.SendAction(
                 activationSelector,
