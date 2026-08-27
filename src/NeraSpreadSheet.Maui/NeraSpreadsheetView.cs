@@ -388,6 +388,7 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
         }
 
         _analyticsTouch.CancelAll();
+        NeraSpreadsheetAnalyticsAccessibilityBridge.Detach(this);
         _disposed = true;
         _input.Dispose();
         _gpuLifecycle.Dispose();
