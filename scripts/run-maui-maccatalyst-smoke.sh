@@ -12,6 +12,7 @@ WORK_DIR="${RUNNER_TEMP:-/tmp}/nera-maccatalyst-smoke-launch"
 LAUNCHER="$WORK_DIR/LaunchNeraMacCatalystSmoke.swift"
 INFO_PLIST="$APP/Contents/Info.plist"
 EXPECTED_BUNDLE_ID="com.neraspreadsheet.maccatalystanalyticssmoke"
+RESULT_MARKER="NERA_MAUI_SMOKE_RESULT:"
 
 if [ ! -d "$APP" ]; then
   echo "Mac Catalyst smoke app bundle does not exist: $APP" >&2
@@ -38,6 +39,35 @@ fi
 
 echo "Mac Catalyst smoke bundle id: $BUNDLE_ID"
 echo "Mac Catalyst smoke executable: $PROCESS_NAME"
+
+read_unified_result() {
+  local line
+  line="$(/usr/bin/log show \
+    --style compact \
+    --last 5m \
+    --predicate "process == \"$PROCESS_NAME\"" \
+    2>/dev/null | grep -F "$RESULT_MARKER" | tail -n 1 || true)"
+  if [ -z "$line" ]; then
+    return 1
+  fi
+  printf '%s\n' "${line#*${RESULT_MARKER}}"
+}
+
+consume_unified_result() {
+  local payload status
+  payload="$(read_unified_result || true)"
+  if [ -z "$payload" ]; then
+    return 1
+  fi
+
+  printf '%s\n' "$payload"
+  status="$(printf '%s' "$payload" | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')"
+  if [ "$status" = "success" ]; then
+    return 0
+  fi
+  echo "Mac Catalyst analytics smoke reported status from unified log: $status" >&2
+  return 2
+}
 
 print_diagnostics() {
   echo "--- Mac Catalyst smoke process ---"
@@ -155,12 +185,35 @@ for _ in $(seq 1 90); do
   fi
 
   if ! kill -0 "$APP_PID" 2>/dev/null; then
-    echo "Mac Catalyst smoke exited before producing a result JSON." >&2
+    set +e
+    consume_unified_result
+    LOG_RESULT=$?
+    set -e
+    if [ "$LOG_RESULT" -eq 0 ]; then
+      exit 0
+    fi
+    if [ "$LOG_RESULT" -eq 2 ]; then
+      print_diagnostics
+      exit 1
+    fi
+    echo "Mac Catalyst smoke exited before producing a file or unified-log result marker." >&2
     print_diagnostics
     exit 1
   fi
   sleep 1
 done
+
+set +e
+consume_unified_result
+LOG_RESULT=$?
+set -e
+if [ "$LOG_RESULT" -eq 0 ]; then
+  exit 0
+fi
+if [ "$LOG_RESULT" -eq 2 ]; then
+  print_diagnostics
+  exit 1
+fi
 
 echo "Mac Catalyst analytics accessibility smoke timed out." >&2
 print_diagnostics
