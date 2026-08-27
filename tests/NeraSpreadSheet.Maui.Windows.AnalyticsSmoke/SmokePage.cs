@@ -29,6 +29,10 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private SpreadsheetAnalyticsItemKey _item;
     private RectD _beforeBounds;
     private RectD _expectedMovedBounds;
+    private RectD _lastMovedBounds;
+    private SpreadsheetAnalyticsResizeHandle _activeHandleAfterPress;
+    private PointD _startBody;
+    private PointD _endBody;
     private SmokeStage _stage;
     private int _frameCount;
     private int _finished;
@@ -207,23 +211,24 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 Require(!visible.IsEmpty,
                     "The loaded chart did not expose a visible interaction fragment.");
 
-                var startBody = new PointD(
+                _startBody = new PointD(
                     visible.Left + (visible.Width / 2d),
                     visible.Top + (visible.Height / 2d));
-                var endBody = new PointD(
-                    startBody.X + MoveDeltaX,
-                    startBody.Y + MoveDeltaY);
-                var start = BodyToScreen(view, startBody);
+                _endBody = new PointD(
+                    _startBody.X + MoveDeltaX,
+                    _startBody.Y + MoveDeltaY);
+                var start = BodyToScreen(view, _startBody);
                 var secondary = BodyToScreen(
                     view,
-                    new PointD(startBody.X + 32d, startBody.Y + 24d));
-                var end = BodyToScreen(view, endBody);
+                    new PointD(_startBody.X + 32d, _startBody.Y + 24d));
+                var end = BodyToScreen(view, _endBody);
 
                 ProcessTouch(view, 501L, SKTouchAction.Pressed, start, true);
                 Require(session.AnalyticsInteraction.SelectedItem == _item,
                     "The loaded chart touch press did not select the analytics item.");
                 Require(session.AnalyticsInteraction.IsTransforming,
                     "The loaded chart touch press did not begin a transform.");
+                _activeHandleAfterPress = session.AnalyticsInteraction.Snapshot.ActiveHandle;
 
                 ProcessTouch(view, 502L, SKTouchAction.Pressed, secondary, true);
                 ProcessTouch(view, 502L, SKTouchAction.Released, secondary, false);
@@ -248,8 +253,14 @@ internal sealed class SmokePage : ContentPage, IDisposable
             ?? throw new InvalidOperationException(
                 "The loaded analytics view lost its session after touch input.");
         var moved = session.AnalyticsPlacements.GetPlacement(_item).DocumentBounds;
+        _lastMovedBounds = moved;
         Require(AreClose(moved, _expectedMovedBounds),
-            "The loaded chart touch drag did not commit the expected document bounds.");
+            $"The loaded chart touch drag did not commit the expected document bounds. " +
+            $"actual={FormatRect(moved)} expected={FormatRect(_expectedMovedBounds)} " +
+            $"before={FormatRect(_beforeBounds)} start={FormatPoint(_startBody)} " +
+            $"end={FormatPoint(_endBody)} handle={_activeHandleAfterPress} " +
+            $"zoom={view.Zoom:R} surface={_surfaceWidth}x{_surfaceHeight} " +
+            $"viewport={view.Width:R}x{view.Height:R}.");
         Require(session.History.UndoCount == _historyBeforeDrag + 1,
             "The loaded chart touch drag did not create exactly one undo entry.");
         Require(session.AnalyticsInteraction.SelectedItem == _item,
@@ -353,6 +364,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
             analyticsAutomationId = $"analytics-chart-{_item.Id:N}",
             moveDeltaX = MoveDeltaX,
             moveDeltaY = MoveDeltaY,
+            beforeBounds = _beforeBounds,
+            movedBounds = _lastMovedBounds,
             historyBeforeDrag = _historyBeforeDrag,
             historyAfterRedo = view.Session?.History.UndoCount,
             inputPressed = input.PressedEvents,
@@ -381,6 +394,17 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 status = "failure",
                 stage = _stage.ToString(),
                 frameCount = _frameCount,
+                beforeBounds = _beforeBounds,
+                expectedMovedBounds = _expectedMovedBounds,
+                movedBounds = _lastMovedBounds,
+                startBody = _startBody,
+                endBody = _endBody,
+                activeHandleAfterPress = _activeHandleAfterPress.ToString(),
+                surfaceWidth = _surfaceWidth,
+                surfaceHeight = _surfaceHeight,
+                viewportWidth = _view?.Width,
+                viewportHeight = _view?.Height,
+                zoom = _view?.Zoom,
                 error = exception.ToString(),
             });
         }
@@ -413,6 +437,12 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Math.Abs(actual.Y - expected.Y) <= Tolerance &&
         Math.Abs(actual.Width - expected.Width) <= Tolerance &&
         Math.Abs(actual.Height - expected.Height) <= Tolerance;
+
+    private static string FormatRect(RectD value) =>
+        $"({value.X:R},{value.Y:R},{value.Width:R},{value.Height:R})";
+
+    private static string FormatPoint(PointD value) =>
+        $"({value.X:R},{value.Y:R})";
 
     private static void WriteResult(object result)
     {
