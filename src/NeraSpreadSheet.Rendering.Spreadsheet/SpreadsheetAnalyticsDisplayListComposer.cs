@@ -12,6 +12,7 @@ public static class SpreadsheetAnalyticsDisplayListComposer
     private const double CategoryLabelHeight = 24d;
     private const double PlotPadding = 8d;
     private const double PivotRowHeight = 24d;
+    private const double PieArcStepRadians = Math.PI / 24d;
 
     private static readonly ColorRgba[] SeriesPalette =
     [
@@ -52,13 +53,6 @@ public static class SpreadsheetAnalyticsDisplayListComposer
         {
             return new DisplayListBuilder().Build();
         }
-        if (projection.ChartType == SpreadsheetChartType.Pie)
-        {
-            throw new NotSupportedException(
-                "Pie chart display-list rendering requires a filled-path primitive. " +
-                "The chart model and projection are supported, but phase Q003A " +
-                "does not approximate sectors with host-specific drawing.");
-        }
 
         var builder = new DisplayListBuilder();
         builder.PushClip(bounds);
@@ -76,6 +70,13 @@ public static class SpreadsheetAnalyticsDisplayListComposer
                     Math.Min(TitleHeight, bounds.Height)),
                 TitleStyle);
             contentTop += TitleHeight;
+        }
+
+        if (projection.ChartType == SpreadsheetChartType.Pie)
+        {
+            DrawPieChart(builder, projection, bounds, contentTop);
+            builder.PopClip();
+            return builder.Build();
         }
 
         var plot = CreatePlotBounds(bounds, contentTop);
@@ -253,6 +254,133 @@ public static class SpreadsheetAnalyticsDisplayListComposer
             ColorRgba.GridLine);
         builder.PopClip();
         return builder.Build();
+    }
+
+    private static void DrawPieChart(
+        DisplayListBuilder builder,
+        SpreadsheetChartProjection projection,
+        RectD bounds,
+        double contentTop)
+    {
+        if (projection.Series.Count == 0 ||
+            projection.Series[0].Points.Count == 0)
+        {
+            DrawEmptyState(builder, bounds, contentTop, "No chart data");
+            return;
+        }
+
+        var firstSeries = projection.Series[0];
+        var slices = firstSeries.Points
+            .Where(static point =>
+                point.Value.HasValue &&
+                double.IsFinite(point.Value.Value) &&
+                point.Value.Value > 0d)
+            .ToArray();
+        if (slices.Length == 0)
+        {
+            DrawEmptyState(
+                builder,
+                bounds,
+                contentTop,
+                "Pie requires positive values");
+            return;
+        }
+
+        var total = slices.Sum(static point => point.Value!.Value);
+        if (!double.IsFinite(total) || total <= 0d)
+        {
+            DrawEmptyState(
+                builder,
+                bounds,
+                contentTop,
+                "Pie requires positive values");
+            return;
+        }
+
+        var availableHeight = Math.Max(
+            0d,
+            bounds.Bottom - contentTop - PlotPadding);
+        var availableWidth = Math.Max(
+            0d,
+            bounds.Width - (PlotPadding * 2d));
+        var legendWidth = availableWidth >= 260d
+            ? Math.Min(160d, availableWidth * 0.35d)
+            : 0d;
+        var legendGap = legendWidth > 0d ? PlotPadding : 0d;
+        var pieWidth = Math.Max(
+            0d,
+            availableWidth - legendWidth - legendGap);
+        var diameter = Math.Min(pieWidth, availableHeight) * 0.9d;
+        if (diameter <= 2d)
+        {
+            DrawEmptyState(builder, bounds, contentTop, "Chart area is too small");
+            return;
+        }
+
+        var pieLeft = bounds.Left + PlotPadding;
+        var center = new PointD(
+            pieLeft + (pieWidth / 2d),
+            contentTop + (availableHeight / 2d));
+        var radius = diameter / 2d;
+        var startAngle = -Math.PI / 2d;
+
+        for (var sliceIndex = 0; sliceIndex < slices.Length; sliceIndex++)
+        {
+            var slice = slices[sliceIndex];
+            var sweep = (Math.PI * 2d) *
+                        (slice.Value!.Value / total);
+            var segmentCount = Math.Max(
+                2,
+                checked((int)Math.Ceiling(
+                    sweep / PieArcStepRadians)));
+            var vertices = new List<PointD>(segmentCount + 2)
+            {
+                center,
+            };
+            for (var segment = 0; segment <= segmentCount; segment++)
+            {
+                var angle = startAngle +
+                            (sweep * segment / segmentCount);
+                vertices.Add(new PointD(
+                    center.X + (Math.Cos(angle) * radius),
+                    center.Y + (Math.Sin(angle) * radius)));
+            }
+
+            builder.FillPolygon(vertices, GetSeriesColor(sliceIndex));
+            startAngle += sweep;
+        }
+
+        if (legendWidth <= 0d)
+        {
+            return;
+        }
+
+        var legendLeft = bounds.Right - PlotPadding - legendWidth;
+        var legendTop = contentTop;
+        var legendRowHeight = 22d;
+        for (var sliceIndex = 0; sliceIndex < slices.Length; sliceIndex++)
+        {
+            var y = legendTop + (sliceIndex * legendRowHeight);
+            if (y + legendRowHeight > bounds.Bottom)
+            {
+                break;
+            }
+
+            var color = GetSeriesColor(sliceIndex);
+            builder.FillRectangle(
+                new RectD(legendLeft, y + 4d, 12d, 12d),
+                color);
+            var percentage = (slices[sliceIndex].Value!.Value / total)
+                .ToString("P0", CultureInfo.InvariantCulture);
+            builder.DrawText(
+                $"{slices[sliceIndex].Category} {percentage}",
+                new RectD(
+                    legendLeft + 18d,
+                    y + 2d,
+                    Math.Max(0d, legendWidth - 18d),
+                    Math.Max(0d, legendRowHeight - 2d)),
+                LabelStyle);
+        }
     }
 
     private static RectD CreatePlotBounds(RectD bounds, double contentTop)
