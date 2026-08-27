@@ -71,6 +71,7 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
         IgnorePixelScaling = true;
         EnableTouchEvents = true;
         HasRenderLoop = false;
+        NeraSpreadsheetAnalyticsAccessibilityBridge.Attach(this);
     }
 
     public Workbook? Workbook
