@@ -36,6 +36,7 @@ public sealed class SpreadsheetSession
             this,
             Analytics);
         AnalyticsInteraction = new SpreadsheetAnalyticsInteractionController();
+        Analytics.Changed += OnAnalyticsChanged;
         WorksheetFilter =
             new SpreadsheetWorksheetAutoFilterController(this);
         Editor = new SpreadsheetCellEditorController(this);
@@ -246,6 +247,22 @@ public sealed class SpreadsheetSession
 
     public WorkbookCalculationResult Recalculate() =>
         Calculation.Recalculate(Workbook);
+
+    private void OnAnalyticsChanged(
+        object? sender,
+        SpreadsheetAnalyticsChangedEventArgs e)
+    {
+        if (e.ChangeKind is not
+                (SpreadsheetAnalyticsChangeKind.ChartRemoved or
+                 SpreadsheetAnalyticsChangeKind.PivotRemoved) ||
+            AnalyticsInteraction.SelectedItem is not { } selected ||
+            selected.Id != e.ItemId)
+        {
+            return;
+        }
+
+        AnalyticsInteraction.ClearSelection();
+    }
 
     private void RecalculateAfterHistoryOperation(
         IUndoableOperation? operation)
