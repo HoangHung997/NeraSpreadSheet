@@ -145,6 +145,7 @@ jobs:
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
           EMULATOR="$ANDROID_HOME/emulator/emulator"
+          ADB="$ANDROID_HOME/platform-tools/adb"
           AVD_NAME="nera-analytics-smoke"
           SYSTEM_IMAGE="system-images;android-35;google_apis;x86_64"
           EMULATOR_LOG="$RUNNER_TEMP/nera-android-emulator.log"
@@ -166,10 +167,10 @@ jobs:
             -accel on \
             >"$EMULATOR_LOG" 2>&1 &
 
-          adb wait-for-device
+          "$ADB" wait-for-device
           booted=0
           for _ in $(seq 1 120); do
-            if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+            if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
               booted=1
               break
             fi
@@ -190,29 +191,29 @@ jobs:
             exit 1
           fi
 
-          adb install -r "$APK"
-          adb logcat -c
-          adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 >/dev/null
+          "$ADB" install -r "$APK"
+          "$ADB" logcat -c
+          "$ADB" shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 >/dev/null
 
           for _ in $(seq 1 60); do
-            OUTPUT="$(adb logcat -d -s "$LOG_TAG:I" '*:S' || true)"
+            OUTPUT="$("$ADB" logcat -d -s "$LOG_TAG:I" '*:S' || true)"
             if printf '%s\n' "$OUTPUT" | grep -Fq '"status":"success"'; then
               printf '%s\n' "$OUTPUT"
-              adb shell am force-stop "$PACKAGE" || true
+              "$ADB" shell am force-stop "$PACKAGE" || true
               exit 0
             fi
             if printf '%s\n' "$OUTPUT" | grep -Fq '"status":"failure"'; then
               printf '%s\n' "$OUTPUT"
-              adb shell am force-stop "$PACKAGE" || true
+              "$ADB" shell am force-stop "$PACKAGE" || true
               exit 1
             fi
             sleep 2
           done
 
           echo "Android analytics accessibility smoke timed out."
-          adb logcat -d | tail -n 300 || true
+          "$ADB" logcat -d | tail -n 300 || true
           tail -n 200 "$EMULATOR_LOG" || true
-          adb shell am force-stop "$PACKAGE" || true
+          "$ADB" shell am force-stop "$PACKAGE" || true
           exit 1
 
   maui-apple:
