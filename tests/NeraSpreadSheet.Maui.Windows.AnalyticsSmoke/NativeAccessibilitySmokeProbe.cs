@@ -87,14 +87,9 @@ internal static class NativeAccessibilitySmokeProbe
                 e.Info.Height,
                 expectedSelected: node.IsSelected);
 
-            if (!node.IsSelected)
-            {
-                Invoke(_view, node);
-                Require(
-                    _view.Session?.AnalyticsInteraction.SelectedItem == node.Item,
-                    "Invoking the native analytics accessibility child did not select the analytics item.");
-            }
-
+            // This probe must remain observational. The loaded analytics smoke owns
+            // the interaction sequence; invoking the UIA child from PaintSurface
+            // would select the chart before the smoke begins its touch phase.
             _validated = true;
         }
     }
@@ -174,23 +169,6 @@ internal static class NativeAccessibilitySmokeProbe
         Require(
             peer.GetPattern(WinPatternInterface.Invoke) is not null,
             "The native analytics accessibility child did not expose the Invoke pattern.");
-    }
-
-    private static void Invoke(
-        NeraSpreadsheetView view,
-        SpreadsheetAnalyticsAccessibleNode node)
-    {
-        var panel = view.Handler?.PlatformView as WinSwapChainPanel
-            ?? throw new InvalidOperationException(
-                "The loaded analytics view lost its native Windows platform view.");
-        var proxy = panel.Children
-            .OfType<WinButton>()
-            .Single(child =>
-                string.Equals(
-                    WinAutomationProperties.GetAutomationId(child),
-                    node.AutomationId,
-                    StringComparison.Ordinal));
-        new WinButtonAutomationPeer(proxy).Invoke();
     }
 
     private static void ValidateBounds(
