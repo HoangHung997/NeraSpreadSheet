@@ -86,6 +86,7 @@ let resultPath = CommandLine.arguments[2]
 let configuration = NSWorkspace.OpenConfiguration()
 configuration.activates = true
 configuration.addsToRecentItems = false
+configuration.arguments = ["--nera-smoke-result", resultPath]
 var environment = ProcessInfo.processInfo.environment
 environment["NERA_MAUI_SMOKE_RESULT"] = resultPath
 configuration.environment = environment
