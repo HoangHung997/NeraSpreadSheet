@@ -10,7 +10,7 @@ using SkiaSharp.Views.Maui;
 
 namespace NeraSpreadSheet.Maui.Windows.AnalyticsSmoke;
 
-internal sealed class SmokePage : ContentPage
+internal sealed class SmokePage : ContentPage, IDisposable
 {
     private static readonly TimeSpan SmokeTimeout = TimeSpan.FromSeconds(45d);
     private static readonly JsonSerializerOptions ResultJsonOptions = new()
@@ -37,12 +37,33 @@ internal sealed class SmokePage : ContentPage
     private int _historyBeforeDrag;
     private bool _chartInserted;
     private bool _touchApplied;
+    private bool _disposed;
 
     public SmokePage()
     {
         Title = "NeraSpreadSheet MAUI analytics interaction smoke";
         Content = _host;
         Loaded += OnLoaded;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Loaded -= OnLoaded;
+        if (_view is { } view)
+        {
+            view.Loaded -= OnViewLoaded;
+            view.PaintSurface -= OnPaintSurface;
+            _host.Children.Remove(view);
+            view.Dispose();
+            _view = null;
+        }
+        GC.SuppressFinalize(this);
     }
 
     private void OnLoaded(object? sender, EventArgs e)
@@ -70,7 +91,8 @@ internal sealed class SmokePage : ContentPage
 
     private void OnPaintSurface(object? sender, SKPaintGLSurfaceEventArgs e)
     {
-        if (sender is not NeraSpreadsheetView view ||
+        if (_disposed ||
+            sender is not NeraSpreadsheetView view ||
             !ReferenceEquals(view, _view) ||
             Volatile.Read(ref _finished) != 0)
         {
@@ -371,14 +393,14 @@ internal sealed class SmokePage : ContentPage
     private async Task MonitorTimeoutAsync()
     {
         await Task.Delay(SmokeTimeout).ConfigureAwait(false);
-        if (Volatile.Read(ref _finished) != 0)
+        if (_disposed || Volatile.Read(ref _finished) != 0)
         {
             return;
         }
 
         Dispatcher.Dispatch(() =>
         {
-            if (Volatile.Read(ref _finished) == 0)
+            if (!_disposed && Volatile.Read(ref _finished) == 0)
             {
                 Fail(new TimeoutException(
                     $"The loaded analytics smoke did not complete within {SmokeTimeout}."));
