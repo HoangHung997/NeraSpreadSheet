@@ -108,12 +108,12 @@ internal sealed class NeraSpreadsheetAccessibleObject : Control.ControlAccessibl
 
     public override AccessibleRole Role => AccessibleRole.Table;
 
-    public override int GetChildCount() => GetChildren().Count;
+    public override int GetChildCount() => GetChildren().Length;
 
     public override AccessibleObject? GetChild(int index)
     {
         var children = GetChildren();
-        return index >= 0 && index < children.Count
+        return index >= 0 && index < children.Length
             ? children[index]
             : null;
     }
@@ -141,7 +141,7 @@ internal sealed class NeraSpreadsheetAccessibleObject : Control.ControlAccessibl
         return base.HitTest(x, y);
     }
 
-    private IReadOnlyList<NeraSpreadsheetAnalyticsAccessibleObject> GetChildren()
+    private NeraSpreadsheetAnalyticsAccessibleObject[] GetChildren()
     {
         var nodes = _owner.GetNativeAnalyticsAccessibilityNodes();
         if (nodes.Count == 0)
