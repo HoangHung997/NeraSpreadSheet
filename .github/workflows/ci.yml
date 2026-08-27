@@ -113,7 +113,7 @@ jobs:
   maui-android:
     name: MAUI Android GPU host build
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -134,6 +134,85 @@ jobs:
 
       - name: Build MAUI Android target
         run: dotnet build src/NeraSpreadSheet.Maui/NeraSpreadSheet.Maui.csproj -c Release -f net10.0-android -p:NeraMauiTargetFrameworks=net10.0-android
+
+      - name: Build loaded MAUI Android analytics accessibility smoke
+        run: dotnet build tests/NeraSpreadSheet.Maui.Android.AnalyticsSmoke/NeraSpreadSheet.Maui.Android.AnalyticsSmoke.csproj -c Release -f net10.0-android -p:NeraMauiTargetFrameworks=net10.0-android
+
+      - name: Run loaded MAUI Android analytics accessibility smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
+          EMULATOR="$ANDROID_HOME/emulator/emulator"
+          AVD_NAME="nera-analytics-smoke"
+          SYSTEM_IMAGE="system-images;android-35;google_apis;x86_64"
+          EMULATOR_LOG="$RUNNER_TEMP/nera-android-emulator.log"
+          PACKAGE="com.neraspreadsheet.androidanalyticssmoke"
+          LOG_TAG="NeraAndroidAnalyticsSmoke"
+
+          "$SDKMANAGER" "platform-tools" "emulator" "$SYSTEM_IMAGE"
+          echo no | "$AVDMANAGER" create avd -f -n "$AVD_NAME" -k "$SYSTEM_IMAGE"
+          sudo chmod 666 /dev/kvm || true
+
+          nohup "$EMULATOR" \
+            -avd "$AVD_NAME" \
+            -no-window \
+            -noaudio \
+            -no-boot-anim \
+            -no-snapshot \
+            -gpu swiftshader_indirect \
+            -accel on \
+            >"$EMULATOR_LOG" 2>&1 &
+
+          adb wait-for-device
+          booted=0
+          for _ in $(seq 1 120); do
+            if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              booted=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$booted" -ne 1 ]; then
+            echo "Android emulator did not finish booting."
+            tail -n 200 "$EMULATOR_LOG" || true
+            exit 1
+          fi
+
+          APK="$(find tests/NeraSpreadSheet.Maui.Android.AnalyticsSmoke/bin/Release/net10.0-android -type f -name '*-Signed.apk' | head -n 1)"
+          if [ -z "$APK" ]; then
+            APK="$(find tests/NeraSpreadSheet.Maui.Android.AnalyticsSmoke/bin/Release/net10.0-android -type f -name '*.apk' | head -n 1)"
+          fi
+          if [ -z "$APK" ]; then
+            echo "Android analytics smoke APK was not produced."
+            exit 1
+          fi
+
+          adb install -r "$APK"
+          adb logcat -c
+          adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 >/dev/null
+
+          for _ in $(seq 1 60); do
+            OUTPUT="$(adb logcat -d -s "$LOG_TAG:I" '*:S' || true)"
+            if printf '%s\n' "$OUTPUT" | grep -Fq '"status":"success"'; then
+              printf '%s\n' "$OUTPUT"
+              adb shell am force-stop "$PACKAGE" || true
+              exit 0
+            fi
+            if printf '%s\n' "$OUTPUT" | grep -Fq '"status":"failure"'; then
+              printf '%s\n' "$OUTPUT"
+              adb shell am force-stop "$PACKAGE" || true
+              exit 1
+            fi
+            sleep 2
+          done
+
+          echo "Android analytics accessibility smoke timed out."
+          adb logcat -d | tail -n 300 || true
+          tail -n 200 "$EMULATOR_LOG" || true
+          adb shell am force-stop "$PACKAGE" || true
+          exit 1
 
   maui-apple:
     name: MAUI Apple GPU host builds
