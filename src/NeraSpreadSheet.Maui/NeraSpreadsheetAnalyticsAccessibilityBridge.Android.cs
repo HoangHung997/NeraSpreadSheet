@@ -1,5 +1,5 @@
 #if ANDROID
-using Android.Graphics;
+using System.Runtime.CompilerServices;
 using Android.OS;
 using Android.Views;
 using Android.Views.Accessibility;
@@ -10,6 +10,7 @@ using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Rendering.Spreadsheet;
 using SkiaSharp.Views.Maui;
+using AndroidRect = Android.Graphics.Rect;
 
 namespace NeraSpreadSheet.Maui;
 
@@ -155,15 +156,15 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
         AccessibilityNodeProviderCompat,
         Android.Views.View.IOnHoverListener
     {
-        private const int HostViewId = Android.Views.View.NoId;
+        private const int RootViewId = Android.Views.View.NoId;
         private readonly Android.Views.View _host;
         private readonly NeraSpreadsheetView _view;
         private readonly AccessibilityDelegateCompat? _rootDelegate;
         private readonly Dictionary<SpreadsheetAnalyticsItemKey, int> _virtualIds = [];
         private readonly Dictionary<int, VirtualNodeSnapshot> _nodesById = [];
         private int _nextVirtualId = 1;
-        private int _accessibilityFocusedId = HostViewId;
-        private int _hoveredId = HostViewId;
+        private int _accessibilityFocusedId = RootViewId;
+        private int _hoveredId = RootViewId;
 
         internal NeraAccessibilityNodeProvider(
             Android.Views.View host,
@@ -219,22 +220,22 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
                     BuildContentDescription(node));
             }
 
-            if (_accessibilityFocusedId != HostViewId &&
+            if (_accessibilityFocusedId != RootViewId &&
                 !_nodesById.ContainsKey(_accessibilityFocusedId))
             {
-                _accessibilityFocusedId = HostViewId;
+                _accessibilityFocusedId = RootViewId;
             }
-            if (_hoveredId != HostViewId && !_nodesById.ContainsKey(_hoveredId))
+            if (_hoveredId != RootViewId && !_nodesById.ContainsKey(_hoveredId))
             {
-                _hoveredId = HostViewId;
+                _hoveredId = RootViewId;
             }
 
-            SendEvent(HostViewId, EventTypes.WindowContentChanged, null);
+            SendEvent(RootViewId, EventTypes.WindowContentChanged, null);
         }
 
         public override AccessibilityNodeInfoCompat? CreateAccessibilityNodeInfo(int virtualViewId)
         {
-            if (virtualViewId == HostViewId)
+            if (virtualViewId == RootViewId)
             {
                 return CreateHostNode();
             }
@@ -246,7 +247,7 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
 
         public override AccessibilityNodeInfoCompat? FindFocus(int focus)
         {
-            return _accessibilityFocusedId != HostViewId &&
+            return _accessibilityFocusedId != RootViewId &&
                    _nodesById.TryGetValue(_accessibilityFocusedId, out var snapshot)
                 ? CreateVirtualNode(snapshot)
                 : null;
@@ -257,7 +258,7 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
             int action,
             Bundle? arguments)
         {
-            if (virtualViewId == HostViewId)
+            if (virtualViewId == RootViewId)
             {
                 return _rootDelegate?.PerformAccessibilityAction(
                            _host,
@@ -302,11 +303,11 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
                 case MotionEventActions.HoverEnter:
                 case MotionEventActions.HoverMove:
                     UpdateHoveredNode(virtualViewId);
-                    return virtualViewId != HostViewId;
+                    return virtualViewId != RootViewId;
                 case MotionEventActions.HoverExit:
-                    if (_hoveredId != HostViewId)
+                    if (_hoveredId != RootViewId)
                     {
-                        UpdateHoveredNode(HostViewId);
+                        UpdateHoveredNode(RootViewId);
                         return true;
                     }
                     return false;
@@ -369,7 +370,7 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
             node.SetBoundsInParent(snapshot.BoundsInParent);
 #pragma warning restore CS0618
 
-            var screenBounds = new Rect(snapshot.BoundsInParent);
+            var screenBounds = new AndroidRect(snapshot.BoundsInParent);
             var location = new int[2];
             _host.GetLocationOnScreen(location);
             screenBounds.Offset(location[0], location[1]);
@@ -415,11 +416,11 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
                 return false;
             }
 
-            if (_accessibilityFocusedId != HostViewId &&
+            if (_accessibilityFocusedId != RootViewId &&
                 _nodesById.TryGetValue(_accessibilityFocusedId, out var previous))
             {
                 var previousId = _accessibilityFocusedId;
-                _accessibilityFocusedId = HostViewId;
+                _accessibilityFocusedId = RootViewId;
                 SendEvent(previousId, EventTypes.ViewAccessibilityFocusCleared, previous);
             }
 
@@ -437,7 +438,7 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
                 return false;
             }
 
-            _accessibilityFocusedId = HostViewId;
+            _accessibilityFocusedId = RootViewId;
             SendEvent(virtualViewId, EventTypes.ViewAccessibilityFocusCleared, snapshot);
             return true;
         }
@@ -449,14 +450,14 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
                 return;
             }
 
-            if (_hoveredId != HostViewId &&
+            if (_hoveredId != RootViewId &&
                 _nodesById.TryGetValue(_hoveredId, out var previous))
             {
                 SendEvent(_hoveredId, EventTypes.ViewHoverExit, previous);
             }
 
             _hoveredId = virtualViewId;
-            if (virtualViewId != HostViewId &&
+            if (virtualViewId != RootViewId &&
                 _nodesById.TryGetValue(virtualViewId, out var current))
             {
                 SendEvent(virtualViewId, EventTypes.ViewHoverEnter, current);
@@ -473,7 +474,7 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
                     return snapshot.VirtualId;
                 }
             }
-            return HostViewId;
+            return RootViewId;
         }
 
         private void SendEvent(
@@ -522,7 +523,7 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
             return $"{role}: {node.Name}.{selection} Chạm hai lần để chọn.";
         }
 
-        private static Rect ToNativeBounds(
+        private static AndroidRect ToNativeBounds(
             RectD visible,
             SpreadsheetChromeMetrics chrome,
             double zoom,
@@ -541,7 +542,7 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
                 !double.IsFinite(right) ||
                 !double.IsFinite(bottom))
             {
-                return new Rect();
+                return new AndroidRect();
             }
 
             var nativeLeft = Math.Clamp((int)Math.Floor(left), 0, Math.Max(0, hostWidth));
@@ -549,8 +550,8 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
             var nativeRight = Math.Clamp((int)Math.Ceiling(right), 0, Math.Max(0, hostWidth));
             var nativeBottom = Math.Clamp((int)Math.Ceiling(bottom), 0, Math.Max(0, hostHeight));
             return nativeRight > nativeLeft && nativeBottom > nativeTop
-                ? new Rect(nativeLeft, nativeTop, nativeRight, nativeBottom)
-                : new Rect();
+                ? new AndroidRect(nativeLeft, nativeTop, nativeRight, nativeBottom)
+                : new AndroidRect();
         }
 
         private static double ResolveNativeScale(int nativeDimension, int logicalDimension) =>
@@ -561,7 +562,7 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
         private sealed record VirtualNodeSnapshot(
             int VirtualId,
             SpreadsheetAnalyticsAccessibleNode Node,
-            Rect BoundsInParent,
+            AndroidRect BoundsInParent,
             string ContentDescription);
     }
 }
