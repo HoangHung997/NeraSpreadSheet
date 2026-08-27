@@ -35,7 +35,9 @@ public sealed class Direct2DHwndDisplayListRenderer : IDisposable
         _pixelWidth = pixelWidth;
         _pixelHeight = pixelHeight;
         _d2dFactory = D2D1CreateFactory<ID2D1Factory1>();
-        _executor = new Direct2DDisplayListExecutor(textLayoutCacheCapacity);
+        _executor = new Direct2DDisplayListExecutor(
+            _d2dFactory,
+            textLayoutCacheCapacity);
         CreateRenderTarget();
     }
 
