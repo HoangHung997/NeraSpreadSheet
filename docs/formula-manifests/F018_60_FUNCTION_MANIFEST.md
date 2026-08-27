@@ -32,26 +32,26 @@
 | `SEARCHB` | A | `F018TextCompatibilityFormulaFunctions.cs` | `F018GroupATextCompatibilityTests.cs` | `F018_SEARCHB_Compatibility` | `tested` | wildcards; case-insensitive; byte position | A |
 | `TEXTAFTER` | A | `F018TextCompatibilityFormulaFunctions.cs` | `F018GroupATextCompatibilityTests.cs` | `F018_TEXTAFTER_Compatibility` | `tested` | positive/negative instance; if-not-found | A |
 | `TEXTBEFORE` | A | `F018TextCompatibilityFormulaFunctions.cs` | `F018GroupATextCompatibilityTests.cs` | `F018_TEXTBEFORE_Compatibility` | `tested` | positive/negative instance; if-not-found | A |
-| `TEXT` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_TEXT_Compatibility` | `pending` | numeric/date subset; invalid format | B |
-| `VALUETOTEXT` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_VALUETOTEXT_Compatibility` | `pending` | strict text quoting; scalar only | B |
-| `ENCODEURL` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_ENCODEURL_Compatibility` | `pending` | spaces/unicode; URI failure | B |
-| `CELL` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_CELL_Compatibility` | `pending` | address/row/col/contents/type; reference identity | B |
-| `ERROR.TYPE` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_ERROR_TYPE_Compatibility` | `pending` | maps spreadsheet errors; non-error #N/A | B |
-| `ISFORMULA` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_ISFORMULA_Compatibility` | `pending` | reference only; formula metadata context | B |
-| `ISREF` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_ISREF_Compatibility` | `pending` | cell/range/reference function vs scalar | B |
-| `TYPE` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_TYPE_Compatibility` | `pending` | number/text/boolean/error/array | B |
-| `GAMMA` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_GAMMA_Compatibility` | `pending` | poles; reflection; overflow | B |
-| `GAMMALN` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_GAMMALN_Compatibility` | `pending` | positive domain | B |
-| `GAMMALN.PRECISE` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_GAMMALN_PRECISE_Compatibility` | `pending` | positive domain | B |
-| `GAUSS` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_GAUSS_Compatibility` | `pending` | normal CDF minus 0.5 | B |
-| `PHI` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_PHI_Compatibility` | `pending` | normal density | B |
-| `PERMUT` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_PERMUT_Compatibility` | `pending` | n/k truncation; k<=n | B |
-| `PERMUTATIONA` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_PERMUTATIONA_Compatibility` | `pending` | repetition; overflow | B |
-| `CHISQ.TEST` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_CHISQ_TEST_Compatibility` | `pending` | equal shapes; expected >0 | B |
-| `T.TEST` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_T_TEST_Compatibility` | `pending` | tails 1/2; types 1/2/3 | B |
-| `PERCENTRANK` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_PERCENTRANK_Compatibility` | `pending` | sorted interpolation; significance | B |
-| `CHITEST` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_CHITEST_Compatibility` | `pending` | legacy alias behavior | B |
-| `TTEST` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_TTEST_Compatibility` | `pending` | legacy alias behavior | B |
+| `TEXT` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_TEXT_Compatibility` | `tested` | numeric/date subset; invalid format | B |
+| `VALUETOTEXT` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_VALUETOTEXT_Compatibility` | `tested` | strict text quoting; scalar only | B |
+| `ENCODEURL` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_ENCODEURL_Compatibility` | `tested` | spaces/unicode; URI failure | B |
+| `CELL` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_CELL_Compatibility` | `tested` | address/row/col/contents/type; reference identity | B |
+| `ERROR.TYPE` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_ERROR_TYPE_Compatibility` | `tested` | maps spreadsheet errors; non-error #N/A | B |
+| `ISFORMULA` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_ISFORMULA_Compatibility` | `tested` | reference only; formula metadata context | B |
+| `ISREF` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_ISREF_Compatibility` | `tested` | cell/range/reference function vs scalar | B |
+| `TYPE` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_TYPE_Compatibility` | `tested` | number/text/boolean/error/array | B |
+| `GAMMA` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_GAMMA_Compatibility` | `tested` | poles; reflection; overflow | B |
+| `GAMMALN` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_GAMMALN_Compatibility` | `tested` | positive domain | B |
+| `GAMMALN.PRECISE` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_GAMMALN_PRECISE_Compatibility` | `tested` | positive domain | B |
+| `GAUSS` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_GAUSS_Compatibility` | `tested` | normal CDF minus 0.5 | B |
+| `PHI` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_PHI_Compatibility` | `tested` | normal density | B |
+| `PERMUT` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_PERMUT_Compatibility` | `tested` | n/k truncation; k<=n | B |
+| `PERMUTATIONA` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_PERMUTATIONA_Compatibility` | `tested` | repetition; overflow | B |
+| `CHISQ.TEST` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_CHISQ_TEST_Compatibility` | `tested` | equal shapes; expected >0 | B |
+| `T.TEST` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_T_TEST_Compatibility` | `tested` | tails 1/2; types 1/2/3 | B |
+| `PERCENTRANK` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_PERCENTRANK_Compatibility` | `tested` | sorted interpolation; significance | B |
+| `CHITEST` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_CHITEST_Compatibility` | `tested` | legacy alias behavior | B |
+| `TTEST` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_TTEST_Compatibility` | `tested` | legacy alias behavior | B |
 | `CONVERT` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_CONVERT_Compatibility` | `pending` | unit dimension match; temperature offsets | C |
 | `ERF` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_ERF_Compatibility` | `pending` | one/two-bound forms | C |
 | `ERF.PRECISE` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_ERF_PRECISE_Compatibility` | `pending` | finite scalar | C |
@@ -78,7 +78,7 @@
 | Gate | Status |
 |---|---|
 | Group A CLI | passed — build 0 warnings/errors; 20/20 filtered; 414/414 formula |
-| Group B CLI | pending |
+| Group B CLI | passed — build 0 warnings/errors; 20/20 filtered; 434/434 formula |
 | Group C CLI | pending |
 | Full formula suite | pending |
 | Full Core tests | pending |
