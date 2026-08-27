@@ -335,3 +335,61 @@ jobs:
           echo "NERA_MACCATALYST_SMOKE_RID=$RID" >> "$GITHUB_ENV"
           echo "Mac Catalyst smoke RID: $RID"
           dotnet build tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke.csproj -c Release -f net10.0-maccatalyst -r "$RID" -p:NeraMauiTargetFrameworks=net10.0-maccatalyst
+
+      - name: Run loaded MAUI Mac Catalyst analytics accessibility smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/bin/Release/net10.0-maccatalyst/$NERA_MACCATALYST_SMOKE_RID"
+          RESULT="$RUNNER_TEMP/nera-maccatalyst-analytics-smoke.json"
+          LOG="$RUNNER_TEMP/nera-maccatalyst-analytics-smoke.log"
+          APP="$(find "$ROOT" -type d -name 'NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke.app' | head -n 1 || true)"
+          if [ -z "$APP" ]; then
+            echo "Mac Catalyst analytics smoke app bundle was not produced."
+            find "$ROOT" -maxdepth 6 -print || true
+            exit 1
+          fi
+
+          EXEC="$APP/Contents/MacOS/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke"
+          if [ ! -x "$EXEC" ]; then
+            echo "Mac Catalyst analytics smoke executable is missing or not executable: $EXEC"
+            find "$APP" -maxdepth 4 -print || true
+            exit 1
+          fi
+
+          rm -f "$RESULT" "$LOG"
+          export NERA_MAUI_SMOKE_RESULT="$RESULT"
+          echo "Launching Mac Catalyst analytics smoke: $EXEC"
+          "$EXEC" >"$LOG" 2>&1 &
+          PID=$!
+
+          for _ in $(seq 1 75); do
+            if [ -f "$RESULT" ]; then
+              cat "$RESULT"
+              STATUS="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["status"])' "$RESULT")"
+              if [ "$STATUS" = "success" ]; then
+                wait "$PID" || true
+                exit 0
+              fi
+              echo "Mac Catalyst analytics smoke reported failure."
+              cat "$LOG" || true
+              wait "$PID" || true
+              exit 1
+            fi
+
+            if ! kill -0 "$PID" 2>/dev/null; then
+              set +e
+              wait "$PID"
+              EXIT_CODE=$?
+              set -e
+              echo "Mac Catalyst analytics smoke exited with code $EXIT_CODE before producing a result."
+              cat "$LOG" || true
+              exit 1
+            fi
+            sleep 1
+          done
+
+          echo "Mac Catalyst analytics accessibility smoke timed out."
+          kill "$PID" 2>/dev/null || true
+          cat "$LOG" || true
+          exit 1
