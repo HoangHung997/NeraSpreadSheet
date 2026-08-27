@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AndroidX.Core.View;
+using AndroidX.Core.View.Accessibility;
 using Microsoft.Maui.Controls;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Interaction;
@@ -16,6 +17,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private const string LogTag = "NeraAnalyticsSmoke";
     private const int RootVirtualViewId = AndroidView.NoId;
     private const int FirstAnalyticsVirtualViewId = 1;
+    private const int SecondAnalyticsVirtualViewId = 2;
     private const int ActionClickId = 16;
     private const int ActionAccessibilityFocusId = 64;
     private const int ActionClearAccessibilityFocusId = 128;
@@ -24,9 +26,10 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private readonly Grid _host = new();
     private readonly Workbook _workbook = CreateWorkbook();
     private NeraSpreadsheetView? _view;
-    private SpreadsheetAnalyticsItemKey _item;
+    private SpreadsheetAnalyticsItemKey _chartItem;
+    private SpreadsheetAnalyticsItemKey _pivotItem;
     private int _frameCount;
-    private int _chartInserted;
+    private int _analyticsInserted;
     private int _finished;
     private bool _disposed;
 
@@ -95,13 +98,13 @@ internal sealed class SmokePage : ContentPage, IDisposable
             _frameCount++;
             ValidateLoadedHost(view);
 
-            if (Volatile.Read(ref _chartInserted) == 0)
+            if (Volatile.Read(ref _analyticsInserted) == 0)
             {
-                QueueChartCreation(view);
+                QueueAnalyticsCreation(view);
                 return;
             }
 
-            if (view.AnalyticsAccessibilityNodes.Count == 1)
+            if (view.AnalyticsAccessibilityNodes.Count == 2)
             {
                 ValidateNativeAccessibility(view);
             }
@@ -124,9 +127,9 @@ internal sealed class SmokePage : ContentPage, IDisposable
             "The Android analytics smoke observed a failed GPU frame.");
     }
 
-    private void QueueChartCreation(NeraSpreadsheetView view)
+    private void QueueAnalyticsCreation(NeraSpreadsheetView view)
     {
-        if (Interlocked.CompareExchange(ref _chartInserted, -1, 0) != 0)
+        if (Interlocked.CompareExchange(ref _analyticsInserted, -1, 0) != 0)
         {
             return;
         }
@@ -137,21 +140,29 @@ internal sealed class SmokePage : ContentPage, IDisposable
             {
                 var session = view.Session
                     ?? throw new InvalidOperationException(
-                        "The Android analytics smoke lost its session before chart creation.");
+                        "The Android analytics smoke lost its session before analytics creation.");
+                var sourceRange = new CellRange(
+                    new CellAddress(0, 0),
+                    new CellAddress(3, 1));
                 var chart = session.Analytics.InsertChart(
-                    new CellRange(
-                        new CellAddress(0, 0),
-                        new CellAddress(3, 1)),
+                    sourceRange,
                     SpreadsheetChartType.Column,
                     title: "Android accessibility",
                     requestedName: "AndroidAccessibilityChart");
-                _item = SpreadsheetAnalyticsItemKey.ForChart(chart.Id);
-                Volatile.Write(ref _chartInserted, 1);
+                var pivot = session.Analytics.InsertPivot(
+                    sourceRange,
+                    rowFieldColumnIndex: 0,
+                    valueFieldColumnIndex: 1,
+                    aggregation: SpreadsheetPivotAggregation.Sum,
+                    requestedName: "AndroidAccessibilityPivot");
+                _chartItem = SpreadsheetAnalyticsItemKey.ForChart(chart.Id);
+                _pivotItem = SpreadsheetAnalyticsItemKey.ForPivot(pivot.Id);
+                Volatile.Write(ref _analyticsInserted, 1);
                 view.InvalidateSurface();
             }
             catch (Exception exception)
             {
-                Volatile.Write(ref _chartInserted, 1);
+                Volatile.Write(ref _analyticsInserted, 1);
                 Fail(exception);
             }
         });
@@ -162,13 +173,19 @@ internal sealed class SmokePage : ContentPage, IDisposable
         var host = view.Handler?.PlatformView as AndroidView
             ?? throw new InvalidOperationException(
                 "The Android analytics smoke lost its native Android View.");
-        var projectedNode = view.AnalyticsAccessibilityNodes.Single();
-        Require(projectedNode.Item == _item,
-            "The Android accessibility projection did not match the inserted chart.");
-        Require(projectedNode.Name == "AndroidAccessibilityChart",
-            "The Android accessibility projection resolved the wrong chart name.");
-        Require(!projectedNode.IsSelected,
-            "The Android chart was unexpectedly selected before accessibility click.");
+        var projectedNodes = view.AnalyticsAccessibilityNodes;
+        Require(projectedNodes.Count == 2,
+            $"Expected two projected analytics nodes but found {projectedNodes.Count}.");
+        Require(projectedNodes.Any(node =>
+                node.Item == _chartItem &&
+                node.Name == "AndroidAccessibilityChart" &&
+                node.Role == SpreadsheetAnalyticsAccessibleRole.Chart),
+            "The Android accessibility projection omitted the inserted chart.");
+        Require(projectedNodes.Any(node =>
+                node.Item == _pivotItem &&
+                node.Name == "AndroidAccessibilityPivot" &&
+                node.Role == SpreadsheetAnalyticsAccessibleRole.PivotTable),
+            "The Android accessibility projection omitted the inserted pivot.");
 
         var accessibilityDelegate = ViewCompat.GetAccessibilityDelegate(host)
             ?? throw new InvalidOperationException(
@@ -180,76 +197,170 @@ internal sealed class SmokePage : ContentPage, IDisposable
         using var root = provider.CreateAccessibilityNodeInfo(RootVirtualViewId)
             ?? throw new InvalidOperationException(
                 "The Android accessibility provider did not expose a root node.");
-        Require(root.ChildCount >= 1,
-            "The Android accessibility root did not expose the analytics virtual child.");
+        Require(root.ChildCount >= 2,
+            "The Android accessibility root did not expose both analytics virtual children.");
 
-        using var child = provider.CreateAccessibilityNodeInfo(FirstAnalyticsVirtualViewId)
+        using var first = provider.CreateAccessibilityNodeInfo(FirstAnalyticsVirtualViewId)
             ?? throw new InvalidOperationException(
-                "The Android accessibility provider did not expose virtual chart child 1.");
-        var description = child.ContentDescription?.ToString() ?? string.Empty;
-        Require(description.Contains("AndroidAccessibilityChart", StringComparison.Ordinal),
-            "The Android virtual chart description omitted the chart name.");
-        Require(description.Contains("Biểu đồ", StringComparison.Ordinal),
-            "The Android virtual chart description omitted the localized chart role.");
-        Require(child.Clickable,
-            "The Android virtual chart was not exposed as clickable.");
-        Require(child.VisibleToUser,
-            "The Android virtual chart was not exposed as visible to TalkBack.");
-        Require(!child.Selected,
-            "The Android virtual chart was selected before ACTION_CLICK.");
-
-        using var bounds = new AndroidRect();
-        child.GetBoundsInScreen(bounds);
-        Require(!bounds.IsEmpty,
-            "The Android virtual chart exposed empty screen bounds.");
-        Require(bounds.Width() > 0 && bounds.Height() > 0,
-            "The Android virtual chart exposed non-positive dimensions.");
-
-        Require(provider.PerformAction(
-                FirstAnalyticsVirtualViewId,
-                ActionAccessibilityFocusId,
-                null),
-            "The Android virtual chart rejected ACTION_ACCESSIBILITY_FOCUS.");
-        using var focused = provider.CreateAccessibilityNodeInfo(FirstAnalyticsVirtualViewId)
+                "The Android accessibility provider did not expose analytics virtual child 1.");
+        using var second = provider.CreateAccessibilityNodeInfo(SecondAnalyticsVirtualViewId)
             ?? throw new InvalidOperationException(
-                "The Android accessibility provider lost the focused chart node.");
-        Require(focused.AccessibilityFocused,
-            "The Android virtual chart did not retain accessibility focus.");
+                "The Android accessibility provider did not expose analytics virtual child 2.");
 
-        Require(provider.PerformAction(
-                FirstAnalyticsVirtualViewId,
-                ActionClickId,
-                null),
-            "The Android virtual chart rejected ACTION_CLICK.");
-        Require(
-            view.Session?.AnalyticsInteraction.SelectedItem == _item,
-            "ACTION_CLICK on the Android virtual chart did not select the analytics item.");
+        var firstDescription = first.ContentDescription?.ToString() ?? string.Empty;
+        var secondDescription = second.ContentDescription?.ToString() ?? string.Empty;
+        var chartVirtualId = ResolveVirtualId(
+            firstDescription,
+            secondDescription,
+            "AndroidAccessibilityChart");
+        var pivotVirtualId = ResolveVirtualId(
+            firstDescription,
+            secondDescription,
+            "AndroidAccessibilityPivot");
+        Require(chartVirtualId != pivotVirtualId,
+            "The Android chart and pivot resolved to the same virtual accessibility id.");
 
-        Require(provider.PerformAction(
-                FirstAnalyticsVirtualViewId,
-                ActionClearAccessibilityFocusId,
-                null),
-            "The Android virtual chart rejected ACTION_CLEAR_ACCESSIBILITY_FOCUS.");
+        var chartNode = chartVirtualId == FirstAnalyticsVirtualViewId ? first : second;
+        var pivotNode = pivotVirtualId == FirstAnalyticsVirtualViewId ? first : second;
+        ValidateAndroidNode(
+            chartNode,
+            "AndroidAccessibilityChart",
+            "Biểu đồ",
+            "chart");
+        ValidateAndroidNode(
+            pivotNode,
+            "AndroidAccessibilityPivot",
+            "Bảng tổng hợp",
+            "pivot");
+
+        var chartBounds = ReadBounds(chartNode, "chart");
+        var pivotBounds = ReadBounds(pivotNode, "pivot");
+
+        FocusClickAndVerify(
+            provider,
+            view,
+            chartVirtualId,
+            _chartItem,
+            "chart");
+        FocusClickAndVerify(
+            provider,
+            view,
+            pivotVirtualId,
+            _pivotItem,
+            "pivot");
 
         Complete(new
         {
             status = "success",
             frameCount = _frameCount,
             virtualChildCount = root.ChildCount,
-            virtualId = FirstAnalyticsVirtualViewId,
-            contentDescription = description,
-            bounds = new
+            chart = new
             {
-                left = bounds.Left,
-                top = bounds.Top,
-                right = bounds.Right,
-                bottom = bounds.Bottom,
+                virtualId = chartVirtualId,
+                contentDescription = chartNode.ContentDescription?.ToString(),
+                bounds = DescribeBounds(chartBounds),
+                accessibilityFocusVerified = true,
+                clickSelectionVerified = true,
             },
-            accessibilityFocusVerified = true,
-            clickSelectionVerified = true,
+            pivot = new
+            {
+                virtualId = pivotVirtualId,
+                contentDescription = pivotNode.ContentDescription?.ToString(),
+                bounds = DescribeBounds(pivotBounds),
+                accessibilityFocusVerified = true,
+                clickSelectionVerified = true,
+            },
             selectedItem = view.Session?.AnalyticsInteraction.SelectedItem?.ToString(),
             cachedTypefaces = view.CachedTypefaceCount,
         });
+    }
+
+    private static int ResolveVirtualId(
+        string firstDescription,
+        string secondDescription,
+        string expectedName)
+    {
+        var firstMatches = firstDescription.Contains(expectedName, StringComparison.Ordinal);
+        var secondMatches = secondDescription.Contains(expectedName, StringComparison.Ordinal);
+        Require(firstMatches ^ secondMatches,
+            $"Expected exactly one Android virtual accessibility child for '{expectedName}'.");
+        return firstMatches
+            ? FirstAnalyticsVirtualViewId
+            : SecondAnalyticsVirtualViewId;
+    }
+
+    private static void ValidateAndroidNode(
+        AccessibilityNodeInfoCompat node,
+        string expectedName,
+        string expectedRole,
+        string itemKind)
+    {
+        var description = node.ContentDescription?.ToString() ?? string.Empty;
+        Require(description.Contains(expectedName, StringComparison.Ordinal),
+            $"The Android virtual {itemKind} description omitted its analytics name.");
+        Require(description.Contains(expectedRole, StringComparison.Ordinal),
+            $"The Android virtual {itemKind} description omitted its localized role.");
+        Require(node.Clickable,
+            $"The Android virtual {itemKind} was not exposed as clickable.");
+        Require(node.VisibleToUser,
+            $"The Android virtual {itemKind} was not exposed as visible to TalkBack.");
+        Require(!node.Selected,
+            $"The Android virtual {itemKind} was selected before ACTION_CLICK.");
+    }
+
+    private static AndroidRect ReadBounds(
+        AccessibilityNodeInfoCompat node,
+        string itemKind)
+    {
+        var bounds = new AndroidRect();
+        node.GetBoundsInScreen(bounds);
+        Require(!bounds.IsEmpty,
+            $"The Android virtual {itemKind} exposed empty screen bounds.");
+        Require(bounds.Width() > 0 && bounds.Height() > 0,
+            $"The Android virtual {itemKind} exposed non-positive dimensions.");
+        return bounds;
+    }
+
+    private static object DescribeBounds(AndroidRect bounds) => new
+    {
+        left = bounds.Left,
+        top = bounds.Top,
+        right = bounds.Right,
+        bottom = bounds.Bottom,
+    };
+
+    private static void FocusClickAndVerify(
+        AccessibilityNodeProviderCompat provider,
+        NeraSpreadsheetView view,
+        int virtualId,
+        SpreadsheetAnalyticsItemKey expectedItem,
+        string itemKind)
+    {
+        Require(provider.PerformAction(
+                virtualId,
+                ActionAccessibilityFocusId,
+                null),
+            $"The Android virtual {itemKind} rejected ACTION_ACCESSIBILITY_FOCUS.");
+        using var focused = provider.CreateAccessibilityNodeInfo(virtualId)
+            ?? throw new InvalidOperationException(
+                $"The Android accessibility provider lost the focused {itemKind} node.");
+        Require(focused.AccessibilityFocused,
+            $"The Android virtual {itemKind} did not retain accessibility focus.");
+
+        Require(provider.PerformAction(
+                virtualId,
+                ActionClickId,
+                null),
+            $"The Android virtual {itemKind} rejected ACTION_CLICK.");
+        Require(
+            view.Session?.AnalyticsInteraction.SelectedItem == expectedItem,
+            $"ACTION_CLICK on the Android virtual {itemKind} did not select the analytics item.");
+
+        Require(provider.PerformAction(
+                virtualId,
+                ActionClearAccessibilityFocusId,
+                null),
+            $"The Android virtual {itemKind} rejected ACTION_CLEAR_ACCESSIBILITY_FOCUS.");
     }
 
     private void Complete(object result)
@@ -275,7 +386,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             {
                 status = "failure",
                 frameCount = _frameCount,
-                chartInserted = Volatile.Read(ref _chartInserted),
+                analyticsInserted = Volatile.Read(ref _analyticsInserted),
                 accessibilityNodeCount = _view?.AnalyticsAccessibilityNodes.Count,
                 error = exception.ToString(),
             }));
