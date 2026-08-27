@@ -1,5 +1,6 @@
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
+using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Layout;
 
 namespace NeraSpreadSheet.Viewport;
@@ -30,7 +31,7 @@ public sealed class SpreadsheetAnalyticsViewportInteractionController
         PointD bodyPoint,
         ViewportLayout layout,
         double handleHitSize =
-            Interaction.SpreadsheetAnalyticsHitTester.DefaultHandleHitSize) =>
+            SpreadsheetAnalyticsHitTester.DefaultHandleHitSize) =>
         _session.AnalyticsInteraction.TryBeginTransform(
             bodyPoint,
             _viewport.GetAnalyticsInteractionTargets(layout),
@@ -39,9 +40,9 @@ public sealed class SpreadsheetAnalyticsViewportInteractionController
     public bool PointerMoved(
         PointD bodyPoint,
         double minimumWidth =
-            Interaction.SpreadsheetAnalyticsTransformMath.DefaultMinimumWidth,
+            SpreadsheetAnalyticsTransformMath.DefaultMinimumWidth,
         double minimumHeight =
-            Interaction.SpreadsheetAnalyticsTransformMath.DefaultMinimumHeight) =>
+            SpreadsheetAnalyticsTransformMath.DefaultMinimumHeight) =>
         _session.AnalyticsInteraction.UpdateTransform(
             bodyPoint,
             minimumWidth,
@@ -50,9 +51,9 @@ public sealed class SpreadsheetAnalyticsViewportInteractionController
     public bool PointerReleased(
         PointD bodyPoint,
         double minimumWidth =
-            Interaction.SpreadsheetAnalyticsTransformMath.DefaultMinimumWidth,
+            SpreadsheetAnalyticsTransformMath.DefaultMinimumWidth,
         double minimumHeight =
-            Interaction.SpreadsheetAnalyticsTransformMath.DefaultMinimumHeight)
+            SpreadsheetAnalyticsTransformMath.DefaultMinimumHeight)
     {
         if (!_session.AnalyticsInteraction.TryCompleteTransform(
                 bodyPoint,
