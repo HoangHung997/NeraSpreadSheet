@@ -26,7 +26,7 @@ public sealed class ScrollChangedEventArgs : EventArgs
     public ScrollSnapshot Snapshot { get; }
 }
 
-public sealed class NeraSpreadsheetControl : Control
+public sealed partial class NeraSpreadsheetControl : Control
 {
     private const double DirtyRegionPadding = 3d;
     private readonly ContinuousScrollController _scrollController = new();
