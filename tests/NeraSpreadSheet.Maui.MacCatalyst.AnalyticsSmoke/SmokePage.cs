@@ -13,8 +13,7 @@ namespace NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke;
 internal sealed class SmokePage : ContentPage, IDisposable
 {
     private const string ResultArgument = "--nera-smoke-result";
-    private const string UnifiedLogResultMarker = "NERA_MAUI_SMOKE_RESULT:";
-    private const string UnifiedLogFileErrorMarker = "NERA_MAUI_SMOKE_RESULT_FILE_ERROR:";
+    private const string DefaultResultFileName = "nera-maccatalyst-analytics-smoke.json";
     private static readonly TimeSpan SmokeTimeout = TimeSpan.FromSeconds(45d);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -318,7 +317,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             return;
         }
 
-        EmitResult(result);
+        WriteResult(result);
         Environment.Exit(0);
     }
 
@@ -329,15 +328,21 @@ internal sealed class SmokePage : ContentPage, IDisposable
             return;
         }
 
-        EmitResult(new
+        try
         {
-            status = "failure",
-            frameCount = _frameCount,
-            analyticsInserted = Volatile.Read(ref _analyticsInserted),
-            accessibilityNodeCount = _view?.AnalyticsAccessibilityNodes.Count,
-            error = exception.ToString(),
-        });
-        Environment.Exit(1);
+            WriteResult(new
+            {
+                status = "failure",
+                frameCount = _frameCount,
+                analyticsInserted = Volatile.Read(ref _analyticsInserted),
+                accessibilityNodeCount = _view?.AnalyticsAccessibilityNodes.Count,
+                error = exception.ToString(),
+            });
+        }
+        finally
+        {
+            Environment.Exit(1);
+        }
     }
 
     private async Task MonitorTimeoutAsync()
@@ -358,31 +363,31 @@ internal sealed class SmokePage : ContentPage, IDisposable
         });
     }
 
-    private static void EmitResult(object result)
+    private static void WriteResult(object result)
     {
-        var compactJson = JsonSerializer.Serialize(result);
-        ObjCRuntime.Runtime.NSLog(UnifiedLogResultMarker + compactJson);
-
+        var serialized = JsonSerializer.Serialize(result, JsonOptions);
+        var primaryPath = ResolveResultPath();
         try
         {
-            var fullPath = Path.GetFullPath(ResolveResultPath());
-            Directory.CreateDirectory(
-                Path.GetDirectoryName(fullPath)
-                ?? throw new InvalidOperationException(
-                    "The Mac Catalyst smoke result file has no parent directory."));
-            File.WriteAllText(
-                fullPath,
-                JsonSerializer.Serialize(result, JsonOptions));
+            WriteResultFile(primaryPath, serialized);
         }
-        catch (Exception exception)
+        catch when (!string.Equals(
+            Path.GetFullPath(primaryPath),
+            Path.GetFullPath(GetDefaultResultPath()),
+            StringComparison.Ordinal))
         {
-            ObjCRuntime.Runtime.NSLog(
-                UnifiedLogFileErrorMarker +
-                JsonSerializer.Serialize(new
-                {
-                    error = exception.ToString(),
-                }));
+            WriteResultFile(GetDefaultResultPath(), serialized);
         }
+    }
+
+    private static void WriteResultFile(string path, string serialized)
+    {
+        var fullPath = Path.GetFullPath(path);
+        Directory.CreateDirectory(
+            Path.GetDirectoryName(fullPath)
+            ?? throw new InvalidOperationException(
+                "The Mac Catalyst smoke result file has no parent directory."));
+        File.WriteAllText(fullPath, serialized);
     }
 
     private static string ResolveResultPath()
@@ -403,9 +408,11 @@ internal sealed class SmokePage : ContentPage, IDisposable
             }
         }
 
-        throw new InvalidOperationException(
-            "The Mac Catalyst smoke result path was not supplied through NERA_MAUI_SMOKE_RESULT or --nera-smoke-result.");
+        return GetDefaultResultPath();
     }
+
+    private static string GetDefaultResultPath() =>
+        Path.Combine(Path.GetTempPath(), DefaultResultFileName);
 
     private static Workbook CreateWorkbook()
     {
