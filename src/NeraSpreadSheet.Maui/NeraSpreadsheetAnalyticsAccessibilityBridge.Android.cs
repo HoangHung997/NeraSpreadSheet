@@ -521,7 +521,7 @@ internal static class NeraSpreadsheetAndroidAnalyticsAccessibilityBridge
                 return;
             }
 
-            using var accessibilityEvent = new AccessibilityEvent(eventType)
+            using var accessibilityEvent = new AccessibilityEvent((int)eventType)
             {
                 PackageName = _host.Context?.PackageName,
                 ClassName = snapshot?.Node.Role == SpreadsheetAnalyticsAccessibleRole.PivotTable
