@@ -3,6 +3,7 @@ using System.Windows.Automation;
 using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
 using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Interaction;
 
 namespace NeraSpreadSheet.Wpf;
