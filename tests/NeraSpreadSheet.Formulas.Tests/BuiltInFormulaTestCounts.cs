@@ -2,5 +2,5 @@ namespace NeraSpreadSheet.Formulas.Tests;
 
 internal static class BuiltInFormulaTestCounts
 {
-    public const int EagerVersioned = 372;
+    public const int EagerVersioned = 392;
 }
