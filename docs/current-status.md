@@ -4,17 +4,17 @@
 
 | Counter | Value |
 |---|---:|
-| Eager/versioned | 372 |
-| AST/reference-aware | 34 |
-| Dynamic-array unique | 20 |
-| **Total** | **426 / at least 538** |
-| Formula tests | 394/394 |
-| Complete cycles | F001–F017 |
+| Eager/versioned | 427 |
+| AST/reference-aware | 37 |
+| Dynamic-array unique | 22 |
+| **Total** | **486 / at least 538** |
+| Formula tests | 454/454 |
+| Complete cycles | F001–F018 |
 
-F017 adds 30 statistical names through three ten-function groups. Group A supplies legacy normal, rank, percentile and forecast aliases. Group B adds variance, Student-t, confidence and probability compatibility. Group C adds discrete distributions plus F/Z hypothesis tests and their legacy aliases.
+F018 adds 60 names in three 20-function groups. A covers DBCS/legacy and regex/text compatibility. B adds information/reference introspection plus Gamma, permutation and hypothesis-test compatibility. C adds unit conversion, error/Bessel functions, classic/modern lookup, aggregate/volatile math, determinant, identity matrix and frequency spill output.
 
-The authoritative registry remains `StandardFormulaFunctions.CreateAll()`. Compatibility names delegate to existing modern numerical primitives where possible; new discrete searches and summations are bounded and fail closed.
+The authoritative eager registry remains `StandardFormulaFunctions.CreateAll()`. `CELL`, `ISFORMULA` and `ISREF` stay AST/reference-aware. `MUNIT` and `FREQUENCY` stay in the dynamic-array engine. Resource caps remain fail-closed.
 
-Workbook/editing, dependency graph, Tables/AutoFilter, WPF/WinForms/MAUI hosts, XLSX preservation and print/PDF foundations remain in the validation matrix. Production blockers still include catalog breadth, charts/pivots UI, packaging/API compatibility, plugin trust/isolation, security/fuzzing, recovery, localization/accessibility and broad differential/visual corpora.
+Workbook/editing, dependency graph, Tables/AutoFilter, WPF/WinForms/MAUI hosts, XLSX preservation and print/PDF foundations remain in the validation matrix. Production blockers still include the catalog delta, charts/pivots UI, packaging/API compatibility, plugin trust/isolation, security/fuzzing, recovery, localization/accessibility and broad differential/visual corpora.
 
-Manifest: `docs/formula-manifests/F017_30_FUNCTION_MANIFEST.md`.
+Manifest: `docs/formula-manifests/F018_60_FUNCTION_MANIFEST.md`.

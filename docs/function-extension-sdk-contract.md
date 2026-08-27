@@ -1,12 +1,12 @@
 # Function Extension SDK v1.0 contract
 
-- Eager/versioned registry: 372 names.
-- AST/reference-aware: 34 names.
-- Dynamic-array unique: 20 names.
-- Total built-ins: **426 / at least 538**.
+- Eager/versioned registry: 427 names.
+- AST/reference-aware: 37 names.
+- Dynamic-array unique: 22 names.
+- Total built-ins: **486 / at least 538**.
 
-F017 registers 30 deterministic names through `StandardFormulaFunctions.CreateAll()` and the existing descriptor/version-resolution path. No parallel registry or platform-specific evaluator is introduced.
+F018 adds 55 eager/versioned functions through `StandardFormulaFunctions.CreateAll()`, three reference-aware functions through the existing AST engine, and two dynamic-array functions through the existing spill engine. No platform-specific formula registry is introduced.
 
-Scalar and range capabilities are declared explicitly; logical argument counting preserves source shape for statistical ranges. Legacy aliases delegate to existing versioned targets, while new discrete and hypothesis functions use bounded engine-owned numerics.
+Scalar/range capabilities, volatility, logical argument counting and resource bounds remain explicit. `RAND` and `RANDBETWEEN` are marked volatile; reference-introspection functions capture exact source dependencies; dynamic matrix/frequency output observes the one-million-cell array cap.
 
-The F017 manifest records group, implementation file, test file, exact test method, status, edge cases and owning commit for every name.
+The F018 manifest records group, implementation file, test file, exact test method, status, edge cases and owning commit for every name.

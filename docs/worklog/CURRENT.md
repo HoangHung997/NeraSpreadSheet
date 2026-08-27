@@ -3,14 +3,13 @@
 - Repository: `HoangHung997/NeraSpreadSheet`.
 - Branch: `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, unmerged.
-- Current formula cycle: F017, exactly 30 new names in commits A/B/C of ten each.
-- Formula functions after F017: **426 / at least 538**.
-- Formula tests after F017: **394/394**.
-- Registry audit: **372 eager/versioned + 34 AST/reference-aware + 20 dynamic-array unique = 426**.
-- Group A CLI: build 0 warnings/errors, 10/10 filtered, 374/374 full formula.
-- Group B CLI: build 0 warnings/errors, 10/10 filtered, 384/384 full formula.
-- Group C CLI: exact failing test filtered and corrected, 10/10 filtered, 394/394 full formula.
+- Current formula cycle: F018, exactly 60 new names in commits A/B/C of twenty each.
+- Formula functions after F018: **486 / at least 538**.
+- Formula tests after F018: **454/454**.
+- Registry audit: **427 eager/versioned + 37 AST/reference-aware + 22 dynamic-array unique = 486**.
+- Group A CLI: build 0 warnings/errors, 20/20 filtered, 414/414 full formula.
+- Group B CLI: build 0 warnings/errors, 20/20 filtered, 434/434 full formula.
+- Group C CLI: build 0 warnings/errors, 20/20 filtered, 454/454 full formula.
+- Final local gate: **1,015/1,015 Core-solution tests**, architecture verification passed.
 
-Final local gate passed: Core build 0 warnings/errors, 955/955 Core-solution tests and architecture verification. Push all three commits together and accept only the exact-head CI for commit C. Do not merge PR.
-
-Failure handling remains surgical: filter by the exact failing test and repair only its owning A/B/C implementation.
+Push all three F018 commits together and accept only the exact-head CI for commit C. Do not merge PR.
