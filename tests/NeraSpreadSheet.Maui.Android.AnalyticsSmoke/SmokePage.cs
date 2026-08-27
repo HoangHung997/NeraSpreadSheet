@@ -249,7 +249,6 @@ internal sealed class SmokePage : ContentPage, IDisposable
             clickSelectionVerified = true,
             selectedItem = view.Session?.AnalyticsInteraction.SelectedItem?.ToString(),
             cachedTypefaces = view.CachedTypefaceCount,
-            contextGeneration = view.GpuContextDiagnostics.Generation,
         });
     }
 
