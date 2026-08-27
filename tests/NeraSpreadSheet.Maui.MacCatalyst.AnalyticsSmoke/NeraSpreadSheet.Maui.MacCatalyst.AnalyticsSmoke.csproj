@@ -2,7 +2,6 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0-maccatalyst</TargetFramework>
-    <RuntimeIdentifier>maccatalyst-arm64</RuntimeIdentifier>
     <RootNamespace>NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke</RootNamespace>
     <AssemblyName>NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke</AssemblyName>
     <UseMaui>true</UseMaui>
@@ -14,7 +13,7 @@
     <ApplicationVersion>1</ApplicationVersion>
     <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
     <IsPackable>false</IsPackable>
-    <Description>Loaded MAUI Mac Catalyst VoiceOver analytics accessibility smoke for NeraSpreadSheet.</Description>
+    <Description>Loaded MAUI Mac Catalyst VoiceOver analytics accessibility smoke for NeraSpreadSheet. The runtime identifier is selected by CI to match the hosted Mac architecture.</Description>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/NeraSpreadSheet.Maui/NeraSpreadSheet.Maui.csproj" />
