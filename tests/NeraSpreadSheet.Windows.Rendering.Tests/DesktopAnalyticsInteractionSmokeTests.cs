@@ -3,7 +3,9 @@ using System.Runtime.ExceptionServices;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
+using NeraSpreadSheet.Layout;
 using NeraSpreadSheet.Rendering.Spreadsheet;
+using NeraSpreadSheet.Viewport;
 using WinFormsApplication = System.Windows.Forms.Application;
 using WinFormsBaseControl = System.Windows.Forms.Control;
 using WinFormsControl = NeraSpreadSheet.WinForms.NeraSpreadsheetControl;
@@ -14,6 +16,7 @@ using WinFormsKeyEventArgs = System.Windows.Forms.KeyEventArgs;
 using WinFormsKeys = System.Windows.Forms.Keys;
 using WinFormsMouseButtons = System.Windows.Forms.MouseButtons;
 using WinFormsMouseEventArgs = System.Windows.Forms.MouseEventArgs;
+using WinFormsPaintEventArgs = System.Windows.Forms.PaintEventArgs;
 
 namespace NeraSpreadSheet.Windows.Rendering.Tests;
 
@@ -57,17 +60,26 @@ public sealed class DesktopAnalyticsInteractionSmokeTests
                 "Host analytics");
             var item = SpreadsheetAnalyticsItemKey.ForChart(chart.Id);
 
-            control.Refresh();
-            WinFormsApplication.DoEvents();
+            ForcePaint(control);
             var before = session.AnalyticsPlacements.GetPlacement(item);
             var chrome = SpreadsheetChromeGeometry.Calculate(
                 control.ClientSize.Width,
                 control.ClientSize.Height,
                 control.RenderTheme);
+            var layout = GetLastLayout(control);
+            var target = new SpreadsheetViewportEngine(session)
+                .GetAnalyticsInteractionTargets(layout)
+                .Single(value => value.Item == item);
+            var visibleTarget = target.ViewportBounds.Intersect(target.ClipBounds);
+            Assert.IsFalse(visibleTarget.IsEmpty);
             var startX = checked((int)Math.Round(
-                chrome.RowHeaderWidth + before.DocumentBounds.Left + 40d));
+                chrome.RowHeaderWidth +
+                visibleTarget.Left +
+                (visibleTarget.Width / 2d)));
             var startY = checked((int)Math.Round(
-                chrome.ColumnHeaderHeight + before.DocumentBounds.Top + 40d));
+                chrome.ColumnHeaderHeight +
+                visibleTarget.Top +
+                (visibleTarget.Height / 2d)));
             var undoBeforeDrag = session.History.UndoCount;
 
             RaiseMouse(
@@ -145,6 +157,35 @@ public sealed class DesktopAnalyticsInteractionSmokeTests
         worksheet.SetValue(new CellAddress(3, 0), "C");
         worksheet.SetValue(new CellAddress(3, 1), 30d);
         return workbook;
+    }
+
+    private static void ForcePaint(WinFormsControl control)
+    {
+        using var bitmap = new System.Drawing.Bitmap(
+            Math.Max(1, control.ClientSize.Width),
+            Math.Max(1, control.ClientSize.Height));
+        using var graphics = System.Drawing.Graphics.FromImage(bitmap);
+        var method = control.GetType().GetMethod(
+            "OnPaint",
+            BindingFlags.Instance | BindingFlags.NonPublic) ??
+            throw new AssertFailedException(
+                $"{control.GetType().FullName}.OnPaint was not found.");
+        method.Invoke(
+            control,
+            [new WinFormsPaintEventArgs(graphics, control.ClientRectangle)]);
+        WinFormsApplication.DoEvents();
+    }
+
+    private static ViewportLayout GetLastLayout(WinFormsControl control)
+    {
+        var field = control.GetType().GetField(
+            "_lastLayout",
+            BindingFlags.Instance | BindingFlags.NonPublic) ??
+            throw new AssertFailedException(
+                $"{control.GetType().FullName}._lastLayout was not found.");
+        return field.GetValue(control) as ViewportLayout ??
+            throw new AssertFailedException(
+                "The WinForms host did not compose a viewport layout before interaction.");
     }
 
     private static void RaiseKey(
