@@ -98,6 +98,7 @@ internal sealed class WpfDirect2DGpuSurface : NeraD3D11ImageSurface
         _direct2DContext = _direct2DDevice.CreateDeviceContext(
             DeviceContextOptions.EnableMultithreadedOptimizations);
         _executor = new Direct2DDisplayListExecutor(
+            _factory,
             Direct2DHwndDisplayListRenderer.DefaultTextLayoutCacheCapacity);
         _fullRenderPending = true;
         _pendingRenderBounds.Clear();
