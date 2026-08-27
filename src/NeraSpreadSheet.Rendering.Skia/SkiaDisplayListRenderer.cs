@@ -140,6 +140,9 @@ public sealed class SkiaDisplayListRenderer : IDisposable
                 case FillRectangleCommand fill:
                     DrawFill(canvas, fill);
                     break;
+                case FillPolygonCommand polygon:
+                    DrawPolygon(canvas, polygon);
+                    break;
                 case DrawLineCommand line:
                     DrawLine(canvas, line);
                     break;
@@ -189,6 +192,23 @@ public sealed class SkiaDisplayListRenderer : IDisposable
     {
         ConfigurePaint(command.Color, SKPaintStyle.Fill, strokeWidth: 1f);
         canvas.DrawRect(ToRect(command.Bounds), _paint);
+    }
+
+    private void DrawPolygon(SKCanvas canvas, FillPolygonCommand command)
+    {
+        using var path = new SKPath();
+        path.MoveTo(
+            checked((float)command.Points[0].X),
+            checked((float)command.Points[0].Y));
+        for (var index = 1; index < command.Points.Count; index++)
+        {
+            path.LineTo(
+                checked((float)command.Points[index].X),
+                checked((float)command.Points[index].Y));
+        }
+        path.Close();
+        ConfigurePaint(command.Color, SKPaintStyle.Fill, strokeWidth: 1f);
+        canvas.DrawPath(path, _paint);
     }
 
     private void DrawLine(SKCanvas canvas, DrawLineCommand command)
