@@ -94,11 +94,7 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
                     graphics.FillRectangle(GetBrush(fill.Color), ToRectangleF(fill.Bounds.Translate(offsetX, offsetY)));
                     break;
                 case FillPolygonCommand polygon:
-                    graphics.FillPolygon(
-                        GetBrush(polygon.Color),
-                        polygon.Points
-                            .Select(point => ToPointF(point, offsetX, offsetY))
-                            .ToArray());
+                    DrawPolygon(graphics, polygon, offsetX, offsetY);
                     break;
                 case DrawLineCommand line:
                     graphics.DrawLine(
@@ -143,6 +139,20 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
                     throw new NotSupportedException($"Unsupported render command '{command.GetType().Name}'.");
             }
         }
+    }
+
+    private void DrawPolygon(
+        Graphics graphics,
+        FillPolygonCommand command,
+        double offsetX,
+        double offsetY)
+    {
+        var points = new PointF[command.Points.Count];
+        for (var index = 0; index < command.Points.Count; index++)
+        {
+            points[index] = ToPointF(command.Points[index], offsetX, offsetY);
+        }
+        graphics.FillPolygon(GetBrush(command.Color), points);
     }
 
     private void DrawText(Graphics graphics, DrawTextCommand command, double offsetX, double offsetY)
