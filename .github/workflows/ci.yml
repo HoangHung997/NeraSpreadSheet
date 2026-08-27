@@ -96,6 +96,13 @@ jobs:
         shell: pwsh
         run: ./scripts/run-maui-windows-smoke.ps1 -ExecutablePath "artifacts/maui-windows-smoke/NeraSpreadSheet.Maui.Windows.Smoke.exe"
 
+      - name: Publish loaded MAUI Windows analytics smoke
+        run: dotnet publish tests/NeraSpreadSheet.Maui.Windows.AnalyticsSmoke/NeraSpreadSheet.Maui.Windows.AnalyticsSmoke.csproj -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --self-contained false -p:NeraMauiTargetFrameworks=net10.0-windows10.0.19041.0 -o artifacts/maui-windows-analytics-smoke
+
+      - name: Run loaded MAUI Windows analytics smoke
+        shell: pwsh
+        run: ./scripts/run-maui-windows-smoke.ps1 -ExecutablePath "artifacts/maui-windows-analytics-smoke/NeraSpreadSheet.Maui.Windows.AnalyticsSmoke.exe"
+
       - name: Publish loaded MAUI Windows scale smoke
         run: dotnet publish tests/NeraSpreadSheet.Maui.Windows.ScaleSmoke/NeraSpreadSheet.Maui.Windows.ScaleSmoke.csproj -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --self-contained false -p:NeraMauiTargetFrameworks=net10.0-windows10.0.19041.0 -o artifacts/maui-windows-scale-smoke
 
