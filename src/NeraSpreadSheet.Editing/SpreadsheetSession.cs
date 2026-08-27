@@ -31,6 +31,7 @@ public sealed class SpreadsheetSession
         Sort = new SpreadsheetSortController(this);
         Validation = new SpreadsheetDataValidationController(this);
         Tables = new SpreadsheetTableController(this);
+        Analytics = new SpreadsheetAnalyticsController(this);
         WorksheetFilter =
             new SpreadsheetWorksheetAutoFilterController(this);
         Editor = new SpreadsheetCellEditorController(this);
@@ -48,6 +49,9 @@ public sealed class SpreadsheetSession
             Commands,
             this,
             Structure);
+        SpreadsheetAnalyticsCommandCatalog.Register(
+            Commands,
+            Analytics);
         CommandDispatcher = new CommandDispatcher(Commands);
     }
 
@@ -72,6 +76,8 @@ public sealed class SpreadsheetSession
     public SpreadsheetDataValidationController Validation { get; }
 
     public SpreadsheetTableController Tables { get; }
+
+    public SpreadsheetAnalyticsController Analytics { get; }
 
     public SpreadsheetWorksheetAutoFilterController
         WorksheetFilter { get; }
