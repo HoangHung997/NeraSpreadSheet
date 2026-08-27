@@ -30,6 +30,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private RectD _beforeBounds;
     private RectD _expectedMovedBounds;
     private RectD _lastMovedBounds;
+    private RectD? _previewAfterMove;
     private SpreadsheetAnalyticsResizeHandle _activeHandleAfterPress;
     private PointD _startBody;
     private PointD _endBody;
@@ -39,6 +40,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private int _surfaceWidth;
     private int _surfaceHeight;
     private int _historyBeforeDrag;
+    private int _historyAfterRelease;
     private bool _chartInserted;
     private bool _touchApplied;
     private bool _disposed;
@@ -236,7 +238,18 @@ internal sealed class SmokePage : ContentPage, IDisposable
                     "A secondary touch stole the active analytics transform.");
 
                 ProcessTouch(view, 501L, SKTouchAction.Moved, end, true);
+                _previewAfterMove = session.AnalyticsInteraction.Snapshot.PreviewDocumentBounds;
+                Require(
+                    _previewAfterMove.HasValue &&
+                    AreClose(_previewAfterMove.Value, _expectedMovedBounds),
+                    $"The loaded chart touch move did not produce the expected preview. " +
+                    $"preview={FormatNullableRect(_previewAfterMove)} " +
+                    $"expected={FormatRect(_expectedMovedBounds)} " +
+                    $"start={FormatPoint(_startBody)} end={FormatPoint(_endBody)} " +
+                    $"handle={_activeHandleAfterPress}.");
+
                 ProcessTouch(view, 501L, SKTouchAction.Released, end, false);
+                _historyAfterRelease = session.History.UndoCount;
                 _touchApplied = true;
                 view.InvalidateSurface();
             }
@@ -257,8 +270,10 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Require(AreClose(moved, _expectedMovedBounds),
             $"The loaded chart touch drag did not commit the expected document bounds. " +
             $"actual={FormatRect(moved)} expected={FormatRect(_expectedMovedBounds)} " +
+            $"preview={FormatNullableRect(_previewAfterMove)} " +
             $"before={FormatRect(_beforeBounds)} start={FormatPoint(_startBody)} " +
             $"end={FormatPoint(_endBody)} handle={_activeHandleAfterPress} " +
+            $"historyBefore={_historyBeforeDrag} historyAfter={_historyAfterRelease} " +
             $"zoom={view.Zoom:R} surface={_surfaceWidth}x{_surfaceHeight} " +
             $"viewport={view.Width:R}x{view.Height:R}.");
         Require(session.History.UndoCount == _historyBeforeDrag + 1,
@@ -366,6 +381,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             moveDeltaY = MoveDeltaY,
             beforeBounds = _beforeBounds,
             movedBounds = _lastMovedBounds,
+            previewAfterMove = _previewAfterMove,
             historyBeforeDrag = _historyBeforeDrag,
             historyAfterRedo = view.Session?.History.UndoCount,
             inputPressed = input.PressedEvents,
@@ -397,9 +413,12 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 beforeBounds = _beforeBounds,
                 expectedMovedBounds = _expectedMovedBounds,
                 movedBounds = _lastMovedBounds,
+                previewAfterMove = _previewAfterMove,
                 startBody = _startBody,
                 endBody = _endBody,
                 activeHandleAfterPress = _activeHandleAfterPress.ToString(),
+                historyBeforeDrag = _historyBeforeDrag,
+                historyAfterRelease = _historyAfterRelease,
                 surfaceWidth = _surfaceWidth,
                 surfaceHeight = _surfaceHeight,
                 viewportWidth = _view?.Width,
@@ -440,6 +459,9 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     private static string FormatRect(RectD value) =>
         $"({value.X:R},{value.Y:R},{value.Width:R},{value.Height:R})";
+
+    private static string FormatNullableRect(RectD? value) =>
+        value.HasValue ? FormatRect(value.Value) : "null";
 
     private static string FormatPoint(PointD value) =>
         $"({value.X:R},{value.Y:R})";
