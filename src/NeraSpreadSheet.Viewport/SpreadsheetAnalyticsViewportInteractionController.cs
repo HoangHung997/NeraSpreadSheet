@@ -1,3 +1,4 @@
+using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Interaction;
