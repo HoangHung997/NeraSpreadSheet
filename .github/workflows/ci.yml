@@ -259,7 +259,7 @@ jobs:
 
           PID=""
           for _ in $(seq 1 20); do
-            PID="$("$ADB" shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' | awk '{print $1}')"
+            PID="$("$ADB" shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
             if [ -n "$PID" ]; then
               break
             fi
@@ -286,7 +286,7 @@ jobs:
               exit 1
             fi
 
-            CURRENT_PID="$("$ADB" shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' | awk '{print $1}')"
+            CURRENT_PID="$("$ADB" shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
             if [ -z "$CURRENT_PID" ]; then
               echo "Android analytics smoke process exited before producing a result marker."
               print_runtime_diagnostics
