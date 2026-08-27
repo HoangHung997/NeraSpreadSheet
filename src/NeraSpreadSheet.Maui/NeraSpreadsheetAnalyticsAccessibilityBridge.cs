@@ -4,10 +4,6 @@ using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Rendering.Spreadsheet;
-using SkiaSharp.Views.Maui;
-#if WINDOWS || ANDROID
-using SkiaSharp.Views.Maui.Handlers;
-#endif
 using MauiAutomationProperties = Microsoft.Maui.Controls.AutomationProperties;
 using MauiPaintGLSurfaceEventArgs = SkiaSharp.Views.Maui.SKPaintGLSurfaceEventArgs;
 using MauiSemanticProperties = Microsoft.Maui.Controls.SemanticProperties;
@@ -31,33 +27,9 @@ namespace NeraSpreadSheet.Maui;
 /// </summary>
 internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
 {
-#if WINDOWS || ANDROID
-    private const string MapperKey = "NeraSpreadSheet.AnalyticsAccessibility";
-#endif
     private static readonly ConditionalWeakTable<NeraSpreadsheetView, BridgeState> States = new();
-    private static int s_registered;
 
-    internal static void Register()
-    {
-        if (Interlocked.Exchange(ref s_registered, 1) != 0)
-        {
-            return;
-        }
-
-#if WINDOWS || ANDROID
-        SKGLViewHandler.SKGLViewMapper.AppendToMapping(
-            MapperKey,
-            static (_, virtualView) =>
-            {
-                if (virtualView is NeraSpreadsheetView view)
-                {
-                    Attach(view);
-                }
-            });
-#endif
-    }
-
-    private static void Attach(NeraSpreadsheetView view)
+    internal static void Attach(NeraSpreadsheetView view)
     {
         ArgumentNullException.ThrowIfNull(view);
         var state = States.GetValue(view, static key => new BridgeState(key));
