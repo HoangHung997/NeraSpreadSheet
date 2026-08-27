@@ -4,7 +4,6 @@ using Microsoft.Maui.Controls;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Maui;
-using ObjCRuntime;
 using SkiaSharp.Views.Maui;
 using UIKit;
 
@@ -197,10 +196,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 frame.Height > 0d,
             "The native Mac Catalyst accessibility element exposed invalid screen bounds.");
 
-        using var selector = new Selector("accessibilityActivate");
-        Require(element.RespondsToSelector(selector),
-            "The native Mac Catalyst chart element does not respond to accessibilityActivate.");
-        Require(Messaging.bool_objc_msgSend(element.Handle, selector.Handle),
+        Require(element.AccessibilityActivate(),
             "The native Mac Catalyst accessibilityActivate action returned false.");
         Require(view.Session?.AnalyticsInteraction.SelectedItem == _item,
             "Mac Catalyst accessibilityActivate did not select the chart in the spreadsheet session.");
