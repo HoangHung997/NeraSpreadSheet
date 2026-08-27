@@ -62,6 +62,10 @@ internal static class StandardFormulaFunctions
         {
             yield return function;
         }
+        foreach (var function in F019StatisticsMatrixAndExternalFormulaFunctions.Create())
+        {
+            yield return function;
+        }
         foreach (var function in TextFormulaFunctions.Create())
         {
             yield return function;

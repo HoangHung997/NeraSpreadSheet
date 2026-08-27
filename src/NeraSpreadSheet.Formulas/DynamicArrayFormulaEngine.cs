@@ -99,6 +99,10 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
         IFormulaEvaluationContext context,
         List<FormulaDependency> dependencies)
     {
+        if (IsF019GroupBDynamicFunction(function.Name))
+        {
+            return EvaluateF019GroupBDynamic(function, context, dependencies);
+        }
         if (string.Equals(function.Name, "MUNIT", StringComparison.OrdinalIgnoreCase))
         {
             return EvaluateF018MUnit(function, context, dependencies);
@@ -522,7 +526,13 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
         return result.Value;
     }
 
+    private static bool IsF019GroupBDynamicFunction(string name) =>
+        FormulaFunctionName.Normalize(name) is
+            "GROWTH" or "LINEST" or "LOGEST" or "MINVERSE" or "MMULT" or
+            "MODE.MULT" or "RANDARRAY" or "TEXTSPLIT" or "TREND" or "STOCKHISTORY";
+
     private static bool IsDynamicFunction(string name) =>
+        IsF019GroupBDynamicFunction(name) ||
         string.Equals(name, "MUNIT", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(name, "FREQUENCY", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(

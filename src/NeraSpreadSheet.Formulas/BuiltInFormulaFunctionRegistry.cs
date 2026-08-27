@@ -3,7 +3,13 @@ namespace NeraSpreadSheet.Formulas;
 public sealed class BuiltInFormulaFunctionRegistry :
     IVersionedFormulaFunctionRegistry
 {
-    private readonly VersionedFormulaFunctionRegistry _registry = new();
+    private readonly VersionedFormulaFunctionRegistry _registry = new(
+        new FormulaFunctionRegistryPolicy
+        {
+            AllowExternalStateFunctions = true,
+            MaximumSecurityClassification =
+                FormulaFunctionSecurityClassification.ExternalState,
+        });
 
     public BuiltInFormulaFunctionRegistry()
     {

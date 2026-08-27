@@ -35,26 +35,26 @@
 | `INFO` | A | `F019DateTextAndCompatibilityFormulaFunctions.cs` | `F019GroupADateTextCompatibilityTests.cs` | `Info_Contract_IsValidated` | `tested` | supported deterministic info types; unknown type | A |
 | `PHONETIC` | A | `F019DateTextAndCompatibilityFormulaFunctions.cs` | `F019GroupADateTextCompatibilityTests.cs` | `Phonetic_Contract_IsValidated` | `tested` | metadata provider; fallback original text | A |
 | `FILTERXML` | A | `F019DateTextAndCompatibilityFormulaFunctions.cs` | `F019GroupADateTextCompatibilityTests.cs` | `Filterxml_Contract_IsValidated` | `tested` | valid XML/XPath; no DTD/external entities; scalar result | A |
-| `FORECAST.ETS` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `ForecastEts_Contract_IsValidated` | `pending` | sorted timeline; duplicate handling; seasonality limits | B |
-| `FORECAST.ETS.CONFINT` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `ForecastEtsConfint_Contract_IsValidated` | `pending` | confidence 0..1; interval horizon | B |
-| `FORECAST.ETS.SEASONALITY` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `ForecastEtsSeasonality_Contract_IsValidated` | `pending` | detect periodicity; bounded search | B |
-| `FORECAST.ETS.STAT` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `ForecastEtsStat_Contract_IsValidated` | `pending` | stat_type validation; bounded diagnostics | B |
-| `GROWTH` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Growth_Contract_IsValidated` | `pending` | positive known_y; regression shape; optional known_x/new_x | B |
-| `LINEST` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Linest_Contract_IsValidated` | `pending` | linear regression coefficients; const/stats flags | B |
-| `LOGEST` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Logest_Contract_IsValidated` | `pending` | positive y; log regression; overflow | B |
-| `MAXIFS` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Maxifs_Contract_IsValidated` | `pending` | criteria shape equality; no matches | B |
-| `MINIFS` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Minifs_Contract_IsValidated` | `pending` | criteria shape equality; no matches | B |
-| `MINVERSE` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Minverse_Contract_IsValidated` | `pending` | square matrix; singular matrix; max cells | B |
-| `MMULT` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Mmult_Contract_IsValidated` | `pending` | inner dimension equality; finite result; max cells | B |
-| `MODE.MULT` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `ModeMult_Contract_IsValidated` | `pending` | ties; no duplicates; vertical spill | B |
-| `RANDARRAY` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Randarray_Contract_IsValidated` | `pending` | rows/cols bounds; min/max; integer mode; volatile | B |
-| `TEXTSPLIT` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Textsplit_Contract_IsValidated` | `pending` | row/column delimiters; ignore_empty; pad_with | B |
-| `TREND` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Trend_Contract_IsValidated` | `pending` | linear prediction shapes; optional const | B |
-| `IMAGE` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Image_Contract_IsValidated` | `pending` | external image provider; size mode validation | B |
-| `DETECTLANGUAGE` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Detectlanguage_Contract_IsValidated` | `pending` | external language provider; unavailable provider | B |
-| `TRANSLATE` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Translate_Contract_IsValidated` | `pending` | source/target language; external provider | B |
-| `WEBSERVICE` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Webservice_Contract_IsValidated` | `pending` | external provider; URL validation; size cap | B |
-| `STOCKHISTORY` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Stockhistory_Contract_IsValidated` | `pending` | external provider; dates/interval/headers/properties | B |
+| `FORECAST.ETS` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `ForecastEts_Contract_IsValidated` | `tested` | sorted timeline; duplicate handling; seasonality limits | B |
+| `FORECAST.ETS.CONFINT` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `ForecastEtsConfint_Contract_IsValidated` | `tested` | confidence 0..1; interval horizon | B |
+| `FORECAST.ETS.SEASONALITY` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `ForecastEtsSeasonality_Contract_IsValidated` | `tested` | detect periodicity; bounded search | B |
+| `FORECAST.ETS.STAT` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `ForecastEtsStat_Contract_IsValidated` | `tested` | stat_type validation; bounded diagnostics | B |
+| `GROWTH` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Growth_Contract_IsValidated` | `tested` | positive known_y; regression shape; optional known_x/new_x | B |
+| `LINEST` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Linest_Contract_IsValidated` | `tested` | linear regression coefficients; const/stats flags | B |
+| `LOGEST` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Logest_Contract_IsValidated` | `tested` | positive y; log regression; overflow | B |
+| `MAXIFS` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Maxifs_Contract_IsValidated` | `tested` | criteria shape equality; no matches | B |
+| `MINIFS` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Minifs_Contract_IsValidated` | `tested` | criteria shape equality; no matches | B |
+| `MINVERSE` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Minverse_Contract_IsValidated` | `tested` | square matrix; singular matrix; max cells | B |
+| `MMULT` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Mmult_Contract_IsValidated` | `tested` | inner dimension equality; finite result; max cells | B |
+| `MODE.MULT` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `ModeMult_Contract_IsValidated` | `tested` | ties; no duplicates; vertical spill | B |
+| `RANDARRAY` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Randarray_Contract_IsValidated` | `tested` | rows/cols bounds; min/max; integer mode; volatile | B |
+| `TEXTSPLIT` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Textsplit_Contract_IsValidated` | `tested` | row/column delimiters; ignore_empty; pad_with | B |
+| `TREND` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Trend_Contract_IsValidated` | `tested` | linear prediction shapes; optional const | B |
+| `IMAGE` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Image_Contract_IsValidated` | `tested` | external image provider; size mode validation | B |
+| `DETECTLANGUAGE` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Detectlanguage_Contract_IsValidated` | `tested` | external language provider; unavailable provider | B |
+| `TRANSLATE` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Translate_Contract_IsValidated` | `tested` | source/target language; external provider | B |
+| `WEBSERVICE` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Webservice_Contract_IsValidated` | `tested` | external provider; URL validation; size cap | B |
+| `STOCKHISTORY` | B | `F019StatisticsMatrixAndExternalFormulaFunctions.cs` | `F019GroupBStatisticsMatrixExternalTests.cs` | `Stockhistory_Contract_IsValidated` | `tested` | external provider; dates/interval/headers/properties | B |
 | `BYCOL` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Bycol_Contract_IsValidated` | `pending` | lambda arity 1; one result per column; spill | C |
 | `BYROW` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Byrow_Contract_IsValidated` | `pending` | lambda arity 1; one result per row; spill | C |
 | `MAKEARRAY` | C | `F019HigherOrderAndExternalFormulaEngine.cs` | `F019GroupCHigherOrderExternalTests.cs` | `Makearray_Contract_IsValidated` | `pending` | positive dimensions; lambda(row,col); max cells | C |
@@ -81,9 +81,9 @@
 | Item | Before | After | Status |
 |---|---:|---:|---|
 | Total functions | 486 | 546 | pending |
-| Formula tests | 454 | 514 | A checkpoint 474/474; final pending |
+| Formula tests | 454 | 514 | A checkpoint 474/474; B checkpoint 494/494; final pending |
 | Group A CLI gate | 0/20 | 20/20 | build 0 warnings/errors; filtered 20/20; full formula 474/474 |
-| Group B CLI gate | 0/20 | — | pending |
+| Group B CLI gate | 0/20 | 20/20 | build 0 warnings/errors; filtered 20/20; full formula 494/494 |
 | Group C CLI gate | 0/20 | — | pending |
 | Full Core tests | — | — | pending |
 | Architecture verification | — | — | pending |
