@@ -197,11 +197,12 @@ internal sealed class NeraSpreadsheetControlAutomationPeer : FrameworkElementAut
 
     protected override List<AutomationPeer>? GetChildrenCore()
     {
+        var baseChildren = base.GetChildrenCore();
         var nodes = SpreadsheetOwner.GetNativeAnalyticsAccessibilityNodes();
         if (nodes.Count == 0)
         {
             _analyticsPeers.Clear();
-            return null;
+            return baseChildren;
         }
 
         var activeItems = nodes.Select(static node => node.Item).ToHashSet();
@@ -212,7 +213,9 @@ internal sealed class NeraSpreadsheetControlAutomationPeer : FrameworkElementAut
             _analyticsPeers.Remove(stale);
         }
 
-        var children = new List<AutomationPeer>(nodes.Count);
+        var children = baseChildren is null
+            ? new List<AutomationPeer>(nodes.Count)
+            : new List<AutomationPeer>(baseChildren);
         foreach (var node in nodes)
         {
             if (!_analyticsPeers.TryGetValue(node.Item, out var peer))
