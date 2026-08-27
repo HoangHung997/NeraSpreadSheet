@@ -1,19 +1,26 @@
 using System.Runtime.CompilerServices;
 using Microsoft.Maui;
+using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Rendering.Spreadsheet;
 using SkiaSharp.Views.Maui;
+#if WINDOWS || ANDROID
 using SkiaSharp.Views.Maui.Handlers;
+#endif
 using MauiAutomationProperties = Microsoft.Maui.Controls.AutomationProperties;
+using MauiPaintGLSurfaceEventArgs = SkiaSharp.Views.Maui.SKPaintGLSurfaceEventArgs;
 using MauiSemanticProperties = Microsoft.Maui.Controls.SemanticProperties;
 #if WINDOWS
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using SkiaSharp.Views.Windows;
 using WinAccessibilityView = Microsoft.UI.Xaml.Automation.Peers.AccessibilityView;
 using WinAutomationControlType = Microsoft.UI.Xaml.Automation.Peers.AutomationControlType;
 using WinAutomationProperties = Microsoft.UI.Xaml.Automation.AutomationProperties;
+using WinButton = Microsoft.UI.Xaml.Controls.Button;
+using WinHorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment;
+using WinSwapChainPanel = SkiaSharp.Views.Windows.SKSwapChainPanel;
+using WinThickness = Microsoft.UI.Xaml.Thickness;
+using WinVerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment;
+using WinVisibility = Microsoft.UI.Xaml.Visibility;
 #endif
 
 namespace NeraSpreadSheet.Maui;
@@ -24,7 +31,9 @@ namespace NeraSpreadSheet.Maui;
 /// </summary>
 internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
 {
+#if WINDOWS || ANDROID
     private const string MapperKey = "NeraSpreadSheet.AnalyticsAccessibility";
+#endif
     private static readonly ConditionalWeakTable<NeraSpreadsheetView, BridgeState> States = new();
     private static int s_registered;
 
@@ -35,6 +44,7 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
             return;
         }
 
+#if WINDOWS || ANDROID
         SKGLViewHandler.SKGLViewMapper.AppendToMapping(
             MapperKey,
             static (_, virtualView) =>
@@ -44,6 +54,7 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
                     Attach(view);
                 }
             });
+#endif
     }
 
     private static void Attach(NeraSpreadsheetView view)
@@ -59,8 +70,8 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
         private string? _lastDescription;
         private bool _attached;
 #if WINDOWS
-        private readonly Dictionary<SpreadsheetAnalyticsItemKey, Button> _windowsProxies = [];
-        private SKSwapChainPanel? _windowsPanel;
+        private readonly Dictionary<SpreadsheetAnalyticsItemKey, WinButton> _windowsProxies = [];
+        private WinSwapChainPanel? _windowsPanel;
 #endif
 
         internal BridgeState(NeraSpreadsheetView view)
@@ -80,7 +91,7 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
             UpdateMauiSemantics([]);
         }
 
-        private void OnPaintSurface(object? sender, SKPaintGLSurfaceEventArgs e)
+        private void OnPaintSurface(object? sender, MauiPaintGLSurfaceEventArgs e)
         {
             if (!ReferenceEquals(sender, _view))
             {
@@ -138,9 +149,9 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
 #if WINDOWS
         private void UpdateWindowsAccessibility(
             IReadOnlyList<SpreadsheetAnalyticsAccessibleNode> nodes,
-            SKPaintGLSurfaceEventArgs frame)
+            MauiPaintGLSurfaceEventArgs frame)
         {
-            if (_view.Handler?.PlatformView is not SKSwapChainPanel panel)
+            if (_view.Handler?.PlatformView is not WinSwapChainPanel panel)
             {
                 DetachWindowsPanel();
                 return;
@@ -191,12 +202,12 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
             }
         }
 
-        private Button CreateWindowsProxy(SpreadsheetAnalyticsItemKey item)
+        private WinButton CreateWindowsProxy(SpreadsheetAnalyticsItemKey item)
         {
-            var proxy = new Button
+            var proxy = new WinButton
             {
-                HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Top,
+                HorizontalAlignment = WinHorizontalAlignment.Left,
+                VerticalAlignment = WinVerticalAlignment.Top,
                 IsHitTestVisible = false,
                 IsTabStop = false,
                 MinWidth = 0d,
@@ -223,7 +234,7 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
         }
 
         private static void UpdateWindowsProxyMetadata(
-            Button proxy,
+            WinButton proxy,
             SpreadsheetAnalyticsAccessibleNode node,
             int position,
             int size)
@@ -263,7 +274,7 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
         }
 
         private void UpdateWindowsProxyBounds(
-            Button proxy,
+            WinButton proxy,
             SpreadsheetAnalyticsAccessibleNode node,
             SpreadsheetChromeMetrics chrome,
             double canvasUnitsPerViewportUnitX,
@@ -272,7 +283,7 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
             var visible = node.ViewportBounds.Intersect(node.ClipBounds);
             if (visible.IsEmpty)
             {
-                proxy.Visibility = Visibility.Collapsed;
+                proxy.Visibility = WinVisibility.Collapsed;
                 return;
             }
 
@@ -291,14 +302,14 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
                 width <= 0d ||
                 height <= 0d)
             {
-                proxy.Visibility = Visibility.Collapsed;
+                proxy.Visibility = WinVisibility.Collapsed;
                 return;
             }
 
-            proxy.Margin = new Thickness(left, top, 0d, 0d);
+            proxy.Margin = new WinThickness(left, top, 0d, 0d);
             proxy.Width = width;
             proxy.Height = height;
-            proxy.Visibility = Visibility.Visible;
+            proxy.Visibility = WinVisibility.Visible;
         }
 
         private void DetachWindowsPanel()
