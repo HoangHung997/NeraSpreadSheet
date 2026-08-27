@@ -22,8 +22,8 @@ using WinVisibility = Microsoft.UI.Xaml.Visibility;
 namespace NeraSpreadSheet.Maui;
 
 /// <summary>
-/// Projects host-neutral analytics accessibility nodes into MAUI semantics and,
-/// on Windows, lightweight native UI Automation children layered over the GPU surface.
+/// Projects host-neutral analytics accessibility nodes into MAUI semantics and
+/// platform-native virtual accessibility children while retaining the GPU surface.
 /// </summary>
 internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
 {
@@ -74,6 +74,9 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
             UpdateMauiSemantics(nodes);
 #if WINDOWS
             UpdateWindowsAccessibility(nodes, e);
+#endif
+#if ANDROID
+            NeraSpreadsheetAndroidAnalyticsAccessibilityBridge.Update(_view, nodes, e);
 #endif
         }
 
