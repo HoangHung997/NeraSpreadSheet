@@ -35,6 +35,7 @@ public sealed class SpreadsheetSession
         AnalyticsPlacements = new SpreadsheetAnalyticsPlacementController(
             this,
             Analytics);
+        AnalyticsInteraction = new SpreadsheetAnalyticsInteractionController();
         WorksheetFilter =
             new SpreadsheetWorksheetAutoFilterController(this);
         Editor = new SpreadsheetCellEditorController(this);
@@ -84,6 +85,8 @@ public sealed class SpreadsheetSession
 
     public SpreadsheetAnalyticsPlacementController AnalyticsPlacements { get; }
 
+    public SpreadsheetAnalyticsInteractionController AnalyticsInteraction { get; }
+
     public SpreadsheetWorksheetAutoFilterController
         WorksheetFilter { get; }
 
@@ -116,6 +119,7 @@ public sealed class SpreadsheetSession
         }
 
         Editor.Cancel();
+        AnalyticsInteraction.ClearSelection();
         ActiveWorksheet = worksheet;
         Selection.SetActiveCell(default);
         View.NotifyActiveWorksheetChanged();
