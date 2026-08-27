@@ -69,11 +69,15 @@ public sealed class SpreadsheetAnalyticsInteractionEditingTests
         Assert.IsTrue(SpreadsheetAnalyticsInteractionEditing.RemoveItem(
             session.Analytics,
             item));
-        Assert.AreEqual(0, session.Analytics.GetPivots().Count);
+        Assert.AreEqual(
+            0,
+            session.Analytics.GetPivots(session.ActiveWorksheet).Count);
         Assert.AreEqual(0, session.AnalyticsPlacements.Placements.Count);
 
         Assert.IsTrue(session.Undo());
-        Assert.AreEqual(1, session.Analytics.GetPivots().Count);
+        Assert.AreEqual(
+            1,
+            session.Analytics.GetPivots(session.ActiveWorksheet).Count);
         Assert.AreEqual(1, session.AnalyticsPlacements.Placements.Count);
     }
 
