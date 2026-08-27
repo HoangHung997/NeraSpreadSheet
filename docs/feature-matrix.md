@@ -3,14 +3,14 @@
 | Area | Current validated capability | Next |
 |---|---|---|
 | Workbook/editing | Excel-size sparse sheets, structural transforms, selection, clipboard and Undo/Redo | axis grouping and native spill UX |
-| Formula surface | **426 / at least 538 functions**, 394 separately named formula tests; 30-name A/B/C cycles with per-group CLI gates | F018 after duplicate/catalog audit |
-| Math | arithmetic, logs, trigonometry, hyperbolic, combinatorics, rounding, vector math, radix and Roman conversions | matrix and remaining advanced math catalog |
-| Statistics | descriptive/order statistics, regression, advanced and discrete distributions, confidence, F/Z tests, modern and legacy compatibility | remaining compatibility and differential corpus |
-| Engineering | 45 names including fixed-width conversions, bit operations and complex-number functions | `CONVERT` and remaining engineering special functions |
-| Information | parity and non-text predicates plus existing information foundation | remaining information and error-introspection functions |
-| Reference | ADDRESS/AREAS/CHOOSE/COLUMN/COLUMNS/FORMULATEXT/INDIRECT/OFFSET/ROW/ROWS/SHEET/SHEETS | 3-D references and full algebra |
-| Dynamic arrays | 20 unique names including TOCOL/TOROW/TRIMRANGE/VSTACK/WRAPCOLS/WRAPROWS | remaining array and higher-order families |
-| Lookup/logical | LOOKUP/XMATCH plus lazy IF/IFERROR/IFNA/SWITCH paths | advanced lookup and LET/LAMBDA |
+| Formula surface | **486 / at least 538 functions**, 454 separately named formula tests; F018 used 60 names in A/B/C with per-group CLI gates | remaining catalog delta + final Microsoft/OpenFormula audit |
+| Math | arithmetic, logs, trig/hyperbolic, combinatorics, rounding, vector math, radix/Roman, error functions, determinant and volatile random functions | remaining matrix/advanced math catalog |
+| Statistics | descriptive/order statistics, regression, distributions, confidence, F/Z/chi-square/t tests, legacy compatibility | differential corpus and remaining delta |
+| Engineering | complex functions, fixed-width conversions, bit operations, `CONVERT`, ERF/ERFC and Bessel surface | remaining engineering special functions |
+| Information | parity/non-text plus `CELL`, `ERROR.TYPE`, `ISFORMULA`, `ISREF`, `TYPE` | remaining metadata/data-type functions |
+| Reference/lookup | ADDRESS/AREAS/CHOOSE/COLUMN/COLUMNS/FORMULATEXT/INDIRECT/OFFSET/ROW/ROWS/SHEET/SHEETS plus INDEX/MATCH/XLOOKUP/HLOOKUP/VLOOKUP | 3-D references and full algebra |
+| Dynamic arrays | 22 unique names including MUNIT and FREQUENCY | higher-order and remaining projection families |
+| Lookup/logical | LOOKUP/XMATCH/XLOOKUP plus lazy IF/IFERROR/IFNA/SWITCH paths | LET/LAMBDA and remaining advanced lookup |
 | Finance | 56 functions | differential/fuzz corpus |
 | Database | 12 aggregates | expression criteria/indexing |
 | Rendering | fractional scrolling and WPF/WinForms/MAUI GPU hosts | hardware budgets/accessibility |

@@ -5,6 +5,7 @@
 - Base HEAD: `0c6f8d5938b50485fa93023e9311261850b7d592`.
 - Functions before/after: **426 → 486**.
 - Eager/versioned before/after: **372 → 427**.
+- AST/reference-aware before/after: **34 → 37**.
 - Dynamic-array unique before/after: **20 → 22**.
 - Formula tests before/after: **394 → 454**.
 - Groups: **A=20, B=20, C=20**.
@@ -52,26 +53,26 @@
 | `PERCENTRANK` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_PERCENTRANK_Compatibility` | `tested` | sorted interpolation; significance | B |
 | `CHITEST` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_CHITEST_Compatibility` | `tested` | legacy alias behavior | B |
 | `TTEST` | B | `F018InfoAndStatisticalFormulaFunctions.cs / F018ReferenceIntrospectionFormulaEngine.cs` | `F018GroupBInfoAndStatisticalTests.cs` | `F018_TTEST_Compatibility` | `tested` | legacy alias behavior | B |
-| `CONVERT` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_CONVERT_Compatibility` | `pending` | unit dimension match; temperature offsets | C |
-| `ERF` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_ERF_Compatibility` | `pending` | one/two-bound forms | C |
-| `ERF.PRECISE` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_ERF_PRECISE_Compatibility` | `pending` | finite scalar | C |
-| `ERFC` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_ERFC_Compatibility` | `pending` | complementary error function | C |
-| `ERFC.PRECISE` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_ERFC_PRECISE_Compatibility` | `pending` | finite scalar | C |
-| `BESSELI` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_BESSELI_Compatibility` | `pending` | order truncation; bounded series | C |
-| `BESSELJ` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_BESSELJ_Compatibility` | `pending` | order truncation; bounded series | C |
-| `BESSELK` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_BESSELK_Compatibility` | `pending` | x>0; bounded recurrence | C |
-| `BESSELY` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_BESSELY_Compatibility` | `pending` | x>0; bounded recurrence | C |
-| `HLOOKUP` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_HLOOKUP_Compatibility` | `pending` | row index; approximate/exact | C |
-| `VLOOKUP` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_VLOOKUP_Compatibility` | `pending` | column index; approximate/exact | C |
-| `INDEX` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_INDEX_Compatibility` | `pending` | shape; row/column bounds | C |
-| `MATCH` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_MATCH_Compatibility` | `pending` | vector-only; exact/approx modes | C |
-| `XLOOKUP` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_XLOOKUP_Compatibility` | `pending` | exact match; if-not-found; shape | C |
-| `AGGREGATE` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_AGGREGATE_Compatibility` | `pending` | function selector; numeric ranges | C |
-| `RAND` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_RAND_Compatibility` | `pending` | volatile; [0,1) | C |
-| `RANDBETWEEN` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_RANDBETWEEN_Compatibility` | `pending` | volatile; inclusive bounds | C |
-| `MDETERM` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_MDETERM_Compatibility` | `pending` | square matrix; pivoting; 256 cap | C |
-| `MUNIT` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_MUNIT_Compatibility` | `pending` | positive size; 1M-cell cap | C |
-| `FREQUENCY` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_FREQUENCY_Compatibility` | `pending` | bins; output bins+1; dynamic spill | C |
+| `CONVERT` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_CONVERT_Compatibility` | `tested` | unit dimension match; temperature offsets | C |
+| `ERF` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_ERF_Compatibility` | `tested` | one/two-bound forms | C |
+| `ERF.PRECISE` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_ERF_PRECISE_Compatibility` | `tested` | finite scalar | C |
+| `ERFC` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_ERFC_Compatibility` | `tested` | complementary error function | C |
+| `ERFC.PRECISE` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_ERFC_PRECISE_Compatibility` | `tested` | finite scalar | C |
+| `BESSELI` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_BESSELI_Compatibility` | `tested` | order truncation; bounded series | C |
+| `BESSELJ` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_BESSELJ_Compatibility` | `tested` | order truncation; bounded series | C |
+| `BESSELK` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_BESSELK_Compatibility` | `tested` | x>0; bounded recurrence | C |
+| `BESSELY` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_BESSELY_Compatibility` | `tested` | x>0; bounded recurrence | C |
+| `HLOOKUP` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_HLOOKUP_Compatibility` | `tested` | row index; approximate/exact | C |
+| `VLOOKUP` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_VLOOKUP_Compatibility` | `tested` | column index; approximate/exact | C |
+| `INDEX` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_INDEX_Compatibility` | `tested` | shape; row/column bounds | C |
+| `MATCH` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_MATCH_Compatibility` | `tested` | vector-only; exact/approx modes | C |
+| `XLOOKUP` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_XLOOKUP_Compatibility` | `tested` | exact match; if-not-found; shape | C |
+| `AGGREGATE` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_AGGREGATE_Compatibility` | `tested` | function selector; numeric ranges | C |
+| `RAND` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_RAND_Compatibility` | `tested` | volatile; [0,1) | C |
+| `RANDBETWEEN` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_RANDBETWEEN_Compatibility` | `tested` | volatile; inclusive bounds | C |
+| `MDETERM` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_MDETERM_Compatibility` | `tested` | square matrix; pivoting; 256 cap | C |
+| `MUNIT` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_MUNIT_Compatibility` | `tested` | positive size; 1M-cell cap | C |
+| `FREQUENCY` | C | `F018EngineeringLookupMathFormulaFunctions.cs / F018DynamicMatrixFormulaEngine.cs` | `F018GroupCEngineeringLookupMathTests.cs` | `F018_FREQUENCY_Compatibility` | `tested` | bins; output bins+1; dynamic spill | C |
 
 ## Validation ledger
 
@@ -79,8 +80,8 @@
 |---|---|
 | Group A CLI | passed — build 0 warnings/errors; 20/20 filtered; 414/414 formula |
 | Group B CLI | passed — build 0 warnings/errors; 20/20 filtered; 434/434 formula |
-| Group C CLI | pending |
-| Full formula suite | pending |
-| Full Core tests | pending |
-| Architecture verification | pending |
+| Group C CLI | passed — build 0 warnings/errors; 20/20 filtered; 454/454 formula |
+| Full formula suite | passed — 454/454 |
+| Full Core tests | passed — 1,015/1,015 |
+| Architecture verification | passed |
 | Exact-head GitHub CI | pending |

@@ -99,6 +99,14 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
         IFormulaEvaluationContext context,
         List<FormulaDependency> dependencies)
     {
+        if (string.Equals(function.Name, "MUNIT", StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateF018MUnit(function, context, dependencies);
+        }
+        if (string.Equals(function.Name, "FREQUENCY", StringComparison.OrdinalIgnoreCase))
+        {
+            return EvaluateF018Frequency(function, context, dependencies);
+        }
         if (string.Equals(
                 function.Name,
                 "SEQUENCE",
@@ -515,6 +523,8 @@ public sealed partial class NeraDynamicArrayFormulaEngine :
     }
 
     private static bool IsDynamicFunction(string name) =>
+        string.Equals(name, "MUNIT", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "FREQUENCY", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(
             name,
             "SEQUENCE",
