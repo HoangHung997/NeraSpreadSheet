@@ -117,11 +117,11 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 case SmokeStage.InitialFrame:
                     QueueChartCreation(view);
                     break;
-                case SmokeStage.AwaitChart when _chartInserted:
+                case SmokeStage.AwaitChart when Volatile.Read(ref _chartInserted):
                     ValidateInitialAccessibility(view);
                     QueueTouchTransform(view);
                     break;
-                case SmokeStage.AwaitTouchValidation when _touchApplied:
+                case SmokeStage.AwaitTouchValidation when Volatile.Read(ref _touchApplied):
                     ValidateTouchAndComplete(view);
                     break;
             }
@@ -172,7 +172,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                     MoveDeltaX,
                     MoveDeltaY);
                 _historyBeforeDrag = session.History.UndoCount;
-                _chartInserted = true;
+                Volatile.Write(ref _chartInserted, true);
                 view.InvalidateSurface();
             }
             catch (Exception exception)
@@ -249,8 +249,17 @@ internal sealed class SmokePage : ContentPage, IDisposable
                     $"handle={_activeHandleAfterPress}.");
 
                 ProcessTouch(view, 501L, SKTouchAction.Released, end, false);
+                var committed = session.AnalyticsPlacements
+                    .GetPlacement(_item)
+                    .DocumentBounds;
+                Require(
+                    AreClose(committed, _expectedMovedBounds),
+                    $"The loaded chart release did not commit bounds on the UI thread. " +
+                    $"actual={FormatRect(committed)} " +
+                    $"expected={FormatRect(_expectedMovedBounds)} " +
+                    $"nextUndo={session.History.NextUndoDescription ?? "null"}.");
                 _historyAfterRelease = session.History.UndoCount;
-                _touchApplied = true;
+                Volatile.Write(ref _touchApplied, true);
                 view.InvalidateSurface();
             }
             catch (Exception exception)
