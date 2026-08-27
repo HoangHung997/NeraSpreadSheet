@@ -89,6 +89,9 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
 #if ANDROID
             NeraSpreadsheetAndroidAnalyticsAccessibilityBridge.Detach(_view);
 #endif
+#if IOS || MACCATALYST
+            NeraSpreadsheetAppleAnalyticsAccessibilityBridge.Detach(_view);
+#endif
             _attached = false;
         }
 
@@ -106,6 +109,9 @@ internal static class NeraSpreadsheetAnalyticsAccessibilityBridge
 #endif
 #if ANDROID
             NeraSpreadsheetAndroidAnalyticsAccessibilityBridge.Update(_view, nodes, e);
+#endif
+#if IOS || MACCATALYST
+            NeraSpreadsheetAppleAnalyticsAccessibilityBridge.Update(_view, nodes, e);
 #endif
         }
 
