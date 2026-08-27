@@ -100,7 +100,7 @@ public static class SpreadsheetAnalyticsViewportMapper
         return result;
     }
 
-    private static IReadOnlyList<AxisRegion> BuildAxisRegions(
+    private static List<AxisRegion> BuildAxisRegions(
         double viewportExtent,
         double frozenExtent,
         double scrollOffset)
