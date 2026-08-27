@@ -6,12 +6,14 @@ using SharpGen.Runtime;
 using Vortice.Direct2D1;
 using Vortice.DirectWrite;
 using Vortice.Mathematics;
+using static Vortice.Direct2D1.D2D1;
 using static Vortice.DirectWrite.DWrite;
 
 namespace NeraSpreadSheet.Rendering.Direct2D;
 
 internal sealed class Direct2DDisplayListExecutor : IDisposable
 {
+    private readonly ID2D1Factory1 _d2dFactory;
     private readonly IDWriteFactory1 _writeFactory;
     private readonly Dictionary<ColorRgba, ID2D1SolidColorBrush> _brushes = [];
     private readonly Dictionary<TextStyle, IDWriteTextFormat> _textFormats = [];
@@ -22,6 +24,7 @@ internal sealed class Direct2DDisplayListExecutor : IDisposable
     public Direct2DDisplayListExecutor(int textLayoutCacheCapacity)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(textLayoutCacheCapacity);
+        _d2dFactory = D2D1CreateFactory<ID2D1Factory1>();
         _writeFactory = DWriteCreateFactory<IDWriteFactory1>();
         _textLayouts = new BoundedLruCache<TextLayoutKey, IDWriteTextLayout>(
             textLayoutCacheCapacity,
@@ -93,6 +96,7 @@ internal sealed class Direct2DDisplayListExecutor : IDisposable
         }
         _textFormats.Clear();
         _writeFactory.Dispose();
+        _d2dFactory.Dispose();
         _disposed = true;
     }
 
@@ -109,6 +113,9 @@ internal sealed class Direct2DDisplayListExecutor : IDisposable
             {
                 case FillRectangleCommand fill:
                     target.FillRectangle(ToRawRect(fill.Bounds.Translate(offsetX, offsetY)), GetBrush(target, fill.Color));
+                    break;
+                case FillPolygonCommand polygon:
+                    DrawPolygon(target, polygon, offsetX, offsetY);
                     break;
                 case DrawLineCommand line:
                     target.DrawLine(
@@ -149,6 +156,27 @@ internal sealed class Direct2DDisplayListExecutor : IDisposable
                     throw new NotSupportedException($"Unsupported render command '{command.GetType().Name}'.");
             }
         }
+    }
+
+    private void DrawPolygon(
+        ID2D1RenderTarget target,
+        FillPolygonCommand command,
+        double offsetX,
+        double offsetY)
+    {
+        using var geometry = _d2dFactory.CreatePathGeometry();
+        using var sink = geometry.Open();
+        sink.SetFillMode(FillMode.Winding);
+        sink.BeginFigure(
+            ToVector2(command.Points[0], offsetX, offsetY),
+            FigureBegin.Filled);
+        for (var index = 1; index < command.Points.Count; index++)
+        {
+            sink.AddLine(ToVector2(command.Points[index], offsetX, offsetY));
+        }
+        sink.EndFigure(FigureEnd.Closed);
+        sink.Close();
+        target.FillGeometry(geometry, GetBrush(target, command.Color));
     }
 
     private void EnsureBrushTarget(ID2D1RenderTarget target)
@@ -260,6 +288,14 @@ internal sealed class Direct2DDisplayListExecutor : IDisposable
         }
         return state;
     }
+
+    private static Vector2 ToVector2(
+        PointD point,
+        double offsetX,
+        double offsetY) =>
+        new(
+            checked((float)(point.X + offsetX)),
+            checked((float)(point.Y + offsetY)));
 
     private static RawRectF ToRawRect(RectD bounds) => new(
         (float)bounds.Left,
