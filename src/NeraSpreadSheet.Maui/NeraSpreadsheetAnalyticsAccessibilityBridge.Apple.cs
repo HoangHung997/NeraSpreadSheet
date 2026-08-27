@@ -50,7 +50,8 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
         private readonly NeraSpreadsheetView _view;
         private readonly Dictionary<SpreadsheetAnalyticsItemKey, NeraAccessibilityElement> _elements = [];
         private UIView? _platformView;
-        private NSObject[]? _previousAccessibilityElements;
+        private IUIAccessibilityContainer? _accessibilityContainer;
+        private NSObject? _previousAccessibilityElements;
         private bool _previousIsAccessibilityElement;
         private string? _lastSemanticSignature;
         private bool _disposed;
@@ -65,13 +66,14 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             SKPaintGLSurfaceEventArgs frame)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (_view.Handler?.PlatformView is not UIView platformView)
+            if (_view.Handler?.PlatformView is not UIView platformView ||
+                platformView is not IUIAccessibilityContainer accessibilityContainer)
             {
                 DetachPlatformView();
                 return;
             }
 
-            EnsurePlatformView(platformView);
+            EnsurePlatformView(platformView, accessibilityContainer);
             UpdateElements(nodes, frame);
         }
 
@@ -87,7 +89,9 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             GC.SuppressFinalize(this);
         }
 
-        private void EnsurePlatformView(UIView platformView)
+        private void EnsurePlatformView(
+            UIView platformView,
+            IUIAccessibilityContainer accessibilityContainer)
         {
             if (ReferenceEquals(platformView, _platformView))
             {
@@ -96,8 +100,9 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
 
             DetachPlatformView();
             _platformView = platformView;
+            _accessibilityContainer = accessibilityContainer;
             _previousIsAccessibilityElement = platformView.IsAccessibilityElement;
-            _previousAccessibilityElements = platformView.GetAccessibilityElements();
+            _previousAccessibilityElements = accessibilityContainer.GetAccessibilityElements();
             platformView.IsAccessibilityElement = false;
         }
 
@@ -106,7 +111,8 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             SKPaintGLSurfaceEventArgs frame)
         {
             var platformView = _platformView;
-            if (platformView is null)
+            var accessibilityContainer = _accessibilityContainer;
+            if (platformView is null || accessibilityContainer is null)
             {
                 return;
             }
@@ -173,7 +179,8 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
                 orderedElements.Add(element);
             }
 
-            platformView.SetAccessibilityElements(orderedElements.ToArray());
+            using var accessibilityElements = NSArray.FromNSObjects(orderedElements.ToArray());
+            accessibilityContainer.SetAccessibilityElements(accessibilityElements);
 
             var signature = BuildSemanticSignature(nodes);
             if (!string.Equals(signature, _lastSemanticSignature, StringComparison.Ordinal))
@@ -274,9 +281,12 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
 
         private void DetachPlatformView()
         {
+            if (_accessibilityContainer is not null)
+            {
+                _accessibilityContainer.SetAccessibilityElements(_previousAccessibilityElements);
+            }
             if (_platformView is not null)
             {
-                _platformView.SetAccessibilityElements(_previousAccessibilityElements);
                 _platformView.IsAccessibilityElement = _previousIsAccessibilityElement;
             }
 
@@ -287,6 +297,7 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             _elements.Clear();
             _lastSemanticSignature = null;
             _previousAccessibilityElements = null;
+            _accessibilityContainer = null;
             _platformView = null;
         }
     }
