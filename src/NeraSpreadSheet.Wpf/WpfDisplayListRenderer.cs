@@ -60,6 +60,9 @@ internal sealed class WpfDisplayListRenderer
                 case FillRectangleCommand fill:
                     drawingContext.DrawRectangle(GetBrush(fill.Color), null, ToRect(fill.Bounds.Translate(offsetX, offsetY)));
                     break;
+                case FillPolygonCommand polygon:
+                    DrawPolygon(drawingContext, polygon, offsetX, offsetY);
+                    break;
                 case DrawLineCommand line:
                     drawingContext.DrawLine(
                         GetPen(line.Color, line.StrokeWidth),
@@ -104,6 +107,31 @@ internal sealed class WpfDisplayListRenderer
                     throw new NotSupportedException($"Unsupported render command '{command.GetType().Name}'.");
             }
         }
+    }
+
+    private void DrawPolygon(
+        DrawingContext drawingContext,
+        FillPolygonCommand command,
+        double offsetX,
+        double offsetY)
+    {
+        var geometry = new StreamGeometry();
+        using (var context = geometry.Open())
+        {
+            context.BeginFigure(
+                ToPoint(command.Points[0], offsetX, offsetY),
+                isFilled: true,
+                isClosed: true);
+            for (var index = 1; index < command.Points.Count; index++)
+            {
+                context.LineTo(
+                    ToPoint(command.Points[index], offsetX, offsetY),
+                    isStroked: true,
+                    isSmoothJoin: false);
+            }
+        }
+        geometry.Freeze();
+        drawingContext.DrawGeometry(GetBrush(command.Color), null, geometry);
     }
 
     private void DrawText(
