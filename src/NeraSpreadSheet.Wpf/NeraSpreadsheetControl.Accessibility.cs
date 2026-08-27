@@ -3,6 +3,7 @@ using System.Windows.Automation;
 using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
 using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Interaction;
 
@@ -175,10 +176,12 @@ internal sealed class NeraSpreadsheetControlAutomationPeer : FrameworkElementAut
 {
     private readonly Dictionary<SpreadsheetAnalyticsItemKey, NeraSpreadsheetAnalyticsAutomationPeer>
         _analyticsPeers = [];
+    private SpreadsheetSession? _subscribedSession;
 
     public NeraSpreadsheetControlAutomationPeer(NeraSpreadsheetControl owner)
         : base(owner)
     {
+        EnsureSessionSubscription();
     }
 
     private NeraSpreadsheetControl SpreadsheetOwner =>
@@ -197,6 +200,7 @@ internal sealed class NeraSpreadsheetControlAutomationPeer : FrameworkElementAut
 
     protected override List<AutomationPeer>? GetChildrenCore()
     {
+        EnsureSessionSubscription();
         var baseChildren = base.GetChildrenCore();
         var nodes = SpreadsheetOwner.GetNativeAnalyticsAccessibilityNodes();
         if (nodes.Count == 0)
@@ -228,6 +232,59 @@ internal sealed class NeraSpreadsheetControlAutomationPeer : FrameworkElementAut
             children.Add(peer);
         }
         return children;
+    }
+
+    private void EnsureSessionSubscription()
+    {
+        var session = SpreadsheetOwner.Session;
+        if (ReferenceEquals(session, _subscribedSession))
+        {
+            return;
+        }
+
+        if (_subscribedSession is not null)
+        {
+            _subscribedSession.Analytics.Changed -= OnAnalyticsChanged;
+            _subscribedSession.AnalyticsPlacements.Changed -= OnAnalyticsPlacementChanged;
+            _subscribedSession.AnalyticsInteraction.Changed -= OnAnalyticsInteractionChanged;
+        }
+
+        _subscribedSession = session;
+        if (_subscribedSession is null)
+        {
+            return;
+        }
+
+        _subscribedSession.Analytics.Changed += OnAnalyticsChanged;
+        _subscribedSession.AnalyticsPlacements.Changed += OnAnalyticsPlacementChanged;
+        _subscribedSession.AnalyticsInteraction.Changed += OnAnalyticsInteractionChanged;
+    }
+
+    private void OnAnalyticsChanged(
+        object? sender,
+        SpreadsheetAnalyticsChangedEventArgs e) =>
+        RunOnOwnerDispatcher(() =>
+        {
+            ResetChildrenCache();
+            InvalidatePeer();
+        });
+
+    private void OnAnalyticsPlacementChanged(
+        object? sender,
+        SpreadsheetAnalyticsPlacementChangedEventArgs e) =>
+        RunOnOwnerDispatcher(InvalidatePeer);
+
+    private void OnAnalyticsInteractionChanged(object? sender, EventArgs e) =>
+        RunOnOwnerDispatcher(InvalidatePeer);
+
+    private void RunOnOwnerDispatcher(Action action)
+    {
+        if (SpreadsheetOwner.Dispatcher.CheckAccess())
+        {
+            action();
+            return;
+        }
+        SpreadsheetOwner.Dispatcher.Invoke(action);
     }
 }
 
