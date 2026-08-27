@@ -12,6 +12,7 @@ namespace NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke;
 
 internal sealed class SmokePage : ContentPage, IDisposable
 {
+    private const string ResultArgument = "--nera-smoke-result";
     private static readonly TimeSpan SmokeTimeout = TimeSpan.FromSeconds(45d);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -363,14 +364,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     private static void WriteResult(object result)
     {
-        var path = Environment.GetEnvironmentVariable("NERA_MAUI_SMOKE_RESULT");
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            throw new InvalidOperationException(
-                "NERA_MAUI_SMOKE_RESULT must identify the Mac Catalyst smoke result file.");
-        }
-
-        var fullPath = Path.GetFullPath(path);
+        var fullPath = Path.GetFullPath(ResolveResultPath());
         Directory.CreateDirectory(
             Path.GetDirectoryName(fullPath)
             ?? throw new InvalidOperationException(
@@ -378,6 +372,28 @@ internal sealed class SmokePage : ContentPage, IDisposable
         File.WriteAllText(
             fullPath,
             JsonSerializer.Serialize(result, JsonOptions));
+    }
+
+    private static string ResolveResultPath()
+    {
+        var environmentPath = Environment.GetEnvironmentVariable("NERA_MAUI_SMOKE_RESULT");
+        if (!string.IsNullOrWhiteSpace(environmentPath))
+        {
+            return environmentPath;
+        }
+
+        var arguments = Environment.GetCommandLineArgs();
+        for (var index = 0; index < arguments.Length - 1; index++)
+        {
+            if (string.Equals(arguments[index], ResultArgument, StringComparison.Ordinal) &&
+                !string.IsNullOrWhiteSpace(arguments[index + 1]))
+            {
+                return arguments[index + 1];
+            }
+        }
+
+        throw new InvalidOperationException(
+            "The Mac Catalyst smoke result path was not supplied through NERA_MAUI_SMOKE_RESULT or --nera-smoke-result.");
     }
 
     private static Workbook CreateWorkbook()
