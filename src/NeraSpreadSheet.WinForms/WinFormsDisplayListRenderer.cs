@@ -93,6 +93,13 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
                 case FillRectangleCommand fill:
                     graphics.FillRectangle(GetBrush(fill.Color), ToRectangleF(fill.Bounds.Translate(offsetX, offsetY)));
                     break;
+                case FillPolygonCommand polygon:
+                    graphics.FillPolygon(
+                        GetBrush(polygon.Color),
+                        polygon.Points
+                            .Select(point => ToPointF(point, offsetX, offsetY))
+                            .ToArray());
+                    break;
                 case DrawLineCommand line:
                     graphics.DrawLine(
                         GetPen(line.Color, line.StrokeWidth),
