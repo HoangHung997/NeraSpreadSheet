@@ -21,7 +21,7 @@ public sealed class ScrollChangedEventArgs : EventArgs
     public ScrollSnapshot Snapshot { get; }
 }
 
-public sealed class NeraSpreadsheetControl : FrameworkElement, IDisposable
+public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposable
 {
     private readonly ContinuousScrollController _scrollController = new();
     private readonly WpfDisplayListRenderer _displayListRenderer = new();
