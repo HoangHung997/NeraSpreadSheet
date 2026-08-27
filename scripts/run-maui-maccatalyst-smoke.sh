@@ -8,11 +8,11 @@ fi
 
 APP="$1"
 RESULT="${2:-${RUNNER_TEMP:-/tmp}/nera-maccatalyst-analytics-smoke.json}"
+FALLBACK_RESULT="${TMPDIR:-/tmp}/nera-maccatalyst-analytics-smoke.json"
 WORK_DIR="${RUNNER_TEMP:-/tmp}/nera-maccatalyst-smoke-launch"
 LAUNCHER="$WORK_DIR/LaunchNeraMacCatalystSmoke.swift"
 INFO_PLIST="$APP/Contents/Info.plist"
 EXPECTED_BUNDLE_ID="com.neraspreadsheet.maccatalystanalyticssmoke"
-RESULT_MARKER="NERA_MAUI_SMOKE_RESULT:"
 
 if [ ! -d "$APP" ]; then
   echo "Mac Catalyst smoke app bundle does not exist: $APP" >&2
@@ -23,8 +23,8 @@ if [ ! -f "$INFO_PLIST" ]; then
   exit 1
 fi
 
-mkdir -p "$WORK_DIR" "$(dirname "$RESULT")"
-rm -f "$RESULT"
+mkdir -p "$WORK_DIR" "$(dirname "$RESULT")" "$(dirname "$FALLBACK_RESULT")"
+rm -f "$RESULT" "$FALLBACK_RESULT"
 
 PROCESS_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO_PLIST" 2>/dev/null || true)"
 BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO_PLIST" 2>/dev/null || true)"
@@ -39,35 +39,8 @@ fi
 
 echo "Mac Catalyst smoke bundle id: $BUNDLE_ID"
 echo "Mac Catalyst smoke executable: $PROCESS_NAME"
-
-read_unified_result() {
-  local line
-  line="$(/usr/bin/log show \
-    --style compact \
-    --last 5m \
-    --predicate "process == \"$PROCESS_NAME\"" \
-    2>/dev/null | grep -F "$RESULT_MARKER" | tail -n 1 || true)"
-  if [ -z "$line" ]; then
-    return 1
-  fi
-  printf '%s\n' "${line#*${RESULT_MARKER}}"
-}
-
-consume_unified_result() {
-  local payload status
-  payload="$(read_unified_result || true)"
-  if [ -z "$payload" ]; then
-    return 1
-  fi
-
-  printf '%s\n' "$payload"
-  status="$(printf '%s' "$payload" | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')"
-  if [ "$status" = "success" ]; then
-    return 0
-  fi
-  echo "Mac Catalyst analytics smoke reported status from unified log: $status" >&2
-  return 2
-}
+echo "Mac Catalyst primary result: $RESULT"
+echo "Mac Catalyst fallback result: $FALLBACK_RESULT"
 
 print_diagnostics() {
   echo "--- Mac Catalyst smoke process ---"
@@ -89,6 +62,42 @@ print_diagnostics() {
     -print \
     -exec sh -c 'echo "--- $1 ---"; tail -n 300 "$1"' _ {} \; \
     2>/dev/null || true
+}
+
+consume_result_file() {
+  local result_file="$1"
+  local status
+  if [ ! -f "$result_file" ]; then
+    return 3
+  fi
+
+  echo "Mac Catalyst smoke result file: $result_file"
+  cat "$result_file"
+  status="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["status"])' "$result_file")"
+  if [ "$status" = "success" ]; then
+    return 0
+  fi
+  echo "Mac Catalyst analytics smoke reported status: $status" >&2
+  return 2
+}
+
+consume_any_result() {
+  local code
+  set +e
+  consume_result_file "$RESULT"
+  code=$?
+  set -e
+  if [ "$code" -ne 3 ]; then
+    return "$code"
+  fi
+  if [ "$FALLBACK_RESULT" != "$RESULT" ]; then
+    set +e
+    consume_result_file "$FALLBACK_RESULT"
+    code=$?
+    set -e
+    return "$code"
+  fi
+  return 3
 }
 
 cleanup() {
@@ -173,47 +182,36 @@ fi
 echo "Mac Catalyst smoke PID: $APP_PID"
 
 for _ in $(seq 1 90); do
-  if [ -f "$RESULT" ]; then
-    cat "$RESULT"
-    STATUS="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["status"])' "$RESULT")"
-    if [ "$STATUS" = "success" ]; then
-      exit 0
-    fi
-    echo "Mac Catalyst analytics smoke reported status: $STATUS" >&2
+  set +e
+  consume_any_result
+  RESULT_CODE=$?
+  set -e
+  if [ "$RESULT_CODE" -eq 0 ]; then
+    exit 0
+  fi
+  if [ "$RESULT_CODE" -eq 2 ]; then
     print_diagnostics
     exit 1
   fi
 
   if ! kill -0 "$APP_PID" 2>/dev/null; then
     set +e
-    consume_unified_result
-    LOG_RESULT=$?
+    consume_any_result
+    RESULT_CODE=$?
     set -e
-    if [ "$LOG_RESULT" -eq 0 ]; then
+    if [ "$RESULT_CODE" -eq 0 ]; then
       exit 0
     fi
-    if [ "$LOG_RESULT" -eq 2 ]; then
+    if [ "$RESULT_CODE" -eq 2 ]; then
       print_diagnostics
       exit 1
     fi
-    echo "Mac Catalyst smoke exited before producing a file or unified-log result marker." >&2
+    echo "Mac Catalyst smoke exited before producing a primary or fallback result file." >&2
     print_diagnostics
     exit 1
   fi
   sleep 1
 done
-
-set +e
-consume_unified_result
-LOG_RESULT=$?
-set -e
-if [ "$LOG_RESULT" -eq 0 ]; then
-  exit 0
-fi
-if [ "$LOG_RESULT" -eq 2 ]; then
-  print_diagnostics
-  exit 1
-fi
 
 echo "Mac Catalyst analytics accessibility smoke timed out." >&2
 print_diagnostics
