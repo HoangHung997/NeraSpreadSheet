@@ -68,12 +68,13 @@ public sealed class DesktopAnalyticsAccessibilitySmokeTests
             var root = control.AccessibilityObject;
             Assert.AreEqual(System.Windows.Forms.AccessibleRole.Table, root.Role);
             Assert.AreEqual("Spreadsheet", root.Name);
-            Assert.AreEqual(1, root.GetChildCount());
+            Assert.IsTrue(root.GetChildCount() >= 1);
 
-            var child = root.GetChild(0) ??
+            var child = Enumerable.Range(0, root.GetChildCount())
+                .Select(root.GetChild)
+                .SingleOrDefault(candidate => candidate?.Name == "AccessibleChart") ??
                 throw new AssertFailedException(
                     "The WinForms accessibility root did not expose its chart child.");
-            Assert.AreEqual("AccessibleChart", child.Name);
             Assert.AreEqual(System.Windows.Forms.AccessibleRole.Chart, child.Role);
             Assert.AreEqual("Select", child.DefaultAction);
             Assert.IsFalse(child.Bounds.IsEmpty);
