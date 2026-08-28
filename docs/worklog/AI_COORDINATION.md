@@ -12,17 +12,17 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: FREE
-  owner: NONE
-  lease_id: NONE
-  acquired_utc: NONE
-  expires_utc: NONE
-  purpose: NONE
+  state: HELD
+  owner: CODEX
+  lease_id: CODEX-RIBBON-001-20260828T052842Z
+  acquired_utc: 2026-08-28T05:28:42Z
+  expires_utc: 2026-08-28T05:38:42Z
+  purpose: CLAIM_RIBBON_001
 
 last_update:
-  utc: 2026-08-28T03:52:16Z
-  writer: CHATGPT
-  summary: Moved Q003B-MAC to IN_PROGRESS and released the coordination lease.
+  utc: 2026-08-28T05:28:42Z
+  writer: CODEX
+  summary: Acquired coordination lease to claim RIBBON-001.
 ```
 
 `write_lock` chỉ khóa việc sửa **file điều phối này**. Không giữ khóa trong lúc viết
@@ -239,6 +239,8 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 | 2026-08-28T03:15:00Z | `PROTOCOL_CREATED` | Codex | `COORD-001` | Tạo protocol single-writer, phân vùng ChatGPT/Codex và quy trình tích hợp tuần tự. |
 | 2026-08-28T03:50:05Z | `CLAIMED` | ChatGPT | `Q003B-MAC` | OWNER xác nhận ChatGPT phụ trách; branch `feature/bootstrap-architecture-v0.1`; base SHA `e5559ca1633be8b941651e5dedc9d4b5cc3d1a92`; exclusive paths giữ nguyên theo bảng task. |
 | 2026-08-28T03:52:16Z | `IN_PROGRESS` | ChatGPT | `Q003B-MAC` | Tiếp tục Mac Catalyst Apple accessibility/runtime smoke trên branch tích hợp hiện hữu; không mở rộng sang Ribbon/Bars hoặc OpenXML. |
+
+| 2026-08-28T05:28:42Z | `LOCK_ACQUIRED` | Codex | `RIBBON-001` | Lease `CODEX-RIBBON-001-20260828T052842Z` acquired for task claim. |
 
 ## 11. Prompt ngắn gửi cho mỗi AI
 
