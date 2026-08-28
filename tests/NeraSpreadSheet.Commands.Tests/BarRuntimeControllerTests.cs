@@ -66,6 +66,21 @@ public sealed class BarRuntimeControllerTests
         Assert.AreEqual(0, handler.ExecutionCount);
     }
 
+    [TestMethod]
+    public async Task ShortcutShouldActivateNestedVisibleCommand()
+    {
+        var registry = new CommandRegistry();
+        var handler = new SaveHandler();
+        registry.Register(
+            new CommandDescriptor("file.save", "Lưu", shortcut: "Ctrl+S"),
+            handler);
+        var runtime = new BarRuntimeController(CreateDefinition(), registry);
+
+        Assert.IsTrue(await runtime.TryActivateShortcutAsync("control+s"));
+        Assert.AreEqual(1, handler.ExecutionCount);
+        Assert.IsFalse(await runtime.TryActivateShortcutAsync("Ctrl+S"));
+    }
+
     private static BarDefinition CreateDefinition() =>
         new(
             "main",

@@ -10,6 +10,7 @@ public sealed class BarRuntimeController
     private readonly CommandDispatcher _dispatcher;
     private readonly BarPresentationProjector _projector;
     private HashSet<CommandId> _visibleCommands = [];
+    private CommandShortcutMap _shortcuts = CommandShortcutMap.Create([]);
 
     /// <summary>
     /// Creates a host-neutral runtime over one immutable toolbar, menu or context menu.
@@ -98,6 +99,16 @@ public sealed class BarRuntimeController
         return executed;
     }
 
+    public bool TryResolveShortcut(string shortcut, out CommandId commandId) =>
+        _shortcuts.TryResolve(shortcut, out commandId);
+
+    public ValueTask<bool> TryActivateShortcutAsync(
+        string shortcut,
+        CommandContext context = default) =>
+        TryResolveShortcut(shortcut, out var commandId)
+            ? TryActivateAsync(commandId, context)
+            : ValueTask.FromResult(false);
+
     private BarDefinition ApplyCustomization(BarCustomization? customization) =>
         customization is null ? Definition : customization.ApplyTo(Definition);
 
@@ -115,8 +126,25 @@ public sealed class BarRuntimeController
         CommandContext context)
     {
         var snapshot = _projector.Project(definition, context);
+        _shortcuts = CommandShortcutMap.Create(EnumeratePresentations(snapshot.Items));
         _visibleCommands = EnumerateCommands(definition.Items).ToHashSet();
         return snapshot;
+    }
+
+    private static IEnumerable<CommandPresentation> EnumeratePresentations(
+        IReadOnlyList<BarItemPresentation> items)
+    {
+        foreach (var item in items)
+        {
+            if (item.Command is CommandPresentation command)
+            {
+                yield return command;
+            }
+            foreach (var child in EnumeratePresentations(item.Children))
+            {
+                yield return child;
+            }
+        }
     }
 
     private static IEnumerable<CommandId> EnumerateCommands(

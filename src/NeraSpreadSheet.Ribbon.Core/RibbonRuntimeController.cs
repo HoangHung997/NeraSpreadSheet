@@ -10,6 +10,7 @@ public sealed class RibbonRuntimeController
     private readonly CommandDispatcher _dispatcher;
     private readonly RibbonPresentationProjector _projector;
     private HashSet<CommandId> _visibleCommands = [];
+    private CommandShortcutMap _shortcuts = CommandShortcutMap.Create([]);
 
     /// <summary>
     /// Creates a host-neutral runtime over one immutable ribbon definition.
@@ -98,6 +99,22 @@ public sealed class RibbonRuntimeController
         return executed;
     }
 
+    /// <summary>
+    /// Resolves a shortcut against commands visible in the current ribbon snapshot.
+    /// </summary>
+    public bool TryResolveShortcut(string shortcut, out CommandId commandId) =>
+        _shortcuts.TryResolve(shortcut, out commandId);
+
+    /// <summary>
+    /// Activates a visible command by normalized shortcut through the shared dispatcher.
+    /// </summary>
+    public ValueTask<bool> TryActivateShortcutAsync(
+        string shortcut,
+        CommandContext context = default) =>
+        TryResolveShortcut(shortcut, out var commandId)
+            ? TryActivateAsync(commandId, context)
+            : ValueTask.FromResult(false);
+
     private RibbonDefinition ApplyCustomization(RibbonCustomization? customization) =>
         customization is null ? Definition : customization.ApplyTo(Definition);
 
@@ -115,6 +132,10 @@ public sealed class RibbonRuntimeController
         CommandContext context)
     {
         var snapshot = _projector.Project(definition, context);
+        _shortcuts = CommandShortcutMap.Create(snapshot.Tabs
+            .SelectMany(static tab => tab.Groups)
+            .SelectMany(static group => group.Items)
+            .Select(static item => item.Command));
         _visibleCommands = definition.Tabs
             .SelectMany(static tab => tab.Groups)
             .SelectMany(static group => group.Items)

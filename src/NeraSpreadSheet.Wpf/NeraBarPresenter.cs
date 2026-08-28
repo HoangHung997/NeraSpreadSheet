@@ -14,6 +14,7 @@ namespace NeraSpreadSheet.Wpf;
 public sealed class NeraBarPresenter : IDisposable
 {
     private readonly BarRuntimeController _runtime;
+    private readonly List<IDisposable> _shortcutBindings = [];
     private bool _disposed;
 
     public NeraBarPresenter(BarRuntimeController runtime)
@@ -31,6 +32,20 @@ public sealed class NeraBarPresenter : IDisposable
     public Func<string, ImageSource?>? IconResolver { get; set; }
 
     public event EventHandler<NeraWpfCommandActivationFailedEventArgs>? CommandActivationFailed;
+
+    public IDisposable BindShortcuts(UIElement owner)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var binding = new NeraWpfShortcutBinding(
+            owner,
+            _runtime.TryResolveShortcut,
+            ActivateCommandAsync);
+        _shortcutBindings.Add(binding);
+        return binding;
+    }
+
+    public ValueTask<bool> TryActivateShortcutAsync(string shortcut) =>
+        _runtime.TryActivateShortcutAsync(shortcut);
 
     public void Rebuild()
     {
@@ -50,6 +65,11 @@ public sealed class NeraBarPresenter : IDisposable
         }
         _disposed = true;
         _runtime.SnapshotChanged -= OnSnapshotChanged;
+        foreach (var binding in _shortcutBindings)
+        {
+            binding.Dispose();
+        }
+        _shortcutBindings.Clear();
         NativeControl.Items.Clear();
         GC.SuppressFinalize(this);
     }
@@ -144,6 +164,11 @@ public sealed class NeraBarPresenter : IDisposable
         {
             return;
         }
+        await ActivateCommandAsync(id);
+    }
+
+    private async ValueTask ActivateCommandAsync(CommandId id)
+    {
         try
         {
             await _runtime.TryActivateAsync(

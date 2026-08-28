@@ -15,6 +15,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
 {
     private readonly RibbonRuntimeController _runtime;
     private readonly TabControl _tabs = new();
+    private readonly List<IDisposable> _shortcutBindings = [];
     private bool _disposed;
 
     public NeraRibbonControl(RibbonRuntimeController runtime)
@@ -41,6 +42,23 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     /// Reports an activation failure at the platform boundary.
     /// </summary>
     public event EventHandler<NeraWpfCommandActivationFailedEventArgs>? CommandActivationFailed;
+
+    /// <summary>
+    /// Binds this ribbon's shortcuts to a window or another WPF input root.
+    /// </summary>
+    public IDisposable BindShortcuts(UIElement owner)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var binding = new NeraWpfShortcutBinding(
+            owner,
+            _runtime.TryResolveShortcut,
+            ActivateCommandAsync);
+        _shortcutBindings.Add(binding);
+        return binding;
+    }
+
+    public ValueTask<bool> TryActivateShortcutAsync(string shortcut) =>
+        _runtime.TryActivateShortcutAsync(shortcut);
 
     /// <summary>
     /// Rebuilds native controls from the current runtime snapshot.
@@ -106,6 +124,11 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
 
         _disposed = true;
         _runtime.SnapshotChanged -= OnSnapshotChanged;
+        foreach (var binding in _shortcutBindings)
+        {
+            binding.Dispose();
+        }
+        _shortcutBindings.Clear();
         _tabs.Items.Clear();
         GC.SuppressFinalize(this);
     }
@@ -172,6 +195,11 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             return;
         }
 
+        await ActivateCommandAsync(commandId);
+    }
+
+    private async ValueTask ActivateCommandAsync(CommandId commandId)
+    {
         try
         {
             var context = CommandContextFactory?.Invoke(commandId) ?? default;
