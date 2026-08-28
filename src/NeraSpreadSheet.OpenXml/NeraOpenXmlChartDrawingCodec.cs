@@ -74,7 +74,9 @@ internal static class NeraOpenXmlChartDrawingCodec
 
         drawingsPart ??= EnsureDrawingsPart(worksheetPart);
         drawingsPart.WorksheetDrawing ??= new Xdr.WorksheetDrawing();
-        var worksheetDrawing = drawingsPart.WorksheetDrawing;
+        var worksheetDrawing = drawingsPart.WorksheetDrawing
+            ?? throw new InvalidDataException(
+                "The XLSX drawings part could not initialize worksheet drawing markup.");
         var nextDrawingId = GetNextDrawingId(worksheetDrawing);
         var placements = session.AnalyticsPlacements.GetPlacements(worksheet)
             .ToDictionary(static placement => placement.Item);
@@ -157,12 +159,15 @@ internal static class NeraOpenXmlChartDrawingCodec
                 continue;
             }
 
-            var pair = drawingsPart.Parts
-                .FirstOrDefault(part => string.Equals(
+            var chartPart = drawingsPart.Parts
+                .Where(part => string.Equals(
                     part.RelationshipId,
                     relationshipId,
-                    StringComparison.Ordinal));
-            if (pair.OpenXmlPart is ChartPart chartPart)
+                    StringComparison.Ordinal))
+                .Select(static part => part.OpenXmlPart)
+                .OfType<ChartPart>()
+                .FirstOrDefault();
+            if (chartPart is not null)
             {
                 drawingsPart.DeletePart(chartPart);
             }
@@ -357,12 +362,16 @@ internal static class NeraOpenXmlChartDrawingCodec
         var seriesIndex = 0U;
         foreach (var columnIndex in EnumerateValueColumns(definition))
         {
-            pieChart.Append(new C.PieChartSeries(
+            var series = new C.PieChartSeries(
                 new C.Index { Val = seriesIndex },
                 new C.Order { Val = seriesIndex },
-                CreateSeriesText(worksheet, definition, columnIndex, seriesIndex),
-                CreateCategoryAxisData(worksheet, definition),
-                CreateValues(worksheet, definition, columnIndex)));
+                CreateSeriesText(worksheet, definition, columnIndex, seriesIndex));
+            if (CreateCategoryAxisData(worksheet, definition) is { } categories)
+            {
+                series.Append(categories);
+            }
+            series.Append(CreateValues(worksheet, definition, columnIndex));
+            pieChart.Append(series);
             seriesIndex++;
         }
         plotArea.Append(pieChart);
@@ -501,7 +510,7 @@ internal static class NeraOpenXmlChartDrawingCodec
             new C.Crosses { Val = C.CrossesValues.AutoZero },
             new C.AutoLabeled { Val = true },
             new C.LabelAlignment { Val = C.LabelAlignmentValues.Center },
-            new C.LabelOffset { Val = 100U });
+            new C.LabelOffset { Val = (ushort)100 });
 
     private static C.ValueAxis CreateValueAxis(C.AxisPositionValues position) =>
         new(
