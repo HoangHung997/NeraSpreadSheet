@@ -19,7 +19,6 @@ internal sealed class SmokePage : ContentPage, IDisposable
     {
         WriteIndented = true,
     };
-    private static readonly NSString AccessibilityElementsKey = new("accessibilityElements");
 
     private readonly Grid _host = new();
     private readonly Workbook _workbook = CreateWorkbook();
@@ -172,12 +171,11 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 "The Mac Catalyst analytics smoke lost its native UIView.");
         Require(!host.IsAccessibilityElement,
             "The GPU host should be an accessibility container, not one monolithic element.");
-        var getterSelector = new Selector("accessibilityElements");
-        var setterSelector = new Selector("setAccessibilityElements:");
-        Require(
-            host.RespondsToSelector(getterSelector) &&
-            host.RespondsToSelector(setterSelector),
-            "The GPU host does not expose the NSObject accessibilityElements property.");
+        var container = Runtime.GetINativeObject<IUIAccessibilityContainer>(
+            host.Handle,
+            owns: false)
+            ?? throw new InvalidOperationException(
+                "The GPU host could not be wrapped as UIAccessibilityContainer.");
 
         var projectedNodes = view.AnalyticsAccessibilityNodes;
         Require(projectedNodes.Count == 2,
@@ -193,7 +191,9 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 node.Role == SpreadsheetAnalyticsAccessibleRole.PivotTable),
             "The Mac Catalyst projection omitted the inserted pivot node.");
 
-        var rawElements = host.ValueForKey(AccessibilityElementsKey);
+        var rawElements = container.GetAccessibilityElements()
+            ?? throw new InvalidOperationException(
+                "The Mac Catalyst accessibility container did not expose accessibilityElements.");
         Require(rawElements is NSArray,
             "The Mac Catalyst accessibilityElements payload was not an NSArray.");
         var nativeElements = ((NSArray)rawElements).ToArray<UIAccessibilityElement>();
