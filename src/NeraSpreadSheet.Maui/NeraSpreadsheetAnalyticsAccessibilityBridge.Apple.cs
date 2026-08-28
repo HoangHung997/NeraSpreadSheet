@@ -177,6 +177,11 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             }
 #endif
 
+            // MAUI root SemanticProperties are refreshed before this native bridge
+            // on every paint and can turn the GPU host back into one accessibility
+            // element. Reassert container semantics each projection update so
+            // VoiceOver reaches the virtual chart/pivot children instead.
+            platformView.IsAccessibilityElement = false;
 #if MACCATALYST
             NeraMacCatalystGpuDiagnostics.TraceStage($"accessibility:update-elements-start:{nodes.Count}");
 #endif
