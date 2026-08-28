@@ -9,6 +9,8 @@
     <Description>Windows runtime smoke tests for NeraSpreadSheet desktop rendering backends.</Description>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../src/NeraSpreadSheet.Bars.Core/NeraSpreadSheet.Bars.Core.csproj" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.Commands/NeraSpreadSheet.Commands.csproj" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="MSTest.TestAdapter" />
     <PackageReference Include="MSTest.TestFramework" />
@@ -19,6 +21,7 @@
     <ProjectReference Include="../../src/NeraSpreadSheet.Foundation/NeraSpreadSheet.Foundation.csproj" />
     <ProjectReference Include="../../src/NeraSpreadSheet.Rendering.Abstractions/NeraSpreadSheet.Rendering.Abstractions.csproj" />
     <ProjectReference Include="../../src/NeraSpreadSheet.Rendering.Direct2D/NeraSpreadSheet.Rendering.Direct2D.csproj" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.Ribbon.Core/NeraSpreadSheet.Ribbon.Core.csproj" />
     <ProjectReference Include="../../src/NeraSpreadSheet.WinForms/NeraSpreadSheet.WinForms.csproj" />
     <ProjectReference Include="../../src/NeraSpreadSheet.Wpf/NeraSpreadSheet.Wpf.csproj" />
     <ProjectReference Include="../../samples/NeraSpreadSheet.WinForms.Sample/NeraSpreadSheet.WinForms.Sample.csproj" />
