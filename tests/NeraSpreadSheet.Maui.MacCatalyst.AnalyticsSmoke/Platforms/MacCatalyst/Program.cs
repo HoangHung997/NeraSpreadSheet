@@ -18,15 +18,22 @@ public static class Program
 
     public static void Main(string[] args)
     {
+        SmokeTrace.Reset();
+        SmokeTrace.Append("program-main-enter");
         _emergencyResultPath = ResolveResultPath(args);
+        SmokeTrace.Append($"program-result-path:{_emergencyResultPath}");
         InstallEmergencyDiagnostics();
+        SmokeTrace.Append("program-emergency-diagnostics-installed");
 
         try
         {
+            SmokeTrace.Append("program-before-uiapplication-main");
             UIApplication.Main(args, null, typeof(SmokeApplicationHost));
+            SmokeTrace.Append("program-uiapplication-main-returned");
         }
         catch (Exception exception)
         {
+            SmokeTrace.Append($"program-uiapplication-main-catch:{exception.GetType().FullName}");
             WriteEmergencyResult("UIApplication.Main", exception.ToString());
             throw;
         }
@@ -35,24 +42,36 @@ public static class Program
     private static void InstallEmergencyDiagnostics()
     {
         AppDomain.CurrentDomain.UnhandledException += static (_, eventArgs) =>
+        {
+            SmokeTrace.Append("emergency-appdomain-unhandled-exception");
             WriteEmergencyResult(
                 "AppDomain.UnhandledException",
                 eventArgs.ExceptionObject?.ToString() ?? "Unknown unhandled exception.");
+        };
 
         TaskScheduler.UnobservedTaskException += static (_, eventArgs) =>
+        {
+            SmokeTrace.Append("emergency-unobserved-task-exception");
             WriteEmergencyResult(
                 "TaskScheduler.UnobservedTaskException",
                 eventArgs.Exception.ToString());
+        };
 
         Runtime.MarshalObjectiveCException += static (_, eventArgs) =>
+        {
+            SmokeTrace.Append($"emergency-objective-c-exception:{eventArgs.ExceptionMode}");
             WriteEmergencyResult(
                 $"ObjCRuntime.MarshalObjectiveCException:{eventArgs.ExceptionMode}",
                 eventArgs.Exception.ToString());
+        };
 
         Runtime.MarshalManagedException += static (_, eventArgs) =>
+        {
+            SmokeTrace.Append($"emergency-managed-exception:{eventArgs.ExceptionMode}");
             WriteEmergencyResult(
                 $"ObjCRuntime.MarshalManagedException:{eventArgs.ExceptionMode}",
                 eventArgs.Exception.ToString());
+        };
     }
 
     private static void WriteEmergencyResult(string stage, string error)
