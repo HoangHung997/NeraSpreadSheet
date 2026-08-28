@@ -12,12 +12,12 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: FREE
-  owner: NONE
-  lease_id: NONE
-  acquired_utc: NONE
-  expires_utc: NONE
-  purpose: NONE
+  state: HELD
+  owner: CODEX
+  lease_id: CODEX-RIBBON-DESKTOP-PROGRESS-20260828T080200Z
+  acquired_utc: 2026-08-28T08:02:00Z
+  expires_utc: 2026-08-28T08:12:00Z
+  purpose: Start Ribbon desktop presenters
 
 last_update:
   utc: 2026-08-28T07:59:13Z
