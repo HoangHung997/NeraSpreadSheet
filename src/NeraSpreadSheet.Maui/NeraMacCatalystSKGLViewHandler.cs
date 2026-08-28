@@ -1,4 +1,5 @@
 #if MACCATALYST
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using CoreGraphics;
 using Foundation;
@@ -70,6 +71,10 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
     protected override void ConnectHandler(MTKView platformView)
     {
         base.ConnectHandler(platformView);
+        if (VirtualView is NeraSpreadsheetView neraView)
+        {
+            NeraMacCatalystGpuDiagnostics.Clear(neraView);
+        }
         _renderer = new NeraMetalRenderer(this, platformView);
         platformView.Delegate = _renderer;
         UpdateRenderLoop(platformView, VirtualView.HasRenderLoop);
@@ -252,15 +257,41 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
         void IMTKViewDelegate.DrawableSizeWillChange(MTKView view, CGSize size) =>
             NeraMacCatalystSKGLViewHandler.DrawableSizeChanged(view);
 
+        [SuppressMessage(
+            "Design",
+            "CA1031:Do not catch general exception types",
+            Justification = "Exceptions must not escape an Objective-C MTKView delegate callback; the failure is retained in Nera diagnostics and the render loop is stopped.")]
         void IMTKViewDelegate.Draw(MTKView view)
+        {
+            try
+            {
+                DrawCore(view);
+            }
+            catch (Exception exception)
+            {
+                if (_handler?.VirtualView is NeraSpreadsheetView neraView)
+                {
+                    NeraMacCatalystGpuDiagnostics.RecordFailure(neraView, exception);
+                }
+                Trace.TraceError(
+                    "Nera Mac Catalyst Metal frame failed: {0}",
+                    exception);
+                view.Paused = true;
+                view.EnableSetNeedsDisplay = false;
+            }
+        }
+
+        private void DrawCore(MTKView view)
         {
             var handler = _handler;
             var queue = _backendContext.Queue;
-            var texture = view.CurrentDrawable?.Texture;
+            var drawable = view.CurrentDrawable;
+            var texture = drawable?.Texture;
             if (handler is null ||
                 _backendContext.Device is null ||
                 queue is null ||
-                texture is null)
+                texture is null ||
+                drawable is null)
             {
                 return;
             }
@@ -302,11 +333,6 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
             surface.Flush();
             context.Flush();
 
-            var drawable = view.CurrentDrawable;
-            if (drawable is null)
-            {
-                return;
-            }
             using var commandBuffer = queue.CommandBuffer();
             if (commandBuffer is null)
             {
