@@ -46,12 +46,20 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
         States.Remove(view);
     }
 
-    private static IUIAccessibilityContainer WrapAccessibilityContainer(UIView platformView) =>
-        Runtime.GetINativeObject<IUIAccessibilityContainer>(
+    private static IUIAccessibilityContainer WrapAccessibilityContainer(UIView platformView)
+    {
+#if MACCATALYST
+        return platformView as IUIAccessibilityContainer
+            ?? throw new InvalidOperationException(
+                "The Mac Catalyst native spreadsheet UIView does not declare UIAccessibilityContainer conformance.");
+#else
+        return Runtime.GetINativeObject<IUIAccessibilityContainer>(
             platformView.Handle,
             owns: false)
-        ?? throw new InvalidOperationException(
-            "The native UIView could not be wrapped as UIAccessibilityContainer.");
+            ?? throw new InvalidOperationException(
+                "The native UIView could not be wrapped as UIAccessibilityContainer.");
+#endif
+    }
 
     private sealed class AppleBridgeState : IDisposable
     {
