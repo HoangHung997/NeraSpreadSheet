@@ -61,15 +61,24 @@ internal sealed class SmokePage : ContentPage, IDisposable
     {
         Loaded -= OnLoaded;
         _ = MonitorTimeoutAsync();
-        _view = new NeraSpreadsheetView
+        try
         {
-            Workbook = _workbook,
-            HorizontalOptions = LayoutOptions.Fill,
-            VerticalOptions = LayoutOptions.Fill,
-        };
-        _view.PaintSurface += OnPaintSurface;
-        _view.Loaded += OnViewLoaded;
-        _host.Children.Add(_view);
+            _view = new NeraSpreadsheetView
+            {
+                Workbook = _workbook,
+                HorizontalOptions = LayoutOptions.Fill,
+                VerticalOptions = LayoutOptions.Fill,
+            };
+            _view.PaintSurface += OnPaintSurface;
+            _view.Loaded += OnViewLoaded;
+            _host.Children.Add(_view);
+        }
+        catch (Exception exception)
+        {
+            Fail(new InvalidOperationException(
+                "The Mac Catalyst smoke failed while creating or attaching the native Nera spreadsheet host.",
+                exception));
+        }
     }
 
     private static void OnViewLoaded(object? sender, EventArgs e)
