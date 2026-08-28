@@ -12,12 +12,12 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: FREE
-  owner: NONE
-  lease_id: NONE
-  acquired_utc: NONE
-  expires_utc: NONE
-  purpose: NONE
+  state: HELD
+  owner: CODEX
+  lease_id: CODEX-RIBBON-KEYBOARD-20260828T085034Z
+  acquired_utc: 2026-08-28T08:50:34.4507224Z
+  expires_utc: 2026-08-28T09:00:34.4507224Z
+  purpose: Claim RIBBON-KEYBOARD by OWNER instruction
 
 last_update:
   utc: 2026-08-28T08:49:08Z
