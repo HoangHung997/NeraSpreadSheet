@@ -53,12 +53,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
     }
 
     protected override UIView CreatePlatformView() =>
-        new(CGRect.Empty)
-        {
-            BackgroundColor = UIColor.Clear,
-            Opaque = false,
-            ClipsToBounds = true,
-        };
+        new NeraMacCatalystAccessibilityContainerView();
 
     protected override void ConnectHandler(UIView platformView)
     {
