@@ -12,17 +12,17 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: FREE
-  owner: NONE
-  lease_id: NONE
-  acquired_utc: NONE
-  expires_utc: NONE
-  purpose: NONE
+  state: HELD
+  owner: CHATGPT
+  lease_id: Q003B-MAC-CHATGPT-20260828T035107Z
+  acquired_utc: 2026-08-28T03:51:07Z
+  expires_utc: 2026-08-28T04:01:07Z
+  purpose: Move claimed Q003B-MAC into IN_PROGRESS.
 
 last_update:
-  utc: 2026-08-28T03:50:05Z
+  utc: 2026-08-28T03:51:07Z
   writer: CHATGPT
-  summary: Formalized Q003B-MAC as CLAIMED by ChatGPT and released the coordination lease.
+  summary: Acquired coordination lease to advance Q003B-MAC from CLAIMED to IN_PROGRESS.
 ```
 
 `write_lock` chỉ khóa việc sửa **file điều phối này**. Không giữ khóa trong lúc viết
