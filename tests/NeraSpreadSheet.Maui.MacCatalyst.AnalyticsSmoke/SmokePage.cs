@@ -19,6 +19,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     {
         WriteIndented = true,
     };
+    private static readonly NSString AccessibilityElementsKey = new("accessibilityElements");
 
     private readonly Grid _host = new();
     private readonly Workbook _workbook = CreateWorkbook();
@@ -171,8 +172,12 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 "The Mac Catalyst analytics smoke lost its native UIView.");
         Require(!host.IsAccessibilityElement,
             "The GPU host should be an accessibility container, not one monolithic element.");
-        Require(host is IUIAccessibilityContainer,
-            "The GPU host does not expose the native UIAccessibilityContainer protocol.");
+        var getterSelector = new Selector("accessibilityElements");
+        var setterSelector = new Selector("setAccessibilityElements:");
+        Require(
+            host.RespondsToSelector(getterSelector) &&
+            host.RespondsToSelector(setterSelector),
+            "The GPU host does not expose the NSObject accessibilityElements property.");
 
         var projectedNodes = view.AnalyticsAccessibilityNodes;
         Require(projectedNodes.Count == 2,
@@ -188,10 +193,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 node.Role == SpreadsheetAnalyticsAccessibleRole.PivotTable),
             "The Mac Catalyst projection omitted the inserted pivot node.");
 
-        var container = (IUIAccessibilityContainer)host;
-        var rawElements = container.GetAccessibilityElements()
-            ?? throw new InvalidOperationException(
-                "The Mac Catalyst accessibility container did not expose accessibilityElements.");
+        var rawElements = host.ValueForKey(AccessibilityElementsKey);
         Require(rawElements is NSArray,
             "The Mac Catalyst accessibilityElements payload was not an NSArray.");
         var nativeElements = ((NSArray)rawElements).ToArray<UIAccessibilityElement>();
@@ -253,7 +255,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             $"The native Mac Catalyst {itemKind} label did not match the analytics name.");
         Require(
             element.AccessibilityValue?.Contains(expectedRole, StringComparison.Ordinal) == true,
-            $"The native Mac Catalyst {itemKind} value omitted the localized role.");
+            $"The native Mac Catalyst {itemKind} value omitted its localized role.");
         Require(
             element.AccessibilityHint?.Contains("Chạm hai lần để chọn", StringComparison.Ordinal) == true,
             $"The native Mac Catalyst {itemKind} hint omitted activation guidance.");
