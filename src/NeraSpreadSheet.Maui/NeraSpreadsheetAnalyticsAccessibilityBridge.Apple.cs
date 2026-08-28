@@ -20,7 +20,6 @@ namespace NeraSpreadSheet.Maui;
 internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
 {
     private static readonly ConditionalWeakTable<NeraSpreadsheetView, AppleBridgeState> States = new();
-    private static readonly NSString AccessibilityElementsKey = new("accessibilityElements");
 
     internal static void Update(
         NeraSpreadsheetView view,
@@ -47,29 +46,19 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
         States.Remove(view);
     }
 
-    private static NSObject? GetAccessibilityElements(UIView platformView) =>
-        platformView.ValueForKey(AccessibilityElementsKey);
-
-    private static void SetAccessibilityElements(
-        UIView platformView,
-        NSObject? elements)
-    {
-        if (elements is null)
-        {
-            platformView.SetValueForKeyPath(
-                default(NativeHandle),
-                AccessibilityElementsKey);
-            return;
-        }
-
-        platformView.SetValueForKey(elements, AccessibilityElementsKey);
-    }
+    private static IUIAccessibilityContainer WrapAccessibilityContainer(UIView platformView) =>
+        Runtime.GetINativeObject<IUIAccessibilityContainer>(
+            platformView.Handle,
+            owns: false)
+        ?? throw new InvalidOperationException(
+            "The native UIView could not be wrapped as UIAccessibilityContainer.");
 
     private sealed class AppleBridgeState : IDisposable
     {
         private readonly NeraSpreadsheetView _view;
         private readonly Dictionary<SpreadsheetAnalyticsItemKey, NeraAccessibilityElement> _elements = [];
         private UIView? _platformView;
+        private IUIAccessibilityContainer? _accessibilityContainer;
         private NSObject? _previousAccessibilityElements;
         private bool _previousIsAccessibilityElement;
         private string? _lastSemanticSignature;
@@ -115,9 +104,11 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             }
 
             DetachPlatformView();
+            var accessibilityContainer = WrapAccessibilityContainer(platformView);
             _platformView = platformView;
+            _accessibilityContainer = accessibilityContainer;
             _previousIsAccessibilityElement = platformView.IsAccessibilityElement;
-            _previousAccessibilityElements = GetAccessibilityElements(platformView);
+            _previousAccessibilityElements = accessibilityContainer.GetAccessibilityElements();
             platformView.IsAccessibilityElement = false;
         }
 
@@ -126,7 +117,8 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             SKPaintGLSurfaceEventArgs frame)
         {
             var platformView = _platformView;
-            if (platformView is null)
+            var accessibilityContainer = _accessibilityContainer;
+            if (platformView is null || accessibilityContainer is null)
             {
                 return;
             }
@@ -194,7 +186,7 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             }
 
             using var accessibilityElements = NSArray.FromNSObjects(orderedElements.ToArray());
-            SetAccessibilityElements(platformView, accessibilityElements);
+            accessibilityContainer.SetAccessibilityElements(accessibilityElements);
 
             var signature = BuildSemanticSignature(nodes);
             if (!string.Equals(signature, _lastSemanticSignature, StringComparison.Ordinal))
@@ -295,11 +287,12 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
 
         private void DetachPlatformView()
         {
+            if (_accessibilityContainer is not null)
+            {
+                _accessibilityContainer.SetAccessibilityElements(_previousAccessibilityElements);
+            }
             if (_platformView is not null)
             {
-                SetAccessibilityElements(
-                    _platformView,
-                    _previousAccessibilityElements);
                 _platformView.IsAccessibilityElement = _previousIsAccessibilityElement;
             }
 
@@ -310,6 +303,7 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             _elements.Clear();
             _lastSemanticSignature = null;
             _previousAccessibilityElements = null;
+            _accessibilityContainer = null;
             _platformView = null;
         }
     }
