@@ -11,6 +11,8 @@ namespace NeraSpreadSheet.Maui;
 /// </summary>
 internal static class NeraMacCatalystGpuDiagnostics
 {
+    private const string SmokeResultEnvironmentVariable = "NERA_MAUI_SMOKE_RESULT";
+    private const string SmokeTraceFileName = "nera-maccatalyst-analytics-smoke.trace";
     private static readonly ConditionalWeakTable<NeraSpreadsheetView, FailureState> States = new();
 
     internal static void Clear(NeraSpreadsheetView view)
@@ -42,6 +44,35 @@ internal static class NeraMacCatalystGpuDiagnostics
         lock (state.Sync)
         {
             return state.Exception;
+        }
+    }
+
+    /// <summary>
+    /// Appends a low-level renderer breadcrumb only for the loaded Mac Catalyst
+    /// smoke. A native SIGSEGV can bypass all managed exception hooks, so these
+    /// breadcrumbs identify the last native Metal call that returned. Normal
+    /// application runs pay no file-I/O cost because the smoke result variable
+    /// is absent.
+    /// </summary>
+    internal static void TraceStage(string stage)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(stage);
+        if (string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable(SmokeResultEnvironmentVariable)))
+        {
+            return;
+        }
+
+        try
+        {
+            var path = Path.Combine(Path.GetTempPath(), SmokeTraceFileName);
+            File.AppendAllText(
+                path,
+                $"{DateTime.UtcNow:O}|pid={Environment.ProcessId}|thread={Environment.CurrentManagedThreadId}|metal:{stage}{Environment.NewLine}");
+        }
+        catch
+        {
+            // Diagnostics must never replace or perturb the renderer failure.
         }
     }
 
