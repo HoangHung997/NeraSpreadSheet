@@ -85,6 +85,37 @@ public sealed class SpreadsheetAnalyticsPlacementController
         }
     }
 
+    internal void RestorePlacement(
+        Worksheet worksheet,
+        SpreadsheetAnalyticsPlacement placement)
+    {
+        EnsureWorksheet(worksheet);
+        var exists = placement.Item.Kind switch
+        {
+            SpreadsheetAnalyticsItemKind.Chart =>
+                _analytics.GetCharts(worksheet).Any(chart => chart.Id == placement.Item.Id),
+            SpreadsheetAnalyticsItemKind.Pivot =>
+                _analytics.GetPivots(worksheet).Any(pivot => pivot.Id == placement.Item.Id),
+            _ => false,
+        };
+        if (!exists)
+        {
+            throw new InvalidOperationException(
+                $"Cannot restore placement for missing analytics item '{placement.Item.Kind}:{placement.Item.Id}'.");
+        }
+
+        lock (_placementGate)
+        {
+            GetPlacementMapUnsafe(worksheet)[placement.Item] = placement;
+            GetDetachedPlacementMapUnsafe(worksheet).Remove(placement.Item);
+        }
+        Publish(
+            worksheet,
+            SpreadsheetAnalyticsPlacementChangeKind.BoundsChanged,
+            placement.Item,
+            placement);
+    }
+
     public bool TryGetPlacement(
         SpreadsheetAnalyticsItemKey item,
         out SpreadsheetAnalyticsPlacement placement)
