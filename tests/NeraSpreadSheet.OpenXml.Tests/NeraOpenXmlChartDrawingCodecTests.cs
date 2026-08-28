@@ -59,12 +59,14 @@ public sealed class NeraOpenXmlChartDrawingCodecTests
         var workbookPart = readDocument.WorkbookPart ??
             throw new AssertFailedException("The package has no workbook part.");
         var worksheetPart = workbookPart.WorksheetParts.Single();
+        var worksheetMarkup = worksheetPart.Worksheet ??
+            throw new AssertFailedException("The worksheet part has no worksheet markup.");
         var drawingsPart = worksheetPart.DrawingsPart ??
             throw new AssertFailedException("The chart export did not create a drawings part.");
         var drawingRelationshipId = worksheetPart.GetIdOfPart(drawingsPart);
         Assert.AreEqual(
             drawingRelationshipId,
-            worksheetPart.Worksheet.Elements<DocumentFormat.OpenXml.Spreadsheet.Drawing>()
+            worksheetMarkup.Elements<DocumentFormat.OpenXml.Spreadsheet.Drawing>()
                 .Single()
                 .Id?.Value);
 
