@@ -33,9 +33,11 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     public SmokePage()
     {
+        SmokeTrace.Append("smoke-page-constructor-enter");
         Title = "Nera Mac Catalyst analytics accessibility smoke";
         Content = _host;
         Loaded += OnLoaded;
+        SmokeTrace.Append("smoke-page-constructor-success");
     }
 
     public void Dispose()
@@ -60,22 +62,36 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     private void OnLoaded(object? sender, EventArgs e)
     {
+        SmokeTrace.Append("smoke-page-loaded-enter");
         Loaded -= OnLoaded;
         _ = MonitorRuntimeAsync();
+        SmokeTrace.Append("smoke-page-monitor-started");
         try
         {
-            _view = new NeraSpreadsheetView
-            {
-                Workbook = _workbook,
-                HorizontalOptions = LayoutOptions.Fill,
-                VerticalOptions = LayoutOptions.Fill,
-            };
-            _view.PaintSurface += OnPaintSurface;
-            _view.Loaded += OnViewLoaded;
-            _host.Children.Add(_view);
+            SmokeTrace.Append("smoke-page-before-view-constructor");
+            var view = new NeraSpreadsheetView();
+            SmokeTrace.Append("smoke-page-after-view-constructor");
+            _view = view;
+
+            SmokeTrace.Append("smoke-page-before-workbook-assign");
+            view.Workbook = _workbook;
+            SmokeTrace.Append("smoke-page-after-workbook-assign");
+
+            view.HorizontalOptions = LayoutOptions.Fill;
+            view.VerticalOptions = LayoutOptions.Fill;
+            SmokeTrace.Append("smoke-page-layout-options-set");
+
+            view.PaintSurface += OnPaintSurface;
+            view.Loaded += OnViewLoaded;
+            SmokeTrace.Append("smoke-page-events-subscribed");
+
+            SmokeTrace.Append("smoke-page-before-host-add");
+            _host.Children.Add(view);
+            SmokeTrace.Append("smoke-page-after-host-add");
         }
         catch (Exception exception)
         {
+            SmokeTrace.Append($"smoke-page-loaded-catch:{exception.GetType().FullName}");
             Fail(new InvalidOperationException(
                 "The Mac Catalyst smoke failed while creating or attaching the native Nera spreadsheet host.",
                 exception));
@@ -84,9 +100,11 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     private static void OnViewLoaded(object? sender, EventArgs e)
     {
+        SmokeTrace.Append("nera-view-loaded");
         if (sender is NeraSpreadsheetView view)
         {
             view.InvalidateSurface();
+            SmokeTrace.Append("nera-view-invalidated-from-loaded");
         }
     }
 
@@ -103,6 +121,10 @@ internal sealed class SmokePage : ContentPage, IDisposable
         try
         {
             _frameCount++;
+            if (_frameCount == 1)
+            {
+                SmokeTrace.Append("nera-first-paint-surface");
+            }
             ValidateLoadedHost(view);
             if (Volatile.Read(ref _analyticsInserted) == 0)
             {
@@ -117,6 +139,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
         }
         catch (Exception exception)
         {
+            SmokeTrace.Append($"nera-paint-catch:{exception.GetType().FullName}");
             Fail(exception);
         }
     }
