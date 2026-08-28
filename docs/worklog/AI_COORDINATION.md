@@ -12,12 +12,12 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: HELD
-  owner: CODEX
-  lease_id: CODEX-RIBBON-KEYBOARD-CI-20260828T085952Z
-  acquired_utc: 2026-08-28T08:59:52.5435380Z
-  expires_utc: 2026-08-28T09:09:52.5435380Z
-  purpose: Record RIBBON-KEYBOARD CI
+  state: FREE
+  owner: NONE
+  lease_id: NONE
+  acquired_utc: NONE
+  expires_utc: NONE
+  purpose: NONE
 
 last_update:
   utc: 2026-08-28T08:50:37Z
@@ -330,6 +330,9 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 
 
 | 2026-08-28T08:59:14Z | `LOCAL_GREEN` | Codex | `RIBBON-KEYBOARD` | Commit `c4d61f7` pushed; focused shortcut 10/10, presenter 3/3, Core 1206/1206, architecture green; local Windows 48/50 with only two known environment failures. |
+
+
+| 2026-08-28T08:59:55Z | `CI_RUNNING` | Codex | `RIBBON-KEYBOARD` | Exact-head run `33157521450` started for `c4d61f70e5ebac7f4b302cc17427ce1994b5813d`. |
 
 ## 11. Prompt ngắn gửi cho mỗi AI
 
