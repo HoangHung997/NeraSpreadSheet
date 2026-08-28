@@ -20,4 +20,10 @@
   <ItemGroup>
     <ProjectReference Include="../../src/NeraSpreadSheet.Maui/NeraSpreadSheet.Maui.csproj" />
   </ItemGroup>
+  <Target Name="NeraPinMacCatalystSmokeXcode" BeforeTargets="_DetectSdkLocations">
+    <PropertyGroup>
+      <XcodeLocation>/Applications/Xcode_26.0.1.app/Contents/Developer</XcodeLocation>
+    </PropertyGroup>
+    <Message Importance="High" Text="NERA_MACCATALYST_SMOKE_XCODE=$(XcodeLocation)" />
+  </Target>
 </Project>
