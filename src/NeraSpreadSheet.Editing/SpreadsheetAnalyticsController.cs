@@ -75,6 +75,60 @@ public sealed class SpreadsheetAnalyticsController
         return GetPivotList(worksheet);
     }
 
+    internal void RestoreChart(
+        Worksheet worksheet,
+        SpreadsheetChartDefinition definition)
+    {
+        EnsureWorksheet(worksheet);
+        ArgumentNullException.ThrowIfNull(definition);
+        if (definition.SourceRange.RowCount < 2 ||
+            definition.SourceRange.ColumnCount < 2)
+        {
+            throw new ArgumentException(
+                "A restored chart source range must contain at least two rows and two columns.",
+                nameof(definition));
+        }
+
+        var list = GetChartList(worksheet);
+        EnsureRestoredIdentityIsUnique(
+            definition.Id,
+            definition.Name,
+            list.Select(static chart => (chart.Id, chart.Name)),
+            "chart");
+        list.Add(definition);
+        Publish(
+            worksheet,
+            SpreadsheetAnalyticsChangeKind.ChartAdded,
+            definition.Id);
+    }
+
+    internal void RestorePivot(
+        Worksheet worksheet,
+        SpreadsheetPivotDefinition definition)
+    {
+        EnsureWorksheet(worksheet);
+        ArgumentNullException.ThrowIfNull(definition);
+        if (definition.SourceRange.RowCount < 2 ||
+            definition.SourceRange.ColumnCount < 2)
+        {
+            throw new ArgumentException(
+                "A restored pivot source range must contain at least two rows and two columns.",
+                nameof(definition));
+        }
+
+        var list = GetPivotList(worksheet);
+        EnsureRestoredIdentityIsUnique(
+            definition.Id,
+            definition.Name,
+            list.Select(static pivot => (pivot.Id, pivot.Name)),
+            "pivot");
+        list.Add(definition);
+        Publish(
+            worksheet,
+            SpreadsheetAnalyticsChangeKind.PivotAdded,
+            definition.Id);
+    }
+
     public SpreadsheetChartDefinition InsertChartFromSelection(
         SpreadsheetChartType chartType,
         string? title = null)
@@ -391,6 +445,34 @@ public sealed class SpreadsheetAnalyticsController
                 $"An analytics item named '{normalized}' already exists on this worksheet.");
         }
         return normalized;
+    }
+
+    private static void EnsureRestoredIdentityIsUnique(
+        Guid id,
+        string name,
+        IEnumerable<(Guid Id, string Name)> existing,
+        string itemKind)
+    {
+        if (id == Guid.Empty)
+        {
+            throw new ArgumentException(
+                $"A restored {itemKind} must have a non-empty ID.",
+                nameof(id));
+        }
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        foreach (var item in existing)
+        {
+            if (item.Id == id)
+            {
+                throw new InvalidOperationException(
+                    $"A restored {itemKind} with ID '{id}' already exists on this worksheet.");
+            }
+            if (string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"A restored {itemKind} named '{name}' already exists on this worksheet.");
+            }
+        }
     }
 
     private static void RemoveAt<T>(
