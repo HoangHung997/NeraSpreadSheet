@@ -12,9 +12,10 @@
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
     <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
-    <ValidateXcodeVersion>false</ValidateXcodeVersion>
+    <XcodeLocation>/Applications/Xcode_26.0.1.app</XcodeLocation>
+    <ValidateXcodeVersion>true</ValidateXcodeVersion>
     <IsPackable>false</IsPackable>
-    <Description>Loaded MAUI Mac Catalyst VoiceOver analytics accessibility smoke for NeraSpreadSheet. The technical application title is intentionally aligned with the assembly name so CI bundle discovery is stable; the runtime identifier is selected by CI to match the hosted Mac architecture, and Xcode version validation is disabled only for this CI smoke host because the hosted runner can carry a newer Xcode patch than the installed .NET Mac Catalyst pack.</Description>
+    <Description>Loaded MAUI Mac Catalyst VoiceOver analytics accessibility smoke for NeraSpreadSheet. The technical application title is intentionally aligned with the assembly name so CI bundle discovery is stable. The smoke pins Xcode 26.0.1 because the installed .NET 10 Mac Catalyst workload is 26.0.11017; keeping the native SDK/toolchain generation aligned avoids testing a workload/Xcode combination the pack was not built to support.</Description>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/NeraSpreadSheet.Maui/NeraSpreadSheet.Maui.csproj" />
