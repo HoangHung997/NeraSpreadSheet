@@ -145,7 +145,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             ValidateLoadedHost(view);
             if (Volatile.Read(ref _analyticsInserted) == 0)
             {
-                QueueAnalyticsCreation(view);
+                CreateAnalyticsForNextFrame(view);
                 return;
             }
 
@@ -173,45 +173,51 @@ internal sealed class SmokePage : ContentPage, IDisposable
             "The Mac Catalyst analytics smoke observed a failed GPU frame.");
     }
 
-    private void QueueAnalyticsCreation(NeraSpreadsheetView view)
+    private void CreateAnalyticsForNextFrame(NeraSpreadsheetView view)
     {
         if (Interlocked.CompareExchange(ref _analyticsInserted, -1, 0) != 0)
         {
             return;
         }
 
-        Dispatcher.Dispatch(() =>
+        try
         {
-            try
-            {
-                var session = view.Session
-                    ?? throw new InvalidOperationException(
-                        "The Mac Catalyst analytics smoke lost its session before analytics creation.");
-                var sourceRange = new CellRange(
-                    new CellAddress(0, 0),
-                    new CellAddress(3, 1));
-                var chart = session.Analytics.InsertChart(
-                    sourceRange,
-                    SpreadsheetChartType.Column,
-                    title: "Mac Catalyst accessibility",
-                    requestedName: "MacAccessibilityChart");
-                var pivot = session.Analytics.InsertPivot(
-                    sourceRange,
-                    rowFieldColumnIndex: 0,
-                    valueFieldColumnIndex: 1,
-                    aggregation: SpreadsheetPivotAggregation.Sum,
-                    requestedName: "MacAccessibilityPivot");
-                _chartItem = SpreadsheetAnalyticsItemKey.ForChart(chart.Id);
-                _pivotItem = SpreadsheetAnalyticsItemKey.ForPivot(pivot.Id);
-                Volatile.Write(ref _analyticsInserted, 1);
-                view.InvalidateSurface();
-            }
-            catch (Exception exception)
-            {
-                Volatile.Write(ref _analyticsInserted, 1);
-                Fail(exception);
-            }
-        });
+            SmokeTrace.Append("analytics-create-enter");
+            var session = view.Session
+                ?? throw new InvalidOperationException(
+                    "The Mac Catalyst analytics smoke lost its session before analytics creation.");
+            var sourceRange = new CellRange(
+                new CellAddress(0, 0),
+                new CellAddress(3, 1));
+
+            SmokeTrace.Append("analytics-before-chart-insert");
+            var chart = session.Analytics.InsertChart(
+                sourceRange,
+                SpreadsheetChartType.Column,
+                title: "Mac Catalyst accessibility",
+                requestedName: "MacAccessibilityChart");
+            SmokeTrace.Append("analytics-after-chart-insert");
+
+            SmokeTrace.Append("analytics-before-pivot-insert");
+            var pivot = session.Analytics.InsertPivot(
+                sourceRange,
+                rowFieldColumnIndex: 0,
+                valueFieldColumnIndex: 1,
+                aggregation: SpreadsheetPivotAggregation.Sum,
+                requestedName: "MacAccessibilityPivot");
+            SmokeTrace.Append("analytics-after-pivot-insert");
+
+            _chartItem = SpreadsheetAnalyticsItemKey.ForChart(chart.Id);
+            _pivotItem = SpreadsheetAnalyticsItemKey.ForPivot(pivot.Id);
+            Volatile.Write(ref _analyticsInserted, 1);
+            SmokeTrace.Append("analytics-create-ready-for-next-frame");
+        }
+        catch (Exception exception)
+        {
+            Volatile.Write(ref _analyticsInserted, 1);
+            SmokeTrace.Append($"analytics-create-catch:{exception.GetType().FullName}");
+            Fail(exception);
+        }
     }
 
     private void ValidateNativeAccessibility(NeraSpreadsheetView view)
