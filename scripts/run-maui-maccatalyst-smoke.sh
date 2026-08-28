@@ -83,19 +83,21 @@ consume_result_file() {
 
 consume_any_result() {
   local code
-  set +e
-  consume_result_file "$RESULT"
-  code=$?
-  set -e
+  if consume_result_file "$RESULT"; then
+    return 0
+  else
+    code=$?
+  fi
   if [ "$code" -ne 3 ]; then
     return "$code"
   fi
+
   if [ "$FALLBACK_RESULT" != "$RESULT" ]; then
-    set +e
-    consume_result_file "$FALLBACK_RESULT"
-    code=$?
-    set -e
-    return "$code"
+    if consume_result_file "$FALLBACK_RESULT"; then
+      return 0
+    else
+      return $?
+    fi
   fi
   return 3
 }
@@ -161,10 +163,11 @@ exit(status)
 SWIFT
 
 echo "Launching Mac Catalyst smoke through LaunchServices: $APP"
-set +e
-LAUNCH_OUTPUT="$(xcrun swift "$LAUNCHER" "$APP" "$RESULT" 2>&1)"
-LAUNCH_EXIT=$?
-set -e
+if LAUNCH_OUTPUT="$(xcrun swift "$LAUNCHER" "$APP" "$RESULT" 2>&1)"; then
+  LAUNCH_EXIT=0
+else
+  LAUNCH_EXIT=$?
+fi
 printf '%s\n' "$LAUNCH_OUTPUT"
 if [ "$LAUNCH_EXIT" -ne 0 ]; then
   echo "LaunchServices helper exited with code $LAUNCH_EXIT." >&2
@@ -182,12 +185,10 @@ fi
 echo "Mac Catalyst smoke PID: $APP_PID"
 
 for _ in $(seq 1 90); do
-  set +e
-  consume_any_result
-  RESULT_CODE=$?
-  set -e
-  if [ "$RESULT_CODE" -eq 0 ]; then
+  if consume_any_result; then
     exit 0
+  else
+    RESULT_CODE=$?
   fi
   if [ "$RESULT_CODE" -eq 2 ]; then
     print_diagnostics
@@ -195,12 +196,10 @@ for _ in $(seq 1 90); do
   fi
 
   if ! kill -0 "$APP_PID" 2>/dev/null; then
-    set +e
-    consume_any_result
-    RESULT_CODE=$?
-    set -e
-    if [ "$RESULT_CODE" -eq 0 ]; then
+    if consume_any_result; then
       exit 0
+    else
+      RESULT_CODE=$?
     fi
     if [ "$RESULT_CODE" -eq 2 ]; then
       print_diagnostics
