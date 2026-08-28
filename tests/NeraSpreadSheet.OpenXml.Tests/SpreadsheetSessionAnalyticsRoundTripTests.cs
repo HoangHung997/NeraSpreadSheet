@@ -18,7 +18,7 @@ public sealed class SpreadsheetSessionAnalyticsRoundTripTests
     {
         var workbook = new NeraWorkbook();
         var first = workbook.Worksheets[0];
-        first.Name = "Dashboard";
+        workbook.RenameWorksheet(first, "Dashboard");
         PopulateAnalyticsSource(first, 4);
         var second = workbook.AddWorksheet("Second");
         PopulateAnalyticsSource(second, 3);
