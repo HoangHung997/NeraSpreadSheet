@@ -20,8 +20,22 @@ public sealed class RibbonTabDefinition
 
         Id = id.Trim();
         Caption = caption.Trim();
-        Groups = (groups ?? throw new ArgumentNullException(nameof(groups))).ToArray();
+        Groups = (groups ?? throw new ArgumentNullException(nameof(groups)))
+            .OrderBy(group => group.Order)
+            .ToArray();
         Order = order;
+
+        string[] duplicates = Groups
+            .GroupBy(group => group.Id, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToArray();
+
+        if (duplicates.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Duplicate ribbon group id(s) in tab '{Id}': {string.Join(", ", duplicates)}.");
+        }
     }
 
     public string Id { get; }
