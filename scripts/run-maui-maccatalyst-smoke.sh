@@ -17,6 +17,7 @@ WORK_DIR="${RUNNER_TEMP:-/tmp}/nera-maccatalyst-smoke-launch"
 LAUNCHER="$WORK_DIR/LaunchNeraMacCatalystSmoke.swift"
 INFO_PLIST="$APP/Contents/Info.plist"
 EXPECTED_BUNDLE_ID="com.neraspreadsheet.maccatalystanalyticssmoke"
+LAUNCH_DIAG_START=""
 
 if [ ! -d "$APP" ]; then
   echo "Mac Catalyst smoke app bundle does not exist: $APP" >&2
@@ -165,6 +166,20 @@ print_diagnostics() {
     --last 5m \
     --predicate '(eventMessage CONTAINS[c] "CODESIGNING") OR (eventMessage CONTAINS[c] "Invalid Page") OR (eventMessage CONTAINS[c] "code signature")' \
     2>/dev/null | tail -n 300 || true
+
+  echo "--- Mac Catalyst system termination log ---"
+  local diag_start="${LAUNCH_DIAG_START:-}"
+  if [ -z "$diag_start" ]; then
+    diag_start="$(date -v-2M '+%Y-%m-%d %H:%M:%S')"
+  fi
+  /usr/bin/log show \
+    --style compact \
+    --start "$diag_start" \
+    --predicate '(process == "runningboardd") OR (process == "launchservicesd") OR (process == "WindowServer") OR (process == "kernel") OR (process == "amfid") OR (process == "taskgated-helper")' \
+    2>/dev/null | \
+    grep -Ei -- "$BUNDLE_ID|$PROCESS_NAME|${APP_PID:-no-pid}|termination|terminate|exited|exit code|kill|SIG[A-Z]+|AMFI|code signature|GPU|Metal|drawable|IOMobileFramebuffer|WindowServer" | \
+    tail -n 500 || true
+
   echo "--- Mac Catalyst unified log ---"
   /usr/bin/log show \
     --style compact \
@@ -300,6 +315,7 @@ if !finished {
 exit(status)
 SWIFT
 
+LAUNCH_DIAG_START="$(date '+%Y-%m-%d %H:%M:%S')"
 echo "Launching Mac Catalyst smoke through LaunchServices: $APP"
 if LAUNCH_OUTPUT="$(xcrun swift "$LAUNCHER" "$APP" "$SANDBOX_RESULT" 2>&1)"; then
   LAUNCH_EXIT=0
