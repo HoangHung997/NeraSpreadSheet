@@ -277,6 +277,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 return;
             }
 
+            NeraMacCatalystGpuDiagnostics.TraceStage("request-render");
             _bootstrapFramePending = true;
             UpdateDisplayLinkState();
             if (Interlocked.Exchange(ref _renderPending, 1) != 0)
@@ -293,6 +294,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
 
             platformView.BeginInvokeOnMainThread(() =>
             {
+                NeraMacCatalystGpuDiagnostics.TraceStage("request-render-mainthread");
                 Interlocked.Exchange(ref _renderPending, 0);
                 DrawSafely();
             });
@@ -325,6 +327,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
         {
             if (!_disposed)
             {
+                NeraMacCatalystGpuDiagnostics.TraceStage("display-link");
                 DrawSafely();
             }
         }
@@ -337,14 +340,21 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
         {
             try
             {
+                NeraMacCatalystGpuDiagnostics.TraceStage("draw-safely-enter");
                 if (DrawCore())
                 {
+                    NeraMacCatalystGpuDiagnostics.TraceStage("draw-core-success");
                     _bootstrapFramePending = false;
                     UpdateDisplayLinkState();
+                }
+                else
+                {
+                    NeraMacCatalystGpuDiagnostics.TraceStage("draw-core-no-frame");
                 }
             }
             catch (Exception exception)
             {
+                NeraMacCatalystGpuDiagnostics.TraceStage($"managed-exception:{exception.GetType().Name}");
                 if (_handler?.VirtualView is NeraSpreadsheetView neraView)
                 {
                     NeraMacCatalystGpuDiagnostics.RecordFailure(neraView, exception);
@@ -360,6 +370,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
 
         private bool DrawCore()
         {
+            NeraMacCatalystGpuDiagnostics.TraceStage("draw-core-enter");
             var handler = _handler;
             var platformView = _platformView;
             var queue = _backendContext.Queue;
@@ -367,62 +378,106 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 platformView is null ||
                 _backendContext.Device is null ||
                 queue is null ||
-                platformView.Window is null ||
-                !UpdateLayerGeometry())
+                platformView.Window is null)
             {
+                NeraMacCatalystGpuDiagnostics.TraceStage("draw-core-prerequisite-missing");
                 return false;
             }
 
+            NeraMacCatalystGpuDiagnostics.TraceStage("before-update-layer-geometry");
+            if (!UpdateLayerGeometry())
+            {
+                NeraMacCatalystGpuDiagnostics.TraceStage("layer-geometry-not-ready");
+                return false;
+            }
+            NeraMacCatalystGpuDiagnostics.TraceStage(
+                $"after-update-layer-geometry:{_metalLayer.DrawableSize.Width:F0}x{_metalLayer.DrawableSize.Height:F0}");
+
+            NeraMacCatalystGpuDiagnostics.TraceStage("before-next-drawable");
             using var drawable = _metalLayer.NextDrawable();
+            NeraMacCatalystGpuDiagnostics.TraceStage("after-next-drawable");
+
+            NeraMacCatalystGpuDiagnostics.TraceStage("before-drawable-texture");
             var texture = drawable?.Texture;
+            NeraMacCatalystGpuDiagnostics.TraceStage("after-drawable-texture");
             if (drawable is null || texture is null)
             {
+                NeraMacCatalystGpuDiagnostics.TraceStage("drawable-or-texture-null");
                 return false;
             }
 
             var width = checked((int)texture.Width);
             var height = checked((int)texture.Height);
+            NeraMacCatalystGpuDiagnostics.TraceStage($"texture-size:{width}x{height}");
             if (width <= 0 || height <= 0)
             {
+                NeraMacCatalystGpuDiagnostics.TraceStage("texture-size-invalid");
                 return false;
             }
 
-            _context ??= GRContext.CreateMetal(_backendContext);
+            if (_context is null)
+            {
+                NeraMacCatalystGpuDiagnostics.TraceStage("before-grcontext-create");
+                _context = GRContext.CreateMetal(_backendContext);
+                NeraMacCatalystGpuDiagnostics.TraceStage("after-grcontext-create");
+            }
             var context = _context;
             if (context is null)
             {
+                NeraMacCatalystGpuDiagnostics.TraceStage("grcontext-null");
                 return false;
             }
 
             const GRSurfaceOrigin origin = GRSurfaceOrigin.TopLeft;
+            NeraMacCatalystGpuDiagnostics.TraceStage("before-metal-texture-info");
             var metalInfo = new GRMtlTextureInfo(texture);
+            NeraMacCatalystGpuDiagnostics.TraceStage("after-metal-texture-info");
+
+            NeraMacCatalystGpuDiagnostics.TraceStage("before-render-target");
             using var renderTarget = new GRBackendRenderTarget(
                 width,
                 height,
                 metalInfo);
+            NeraMacCatalystGpuDiagnostics.TraceStage("after-render-target");
+
+            NeraMacCatalystGpuDiagnostics.TraceStage("before-surface-create");
             using var surface = SKSurface.Create(
                 context,
                 renderTarget,
                 origin,
                 SKColorType.Bgra8888);
+            NeraMacCatalystGpuDiagnostics.TraceStage("after-surface-create");
             if (surface is null)
             {
+                NeraMacCatalystGpuDiagnostics.TraceStage("surface-null");
                 return false;
             }
 
+            NeraMacCatalystGpuDiagnostics.TraceStage("before-paint");
             handler.Paint(platformView, context, surface, renderTarget, origin);
+            NeraMacCatalystGpuDiagnostics.TraceStage("after-paint");
 
+            NeraMacCatalystGpuDiagnostics.TraceStage("before-flush");
             surface.Canvas.Flush();
             surface.Flush();
             context.Flush();
+            NeraMacCatalystGpuDiagnostics.TraceStage("after-flush");
 
+            NeraMacCatalystGpuDiagnostics.TraceStage("before-command-buffer");
             using var commandBuffer = queue.CommandBuffer();
+            NeraMacCatalystGpuDiagnostics.TraceStage("after-command-buffer");
             if (commandBuffer is null)
             {
+                NeraMacCatalystGpuDiagnostics.TraceStage("command-buffer-null");
                 return false;
             }
+
+            NeraMacCatalystGpuDiagnostics.TraceStage("before-present-drawable");
             commandBuffer.PresentDrawable(drawable);
+            NeraMacCatalystGpuDiagnostics.TraceStage("after-present-drawable");
+            NeraMacCatalystGpuDiagnostics.TraceStage("before-command-buffer-commit");
             commandBuffer.Commit();
+            NeraMacCatalystGpuDiagnostics.TraceStage("after-command-buffer-commit");
             return true;
         }
 
