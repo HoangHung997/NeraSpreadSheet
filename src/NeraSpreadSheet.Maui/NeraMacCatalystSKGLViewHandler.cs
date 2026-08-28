@@ -2,6 +2,7 @@
 using Foundation;
 using Microsoft.Maui;
 using Microsoft.Maui.Handlers;
+using SkiaSharp;
 using SkiaSharp.Views.iOS;
 using SkiaSharp.Views.Maui;
 using UIKit;
