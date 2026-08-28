@@ -6,14 +6,20 @@ namespace NeraSpreadSheet.Maui;
 public static class NeraSpreadSheetMauiAppBuilderExtensions
 {
     /// <summary>
-    /// Registers SkiaSharp's cross-platform GPU handler graph. The derived
-    /// <see cref="NeraSpreadsheetView"/> resolves through the registered
-    /// <c>SKGLView</c> base type, allowing SkiaSharp to select the native GPU
-    /// surface for each platform, including Metal on Apple targets.
+    /// Registers SkiaSharp's cross-platform GPU handler graph. Nera normally
+    /// resolves through SkiaSharp's SKGLView handler. Mac Catalyst uses a Nera
+    /// handler that keeps the same SKMetalView backend while avoiding SkiaSharp's
+    /// intermediate MauiSKMetalView subclass, which is incompatible with UIKit 26
+    /// class initialization on current hosted runners.
     /// </summary>
     public static MauiAppBuilder UseNeraSpreadSheet(this MauiAppBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
-        return builder.UseSkiaSharp();
+        builder.UseSkiaSharp();
+#if MACCATALYST
+        builder.ConfigureMauiHandlers(static handlers =>
+            handlers.AddHandler<NeraSpreadsheetView, NeraMacCatalystSKGLViewHandler>());
+#endif
+        return builder;
     }
 }
