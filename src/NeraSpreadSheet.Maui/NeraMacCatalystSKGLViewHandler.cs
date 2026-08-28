@@ -210,7 +210,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
         private UIView? _platformView;
         private readonly CAMetalLayer _metalLayer;
         private readonly GRMtlBackendContext _backendContext;
-        private readonly CADisplayLink _displayLink;
+        private CADisplayLink? _displayLink;
         private GRContext? _context;
         private int _renderPending;
         private bool _renderLoopRequested;
@@ -244,10 +244,6 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 AllowsNextDrawableTimeout = true,
             };
             platformView.Layer.AddSublayer(_metalLayer);
-
-            _displayLink = CADisplayLink.Create(DrawFromDisplayLink);
-            _displayLink.Paused = true;
-            _displayLink.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
         }
 
         internal void SetRenderLoop(bool enabled)
@@ -301,9 +297,13 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
             }
 
             _disposed = true;
-            _displayLink.Paused = true;
-            _displayLink.Invalidate();
-            _displayLink.Dispose();
+            if (_displayLink is { } displayLink)
+            {
+                displayLink.Paused = true;
+                displayLink.Invalidate();
+                displayLink.Dispose();
+                _displayLink = null;
+            }
             _context?.Dispose();
             _context = null;
             _metalLayer.RemoveFromSuperLayer();
@@ -509,7 +509,25 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 return;
             }
 
-            _displayLink.Paused = !_renderLoopRequested;
+            if (!_renderLoopRequested)
+            {
+                if (_displayLink is { } pausedDisplayLink)
+                {
+                    pausedDisplayLink.Paused = true;
+                }
+                return;
+            }
+
+            var displayLink = _displayLink;
+            if (displayLink is null)
+            {
+                displayLink = CADisplayLink.Create(DrawFromDisplayLink);
+                displayLink.Paused = true;
+                displayLink.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
+                _displayLink = displayLink;
+            }
+
+            displayLink.Paused = false;
         }
     }
 
