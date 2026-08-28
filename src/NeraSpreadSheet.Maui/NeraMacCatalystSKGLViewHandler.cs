@@ -213,6 +213,8 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
         private readonly CADisplayLink _displayLink;
         private GRContext? _context;
         private int _renderPending;
+        private bool _renderLoopRequested;
+        private bool _bootstrapFramePending = true;
         private bool _disposed;
 
         internal NeraMetalRenderer(
@@ -243,11 +245,10 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 AllowsNextDrawableTimeout = true,
             };
             platformView.Layer.AddSublayer(_metalLayer);
-            UpdateLayerGeometry();
 
             _displayLink = CADisplayLink.Create(DrawFromDisplayLink);
             _displayLink.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
-            _displayLink.Paused = true;
+            UpdateDisplayLinkState();
         }
 
         internal void SetRenderLoop(bool enabled)
@@ -257,7 +258,12 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 return;
             }
 
-            _displayLink.Paused = !enabled;
+            _renderLoopRequested = enabled;
+            if (!enabled)
+            {
+                _bootstrapFramePending = true;
+            }
+            UpdateDisplayLinkState();
             if (!enabled)
             {
                 RequestRender();
@@ -266,7 +272,14 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
 
         internal void RequestRender()
         {
-            if (_disposed || Interlocked.Exchange(ref _renderPending, 1) != 0)
+            if (_disposed)
+            {
+                return;
+            }
+
+            _bootstrapFramePending = true;
+            UpdateDisplayLinkState();
+            if (Interlocked.Exchange(ref _renderPending, 1) != 0)
             {
                 return;
             }
@@ -324,7 +337,11 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
         {
             try
             {
-                DrawCore();
+                if (DrawCore())
+                {
+                    _bootstrapFramePending = false;
+                    UpdateDisplayLinkState();
+                }
             }
             catch (Exception exception)
             {
@@ -335,11 +352,13 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 Trace.TraceError(
                     "Nera Mac Catalyst Metal frame failed: {0}",
                     exception);
-                _displayLink.Paused = true;
+                _bootstrapFramePending = false;
+                _renderLoopRequested = false;
+                UpdateDisplayLinkState();
             }
         }
 
-        private void DrawCore()
+        private bool DrawCore()
         {
             var handler = _handler;
             var platformView = _platformView;
@@ -348,31 +367,31 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 platformView is null ||
                 _backendContext.Device is null ||
                 queue is null ||
-                platformView.Window is null)
+                platformView.Window is null ||
+                !UpdateLayerGeometry())
             {
-                return;
+                return false;
             }
 
-            UpdateLayerGeometry();
             using var drawable = _metalLayer.NextDrawable();
             var texture = drawable?.Texture;
             if (drawable is null || texture is null)
             {
-                return;
+                return false;
             }
 
             var width = checked((int)texture.Width);
             var height = checked((int)texture.Height);
             if (width <= 0 || height <= 0)
             {
-                return;
+                return false;
             }
 
             _context ??= GRContext.CreateMetal(_backendContext);
             var context = _context;
             if (context is null)
             {
-                return;
+                return false;
             }
 
             const GRSurfaceOrigin origin = GRSurfaceOrigin.TopLeft;
@@ -388,7 +407,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 SKColorType.Bgra8888);
             if (surface is null)
             {
-                return;
+                return false;
             }
 
             handler.Paint(platformView, context, surface, renderTarget, origin);
@@ -400,18 +419,19 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
             using var commandBuffer = queue.CommandBuffer();
             if (commandBuffer is null)
             {
-                return;
+                return false;
             }
             commandBuffer.PresentDrawable(drawable);
             commandBuffer.Commit();
+            return true;
         }
 
-        private void UpdateLayerGeometry()
+        private bool UpdateLayerGeometry()
         {
             var platformView = _platformView;
             if (platformView is null)
             {
-                return;
+                return false;
             }
 
             var bounds = platformView.Bounds;
@@ -421,11 +441,30 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 scale = 1d;
             }
 
+            var width = (double)bounds.Width * scale;
+            var height = (double)bounds.Height * scale;
+            if (!double.IsFinite(width) ||
+                !double.IsFinite(height) ||
+                width <= 0d ||
+                height <= 0d)
+            {
+                return false;
+            }
+
             _metalLayer.Frame = bounds;
             _metalLayer.ContentsScale = (nfloat)scale;
-            var width = Math.Max(0d, (double)bounds.Width * scale);
-            var height = Math.Max(0d, (double)bounds.Height * scale);
             _metalLayer.DrawableSize = new CGSize(width, height);
+            return true;
+        }
+
+        private void UpdateDisplayLinkState()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _displayLink.Paused = !_renderLoopRequested && !_bootstrapFramePending;
         }
     }
 
