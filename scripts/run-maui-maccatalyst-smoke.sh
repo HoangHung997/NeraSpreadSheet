@@ -37,15 +37,20 @@ if [ "$BUNDLE_ID" != "$EXPECTED_BUNDLE_ID" ]; then
   echo "Unexpected Mac Catalyst smoke bundle id: '$BUNDLE_ID' (expected '$EXPECTED_BUNDLE_ID')." >&2
   exit 1
 fi
+
 CONTAINER_ROOT="$HOME/Library/Containers/$BUNDLE_ID/Data"
+SANDBOX_RESULT="$CONTAINER_ROOT/tmp/$RESULT_FILE_NAME"
+mkdir -p "$(dirname "$SANDBOX_RESULT")"
+rm -f "$SANDBOX_RESULT"
 if [ -d "$CONTAINER_ROOT" ]; then
-  find "$CONTAINER_ROOT" -type f -name "$RESULT_FILE_NAME" -delete 2>/dev/null || true
+  find "$CONTAINER_ROOT" -type f -name "$RESULT_FILE_NAME" ! -path "$SANDBOX_RESULT" -delete 2>/dev/null || true
 fi
 
 echo "Mac Catalyst smoke bundle id: $BUNDLE_ID"
 echo "Mac Catalyst smoke executable: $PROCESS_NAME"
-echo "Mac Catalyst primary result: $RESULT"
-echo "Mac Catalyst fallback result: $FALLBACK_RESULT"
+echo "Mac Catalyst requested host result: $RESULT"
+echo "Mac Catalyst host fallback result: $FALLBACK_RESULT"
+echo "Mac Catalyst sandbox result passed to app: $SANDBOX_RESULT"
 echo "Mac Catalyst container root: $CONTAINER_ROOT"
 
 print_diagnostics() {
@@ -54,6 +59,11 @@ print_diagnostics() {
     ps -p "$APP_PID" -o pid=,ppid=,stat=,etime=,command= || true
   fi
   echo "--- Mac Catalyst result files ---"
+  for candidate in "$SANDBOX_RESULT" "$RESULT" "$FALLBACK_RESULT"; do
+    if [ -f "$candidate" ]; then
+      echo "$candidate"
+    fi
+  done
   if [ -d "$CONTAINER_ROOT" ]; then
     find "$CONTAINER_ROOT" -type f -name "$RESULT_FILE_NAME" -print 2>/dev/null || true
   fi
@@ -105,17 +115,8 @@ find_container_result() {
 
 consume_any_result() {
   local code container_result
-  if consume_result_file "$RESULT"; then
-    return 0
-  else
-    code=$?
-  fi
-  if [ "$code" -ne 3 ]; then
-    return "$code"
-  fi
-
-  if [ "$FALLBACK_RESULT" != "$RESULT" ]; then
-    if consume_result_file "$FALLBACK_RESULT"; then
+  for candidate in "$SANDBOX_RESULT" "$RESULT" "$FALLBACK_RESULT"; do
+    if consume_result_file "$candidate"; then
       return 0
     else
       code=$?
@@ -123,7 +124,7 @@ consume_any_result() {
     if [ "$code" -ne 3 ]; then
       return "$code"
     fi
-  fi
+  done
 
   if container_result="$(find_container_result)"; then
     if consume_result_file "$container_result"; then
@@ -196,7 +197,7 @@ exit(status)
 SWIFT
 
 echo "Launching Mac Catalyst smoke through LaunchServices: $APP"
-if LAUNCH_OUTPUT="$(xcrun swift "$LAUNCHER" "$APP" "$RESULT" 2>&1)"; then
+if LAUNCH_OUTPUT="$(xcrun swift "$LAUNCHER" "$APP" "$SANDBOX_RESULT" 2>&1)"; then
   LAUNCH_EXIT=0
 else
   LAUNCH_EXIT=$?
@@ -238,7 +239,7 @@ for _ in $(seq 1 90); do
       print_diagnostics
       exit 1
     fi
-    echo "Mac Catalyst smoke exited before producing a primary, host-fallback, or container result file." >&2
+    echo "Mac Catalyst smoke exited before producing a sandbox or fallback result file." >&2
     print_diagnostics
     exit 1
   fi
