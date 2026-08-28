@@ -36,6 +36,38 @@ internal sealed class SmokePage : ContentPage, IDisposable
         SmokeTrace.Append("smoke-page-constructor-enter");
         Title = "Nera Mac Catalyst analytics accessibility smoke";
         Content = _host;
+
+        try
+        {
+            SmokeTrace.Append("smoke-page-constructor-before-view-constructor");
+            var view = new NeraSpreadsheetView();
+            SmokeTrace.Append("smoke-page-constructor-after-view-constructor");
+            _view = view;
+
+            SmokeTrace.Append("smoke-page-constructor-before-workbook-assign");
+            view.Workbook = _workbook;
+            SmokeTrace.Append("smoke-page-constructor-after-workbook-assign");
+
+            view.HorizontalOptions = LayoutOptions.Fill;
+            view.VerticalOptions = LayoutOptions.Fill;
+            SmokeTrace.Append("smoke-page-constructor-layout-options-set");
+
+            view.PaintSurface += OnPaintSurface;
+            view.Loaded += OnViewLoaded;
+            SmokeTrace.Append("smoke-page-constructor-events-subscribed");
+
+            SmokeTrace.Append("smoke-page-constructor-before-host-add");
+            _host.Children.Add(view);
+            SmokeTrace.Append("smoke-page-constructor-after-host-add");
+        }
+        catch (Exception exception)
+        {
+            SmokeTrace.Append($"smoke-page-constructor-catch:{exception.GetType().FullName}");
+            throw new InvalidOperationException(
+                "The Mac Catalyst smoke failed while constructing the Nera spreadsheet content before native window attachment.",
+                exception);
+        }
+
         Loaded += OnLoaded;
         SmokeTrace.Append("smoke-page-constructor-success");
     }
@@ -66,36 +98,18 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Loaded -= OnLoaded;
         _ = MonitorRuntimeAsync();
         SmokeTrace.Append("smoke-page-monitor-started");
-        try
+
+        var view = _view;
+        if (view is null)
         {
-            SmokeTrace.Append("smoke-page-before-view-constructor");
-            var view = new NeraSpreadsheetView();
-            SmokeTrace.Append("smoke-page-after-view-constructor");
-            _view = view;
-
-            SmokeTrace.Append("smoke-page-before-workbook-assign");
-            view.Workbook = _workbook;
-            SmokeTrace.Append("smoke-page-after-workbook-assign");
-
-            view.HorizontalOptions = LayoutOptions.Fill;
-            view.VerticalOptions = LayoutOptions.Fill;
-            SmokeTrace.Append("smoke-page-layout-options-set");
-
-            view.PaintSurface += OnPaintSurface;
-            view.Loaded += OnViewLoaded;
-            SmokeTrace.Append("smoke-page-events-subscribed");
-
-            SmokeTrace.Append("smoke-page-before-host-add");
-            _host.Children.Add(view);
-            SmokeTrace.Append("smoke-page-after-host-add");
-        }
-        catch (Exception exception)
-        {
-            SmokeTrace.Append($"smoke-page-loaded-catch:{exception.GetType().FullName}");
             Fail(new InvalidOperationException(
-                "The Mac Catalyst smoke failed while creating or attaching the native Nera spreadsheet host.",
-                exception));
+                "The Mac Catalyst smoke reached Loaded without its Nera spreadsheet view."));
+            return;
         }
+
+        SmokeTrace.Append("smoke-page-loaded-before-invalidate");
+        view.InvalidateSurface();
+        SmokeTrace.Append("smoke-page-loaded-after-invalidate");
     }
 
     private static void OnViewLoaded(object? sender, EventArgs e)
@@ -410,7 +424,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 if (!_disposed && Volatile.Read(ref _finished) == 0)
                 {
                     Fail(new InvalidOperationException(
-                        "The Mac Catalyst native Metal renderer failed inside the MTKView delegate boundary.",
+                        "The Mac Catalyst native CAMetalLayer renderer failed inside the render callback boundary.",
                         renderingFailure));
                 }
             });
