@@ -12,17 +12,17 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: HELD
-  owner: CODEX
-  lease_id: CODEX-RIBBON-KEYBOARD-20260828T085034Z
-  acquired_utc: 2026-08-28T08:50:34.4507224Z
-  expires_utc: 2026-08-28T09:00:34.4507224Z
-  purpose: Claim RIBBON-KEYBOARD by OWNER instruction
+  state: FREE
+  owner: NONE
+  lease_id: NONE
+  acquired_utc: NONE
+  expires_utc: NONE
+  purpose: NONE
 
 last_update:
-  utc: 2026-08-28T08:49:08Z
+  utc: 2026-08-28T08:50:37Z
   writer: CODEX
-  summary: RIBBON-CUSTOMIZE-UI green on all own gates; blocked only by Q003B-MAC in CI 33156296542.
+  summary: OWNER instructed continuation; RIBBON-KEYBOARD claimed without Apple overlap.
 ```
 
 `write_lock` chỉ khóa việc sửa **file điều phối này**. Không giữ khóa trong lúc viết
@@ -98,8 +98,8 @@ Mỗi worker chỉ có tối đa một task `CLAIMED`, `IN_PROGRESS`, `LOCAL_GRE
 | 6 | `RIBBON-DESKTOP` | Codex | Presenter và runtime smoke WPF/WinForms | `RIBBON-004` có evidence sẵn sàng |
 | 7 | `RIBBON-CUSTOMIZE-UI` | Codex | Phiên tùy biến và dialog native WPF/WinForms cho ẩn/hiện, đổi thứ tự và kích thước item | OWNER yêu cầu tiếp tục; stack trên desktop presenter |
 | 8 | RIBBON-MAUI | Codex | Presenter và runtime smoke MAUI, không chạm code Apple đang khóa | `Q003B-MAC` kết thúc và desktop presenter ổn định |
-| 9 | `RIBBON-CLOSE` | ChatGPT (`INTEGRATOR`) | Tích hợp stack, cập nhật tài liệu dùng chung và exact-head CI | Tất cả task Ribbon đầu vào sẵn sàng |
-| 10 | `INTEGRATE-001` | ChatGPT | Merge tuần tự và chạy exact-head CI tổng hợp | Các task đầu vào sẵn sàng |
+| 10 | `RIBBON-CLOSE` | ChatGPT (`INTEGRATOR`) | Tích hợp stack, cập nhật tài liệu dùng chung và exact-head CI | Tất cả task Ribbon đầu vào sẵn sàng |
+| 11 | `INTEGRATE-001` | ChatGPT | Merge tuần tự và chạy exact-head CI tổng hợp | Các task đầu vào sẵn sàng |
 
 Task mới phải được OWNER hoặc INTEGRATOR thêm vào bảng trong một lượt ghi hợp lệ.
 
@@ -321,6 +321,9 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 
 
 | 2026-08-28T08:49:08Z | `BLOCKED` | Codex | `RIBBON-CUSTOMIZE-UI` | Run `33156296542` at `7f8471e`: Core, Windows desktop, Android and MAUI Windows green; only existing Mac Catalyst runtime smoke failed under `Q003B-MAC`. |
+
+
+| 2026-08-28T08:50:37Z | `CLAIMED` | Codex | `RIBBON-KEYBOARD` | OWNER yêu cầu tiếp tục Ribbon; shortcut activation and desktop keyboard binding stack on `7f8471e` with no Apple/Mac path overlap. |
 
 ## 11. Prompt ngắn gửi cho mỗi AI
 
