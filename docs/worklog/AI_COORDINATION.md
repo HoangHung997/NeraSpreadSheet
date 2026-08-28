@@ -12,17 +12,17 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: FREE
-  owner: NONE
-  lease_id: NONE
-  acquired_utc: NONE
-  expires_utc: NONE
-  purpose: NONE
+  state: HELD
+  owner: CHATGPT
+  lease_id: Q003B-MAC-CHATGPT-20260828T034810Z
+  acquired_utc: 2026-08-28T03:48:10Z
+  expires_utc: 2026-08-28T03:58:10Z
+  purpose: Formalize Q003B-MAC claim/status under coordination protocol.
 
 last_update:
-  utc: 2026-08-28T03:15:00Z
-  writer: CODEX
-  summary: Created the initial two-agent coordination protocol.
+  utc: 2026-08-28T03:48:10Z
+  writer: CHATGPT
+  summary: Acquired coordination lease for Q003B-MAC status normalization.
 ```
 
 `write_lock` chỉ khóa việc sửa **file điều phối này**. Không giữ khóa trong lúc viết
