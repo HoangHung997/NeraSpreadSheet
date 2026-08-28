@@ -12,12 +12,12 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: HELD
-  owner: CODEX
-  lease_id: CODEX-COORD-REPAIR-DESKTOP-20260828T080017Z
-  acquired_utc: 2026-08-28T08:00:17Z
-  expires_utc: 2026-08-28T08:10:17Z
-  purpose: Repair desktop backlog row
+  state: FREE
+  owner: NONE
+  lease_id: NONE
+  acquired_utc: NONE
+  expires_utc: NONE
+  purpose: NONE
 
 last_update:
   utc: 2026-08-28T07:59:13Z
@@ -97,8 +97,7 @@ Mỗi worker chỉ có tối đa một task `CLAIMED`, `IN_PROGRESS`, `LOCAL_GRE
 | 6 | `RIBBON-DESKTOP` | Codex | Presenter và runtime smoke WPF/WinForms | `RIBBON-004` có evidence sẵn sàng |
 | 7 | `RIBBON-MAUI` | Codex | Presenter và runtime smoke MAUI, không chạm code Apple đang khóa | `Q003B-MAC` kết thúc và desktop presenter ổn định |
 | 8 | `RIBBON-CLOSE` | ChatGPT (`INTEGRATOR`) | Tích hợp stack, cập nhật tài liệu dùng chung và exact-head CI | Tất cả task Ribbon đầu vào sẵn sàng |
-| 9 | `RIBBON-DESKTOP` | `CLAIMED` | Codex | `ai/codex/ribbon-desktop-presenters` | `src/NeraSpreadSheet.Wpf/**Ribbon**`, `src/NeraSpreadSheet.Wpf/**Bar**`, `src/NeraSpreadSheet.WinForms/**Ribbon**`, `src/NeraSpreadSheet.WinForms/**Bar**`, hai host csproj, desktop presenter tests riêng, `docs/ribbon-desktop-presenter-contract.md` | Stacked trên `RIBBON-004` commit `8e95f7a3000bee1a515101369c61cb09e613d286`; không giao path Apple/Mac Catalyst | Chưa có; phải dựng native controls, activate qua runtime và có loaded desktop smoke. |
-| `INTEGRATE-001` | ChatGPT | Merge tuần tự và chạy exact-head CI tổng hợp | Các task đầu vào sẵn sàng |
+| 9 | `INTEGRATE-001` | ChatGPT | Merge tuần tự và chạy exact-head CI tổng hợp | Các task đầu vào sẵn sàng |
 
 Task mới phải được OWNER hoặc INTEGRATOR thêm vào bảng trong một lượt ghi hợp lệ.
 
@@ -295,6 +294,8 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 
 | 2026-08-28T07:59:13Z | `BLOCKED` | Codex | `RIBBON-004` | Run `33153003700` at `8e95f7a`: Core, Windows, Android and MAUI Windows green; only existing Mac Catalyst runtime smoke failed under `Q003B-MAC`. |
 | 2026-08-28T07:59:13Z | `CLAIMED` | Codex | `RIBBON-DESKTOP` | OWNER requested continuation through Ribbon completion; desktop native presenters stack on `8e95f7a` with no Apple/Mac path overlap; lease released. |
+
+| 2026-08-28T08:00:20Z | `COORDINATION_REPAIRED` | Codex | `RIBBON-DESKTOP` | Removed the duplicate active-task row from backlog; active claim and scope unchanged. |
 
 ## 11. Prompt ngắn gửi cho mỗi AI
 
