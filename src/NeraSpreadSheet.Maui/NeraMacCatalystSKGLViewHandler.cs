@@ -1,4 +1,5 @@
 #if MACCATALYST
+using System.Diagnostics.CodeAnalysis;
 using CoreGraphics;
 using Foundation;
 using Metal;
@@ -18,6 +19,10 @@ namespace NeraSpreadSheet.Maui;
 /// instantiated on current hosted Mac Catalyst runtimes. This handler keeps the
 /// same Skia Metal rendering pipeline without introducing a managed UIView subclass.
 /// </summary>
+[SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "MAUI handlers release the renderer from DisconnectHandler, which is the framework lifecycle boundary.")]
 internal sealed class NeraMacCatalystSKGLViewHandler :
     ViewHandler<ISKGLView, MTKView>
 {
@@ -141,7 +146,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
             rawInfo));
     }
 
-    private void DrawableSizeChanged(MTKView platformView)
+    private static void DrawableSizeChanged(MTKView platformView)
     {
         if (platformView.Paused && platformView.EnableSetNeedsDisplay)
         {
@@ -245,7 +250,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
         }
 
         void IMTKViewDelegate.DrawableSizeWillChange(MTKView view, CGSize size) =>
-            _handler?.DrawableSizeChanged(view);
+            NeraMacCatalystSKGLViewHandler.DrawableSizeChanged(view);
 
         void IMTKViewDelegate.Draw(MTKView view)
         {
@@ -276,7 +281,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
             }
 
             const GRSurfaceOrigin origin = GRSurfaceOrigin.TopLeft;
-            using var metalInfo = new GRMtlTextureInfo(texture);
+            var metalInfo = new GRMtlTextureInfo(texture);
             using var renderTarget = new GRBackendRenderTarget(
                 width,
                 height,
