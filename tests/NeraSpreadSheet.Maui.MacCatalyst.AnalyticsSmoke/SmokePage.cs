@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using Foundation;
 using Microsoft.Maui.Controls;
@@ -20,6 +21,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
     {
         WriteIndented = true,
     };
+    private static readonly Selector AccessibilityElementsSelector =
+        new("accessibilityElements");
 
     private readonly Grid _host = new();
     private readonly Workbook _workbook = CreateWorkbook();
@@ -218,11 +221,6 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 "The Mac Catalyst analytics smoke lost its native UIView.");
         Require(!host.IsAccessibilityElement,
             "The GPU host should be an accessibility container, not one monolithic element.");
-        var container = Runtime.GetINativeObject<IUIAccessibilityContainer>(
-            host.Handle,
-            owns: false)
-            ?? throw new InvalidOperationException(
-                "The GPU host could not be wrapped as UIAccessibilityContainer.");
 
         var projectedNodes = view.AnalyticsAccessibilityNodes;
         Require(projectedNodes.Count == 2,
@@ -238,12 +236,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 node.Role == SpreadsheetAnalyticsAccessibleRole.PivotTable),
             "The Mac Catalyst projection omitted the inserted pivot node.");
 
-        var rawElements = container.GetAccessibilityElements()
-            ?? throw new InvalidOperationException(
-                "The Mac Catalyst accessibility container did not expose accessibilityElements.");
-        Require(rawElements is NSArray,
-            "The Mac Catalyst accessibilityElements payload was not an NSArray.");
-        var nativeElements = ((NSArray)rawElements).ToArray<UIAccessibilityElement>();
+        var nativeElements = GetNativeAccessibilityElements(host)
+            .ToArray<UIAccessibilityElement>();
         Require(nativeElements.Length == 2,
             $"Expected two native analytics accessibility elements but found {nativeElements.Length}.");
 
@@ -280,6 +274,25 @@ internal sealed class SmokePage : ContentPage, IDisposable
             cachedTypefaces = view.CachedTypefaceCount,
             gpuDiagnostics = view.GpuContextDiagnostics,
         });
+    }
+
+    private static NSArray GetNativeAccessibilityElements(UIView host)
+    {
+        Require(host.RespondsToSelector(AccessibilityElementsSelector),
+            "The native Mac Catalyst UIView does not expose accessibilityElements.");
+
+        var handle = NativeMessaging.SendIntPtr(
+            (IntPtr)host.Handle,
+            (IntPtr)AccessibilityElementsSelector.Handle);
+        if (handle == IntPtr.Zero)
+        {
+            throw new InvalidOperationException(
+                "The Mac Catalyst accessibility container did not expose accessibilityElements.");
+        }
+
+        return Runtime.GetNSObject(handle) as NSArray
+            ?? throw new InvalidOperationException(
+                "The Mac Catalyst accessibilityElements payload was not an NSArray.");
     }
 
     private static UIAccessibilityElement FindNativeElement(
@@ -518,5 +531,13 @@ internal sealed class SmokePage : ContentPage, IDisposable
         {
             throw new InvalidOperationException(message);
         }
+    }
+
+    private static class NativeMessaging
+    {
+        [DllImport(Constants.ObjectiveCLibrary, EntryPoint = "objc_msgSend")]
+        internal static extern IntPtr SendIntPtr(
+            IntPtr receiver,
+            IntPtr selector);
     }
 }

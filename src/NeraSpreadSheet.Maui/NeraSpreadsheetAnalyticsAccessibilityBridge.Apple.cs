@@ -1,5 +1,8 @@
 #if IOS || MACCATALYST
 using System.Runtime.CompilerServices;
+#if MACCATALYST
+using System.Runtime.InteropServices;
+#endif
 using CoreGraphics;
 using Foundation;
 using NeraSpreadSheet.Core;
@@ -20,6 +23,10 @@ namespace NeraSpreadSheet.Maui;
 internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
 {
     private static readonly ConditionalWeakTable<NeraSpreadsheetView, AppleBridgeState> States = new();
+#if MACCATALYST
+    private static readonly Selector SetAccessibilityElementsSelector =
+        new("setAccessibilityElements:");
+#endif
 
     internal static void Update(
         NeraSpreadsheetView view,
@@ -46,7 +53,35 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
         States.Remove(view);
     }
 
-#if !MACCATALYST
+#if MACCATALYST
+    private static void SetAccessibilityElements(
+        UIView platformView,
+        NSObject? elements)
+    {
+        if (!platformView.RespondsToSelector(SetAccessibilityElementsSelector))
+        {
+            throw new InvalidOperationException(
+                "The native Mac Catalyst UIView does not expose setAccessibilityElements:.");
+        }
+
+        var elementHandle = elements is null
+            ? IntPtr.Zero
+            : (IntPtr)elements.Handle;
+        NativeMessaging.SendVoidIntPtr(
+            (IntPtr)platformView.Handle,
+            (IntPtr)SetAccessibilityElementsSelector.Handle,
+            elementHandle);
+    }
+
+    private static class NativeMessaging
+    {
+        [DllImport(Constants.ObjectiveCLibrary, EntryPoint = "objc_msgSend")]
+        internal static extern void SendVoidIntPtr(
+            IntPtr receiver,
+            IntPtr selector,
+            IntPtr argument);
+    }
+#else
     private static IUIAccessibilityContainer WrapAccessibilityContainer(UIView platformView) =>
         Runtime.GetINativeObject<IUIAccessibilityContainer>(
             platformView.Handle,
@@ -60,9 +95,7 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
         private readonly NeraSpreadsheetView _view;
         private readonly Dictionary<SpreadsheetAnalyticsItemKey, NeraAccessibilityElement> _elements = [];
         private UIView? _platformView;
-#if MACCATALYST
-        private NeraMacCatalystAccessibilityContainerView? _macCatalystContainer;
-#else
+#if !MACCATALYST
         private IUIAccessibilityContainer? _accessibilityContainer;
         private NSObject? _previousAccessibilityElements;
 #endif
@@ -121,10 +154,11 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
 
             DetachPlatformView();
 #if MACCATALYST
-            var macCatalystContainer = platformView as NeraMacCatalystAccessibilityContainerView
-                ?? throw new InvalidOperationException(
-                    "The Mac Catalyst native spreadsheet host is not the dedicated accessibility container view.");
-            _macCatalystContainer = macCatalystContainer;
+            if (!platformView.RespondsToSelector(SetAccessibilityElementsSelector))
+            {
+                throw new InvalidOperationException(
+                    "The native Mac Catalyst UIView does not expose the accessibilityElements container setter.");
+            }
 #else
             var accessibilityContainer = WrapAccessibilityContainer(platformView);
             _accessibilityContainer = accessibilityContainer;
@@ -144,13 +178,7 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             {
                 return;
             }
-#if MACCATALYST
-            var macCatalystContainer = _macCatalystContainer;
-            if (macCatalystContainer is null)
-            {
-                return;
-            }
-#else
+#if !MACCATALYST
             var accessibilityContainer = _accessibilityContainer;
             if (accessibilityContainer is null)
             {
@@ -220,13 +248,13 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
                 orderedElements.Add(element);
             }
 
-#if MACCATALYST
-            // The dedicated native host owns the NSArray and the Objective-C
-            // accessibilityElements selectors. This keeps both the protocol
-            // identity and the array lifetime anchored to the actual UIView.
-            macCatalystContainer.ReplaceAccessibilityElements(orderedElements);
-#else
             using var accessibilityElements = NSArray.FromNSObjects(orderedElements.ToArray());
+#if MACCATALYST
+            // UIView already implements accessibilityElements natively. Send the
+            // informal-protocol selector directly to the handler-owned view instead
+            // of manufacturing a managed protocol wrapper or managed UIView subclass.
+            SetAccessibilityElements(platformView, accessibilityElements);
+#else
             accessibilityContainer.SetAccessibilityElements(accessibilityElements);
 #endif
 
@@ -330,7 +358,11 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
         private void DetachPlatformView()
         {
 #if MACCATALYST
-            _macCatalystContainer?.SetAccessibilityElements(null);
+            if (_platformView is { } platformView &&
+                platformView.RespondsToSelector(SetAccessibilityElementsSelector))
+            {
+                SetAccessibilityElements(platformView, null);
+            }
 #else
             if (_accessibilityContainer is not null)
             {
@@ -348,9 +380,7 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             }
             _elements.Clear();
             _lastSemanticSignature = null;
-#if MACCATALYST
-            _macCatalystContainer = null;
-#else
+#if !MACCATALYST
             _previousAccessibilityElements = null;
             _accessibilityContainer = null;
 #endif
