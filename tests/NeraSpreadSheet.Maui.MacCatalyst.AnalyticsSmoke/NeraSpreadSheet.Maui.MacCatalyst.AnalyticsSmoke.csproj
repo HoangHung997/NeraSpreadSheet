@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk" InitialTargets="NeraPinMacCatalystSmokeXcode">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0-maccatalyst</TargetFramework>
@@ -12,18 +12,18 @@
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
     <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
-    <XcodeLocation>/Applications/Xcode_26.0.1.app/Contents/Developer</XcodeLocation>
     <ValidateXcodeVersion>true</ValidateXcodeVersion>
     <IsPackable>false</IsPackable>
-    <Description>Loaded MAUI Mac Catalyst VoiceOver analytics accessibility smoke for NeraSpreadSheet. The technical application title is intentionally aligned with the assembly name so CI bundle discovery is stable. The smoke points at the Xcode 26.0.1 developer root because the installed .NET 10 Mac Catalyst workload is 26.0.11017; keeping the native SDK/toolchain generation aligned avoids testing a workload/Xcode combination the pack was not built to support.</Description>
+    <Description>Loaded MAUI Mac Catalyst VoiceOver analytics accessibility smoke for NeraSpreadSheet. The technical application title is intentionally aligned with the assembly name so CI bundle discovery is stable. The smoke pins Xcode 26.0.1 before the build graph starts because the installed .NET 10 Mac Catalyst workload is 26.0.11017; keeping the native SDK/toolchain generation aligned avoids testing a workload/Xcode combination the pack was not built to support.</Description>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/NeraSpreadSheet.Maui/NeraSpreadSheet.Maui.csproj" />
   </ItemGroup>
-  <Target Name="NeraPinMacCatalystSmokeXcode" BeforeTargets="_DetectSdkLocations">
+  <Target Name="NeraPinMacCatalystSmokeXcode">
     <PropertyGroup>
       <XcodeLocation>/Applications/Xcode_26.0.1.app/Contents/Developer</XcodeLocation>
     </PropertyGroup>
+    <Error Condition="!Exists('$(XcodeLocation)')" Text="The Mac Catalyst smoke requires Xcode 26.0.1 at $(XcodeLocation)." />
     <Message Importance="High" Text="NERA_MACCATALYST_SMOKE_XCODE=$(XcodeLocation)" />
   </Target>
 </Project>
