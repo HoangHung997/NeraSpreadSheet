@@ -142,13 +142,22 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 SmokeTrace.Append("nera-first-paint-surface");
             }
             ValidateLoadedHost(view);
-            if (Volatile.Read(ref _analyticsInserted) == 0)
+
+            var analyticsState = Volatile.Read(ref _analyticsInserted);
+            if (analyticsState == 0)
             {
                 CreateAnalyticsForNextFrame(view);
                 return;
             }
 
-            if (view.AnalyticsAccessibilityNodes.Count == 2)
+            if (analyticsState < 0)
+            {
+                SmokeTrace.Append("analytics-insert-in-progress-skip-validation");
+                return;
+            }
+
+            if (analyticsState == 1 &&
+                view.AnalyticsAccessibilityNodes.Count == 2)
             {
                 ValidateNativeAccessibility(view);
             }
@@ -210,6 +219,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
             _pivotItem = SpreadsheetAnalyticsItemKey.ForPivot(pivot.Id);
             Volatile.Write(ref _analyticsInserted, 1);
             SmokeTrace.Append("analytics-create-ready-for-next-frame");
+            view.InvalidateSurface();
+            SmokeTrace.Append("analytics-validation-frame-requested");
         }
         catch (Exception exception)
         {
