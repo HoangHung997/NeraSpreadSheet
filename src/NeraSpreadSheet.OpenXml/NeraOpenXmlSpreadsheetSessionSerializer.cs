@@ -31,10 +31,10 @@ public interface IOpenXmlSpreadsheetSessionSerializer
 }
 
 /// <summary>
-/// Adds worksheet-view persistence to the workbook serializer. Standard XLSX
-/// pane markup is emitted for interoperability; a Nera custom XML part retains
-/// all four independent pane offsets without reducing them to the standard
-/// bottom-right top-left cell model.
+/// Adds session-level persistence to the workbook serializer. Standard XLSX
+/// pane markup is emitted for split-view interoperability; versioned Nera
+/// custom XML parts retain independent pane offsets plus native analytics
+/// definitions, identities, and floating placement metadata.
 /// </summary>
 public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadsheetSessionSerializer
 {
@@ -79,6 +79,7 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         using var document = SpreadsheetDocument.Open(buffer, false);
         ImportStandardSplitViews(document, session);
         ImportNativeSplitViews(document, session);
+        NeraOpenXmlAnalyticsStateCodec.Import(document, session);
         return session;
     }
 
@@ -107,6 +108,7 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         {
             ExportStandardSplitViews(document, session, cancellationToken);
             ExportNativeSplitViews(document, session, cancellationToken);
+            NeraOpenXmlAnalyticsStateCodec.Export(document, session, cancellationToken);
         }
 
         buffer.Position = 0L;
