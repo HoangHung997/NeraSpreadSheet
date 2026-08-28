@@ -46,28 +46,26 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
         States.Remove(view);
     }
 
-    private static IUIAccessibilityContainer WrapAccessibilityContainer(UIView platformView)
-    {
-#if MACCATALYST
-        return platformView as IUIAccessibilityContainer
-            ?? throw new InvalidOperationException(
-                "The Mac Catalyst native spreadsheet UIView does not declare UIAccessibilityContainer conformance.");
-#else
-        return Runtime.GetINativeObject<IUIAccessibilityContainer>(
+#if !MACCATALYST
+    private static IUIAccessibilityContainer WrapAccessibilityContainer(UIView platformView) =>
+        Runtime.GetINativeObject<IUIAccessibilityContainer>(
             platformView.Handle,
             owns: false)
-            ?? throw new InvalidOperationException(
-                "The native UIView could not be wrapped as UIAccessibilityContainer.");
+        ?? throw new InvalidOperationException(
+            "The native UIView could not be wrapped as UIAccessibilityContainer.");
 #endif
-    }
 
     private sealed class AppleBridgeState : IDisposable
     {
         private readonly NeraSpreadsheetView _view;
         private readonly Dictionary<SpreadsheetAnalyticsItemKey, NeraAccessibilityElement> _elements = [];
         private UIView? _platformView;
+#if MACCATALYST
+        private NeraMacCatalystAccessibilityContainerView? _macCatalystContainer;
+#else
         private IUIAccessibilityContainer? _accessibilityContainer;
         private NSObject? _previousAccessibilityElements;
+#endif
         private bool _previousIsAccessibilityElement;
         private string? _lastSemanticSignature;
         private bool _disposed;
@@ -85,6 +83,16 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             if (_view.Handler?.PlatformView is not UIView platformView)
             {
                 DetachPlatformView();
+                return;
+            }
+
+            // The first GPU frame normally has no floating analytics yet. Avoid
+            // touching the optional native accessibility container selectors until
+            // there is actually something to project. If a previously attached
+            // projection becomes empty we still run the update so stale elements
+            // are removed.
+            if (nodes.Count == 0 && _platformView is null)
+            {
                 return;
             }
 
@@ -112,11 +120,18 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             }
 
             DetachPlatformView();
+#if MACCATALYST
+            var macCatalystContainer = platformView as NeraMacCatalystAccessibilityContainerView
+                ?? throw new InvalidOperationException(
+                    "The Mac Catalyst native spreadsheet host is not the dedicated accessibility container view.");
+            _macCatalystContainer = macCatalystContainer;
+#else
             var accessibilityContainer = WrapAccessibilityContainer(platformView);
-            _platformView = platformView;
             _accessibilityContainer = accessibilityContainer;
-            _previousIsAccessibilityElement = platformView.IsAccessibilityElement;
             _previousAccessibilityElements = accessibilityContainer.GetAccessibilityElements();
+#endif
+            _platformView = platformView;
+            _previousIsAccessibilityElement = platformView.IsAccessibilityElement;
             platformView.IsAccessibilityElement = false;
         }
 
@@ -125,11 +140,23 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             SKPaintGLSurfaceEventArgs frame)
         {
             var platformView = _platformView;
-            var accessibilityContainer = _accessibilityContainer;
-            if (platformView is null || accessibilityContainer is null)
+            if (platformView is null)
             {
                 return;
             }
+#if MACCATALYST
+            var macCatalystContainer = _macCatalystContainer;
+            if (macCatalystContainer is null)
+            {
+                return;
+            }
+#else
+            var accessibilityContainer = _accessibilityContainer;
+            if (accessibilityContainer is null)
+            {
+                return;
+            }
+#endif
 
             var activeItems = nodes.Select(static node => node.Item).ToHashSet();
             foreach (var staleItem in _elements.Keys
@@ -193,8 +220,15 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
                 orderedElements.Add(element);
             }
 
+#if MACCATALYST
+            // The dedicated native host owns the NSArray and the Objective-C
+            // accessibilityElements selectors. This keeps both the protocol
+            // identity and the array lifetime anchored to the actual UIView.
+            macCatalystContainer.ReplaceAccessibilityElements(orderedElements);
+#else
             using var accessibilityElements = NSArray.FromNSObjects(orderedElements.ToArray());
             accessibilityContainer.SetAccessibilityElements(accessibilityElements);
+#endif
 
             var signature = BuildSemanticSignature(nodes);
             if (!string.Equals(signature, _lastSemanticSignature, StringComparison.Ordinal))
@@ -295,10 +329,14 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
 
         private void DetachPlatformView()
         {
+#if MACCATALYST
+            _macCatalystContainer?.SetAccessibilityElements(null);
+#else
             if (_accessibilityContainer is not null)
             {
                 _accessibilityContainer.SetAccessibilityElements(_previousAccessibilityElements);
             }
+#endif
             if (_platformView is not null)
             {
                 _platformView.IsAccessibilityElement = _previousIsAccessibilityElement;
@@ -310,8 +348,12 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             }
             _elements.Clear();
             _lastSemanticSignature = null;
+#if MACCATALYST
+            _macCatalystContainer = null;
+#else
             _previousAccessibilityElements = null;
             _accessibilityContainer = null;
+#endif
             _platformView = null;
         }
     }
