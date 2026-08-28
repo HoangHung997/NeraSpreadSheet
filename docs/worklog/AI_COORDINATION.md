@@ -12,12 +12,12 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: FREE
-  owner: NONE
-  lease_id: NONE
-  acquired_utc: NONE
-  expires_utc: NONE
-  purpose: NONE
+  state: HELD
+  owner: CODEX
+  lease_id: CODEX-RIBBON-003-SCOPE-20260828T070609Z
+  acquired_utc: 2026-08-28T07:06:09Z
+  expires_utc: 2026-08-28T07:16:09Z
+  purpose: Add one shared Commands presentation resolver file to RIBBON-003 scope.
 
 last_update:
   utc: 2026-08-28T07:04:53Z
