@@ -53,12 +53,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
     }
 
     protected override UIView CreatePlatformView() =>
-        new(CGRect.Empty)
-        {
-            BackgroundColor = UIColor.Clear,
-            Opaque = false,
-            ClipsToBounds = true,
-        };
+        new NeraMacCatalystAccessibilityContainerView();
 
     protected override void ConnectHandler(UIView platformView)
     {
@@ -451,7 +446,9 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
             NeraMacCatalystGpuDiagnostics.TraceStage("before-flush");
             surface.Canvas.Flush();
             surface.Flush();
-            context.Flush();
+            NeraMacCatalystGpuDiagnostics.TraceStage("before-context-flush-submit");
+            context.Flush(submit: true, synchronous: false);
+            NeraMacCatalystGpuDiagnostics.TraceStage("after-context-flush-submit");
             NeraMacCatalystGpuDiagnostics.TraceStage("after-flush");
 
             NeraMacCatalystGpuDiagnostics.TraceStage("before-command-buffer");
