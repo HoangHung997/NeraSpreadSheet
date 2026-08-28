@@ -1,10 +1,10 @@
 #if MACCATALYST
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using CoreAnimation;
 using CoreGraphics;
 using Foundation;
 using Metal;
-using MetalKit;
 using Microsoft.Maui;
 using Microsoft.Maui.Handlers;
 using SkiaSharp;
@@ -14,18 +14,18 @@ using UIKit;
 namespace NeraSpreadSheet.Maui;
 
 /// <summary>
-/// Mac Catalyst GPU handler backed by Apple's native MTKView. UIKit 26 sends a
-/// private class-initialization selector to UIView subclasses; SkiaSharp's managed
-/// SKMetalView hierarchy does not implement that selector and therefore cannot be
-/// instantiated on current hosted Mac Catalyst runtimes. This handler keeps the
-/// same Skia Metal rendering pipeline without introducing a managed UIView subclass.
+/// Mac Catalyst GPU handler backed by a plain UIKit view plus CAMetalLayer.
+/// Current hosted macOS 26 runtimes reject both SkiaSharp's SKMetalView hierarchy
+/// and MetalKit.MTKView during UIView trait initialization. Keeping Metal in a
+/// Core Animation sublayer avoids that MetalKit boundary while preserving the
+/// Skia Metal render path and a single native spreadsheet view.
 /// </summary>
 [SuppressMessage(
     "Design",
     "CA1001:Types that own disposable fields should be disposable",
-    Justification = "MAUI handlers release the renderer from DisconnectHandler, which is the framework lifecycle boundary.")]
+    Justification = "MAUI handlers release renderer and touch resources from DisconnectHandler, which is the framework lifecycle boundary.")]
 internal sealed class NeraMacCatalystSKGLViewHandler :
-    ViewHandler<ISKGLView, MTKView>
+    ViewHandler<ISKGLView, UIView>
 {
     private static readonly PropertyMapper<ISKGLView, NeraMacCatalystSKGLViewHandler>
         NeraMapper = new(ViewHandler.ViewMapper)
@@ -43,6 +43,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
 
     private NeraMetalRenderer? _renderer;
     private NeraMacCatalystTouchHandler? _touchHandler;
+    private NeraSpreadsheetView? _subscribedView;
     private SKSizeI _lastCanvasSize;
     private GRContext? _lastGrContext;
 
@@ -51,39 +52,38 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
     {
     }
 
-    protected override MTKView CreatePlatformView()
-    {
-        var device = MTLDevice.SystemDefault
-            ?? throw new PlatformNotSupportedException(
-                "Metal is not available on this Mac Catalyst runtime.");
-        return new MTKView(CGRect.Empty, device)
+    protected override UIView CreatePlatformView() =>
+        new(CGRect.Empty)
         {
             BackgroundColor = UIColor.Clear,
             Opaque = false,
-            ColorPixelFormat = MTLPixelFormat.BGRA8Unorm,
-            DepthStencilPixelFormat = MTLPixelFormat.Depth32Float_Stencil8,
-            DepthStencilStorageMode = MTLStorageMode.Shared,
-            SampleCount = 1,
-            FramebufferOnly = false,
+            ClipsToBounds = true,
         };
-    }
 
-    protected override void ConnectHandler(MTKView platformView)
+    protected override void ConnectHandler(UIView platformView)
     {
         base.ConnectHandler(platformView);
         if (VirtualView is NeraSpreadsheetView neraView)
         {
             NeraMacCatalystGpuDiagnostics.Clear(neraView);
+            _subscribedView = neraView;
+            neraView.SizeChanged += OnVirtualViewSizeChanged;
         }
+
         _renderer = new NeraMetalRenderer(this, platformView);
-        platformView.Delegate = _renderer;
-        UpdateRenderLoop(platformView, VirtualView.HasRenderLoop);
+        _renderer.SetRenderLoop(VirtualView.HasRenderLoop);
         UpdateTouchEvents(platformView, VirtualView.EnableTouchEvents);
+        _renderer.RequestRender();
     }
 
-    protected override void DisconnectHandler(MTKView platformView)
+    protected override void DisconnectHandler(UIView platformView)
     {
-        platformView.Delegate = null;
+        if (_subscribedView is not null)
+        {
+            _subscribedView.SizeChanged -= OnVirtualViewSizeChanged;
+            _subscribedView = null;
+        }
+
         _renderer?.Dispose();
         _renderer = null;
         if (_touchHandler is not null)
@@ -97,8 +97,11 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
         base.DisconnectHandler(platformView);
     }
 
+    private void OnVirtualViewSizeChanged(object? sender, EventArgs e) =>
+        _renderer?.RequestRender();
+
     private void Paint(
-        MTKView platformView,
+        UIView platformView,
         GRContext grContext,
         SKSurface surface,
         GRBackendRenderTarget renderTarget,
@@ -117,8 +120,8 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
         var info = rawInfo;
         if (view.IgnorePixelScaling)
         {
-            var logicalWidth = (int)platformView.Bounds.Width;
-            var logicalHeight = (int)platformView.Bounds.Height;
+            var logicalWidth = (int)Math.Round((double)platformView.Bounds.Width);
+            var logicalHeight = (int)Math.Round((double)platformView.Bounds.Height);
             var contentScale = (double)platformView.ContentScaleFactor;
             if (logicalWidth > 0 &&
                 logicalHeight > 0 &&
@@ -151,15 +154,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
             rawInfo));
     }
 
-    private static void DrawableSizeChanged(MTKView platformView)
-    {
-        if (platformView.Paused && platformView.EnableSetNeedsDisplay)
-        {
-            platformView.SetNeedsDisplay();
-        }
-    }
-
-    private void UpdateTouchEvents(MTKView platformView, bool enabled)
+    private void UpdateTouchEvents(UIView platformView, bool enabled)
     {
         _touchHandler ??= new NeraMacCatalystTouchHandler(
             OnTouch,
@@ -186,13 +181,8 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
     private static void OnInvalidateSurface(
         NeraMacCatalystSKGLViewHandler handler,
         ISKGLView view,
-        object? args)
-    {
-        if (handler.PlatformView is { Paused: true, EnableSetNeedsDisplay: true } platformView)
-        {
-            platformView.SetNeedsDisplay();
-        }
-    }
+        object? args) =>
+        handler._renderer?.RequestRender();
 
     private static void MapEnableTouchEvents(
         NeraMacCatalystSKGLViewHandler handler,
@@ -206,44 +196,35 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
 
     private static void MapIgnorePixelScaling(
         NeraMacCatalystSKGLViewHandler handler,
-        ISKGLView view)
-    {
-        if (handler.PlatformView is { Paused: true, EnableSetNeedsDisplay: true } platformView)
-        {
-            platformView.SetNeedsDisplay();
-        }
-    }
+        ISKGLView view) =>
+        handler._renderer?.RequestRender();
 
     private static void MapHasRenderLoop(
         NeraMacCatalystSKGLViewHandler handler,
-        ISKGLView view)
-    {
-        if (handler.PlatformView is { } platformView)
-        {
-            UpdateRenderLoop(platformView, view.HasRenderLoop);
-        }
-    }
+        ISKGLView view) =>
+        handler._renderer?.SetRenderLoop(view.HasRenderLoop);
 
-    private static void UpdateRenderLoop(MTKView platformView, bool hasRenderLoop)
-    {
-        platformView.Paused = !hasRenderLoop;
-        platformView.EnableSetNeedsDisplay = !hasRenderLoop;
-    }
-
-    private sealed class NeraMetalRenderer : NSObject, IMTKViewDelegate
+    private sealed class NeraMetalRenderer : IDisposable
     {
         private NeraMacCatalystSKGLViewHandler? _handler;
+        private UIView? _platformView;
+        private readonly CAMetalLayer _metalLayer;
         private readonly GRMtlBackendContext _backendContext;
+        private readonly CADisplayLink _displayLink;
         private GRContext? _context;
+        private int _renderPending;
+        private bool _disposed;
 
         internal NeraMetalRenderer(
             NeraMacCatalystSKGLViewHandler handler,
-            MTKView platformView)
+            UIView platformView)
         {
             _handler = handler;
-            var device = platformView.Device
+            _platformView = platformView;
+
+            var device = MTLDevice.SystemDefault
                 ?? throw new PlatformNotSupportedException(
-                    "The native MTKView does not have a Metal device.");
+                    "Metal is not available on this Mac Catalyst runtime.");
             var queue = device.CreateCommandQueue()
                 ?? throw new PlatformNotSupportedException(
                     "The Metal device could not create a command queue.");
@@ -252,20 +233,98 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 Device = device,
                 Queue = queue,
             };
+
+            _metalLayer = new CAMetalLayer
+            {
+                Device = device,
+                PixelFormat = MTLPixelFormat.BGRA8Unorm,
+                FramebufferOnly = false,
+                Opaque = false,
+                AllowsNextDrawableTimeout = true,
+            };
+            platformView.Layer.AddSublayer(_metalLayer);
+            UpdateLayerGeometry();
+
+            _displayLink = CADisplayLink.Create(DrawFromDisplayLink);
+            _displayLink.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
+            _displayLink.Paused = true;
         }
 
-        void IMTKViewDelegate.DrawableSizeWillChange(MTKView view, CGSize size) =>
-            NeraMacCatalystSKGLViewHandler.DrawableSizeChanged(view);
+        internal void SetRenderLoop(bool enabled)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _displayLink.Paused = !enabled;
+            if (!enabled)
+            {
+                RequestRender();
+            }
+        }
+
+        internal void RequestRender()
+        {
+            if (_disposed || Interlocked.Exchange(ref _renderPending, 1) != 0)
+            {
+                return;
+            }
+
+            var platformView = _platformView;
+            if (platformView is null)
+            {
+                Interlocked.Exchange(ref _renderPending, 0);
+                return;
+            }
+
+            platformView.BeginInvokeOnMainThread(() =>
+            {
+                Interlocked.Exchange(ref _renderPending, 0);
+                DrawSafely();
+            });
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            _displayLink.Paused = true;
+            _displayLink.Invalidate();
+            _displayLink.Dispose();
+            _context?.Dispose();
+            _context = null;
+            _metalLayer.RemoveFromSuperLayer();
+            _metalLayer.Dispose();
+            if (_backendContext.Queue is IDisposable disposableQueue)
+            {
+                disposableQueue.Dispose();
+            }
+            _platformView = null;
+            _handler = null;
+        }
+
+        private void DrawFromDisplayLink()
+        {
+            if (!_disposed)
+            {
+                DrawSafely();
+            }
+        }
 
         [SuppressMessage(
             "Design",
             "CA1031:Do not catch general exception types",
-            Justification = "Exceptions must not escape an Objective-C MTKView delegate callback; the failure is retained in Nera diagnostics and the render loop is stopped.")]
-        void IMTKViewDelegate.Draw(MTKView view)
+            Justification = "Exceptions must not escape a Core Animation display callback; the failure is retained in Nera diagnostics and the render loop is stopped.")]
+        private void DrawSafely()
         {
             try
             {
-                DrawCore(view);
+                DrawCore();
             }
             catch (Exception exception)
             {
@@ -276,29 +335,34 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 Trace.TraceError(
                     "Nera Mac Catalyst Metal frame failed: {0}",
                     exception);
-                view.Paused = true;
-                view.EnableSetNeedsDisplay = false;
+                _displayLink.Paused = true;
             }
         }
 
-        private void DrawCore(MTKView view)
+        private void DrawCore()
         {
             var handler = _handler;
+            var platformView = _platformView;
             var queue = _backendContext.Queue;
-            var drawable = view.CurrentDrawable;
-            var texture = drawable?.Texture;
             if (handler is null ||
+                platformView is null ||
                 _backendContext.Device is null ||
                 queue is null ||
-                texture is null ||
-                drawable is null)
+                platformView.Window is null)
             {
                 return;
             }
 
-            var drawableSize = view.DrawableSize;
-            var width = (int)drawableSize.Width;
-            var height = (int)drawableSize.Height;
+            UpdateLayerGeometry();
+            using var drawable = _metalLayer.NextDrawable();
+            var texture = drawable?.Texture;
+            if (drawable is null || texture is null)
+            {
+                return;
+            }
+
+            var width = checked((int)texture.Width);
+            var height = checked((int)texture.Height);
             if (width <= 0 || height <= 0)
             {
                 return;
@@ -327,7 +391,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 return;
             }
 
-            handler.Paint(view, context, surface, renderTarget, origin);
+            handler.Paint(platformView, context, surface, renderTarget, origin);
 
             surface.Canvas.Flush();
             surface.Flush();
@@ -342,19 +406,26 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
             commandBuffer.Commit();
         }
 
-        protected override void Dispose(bool disposing)
+        private void UpdateLayerGeometry()
         {
-            if (disposing)
+            var platformView = _platformView;
+            if (platformView is null)
             {
-                _handler = null;
-                _context?.Dispose();
-                _context = null;
-                if (_backendContext.Queue is IDisposable disposableQueue)
-                {
-                    disposableQueue.Dispose();
-                }
+                return;
             }
-            base.Dispose(disposing);
+
+            var bounds = platformView.Bounds;
+            var scale = (double)platformView.ContentScaleFactor;
+            if (!double.IsFinite(scale) || scale <= 0d)
+            {
+                scale = 1d;
+            }
+
+            _metalLayer.Frame = bounds;
+            _metalLayer.ContentsScale = (nfloat)scale;
+            var width = Math.Max(0d, (double)bounds.Width * scale);
+            var height = Math.Max(0d, (double)bounds.Height * scale);
+            _metalLayer.DrawableSize = new CGSize(width, height);
         }
     }
 
