@@ -12,12 +12,12 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: HELD
-  owner: CODEX
-  lease_id: CODEX-RIBBON-KEYBOARD-START-20260828T085118Z
-  acquired_utc: 2026-08-28T08:51:18.0894655Z
-  expires_utc: 2026-08-28T09:01:18.0894655Z
-  purpose: Start RIBBON-KEYBOARD
+  state: FREE
+  owner: NONE
+  lease_id: NONE
+  acquired_utc: NONE
+  expires_utc: NONE
+  purpose: NONE
 
 last_update:
   utc: 2026-08-28T08:50:37Z
@@ -324,6 +324,9 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 
 
 | 2026-08-28T08:50:37Z | `CLAIMED` | Codex | `RIBBON-KEYBOARD` | OWNER yêu cầu tiếp tục Ribbon; shortcut activation and desktop keyboard binding stack on `7f8471e` with no Apple/Mac path overlap. |
+
+
+| 2026-08-28T08:51:21Z | `IN_PROGRESS` | Codex | `RIBBON-KEYBOARD` | Branch created at `7f8471e`; mandatory command/runtime/presenter contracts and keyboard tests reviewed; scope unchanged. |
 
 ## 11. Prompt ngắn gửi cho mỗi AI
 
