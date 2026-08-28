@@ -12,17 +12,17 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: HELD
-  owner: CODEX
-  lease_id: CODEX-RIBBON-DESKTOP-CLAIM-20260828T075911Z
-  acquired_utc: 2026-08-28T07:59:11Z
-  expires_utc: 2026-08-28T08:09:11Z
-  purpose: Close RIBBON-004 CI and claim RIBBON-DESKTOP
+  state: FREE
+  owner: NONE
+  lease_id: NONE
+  acquired_utc: NONE
+  expires_utc: NONE
+  purpose: NONE
 
 last_update:
-  utc: 2026-08-28T07:50:37Z
+  utc: 2026-08-28T07:59:13Z
   writer: CODEX
-  summary: RIBBON-004 is local-green at 8e95f7a with 1190/1190 Core tests.
+  summary: RIBBON-004 is blocked only by Q003B-MAC; RIBBON-DESKTOP claimed for native WPF and WinForms presenters.
 ```
 
 `write_lock` chỉ khóa việc sửa **file điều phối này**. Không giữ khóa trong lúc viết
@@ -68,7 +68,8 @@ cập nhật file này khi đang giữ `write_lock`.
 | `RIBBON-001` | `BLOCKED` | Codex | `ai/codex/ribbon-bars-customization` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, test riêng của hai module, contract riêng | Base `fea278057465a983d85c0b472532a2d13c644c37`; không giao Q003B-MAC | Commit `d2d009cc909a3f16b242a282444ae8011727fa31`; local Core 1162/1162 và architecture xanh; run `33145751287` xanh Core/Windows/Android/MAUI Windows nhưng Mac Catalyst runtime smoke đỏ 2 lần, thuộc `Q003B-MAC`. |
 | `RIBBON-002` | `BLOCKED` | Codex | `ai/codex/ribbon-bars-persistence` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, persistence tests của hai module, `docs/ribbon-bars-persistence-contract.md` | Stacked trên `RIBBON-001` commit `d2d009cc909a3f16b242a282444ae8011727fa31`; OWNER cho phép tiếp tục trước tích hợp | Commit `f31223e0a82b24b4da0dd0426741d1bcff99c67d`; local 1178/1178; run `33148789081` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ sau window activation thuộc `Q003B-MAC`; tích hợp tuần tự `d2d009c` rồi `f31223e`. |
 | `RIBBON-003` | `BLOCKED` | Codex | `ai/codex/ribbon-bars-presentation` | `src/NeraSpreadSheet.Commands/CommandPresentation.cs`, `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, presentation tests trong `NeraSpreadSheet.Commands.Tests`, `docs/ribbon-bars-presentation-contract.md` | Stacked trên `RIBBON-002` commit `f31223e0a82b24b4da0dd0426741d1bcff99c67d`; OWNER yêu cầu tiếp tục | Commit `fb2284907ad3659e7b7aae6d8ecacaccc29415e4`; local 1184/1184; run `33150555391` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ thuộc `Q003B-MAC`; tích hợp tuần tự `d2d009c`, `f31223e`, `fb22849`. |
-| `RIBBON-004` | `CI_RUNNING` | Codex | `ai/codex/ribbon-bars-runtime` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, runtime tests trong `NeraSpreadSheet.Commands.Tests`, `docs/ribbon-bars-runtime-contract.md` | Stacked trên `RIBBON-003` commit `fb2284907ad3659e7b7aae6d8ecacaccc29415e4`; OWNER yêu cầu tiếp tục đến khi hoàn thành Ribbon | Commit `8e95f7a3000bee1a515101369c61cb09e613d286` pushed; focused 44/44, Core 1190/1190, build 0 warnings/errors, architecture và sensitive scan xanh. |
+| `RIBBON-004` | `BLOCKED` | Codex | `ai/codex/ribbon-bars-runtime` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, runtime tests trong `NeraSpreadSheet.Commands.Tests`, `docs/ribbon-bars-runtime-contract.md` | Stacked trên `RIBBON-003` commit `fb2284907ad3659e7b7aae6d8ecacaccc29415e4`; OWNER yêu cầu tiếp tục đến khi hoàn thành Ribbon | Commit `8e95f7a3000bee1a515101369c61cb09e613d286` pushed; focused 44/44, Core 1190/1190, build 0 warnings/errors, architecture và sensitive scan xanh; run `33153003700` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ thuộc `Q003B-MAC`. |
+| `RIBBON-DESKTOP` | `CLAIMED` | Codex | `ai/codex/ribbon-desktop-presenters` | `src/NeraSpreadSheet.Wpf/**Ribbon**`, `src/NeraSpreadSheet.Wpf/**Bar**`, `src/NeraSpreadSheet.WinForms/**Ribbon**`, `src/NeraSpreadSheet.WinForms/**Bar**`, hai host csproj, desktop presenter tests riêng, `docs/ribbon-desktop-presenter-contract.md` | Stacked trên `RIBBON-004` commit `8e95f7a3000bee1a515101369c61cb09e613d286`; không giao path Apple/Mac Catalyst | Chưa có; phải dựng native controls, activate qua runtime và có loaded desktop smoke. |
 | `INTEGRATE-001` | `BLOCKED` | ChatGPT (`INTEGRATOR`) | `feature/bootstrap-architecture-v0.1` | Chỉ merge `Q003B-MAC` và `RIBBON-001`; cập nhật tài liệu chung | Hai task phải `READY_FOR_INTEGRATION` | Exact-head CI của branch tích hợp xanh toàn bộ. |
 
 ### Trạng thái hợp lệ
@@ -96,7 +97,8 @@ Mỗi worker chỉ có tối đa một task `CLAIMED`, `IN_PROGRESS`, `LOCAL_GRE
 | 6 | `RIBBON-DESKTOP` | Codex | Presenter và runtime smoke WPF/WinForms | `RIBBON-004` có evidence sẵn sàng |
 | 7 | `RIBBON-MAUI` | Codex | Presenter và runtime smoke MAUI, không chạm code Apple đang khóa | `Q003B-MAC` kết thúc và desktop presenter ổn định |
 | 8 | `RIBBON-CLOSE` | ChatGPT (`INTEGRATOR`) | Tích hợp stack, cập nhật tài liệu dùng chung và exact-head CI | Tất cả task Ribbon đầu vào sẵn sàng |
-| 9 | `INTEGRATE-001` | ChatGPT | Merge tuần tự và chạy exact-head CI tổng hợp | Các task đầu vào sẵn sàng |
+| 9 | `RIBBON-DESKTOP` | `CLAIMED` | Codex | `ai/codex/ribbon-desktop-presenters` | `src/NeraSpreadSheet.Wpf/**Ribbon**`, `src/NeraSpreadSheet.Wpf/**Bar**`, `src/NeraSpreadSheet.WinForms/**Ribbon**`, `src/NeraSpreadSheet.WinForms/**Bar**`, hai host csproj, desktop presenter tests riêng, `docs/ribbon-desktop-presenter-contract.md` | Stacked trên `RIBBON-004` commit `8e95f7a3000bee1a515101369c61cb09e613d286`; không giao path Apple/Mac Catalyst | Chưa có; phải dựng native controls, activate qua runtime và có loaded desktop smoke. |
+| `INTEGRATE-001` | ChatGPT | Merge tuần tự và chạy exact-head CI tổng hợp | Các task đầu vào sẵn sàng |
 
 Task mới phải được OWNER hoặc INTEGRATOR thêm vào bảng trong một lượt ghi hợp lệ.
 
@@ -290,6 +292,9 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 | 2026-08-28T07:50:37Z | `LOCAL_GREEN` | Codex | `RIBBON-004` | Commit `8e95f7a` pushed; focused 44/44, Core 1190/1190, build/analyzers 0 warnings/errors, architecture and sensitive scan passed; lease released. |
 
 | 2026-08-28T07:52:12Z | `CI_RUNNING` | Codex | `RIBBON-004` | Exact-head run `33153003700` started for `8e95f7a3000bee1a515101369c61cb09e613d286`; lease released. |
+
+| 2026-08-28T07:59:13Z | `BLOCKED` | Codex | `RIBBON-004` | Run `33153003700` at `8e95f7a`: Core, Windows, Android and MAUI Windows green; only existing Mac Catalyst runtime smoke failed under `Q003B-MAC`. |
+| 2026-08-28T07:59:13Z | `CLAIMED` | Codex | `RIBBON-DESKTOP` | OWNER requested continuation through Ribbon completion; desktop native presenters stack on `8e95f7a` with no Apple/Mac path overlap; lease released. |
 
 ## 11. Prompt ngắn gửi cho mỗi AI
 
