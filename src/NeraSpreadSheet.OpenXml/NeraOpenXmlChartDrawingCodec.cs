@@ -59,6 +59,9 @@ internal static class NeraOpenXmlChartDrawingCodec
         Worksheet worksheet,
         CancellationToken cancellationToken)
     {
+        var worksheetMarkup = worksheetPart.Worksheet
+            ?? throw new InvalidDataException(
+                "The XLSX worksheet part does not contain worksheet markup.");
         var drawingsPart = worksheetPart.DrawingsPart;
         if (drawingsPart is not null)
         {
@@ -103,7 +106,7 @@ internal static class NeraOpenXmlChartDrawingCodec
         }
 
         worksheetDrawing.Save();
-        worksheetPart.Worksheet.Save();
+        worksheetMarkup.Save();
     }
 
     private static DrawingsPart EnsureDrawingsPart(WorksheetPart worksheetPart)
@@ -185,8 +188,11 @@ internal static class NeraOpenXmlChartDrawingCodec
             return;
         }
 
+        var worksheetMarkup = worksheetPart.Worksheet
+            ?? throw new InvalidDataException(
+                "The XLSX worksheet part does not contain worksheet markup.");
         var relationshipId = worksheetPart.GetIdOfPart(drawingsPart);
-        foreach (var drawing in worksheetPart.Worksheet
+        foreach (var drawing in worksheetMarkup
                      .Elements<S.Drawing>()
                      .Where(drawing => string.Equals(
                          drawing.Id?.Value,
@@ -197,7 +203,7 @@ internal static class NeraOpenXmlChartDrawingCodec
             drawing.Remove();
         }
         worksheetPart.DeletePart(drawingsPart);
-        worksheetPart.Worksheet.Save();
+        worksheetMarkup.Save();
     }
 
     private static uint GetNextDrawingId(Xdr.WorksheetDrawing worksheetDrawing)
