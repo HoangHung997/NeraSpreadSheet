@@ -9,6 +9,7 @@ fi
 APP="$1"
 RESULT="${2:-${RUNNER_TEMP:-/tmp}/nera-maccatalyst-analytics-smoke.json}"
 RESULT_FILE_NAME="nera-maccatalyst-analytics-smoke.json"
+TRACE_FILE_NAME="nera-maccatalyst-analytics-smoke.trace"
 FALLBACK_RESULT="${TMPDIR:-/tmp}/$RESULT_FILE_NAME"
 WORK_DIR="${RUNNER_TEMP:-/tmp}/nera-maccatalyst-smoke-launch"
 LAUNCHER="$WORK_DIR/LaunchNeraMacCatalystSmoke.swift"
@@ -40,10 +41,12 @@ fi
 
 CONTAINER_ROOT="$HOME/Library/Containers/$BUNDLE_ID/Data"
 SANDBOX_RESULT="$CONTAINER_ROOT/tmp/$RESULT_FILE_NAME"
+SANDBOX_TRACE="$CONTAINER_ROOT/tmp/$TRACE_FILE_NAME"
 mkdir -p "$(dirname "$SANDBOX_RESULT")"
-rm -f "$SANDBOX_RESULT"
+rm -f "$SANDBOX_RESULT" "$SANDBOX_TRACE"
 if [ -d "$CONTAINER_ROOT" ]; then
   find "$CONTAINER_ROOT" -type f -name "$RESULT_FILE_NAME" ! -path "$SANDBOX_RESULT" -delete 2>/dev/null || true
+  find "$CONTAINER_ROOT" -type f -name "$TRACE_FILE_NAME" ! -path "$SANDBOX_TRACE" -delete 2>/dev/null || true
 fi
 
 echo "Mac Catalyst smoke bundle id: $BUNDLE_ID"
@@ -51,6 +54,7 @@ echo "Mac Catalyst smoke executable: $PROCESS_NAME"
 echo "Mac Catalyst requested host result: $RESULT"
 echo "Mac Catalyst host fallback result: $FALLBACK_RESULT"
 echo "Mac Catalyst sandbox result passed to app: $SANDBOX_RESULT"
+echo "Mac Catalyst sandbox trace: $SANDBOX_TRACE"
 echo "Mac Catalyst container root: $CONTAINER_ROOT"
 
 print_diagnostics() {
@@ -66,6 +70,20 @@ print_diagnostics() {
   done
   if [ -d "$CONTAINER_ROOT" ]; then
     find "$CONTAINER_ROOT" -type f -name "$RESULT_FILE_NAME" -print 2>/dev/null || true
+  fi
+  echo "--- Mac Catalyst managed stage trace ---"
+  if [ -f "$SANDBOX_TRACE" ]; then
+    cat "$SANDBOX_TRACE" || true
+  elif [ -d "$CONTAINER_ROOT" ]; then
+    TRACE_CANDIDATE="$(find "$CONTAINER_ROOT" -type f -name "$TRACE_FILE_NAME" -print 2>/dev/null | head -n 1 || true)"
+    if [ -n "$TRACE_CANDIDATE" ]; then
+      echo "$TRACE_CANDIDATE"
+      cat "$TRACE_CANDIDATE" || true
+    else
+      echo "No Mac Catalyst managed stage trace was produced."
+    fi
+  else
+    echo "No Mac Catalyst managed stage trace was produced."
   fi
   echo "--- Mac Catalyst unified log ---"
   /usr/bin/log show \
