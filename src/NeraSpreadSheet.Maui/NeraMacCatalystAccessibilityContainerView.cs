@@ -32,7 +32,7 @@ internal sealed class NeraMacCatalystAccessibilityContainerView :
     }
 
     [Export("accessibilityElements")]
-    public NSObject? GetAccessibilityElements() => _accessibilityElements;
+    public NSObject GetAccessibilityElements() => _accessibilityElements!;
 
     [Export("setAccessibilityElements:")]
     public void SetAccessibilityElements(NSObject? elements)
