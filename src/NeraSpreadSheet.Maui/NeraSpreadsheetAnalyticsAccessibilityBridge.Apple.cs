@@ -1,8 +1,5 @@
 #if IOS || MACCATALYST
 using System.Runtime.CompilerServices;
-#if MACCATALYST
-using System.Runtime.InteropServices;
-#endif
 using CoreGraphics;
 using Foundation;
 using NeraSpreadSheet.Core;
@@ -23,10 +20,6 @@ namespace NeraSpreadSheet.Maui;
 internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
 {
     private static readonly ConditionalWeakTable<NeraSpreadsheetView, AppleBridgeState> States = new();
-#if MACCATALYST
-    private static readonly Selector SetAccessibilityElementsSelector =
-        new("setAccessibilityElements:");
-#endif
 
     internal static void Update(
         NeraSpreadsheetView view,
@@ -37,8 +30,14 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
         ArgumentNullException.ThrowIfNull(nodes);
         ArgumentNullException.ThrowIfNull(frame);
 
+#if MACCATALYST
+        NeraMacCatalystGpuDiagnostics.TraceStage($"accessibility:update-start:{nodes.Count}");
+#endif
         var state = States.GetValue(view, static key => new AppleBridgeState(key));
         state.Update(nodes, frame);
+#if MACCATALYST
+        NeraMacCatalystGpuDiagnostics.TraceStage("accessibility:update-returned");
+#endif
     }
 
     internal static void Detach(NeraSpreadsheetView view)
@@ -53,52 +52,20 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
         States.Remove(view);
     }
 
-#if MACCATALYST
-    private static void SetAccessibilityElements(
-        UIView platformView,
-        NSObject? elements)
-    {
-        if (!platformView.RespondsToSelector(SetAccessibilityElementsSelector))
-        {
-            throw new InvalidOperationException(
-                "The native Mac Catalyst UIView does not expose setAccessibilityElements:.");
-        }
-
-        var elementHandle = elements is null
-            ? IntPtr.Zero
-            : (IntPtr)elements.Handle;
-        NativeMessaging.SendVoidIntPtr(
-            (IntPtr)platformView.Handle,
-            (IntPtr)SetAccessibilityElementsSelector.Handle,
-            elementHandle);
-    }
-
-    private static class NativeMessaging
-    {
-        [DllImport(Constants.ObjectiveCLibrary, EntryPoint = "objc_msgSend")]
-        internal static extern void SendVoidIntPtr(
-            IntPtr receiver,
-            IntPtr selector,
-            IntPtr argument);
-    }
-#else
     private static IUIAccessibilityContainer WrapAccessibilityContainer(UIView platformView) =>
         Runtime.GetINativeObject<IUIAccessibilityContainer>(
             platformView.Handle,
             owns: false)
         ?? throw new InvalidOperationException(
             "The native UIView could not be wrapped as UIAccessibilityContainer.");
-#endif
 
     private sealed class AppleBridgeState : IDisposable
     {
         private readonly NeraSpreadsheetView _view;
         private readonly Dictionary<SpreadsheetAnalyticsItemKey, NeraAccessibilityElement> _elements = [];
         private UIView? _platformView;
-#if !MACCATALYST
         private IUIAccessibilityContainer? _accessibilityContainer;
         private NSObject? _previousAccessibilityElements;
-#endif
         private bool _previousIsAccessibilityElement;
         private string? _lastSemanticSignature;
         private bool _disposed;
@@ -115,6 +82,9 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_view.Handler?.PlatformView is not UIView platformView)
             {
+#if MACCATALYST
+                NeraMacCatalystGpuDiagnostics.TraceStage("accessibility:no-platform-view");
+#endif
                 DetachPlatformView();
                 return;
             }
@@ -126,6 +96,9 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             // are removed.
             if (nodes.Count == 0 && _platformView is null)
             {
+#if MACCATALYST
+                NeraMacCatalystGpuDiagnostics.TraceStage("accessibility:lazy-empty-skip");
+#endif
                 return;
             }
 
@@ -152,21 +125,19 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
                 return;
             }
 
-            DetachPlatformView();
 #if MACCATALYST
-            if (!platformView.RespondsToSelector(SetAccessibilityElementsSelector))
-            {
-                throw new InvalidOperationException(
-                    "The native Mac Catalyst UIView does not expose the accessibilityElements container setter.");
-            }
-#else
+            NeraMacCatalystGpuDiagnostics.TraceStage("accessibility:ensure-platform-start");
+#endif
+            DetachPlatformView();
             var accessibilityContainer = WrapAccessibilityContainer(platformView);
             _accessibilityContainer = accessibilityContainer;
             _previousAccessibilityElements = accessibilityContainer.GetAccessibilityElements();
-#endif
             _platformView = platformView;
             _previousIsAccessibilityElement = platformView.IsAccessibilityElement;
             platformView.IsAccessibilityElement = false;
+#if MACCATALYST
+            NeraMacCatalystGpuDiagnostics.TraceStage("accessibility:ensure-platform-done");
+#endif
         }
 
         private void UpdateElements(
@@ -174,18 +145,15 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             SKPaintGLSurfaceEventArgs frame)
         {
             var platformView = _platformView;
-            if (platformView is null)
-            {
-                return;
-            }
-#if !MACCATALYST
             var accessibilityContainer = _accessibilityContainer;
-            if (accessibilityContainer is null)
+            if (platformView is null || accessibilityContainer is null)
             {
                 return;
             }
-#endif
 
+#if MACCATALYST
+            NeraMacCatalystGpuDiagnostics.TraceStage($"accessibility:update-elements-start:{nodes.Count}");
+#endif
             var activeItems = nodes.Select(static node => node.Item).ToHashSet();
             foreach (var staleItem in _elements.Keys
                          .Where(item => !activeItems.Contains(item))
@@ -234,6 +202,9 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
 
                 if (!_elements.TryGetValue(node.Item, out var element))
                 {
+#if MACCATALYST
+                    NeraMacCatalystGpuDiagnostics.TraceStage($"accessibility:create-element:{index}");
+#endif
                     element = new NeraAccessibilityElement(
                         platformView,
                         node.Item,
@@ -248,26 +219,34 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
                 orderedElements.Add(element);
             }
 
+#if MACCATALYST
+            NeraMacCatalystGpuDiagnostics.TraceStage($"accessibility:before-array:{orderedElements.Count}");
+#endif
             using var accessibilityElements = NSArray.FromNSObjects(orderedElements.ToArray());
 #if MACCATALYST
-            // UIView already implements accessibilityElements natively. Send the
-            // informal-protocol selector directly to the handler-owned view instead
-            // of manufacturing a managed protocol wrapper or managed UIView subclass.
-            SetAccessibilityElements(platformView, accessibilityElements);
-#else
+            NeraMacCatalystGpuDiagnostics.TraceStage("accessibility:before-container-set");
+#endif
             accessibilityContainer.SetAccessibilityElements(accessibilityElements);
+#if MACCATALYST
+            NeraMacCatalystGpuDiagnostics.TraceStage("accessibility:after-container-set");
 #endif
 
             var signature = BuildSemanticSignature(nodes);
             if (!string.Equals(signature, _lastSemanticSignature, StringComparison.Ordinal))
             {
                 _lastSemanticSignature = signature;
+#if MACCATALYST
+                NeraMacCatalystGpuDiagnostics.TraceStage("accessibility:before-voiceover-query");
+#endif
                 if (UIAccessibility.IsVoiceOverRunning)
                 {
                     UIAccessibility.PostNotification(
                         UIAccessibilityPostNotification.LayoutChanged,
                         null);
                 }
+#if MACCATALYST
+                NeraMacCatalystGpuDiagnostics.TraceStage("accessibility:after-voiceover-query");
+#endif
             }
         }
 
@@ -357,18 +336,10 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
 
         private void DetachPlatformView()
         {
-#if MACCATALYST
-            if (_platformView is { } platformView &&
-                platformView.RespondsToSelector(SetAccessibilityElementsSelector))
-            {
-                SetAccessibilityElements(platformView, null);
-            }
-#else
             if (_accessibilityContainer is not null)
             {
                 _accessibilityContainer.SetAccessibilityElements(_previousAccessibilityElements);
             }
-#endif
             if (_platformView is not null)
             {
                 _platformView.IsAccessibilityElement = _previousIsAccessibilityElement;
@@ -380,10 +351,8 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             }
             _elements.Clear();
             _lastSemanticSignature = null;
-#if !MACCATALYST
             _previousAccessibilityElements = null;
             _accessibilityContainer = null;
-#endif
             _platformView = null;
         }
     }
