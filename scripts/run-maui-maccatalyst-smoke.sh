@@ -45,6 +45,11 @@ if [ "$BUNDLE_ID" != "$EXPECTED_BUNDLE_ID" ]; then
   echo "Unexpected Mac Catalyst smoke bundle id: '$BUNDLE_ID' (expected '$EXPECTED_BUNDLE_ID')." >&2
   exit 1
 fi
+APP_EXECUTABLE="$APP/Contents/MacOS/$PROCESS_NAME"
+if [ ! -x "$APP_EXECUTABLE" ]; then
+  echo "Mac Catalyst smoke executable is missing or not executable: $APP_EXECUTABLE" >&2
+  exit 1
+fi
 
 CONTAINER_ROOT="$HOME/Library/Containers/$BUNDLE_ID/Data"
 SANDBOX_RESULT="$CONTAINER_ROOT/tmp/$RESULT_FILE_NAME"
@@ -58,6 +63,7 @@ fi
 
 echo "Mac Catalyst smoke bundle id: $BUNDLE_ID"
 echo "Mac Catalyst smoke executable: $PROCESS_NAME"
+echo "Mac Catalyst smoke executable path: $APP_EXECUTABLE"
 echo "Mac Catalyst requested host result: $RESULT"
 echo "Mac Catalyst host fallback result: $FALLBACK_RESULT"
 echo "Mac Catalyst sandbox result passed to app: $SANDBOX_RESULT"
@@ -76,11 +82,34 @@ print_trace_file() {
   return 0
 }
 
+find_live_app_pid() {
+  local excluded_pid="${1:-}"
+  local candidate
+  while IFS= read -r candidate; do
+    [ -n "$candidate" ] || continue
+    if [ -n "$excluded_pid" ] && [ "$candidate" = "$excluded_pid" ]; then
+      continue
+    fi
+    if kill -0 "$candidate" 2>/dev/null; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done < <(pgrep -f -- "$APP_EXECUTABLE" 2>/dev/null || true)
+  return 1
+}
+
+print_matching_processes() {
+  echo "--- Mac Catalyst matching processes ---"
+  pgrep -alf -- "$APP_EXECUTABLE" 2>/dev/null || true
+  ps -axo pid=,ppid=,stat=,etime=,command= | grep -F -- "$PROCESS_NAME" | grep -v '[g]rep' || true
+}
+
 print_diagnostics() {
   echo "--- Mac Catalyst smoke process ---"
   if [ -n "${APP_PID:-}" ]; then
     ps -p "$APP_PID" -o pid=,ppid=,stat=,etime=,command= || true
   fi
+  print_matching_processes
   echo "--- Mac Catalyst result files ---"
   for candidate in "$SANDBOX_RESULT" "$RESULT" "$FALLBACK_RESULT"; do
     if [ -f "$candidate" ]; then
@@ -195,6 +224,12 @@ cleanup() {
   if [ -n "${APP_PID:-}" ] && kill -0 "$APP_PID" 2>/dev/null; then
     kill "$APP_PID" 2>/dev/null || true
   fi
+  while IFS= read -r replacement_pid; do
+    [ -n "$replacement_pid" ] || continue
+    if [ "$replacement_pid" != "${APP_PID:-}" ]; then
+      kill "$replacement_pid" 2>/dev/null || true
+    fi
+  done < <(pgrep -f -- "$APP_EXECUTABLE" 2>/dev/null || true)
 }
 trap cleanup EXIT
 
@@ -294,7 +329,14 @@ for _ in $(seq 1 90); do
       print_diagnostics
       exit 1
     fi
-    echo "Mac Catalyst smoke exited before producing a sandbox or fallback result file." >&2
+
+    if REPLACEMENT_PID="$(find_live_app_pid "$APP_PID")"; then
+      echo "Mac Catalyst smoke process replacement detected: $APP_PID -> $REPLACEMENT_PID"
+      APP_PID="$REPLACEMENT_PID"
+      continue
+    fi
+
+    echo "Mac Catalyst smoke exited before producing a sandbox or fallback result file, and no replacement process was found." >&2
     print_diagnostics
     exit 1
   fi
