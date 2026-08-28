@@ -471,6 +471,9 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
             NeraMacCatalystGpuDiagnostics.TraceStage("before-command-buffer-commit");
             commandBuffer.Commit();
             NeraMacCatalystGpuDiagnostics.TraceStage("after-command-buffer-commit");
+            NeraMacCatalystGpuDiagnostics.TraceStage("before-command-buffer-completed");
+            commandBuffer.WaitUntilCompleted();
+            NeraMacCatalystGpuDiagnostics.TraceStage("after-command-buffer-completed");
             return true;
         }
 
