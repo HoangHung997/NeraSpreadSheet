@@ -12,17 +12,17 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: HELD
-  owner: CODEX
-  lease_id: CODEX-RIBBON-KEYBOARD-END-20260828T090829Z
-  acquired_utc: 2026-08-28T09:08:29.3882265Z
-  expires_utc: 2026-08-28T09:18:29.3882265Z
-  purpose: Finalize RIBBON-KEYBOARD CI
+  state: FREE
+  owner: NONE
+  lease_id: NONE
+  acquired_utc: NONE
+  expires_utc: NONE
+  purpose: NONE
 
 last_update:
-  utc: 2026-08-28T08:50:37Z
+  utc: 2026-08-28T09:08:33Z
   writer: CODEX
-  summary: OWNER instructed continuation; RIBBON-KEYBOARD claimed without Apple overlap.
+  summary: RIBBON-KEYBOARD green on all own gates; blocked only by Q003B-MAC in CI 33157521450.
 ```
 
 `write_lock` chỉ khóa việc sửa **file điều phối này**. Không giữ khóa trong lúc viết
@@ -333,6 +333,9 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 
 
 | 2026-08-28T08:59:55Z | `CI_RUNNING` | Codex | `RIBBON-KEYBOARD` | Exact-head run `33157521450` started for `c4d61f70e5ebac7f4b302cc17427ce1994b5813d`. |
+
+
+| 2026-08-28T09:08:33Z | `BLOCKED` | Codex | `RIBBON-KEYBOARD` | Run `33157521450` at `c4d61f7`: Core, Windows desktop, Android and MAUI Windows green; only existing Mac Catalyst runtime smoke failed under `Q003B-MAC`. |
 
 ## 11. Prompt ngắn gửi cho mỗi AI
 
