@@ -11,6 +11,7 @@ namespace NeraSpreadSheet.WinForms;
 public sealed class NeraBarPresenter : IDisposable
 {
     private readonly BarRuntimeController _runtime;
+    private readonly List<IDisposable> _shortcutBindings = [];
     private bool _disposed;
 
     public NeraBarPresenter(BarRuntimeController runtime)
@@ -28,6 +29,20 @@ public sealed class NeraBarPresenter : IDisposable
     public Func<string, Image?>? IconResolver { get; set; }
 
     public event EventHandler<NeraWinFormsCommandActivationFailedEventArgs>? CommandActivationFailed;
+
+    public IDisposable BindShortcuts(Control owner)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var binding = new NeraWinFormsShortcutBinding(
+            owner,
+            _runtime.TryResolveShortcut,
+            ActivateCommandAsync);
+        _shortcutBindings.Add(binding);
+        return binding;
+    }
+
+    public ValueTask<bool> TryActivateShortcutAsync(string shortcut) =>
+        _runtime.TryActivateShortcutAsync(shortcut);
 
     public void Rebuild()
     {
@@ -52,6 +67,11 @@ public sealed class NeraBarPresenter : IDisposable
         }
         _disposed = true;
         _runtime.SnapshotChanged -= OnSnapshotChanged;
+        foreach (var binding in _shortcutBindings)
+        {
+            binding.Dispose();
+        }
+        _shortcutBindings.Clear();
         NativeControl.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -90,6 +110,11 @@ public sealed class NeraBarPresenter : IDisposable
                 Checked = command.IsChecked ?? false,
                 ShortcutKeyDisplayString = command.Shortcut ?? string.Empty,
             };
+        if (control is ToolStripMenuItem menuItem &&
+            NeraWinFormsShortcutBinding.TryConvertKeys(command.Shortcut, out var keys))
+        {
+            menuItem.ShortcutKeys = keys;
+        }
         control.Name = $"bar-command-{command.CommandId.Value}";
         control.Tag = command.CommandId;
         control.Enabled = command.IsEnabled;
@@ -118,6 +143,11 @@ public sealed class NeraBarPresenter : IDisposable
         {
             return;
         }
+        await ActivateCommandAsync(commandId);
+    }
+
+    private async ValueTask ActivateCommandAsync(CommandId commandId)
+    {
         try
         {
             await _runtime.TryActivateAsync(

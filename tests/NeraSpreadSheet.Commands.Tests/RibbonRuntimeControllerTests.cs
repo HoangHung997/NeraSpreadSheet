@@ -79,6 +79,32 @@ public sealed class RibbonRuntimeControllerTests
         Assert.AreEqual(1, changeCount);
     }
 
+    [TestMethod]
+    public async Task ShortcutShouldActivateVisibleCommandAndDisappearWhenHidden()
+    {
+        var registry = new CommandRegistry();
+        var handler = new ToggleHandler();
+        registry.Register(
+            new CommandDescriptor(
+                "view.gridlines",
+                "Đường lưới",
+                shortcut: "Ctrl+G"),
+            handler);
+        var runtime = new RibbonRuntimeController(CreateDefinition(), registry);
+
+        Assert.IsTrue(runtime.TryResolveShortcut("control+g", out var commandId));
+        Assert.AreEqual("view.gridlines", commandId.Value);
+        Assert.IsTrue(await runtime.TryActivateShortcutAsync("CTRL+G"));
+        runtime.SetCustomization(new RibbonCustomization(
+        [
+            new RibbonTabCustomization("view", isVisible: false),
+        ]));
+
+        Assert.IsFalse(runtime.TryResolveShortcut("Ctrl+G", out _));
+        Assert.IsFalse(await runtime.TryActivateShortcutAsync("Ctrl+G"));
+        Assert.AreEqual(1, handler.ExecutionCount);
+    }
+
     private static RibbonDefinition CreateDefinition() =>
         new(
         [

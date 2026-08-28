@@ -178,6 +178,58 @@ public sealed class DesktopRibbonPresenterSmokeTests
         });
     }
 
+    [TestMethod]
+    [Timeout(120_000)]
+    public void DesktopShortcutBindingsShouldAttachAndActivateThroughRuntime()
+    {
+        RunInSta(() =>
+        {
+            var wpfRegistry = new CommandRegistry();
+            var wpfHandler = new OneShotHandler(isChecked: null);
+            wpfRegistry.Register(
+                new CommandDescriptor(
+                    "view.gridlines",
+                    "Đường lưới",
+                    shortcut: "Ctrl+G"),
+                wpfHandler);
+            var wpfRuntime = new RibbonRuntimeController(
+                CreateRibbonDefinition(),
+                wpfRegistry);
+            using var wpfRibbon = new NeraSpreadSheet.Wpf.NeraRibbonControl(wpfRuntime);
+            var wpfWindow = new WpfWindow { Content = wpfRibbon, ShowInTaskbar = false };
+            using var wpfBinding = wpfRibbon.BindShortcuts(wpfWindow);
+
+            Assert.IsTrue(wpfRibbon.TryActivateShortcutAsync("control+g")
+                .AsTask().GetAwaiter().GetResult());
+            Assert.AreEqual(1, wpfHandler.ExecutionCount);
+
+            var winFormsRegistry = new CommandRegistry();
+            var winFormsHandler = new OneShotHandler(isChecked: null);
+            winFormsRegistry.Register(
+                new CommandDescriptor("file.save", "Lưu", shortcut: "Ctrl+S"),
+                winFormsHandler);
+            var winFormsRuntime = new BarRuntimeController(
+                CreateMenuDefinition(),
+                winFormsRegistry);
+            using var form = new WinFormsForm();
+            using var menu = new NeraSpreadSheet.WinForms.NeraBarPresenter(winFormsRuntime);
+            var save = FindWinFormsItems(menu.NativeControl.Items)
+                .OfType<System.Windows.Forms.ToolStripMenuItem>()
+                .Single(item => item.Tag is CommandId);
+            Assert.AreEqual(
+                System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.S,
+                save.ShortcutKeys);
+            using (menu.BindShortcuts(form))
+            {
+                Assert.IsTrue(form.KeyPreview);
+                Assert.IsTrue(menu.TryActivateShortcutAsync("CONTROL+s")
+                    .AsTask().GetAwaiter().GetResult());
+            }
+            Assert.IsFalse(form.KeyPreview);
+            Assert.AreEqual(1, winFormsHandler.ExecutionCount);
+        });
+    }
+
     private static RibbonDefinition CreateRibbonDefinition() =>
         new(
         [

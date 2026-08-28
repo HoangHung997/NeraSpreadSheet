@@ -14,6 +14,7 @@ public sealed class NeraRibbonControl : UserControl
     private readonly RibbonRuntimeController _runtime;
     private readonly TabControl _tabs = new() { Dock = DockStyle.Fill };
     private readonly ToolTip _toolTip = new();
+    private readonly List<IDisposable> _shortcutBindings = [];
     private bool _disposed;
 
     public NeraRibbonControl(RibbonRuntimeController runtime)
@@ -35,6 +36,20 @@ public sealed class NeraRibbonControl : UserControl
     public Func<CommandId, CommandContext>? CommandContextFactory { get; set; }
 
     public event EventHandler<NeraWinFormsCommandActivationFailedEventArgs>? CommandActivationFailed;
+
+    public IDisposable BindShortcuts(Control owner)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var binding = new NeraWinFormsShortcutBinding(
+            owner,
+            _runtime.TryResolveShortcut,
+            ActivateCommandAsync);
+        _shortcutBindings.Add(binding);
+        return binding;
+    }
+
+    public ValueTask<bool> TryActivateShortcutAsync(string shortcut) =>
+        _runtime.TryActivateShortcutAsync(shortcut);
 
     public void Rebuild()
     {
@@ -94,6 +109,11 @@ public sealed class NeraRibbonControl : UserControl
         {
             _disposed = true;
             _runtime.SnapshotChanged -= OnSnapshotChanged;
+            foreach (var binding in _shortcutBindings)
+            {
+                binding.Dispose();
+            }
+            _shortcutBindings.Clear();
             _toolTip.Dispose();
         }
         base.Dispose(disposing);
@@ -146,6 +166,11 @@ public sealed class NeraRibbonControl : UserControl
         {
             return;
         }
+        await ActivateCommandAsync(commandId);
+    }
+
+    private async ValueTask ActivateCommandAsync(CommandId commandId)
+    {
         try
         {
             await _runtime.TryActivateAsync(
