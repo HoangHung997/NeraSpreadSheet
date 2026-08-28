@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using Foundation;
 using Microsoft.Maui.Controls;
@@ -21,7 +20,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     {
         WriteIndented = true,
     };
-    private static readonly Selector AccessibilityElementsSelector =
+    private static readonly NSString AccessibilityElementsKey =
         new("accessibilityElements");
 
     private readonly Grid _host = new();
@@ -284,19 +283,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     private static NSArray GetNativeAccessibilityElements(UIView host)
     {
-        Require(host.RespondsToSelector(AccessibilityElementsSelector),
-            "The native Mac Catalyst UIView does not expose accessibilityElements.");
-
-        var handle = NativeMessaging.SendIntPtr(
-            (IntPtr)host.Handle,
-            (IntPtr)AccessibilityElementsSelector.Handle);
-        if (handle == IntPtr.Zero)
-        {
-            throw new InvalidOperationException(
-                "The Mac Catalyst accessibility container did not expose accessibilityElements.");
-        }
-
-        return Runtime.GetNSObject(handle) as NSArray
+        return host.ValueForKey(AccessibilityElementsKey) as NSArray
             ?? throw new InvalidOperationException(
                 "The Mac Catalyst accessibilityElements payload was not an NSArray.");
     }
@@ -537,13 +524,5 @@ internal sealed class SmokePage : ContentPage, IDisposable
         {
             throw new InvalidOperationException(message);
         }
-    }
-
-    private static class NativeMessaging
-    {
-        [DllImport(Constants.ObjectiveCLibrary, EntryPoint = "objc_msgSend")]
-        internal static extern IntPtr SendIntPtr(
-            IntPtr receiver,
-            IntPtr selector);
     }
 }
