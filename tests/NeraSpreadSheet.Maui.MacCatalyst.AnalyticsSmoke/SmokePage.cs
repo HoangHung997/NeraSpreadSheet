@@ -15,6 +15,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private const string ResultArgument = "--nera-smoke-result";
     private const string DefaultResultFileName = "nera-maccatalyst-analytics-smoke.json";
     private static readonly TimeSpan SmokeTimeout = TimeSpan.FromSeconds(45d);
+    private static readonly TimeSpan DiagnosticPollInterval = TimeSpan.FromMilliseconds(250d);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -60,7 +61,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private void OnLoaded(object? sender, EventArgs e)
     {
         Loaded -= OnLoaded;
-        _ = MonitorTimeoutAsync();
+        _ = MonitorRuntimeAsync();
         try
         {
             _view = new NeraSpreadsheetView
@@ -240,6 +241,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             pivotActivationVerified = true,
             selectedItem = view.Session?.AnalyticsInteraction.SelectedItem?.ToString(),
             cachedTypefaces = view.CachedTypefaceCount,
+            gpuDiagnostics = view.GpuContextDiagnostics,
         });
     }
 
@@ -347,6 +349,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 frameCount = _frameCount,
                 analyticsInserted = Volatile.Read(ref _analyticsInserted),
                 accessibilityNodeCount = _view?.AnalyticsAccessibilityNodes.Count,
+                gpuDiagnostics = _view?.GpuContextDiagnostics,
                 error = exception.ToString(),
             });
         }
@@ -356,9 +359,41 @@ internal sealed class SmokePage : ContentPage, IDisposable
         }
     }
 
-    private async Task MonitorTimeoutAsync()
+    private async Task MonitorRuntimeAsync()
     {
-        await Task.Delay(SmokeTimeout).ConfigureAwait(false);
+        var deadline = DateTime.UtcNow + SmokeTimeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(DiagnosticPollInterval).ConfigureAwait(false);
+            if (_disposed || Volatile.Read(ref _finished) != 0)
+            {
+                return;
+            }
+
+            var view = _view;
+            if (view is null)
+            {
+                continue;
+            }
+
+            var renderingFailure = NeraMacCatalystGpuDiagnostics.GetLastFailure(view);
+            if (renderingFailure is null)
+            {
+                continue;
+            }
+
+            Dispatcher.Dispatch(() =>
+            {
+                if (!_disposed && Volatile.Read(ref _finished) == 0)
+                {
+                    Fail(new InvalidOperationException(
+                        "The Mac Catalyst native Metal renderer failed inside the MTKView delegate boundary.",
+                        renderingFailure));
+                }
+            });
+            return;
+        }
+
         if (_disposed || Volatile.Read(ref _finished) != 0)
         {
             return;
