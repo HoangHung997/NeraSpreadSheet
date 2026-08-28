@@ -12,17 +12,17 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: HELD
-  owner: CODEX
-  lease_id: CODEX-RIBBON-001-20260828T054529Z
-  acquired_utc: 2026-08-28T05:45:29Z
-  expires_utc: 2026-08-28T05:55:29Z
-  purpose: Mark RIBBON-001 LOCAL_GREEN after local verification.
+  state: FREE
+  owner: NONE
+  lease_id: NONE
+  acquired_utc: NONE
+  expires_utc: NONE
+  purpose: NONE
 
 last_update:
-  utc: 2026-08-28T05:31:30Z
+  utc: 2026-08-28T05:45:33Z
   writer: CODEX
-  summary: Started RIBBON-001 in an isolated worktree at the recorded base SHA.
+  summary: RIBBON-001 local verification green at d2d009c; branch pushed; starting exact-head CI.
 ```
 
 `write_lock` chỉ khóa việc sửa **file điều phối này**. Không giữ khóa trong lúc viết
@@ -65,7 +65,7 @@ cập nhật file này khi đang giữ `write_lock`.
 |---|---|---|---|---|---|---|
 | `COORD-001` | `DONE` | Codex | `coordination/ai-work-queue` | `docs/worklog/AI_COORDINATION.md` | Không | File có trên GitHub và đọc được bằng raw/API. |
 | `Q003B-MAC` | `IN_PROGRESS` | ChatGPT | `feature/bootstrap-architecture-v0.1` | `src/NeraSpreadSheet.Maui/**Apple**`, `src/NeraSpreadSheet.Maui/**MacCatalyst**`, `tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/**`, `scripts/run-maui-maccatalyst-smoke.sh` | Không | Apple build và Mac Catalyst runtime smoke xanh đúng HEAD. |
-| `RIBBON-001` | `IN_PROGRESS` | Codex | `ai/codex/ribbon-bars-customization` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, test riêng của hai module, contract riêng | Base `fea278057465a983d85c0b472532a2d13c644c37`; không giao Q003B-MAC | Build/test module, architecture verification và branch CI xanh. |
+| `RIBBON-001` | `LOCAL_GREEN` | Codex | `ai/codex/ribbon-bars-customization` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, test riêng của hai module, contract riêng | Base `fea278057465a983d85c0b472532a2d13c644c37`; không giao Q003B-MAC | Build/test module, architecture verification và branch CI xanh. |
 | `INTEGRATE-001` | `BLOCKED` | ChatGPT (`INTEGRATOR`) | `feature/bootstrap-architecture-v0.1` | Chỉ merge `Q003B-MAC` và `RIBBON-001`; cập nhật tài liệu chung | Hai task phải `READY_FOR_INTEGRATION` | Exact-head CI của branch tích hợp xanh toàn bộ. |
 
 ### Trạng thái hợp lệ
@@ -245,6 +245,8 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 | 2026-08-28T05:29:11Z | `CLAIMED` | Codex | `RIBBON-001` | Branch `ai/codex/ribbon-bars-customization`; base `fea278057465a983d85c0b472532a2d13c644c37`; coordination lease released. |
 
 | 2026-08-28T05:31:30Z | `IN_PROGRESS` | Codex | `RIBBON-001` | Isolated worktree created at base `fea278057465a983d85c0b472532a2d13c644c37`; scope unchanged; lease released. |
+
+| 2026-08-28T05:45:33Z | `LOCAL_GREEN` | Codex | `RIBBON-001` | Commit `d2d009c` pushed; Core 1162/1162, focused 16/16, architecture verification passed; lease released. |
 
 ## 11. Prompt ngắn gửi cho mỗi AI
 
