@@ -214,7 +214,6 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
         private GRContext? _context;
         private int _renderPending;
         private bool _renderLoopRequested;
-        private bool _bootstrapFramePending = true;
         private bool _disposed;
 
         internal NeraMetalRenderer(
@@ -247,8 +246,8 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
             platformView.Layer.AddSublayer(_metalLayer);
 
             _displayLink = CADisplayLink.Create(DrawFromDisplayLink);
+            _displayLink.Paused = true;
             _displayLink.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
-            UpdateDisplayLinkState();
         }
 
         internal void SetRenderLoop(bool enabled)
@@ -259,10 +258,6 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
             }
 
             _renderLoopRequested = enabled;
-            if (!enabled)
-            {
-                _bootstrapFramePending = true;
-            }
             UpdateDisplayLinkState();
             if (!enabled)
             {
@@ -278,8 +273,6 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
             }
 
             NeraMacCatalystGpuDiagnostics.TraceStage("request-render");
-            _bootstrapFramePending = true;
-            UpdateDisplayLinkState();
             if (Interlocked.Exchange(ref _renderPending, 1) != 0)
             {
                 return;
@@ -325,7 +318,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
 
         private void DrawFromDisplayLink()
         {
-            if (!_disposed)
+            if (!_disposed && _renderLoopRequested)
             {
                 NeraMacCatalystGpuDiagnostics.TraceStage("display-link");
                 DrawSafely();
@@ -344,8 +337,6 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 if (DrawCore())
                 {
                     NeraMacCatalystGpuDiagnostics.TraceStage("draw-core-success");
-                    _bootstrapFramePending = false;
-                    UpdateDisplayLinkState();
                 }
                 else
                 {
@@ -362,7 +353,6 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 Trace.TraceError(
                     "Nera Mac Catalyst Metal frame failed: {0}",
                     exception);
-                _bootstrapFramePending = false;
                 _renderLoopRequested = false;
                 UpdateDisplayLinkState();
             }
@@ -519,7 +509,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 return;
             }
 
-            _displayLink.Paused = !_renderLoopRequested && !_bootstrapFramePending;
+            _displayLink.Paused = !_renderLoopRequested;
         }
     }
 
