@@ -269,19 +269,20 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 return;
             }
 
-            var platformView = _platformView;
-            if (platformView is null)
+            if (_platformView is null)
             {
                 Interlocked.Exchange(ref _renderPending, 0);
                 return;
             }
 
-            platformView.BeginInvokeOnMainThread(() =>
+            NeraMacCatalystGpuDiagnostics.TraceStage("request-render-dispatch-maui-mainthread");
+            Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
             {
                 NeraMacCatalystGpuDiagnostics.TraceStage("request-render-mainthread");
                 Interlocked.Exchange(ref _renderPending, 0);
                 DrawSafely();
             });
+            NeraMacCatalystGpuDiagnostics.TraceStage("request-render-dispatch-returned");
         }
 
         public void Dispose()
