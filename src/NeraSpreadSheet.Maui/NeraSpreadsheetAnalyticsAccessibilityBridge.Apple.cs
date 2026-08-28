@@ -6,6 +6,7 @@ using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Rendering.Spreadsheet;
+using ObjCRuntime;
 using SkiaSharp.Views.Maui;
 using UIKit;
 
@@ -19,6 +20,7 @@ namespace NeraSpreadSheet.Maui;
 internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
 {
     private static readonly ConditionalWeakTable<NeraSpreadsheetView, AppleBridgeState> States = new();
+    private static readonly NSString AccessibilityElementsKey = new("accessibilityElements");
 
     internal static void Update(
         NeraSpreadsheetView view,
@@ -45,12 +47,29 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
         States.Remove(view);
     }
 
+    private static NSObject? GetAccessibilityElements(UIView platformView) =>
+        platformView.ValueForKey(AccessibilityElementsKey);
+
+    private static void SetAccessibilityElements(
+        UIView platformView,
+        NSObject? elements)
+    {
+        if (elements is null)
+        {
+            platformView.SetValueForKeyPath(
+                default(NativeHandle),
+                AccessibilityElementsKey);
+            return;
+        }
+
+        platformView.SetValueForKey(elements, AccessibilityElementsKey);
+    }
+
     private sealed class AppleBridgeState : IDisposable
     {
         private readonly NeraSpreadsheetView _view;
         private readonly Dictionary<SpreadsheetAnalyticsItemKey, NeraAccessibilityElement> _elements = [];
         private UIView? _platformView;
-        private IUIAccessibilityContainer? _accessibilityContainer;
         private NSObject? _previousAccessibilityElements;
         private bool _previousIsAccessibilityElement;
         private string? _lastSemanticSignature;
@@ -66,14 +85,13 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             SKPaintGLSurfaceEventArgs frame)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (_view.Handler?.PlatformView is not UIView platformView ||
-                platformView is not IUIAccessibilityContainer accessibilityContainer)
+            if (_view.Handler?.PlatformView is not UIView platformView)
             {
                 DetachPlatformView();
                 return;
             }
 
-            EnsurePlatformView(platformView, accessibilityContainer);
+            EnsurePlatformView(platformView);
             UpdateElements(nodes, frame);
         }
 
@@ -89,9 +107,7 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             GC.SuppressFinalize(this);
         }
 
-        private void EnsurePlatformView(
-            UIView platformView,
-            IUIAccessibilityContainer accessibilityContainer)
+        private void EnsurePlatformView(UIView platformView)
         {
             if (ReferenceEquals(platformView, _platformView))
             {
@@ -100,9 +116,8 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
 
             DetachPlatformView();
             _platformView = platformView;
-            _accessibilityContainer = accessibilityContainer;
             _previousIsAccessibilityElement = platformView.IsAccessibilityElement;
-            _previousAccessibilityElements = accessibilityContainer.GetAccessibilityElements();
+            _previousAccessibilityElements = GetAccessibilityElements(platformView);
             platformView.IsAccessibilityElement = false;
         }
 
@@ -111,8 +126,7 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             SKPaintGLSurfaceEventArgs frame)
         {
             var platformView = _platformView;
-            var accessibilityContainer = _accessibilityContainer;
-            if (platformView is null || accessibilityContainer is null)
+            if (platformView is null)
             {
                 return;
             }
@@ -180,7 +194,7 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             }
 
             using var accessibilityElements = NSArray.FromNSObjects(orderedElements.ToArray());
-            accessibilityContainer.SetAccessibilityElements(accessibilityElements);
+            SetAccessibilityElements(platformView, accessibilityElements);
 
             var signature = BuildSemanticSignature(nodes);
             if (!string.Equals(signature, _lastSemanticSignature, StringComparison.Ordinal))
@@ -281,12 +295,11 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
 
         private void DetachPlatformView()
         {
-            if (_accessibilityContainer is not null)
-            {
-                _accessibilityContainer.SetAccessibilityElements(_previousAccessibilityElements);
-            }
             if (_platformView is not null)
             {
+                SetAccessibilityElements(
+                    _platformView,
+                    _previousAccessibilityElements);
                 _platformView.IsAccessibilityElement = _previousIsAccessibilityElement;
             }
 
@@ -297,7 +310,6 @@ internal static class NeraSpreadsheetAppleAnalyticsAccessibilityBridge
             _elements.Clear();
             _lastSemanticSignature = null;
             _previousAccessibilityElements = null;
-            _accessibilityContainer = null;
             _platformView = null;
         }
     }
