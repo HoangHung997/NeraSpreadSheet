@@ -72,6 +72,14 @@ echo "Mac Catalyst host TMPDIR trace: $FALLBACK_TRACE"
 echo "Mac Catalyst runner temp trace: $RUNNER_TRACE"
 echo "Mac Catalyst container root: $CONTAINER_ROOT"
 
+echo "--- Mac Catalyst code-signing identity ---"
+codesign --display --verbose=4 "$APP" 2>&1 || true
+if ! codesign --verify --deep --strict --verbose=4 "$APP"; then
+  echo "Mac Catalyst smoke app failed strict code-signature verification before launch." >&2
+  exit 1
+fi
+echo "Mac Catalyst strict code-signature verification: PASS"
+
 print_trace_file() {
   local trace_file="$1"
   if [ ! -f "$trace_file" ]; then
@@ -151,6 +159,12 @@ print_diagnostics() {
     echo "No Mac Catalyst managed stage trace was produced in sandbox, runner temp, TMPDIR, or recent /var/folders locations."
   fi
 
+  echo "--- Mac Catalyst code-signing system log ---"
+  /usr/bin/log show \
+    --style compact \
+    --last 5m \
+    --predicate '(eventMessage CONTAINS[c] "CODESIGNING") OR (eventMessage CONTAINS[c] "Invalid Page") OR (eventMessage CONTAINS[c] "code signature")' \
+    2>/dev/null | tail -n 300 || true
   echo "--- Mac Catalyst unified log ---"
   /usr/bin/log show \
     --style compact \
