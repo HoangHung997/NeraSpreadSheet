@@ -12,12 +12,12 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: FREE
-  owner: NONE
-  lease_id: NONE
-  acquired_utc: NONE
-  expires_utc: NONE
-  purpose: NONE
+  state: HELD
+  owner: CODEX
+  lease_id: CODEX-RIBBON-002-BLOCK-20260828T065006Z
+  acquired_utc: 2026-08-28T06:50:06Z
+  expires_utc: 2026-08-28T07:00:06Z
+  purpose: Record Q003B-MAC blocker and stacked RIBBON handoff.
 
 last_update:
   utc: 2026-08-28T06:42:06Z
