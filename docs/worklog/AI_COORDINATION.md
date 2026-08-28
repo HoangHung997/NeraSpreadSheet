@@ -12,12 +12,12 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: HELD
-  owner: CODEX
-  lease_id: CODEX-RIBBON-004-CI-20260828T075209Z
-  acquired_utc: 2026-08-28T07:52:09Z
-  expires_utc: 2026-08-28T08:02:09Z
-  purpose: Record RIBBON-004 CI run
+  state: FREE
+  owner: NONE
+  lease_id: NONE
+  acquired_utc: NONE
+  expires_utc: NONE
+  purpose: NONE
 
 last_update:
   utc: 2026-08-28T07:50:37Z
@@ -68,7 +68,7 @@ cập nhật file này khi đang giữ `write_lock`.
 | `RIBBON-001` | `BLOCKED` | Codex | `ai/codex/ribbon-bars-customization` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, test riêng của hai module, contract riêng | Base `fea278057465a983d85c0b472532a2d13c644c37`; không giao Q003B-MAC | Commit `d2d009cc909a3f16b242a282444ae8011727fa31`; local Core 1162/1162 và architecture xanh; run `33145751287` xanh Core/Windows/Android/MAUI Windows nhưng Mac Catalyst runtime smoke đỏ 2 lần, thuộc `Q003B-MAC`. |
 | `RIBBON-002` | `BLOCKED` | Codex | `ai/codex/ribbon-bars-persistence` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, persistence tests của hai module, `docs/ribbon-bars-persistence-contract.md` | Stacked trên `RIBBON-001` commit `d2d009cc909a3f16b242a282444ae8011727fa31`; OWNER cho phép tiếp tục trước tích hợp | Commit `f31223e0a82b24b4da0dd0426741d1bcff99c67d`; local 1178/1178; run `33148789081` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ sau window activation thuộc `Q003B-MAC`; tích hợp tuần tự `d2d009c` rồi `f31223e`. |
 | `RIBBON-003` | `BLOCKED` | Codex | `ai/codex/ribbon-bars-presentation` | `src/NeraSpreadSheet.Commands/CommandPresentation.cs`, `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, presentation tests trong `NeraSpreadSheet.Commands.Tests`, `docs/ribbon-bars-presentation-contract.md` | Stacked trên `RIBBON-002` commit `f31223e0a82b24b4da0dd0426741d1bcff99c67d`; OWNER yêu cầu tiếp tục | Commit `fb2284907ad3659e7b7aae6d8ecacaccc29415e4`; local 1184/1184; run `33150555391` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ thuộc `Q003B-MAC`; tích hợp tuần tự `d2d009c`, `f31223e`, `fb22849`. |
-| `RIBBON-004` | `LOCAL_GREEN` | Codex | `ai/codex/ribbon-bars-runtime` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, runtime tests trong `NeraSpreadSheet.Commands.Tests`, `docs/ribbon-bars-runtime-contract.md` | Stacked trên `RIBBON-003` commit `fb2284907ad3659e7b7aae6d8ecacaccc29415e4`; OWNER yêu cầu tiếp tục đến khi hoàn thành Ribbon | Commit `8e95f7a3000bee1a515101369c61cb09e613d286` pushed; focused 44/44, Core 1190/1190, build 0 warnings/errors, architecture và sensitive scan xanh. |
+| `RIBBON-004` | `CI_RUNNING` | Codex | `ai/codex/ribbon-bars-runtime` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, runtime tests trong `NeraSpreadSheet.Commands.Tests`, `docs/ribbon-bars-runtime-contract.md` | Stacked trên `RIBBON-003` commit `fb2284907ad3659e7b7aae6d8ecacaccc29415e4`; OWNER yêu cầu tiếp tục đến khi hoàn thành Ribbon | Commit `8e95f7a3000bee1a515101369c61cb09e613d286` pushed; focused 44/44, Core 1190/1190, build 0 warnings/errors, architecture và sensitive scan xanh. |
 | `INTEGRATE-001` | `BLOCKED` | ChatGPT (`INTEGRATOR`) | `feature/bootstrap-architecture-v0.1` | Chỉ merge `Q003B-MAC` và `RIBBON-001`; cập nhật tài liệu chung | Hai task phải `READY_FOR_INTEGRATION` | Exact-head CI của branch tích hợp xanh toàn bộ. |
 
 ### Trạng thái hợp lệ
@@ -288,6 +288,8 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 | 2026-08-28T07:45:13Z | `IN_PROGRESS` | Codex | `RIBBON-004` | Branch `ai/codex/ribbon-bars-runtime` created at `fb22849`; required docs, contracts, command dispatcher and focused tests reviewed; lease released. |
 
 | 2026-08-28T07:50:37Z | `LOCAL_GREEN` | Codex | `RIBBON-004` | Commit `8e95f7a` pushed; focused 44/44, Core 1190/1190, build/analyzers 0 warnings/errors, architecture and sensitive scan passed; lease released. |
+
+| 2026-08-28T07:52:12Z | `CI_RUNNING` | Codex | `RIBBON-004` | Exact-head run `33153003700` started for `8e95f7a3000bee1a515101369c61cb09e613d286`; lease released. |
 
 ## 11. Prompt ngắn gửi cho mỗi AI
 
