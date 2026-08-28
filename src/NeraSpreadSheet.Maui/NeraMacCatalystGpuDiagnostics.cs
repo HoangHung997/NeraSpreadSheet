@@ -13,6 +13,7 @@ internal static class NeraMacCatalystGpuDiagnostics
 {
     private const string SmokeResultEnvironmentVariable = "NERA_MAUI_SMOKE_RESULT";
     private const string SmokeTraceFileName = "nera-maccatalyst-analytics-smoke.trace";
+    private const int MaximumFailureTraceLength = 12_000;
     private static readonly ConditionalWeakTable<NeraSpreadsheetView, FailureState> States = new();
 
     internal static void Clear(NeraSpreadsheetView view)
@@ -31,6 +32,15 @@ internal static class NeraMacCatalystGpuDiagnostics
             state.Exception = exception;
             state.Sequence = checked(state.Sequence + 1L);
         }
+
+        var detail = exception.ToString()
+            .Replace('\r', ' ')
+            .Replace('\n', '|');
+        if (detail.Length > MaximumFailureTraceLength)
+        {
+            detail = detail[..MaximumFailureTraceLength];
+        }
+        TraceStage($"managed-failure-detail:{detail}");
     }
 
     internal static Exception? GetLastFailure(NeraSpreadsheetView view)
