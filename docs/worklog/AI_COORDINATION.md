@@ -12,12 +12,12 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: FREE
-  owner: NONE
-  lease_id: NONE
-  acquired_utc: NONE
-  expires_utc: NONE
-  purpose: NONE
+  state: HELD
+  owner: CODEX
+  lease_id: CODEX-RIBBON-001-BLOCK-20260828T055813Z
+  acquired_utc: 2026-08-28T05:58:13Z
+  expires_utc: 2026-08-28T06:08:13Z
+  purpose: Record external Mac Catalyst CI blocker for RIBBON-001.
 
 last_update:
   utc: 2026-08-28T05:46:28Z
