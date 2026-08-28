@@ -11,6 +11,8 @@ RESULT="${2:-${RUNNER_TEMP:-/tmp}/nera-maccatalyst-analytics-smoke.json}"
 RESULT_FILE_NAME="nera-maccatalyst-analytics-smoke.json"
 TRACE_FILE_NAME="nera-maccatalyst-analytics-smoke.trace"
 FALLBACK_RESULT="${TMPDIR:-/tmp}/$RESULT_FILE_NAME"
+FALLBACK_TRACE="${TMPDIR:-/tmp}/$TRACE_FILE_NAME"
+RUNNER_TRACE="${RUNNER_TEMP:-/tmp}/$TRACE_FILE_NAME"
 WORK_DIR="${RUNNER_TEMP:-/tmp}/nera-maccatalyst-smoke-launch"
 LAUNCHER="$WORK_DIR/LaunchNeraMacCatalystSmoke.swift"
 INFO_PLIST="$APP/Contents/Info.plist"
@@ -25,8 +27,13 @@ if [ ! -f "$INFO_PLIST" ]; then
   exit 1
 fi
 
-mkdir -p "$WORK_DIR" "$(dirname "$RESULT")" "$(dirname "$FALLBACK_RESULT")"
-rm -f "$RESULT" "$FALLBACK_RESULT"
+mkdir -p \
+  "$WORK_DIR" \
+  "$(dirname "$RESULT")" \
+  "$(dirname "$FALLBACK_RESULT")" \
+  "$(dirname "$FALLBACK_TRACE")" \
+  "$(dirname "$RUNNER_TRACE")"
+rm -f "$RESULT" "$FALLBACK_RESULT" "$FALLBACK_TRACE" "$RUNNER_TRACE"
 
 PROCESS_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO_PLIST" 2>/dev/null || true)"
 BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO_PLIST" 2>/dev/null || true)"
@@ -55,7 +62,19 @@ echo "Mac Catalyst requested host result: $RESULT"
 echo "Mac Catalyst host fallback result: $FALLBACK_RESULT"
 echo "Mac Catalyst sandbox result passed to app: $SANDBOX_RESULT"
 echo "Mac Catalyst sandbox trace: $SANDBOX_TRACE"
+echo "Mac Catalyst host TMPDIR trace: $FALLBACK_TRACE"
+echo "Mac Catalyst runner temp trace: $RUNNER_TRACE"
 echo "Mac Catalyst container root: $CONTAINER_ROOT"
+
+print_trace_file() {
+  local trace_file="$1"
+  if [ ! -f "$trace_file" ]; then
+    return 1
+  fi
+  echo "--- $trace_file ---"
+  cat "$trace_file" || true
+  return 0
+}
 
 print_diagnostics() {
   echo "--- Mac Catalyst smoke process ---"
@@ -71,20 +90,38 @@ print_diagnostics() {
   if [ -d "$CONTAINER_ROOT" ]; then
     find "$CONTAINER_ROOT" -type f -name "$RESULT_FILE_NAME" -print 2>/dev/null || true
   fi
+
   echo "--- Mac Catalyst managed stage trace ---"
-  if [ -f "$SANDBOX_TRACE" ]; then
-    cat "$SANDBOX_TRACE" || true
-  elif [ -d "$CONTAINER_ROOT" ]; then
-    TRACE_CANDIDATE="$(find "$CONTAINER_ROOT" -type f -name "$TRACE_FILE_NAME" -print 2>/dev/null | head -n 1 || true)"
-    if [ -n "$TRACE_CANDIDATE" ]; then
-      echo "$TRACE_CANDIDATE"
-      cat "$TRACE_CANDIDATE" || true
-    else
-      echo "No Mac Catalyst managed stage trace was produced."
+  TRACE_FOUND=0
+  for trace_candidate in "$SANDBOX_TRACE" "$FALLBACK_TRACE" "$RUNNER_TRACE"; do
+    if print_trace_file "$trace_candidate"; then
+      TRACE_FOUND=1
     fi
-  else
-    echo "No Mac Catalyst managed stage trace was produced."
+  done
+  if [ -d "$CONTAINER_ROOT" ]; then
+    while IFS= read -r trace_candidate; do
+      [ -n "$trace_candidate" ] || continue
+      case "$trace_candidate" in
+        "$SANDBOX_TRACE") continue ;;
+      esac
+      if print_trace_file "$trace_candidate"; then
+        TRACE_FOUND=1
+      fi
+    done < <(find "$CONTAINER_ROOT" -type f -name "$TRACE_FILE_NAME" -print 2>/dev/null || true)
   fi
+  while IFS= read -r trace_candidate; do
+    [ -n "$trace_candidate" ] || continue
+    case "$trace_candidate" in
+      "$FALLBACK_TRACE"|"$RUNNER_TRACE") continue ;;
+    esac
+    if print_trace_file "$trace_candidate"; then
+      TRACE_FOUND=1
+    fi
+  done < <(find /var/folders -type f -name "$TRACE_FILE_NAME" -mmin -10 -print 2>/dev/null | head -n 20 || true)
+  if [ "$TRACE_FOUND" -eq 0 ]; then
+    echo "No Mac Catalyst managed stage trace was produced in sandbox, runner temp, TMPDIR, or recent /var/folders locations."
+  fi
+
   echo "--- Mac Catalyst unified log ---"
   /usr/bin/log show \
     --style compact \
