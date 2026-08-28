@@ -12,12 +12,12 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: FREE
-  owner: NONE
-  lease_id: NONE
-  acquired_utc: NONE
-  expires_utc: NONE
-  purpose: NONE
+  state: HELD
+  owner: CODEX
+  lease_id: CODEX-RIBBON-004-PROGRESS-20260828T074511Z
+  acquired_utc: 2026-08-28T07:45:11Z
+  expires_utc: 2026-08-28T07:55:11Z
+  purpose: Start RIBBON-004 implementation
 
 last_update:
   utc: 2026-08-28T07:43:23Z
