@@ -16,7 +16,11 @@ public sealed class BarDefinition
         Id = id.Trim();
         Kind = kind;
         Caption = caption;
-        Items = (items ?? throw new ArgumentNullException(nameof(items))).ToArray();
+        Items = (items ?? throw new ArgumentNullException(nameof(items)))
+            .OrderBy(item => item.Order)
+            .ToArray();
+
+        BarCustomizationValidation.ValidateDefinitionItems(Items, Id);
     }
 
     public string Id { get; }
