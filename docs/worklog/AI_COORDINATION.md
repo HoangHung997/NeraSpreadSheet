@@ -12,12 +12,12 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: HELD
-  owner: CODEX
-  lease_id: CODEX-COORD-REPAIR-20260828T074406Z
-  acquired_utc: 2026-08-28T07:44:06Z
-  expires_utc: 2026-08-28T07:54:06Z
-  purpose: Repair RIBBON-004 coordination formatting
+  state: FREE
+  owner: NONE
+  lease_id: NONE
+  acquired_utc: NONE
+  expires_utc: NONE
+  purpose: NONE
 
 last_update:
   utc: 2026-08-28T07:43:23Z
@@ -92,8 +92,11 @@ Mỗi worker chỉ có tối đa một task `CLAIMED`, `IN_PROGRESS`, `LOCAL_GRE
 | 2 | `RIBBON-001` | Codex | Model customization Ribbon/Bars và tests, chưa làm platform presenter | Protocol được chấp nhận |
 | 3 | `Q003B-CLOSE` | ChatGPT | Chốt Q003B, evidence và handoff; không mở rộng sang Ribbon/Bars | `Q003B-MAC` xanh |
 | 4 | `RIBBON-002` | Codex | Persistence/versioning cho customization contract | `RIBBON-001` đã tích hợp |
-| 5 | `RIBBON-004` | `CLAIMED` | Codex | `ai/codex/ribbon-bars-runtime` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, runtime tests trong `NeraSpreadSheet.Commands.Tests`, `docs/ribbon-bars-runtime-contract.md` | Stacked trên `RIBBON-003` commit `fb2284907ad3659e7b7aae6d8ecacaccc29415e4`; OWNER yêu cầu tiếp tục đến khi hoàn thành Ribbon | Chưa có; runtime controller phải apply customization, refresh snapshot và execute duy nhất qua `CommandDispatcher`. |
-| `INTEGRATE-001` | ChatGPT | Merge tuần tự và chạy exact-head CI tổng hợp | Các task đầu vào sẵn sàng |
+| 5 | `RIBBON-004` | Codex | Runtime controller cho customization, snapshot refresh và command activation | OWNER đã yêu cầu tiếp tục; stack trên `RIBBON-003` |
+| 6 | `RIBBON-DESKTOP` | Codex | Presenter và runtime smoke WPF/WinForms | `RIBBON-004` có evidence sẵn sàng |
+| 7 | `RIBBON-MAUI` | Codex | Presenter và runtime smoke MAUI, không chạm code Apple đang khóa | `Q003B-MAC` kết thúc và desktop presenter ổn định |
+| 8 | `RIBBON-CLOSE` | ChatGPT (`INTEGRATOR`) | Tích hợp stack, cập nhật tài liệu dùng chung và exact-head CI | Tất cả task Ribbon đầu vào sẵn sàng |
+| 9 | `INTEGRATE-001` | ChatGPT | Merge tuần tự và chạy exact-head CI tổng hợp | Các task đầu vào sẵn sàng |
 
 Task mới phải được OWNER hoặc INTEGRATOR thêm vào bảng trong một lượt ghi hợp lệ.
 
@@ -279,6 +282,8 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 | 2026-08-28T07:19:22Z | `BLOCKED` | Codex | `RIBBON-003` | Run `33150555391` at `fb2284907ad3659e7b7aae6d8ecacaccc29415e4`: Core, Windows desktop, Android and MAUI Windows green; only existing Mac Catalyst runtime smoke failed. Handoff order `d2d009c` -> `f31223e` -> `fb22849`; lease released. |
 
 | 2026-08-28T07:43:23Z | `CLAIMED` | Codex | `RIBBON-004` | OWNER yêu cầu tiếp tục đến khi hoàn thành Ribbon; branch `ai/codex/ribbon-bars-runtime` stack trên `fb22849`; phạm vi runtime headless không giao vùng Mac Catalyst; lease released. |
+
+| 2026-08-28T07:44:32Z | `COORDINATION_REPAIRED` | Codex | `RIBBON-004` | Sửa dòng backlog bị chèn sai và phần purpose bị nối dư trong lượt claim; không thay đổi phạm vi hay trạng thái task. |
 
 ## 11. Prompt ngắn gửi cho mỗi AI
 
