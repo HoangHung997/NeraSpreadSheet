@@ -8,7 +8,8 @@ fi
 
 APP="$1"
 RESULT="${2:-${RUNNER_TEMP:-/tmp}/nera-maccatalyst-analytics-smoke.json}"
-FALLBACK_RESULT="${TMPDIR:-/tmp}/nera-maccatalyst-analytics-smoke.json"
+RESULT_FILE_NAME="nera-maccatalyst-analytics-smoke.json"
+FALLBACK_RESULT="${TMPDIR:-/tmp}/$RESULT_FILE_NAME"
 WORK_DIR="${RUNNER_TEMP:-/tmp}/nera-maccatalyst-smoke-launch"
 LAUNCHER="$WORK_DIR/LaunchNeraMacCatalystSmoke.swift"
 INFO_PLIST="$APP/Contents/Info.plist"
@@ -36,16 +37,25 @@ if [ "$BUNDLE_ID" != "$EXPECTED_BUNDLE_ID" ]; then
   echo "Unexpected Mac Catalyst smoke bundle id: '$BUNDLE_ID' (expected '$EXPECTED_BUNDLE_ID')." >&2
   exit 1
 fi
+CONTAINER_ROOT="$HOME/Library/Containers/$BUNDLE_ID/Data"
+if [ -d "$CONTAINER_ROOT" ]; then
+  find "$CONTAINER_ROOT" -type f -name "$RESULT_FILE_NAME" -delete 2>/dev/null || true
+fi
 
 echo "Mac Catalyst smoke bundle id: $BUNDLE_ID"
 echo "Mac Catalyst smoke executable: $PROCESS_NAME"
 echo "Mac Catalyst primary result: $RESULT"
 echo "Mac Catalyst fallback result: $FALLBACK_RESULT"
+echo "Mac Catalyst container root: $CONTAINER_ROOT"
 
 print_diagnostics() {
   echo "--- Mac Catalyst smoke process ---"
   if [ -n "${APP_PID:-}" ]; then
     ps -p "$APP_PID" -o pid=,ppid=,stat=,etime=,command= || true
+  fi
+  echo "--- Mac Catalyst result files ---"
+  if [ -d "$CONTAINER_ROOT" ]; then
+    find "$CONTAINER_ROOT" -type f -name "$RESULT_FILE_NAME" -print 2>/dev/null || true
   fi
   echo "--- Mac Catalyst unified log ---"
   /usr/bin/log show \
@@ -81,8 +91,20 @@ consume_result_file() {
   return 2
 }
 
+find_container_result() {
+  if [ ! -d "$CONTAINER_ROOT" ]; then
+    return 3
+  fi
+  local container_result
+  container_result="$(find "$CONTAINER_ROOT" -type f -name "$RESULT_FILE_NAME" -print 2>/dev/null | head -n 1 || true)"
+  if [ -z "$container_result" ]; then
+    return 3
+  fi
+  printf '%s\n' "$container_result"
+}
+
 consume_any_result() {
-  local code
+  local code container_result
   if consume_result_file "$RESULT"; then
     return 0
   else
@@ -94,6 +116,17 @@ consume_any_result() {
 
   if [ "$FALLBACK_RESULT" != "$RESULT" ]; then
     if consume_result_file "$FALLBACK_RESULT"; then
+      return 0
+    else
+      code=$?
+    fi
+    if [ "$code" -ne 3 ]; then
+      return "$code"
+    fi
+  fi
+
+  if container_result="$(find_container_result)"; then
+    if consume_result_file "$container_result"; then
       return 0
     else
       return $?
@@ -205,7 +238,7 @@ for _ in $(seq 1 90); do
       print_diagnostics
       exit 1
     fi
-    echo "Mac Catalyst smoke exited before producing a primary or fallback result file." >&2
+    echo "Mac Catalyst smoke exited before producing a primary, host-fallback, or container result file." >&2
     print_diagnostics
     exit 1
   fi
