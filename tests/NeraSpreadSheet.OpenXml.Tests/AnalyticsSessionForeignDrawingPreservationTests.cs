@@ -38,12 +38,20 @@ public sealed class AnalyticsSessionForeignDrawingPreservationTests
             SpreadsheetAnalyticsItemKey.ForChart(chart.Id),
             new RectD(20d, 30d, 320d, 200d)));
 
+        var importOptions = new OpenXmlImportOptions
+        {
+            PreserveUnknownParts = true,
+        };
+        var exportOptions = new OpenXmlExportOptions
+        {
+            PreserveUnknownParts = true,
+        };
         var serializer = new NeraOpenXmlSpreadsheetSessionSerializer();
         await using var first = new MemoryStream();
         await serializer.SaveSessionAsync(
             session,
             first,
-            new OpenXmlExportOptions());
+            exportOptions);
 
         AddForeignShape(first);
         AssertDrawingState(
@@ -56,14 +64,14 @@ public sealed class AnalyticsSessionForeignDrawingPreservationTests
         first.Position = 0L;
         var loaded = await serializer.LoadSessionAsync(
             first,
-            new OpenXmlImportOptions());
+            importOptions);
         Assert.AreEqual(chart.Id, loaded.Analytics.GetCharts(loaded.ActiveWorksheet).Single().Id);
 
         await using var second = new MemoryStream();
         await serializer.SaveSessionAsync(
             loaded,
             second,
-            new OpenXmlExportOptions());
+            exportOptions);
 
         AssertDrawingState(
             second,
