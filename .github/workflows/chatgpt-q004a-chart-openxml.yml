@@ -1,0 +1,37 @@
+name: ChatGPT Q004A chart OpenXML gate
+
+on:
+  push:
+    branches:
+      - ai/chatgpt/q004a-chart-openxml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  openxml-chart-persistence:
+    name: OpenXML chart session persistence
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore NeraSpreadSheet.Core.slnx
+
+      - name: Build core solution
+        run: dotnet build NeraSpreadSheet.Core.slnx -c Release --no-restore
+
+      - name: Run OpenXML tests
+        run: dotnet test tests/NeraSpreadSheet.OpenXml.Tests/NeraSpreadSheet.OpenXml.Tests.csproj -c Release --no-build --logger "trx;LogFileName=q004a-openxml-tests.trx"
+
+      - name: Verify architecture
+        shell: pwsh
+        run: ./scripts/verify-architecture.ps1
