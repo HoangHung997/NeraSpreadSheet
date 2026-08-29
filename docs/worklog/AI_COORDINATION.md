@@ -12,12 +12,12 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: FREE
-  owner: NONE
-  lease_id: NONE
-  acquired_utc: NONE
-  expires_utc: NONE
-  purpose: NONE
+  state: HELD
+  owner: CHATGPT
+  lease_id: CHATGPT-Q003D-PROGRESS-20260829T103100Z
+  acquired_utc: 2026-08-29T10:31:00Z
+  expires_utc: 2026-08-29T10:41:00Z
+  purpose: Mark Q003D pivot OpenXML task IN_PROGRESS after branch creation
 
 last_update:
   utc: 2026-08-29T10:30:00Z
@@ -341,6 +341,7 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 
 | 2026-08-29T10:28:00Z | `LOCK_ACQUIRED` | ChatGPT | `Q003D-PIVOT-OPENXML` | Lease `CHATGPT-Q003D-PIVOT-20260829T102800Z` acquired to claim an OpenXML-only pivot compatibility task; no MAUI/Ribbon overlap. |
 | 2026-08-29T10:30:00Z | `CLAIMED` | ChatGPT | `Q003D-PIVOT-OPENXML` | Branch `ai/chatgpt/q003d-pivot-openxml`; base `07eee455b5bb7ca3c18540a8426c37b369bfa35c`; exclusive OpenXML/session pivot compatibility paths recorded; lease released. |
+| 2026-08-29T10:31:00Z | `LOCK_ACQUIRED` | ChatGPT | `Q003D-PIVOT-OPENXML` | Lease `CHATGPT-Q003D-PROGRESS-20260829T103100Z` acquired after creating worker branch to mark the task IN_PROGRESS. |
 
 ## 11. Prompt ngắn gửi cho mỗi AI
 
