@@ -34,7 +34,9 @@ public interface IOpenXmlSpreadsheetSessionSerializer
 /// Adds session-level persistence to the workbook serializer. Standard XLSX
 /// pane markup is emitted for split-view interoperability; versioned Nera
 /// custom XML parts retain independent pane offsets plus native analytics
-/// definitions, identities, and floating placement metadata.
+/// definitions, identities, and floating placement metadata. Nera charts are
+/// additionally materialized as standard worksheet drawing/chart parts so a
+/// saved session remains visible in third-party XLSX consumers.
 /// </summary>
 public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadsheetSessionSerializer
 {
@@ -109,6 +111,7 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
             ExportStandardSplitViews(document, session, cancellationToken);
             ExportNativeSplitViews(document, session, cancellationToken);
             NeraOpenXmlAnalyticsStateCodec.Export(document, session, cancellationToken);
+            NeraOpenXmlChartDrawingCodec.Export(document, session, cancellationToken);
         }
 
         buffer.Position = 0L;
@@ -485,36 +488,69 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
                     ParseRequiredDouble(paneElement.Attribute("offsetY"), worksheetName, "offsetY")));
         }
 
-        try
+        return new WorksheetSplitState(
+            worksheetName,
+            new SpreadsheetSplitViewState(
+                mode,
+                splitX,
+                splitY,
+                activePane,
+                topLeftScroll: GetPaneOffset(paneOffsets, SpreadsheetSplitViewPane.TopLeft),
+                topRightScroll: GetPaneOffset(paneOffsets, SpreadsheetSplitViewPane.TopRight),
+                bottomLeftScroll: GetPaneOffset(paneOffsets, SpreadsheetSplitViewPane.BottomLeft),
+                bottomRightScroll: GetPaneOffset(paneOffsets, SpreadsheetSplitViewPane.BottomRight)));
+    }
+
+    private static SpreadsheetPaneScrollOffset GetPaneOffset(
+        IReadOnlyDictionary<SpreadsheetSplitViewPane, SpreadsheetPaneScrollOffset> offsets,
+        SpreadsheetSplitViewPane pane) =>
+        offsets.TryGetValue(pane, out var value) ? value : default;
+
+    private static double? ParseOptionalDouble(
+        XAttribute? attribute,
+        string worksheetName,
+        string attributeName)
+    {
+        if (attribute is null)
         {
-            return new WorksheetSplitState(
-                worksheetName,
-                new SpreadsheetSplitViewState(
-                    mode,
-                    splitX,
-                    splitY,
-                    activePane,
-                    paneOffsets.GetValueOrDefault(SpreadsheetSplitViewPane.TopLeft),
-                    paneOffsets.GetValueOrDefault(SpreadsheetSplitViewPane.TopRight),
-                    paneOffsets.GetValueOrDefault(SpreadsheetSplitViewPane.BottomLeft),
-                    paneOffsets.GetValueOrDefault(SpreadsheetSplitViewPane.BottomRight)));
+            return null;
         }
-        catch (ArgumentException exception)
+        return ParseRequiredDouble(attribute, worksheetName, attributeName);
+    }
+
+    private static double ParseRequiredDouble(
+        XAttribute? attribute,
+        string worksheetName,
+        string attributeName)
+    {
+        if (!double.TryParse(
+                attribute?.Value,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var value) ||
+            !double.IsFinite(value) ||
+            value < 0d)
         {
             throw new InvalidDataException(
-                $"Worksheet '{worksheetName}' contains inconsistent Nera split-view metadata.",
-                exception);
+                $"Worksheet '{worksheetName}' has an invalid '{attributeName}' value.");
         }
+        return value;
     }
+
+    private static string FormatDouble(double value) =>
+        value.ToString("R", CultureInfo.InvariantCulture);
 
     private static IEnumerable<WorksheetMapping> EnumerateWorksheetMappings(
         SpreadsheetDocument document,
-        Workbook workbook)
+        NeraSpreadSheet.Core.Workbook workbook)
     {
-        var workbookPart = document.WorkbookPart
-            ?? throw new InvalidDataException("The XLSX package does not contain a workbook part.");
-        var sheets = workbookPart.Workbook?.GetFirstChild<Sheets>()?.Elements<Sheet>().ToArray()
-            ?? throw new InvalidDataException("The XLSX workbook does not contain a sheets collection.");
+        var workbookPart = document.WorkbookPart;
+        var sheets = workbookPart?.Workbook?.GetFirstChild<Sheets>()?.Elements<Sheet>().ToArray();
+        if (workbookPart is null || sheets is null)
+        {
+            yield break;
+        }
+
         var count = Math.Min(sheets.Length, workbook.Worksheets.Count);
         for (var index = 0; index < count; index++)
         {
@@ -524,75 +560,70 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
             {
                 continue;
             }
-            yield return new WorksheetMapping(workbook.Worksheets[index], worksheetPart);
+            yield return new WorksheetMapping(
+                workbook.Worksheets[index],
+                worksheetPart);
         }
     }
 
     private static SpreadsheetSplitViewMode ResolveMode(double? splitX, double? splitY) =>
-        (splitX, splitY) switch
+        (splitX.HasValue, splitY.HasValue) switch
         {
-            (not null, not null) => SpreadsheetSplitViewMode.Both,
-            (not null, null) => SpreadsheetSplitViewMode.Vertical,
-            (null, not null) => SpreadsheetSplitViewMode.Horizontal,
+            (true, true) => SpreadsheetSplitViewMode.Both,
+            (true, false) => SpreadsheetSplitViewMode.Vertical,
+            (false, true) => SpreadsheetSplitViewMode.Horizontal,
             _ => SpreadsheetSplitViewMode.None,
         };
 
-    private static PaneValues ToOpenXmlPane(SpreadsheetSplitViewPane pane) => pane switch
-    {
-        SpreadsheetSplitViewPane.TopLeft => PaneValues.TopLeft,
-        SpreadsheetSplitViewPane.TopRight => PaneValues.TopRight,
-        SpreadsheetSplitViewPane.BottomLeft => PaneValues.BottomLeft,
-        SpreadsheetSplitViewPane.BottomRight => PaneValues.BottomRight,
-        _ => throw new ArgumentOutOfRangeException(nameof(pane)),
-    };
-
     private static SpreadsheetSplitViewPane FromOpenXmlPane(
         PaneValues? pane,
-        SpreadsheetSplitViewMode mode)
-    {
-        var result = SpreadsheetSplitViewPane.TopLeft;
-        if (pane == PaneValues.TopRight)
+        SpreadsheetSplitViewMode mode) =>
+        pane switch
         {
-            result = SpreadsheetSplitViewPane.TopRight;
-        }
-        else if (pane == PaneValues.BottomLeft)
+            PaneValues.TopRight when mode is SpreadsheetSplitViewMode.Vertical or SpreadsheetSplitViewMode.Both =>
+                SpreadsheetSplitViewPane.TopRight,
+            PaneValues.BottomLeft when mode is SpreadsheetSplitViewMode.Horizontal or SpreadsheetSplitViewMode.Both =>
+                SpreadsheetSplitViewPane.BottomLeft,
+            PaneValues.BottomRight when mode == SpreadsheetSplitViewMode.Both =>
+                SpreadsheetSplitViewPane.BottomRight,
+            _ => SpreadsheetSplitViewPane.TopLeft,
+        };
+
+    private static PaneValues ToOpenXmlPane(SpreadsheetSplitViewPane pane) =>
+        pane switch
         {
-            result = SpreadsheetSplitViewPane.BottomLeft;
-        }
-        else if (pane == PaneValues.BottomRight)
-        {
-            result = SpreadsheetSplitViewPane.BottomRight;
-        }
-        return SpreadsheetSplitViewState.IsPaneVisible(mode, result)
-            ? result
-            : SpreadsheetSplitViewPane.TopLeft;
-    }
+            SpreadsheetSplitViewPane.TopRight => PaneValues.TopRight,
+            SpreadsheetSplitViewPane.BottomLeft => PaneValues.BottomLeft,
+            SpreadsheetSplitViewPane.BottomRight => PaneValues.BottomRight,
+            _ => PaneValues.TopLeft,
+        };
 
     private static int FindAxisIndexAtOffset(
         double offset,
-        int axisLength,
+        int totalCount,
         double defaultSize,
         IReadOnlyDictionary<int, double> overrides)
     {
-        if (offset <= 0d)
+        if (!double.IsFinite(offset) || offset <= 0d)
         {
             return 0;
         }
         var low = 0;
-        var high = axisLength;
-        while (low < high)
+        var high = totalCount - 1;
+        while (low <= high)
         {
-            var middle = low + ((high - low + 1) / 2);
-            if (GetAxisOffset(middle, defaultSize, overrides) <= offset)
+            var mid = low + ((high - low) / 2);
+            var midOffset = GetAxisOffset(mid, defaultSize, overrides);
+            if (midOffset <= offset)
             {
-                low = middle;
+                low = mid + 1;
             }
             else
             {
-                high = middle - 1;
+                high = mid - 1;
             }
         }
-        return Math.Min(low, axisLength - 1);
+        return Math.Clamp(high, 0, totalCount - 1);
     }
 
     private static double GetAxisOffset(
@@ -600,42 +631,21 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         double defaultSize,
         IReadOnlyDictionary<int, double> overrides)
     {
-        var offset = index * defaultSize;
-        foreach (var (overrideIndex, size) in overrides)
+        if (index <= 0)
         {
-            if (overrideIndex < index)
+            return 0d;
+        }
+        var offset = index * defaultSize;
+        foreach (var pair in overrides)
+        {
+            if (pair.Key >= index)
             {
-                offset += size - defaultSize;
+                continue;
             }
+            offset += pair.Value - defaultSize;
         }
         return offset;
     }
-
-    private static double? ParseOptionalDouble(
-        XAttribute? attribute,
-        string worksheetName,
-        string fieldName) =>
-        attribute is null ? null : ParseRequiredDouble(attribute, worksheetName, fieldName);
-
-    private static double ParseRequiredDouble(
-        XAttribute? attribute,
-        string worksheetName,
-        string fieldName)
-    {
-        var text = attribute?.Value;
-        if (string.IsNullOrWhiteSpace(text) ||
-            !double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ||
-            !double.IsFinite(value) ||
-            value < 0d)
-        {
-            throw new InvalidDataException(
-                $"Worksheet '{worksheetName}' contains an invalid '{fieldName}' value.");
-        }
-        return value;
-    }
-
-    private static string FormatDouble(double value) =>
-        value.ToString("R", CultureInfo.InvariantCulture);
 
     private sealed record WorksheetMapping(
         NeraWorksheet Worksheet,
