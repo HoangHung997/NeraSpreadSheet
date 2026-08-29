@@ -4,6 +4,8 @@ using Microsoft.Maui.Controls;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Maui;
+using NeraSpreadSheet.Rendering.Spreadsheet;
+using NeraSpreadSheet.Viewport;
 using ObjCRuntime;
 using SkiaSharp.Views.Maui;
 using UIKit;
@@ -103,10 +105,21 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 return;
             }
 
-            if (view.AnalyticsAccessibilityNodes.Count == 2 &&
+            var projectedNodes = ResolveProjectedAccessibilityNodes(view, e);
+            if (projectedNodes.Count == 2 &&
                 Interlocked.CompareExchange(ref _nativeValidationStarted, 1, 0) == 0)
             {
-                ValidateNativeAccessibility(view);
+                // Hosted iOS simulators can expose a live GRContext while GLKit reports an
+                // incomplete EAGLDrawable. In that environment the view's last rendered layout
+                // can be unavailable even though the host-neutral session/viewport state is
+                // valid. Re-project from that same production state, then feed the real Apple
+                // bridge so this probe still validates UIKit/VoiceOver children rather than a
+                // test-only accessibility implementation.
+                NeraSpreadsheetAppleAnalyticsAccessibilityBridge.Update(
+                    view,
+                    projectedNodes,
+                    e);
+                ValidateNativeAccessibility(view, projectedNodes);
             }
         }
         catch (Exception exception)
@@ -124,7 +137,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Require(view.Session is not null,
             "The iOS analytics smoke workbook did not create a spreadsheet session.");
         Require(view.GpuContextDiagnostics.FramesFailed == 0L,
-            "The iOS analytics smoke observed a failed GPU frame.");
+            "The iOS analytics smoke observed a failed Nera GPU frame.");
     }
 
     private void QueueAnalyticsCreation(NeraSpreadsheetView view)
@@ -168,7 +181,78 @@ internal sealed class SmokePage : ContentPage, IDisposable
         });
     }
 
-    private void ValidateNativeAccessibility(NeraSpreadsheetView view)
+    private static IReadOnlyList<SpreadsheetAnalyticsAccessibleNode>
+        ResolveProjectedAccessibilityNodes(
+            NeraSpreadsheetView view,
+            SKPaintGLSurfaceEventArgs frame)
+    {
+        var renderedNodes = view.AnalyticsAccessibilityNodes;
+        if (renderedNodes.Count > 0)
+        {
+            return renderedNodes;
+        }
+
+        var session = view.Session
+            ?? throw new InvalidOperationException(
+                "The iOS analytics smoke lost its session before accessibility projection.");
+        var placements = session.AnalyticsPlacements.GetPlacements(session.ActiveWorksheet);
+        if (placements.Count == 0)
+        {
+            return [];
+        }
+
+        var canvasWidth = frame.Info.Width > 0
+            ? frame.Info.Width
+            : Math.Max(1d, view.Width);
+        var canvasHeight = frame.Info.Height > 0
+            ? frame.Info.Height
+            : Math.Max(1d, view.Height);
+        var chrome = SpreadsheetChromeGeometry.Calculate(
+            canvasWidth / view.Zoom,
+            canvasHeight / view.Zoom,
+            view.RenderTheme);
+        if (chrome.BodyWidth <= 0d || chrome.BodyHeight <= 0d)
+        {
+            return [];
+        }
+
+        var viewport = new SpreadsheetViewportEngine(session);
+        var scroll = view.ScrollSnapshot;
+        var viewportFrame = viewport.Compose(
+            scroll.OffsetX,
+            scroll.OffsetY,
+            chrome.BodyWidth,
+            chrome.BodyHeight,
+            view.OverscanPixels,
+            view.RenderTheme);
+        var interaction = new SpreadsheetAnalyticsViewportInteractionController(viewport);
+        return interaction.GetAccessibilityNodes(
+            viewportFrame.Layout,
+            item => ResolveAnalyticsName(session, item));
+    }
+
+    private static string? ResolveAnalyticsName(
+        NeraSpreadSheet.Editing.SpreadsheetSession session,
+        SpreadsheetAnalyticsItemKey item)
+    {
+        var worksheet = session.ActiveWorksheet;
+        return item.Kind switch
+        {
+            SpreadsheetAnalyticsItemKind.Chart =>
+                session.Analytics.GetCharts(worksheet)
+                    .FirstOrDefault(value => value.Id == item.Id)
+                    ?.Name,
+            SpreadsheetAnalyticsItemKind.Pivot =>
+                session.Analytics.GetPivots(worksheet)
+                    .FirstOrDefault(value => value.Id == item.Id)
+                    ?.Name,
+            _ => null,
+        };
+    }
+
+    private void ValidateNativeAccessibility(
+        NeraSpreadsheetView view,
+        IReadOnlyList<SpreadsheetAnalyticsAccessibleNode> projectedNodes)
     {
         var host = view.Handler?.PlatformView as UIView
             ?? throw new InvalidOperationException(
@@ -176,7 +260,6 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Require(!host.IsAccessibilityElement,
             "The iOS GPU host should remain an accessibility container, not one monolithic element.");
 
-        var projectedNodes = view.AnalyticsAccessibilityNodes;
         Require(projectedNodes.Count == 2,
             $"Expected two projected analytics nodes but found {projectedNodes.Count}.");
         Require(projectedNodes.Any(node =>
@@ -226,6 +309,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
         {
             status = "success",
             frameCount = _frameCount,
+            projectedNodeCount = projectedNodes.Count,
             nativeElementCount = nativeElements.Length,
             chart = DescribeNativeElement(chart),
             pivot = DescribeNativeElement(pivot),
@@ -343,6 +427,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 analyticsInserted = Volatile.Read(ref _analyticsInserted),
                 nativeValidationStarted = Volatile.Read(ref _nativeValidationStarted),
                 accessibilityNodeCount = _view?.AnalyticsAccessibilityNodes.Count,
+                placementCount = _view?.Session?.AnalyticsPlacements.Placements.Count,
                 gpuDiagnostics = _view?.GpuContextDiagnostics,
                 error = exception.ToString(),
             })}");
