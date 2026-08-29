@@ -3,49 +3,57 @@
 - Repository: `HoangHung997/NeraSpreadSheet`.
 - Branch: `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
-- Combined implementation commit: `716db8c4765e5259a71fd304e624942fa6ae73d8`.
-- Verified implementation CI: run `33230558230` — success on Core, Windows, Android, Apple and MAUI Windows.
+- Latest verified implementation merge checkpoint: `ff7af0da897efc5007645905f529c4bdbe9eb202`.
+- Verified implementation CI: full run `33248651484` — success; iOS gate `33248651481` — success; Q003C/OpenXML gate `33248651547` — success.
 - Formula implementation: **DONE**, **546/546** locked catalog names; formula suite **518/518**.
-- Q001, Q002 and Q003A: **DONE**.
-- Q003B: **ACTIVE**; Android and Mac Catalyst runtime accessibility gates are closed, with only loaded iOS/VoiceOver validation remaining in the ChatGPT lane.
+- Q001, Q002, Q003A, Q003B: **DONE**.
+- Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
+- Q003D: **DONE for standard Excel PivotTable/PivotCache package preservation scope**.
+- Core solution at the verified Q003D checkpoint: **1212/1212 passed**, build/analyzers **0 warnings / 0 errors**, OpenXML **65/65**.
 - Ribbon/Bars desktop stack through `RIBBON-KEYBOARD`: **integrated and green**.
+- `RIBBON-MAUI`: separate Codex lane, still remaining.
+- Weighted implementation-roadmap score: **83.08% ≈ 83%**.
 - PR remains Draft; do not merge or mark Ready.
 
-## Completed in the Ribbon integration
+## Q003B/Q003C/Q003D checkpoint
 
-- Integrated the seven-commit Ribbon stack on top of ChatGPT's green Q003B-MAC checkpoint `1c700aaf7b73113d3cbbe8e8c6093bdc3fce404d`.
-- Added immutable Ribbon/Bars customization, deterministic JSON v1 persistence and legacy-v0 migration.
-- Added command presentation snapshots and runtime controllers that execute only through `CommandDispatcher`.
-- Added native WPF/WinForms Ribbon, toolbar, menu and context-menu presenters.
-- Added native WPF/WinForms customization dialogs and normalized shortcut bindings.
-- Preserved the Apple accessibility files from the ChatGPT lane; the Ribbon integration diff does not touch Apple/Mac Catalyst paths.
+- Floating chart/pivot placement, select/move/resize, Undo/Redo and cross-host native accessibility are closed across WPF, WinForms, MAUI Windows, Android, iOS and Mac Catalyst.
+- Managed charts materialize into standard XLSX drawing/chart parts through `SpreadsheetSession.SaveSessionAsync` and remain stable across repeated session round trips.
+- Foreign drawing content is preserved when the explicit `PreserveUnknownParts = true` import/export contract is enabled.
+- Q003D adds a schema-valid standard Excel PivotTable/PivotCache fixture and proves preservation across repeated `SpreadsheetSession` Load/Save cycles.
+- Q003D preserves workbook/cache, worksheet/pivot and pivot/cache relationship IDs, part URIs, pivot identity and worksheet source metadata.
+- External standard Excel PivotTables are deliberately not silently reclassified as Nera-managed pivots.
+- Q003D required no production serializer change; the existing package-envelope preservation path already satisfies this bounded compatibility contract.
+
+## Ribbon/Bars desktop checkpoint
+
+- Immutable Ribbon/Bars customization, deterministic JSON persistence and legacy migration are integrated.
+- Command presentation snapshots/runtime controllers execute through the shared command dispatcher.
+- Native WPF/WinForms Ribbon, toolbar, menu, context-menu presenters, customization dialogs and normalized shortcut bindings are integrated.
+- Loaded desktop smokes remain green in exact-head CI.
 
 ## Validation
 
-- Local compatibility build with available SDK 10.0.201: **0 warnings, 0 errors**.
-- Local Core solution: **1206/1206 passed**.
-- Local focused desktop Ribbon loaded smokes: **5/5 passed**.
+At implementation checkpoint `ff7af0da897efc5007645905f529c4bdbe9eb202`:
+
+- Core solution: **1212/1212 passed**.
+- Formula: **518/518 passed**.
+- OpenXML: **65/65 passed**.
+- Build/analyzers: **0 warnings, 0 errors**.
 - Architecture verification: **passed**.
-- `git diff --check`: **passed**.
-- GitHub exact implementation HEAD `716db8c`: CI `33230558230` **success**.
-- GitHub Core/analyzers, Windows desktop/runtime, Android loaded accessibility, iOS/Mac Catalyst builds, Mac Catalyst loaded accessibility, MAUI Windows handler and loaded Table-filter/runtime/analytics/scale gates: **all passed**.
-
-## Focus files
-
-- `src/NeraSpreadSheet.Ribbon.Core/`
-- `src/NeraSpreadSheet.Bars.Core/`
-- `src/NeraSpreadSheet.Commands/CommandPresentation.cs`
-- `src/NeraSpreadSheet.Commands/CommandShortcut.cs`
-- `src/NeraSpreadSheet.Wpf/NeraRibbonControl.cs`
-- `src/NeraSpreadSheet.WinForms/NeraRibbonControl.cs`
-- `docs/ribbon-*.md`
+- Windows desktop GPU runtime smoke: **passed**.
+- Android loaded analytics accessibility smoke: **passed**.
+- iOS loaded VoiceOver analytics accessibility smoke: **passed**.
+- Mac Catalyst loaded VoiceOver analytics accessibility smoke: **passed**.
+- MAUI Windows handler + loaded Table-filter/runtime/analytics/scale smokes: **passed**.
 
 ## Remaining limits
 
-- `RIBBON-MAUI` is not implemented; the integrated presenter/customization UI and keyboard binding are WPF/WinForms only.
-- Q003B is not complete until the separate ChatGPT lane supplies target-appropriate loaded iOS/VoiceOver runtime evidence.
-- The machine-local SDK is 10.0.201 while the repository locks 10.0.302; exact GitHub CI with 10.0.302 is the authoritative gate.
+- `RIBBON-MAUI` is not yet closed.
+- Q003D is preservation interoperability only; standard pivot creation from a Nera pivot, semantic import into the Nera pivot model, cache-record interoperability, refresh/calculation equivalence, destination-cell modeling, slicers/timelines and broader Excel UI parity remain.
+- Broader drawing/media compatibility remains beyond the managed chart + foreign drawing preservation gates.
+- Packaging/versioning, plugin trust/isolation/recovery, broader performance/security corpora and final release acceptance remain incomplete.
 
 ## Next single step
 
-Claim and implement `RIBBON-MAUI` on a fresh branch from the final green integration HEAD, without modifying ChatGPT's iOS accessibility lane.
+Keep `RIBBON-MAUI` isolated to Codex. ChatGPT may claim the next non-overlapping compatibility lane only through `docs/worklog/AI_COORDINATION.md`; do not modify Ribbon/MAUI files from that lane.
