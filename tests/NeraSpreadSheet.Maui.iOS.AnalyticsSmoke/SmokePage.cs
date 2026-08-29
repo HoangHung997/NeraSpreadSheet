@@ -25,6 +25,11 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private int _frameCount;
     private int _analyticsInserted;
     private int _nativeValidationStarted;
+    private int _lastProjectedNodeCount;
+    private int _lastFrameWidth;
+    private int _lastFrameHeight;
+    private double _lastProjectionCanvasWidth;
+    private double _lastProjectionCanvasHeight;
     private int _finished;
     private bool _disposed;
 
@@ -91,6 +96,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
         try
         {
             _frameCount++;
+            _lastFrameWidth = e.Info.Width;
+            _lastFrameHeight = e.Info.Height;
             ValidateLoadedHost(view);
 
             var analyticsState = Volatile.Read(ref _analyticsInserted);
@@ -105,22 +112,51 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 return;
             }
 
-            var projectedNodes = ResolveProjectedAccessibilityNodes(view, e);
-            if (projectedNodes.Count == 2 &&
-                Interlocked.CompareExchange(ref _nativeValidationStarted, 1, 0) == 0)
+            var projectedNodes = ResolveProjectedAccessibilityNodes(
+                view,
+                e,
+                out var projectionCanvasWidth,
+                out var projectionCanvasHeight);
+            _lastProjectedNodeCount = projectedNodes.Count;
+            _lastProjectionCanvasWidth = projectionCanvasWidth;
+            _lastProjectionCanvasHeight = projectionCanvasHeight;
+
+            if (projectedNodes.Count != 2)
             {
-                // Hosted iOS simulators can expose a live GRContext while GLKit reports an
-                // incomplete EAGLDrawable. In that environment the view's last rendered layout
-                // can be unavailable even though the host-neutral session/viewport state is
-                // valid. Re-project from that same production state, then feed the real Apple
-                // bridge so this probe still validates UIKit/VoiceOver children rather than a
-                // test-only accessibility implementation.
-                NeraSpreadsheetAppleAnalyticsAccessibilityBridge.Update(
-                    view,
-                    projectedNodes,
-                    e);
-                ValidateNativeAccessibility(view, projectedNodes);
+                // A loaded simulator can deliver an unusable EAGL framebuffer while the
+                // MAUI UIView and spreadsheet state are healthy. Do not silently spin until
+                // timeout: the projection below already uses stable native UIView geometry,
+                // so a remaining mismatch is a real state/projection failure worth surfacing.
+                var placementCount = view.Session?.AnalyticsPlacements
+                    .GetPlacements(view.Session.ActiveWorksheet)
+                    .Count ?? 0;
+                if (placementCount == 2)
+                {
+                    throw new InvalidOperationException(
+                        $"The iOS fallback accessibility projection produced {projectedNodes.Count} nodes " +
+                        $"for {placementCount} placements. frame={e.Info.Width}x{e.Info.Height}, " +
+                        $"projectionCanvas={projectionCanvasWidth:F2}x{projectionCanvasHeight:F2}, " +
+                        $"view={view.Width:F2}x{view.Height:F2}.");
+                }
+                return;
             }
+
+            if (Interlocked.CompareExchange(ref _nativeValidationStarted, 1, 0) != 0)
+            {
+                return;
+            }
+
+            // Hosted iOS simulators can expose a live GRContext while GLKit reports an
+            // incomplete EAGLDrawable. In that environment the view's last rendered layout
+            // can be unavailable even though the host-neutral session/viewport state is
+            // valid. Re-project from that same production state, then feed the real Apple
+            // bridge so this probe still validates UIKit/VoiceOver children rather than a
+            // test-only accessibility implementation.
+            NeraSpreadsheetAppleAnalyticsAccessibilityBridge.Update(
+                view,
+                projectedNodes,
+                e);
+            ValidateNativeAccessibility(view, projectedNodes);
         }
         catch (Exception exception)
         {
@@ -184,11 +220,15 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private static IReadOnlyList<SpreadsheetAnalyticsAccessibleNode>
         ResolveProjectedAccessibilityNodes(
             NeraSpreadsheetView view,
-            SKPaintGLSurfaceEventArgs frame)
+            SKPaintGLSurfaceEventArgs frame,
+            out double projectionCanvasWidth,
+            out double projectionCanvasHeight)
     {
         var renderedNodes = view.AnalyticsAccessibilityNodes;
         if (renderedNodes.Count > 0)
         {
+            projectionCanvasWidth = frame.Info.Width;
+            projectionCanvasHeight = frame.Info.Height;
             return renderedNodes;
         }
 
@@ -198,23 +238,26 @@ internal sealed class SmokePage : ContentPage, IDisposable
         var placements = session.AnalyticsPlacements.GetPlacements(session.ActiveWorksheet);
         if (placements.Count == 0)
         {
+            projectionCanvasWidth = 0d;
+            projectionCanvasHeight = 0d;
             return [];
         }
 
-        var canvasWidth = frame.Info.Width > 0
-            ? frame.Info.Width
-            : Math.Max(1d, view.Width);
-        var canvasHeight = frame.Info.Height > 0
-            ? frame.Info.Height
-            : Math.Max(1d, view.Height);
+        var host = view.Handler?.PlatformView as UIView
+            ?? throw new InvalidOperationException(
+                "The iOS analytics smoke lost its native UIView before fallback projection.");
+        (projectionCanvasWidth, projectionCanvasHeight) = ResolveStableCanvasSize(
+            view,
+            host,
+            frame);
+
         var chrome = SpreadsheetChromeGeometry.Calculate(
-            canvasWidth / view.Zoom,
-            canvasHeight / view.Zoom,
+            projectionCanvasWidth / view.Zoom,
+            projectionCanvasHeight / view.Zoom,
             view.RenderTheme);
-        if (chrome.BodyWidth <= 0d || chrome.BodyHeight <= 0d)
-        {
-            return [];
-        }
+        Require(chrome.BodyWidth > 0d && chrome.BodyHeight > 0d,
+            $"The iOS accessibility projection has no usable body viewport after fallback: " +
+            $"canvas={projectionCanvasWidth:F2}x{projectionCanvasHeight:F2}, zoom={view.Zoom:F3}.");
 
         var viewport = new SpreadsheetViewportEngine(session);
         var scroll = view.ScrollSnapshot;
@@ -229,6 +272,77 @@ internal sealed class SmokePage : ContentPage, IDisposable
         return interaction.GetAccessibilityNodes(
             viewportFrame.Layout,
             item => ResolveAnalyticsName(session, item));
+    }
+
+    private static (double Width, double Height) ResolveStableCanvasSize(
+        NeraSpreadsheetView view,
+        UIView host,
+        SKPaintGLSurfaceEventArgs frame)
+    {
+        var zoom = view.Zoom;
+        var frameWidth = (double)frame.Info.Width;
+        var frameHeight = (double)frame.Info.Height;
+        if (IsUsableCanvasSize(frameWidth, frameHeight, zoom, view.RenderTheme))
+        {
+            return (frameWidth, frameHeight);
+        }
+
+        var nativeWidth = (double)host.Bounds.Width;
+        var nativeHeight = (double)host.Bounds.Height;
+        if (!double.IsFinite(nativeWidth) || nativeWidth <= 0d)
+        {
+            nativeWidth = double.IsFinite(view.Width) && view.Width > 0d
+                ? view.Width
+                : 1024d;
+        }
+        if (!double.IsFinite(nativeHeight) || nativeHeight <= 0d)
+        {
+            nativeHeight = double.IsFinite(view.Height) && view.Height > 0d
+                ? view.Height
+                : 768d;
+        }
+
+        var nativeScale = (double)(host.Window?.Screen.Scale ?? UIScreen.MainScreen.Scale);
+        if (!double.IsFinite(nativeScale) || nativeScale <= 0d)
+        {
+            nativeScale = 1d;
+        }
+
+        var fallbackWidth = nativeWidth * nativeScale;
+        var fallbackHeight = nativeHeight * nativeScale;
+        if (IsUsableCanvasSize(fallbackWidth, fallbackHeight, zoom, view.RenderTheme))
+        {
+            return (fallbackWidth, fallbackHeight);
+        }
+
+        // Last-resort deterministic logical canvas for hosted simulators that report
+        // zero native bounds during a broken GLKit drawable callback. This is used only
+        // to recover the shared viewport projection; native UIKit bounds are still
+        // validated after the real Apple accessibility bridge runs.
+        return (Math.Max(1024d, 1024d * zoom), Math.Max(768d, 768d * zoom));
+    }
+
+    private static bool IsUsableCanvasSize(
+        double width,
+        double height,
+        double zoom,
+        SpreadsheetRenderTheme theme)
+    {
+        if (!double.IsFinite(width) ||
+            !double.IsFinite(height) ||
+            width <= 0d ||
+            height <= 0d ||
+            !double.IsFinite(zoom) ||
+            zoom <= 0d)
+        {
+            return false;
+        }
+
+        var chrome = SpreadsheetChromeGeometry.Calculate(
+            width / zoom,
+            height / zoom,
+            theme);
+        return chrome.BodyWidth > 0d && chrome.BodyHeight > 0d;
     }
 
     private static string? ResolveAnalyticsName(
@@ -311,6 +425,12 @@ internal sealed class SmokePage : ContentPage, IDisposable
             frameCount = _frameCount,
             projectedNodeCount = projectedNodes.Count,
             nativeElementCount = nativeElements.Length,
+            frameSize = new { width = _lastFrameWidth, height = _lastFrameHeight },
+            projectionCanvas = new
+            {
+                width = _lastProjectionCanvasWidth,
+                height = _lastProjectionCanvasHeight,
+            },
             chart = DescribeNativeElement(chart),
             pivot = DescribeNativeElement(pivot),
             chartActivationVerified = true,
@@ -426,8 +546,16 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 frameCount = _frameCount,
                 analyticsInserted = Volatile.Read(ref _analyticsInserted),
                 nativeValidationStarted = Volatile.Read(ref _nativeValidationStarted),
+                projectedNodeCount = _lastProjectedNodeCount,
                 accessibilityNodeCount = _view?.AnalyticsAccessibilityNodes.Count,
                 placementCount = _view?.Session?.AnalyticsPlacements.Placements.Count,
+                frameSize = new { width = _lastFrameWidth, height = _lastFrameHeight },
+                projectionCanvas = new
+                {
+                    width = _lastProjectionCanvasWidth,
+                    height = _lastProjectionCanvasHeight,
+                },
+                viewSize = new { width = _view?.Width, height = _view?.Height },
                 gpuDiagnostics = _view?.GpuContextDiagnostics,
                 error = exception.ToString(),
             })}");
