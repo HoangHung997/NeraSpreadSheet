@@ -4,3 +4,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("NeraSpreadSheet.Maui.Windows.Smoke")]
 [assembly: InternalsVisibleTo("NeraSpreadSheet.Maui.Windows.AnalyticsSmoke")]
 [assembly: InternalsVisibleTo("NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke")]
+[assembly: InternalsVisibleTo("NeraSpreadSheet.Maui.iOS.AnalyticsSmoke")]
