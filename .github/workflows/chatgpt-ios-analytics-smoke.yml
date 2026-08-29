@@ -58,6 +58,9 @@ jobs:
           BUNDLE_ID="com.neraspreadsheet.iosanalyticssmoke"
           ROOT="tests/NeraSpreadSheet.Maui.iOS.AnalyticsSmoke/bin/Debug/net10.0-ios/$NERA_IOS_SMOKE_RID"
           LOG="$RUNNER_TEMP/nera-ios-analytics-smoke.log"
+          UNIFIED_LOG="$RUNNER_TEMP/nera-ios-analytics-unified.log"
+          SUCCESS_MARKER='NERA_IOS_ANALYTICS_SMOKE:{"status":"success"'
+          FAILURE_MARKER='NERA_IOS_ANALYTICS_SMOKE:{"status":"failure"'
 
           APP="$(find "$ROOT" -type d -name 'NeraSpreadSheet.Maui.iOS.AnalyticsSmoke.app' | head -n 1 || true)"
           if [ -z "$APP" ]; then
@@ -88,6 +91,7 @@ jobs:
           xcrun simctl boot "$UDID" 2>/dev/null || true
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" "$APP"
+          SMOKE_STARTED_AT="$(date -u '+%Y-%m-%d %H:%M:%S')"
 
           set +e
           python3 - "$UDID" "$BUNDLE_ID" "$LOG" <<'PY'
@@ -123,26 +127,74 @@ jobs:
           LAUNCH_STATUS=$?
           set -e
 
-          if grep -Fq 'NERA_IOS_ANALYTICS_SMOKE:{"status":"success"' "$LOG"; then
+          finish_success() {
             echo "Loaded iOS VoiceOver analytics accessibility smoke passed."
             xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
             xcrun simctl shutdown "$UDID" 2>/dev/null || true
             exit 0
-          fi
+          }
 
-          if grep -Fq 'NERA_IOS_ANALYTICS_SMOKE:{"status":"failure"' "$LOG"; then
+          finish_failure() {
             echo "Loaded iOS VoiceOver analytics accessibility smoke reported failure."
-          else
-            echo "Loaded iOS VoiceOver analytics accessibility smoke produced no result marker. launch status=$LAUNCH_STATUS"
+            echo "--- iOS smoke console ---"
+            cat "$LOG" || true
+            if [ -s "$UNIFIED_LOG" ]; then
+              echo "--- iOS smoke unified log ---"
+              cat "$UNIFIED_LOG" || true
+            fi
+            echo "--- recent simulator diagnostics ---"
+            xcrun simctl spawn "$UDID" log show --last 5m --style compact \
+              --predicate 'process CONTAINS "NeraSpreadSheet" OR eventMessage CONTAINS "NeraSpreadSheet"' \
+              | tail -n 400 || true
+            xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/nera-ios-analytics-smoke.png" || true
+            xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
+            xcrun simctl shutdown "$UDID" 2>/dev/null || true
+            exit 1
+          }
+
+          if grep -Fq "$SUCCESS_MARKER" "$LOG"; then
+            finish_success
+          fi
+          if grep -Fq "$FAILURE_MARKER" "$LOG"; then
+            finish_failure
           fi
 
-          echo "--- iOS smoke console ---"
-          cat "$LOG" || true
-          echo "--- recent simulator diagnostics ---"
-          xcrun simctl spawn "$UDID" log show --last 5m --style compact \
-            --predicate 'process CONTAINS "NeraSpreadSheet" OR eventMessage CONTAINS "NeraSpreadSheet"' \
-            | tail -n 400 || true
-          xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/nera-ios-analytics-smoke.png" || true
-          xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
-          xcrun simctl shutdown "$UDID" 2>/dev/null || true
-          exit 1
+          # `simctl launch --console` can return successfully before a managed
+          # NSLog/Console.WriteLine marker is delivered to its captured stream.
+          # The marker is still persisted in the simulator unified log. Poll that
+          # log for a bounded period and accept only an explicit smoke result.
+          # This keeps infrastructure timing from producing a false negative while
+          # never converting a missing or explicit failure marker into success.
+          echo "No result marker in launch console (status=$LAUNCH_STATUS); polling simulator unified log."
+          RESULT=""
+          for attempt in $(seq 1 12); do
+            xcrun simctl spawn "$UDID" log show \
+              --start "$SMOKE_STARTED_AT" \
+              --style compact \
+              --predicate 'eventMessage CONTAINS "NERA_IOS_ANALYTICS_SMOKE"' \
+              > "$UNIFIED_LOG" 2>&1 || true
+
+            if grep -Fq "$FAILURE_MARKER" "$UNIFIED_LOG"; then
+              RESULT="failure"
+              break
+            fi
+            if grep -Fq "$SUCCESS_MARKER" "$UNIFIED_LOG"; then
+              RESULT="success"
+              break
+            fi
+
+            echo "No unified-log result marker yet (attempt $attempt/12)."
+            sleep 3
+          done
+
+          if [ "$RESULT" = "success" ]; then
+            echo "Recovered explicit success marker from simulator unified log."
+            finish_success
+          fi
+          if [ "$RESULT" = "failure" ]; then
+            echo "Recovered explicit failure marker from simulator unified log."
+            finish_failure
+          fi
+
+          echo "Loaded iOS VoiceOver analytics accessibility smoke produced no result marker after bounded unified-log polling. launch status=$LAUNCH_STATUS"
+          finish_failure
