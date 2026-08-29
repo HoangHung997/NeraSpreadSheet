@@ -2,7 +2,7 @@
 
 ## Overall roadmap implementation progress
 
-The fixed weighted roadmap rubric in [`project-progress.md`](project-progress.md) currently evaluates to **82.78%**, reported as **83%**. This is an implementation-roadmap score, not a claim that NeraSpreadSheet implements 83% of every Microsoft Excel feature and not a production-readiness percentage.
+The fixed weighted roadmap rubric in [`project-progress.md`](project-progress.md) currently evaluates to **83.08%**, reported as **83%**. This is an implementation-roadmap score, not a claim that NeraSpreadSheet implements 83% of every Microsoft Excel feature and not a production-readiness percentage.
 
 ## Formula subsystem — CLOSED
 
@@ -31,8 +31,6 @@ Q003A added chart models/projection (Column, Bar, Line, Pie), pivot models/proje
 
 ## Q003B — floating analytics interaction + native accessibility — DONE
 
-Combined implementation checkpoint: `5500d2e7cae8097891f5d152afd0a6f89acd08a6`.
-
 Validated capabilities include:
 
 - host-neutral analytics placement state, viewport mapping and floating chart/pivot overlay composition;
@@ -47,31 +45,9 @@ Validated capabilities include:
 - native names/identifiers, roles, visible/clipped bounds and activation-to-selection behavior;
 - preservation of the single GPU-backed spreadsheet surface without creating a native control per cell.
 
-### Combined exact-head evidence
-
-- full CI: **#1204 / run 33242739854 — success**;
-- iOS analytics accessibility gate: **#7 / run 33242739858 — success**;
-- Core solution: **1210/1210 passed**, **0 warnings**, **0 errors**;
-- Core **110/110**;
-- Editing **209/209**;
-- Interaction **20/20**;
-- Rendering.Spreadsheet **118/118**;
-- Rendering.Skia **14/14**;
-- Viewport **56/56**;
-- Formulas **518/518**;
-- OpenXML **63/63**;
-- architecture verification: **passed**;
-- Windows hosts + desktop GPU runtime smoke: **passed**;
-- MAUI Android build + loaded analytics accessibility smoke: **passed**;
-- MAUI iOS build + loaded analytics accessibility smoke: **passed**;
-- MAUI Mac Catalyst build + loaded analytics accessibility smoke: **passed**;
-- MAUI Windows build + handler-resolution + loaded Table-filter/runtime/analytics/scale smokes: **passed**.
-
-The previously bounded iOS runtime gap is therefore closed. Q003B is no longer ACTIVE.
+The previously bounded iOS runtime gap is closed. Q003B is no longer ACTIVE.
 
 ## Q003C — analytics/OpenXML managed chart persistence — DONE FOR DEFINED SCOPE
-
-Q003C is locked by the same combined checkpoint plus dedicated gate **#4 / run 33242739856 — success**.
 
 Implemented and validated:
 
@@ -82,7 +58,46 @@ Implemented and validated:
 - foreign/third-party drawing content survives analytics Save → Load → Save when the existing opt-in `PreserveUnknownParts = true` import/export contract is enabled;
 - standard generated drawing/chart markup remains OpenXML-schema valid.
 
-Q003C does **not** claim full Microsoft Excel pivot-table package interoperability. Standard pivot cache/pivot-table parts and broader drawing/media object types remain later compatibility work.
+Q003C does not claim standard Excel pivot creation/import.
+
+## Q003D — standard Excel PivotTable/PivotCache preservation — DONE FOR DEFINED SCOPE
+
+Q003D was implemented test-first and required **no production serializer patch**: the existing package-envelope preservation path already preserves a schema-valid standard Excel PivotTable/PivotCache graph when preservation is explicitly enabled.
+
+Regression coverage proves that:
+
+- an existing workbook-level `pivotCaches` entry and `PivotTableCacheDefinitionPart` survive `SpreadsheetSession` Load → Save;
+- the worksheet `PivotTablePart` survives and continues to point at the same cache-definition part;
+- workbook → cache, worksheet → pivot and pivot → cache relationship IDs remain stable across repeated save cycles;
+- standard pivot/cache part URIs, pivot name/cache ID and worksheet source `sheet`/`ref` metadata remain stable;
+- the preserved standard pivot graph remains OpenXML-schema valid;
+- a Nera-managed pivot may be added to the same session without destroying or taking ownership of the external standard PivotTable package graph;
+- a standard external Excel PivotTable is not silently imported or reclassified as a Nera-managed pivot merely because package preservation is enabled.
+
+This is intentionally **preservation interoperability**, not full pivot semantic interoperability. Still open: creation of standard Excel pivot parts from a Nera pivot, semantic import of an Excel pivot into the Nera model, cache-record interoperability, refresh/calculation equivalence, pivot destination-cell modeling, slicers/timelines and broader Excel UI parity.
+
+### Combined exact-head evidence for Q003B/Q003C/Q003D
+
+Combined implementation checkpoint: `ff7af0da897efc5007645905f529c4bdbe9eb202`.
+
+- full CI: **#1209 / run 33248651484 — success**;
+- iOS analytics accessibility gate: **#12 / run 33248651481 — success**;
+- Q003C/OpenXML gate: **#9 / run 33248651547 — success**;
+- Core solution: **1212/1212 passed**, **0 warnings**, **0 errors**;
+- Core **110/110**;
+- Editing **209/209**;
+- Interaction **20/20**;
+- Rendering.Spreadsheet **118/118**;
+- Rendering.Skia **14/14**;
+- Viewport **56/56**;
+- Formulas **518/518**;
+- OpenXML **65/65**;
+- architecture verification: **passed**;
+- Windows hosts + desktop GPU runtime smoke: **passed**;
+- MAUI Android build + loaded analytics accessibility smoke: **passed**;
+- MAUI iOS build + loaded analytics accessibility smoke: **passed**;
+- MAUI Mac Catalyst build + loaded analytics accessibility smoke: **passed**;
+- MAUI Windows build + handler-resolution + loaded Table-filter/runtime/analytics/scale smokes: **passed**.
 
 ## Ribbon and Bars SDK — DESKTOP STACK INTEGRATED
 
@@ -100,4 +115,4 @@ Remaining Ribbon work is **`RIBBON-MAUI`**: MAUI presentation, customization UI/
 
 ## Current boundaries
 
-PR #1 remains **Draft, open and unmerged**. Q003B and the defined Q003C scope are closed, but the repository is not release-ready. Major remaining roadmap areas include `RIBBON-MAUI`, standard Excel pivot-table-part interoperability, broader drawing/media compatibility, packaging/versioning, security/isolation/recovery hardening and final acceptance/release evidence.
+PR #1 remains **Draft, open and unmerged**. Q003B, Q003C and the defined Q003D preservation scope are closed, but the repository is not release-ready. Major remaining roadmap areas include `RIBBON-MAUI`, standard Excel pivot creation/semantic import/cache-record compatibility, broader drawing/media compatibility, packaging/versioning, security/isolation/recovery hardening and final acceptance/release evidence.
