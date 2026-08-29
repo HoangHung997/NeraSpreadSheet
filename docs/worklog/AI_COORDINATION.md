@@ -12,17 +12,17 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: HELD
-  owner: CHATGPT
-  lease_id: CHATGPT-Q003D-PIVOT-20260829T102800Z
-  acquired_utc: 2026-08-29T10:28:00Z
-  expires_utc: 2026-08-29T10:38:00Z
-  purpose: Claim Q003D pivot OpenXML interoperability lane
+  state: FREE
+  owner: NONE
+  lease_id: NONE
+  acquired_utc: NONE
+  expires_utc: NONE
+  purpose: NONE
 
 last_update:
-  utc: 2026-08-29T03:25:40Z
-  writer: CODEX
-  summary: Ribbon desktop stack integrated at d177500; exact-head CI 33231004864 green; integrator role returned to ChatGPT for the iOS lane.
+  utc: 2026-08-29T10:30:00Z
+  writer: CHATGPT
+  summary: Q003B/Q003C exact-head green at 07eee455; Q003D pivot OpenXML preservation lane claimed; RIBBON-MAUI remains Codex-owned and unstarted.
 ```
 
 `write_lock` chỉ khóa việc sửa **file điều phối này**. Không giữ khóa trong lúc viết
@@ -52,8 +52,8 @@ code, build, test hoặc chờ CI. Thời hạn khóa tối đa là 10 phút.
 | Vai trò | Người giữ hiện tại | Trách nhiệm |
 |---|---|---|
 | `INTEGRATOR` | ChatGPT | Giữ branch tích hợp, merge tuần tự, cập nhật tài liệu chung và chạy exact-head CI. |
-| `WORKER_CHATGPT` | ChatGPT | Q003B/Mac Catalyst và các file đã được cấp riêng. |
-| `WORKER_CODEX` | Codex | Ribbon/Bars customization trên branch và worktree riêng. |
+| `WORKER_CHATGPT` | ChatGPT | Q003D standard Excel pivot OpenXML package preservation/interoperability; không chạm MAUI/Ribbon. |
+| `WORKER_CODEX` | Codex | `RIBBON-MAUI` trên branch/worktree riêng khi claim; không chạm Q003D OpenXML paths. |
 | `OWNER` | Người dùng | Đổi ưu tiên, giải quyết xung đột phạm vi và cho phép merge/release. |
 
 `INTEGRATOR` là vai trò, không phải quyền sở hữu vĩnh viễn. Muốn chuyển vai trò phải
@@ -65,6 +65,9 @@ cập nhật file này khi đang giữ `write_lock`.
 |---|---|---|---|---|---|---|
 | `COORD-001` | `DONE` | Codex | `coordination/ai-work-queue` | `docs/worklog/AI_COORDINATION.md` | Không | File có trên GitHub và đọc được bằng raw/API. |
 | `Q003B-MAC` | `DONE` | ChatGPT | `ai/chatgpt/q003b-mac` | `src/NeraSpreadSheet.Maui/**Apple**`, `src/NeraSpreadSheet.Maui/**MacCatalyst**`, `tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/**`, `scripts/run-maui-maccatalyst-smoke.sh` | Không | HEAD `1c700aaf7b73113d3cbbe8e8c6093bdc3fce404d`; exact-head CI `33170632141` success, gồm loaded Mac Catalyst analytics accessibility smoke. |
+| `Q003B-IOS` | `DONE` | ChatGPT | `ai/chatgpt/q003b-ios` | iOS analytics accessibility bridge/smoke + integration harness | `Q003B-MAC` | Combined HEAD `07eee455b5bb7ca3c18540a8426c37b369bfa35c`; iOS gate `33243479589` success; full CI `33243479590` success. |
+| `Q003C-OPENXML` | `DONE` | ChatGPT | `ai/chatgpt/q003c-analytics-openxml` | Managed analytics/chart session OpenXML persistence + regression tests | Q003B stable | Combined HEAD `07eee455b5bb7ca3c18540a8426c37b369bfa35c`; Q003C gate `33243479594` success; OpenXML 63/63. |
+| `Q003D-PIVOT-OPENXML` | `CLAIMED` | ChatGPT | `ai/chatgpt/q003d-pivot-openxml` | `src/NeraSpreadSheet.OpenXml/NeraOpenXmlSpreadsheetSessionSerializer.cs`, new `src/NeraSpreadSheet.OpenXml/*Pivot*`, new `tests/NeraSpreadSheet.OpenXml.Tests/*Pivot*` | Base `07eee455b5bb7ca3c18540a8426c37b369bfa35c`; Q003C green; no MAUI/Ribbon overlap | Lock standard Excel pivot cache/table package preservation across session save cycles; do not invent a Core destination-cell model or claim full pivot creation/import. |
 | `RIBBON-001` | `DONE` | Codex | `ai/codex/ribbon-bars-customization` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, test riêng của hai module, contract riêng | Base `fea278057465a983d85c0b472532a2d13c644c37`; không giao Q003B-MAC | Commit `d2d009cc909a3f16b242a282444ae8011727fa31`; local Core 1162/1162 và architecture verification passed; run `33145751287` xanh Core/Windows/Android/MAUI Windows nhưng Mac Catalyst runtime smoke đỏ 2 lần, thuộc `Q003B-MAC`. Combined HEAD `d177500940c0dce75f9899d17d86ed58b2b7a04f`; exact-head CI `33231004864` success. |
 | `RIBBON-002` | `DONE` | Codex | `ai/codex/ribbon-bars-persistence` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, persistence tests của hai module, `docs/ribbon-bars-persistence-contract.md` | Stacked trên `RIBBON-001` commit `d2d009cc909a3f16b242a282444ae8011727fa31`; OWNER cho phép tiếp tục trước tích hợp | Commit `f31223e0a82b24b4da0dd0426741d1bcff99c67d`; local 1178/1178; run `33148789081` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ sau window activation thuộc `Q003B-MAC`; tích hợp tuần tự `d2d009c` rồi `f31223e`. Combined HEAD `d177500940c0dce75f9899d17d86ed58b2b7a04f`; exact-head CI `33231004864` success. |
 | `RIBBON-003` | `DONE` | Codex | `ai/codex/ribbon-bars-presentation` | `src/NeraSpreadSheet.Commands/CommandPresentation.cs`, `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, presentation tests trong `NeraSpreadSheet.Commands.Tests`, `docs/ribbon-bars-presentation-contract.md` | Stacked trên `RIBBON-002` commit `f31223e0a82b24b4da0dd0426741d1bcff99c67d`; OWNER yêu cầu tiếp tục | Commit `fb2284907ad3659e7b7aae6d8ecacaccc29415e4`; local 1184/1184; run `33150555391` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ thuộc `Q003B-MAC`; tích hợp tuần tự `d2d009c`, `f31223e`, `fb22849`. Combined HEAD `d177500940c0dce75f9899d17d86ed58b2b7a04f`; exact-head CI `33231004864` success. |
@@ -99,6 +102,7 @@ Mỗi worker chỉ có tối đa một task `CLAIMED`, `IN_PROGRESS`, `LOCAL_GRE
 | 6 | `RIBBON-DESKTOP` | Codex | Presenter và runtime smoke WPF/WinForms | `RIBBON-004` có evidence sẵn sàng |
 | 7 | `RIBBON-CUSTOMIZE-UI` | Codex | Phiên tùy biến và dialog native WPF/WinForms cho ẩn/hiện, đổi thứ tự và kích thước item | OWNER yêu cầu tiếp tục; stack trên desktop presenter |
 | 8 | RIBBON-MAUI | Codex | Presenter và runtime smoke MAUI, không chạm code Apple đang khóa | `Q003B-MAC` kết thúc và desktop presenter ổn định |
+| 9 | `Q003D-PIVOT-OPENXML` | ChatGPT | Standard Excel pivot cache/table package preservation + session round-trip compatibility; no new Core destination model | OWNER yêu cầu tiếp tục; Q003C exact-head xanh; không giao `RIBBON-MAUI` |
 | 10 | `RIBBON-CLOSE` | ChatGPT (`INTEGRATOR`) | Tích hợp stack, cập nhật tài liệu dùng chung và exact-head CI | Tất cả task Ribbon đầu vào sẵn sàng |
 | 11 | `INTEGRATE-001` | ChatGPT | Merge tuần tự và chạy exact-head CI tổng hợp | Các task đầu vào sẵn sàng |
 
@@ -253,7 +257,7 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 
 | 2026-08-28T05:28:42Z | `LOCK_ACQUIRED` | Codex | `RIBBON-001` | Lease `CODEX-RIBBON-001-20260828T052842Z` acquired for task claim. |
 
-| 2026-08-28T05:29:11Z | `CLAIMED` | Codex | `RIBBON-001` | Branch `ai/codex/ribbon-bars-customization`; base `fea278057465a983d85c0b472532a2d13c644c37`; no Mac/shared paths; lease released. |
+| 2026-08-28T05:29:11Z | `CLAIMED` | Codex | `RIBBON-001` | Branch `ai/codex/ribbon-bars-customization`; base `fea278057465a983d85c0b472532a2d13c644c37`; exclusive paths giữ nguyên theo bảng task. |
 
 | 2026-08-28T05:31:30Z | `IN_PROGRESS` | Codex | `RIBBON-001` | Isolated worktree created at base `fea278057465a983d85c0b472532a2d13c644c37`; scope unchanged; lease released. |
 
@@ -289,7 +293,7 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 
 | 2026-08-28T07:44:32Z | `COORDINATION_REPAIRED` | Codex | `RIBBON-004` | Sửa dòng backlog bị chèn sai và phần purpose bị nối dư trong lượt claim; không thay đổi phạm vi hay trạng thái task. |
 
-| 2026-08-28T07:45:13Z | `IN_PROGRESS` | Codex | `RIBBON-004` | Branch `ai/codex/ribbon-bars-runtime` created at `fb22849`; required docs, contracts, command dispatcher and focused tests reviewed; lease released. |
+| 2026-08-28T07:45:13Z | `IN_PROGRESS` | Codex | `RIBBON-004` | Branch `ai/codex/ribbon-bars-runtime` created at `fb22849`; required docs, contracts, command dispatcher and focused tests reviewed; scope unchanged; lease released. |
 
 | 2026-08-28T07:50:37Z | `LOCAL_GREEN` | Codex | `RIBBON-004` | Commit `8e95f7a` pushed; focused 44/44, Core 1190/1190, build/analyzers 0 warnings/errors, architecture and sensitive scan passed; lease released. |
 
@@ -315,7 +319,7 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 
 | 2026-08-28T08:41:19Z | `CI_RUNNING` | Codex | `RIBBON-CUSTOMIZE-UI` | Exact-head run `33156296542` started for `7f8471e15ef0189bd192e6ac3fbc3515e2b41894`. |
 
-| 2026-08-28T08:49:08Z | `BLOCKED` | Codex | `RIBBON-CUSTOMIZE-UI` | Run `33156296542` at `7f8471e`: Core, Windows desktop, Android and MAUI Windows green; only existing Mac Catalyst runtime smoke failed under `Q003B-MAC`. |
+| 2026-08-28T08:49:08Z | `BLOCKED` | Codex | `RIBBON-CUSTOMIZE-UI` | Run `33156296542` at `7f8471e`: Core, Windows desktop, Android và MAUI Windows green; only existing Mac Catalyst runtime smoke failed under `Q003B-MAC`. |
 
 | 2026-08-28T08:50:37Z | `CLAIMED` | Codex | `RIBBON-KEYBOARD` | OWNER yêu cầu tiếp tục Ribbon; shortcut activation and desktop keyboard binding stack on `7f8471e` with no Apple/Mac path overlap. |
 
@@ -336,13 +340,14 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 | 2026-08-29T03:26:52Z | `COORDINATION_REPAIRED` | Codex | `INTEGRATE-001` | Added the already-verified final HEAD/CI evidence to the three completed Ribbon rows whose trailing-space format skipped the prior append; status and code unchanged. |
 
 | 2026-08-29T10:28:00Z | `LOCK_ACQUIRED` | ChatGPT | `Q003D-PIVOT-OPENXML` | Lease `CHATGPT-Q003D-PIVOT-20260829T102800Z` acquired to claim an OpenXML-only pivot compatibility task; no MAUI/Ribbon overlap. |
+| 2026-08-29T10:30:00Z | `CLAIMED` | ChatGPT | `Q003D-PIVOT-OPENXML` | Branch `ai/chatgpt/q003d-pivot-openxml`; base `07eee455b5bb7ca3c18540a8426c37b369bfa35c`; exclusive OpenXML/session pivot compatibility paths recorded; lease released. |
 
 ## 11. Prompt ngắn gửi cho mỗi AI
 
 ```text
 Trước khi làm việc, đọc AGENTS.md và file
 docs/worklog/AI_COORDINATION.md trên branch coordination/ai-work-queue trực tiếp
-ừ GitHub. Tuân thủ single-writer lease và GitHub Contents API compare-and-swap.
+từ GitHub. Tuân thủ single-writer lease và GitHub Contents API compare-and-swap.
 Không bắt đầu task nếu chưa CLAIMED, không sửa ngoài exclusive_paths, không sửa
 branch/worktree của AI kia, không force-push. Khi xong phải push branch, chạy CI đúng
 SHA, cập nhật handoff rồi chuyển READY_FOR_INTEGRATION. Nếu gặp lock HELD hoặc lỗi
