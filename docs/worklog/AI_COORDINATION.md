@@ -12,17 +12,17 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: HELD
-  owner: CODEX
-  lease_id: CODEX-INTEGRATION-CLOSE-20260829T032508Z
-  acquired_utc: 2026-08-29T03:25:08Z
-  expires_utc: 2026-08-29T03:35:08Z
-  purpose: Close verified Ribbon integration and return integrator role.
+  state: FREE
+  owner: NONE
+  lease_id: NONE
+  acquired_utc: NONE
+  expires_utc: NONE
+  purpose: NONE
 
 last_update:
-  utc: 2026-08-29T03:01:43Z
+  utc: 2026-08-29T03:25:40Z
   writer: CODEX
-  summary: OWNER and ChatGPT handoff transferred integration; Q003B-MAC green at 1c700aaf and full Ribbon stack queued for combined-head validation.
+  summary: Ribbon desktop stack integrated at d177500; exact-head CI 33231004864 green; integrator role returned to ChatGPT for the iOS lane.
 ```
 
 `write_lock` chỉ khóa việc sửa **file điều phối này**. Không giữ khóa trong lúc viết
@@ -51,7 +51,7 @@ code, build, test hoặc chờ CI. Thời hạn khóa tối đa là 10 phút.
 
 | Vai trò | Người giữ hiện tại | Trách nhiệm |
 |---|---|---|
-| `INTEGRATOR` | Codex | Giữ branch tích hợp, merge tuần tự, cập nhật tài liệu chung và chạy exact-head CI. |
+| `INTEGRATOR` | ChatGPT | Giữ branch tích hợp, merge tuần tự, cập nhật tài liệu chung và chạy exact-head CI. |
 | `WORKER_CHATGPT` | ChatGPT | Q003B/Mac Catalyst và các file đã được cấp riêng. |
 | `WORKER_CODEX` | Codex | Ribbon/Bars customization trên branch và worktree riêng. |
 | `OWNER` | Người dùng | Đổi ưu tiên, giải quyết xung đột phạm vi và cho phép merge/release. |
@@ -65,14 +65,14 @@ cập nhật file này khi đang giữ `write_lock`.
 |---|---|---|---|---|---|---|
 | `COORD-001` | `DONE` | Codex | `coordination/ai-work-queue` | `docs/worklog/AI_COORDINATION.md` | Không | File có trên GitHub và đọc được bằng raw/API. |
 | `Q003B-MAC` | `DONE` | ChatGPT | `ai/chatgpt/q003b-mac` | `src/NeraSpreadSheet.Maui/**Apple**`, `src/NeraSpreadSheet.Maui/**MacCatalyst**`, `tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/**`, `scripts/run-maui-maccatalyst-smoke.sh` | Không | HEAD `1c700aaf7b73113d3cbbe8e8c6093bdc3fce404d`; exact-head CI `33170632141` success, gồm loaded Mac Catalyst analytics accessibility smoke. |
-| `RIBBON-001` | `READY_FOR_INTEGRATION` | Codex | `ai/codex/ribbon-bars-customization` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, test riêng của hai module, contract riêng | Base `fea278057465a983d85c0b472532a2d13c644c37`; không giao Q003B-MAC | Commit `d2d009cc909a3f16b242a282444ae8011727fa31`; local Core 1162/1162 và architecture xanh; run `33145751287` xanh Core/Windows/Android/MAUI Windows nhưng Mac Catalyst runtime smoke đỏ 2 lần, thuộc `Q003B-MAC`. |
-| `RIBBON-002` | `READY_FOR_INTEGRATION` | Codex | `ai/codex/ribbon-bars-persistence` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, persistence tests của hai module, `docs/ribbon-bars-persistence-contract.md` | Stacked trên `RIBBON-001` commit `d2d009cc909a3f16b242a282444ae8011727fa31`; OWNER cho phép tiếp tục trước tích hợp | Commit `f31223e0a82b24b4da0dd0426741d1bcff99c67d`; local 1178/1178; run `33148789081` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ sau window activation thuộc `Q003B-MAC`; tích hợp tuần tự `d2d009c` rồi `f31223e`. |
-| `RIBBON-003` | `READY_FOR_INTEGRATION` | Codex | `ai/codex/ribbon-bars-presentation` | `src/NeraSpreadSheet.Commands/CommandPresentation.cs`, `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, presentation tests trong `NeraSpreadSheet.Commands.Tests`, `docs/ribbon-bars-presentation-contract.md` | Stacked trên `RIBBON-002` commit `f31223e0a82b24b4da0dd0426741d1bcff99c67d`; OWNER yêu cầu tiếp tục | Commit `fb2284907ad3659e7b7aae6d8ecacaccc29415e4`; local 1184/1184; run `33150555391` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ thuộc `Q003B-MAC`; tích hợp tuần tự `d2d009c`, `f31223e`, `fb22849`. |
-| `RIBBON-004` | `READY_FOR_INTEGRATION` | Codex | `ai/codex/ribbon-bars-runtime` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, runtime tests trong `NeraSpreadSheet.Commands.Tests`, `docs/ribbon-bars-runtime-contract.md` | Stacked trên `RIBBON-003` commit `fb2284907ad3659e7b7aae6d8ecacaccc29415e4`; OWNER yêu cầu tiếp tục đến khi hoàn thành Ribbon | Commit `8e95f7a3000bee1a515101369c61cb09e613d286` pushed; focused 44/44, Core 1190/1190, build 0 warnings/errors, architecture và sensitive scan xanh; run `33153003700` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ thuộc `Q003B-MAC`. |
-| `RIBBON-DESKTOP` | `READY_FOR_INTEGRATION` | Codex | `ai/codex/ribbon-desktop-presenters` | `src/NeraSpreadSheet.Wpf/**Ribbon**`, `src/NeraSpreadSheet.Wpf/**Bar**`, `src/NeraSpreadSheet.WinForms/**Ribbon**`, `src/NeraSpreadSheet.WinForms/**Bar**`, hai host csproj, desktop presenter tests riêng, `docs/ribbon-desktop-presenter-contract.md` | Stacked trên `RIBBON-004` commit `8e95f7a3000bee1a515101369c61cb09e613d286`; không giao path Apple/Mac Catalyst | Commit `3a6f7e54e17ca5d996a469653672fc9375a72010` pushed; exact-head run `33154620901`: Core, Windows desktop (gồm presenter smoke), Android và MAUI Windows xanh; chỉ Mac Catalyst runtime smoke cũ đỏ thuộc `Q003B-MAC`. Local: Ribbon loaded smoke 2/2, Core 1190/1190, architecture xanh. |
-| `RIBBON-CUSTOMIZE-UI` | `READY_FOR_INTEGRATION` | Codex | `ai/codex/ribbon-customization-ui` | New customization-session files in Ribbon.Core/Bars.Core; new WPF/WinForms customization dialog files; focused session/UI tests; `docs/ribbon-customization-ui-contract.md` | Stack trên `3a6f7e5`; OWNER yêu cầu tiếp tục Ribbon; không chạm Apple/Mac Catalyst | Commit `7f8471e15ef0189bd192e6ac3fbc3515e2b41894` pushed; focused session/UI 8/8, Core 1196/1196, builds 0 warnings/errors, architecture và sensitive scan xanh. Full local Windows 47/49; chỉ hai lỗi môi trường WPF cũ DPI 125% và foreground activation. |
-| `RIBBON-KEYBOARD` | `READY_FOR_INTEGRATION` | Codex | `ai/codex/ribbon-keyboard` | Shortcut resolver/runtime activation in Commands/Ribbon/Bars; WPF/WinForms Ribbon/Bar keyboard binding; focused tests; `docs/ribbon-keyboard-contract.md` | Stack trên `7f8471e`; OWNER yêu cầu tiếp tục; không chạm Apple/Mac Catalyst | Commit `c4d61f70e5ebac7f4b302cc17427ce1994b5813d`; run `33157521450` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ thuộc `Q003B-MAC`; Core 1206/1206. |
-| `INTEGRATE-001` | `INTEGRATING` | Codex (`INTEGRATOR`) | `feature/bootstrap-architecture-v0.1` | Tích hợp tuần tự `Q003B-MAC` và toàn bộ stack `RIBBON-001` đến `RIBBON-KEYBOARD`; cập nhật tài liệu dùng chung | Q003B-MAC xanh tại `1c700aaf`; 7 commit Ribbon đã có evidence riêng | Exact-head CI của HEAD kết hợp phải xanh toàn bộ; PR vẫn Draft, không merge. |
+| `RIBBON-001` | `DONE` | Codex | `ai/codex/ribbon-bars-customization` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, test riêng của hai module, contract riêng | Base `fea278057465a983d85c0b472532a2d13c644c37`; không giao Q003B-MAC | Commit `d2d009cc909a3f16b242a282444ae8011727fa31`; local Core 1162/1162 và architecture xanh; run `33145751287` xanh Core/Windows/Android/MAUI Windows nhưng Mac Catalyst runtime smoke đỏ 2 lần, thuộc `Q003B-MAC`. Combined HEAD `d177500940c0dce75f9899d17d86ed58b2b7a04f`; exact-head CI `33231004864` success. |
+| `RIBBON-002` | `DONE` | Codex | `ai/codex/ribbon-bars-persistence` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, persistence tests của hai module, `docs/ribbon-bars-persistence-contract.md` | Stacked trên `RIBBON-001` commit `d2d009cc909a3f16b242a282444ae8011727fa31`; OWNER cho phép tiếp tục trước tích hợp | Commit `f31223e0a82b24b4da0dd0426741d1bcff99c67d`; local 1178/1178; run `33148789081` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ sau window activation thuộc `Q003B-MAC`; tích hợp tuần tự `d2d009c` rồi `f31223e`. Combined HEAD `d177500940c0dce75f9899d17d86ed58b2b7a04f`; exact-head CI `33231004864` success. |
+| `RIBBON-003` | `DONE` | Codex | `ai/codex/ribbon-bars-presentation` | `src/NeraSpreadSheet.Commands/CommandPresentation.cs`, `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, presentation tests trong `NeraSpreadSheet.Commands.Tests`, `docs/ribbon-bars-presentation-contract.md` | Stacked trên `RIBBON-002` commit `f31223e0a82b24b4da0dd0426741d1bcff99c67d`; OWNER yêu cầu tiếp tục | Commit `fb2284907ad3659e7b7aae6d8ecacaccc29415e4`; local 1184/1184; run `33150555391` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ thuộc `Q003B-MAC`; tích hợp tuần tự `d2d009c`, `f31223e`, `fb22849`. Combined HEAD `d177500940c0dce75f9899d17d86ed58b2b7a04f`; exact-head CI `33231004864` success. |
+| `RIBBON-004` | `DONE` | Codex | `ai/codex/ribbon-bars-runtime` | `src/NeraSpreadSheet.Ribbon.Core/**`, `src/NeraSpreadSheet.Bars.Core/**`, runtime tests trong `NeraSpreadSheet.Commands.Tests`, `docs/ribbon-bars-runtime-contract.md` | Stacked trên `RIBBON-003` commit `fb2284907ad3659e7b7aae6d8ecacaccc29415e4`; OWNER yêu cầu tiếp tục đến khi hoàn thành Ribbon | Commit `8e95f7a3000bee1a515101369c61cb09e613d286` pushed; focused 44/44, Core 1190/1190, build 0 warnings/errors, architecture và sensitive scan xanh; run `33153003700` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ thuộc `Q003B-MAC`. Combined HEAD `d177500940c0dce75f9899d17d86ed58b2b7a04f`; exact-head CI `33231004864` success. |
+| `RIBBON-DESKTOP` | `DONE` | Codex | `ai/codex/ribbon-desktop-presenters` | `src/NeraSpreadSheet.Wpf/**Ribbon**`, `src/NeraSpreadSheet.Wpf/**Bar**`, `src/NeraSpreadSheet.WinForms/**Ribbon**`, `src/NeraSpreadSheet.WinForms/**Bar**`, hai host csproj, desktop presenter tests riêng, `docs/ribbon-desktop-presenter-contract.md` | Stacked trên `RIBBON-004` commit `8e95f7a3000bee1a515101369c61cb09e613d286`; không giao path Apple/Mac Catalyst | Commit `3a6f7e54e17ca5d996a469653672fc9375a72010` pushed; exact-head run `33154620901`: Core, Windows desktop (gồm presenter smoke), Android và MAUI Windows xanh; chỉ Mac Catalyst runtime smoke cũ đỏ thuộc `Q003B-MAC`. Local: Ribbon loaded smoke 2/2, Core 1190/1190, architecture xanh. |
+| `RIBBON-CUSTOMIZE-UI` | `DONE` | Codex | `ai/codex/ribbon-customization-ui` | New customization-session files in Ribbon.Core/Bars.Core; new WPF/WinForms customization dialog files; focused session/UI tests; `docs/ribbon-customization-ui-contract.md` | Stack trên `3a6f7e5`; OWNER yêu cầu tiếp tục Ribbon; không chạm Apple/Mac Catalyst | Commit `7f8471e15ef0189bd192e6ac3fbc3515e2b41894` pushed; focused session/UI 8/8, Core 1196/1196, builds 0 warnings/errors, architecture và sensitive scan xanh. Full local Windows 47/49; chỉ hai lỗi môi trường WPF cũ DPI 125% và foreground activation. |
+| `RIBBON-KEYBOARD` | `DONE` | Codex | `ai/codex/ribbon-keyboard` | Shortcut resolver/runtime activation in Commands/Ribbon/Bars; WPF/WinForms Ribbon/Bar keyboard binding; focused tests; `docs/ribbon-keyboard-contract.md` | Stack trên `7f8471e`; OWNER yêu cầu tiếp tục; không chạm Apple/Mac Catalyst | Commit `c4d61f70e5ebac7f4b302cc17427ce1994b5813d`; run `33157521450` xanh Core/Windows/Android/MAUI Windows, chỉ Mac Catalyst runtime đỏ thuộc `Q003B-MAC`; Core 1206/1206. |
+| `INTEGRATE-001` | `DONE` | Codex (`INTEGRATOR` at integration time) | `feature/bootstrap-architecture-v0.1` | Integrated `Q003B-MAC` and `RIBBON-001` through `RIBBON-KEYBOARD`; synchronized shared status/roadmap/worklog | Q003B-MAC green at `1c700aaf`; seven Ribbon commits integrated sequentially | Final HEAD `d177500940c0dce75f9899d17d86ed58b2b7a04f`; exact-head CI `33231004864` success on Core, Windows, Android, Apple and MAUI Windows. PR remains Draft and unmerged. |
 
 ### Trạng thái hợp lệ
 
@@ -342,6 +342,8 @@ Chỉ thêm dòng mới ở cuối bảng trong lúc đang giữ khóa. Không s
 | 2026-08-28T09:10:17Z | `COORDINATION_REPAIRED` | Codex | `RIBBON-KEYBOARD` | Restored missing active row and backticks around INTEGRATE-001 from existing claim/log/commit/CI evidence; scope and code unchanged. |
 
 | 2026-08-29T03:01:43Z | `INTEGRATION_HANDOFF` | Codex | `INTEGRATE-001` | OWNER relayed ChatGPT handoff; verified 7 commits/2 files and exact-head CI `33170632141` success at `1c700aaf`. INTEGRATOR transferred to Codex; full linear Ribbon stack authorized for combined-head integration. |
+
+| 2026-08-29T03:25:40Z | `DONE` | Codex | `INTEGRATE-001` | Final HEAD `d177500940c0dce75f9899d17d86ed58b2b7a04f`; exact-head CI `33231004864` success across all five jobs. `RIBBON-001` through `RIBBON-KEYBOARD` closed; PR stays Draft; INTEGRATOR returned to ChatGPT. |
 
 ## 11. Prompt ngắn gửi cho mỗi AI
 
