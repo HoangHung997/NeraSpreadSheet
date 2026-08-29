@@ -12,12 +12,12 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: FREE
-  owner: NONE
-  lease_id: NONE
-  acquired_utc: NONE
-  expires_utc: NONE
-  purpose: NONE
+  state: HELD
+  owner: CODEX
+  lease_id: CODEX-INTEGRATION-CLOSE-20260829T032508Z
+  acquired_utc: 2026-08-29T03:25:08Z
+  expires_utc: 2026-08-29T03:35:08Z
+  purpose: Close verified Ribbon integration and return integrator role.
 
 last_update:
   utc: 2026-08-29T03:01:43Z
