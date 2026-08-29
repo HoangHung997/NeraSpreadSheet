@@ -12,12 +12,12 @@ integration_branch: feature/bootstrap-architecture-v0.1
 integration_pr: 1
 
 write_lock:
-  state: FREE
-  owner: NONE
-  lease_id: NONE
-  acquired_utc: NONE
-  expires_utc: NONE
-  purpose: NONE
+  state: HELD
+  owner: CODEX
+  lease_id: CODEX-COORD-EVIDENCE-20260829T032631Z
+  acquired_utc: 2026-08-29T03:26:31Z
+  expires_utc: 2026-08-29T03:36:31Z
+  purpose: Repair final CI evidence on three completed Ribbon rows.
 
 last_update:
   utc: 2026-08-29T03:25:40Z
