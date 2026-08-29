@@ -3,61 +3,49 @@
 - Repository: `HoangHung997/NeraSpreadSheet`.
 - Branch: `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
-- Formula implementation: **DONE** at **546 / 546 locked catalog names** after F019.
-- Q001 differential/fuzz hardening: **DONE**.
-- Q002 workbook/editing + OpenXML differential hardening: **DONE**.
-- Q003A analytics foundation + shared vector rendering: **DONE**.
-- Active workstream: **Q003B Floating analytics placement + interaction**.
-- Current implementation checkpoint: `397775c543098972a8d838c3f4126914512a097a`.
-- Verified exact-head CI: **#1053 — success**.
-- Q003B full Core-solution tests: **1150/1150**.
-- Q003B formula tests: **518/518**.
-- Q003B interaction tests: **20/20**.
-- Q003B rendering-spreadsheet tests: **118/118**.
-- Q003B MAUI Windows handler tests: **29/29**.
+- Combined implementation commit: `716db8c4765e5259a71fd304e624942fa6ae73d8`.
+- Verified implementation CI: run `33230558230` — success on Core, Windows, Android, Apple and MAUI Windows.
+- Formula implementation: **DONE**, **546/546** locked catalog names; formula suite **518/518**.
+- Q001, Q002 and Q003A: **DONE**.
+- Q003B: **ACTIVE**; Android and Mac Catalyst runtime accessibility gates are closed, with only loaded iOS/VoiceOver validation remaining in the ChatGPT lane.
+- Ribbon/Bars desktop stack through `RIBBON-KEYBOARD`: **integrated and green**.
+- PR remains Draft; do not merge or mark Ready.
+
+## Completed in the Ribbon integration
+
+- Integrated the seven-commit Ribbon stack on top of ChatGPT's green Q003B-MAC checkpoint `1c700aaf7b73113d3cbbe8e8c6093bdc3fce404d`.
+- Added immutable Ribbon/Bars customization, deterministic JSON v1 persistence and legacy-v0 migration.
+- Added command presentation snapshots and runtime controllers that execute only through `CommandDispatcher`.
+- Added native WPF/WinForms Ribbon, toolbar, menu and context-menu presenters.
+- Added native WPF/WinForms customization dialogs and normalized shortcut bindings.
+- Preserved the Apple accessibility files from the ChatGPT lane; the Ribbon integration diff does not touch Apple/Mac Catalyst paths.
+
+## Validation
+
+- Local compatibility build with available SDK 10.0.201: **0 warnings, 0 errors**.
+- Local Core solution: **1206/1206 passed**.
+- Local focused desktop Ribbon loaded smokes: **5/5 passed**.
 - Architecture verification: **passed**.
-- Build/analyzers: **0 warnings, 0 errors**.
-- Windows hosts + desktop GPU runtime smoke: **passed**.
-- MAUI Android build: **passed**.
-- MAUI iOS + Mac Catalyst builds: **passed**.
-- MAUI Windows build + loaded Table-filter/runtime/analytics/scale smokes: **passed**.
-
-## Completed in the latest native-accessibility batch
-
-- Closed the WPF native accessibility gap with `AutomationPeer` child exposure for floating chart/pivot items.
-- Closed the WinForms native accessibility gap with `AccessibleObject` child exposure for floating chart/pivot items.
-- Added desktop native-accessibility smoke coverage without replacing existing editor accessibility children.
-- Added MAUI view-level semantic summary/hint projection without introducing per-cell controls.
-- Added MAUI Windows native WinUI/UI Automation child proxies over the existing GPU surface for floating analytics items.
-- Native Windows analytics children expose stable Name, AutomationId, chart/pivot control role, set metadata, clipped visible bounds and the Invoke pattern.
-- Kept native proxy children out of pointer hit testing and tab order so the GPU/input path remains authoritative.
-- Attached the MAUI bridge per `NeraSpreadsheetView` instance rather than from static handler mapping, preserving headless handler-resolution tests.
-- Extended the loaded MAUI Windows analytics smoke with an observational native UIA probe.
-- Fixed a smoke-only interference where the probe invoked the accessibility child during `PaintSurface` and selected the chart before the smoke touch sequence; the probe now verifies the UIA Invoke contract without mutating interaction state.
-- Deleted accidental `docs/__tmp_should_not_create.md` noop artifact.
+- `git diff --check`: **passed**.
+- GitHub exact implementation HEAD `716db8c`: CI `33230558230` **success**.
+- GitHub Core/analyzers, Windows desktop/runtime, Android loaded accessibility, iOS/Mac Catalyst builds, Mac Catalyst loaded accessibility, MAUI Windows handler and loaded Table-filter/runtime/analytics/scale gates: **all passed**.
 
 ## Focus files
 
-- `src/NeraSpreadSheet.Maui/NeraSpreadsheetAnalyticsAccessibilityBridge.cs`
-- `src/NeraSpreadSheet.Maui/NeraSpreadsheetView.cs`
-- `tests/NeraSpreadSheet.Maui.Windows.AnalyticsSmoke/NativeAccessibilitySmokeProbe.cs`
-- existing WPF/WinForms native accessibility bridge files and desktop smoke assets from the immediately preceding Q003B batch
-- `docs/current-status.md`
+- `src/NeraSpreadSheet.Ribbon.Core/`
+- `src/NeraSpreadSheet.Bars.Core/`
+- `src/NeraSpreadSheet.Commands/CommandPresentation.cs`
+- `src/NeraSpreadSheet.Commands/CommandShortcut.cs`
+- `src/NeraSpreadSheet.Wpf/NeraRibbonControl.cs`
+- `src/NeraSpreadSheet.WinForms/NeraRibbonControl.cs`
+- `docs/ribbon-*.md`
 
-## Remaining bounded Q003B work
+## Remaining limits
 
-The desktop native accessibility gap and MAUI Windows per-item native accessibility gap are closed. Q003B remains **ACTIVE** because non-Windows MAUI targets still need per-item native exposure and runtime validation:
+- `RIBBON-MAUI` is not implemented; the integrated presenter/customization UI and keyboard binding are WPF/WinForms only.
+- Q003B is not complete until the separate ChatGPT lane supplies target-appropriate loaded iOS/VoiceOver runtime evidence.
+- The machine-local SDK is 10.0.201 while the repository locks 10.0.302; exact GitHub CI with 10.0.302 is the authoritative gate.
 
-1. Android per-chart/per-pivot native accessibility suitable for TalkBack + runtime/device smoke.
-2. iOS per-chart/per-pivot native accessibility suitable for VoiceOver + runtime/device smoke.
-3. Mac Catalyst per-chart/per-pivot native accessibility suitable for VoiceOver + runtime/host smoke.
+## Next single step
 
-The MAUI root already has a semantic summary/hint; the next work is per-item native exposure rather than a second host-neutral accessibility model.
-
-Chart/drawing/pivot OpenXML persistence remains deferred until Q003B closes.
-
-## Next step
-
-Continue Q003B with the non-Windows MAUI per-item native accessibility bridge, starting from Android because it can be validated independently without changing the shared renderer or per-cell UI architecture.
-
-Do not mark Q003B DONE yet. Do not move PR #1 to Ready and do not merge it.
+Claim and implement `RIBBON-MAUI` on a fresh branch from the final green integration HEAD, without modifying ChatGPT's iOS accessibility lane.

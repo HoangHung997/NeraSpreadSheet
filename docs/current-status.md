@@ -31,8 +31,8 @@ Q003A added chart models/projection (Column, Bar, Line, Pie), pivot models/proje
 
 ## Q003B — floating analytics interaction — ACTIVE
 
-Current implementation checkpoint: `397775c543098972a8d838c3f4126914512a097a`.
-Exact-head CI **#1053 — success**.
+Current implementation checkpoint: `1c700aaf7b73113d3cbbe8e8c6093bdc3fce404d`.
+Exact-head CI run **33170632141 — success**.
 
 Implemented and validated:
 
@@ -53,13 +53,16 @@ Implemented and validated:
 - loaded MAUI Windows analytics smoke covering touch movement, selection, accessibility metadata, Undo/Redo and input-state isolation;
 - synchronized placement-map access so GPU rendering may safely read snapshots while UI input commits placement changes;
 - MAUI Windows scale smoke proving the accessibility layer does not disturb the logical-viewport/backing-pixel scale contract.
+- Android per-item native accessibility exposure with a loaded analytics accessibility smoke;
+- a shared iOS/Mac Catalyst virtual `UIAccessibilityElement` bridge over the GPU-backed view;
+- loaded Mac Catalyst native-accessibility smoke covering chart/pivot children, metadata, bounds and activation-to-selection behavior.
 
 The MAUI accessibility bridge is attached per `NeraSpreadsheetView` instance rather than through a static handler mapper. This keeps `UseNeraSpreadSheet()` handler-neutral and preserves the headless handler-resolution test contract. The native accessibility probe is deliberately observational: it verifies the native UI Automation contract but does not invoke the child from `PaintSurface`, because doing so would mutate selection before the loaded analytics smoke begins its own touch sequence.
 
 ### Current exact-head validation at the Q003B checkpoint
 
 - build/analyzers: **0 warnings, 0 errors**;
-- complete Core solution: **1150/1150 passed**;
+- complete Core solution: **1153/1153 passed**;
 - Core: **110/110**;
 - Editing: **209/209**;
 - Interaction: **20/20**;
@@ -67,11 +70,12 @@ The MAUI accessibility bridge is attached per `NeraSpreadsheetView` instance rat
 - Rendering.Skia: **14/14**;
 - Viewport: **56/56**;
 - Formulas: **518/518**;
-- OpenXML: **56/56**;
+- OpenXML: **59/59**;
 - architecture verification: **passed**;
 - Windows hosts + desktop GPU runtime smoke: **passed**;
-- MAUI Android build: **passed**;
-- MAUI iOS + Mac Catalyst builds: **passed**;
+- MAUI Android build + loaded analytics native-accessibility smoke: **passed**;
+- MAUI iOS build: **passed**;
+- MAUI Mac Catalyst build + loaded analytics native-accessibility smoke: **passed**;
 - MAUI Windows build: **passed**;
 - MAUI Windows handler-resolution tests: **29/29 passed**;
 - loaded MAUI Windows Table-filter/runtime/analytics/scale smokes: **passed**;
@@ -79,12 +83,25 @@ The MAUI accessibility bridge is attached per `NeraSpreadsheetView` instance rat
 
 ### Remaining Q003B work
 
-The desktop native-accessibility gap is closed. The bounded remaining accessibility gap is platform-native per-item exposure on the non-Windows MAUI targets:
+Android/TalkBack and Mac Catalyst/VoiceOver runtime gates are closed. The only bounded Q003B gap is a loaded iOS/VoiceOver runtime validation of the real native `UIView` accessibility container and its virtual chart/pivot children. A build-only iOS check and the shared Mac Catalyst runtime evidence do not substitute for that gate. Q003B therefore remains **ACTIVE** and the weighted roadmap score remains unchanged.
 
-- Android per-item accessibility exposure suitable for TalkBack, plus a target-appropriate runtime/device smoke;
-- iOS per-item accessibility exposure suitable for VoiceOver, plus a target-appropriate runtime/device smoke;
-- Mac Catalyst per-item accessibility exposure suitable for VoiceOver, plus a target-appropriate runtime/host smoke.
+The branch also contains provisional analytics/drawing OpenXML persistence work with green tests. It is not used to claim Q003B completion and must not be expanded until the iOS runtime gate is resolved.
 
-The MAUI root view already carries a semantic summary/hint; the remaining work is specifically per-chart/per-pivot native exposure and validation on those platforms. Q003B therefore remains **ACTIVE** and the weighted roadmap score remains unchanged.
+## Ribbon and Bars SDK — desktop stack integrated
 
-Chart/drawing/pivot workbook/OpenXML persistence remains deliberately deferred until the Q003B interaction layer is closed.
+Implementation checkpoint: `716db8c4765e5259a71fd304e624942fa6ae73d8`.
+Combined exact-head CI run **33230558230 — success**.
+
+Implemented and validated:
+
+- immutable Ribbon/Bars customization for visibility, ordering and Ribbon item size;
+- deterministic versioned JSON persistence with legacy-v0 migration and bounded input validation;
+- command-state presentation snapshots and runtime controllers using the shared command dispatcher;
+- native WPF and WinForms Ribbon, toolbar, menu and context-menu presenters;
+- native WPF and WinForms customization dialogs with apply, reset, save and load flows;
+- normalized shortcut resolution and WPF/WinForms keyboard bindings;
+- loaded desktop smoke coverage for presentation, activation, state refresh, customization and shortcuts.
+
+The controls are modular and can be embedded independently of `NeraSpreadsheetControl`. They do not create controls per spreadsheet cell and do not own workbook, calculation or rendering state.
+
+Remaining Ribbon work is `RIBBON-MAUI`: MAUI presentation, customization UI/input mapping and loaded runtime smoke. PR #1 remains Draft and unmerged.
