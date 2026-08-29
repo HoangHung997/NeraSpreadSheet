@@ -40,8 +40,11 @@ jobs:
           fi
           echo "NERA_IOS_SMOKE_RID=$RID" >> "$GITHUB_ENV"
           echo "iOS simulator smoke RID: $RID"
+          # Production iOS is built in Release above. The loaded simulator probe
+          # intentionally uses Debug so CI validates UIKit/VoiceOver behavior
+          # without paying the Release AOT/link cost a second time.
           dotnet build tests/NeraSpreadSheet.Maui.iOS.AnalyticsSmoke/NeraSpreadSheet.Maui.iOS.AnalyticsSmoke.csproj \
-            -c Release \
+            -c Debug \
             -f net10.0-ios \
             -r "$RID" \
             -p:NeraMauiTargetFrameworks=net10.0-ios
@@ -51,7 +54,7 @@ jobs:
         run: |
           set -euo pipefail
           BUNDLE_ID="com.neraspreadsheet.iosanalyticssmoke"
-          ROOT="tests/NeraSpreadSheet.Maui.iOS.AnalyticsSmoke/bin/Release/net10.0-ios/$NERA_IOS_SMOKE_RID"
+          ROOT="tests/NeraSpreadSheet.Maui.iOS.AnalyticsSmoke/bin/Debug/net10.0-ios/$NERA_IOS_SMOKE_RID"
           LOG="$RUNNER_TEMP/nera-ios-analytics-smoke.log"
 
           APP="$(find "$ROOT" -type d -name 'NeraSpreadSheet.Maui.iOS.AnalyticsSmoke.app' | head -n 1 || true)"
