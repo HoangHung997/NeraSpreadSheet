@@ -1,9 +1,11 @@
-name: ChatGPT iOS analytics accessibility smoke
+name: iOS analytics accessibility gate
 
 on:
   push:
     branches:
       - 'ai/chatgpt/q003b-ios'
+  pull_request:
+    branches: [main, develop]
   workflow_dispatch:
 
 permissions:
