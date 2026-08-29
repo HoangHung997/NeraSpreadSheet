@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <RootNamespace>NeraSpreadSheet.Maui.iOS.AnalyticsSmoke</RootNamespace>
+    <AssemblyName>NeraSpreadSheet.Maui.iOS.AnalyticsSmoke</AssemblyName>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <ApplicationTitle>Nera iOS Analytics Smoke</ApplicationTitle>
+    <ApplicationId>com.neraspreadsheet.iosanalyticssmoke</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+    <ValidateXcodeVersion>false</ValidateXcodeVersion>
+    <IsPackable>false</IsPackable>
+    <Description>Loaded MAUI iOS Simulator VoiceOver analytics accessibility smoke for NeraSpreadSheet. It validates the real UIKit accessibility container and virtual chart/pivot elements without introducing per-cell native controls.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/NeraSpreadSheet.Maui/NeraSpreadSheet.Maui.csproj" />
+  </ItemGroup>
+</Project>

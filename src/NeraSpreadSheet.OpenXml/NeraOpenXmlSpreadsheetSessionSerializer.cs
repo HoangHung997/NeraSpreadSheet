@@ -109,6 +109,7 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
             ExportStandardSplitViews(document, session, cancellationToken);
             ExportNativeSplitViews(document, session, cancellationToken);
             NeraOpenXmlAnalyticsStateCodec.Export(document, session, cancellationToken);
+            NeraOpenXmlChartDrawingCodec.Export(document, session, cancellationToken);
         }
 
         buffer.Position = 0L;
