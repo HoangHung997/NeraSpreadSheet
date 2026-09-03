@@ -1,10 +1,14 @@
+using System.IO.Compression;
 using System.Xml;
+using System.Xml.Linq;
 using DocumentFormat.OpenXml.Packaging;
 
 namespace NeraSpreadSheet.OpenXml;
 
 internal static class OpenXmlPackageGraphValidator
 {
+    private const string RelationshipNamespace =
+        "http://schemas.openxmlformats.org/package/2006/relationships";
     private const int MaxPartCount = 100_000;
     private const int MaxRelationshipsPerContainer = 100_000;
     private const int MaxPartUriCharacters = 32 * 1024;
@@ -20,6 +24,8 @@ internal static class OpenXmlPackageGraphValidator
             writable: false);
         try
         {
+            ValidatePackageArchive(stream);
+            stream.Position = 0;
             using var document = SpreadsheetDocument.Open(stream, false);
             Validate(document);
         }
@@ -44,6 +50,85 @@ internal static class OpenXmlPackageGraphValidator
             throw new InvalidDataException(
                 "The XLSX package contains an invalid relationship graph.",
                 exception);
+        }
+    }
+
+    private static void ValidatePackageArchive(Stream stream)
+    {
+        using var archive = new ZipArchive(
+            stream,
+            ZipArchiveMode.Read,
+            leaveOpen: true);
+        foreach (var entry in archive.Entries)
+        {
+            if (entry.FullName.EndsWith('/'))
+            {
+                continue;
+            }
+
+            if (!string.Equals(
+                    entry.FullName,
+                    "[Content_Types].xml",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                ValidatePartUri(
+                    new Uri(
+                        "/" + entry.FullName,
+                        UriKind.Relative));
+            }
+
+            if (entry.FullName.EndsWith(
+                    ".rels",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateRelationshipEntry(entry);
+            }
+        }
+    }
+
+    private static void ValidateRelationshipEntry(ZipArchiveEntry entry)
+    {
+        using var stream = entry.Open();
+        var document = XDocument.Load(
+            stream,
+            LoadOptions.None);
+        var relationships = document.Root;
+        if (relationships is null ||
+            relationships.Name != XName.Get(
+                "Relationships",
+                RelationshipNamespace))
+        {
+            throw new InvalidDataException(
+                "The XLSX package contains an invalid relationship graph.");
+        }
+
+        var relationshipIds = new HashSet<string>(StringComparer.Ordinal);
+        var relationshipCount = 0;
+        foreach (var relationship in relationships.Elements(
+                     XName.Get(
+                         "Relationship",
+                         RelationshipNamespace)))
+        {
+            var relationshipId = (string?)relationship.Attribute("Id");
+            var relationshipType = (string?)relationship.Attribute("Type");
+            var target = (string?)relationship.Attribute("Target");
+            if (relationshipId is null ||
+                relationshipType is null ||
+                target is null)
+            {
+                throw new InvalidDataException(
+                    "The XLSX package contains an invalid relationship graph.");
+            }
+
+            RegisterRelationship(
+                relationshipId,
+                relationshipType,
+                relationshipIds,
+                ref relationshipCount);
+            ValidateReferenceTarget(
+                new Uri(
+                    target,
+                    UriKind.RelativeOrAbsolute));
         }
     }
 
