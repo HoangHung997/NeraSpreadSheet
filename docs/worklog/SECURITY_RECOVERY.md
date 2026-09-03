@@ -19,7 +19,7 @@ completion and final Windows 11 demo packaging.
 | Batch | Status | Scope |
 |---|---|---|
 | `SECURITY-RECOVERY-001` | Done for first pass | Inventory plugin/external input boundaries, persistence recovery paths and renderer/session failure modes. |
-| `SECURITY-RECOVERY-002` | Done for first eight patches | Add focused hardening tests and fixes for the highest-risk bounded surfaces. |
+| `SECURITY-RECOVERY-002` | Done for first nine patches | Add focused hardening tests and fixes for the highest-risk bounded surfaces. |
 | `SECURITY-RECOVERY-003` | In progress | Update docs and collect local plus exact-head GitHub evidence. |
 
 ## Scope
@@ -38,7 +38,7 @@ completion and final Windows 11 demo packaging.
 
 ## Current status
 
-First eight hardening patches are integrated and exact-head validated. The lane
+First nine hardening patches are integrated and exact-head validated. The lane
 remains active for additional bounded trust/recovery coverage before moving to
 localization/a11y completion.
 
@@ -83,25 +83,28 @@ localization/a11y completion.
   ZIP part name and `.rels` entry is checked for malformed escaped part URIs,
   relationship type URIs and relationship targets, including relationships the
   SDK would not materialize into the workbook graph.
+- Added `[Content_Types].xml` override `PartName` validation during archive
+  scanning so malformed escaped package part names in the content-type table
+  are rejected before OpenXML SDK load.
 - Local validation uses the repo-local .NET SDK 10.0.302 install: Core solution
-  1226/1226 and OpenXML 79/79 passed.
+  1227/1227 and OpenXML 80/80 passed.
 
 ## Exact-head evidence
 
-Commit: `7f87a9bc2d7e8cb2d26b5b66210f1fa35005d839`.
+Commit: `af80a91df5b077077b0017d59ce5fd09eb5e5f52`.
 
-- Full CI: #1278 / run `33811795200` -- success.
-- iOS analytics accessibility gate: #94 / run `33811795075` -- success.
-- Q003C/OpenXML gate: #91 / run `33811795185` -- success.
-- `sdk-packages` artifact from CI #1278: ID `9915090019`, digest
-  `sha256:df48cc5bef76c5dca04f9cddccbd38b855846319a1157c4f2e15cc4355d91c2d`,
-  expires `2026-12-02T22:10:50Z`.
+- Full CI: #1282 / run `33814277469` -- success.
+- iOS analytics accessibility gate: #100 / run `33814277070` -- success.
+- Q003C/OpenXML gate: #97 / run `33814277138` -- success.
+- `sdk-packages` artifact from CI #1282: ID `9915968341`, digest
+  `sha256:4f459def7b996b1933420fd462bb6be7812e5c0ae34c8722e21ed80b6022bcd1`,
+  expires `2026-12-02T22:42:03Z`.
 
 ## Next candidate surfaces
 
 - OpenXML package graph validation: extend archive-level validation only if a
-  real fixture exposes another compatibility-safe gap beyond ZIP part and
-  relationship entry scanning.
+  real fixture exposes another compatibility-safe gap beyond ZIP part,
+  relationship entry and content-type override scanning.
 - Preserve-unknown recovery: extend atomic rejection coverage only if a new
   mismatched envelope case is found beyond worksheet topology replacement.
 - Host/session failure containment: add narrowly scoped tests for renderer or

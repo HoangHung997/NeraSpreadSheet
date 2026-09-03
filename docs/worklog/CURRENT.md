@@ -3,8 +3,8 @@
 - Repository: `HoangHung997/NeraSpreadSheet`.
 - Branch: `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
-- Latest verified implementation merge checkpoint: `7f87a9bc2d7e8cb2d26b5b66210f1fa35005d839`.
-- Verified implementation CI through the first eight `SECURITY-RECOVERY` patches: full run `33811795200` / #1278 — success; iOS gate `33811795075` / #94 — success; Q003C/OpenXML gate `33811795185` / #91 — success.
+- Latest verified implementation merge checkpoint: `af80a91df5b077077b0017d59ce5fd09eb5e5f52`.
+- Verified implementation CI through the first nine `SECURITY-RECOVERY` patches: full run `33814277469` / #1282 — success; iOS gate `33814277070` / #100 — success; Q003C/OpenXML gate `33814277138` / #97 — success.
 - Formula implementation: **DONE**, **546/546** locked catalog names; formula suite **518/518**.
 - Q001, Q002, Q003A, Q003B: **DONE**.
 - Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
@@ -28,8 +28,9 @@
 - `SECURITY-RECOVERY`: **ACTIVE**. External provider exception containment,
   document/workbook/session save failure recovery, preserve-unknown worksheet
   topology rejection and OpenXML graph malformed escaped URI rejection,
-  including direct validators plus archive-level package relationship scans,
-  are exact-head validated; additional bounded trust/recovery coverage remains before
+  including direct validators plus archive-level package relationship and
+  content-type override scans, are exact-head validated; additional bounded
+  trust/recovery coverage remains before
   localization/a11y completion and the final Windows 11 demo.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
@@ -53,11 +54,11 @@
 
 ## Validation
 
-At implementation checkpoint `7f87a9bc2d7e8cb2d26b5b66210f1fa35005d839`:
+At implementation checkpoint `af80a91df5b077077b0017d59ce5fd09eb5e5f52`:
 
-- Core solution: **1226/1226 passed**.
+- Core solution: **1227/1227 passed**.
 - Formula: **518/518 passed**.
-- OpenXML: **79/79 passed**.
+- OpenXML: **80/80 passed**.
 - Build/analyzers: **0 warnings, 0 errors**.
 - Architecture verification: **passed**.
 - SDK packaging metadata verification: **passed**.
@@ -72,6 +73,8 @@ At implementation checkpoint `7f87a9bc2d7e8cb2d26b5b66210f1fa35005d839`:
   **passed**.
 - OpenXML package-level malformed escaped part URI, relationship type and
   external target rejection tests: **passed**.
+- OpenXML malformed escaped content-type override `PartName` rejection test:
+  **passed**.
 - OpenXML common Excel hyperlink/file/relative/fragment target acceptance test:
   **passed**.
 - Windows desktop GPU runtime smoke: **passed**.
@@ -96,5 +99,6 @@ At implementation checkpoint `7f87a9bc2d7e8cb2d26b5b66210f1fa35005d839`:
 
 Continue `SECURITY-RECOVERY` with the next bounded trust/recovery surface,
 preferring preserve-unknown recovery or host/session failure containment unless
-a real OpenXML fixture reveals another archive-level graph validation gap,
-without marking PR #1 ready.
+a real OpenXML fixture reveals another archive-level graph validation gap beyond
+ZIP part, relationship entry and content-type override scanning, without
+marking PR #1 ready.
