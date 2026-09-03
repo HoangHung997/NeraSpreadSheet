@@ -82,11 +82,11 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         cancellationToken.ThrowIfCancellationRequested();
         if (!options.PreserveUnknownParts)
         {
-            await using var generated = new MemoryStream();
-            SaveCore(workbook, generated, options, cancellationToken);
+            await using var generatedPackage = new MemoryStream();
+            SaveCore(workbook, generatedPackage, options, cancellationToken);
             await WritePackageAsync(
                 destination,
-                generated.ToArray()).ConfigureAwait(false);
+                generatedPackage.ToArray()).ConfigureAwait(false);
             OpenXmlPackageEnvelopeStore.Detach(workbook);
             return;
         }
