@@ -1,0 +1,39 @@
+name: Apply pending Pivot OpenXML patch
+
+on:
+  push:
+    branches:
+      - feature/bootstrap-architecture-v0.1
+
+permissions:
+  contents: write
+
+jobs:
+  apply-patch:
+    if: github.event.head_commit.message == 'ci: apply pending pivot openxml patch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/bootstrap-architecture-v0.1
+          fetch-depth: 0
+      - name: Apply local-verified patch
+        shell: bash
+        env:
+          PATCH_URL: https://paste.rs/eep8D
+          EXPECTED_TREE: 0b4f9d403bf6d80489ac1949604ba0ca15173b59
+        run: |
+          set -euo pipefail
+          curl -fsSL "$PATCH_URL" -o /tmp/pivot-openxml-standard.patch
+          git apply --index /tmp/pivot-openxml-standard.patch
+          rm -f .github/workflows/apply-pivot-openxml-standard.yml
+          git add -A
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat(openxml): add standard pivot table codec"
+          actual_tree="$(git rev-parse 'HEAD^{tree}')"
+          if [ "$actual_tree" != "$EXPECTED_TREE" ]; then
+            echo "::error::tree mismatch: expected $EXPECTED_TREE but got $actual_tree"
+            exit 1
+          fi
+          git push origin HEAD:feature/bootstrap-architecture-v0.1
