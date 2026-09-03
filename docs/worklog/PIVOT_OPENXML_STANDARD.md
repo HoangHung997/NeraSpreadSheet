@@ -20,7 +20,7 @@ Nera pivot model.
 |---|---|---|
 | `PIVOT-OPENXML-001` | Done | Materialize Nera-managed pivots as schema-valid standard PivotTable/PivotCache/PivotCacheRecords parts. |
 | `PIVOT-OPENXML-002` | Done | Import compatible standard worksheet-range pivots into the Nera pivot model without weakening explicit preservation behavior. |
-| `PIVOT-OPENXML-003` | Done locally, CI pending | Repeated Save/Load/Save idempotence and docs/status evidence. |
+| `PIVOT-OPENXML-003` | Done | Repeated Save/Load/Save idempotence and docs/status evidence. |
 
 ## Scope
 
@@ -39,7 +39,7 @@ Nera pivot model.
 - User-editable pivot destination cells. Export currently uses a deterministic
   default location beside the source range.
 
-## Local checkpoint
+## Checkpoint
 
 Implemented:
 
@@ -62,8 +62,13 @@ Validation:
 - `dotnet test NeraSpreadSheet.Core.slnx --no-restore` passed locally with
   **1215/1215** tests.
 - `scripts/verify-architecture.ps1` passed locally.
+- Remote branch integration reached commit
+  `0ee635e54f7b13bf4fc85f306eda1c1723669692` with the same tree as the local
+  validated implementation:
+  `0b4f9d403bf6d80489ac1949604ba0ca15173b59`.
 
 Current status:
 
-`PIVOT-OPENXML-STANDARD` is local-green and needs exact-head GitHub CI before
-being declared closed.
+`PIVOT-OPENXML-STANDARD` is closed for the defined first standard PivotTable
+interoperability scope. Follow-on pivot work remains listed in the out-of-scope
+section above.
