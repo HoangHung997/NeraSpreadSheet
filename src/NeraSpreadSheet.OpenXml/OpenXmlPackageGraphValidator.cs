@@ -18,8 +18,33 @@ internal static class OpenXmlPackageGraphValidator
         using var stream = new MemoryStream(
             packageBytes,
             writable: false);
-        using var document = SpreadsheetDocument.Open(stream, false);
-        Validate(document);
+        try
+        {
+            using var document = SpreadsheetDocument.Open(stream, false);
+            Validate(document);
+        }
+        catch (InvalidDataException)
+        {
+            throw;
+        }
+        catch (OpenXmlPackageException exception)
+        {
+            throw new InvalidDataException(
+                "The XLSX package contains an invalid relationship graph.",
+                exception);
+        }
+        catch (UriFormatException exception)
+        {
+            throw new InvalidDataException(
+                "The XLSX package contains an invalid relationship graph.",
+                exception);
+        }
+        catch (XmlException exception)
+        {
+            throw new InvalidDataException(
+                "The XLSX package contains an invalid relationship graph.",
+                exception);
+        }
     }
 
     public static void Validate(OpenXmlPackage package)

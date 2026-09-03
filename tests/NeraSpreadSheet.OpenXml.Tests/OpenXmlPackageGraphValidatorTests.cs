@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace NeraSpreadSheet.OpenXml.Tests;
@@ -5,6 +7,15 @@ namespace NeraSpreadSheet.OpenXml.Tests;
 [TestClass]
 public sealed class OpenXmlPackageGraphValidatorTests
 {
+    private const string RelationshipNamespace =
+        "http://schemas.openxmlformats.org/package/2006/relationships";
+    private const string OfficeDocumentRelationshipType =
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument";
+    private const string WorksheetRelationshipType =
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet";
+    private const string HyperlinkRelationshipType =
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
+
     [TestMethod]
     public void SafePartUriRelationshipsAndTargetsAreAccepted()
     {
@@ -186,6 +197,46 @@ public sealed class OpenXmlPackageGraphValidatorTests
         }
     }
 
+    [TestMethod]
+    public void PackageGraphValidationAcceptsMinimalSpreadsheetPackage()
+    {
+        var packageBytes = CreateMinimalSpreadsheetPackage();
+
+        OpenXmlPackageGraphValidator.Validate(packageBytes);
+    }
+
+    [TestMethod]
+    public void PackageGraphValidationRejectsMalformedEscapedPartUris()
+    {
+        var packageBytes = CreateMinimalSpreadsheetPackage(
+            worksheetTarget: "worksheets/bad%GG.xml",
+            worksheetEntryName: "xl/worksheets/bad%GG.xml");
+
+        AssertInvalidData(() =>
+            OpenXmlPackageGraphValidator.Validate(packageBytes));
+    }
+
+    [TestMethod]
+    public void PackageGraphValidationRejectsMalformedEscapedRelationshipTypes()
+    {
+        var packageBytes = CreateMinimalSpreadsheetPackage(
+            worksheetRelationshipType:
+                "https://example.invalid/relationships/bad%");
+
+        AssertInvalidData(() =>
+            OpenXmlPackageGraphValidator.Validate(packageBytes));
+    }
+
+    [TestMethod]
+    public void PackageGraphValidationRejectsMalformedEscapedExternalTargets()
+    {
+        var packageBytes = CreateMinimalSpreadsheetPackage(
+            externalTarget: "https://example.invalid/bad%");
+
+        AssertInvalidData(() =>
+            OpenXmlPackageGraphValidator.Validate(packageBytes));
+    }
+
     private static void AssertInvalidData(Action action)
     {
         try
@@ -196,5 +247,108 @@ public sealed class OpenXmlPackageGraphValidatorTests
         catch (InvalidDataException)
         {
         }
+    }
+
+    private static byte[] CreateMinimalSpreadsheetPackage(
+        string worksheetTarget = "worksheets/sheet1.xml",
+        string worksheetEntryName = "xl/worksheets/sheet1.xml",
+        string worksheetRelationshipType = WorksheetRelationshipType,
+        string? externalTarget = null)
+    {
+        using var stream = new MemoryStream();
+        using (var archive = new ZipArchive(
+                   stream,
+                   ZipArchiveMode.Create,
+                   leaveOpen: true))
+        {
+            WriteEntry(
+                archive,
+                "[Content_Types].xml",
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+                  <Default Extension="xml" ContentType="application/xml"/>
+                  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+                  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+                </Types>
+                """);
+            WriteEntry(
+                archive,
+                "_rels/.rels",
+                $"""
+                <?xml version="1.0" encoding="utf-8"?>
+                <Relationships xmlns="{RelationshipNamespace}">
+                  <Relationship Id="rIdPackageWorkbook" Type="{OfficeDocumentRelationshipType}" Target="xl/workbook.xml"/>
+                </Relationships>
+                """);
+            WriteEntry(
+                archive,
+                "xl/workbook.xml",
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+                          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                  <sheets>
+                    <sheet name="Sheet1" sheetId="1" r:id="rIdWorkbookSheet1"/>
+                  </sheets>
+                </workbook>
+                """);
+            WriteEntry(
+                archive,
+                "xl/_rels/workbook.xml.rels",
+                CreateWorkbookRelationships(
+                    worksheetTarget,
+                    worksheetRelationshipType,
+                    externalTarget));
+            WriteEntry(
+                archive,
+                worksheetEntryName,
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+                  <sheetData/>
+                </worksheet>
+                """);
+        }
+
+        return stream.ToArray();
+    }
+
+    private static string CreateWorkbookRelationships(
+        string worksheetTarget,
+        string worksheetRelationshipType,
+        string? externalTarget)
+    {
+        var externalRelationship = externalTarget is null
+            ? string.Empty
+            : $"""
+
+                <Relationship Id="rIdExternal"
+                              Type="{HyperlinkRelationshipType}"
+                              Target="{externalTarget}"
+                              TargetMode="External"/>
+              """;
+
+        return $"""
+               <?xml version="1.0" encoding="utf-8"?>
+               <Relationships xmlns="{RelationshipNamespace}">
+                 <Relationship Id="rIdWorkbookSheet1"
+                               Type="{worksheetRelationshipType}"
+                               Target="{worksheetTarget}"/>{externalRelationship}
+               </Relationships>
+               """;
+    }
+
+    private static void WriteEntry(
+        ZipArchive archive,
+        string entryName,
+        string content)
+    {
+        var entry = archive.CreateEntry(entryName);
+        using var stream = entry.Open();
+        using var writer = new StreamWriter(
+            stream,
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        writer.Write(content);
     }
 }
