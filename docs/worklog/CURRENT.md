@@ -4,18 +4,16 @@
 - Branch: `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
 - Latest verified implementation merge checkpoint: `ff7af0da897efc5007645905f529c4bdbe9eb202`.
-- Verified implementation CI: full run `33248651484` — success; iOS gate `33248651481` — success; Q003C/OpenXML gate `33248651547` — success.
+- Verified implementation CI: full run `33777851358` / #1214 — success; iOS gate `33777851359` / #17 — success; Q003C/OpenXML gate `33777851399` / #14 — success.
 - Formula implementation: **DONE**, **546/546** locked catalog names; formula suite **518/518**.
 - Q001, Q002, Q003A, Q003B: **DONE**.
 - Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
 - Q003D: **DONE for standard Excel PivotTable/PivotCache package preservation scope**.
 - Core solution at the verified Q003D checkpoint: **1212/1212 passed**, build/analyzers **0 warnings / 0 errors**, OpenXML **65/65**.
 - Ribbon/Bars desktop stack through `RIBBON-KEYBOARD`: **integrated and green**.
-- `RIBBON-MAUI`: locally implemented; MAUI presenters,
-  shortcut/customization binding and Windows Ribbon smoke have been added and
-  validated locally with architecture pass, Windows solution build
-  **0 warnings / 0 errors**, Core **1212/1212**, MAUI **34/34** and loaded
-  Ribbon smoke success.
+- `RIBBON-MAUI`: **DONE**. MAUI presenters, shortcut/customization binding and
+  Windows Ribbon smoke are integrated and exact-head CI passed at
+  `b806cc7ed2317b456a6171672e577ee816e4692d`.
 - Weighted implementation-roadmap score: **83.08% ≈ 83%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -38,7 +36,7 @@
 
 ## Validation
 
-At implementation checkpoint `ff7af0da897efc5007645905f529c4bdbe9eb202`:
+At implementation checkpoint `b806cc7ed2317b456a6171672e577ee816e4692d`:
 
 - Core solution: **1212/1212 passed**.
 - Formula: **518/518 passed**.
@@ -50,17 +48,19 @@ At implementation checkpoint `ff7af0da897efc5007645905f529c4bdbe9eb202`:
 - iOS loaded VoiceOver analytics accessibility smoke: **passed**.
 - Mac Catalyst loaded VoiceOver analytics accessibility smoke: **passed**.
 - MAUI Windows handler + loaded Table-filter/runtime/analytics/scale smokes: **passed**.
+- MAUI Windows loaded Ribbon smoke: **passed**.
 
 ## Remaining limits
 
-- `RIBBON-MAUI` is locally implemented but awaits exact-head GitHub CI before
-  being declared closed.
-- Q003D is preservation interoperability only; standard pivot creation from a Nera pivot, semantic import into the Nera pivot model, cache-record interoperability, refresh/calculation equivalence, destination-cell modeling, slicers/timelines and broader Excel UI parity remain.
+- `PIVOT-OPENXML-STANDARD` is local-green but awaits exact-head GitHub CI
+  before being declared closed.
+- Pivot refresh/calculation equivalence, user-mode destination-cell modeling,
+  slicers/timelines and broader Excel UI parity remain outside the current
+  standard pivot lane.
 - Broader drawing/media compatibility remains beyond the managed chart + foreign drawing preservation gates.
 - Packaging/versioning, plugin trust/isolation/recovery, broader performance/security corpora and final release acceptance remain incomplete.
 
 ## Next single step
 
-Push the branch and wait for exact-head GitHub CI before updating
-roadmap/progress to claim `RIBBON-MAUI` closed. The next implementation lane
-after CI is `PIVOT-OPENXML-STANDARD` in `docs/worklog/AI_COORDINATION.md`.
+Push `PIVOT-OPENXML-STANDARD` and wait for exact-head GitHub CI. If CI passes,
+mark the lane closed and move to `DRAWING-MEDIA-COMPAT`.

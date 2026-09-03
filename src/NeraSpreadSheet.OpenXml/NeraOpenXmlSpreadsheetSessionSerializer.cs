@@ -80,6 +80,7 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         ImportStandardSplitViews(document, session);
         ImportNativeSplitViews(document, session);
         NeraOpenXmlAnalyticsStateCodec.Import(document, session);
+        NeraOpenXmlPivotTableCodec.Import(document, session, options.PreserveUnknownParts);
         return session;
     }
 
@@ -109,6 +110,7 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
             ExportStandardSplitViews(document, session, cancellationToken);
             ExportNativeSplitViews(document, session, cancellationToken);
             NeraOpenXmlAnalyticsStateCodec.Export(document, session, cancellationToken);
+            NeraOpenXmlPivotTableCodec.Export(document, session, cancellationToken);
             NeraOpenXmlChartDrawingCodec.Export(document, session, cancellationToken);
         }
 

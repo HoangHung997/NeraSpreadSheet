@@ -115,5 +115,13 @@ Validation:
 
 ## Current status
 
-`RIBBON-MAUI` is locally complete and ready for exact-head GitHub CI. Do not
-mark the PR Ready until the GitHub matrix confirms this head.
+`RIBBON-MAUI` is closed at exact-head checkpoint
+`b806cc7ed2317b456a6171672e577ee816e4692d`.
+
+GitHub evidence:
+
+- full CI #1214 / run `33777851358`: success;
+- iOS analytics accessibility gate #17 / run `33777851359`: success;
+- Q003C/OpenXML gate #14 / run `33777851399`: success.
+
+PR #1 remains Draft because later roadmap lanes are still active.

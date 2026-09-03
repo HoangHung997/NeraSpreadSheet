@@ -17,6 +17,7 @@ public sealed class PivotTablePackageCompatibilityTests
     private const string SourceSheetName = "Data";
     private const string SourceReference = "A1:B4";
     private const string PivotName = "ExternalPivot";
+    private const string ManagedDataCaption = "NeraSpreadSheet Values";
 
     private static readonly XNamespace SpreadsheetNamespace =
         "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -28,7 +29,7 @@ public sealed class PivotTablePackageCompatibilityTests
     {
         var serializer = new NeraOpenXmlSpreadsheetSessionSerializer();
         await using var source = await CreateStandardPivotPackageAsync(serializer);
-        var baseline = InspectPivotPackage(source);
+        var baseline = InspectPivotPackage(source, PivotName);
 
         source.Position = 0L;
         var session = await serializer.LoadSessionAsync(
@@ -57,7 +58,7 @@ public sealed class PivotTablePackageCompatibilityTests
             {
                 PreserveUnknownParts = true,
             });
-        var firstSnapshot = InspectPivotPackage(first);
+        var firstSnapshot = InspectPivotPackage(first, PivotName);
         AssertPivotSnapshot(baseline, firstSnapshot);
 
         first.Position = 0L;
@@ -81,7 +82,7 @@ public sealed class PivotTablePackageCompatibilityTests
             {
                 PreserveUnknownParts = true,
             });
-        var secondSnapshot = InspectPivotPackage(second);
+        var secondSnapshot = InspectPivotPackage(second, PivotName);
         AssertPivotSnapshot(firstSnapshot, secondSnapshot);
     }
 
@@ -112,10 +113,89 @@ public sealed class PivotTablePackageCompatibilityTests
                 PreserveUnknownParts = true,
             });
 
-        var snapshot = InspectPivotPackage(output);
+        var snapshot = InspectPivotPackage(output, PivotName);
         Assert.AreEqual(PivotName, snapshot.PivotName);
         Assert.AreEqual(SourceSheetName, snapshot.SourceSheet);
         Assert.AreEqual(SourceReference, snapshot.SourceReference);
+    }
+
+    [TestMethod]
+    public async Task SaveSessionMaterializesManagedPivotAsStandardPivotTablePackageGraph()
+    {
+        var serializer = new NeraOpenXmlSpreadsheetSessionSerializer();
+        var (session, pivot) = CreateManagedPivotSession();
+        await using var output = new MemoryStream();
+
+        await serializer.SaveSessionAsync(
+            session,
+            output,
+            new OpenXmlExportOptions());
+
+        var snapshot = InspectPivotPackage(output);
+        Assert.AreEqual(pivot.Name, snapshot.PivotName);
+        Assert.AreEqual(SourceSheetName, snapshot.SourceSheet);
+        Assert.AreEqual(SourceReference, snapshot.SourceReference);
+        Assert.AreEqual("1", snapshot.CacheId);
+        Assert.AreEqual(3, snapshot.CacheRecordCount);
+        Assert.AreEqual(2, snapshot.CacheFieldCount);
+        Assert.AreEqual(1, snapshot.PivotPartCount);
+        Assert.AreEqual(1, snapshot.CachePartCount);
+        Assert.AreEqual(1, snapshot.CacheRecordsPartCount);
+        Assert.AreEqual(ManagedDataCaption, snapshot.DataCaption);
+        Assert.AreEqual("sum", snapshot.Subtotal);
+        Assert.AreEqual("D1:E4", snapshot.LocationReference);
+    }
+
+    [TestMethod]
+    public async Task SaveLoadSaveKeepsSingleManagedStandardPivotPackageGraph()
+    {
+        var serializer = new NeraOpenXmlSpreadsheetSessionSerializer();
+        var (session, pivot) = CreateManagedPivotSession();
+        await using var first = new MemoryStream();
+
+        await serializer.SaveSessionAsync(
+            session,
+            first,
+            new OpenXmlExportOptions());
+
+        first.Position = 0L;
+        var loaded = await serializer.LoadSessionAsync(
+            first,
+            new OpenXmlImportOptions());
+        Assert.AreEqual(
+            pivot.Name,
+            loaded.Analytics.GetPivots(loaded.ActiveWorksheet).Single().Name);
+
+        await using var second = new MemoryStream();
+        await serializer.SaveSessionAsync(
+            loaded,
+            second,
+            new OpenXmlExportOptions());
+
+        var snapshot = InspectPivotPackage(second);
+        Assert.AreEqual(1, snapshot.PivotPartCount);
+        Assert.AreEqual(1, snapshot.CachePartCount);
+        Assert.AreEqual(1, snapshot.CacheRecordsPartCount);
+        Assert.AreEqual(pivot.Name, snapshot.PivotName);
+    }
+
+    [TestMethod]
+    public async Task StandardPivotGraphImportsIntoNeraPivotModelWithoutPreservationEnvelope()
+    {
+        var serializer = new NeraOpenXmlSpreadsheetSessionSerializer();
+        await using var source = await CreateStandardPivotPackageAsync(serializer);
+
+        source.Position = 0L;
+        var session = await serializer.LoadSessionAsync(
+            source,
+            new OpenXmlImportOptions());
+
+        var pivot = session.Analytics.GetPivots(session.ActiveWorksheet).Single();
+        Assert.AreEqual(PivotName, pivot.Name);
+        Assert.AreEqual(new CellRange(new CellAddress(0, 0), new CellAddress(3, 1)), pivot.SourceRange);
+        Assert.AreEqual(0, pivot.RowFieldColumnIndex);
+        Assert.AreEqual(1, pivot.ValueFieldColumnIndex);
+        Assert.AreEqual(SpreadsheetPivotAggregation.Sum, pivot.Aggregation);
     }
 
     private static async Task<MemoryStream> CreateStandardPivotPackageAsync(
@@ -153,6 +233,11 @@ public sealed class PivotTablePackageCompatibilityTests
             WriteXmlPart(
                 cachePart,
                 CreatePivotCacheDefinitionXml());
+            var cacheRecordsPart =
+                cachePart.AddNewPart<PivotTableCacheRecordsPart>();
+            WriteXmlPart(
+                cacheRecordsPart,
+                CreatePivotCacheRecordsXml());
 
             var pivotPart = worksheetPart.AddNewPart<PivotTablePart>(
                 WorksheetPivotRelationshipId);
@@ -180,7 +265,9 @@ public sealed class PivotTablePackageCompatibilityTests
         return stream;
     }
 
-    private static PivotPackageSnapshot InspectPivotPackage(MemoryStream stream)
+    private static PivotPackageSnapshot InspectPivotPackage(
+        MemoryStream stream,
+        string? pivotName = null)
     {
         stream.Position = 0L;
         using var document = SpreadsheetDocument.Open(stream, false);
@@ -190,24 +277,13 @@ public sealed class PivotTablePackageCompatibilityTests
             ?? throw new AssertFailedException(
                 "The pivot package is missing its workbook part.");
         var worksheetPart = workbookPart.WorksheetParts.Single();
-        var workbookXml = LoadXmlPart(workbookPart);
-        var pivotCache = workbookXml.Root?
-            .Element(SpreadsheetNamespace + "pivotCaches")?
-            .Elements(SpreadsheetNamespace + "pivotCache")
-            .SingleOrDefault()
-            ?? throw new AssertFailedException(
-                "The workbook pivotCaches entry was not preserved.");
-        var workbookCacheRelationshipId =
-            (string?)pivotCache.Attribute(
-                OfficeRelationshipNamespace + "id")
-            ?? throw new AssertFailedException(
-                "The workbook pivot cache relationship id is missing.");
-        var cachePart = workbookPart.GetPartById(
-            workbookCacheRelationshipId) as PivotTableCacheDefinitionPart
-            ?? throw new AssertFailedException(
-                "The workbook pivot cache definition part was not preserved.");
-
-        var pivotPart = worksheetPart.PivotTableParts.SingleOrDefault()
+        var pivotPart = worksheetPart.PivotTableParts
+            .SingleOrDefault(part =>
+                pivotName is null ||
+                string.Equals(
+                    (string?)LoadXmlPart(part).Root?.Attribute("name"),
+                    pivotName,
+                    StringComparison.OrdinalIgnoreCase))
             ?? throw new AssertFailedException(
                 "The worksheet pivot table part was not preserved.");
         var worksheetPivotRelationshipId = worksheetPart.GetIdOfPart(pivotPart);
@@ -216,6 +292,19 @@ public sealed class PivotTablePackageCompatibilityTests
                 "The pivot table no longer points at its cache definition.");
         var pivotCacheRelationshipId = pivotPart.GetIdOfPart(linkedCachePart);
 
+        var workbookCacheRelationshipId = workbookPart.GetIdOfPart(linkedCachePart);
+        var workbookXml = LoadXmlPart(workbookPart);
+        _ = workbookXml.Root?
+            .Element(SpreadsheetNamespace + "pivotCaches")?
+            .Elements(SpreadsheetNamespace + "pivotCache")
+            .SingleOrDefault(element => string.Equals(
+                (string?)element.Attribute(OfficeRelationshipNamespace + "id"),
+                workbookCacheRelationshipId,
+                StringComparison.Ordinal))
+            ?? throw new AssertFailedException(
+                "The workbook pivotCaches entry was not preserved.");
+
+        var cachePart = linkedCachePart;
         Assert.AreEqual(cachePart.Uri, linkedCachePart.Uri);
 
         var cacheXml = LoadXmlPart(cachePart);
@@ -235,7 +324,28 @@ public sealed class PivotTablePackageCompatibilityTests
             (string?)worksheetSource.Attribute("sheet") ?? string.Empty,
             (string?)worksheetSource.Attribute("ref") ?? string.Empty,
             (string?)pivotXml.Root?.Attribute("name") ?? string.Empty,
-            (string?)pivotXml.Root?.Attribute("cacheId") ?? string.Empty);
+            (string?)pivotXml.Root?.Attribute("cacheId") ?? string.Empty,
+            (string?)pivotXml.Root?.Attribute("dataCaption") ?? string.Empty,
+            (string?)pivotXml.Root?
+                .Element(SpreadsheetNamespace + "dataFields")
+                ?.Element(SpreadsheetNamespace + "dataField")
+                ?.Attribute("subtotal") ?? string.Empty,
+            (string?)pivotXml.Root?
+                .Element(SpreadsheetNamespace + "location")
+                ?.Attribute("ref") ?? string.Empty,
+            int.TryParse(
+                (string?)cacheXml.Root?.Attribute("recordCount"),
+                out var recordCount)
+                ? recordCount
+                : -1,
+            cacheXml.Root?
+                .Element(SpreadsheetNamespace + "cacheFields")
+                ?.Elements(SpreadsheetNamespace + "cacheField")
+                .Count() ?? 0,
+            worksheetPart.PivotTableParts.Count(),
+            workbookPart.PivotTableCacheDefinitionParts.Count(),
+            workbookPart.PivotTableCacheDefinitionParts
+                .Count(part => part.PivotTableCacheRecordsPart is not null));
     }
 
     private static void AssertPivotSnapshot(
@@ -322,6 +432,43 @@ public sealed class PivotTablePackageCompatibilityTests
             """,
             LoadOptions.PreserveWhitespace);
 
+    private static XDocument CreatePivotCacheRecordsXml() =>
+        XDocument.Parse(
+            $"""
+            <?xml version="1.0" encoding="utf-8"?>
+            <pivotCacheRecords xmlns="{SpreadsheetNamespace}" count="3">
+              <r><x v="0" /><n v="10" /></r>
+              <r><x v="1" /><n v="20" /></r>
+              <r><x v="0" /><n v="30" /></r>
+            </pivotCacheRecords>
+            """,
+            LoadOptions.PreserveWhitespace);
+
+    private static (SpreadsheetSession Session, SpreadsheetPivotDefinition Pivot)
+        CreateManagedPivotSession()
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        workbook.RenameWorksheet(worksheet, SourceSheetName);
+        worksheet.SetValue(new CellAddress(0, 0), "Region");
+        worksheet.SetValue(new CellAddress(0, 1), "Sales");
+        worksheet.SetValue(new CellAddress(1, 0), "North");
+        worksheet.SetValue(new CellAddress(1, 1), 10d);
+        worksheet.SetValue(new CellAddress(2, 0), "South");
+        worksheet.SetValue(new CellAddress(2, 1), 20d);
+        worksheet.SetValue(new CellAddress(3, 0), "North");
+        worksheet.SetValue(new CellAddress(3, 1), 30d);
+
+        var session = new SpreadsheetSession(workbook);
+        var pivot = session.Analytics.InsertPivot(
+            new CellRange(new CellAddress(0, 0), new CellAddress(3, 1)),
+            rowFieldColumnIndex: 0,
+            valueFieldColumnIndex: 1,
+            SpreadsheetPivotAggregation.Sum,
+            requestedName: "ManagedPivot");
+        return (session, pivot);
+    }
+
     private static XDocument LoadXmlPart(OpenXmlPart part)
     {
         using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
@@ -363,5 +510,13 @@ public sealed class PivotTablePackageCompatibilityTests
         string SourceSheet,
         string SourceReference,
         string PivotName,
-        string CacheId);
+        string CacheId,
+        string DataCaption,
+        string Subtotal,
+        string LocationReference,
+        int CacheRecordCount,
+        int CacheFieldCount,
+        int PivotPartCount,
+        int CachePartCount,
+        int CacheRecordsPartCount);
 }

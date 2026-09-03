@@ -23,8 +23,8 @@ before moving to another lane.
 
 | Order | Lane | Owner | Status | Exit evidence |
 |---:|---|---|---|---|
-| 1 | `RIBBON-MAUI` | Codex | Local done, CI pending | MAUI Ribbon/Bar presenters, shortcut/input mapping, customization entry point, tests, loaded Windows smoke |
-| 2 | `PIVOT-OPENXML-STANDARD` | Unclaimed | Next after CI | Standard pivot creation/import/cache-record compatibility with explicit scope docs and OpenXML gates |
+| 1 | `RIBBON-MAUI` | Codex | Done | MAUI Ribbon/Bar presenters, shortcut/input mapping, customization entry point, tests, loaded Windows smoke; exact-head CI #1214, iOS gate #17, OpenXML gate #14 all success |
+| 2 | `PIVOT-OPENXML-STANDARD` | Codex | Local done, CI pending | Standard pivot creation/import/cache-record compatibility with explicit scope docs and OpenXML gates |
 | 3 | `DRAWING-MEDIA-COMPAT` | Unclaimed | Pending | Broader drawing/media preservation/materialization corpus |
 | 4 | `PACKAGING-SDK` | Unclaimed | Pending | Package/versioning/API compatibility validation |
 | 5 | `SECURITY-RECOVERY` | Unclaimed | Pending | Trust/isolation/recovery hardening and tests |
@@ -32,7 +32,7 @@ before moving to another lane.
 | 7 | `WIN11-DEMO-APP` | Unclaimed | Pending | Runnable Windows 11 demo app packaging the finished stack |
 | 8 | `FINAL-ACCEPTANCE` | Unclaimed | Pending | Full validation, docs, release evidence, PR ready criteria |
 
-## Active lane: RIBBON-MAUI
+## Closed lane: RIBBON-MAUI
 
 Scope:
 
@@ -61,3 +61,28 @@ Out of scope for this lane:
 |---|---|---|---|
 | 2026-09-03 | Codex | `RIBBON-MAUI` | Workspace cloned and active lane claimed from PR #1 handoff. |
 | 2026-09-03 | Codex | `RIBBON-MAUI` | Local implementation complete: MAUI Ribbon/Bar presenters, shortcut/customization binding, Windows Ribbon smoke, architecture pass, Core 1212/1212, MAUI 34/34. |
+| 2026-09-03 | Codex | `RIBBON-MAUI` | Closed after exact-head GitHub evidence on `b806cc7ed2317b456a6171672e577ee816e4692d`: CI #1214 success, iOS gate #17 success, OpenXML gate #14 success. |
+| 2026-09-03 | Codex | `PIVOT-OPENXML-STANDARD` | Claimed after `RIBBON-MAUI` exact-head CI passed; scoped to basic standard pivot creation/import/cache records for the existing Nera one-row-field/one-value-field model. |
+| 2026-09-03 | Codex | `PIVOT-OPENXML-STANDARD` | Local implementation complete: standard PivotTable/PivotCache/PivotCacheRecords export, compatible semantic import, preservation-only behavior retained for `PreserveUnknownParts`, OpenXML 68/68, Core 1215/1215, architecture pass, solution build 0 warnings/errors. |
+
+## Active lane: PIVOT-OPENXML-STANDARD
+
+Scope:
+
+- Materialize Nera-managed pivots as standard XLSX PivotTable, PivotCache and
+  PivotCacheRecords package parts.
+- Import compatible standard worksheet-range PivotTables into the existing Nera
+  pivot model when unknown-part preservation is not enabled.
+- Preserve Q003D behavior: external standard PivotTables are not silently
+  claimed as Nera-managed pivots during explicit unknown-part preservation.
+- Keep the first implementation aligned with the existing Nera pivot model:
+  one row field, one value field, Sum/Count/Average/Minimum/Maximum aggregation
+  and worksheet-range sources.
+
+Out of scope for this lane:
+
+- Slicers, timelines, calculated fields/items, filters, multi-axis pivot
+  layouts and OLAP/external data sources.
+- Full Excel refresh/calculation parity.
+- User-mode pivot destination editing; export uses a deterministic default
+  placement beside the source range until destination-cell modeling is added.
