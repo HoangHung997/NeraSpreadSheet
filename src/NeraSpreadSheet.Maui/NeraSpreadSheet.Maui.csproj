@@ -10,8 +10,11 @@
   <ItemGroup>
     <PackageReference Include="SkiaSharp.Views.Maui.Controls" />
     <ProjectReference Include="../NeraSpreadSheet.Core/NeraSpreadSheet.Core.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Commands/NeraSpreadSheet.Commands.csproj" />
     <ProjectReference Include="../NeraSpreadSheet.Editing/NeraSpreadSheet.Editing.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Bars.Core/NeraSpreadSheet.Bars.Core.csproj" />
     <ProjectReference Include="../NeraSpreadSheet.Layout/NeraSpreadSheet.Layout.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Ribbon.Core/NeraSpreadSheet.Ribbon.Core.csproj" />
     <ProjectReference Include="../NeraSpreadSheet.Scrolling/NeraSpreadSheet.Scrolling.csproj" />
     <ProjectReference Include="../NeraSpreadSheet.Rendering.Abstractions/NeraSpreadSheet.Rendering.Abstractions.csproj" />
     <ProjectReference Include="../NeraSpreadSheet.Rendering.Spreadsheet/NeraSpreadSheet.Rendering.Spreadsheet.csproj" />

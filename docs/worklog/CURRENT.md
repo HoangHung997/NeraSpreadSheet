@@ -11,7 +11,11 @@
 - Q003D: **DONE for standard Excel PivotTable/PivotCache package preservation scope**.
 - Core solution at the verified Q003D checkpoint: **1212/1212 passed**, build/analyzers **0 warnings / 0 errors**, OpenXML **65/65**.
 - Ribbon/Bars desktop stack through `RIBBON-KEYBOARD`: **integrated and green**.
-- `RIBBON-MAUI`: separate Codex lane, still remaining.
+- `RIBBON-MAUI`: locally implemented; MAUI presenters,
+  shortcut/customization binding and Windows Ribbon smoke have been added and
+  validated locally with architecture pass, Windows solution build
+  **0 warnings / 0 errors**, Core **1212/1212**, MAUI **34/34** and loaded
+  Ribbon smoke success.
 - Weighted implementation-roadmap score: **83.08% ≈ 83%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -49,11 +53,14 @@ At implementation checkpoint `ff7af0da897efc5007645905f529c4bdbe9eb202`:
 
 ## Remaining limits
 
-- `RIBBON-MAUI` is not yet closed.
+- `RIBBON-MAUI` is locally implemented but awaits exact-head GitHub CI before
+  being declared closed.
 - Q003D is preservation interoperability only; standard pivot creation from a Nera pivot, semantic import into the Nera pivot model, cache-record interoperability, refresh/calculation equivalence, destination-cell modeling, slicers/timelines and broader Excel UI parity remain.
 - Broader drawing/media compatibility remains beyond the managed chart + foreign drawing preservation gates.
 - Packaging/versioning, plugin trust/isolation/recovery, broader performance/security corpora and final release acceptance remain incomplete.
 
 ## Next single step
 
-Keep `RIBBON-MAUI` isolated to Codex. ChatGPT may claim the next non-overlapping compatibility lane only through `docs/worklog/AI_COORDINATION.md`; do not modify Ribbon/MAUI files from that lane.
+Push the branch and wait for exact-head GitHub CI before updating
+roadmap/progress to claim `RIBBON-MAUI` closed. The next implementation lane
+after CI is `PIVOT-OPENXML-STANDARD` in `docs/worklog/AI_COORDINATION.md`.

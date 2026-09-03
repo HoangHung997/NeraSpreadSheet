@@ -82,6 +82,13 @@ jobs:
       - name: Verify MAUI handler resolution
         run: dotnet test tests/NeraSpreadSheet.Maui.Tests/NeraSpreadSheet.Maui.Tests.csproj -c Release -p:NeraMauiTargetFrameworks=net10.0-windows10.0.19041.0 --logger "trx;LogFileName=maui-handler-tests.trx"
 
+      - name: Publish loaded MAUI Windows Ribbon smoke
+        run: dotnet publish tests/NeraSpreadSheet.Maui.Windows.RibbonSmoke/NeraSpreadSheet.Maui.Windows.RibbonSmoke.csproj -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --self-contained false -p:NeraMauiTargetFrameworks=net10.0-windows10.0.19041.0 -o artifacts/maui-windows-ribbon-smoke
+
+      - name: Run loaded MAUI Windows Ribbon smoke
+        shell: pwsh
+        run: ./scripts/run-maui-windows-smoke.ps1 -ExecutablePath "artifacts/maui-windows-ribbon-smoke/NeraSpreadSheet.Maui.Windows.RibbonSmoke.exe"
+
       - name: Publish loaded MAUI Windows Table filter smoke
         run: dotnet publish tests/NeraSpreadSheet.Maui.Windows.TableFilterSmoke/NeraSpreadSheet.Maui.Windows.TableFilterSmoke.csproj -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --self-contained false -p:NeraMauiTargetFrameworks=net10.0-windows10.0.19041.0 -o artifacts/maui-windows-table-filter-smoke
 

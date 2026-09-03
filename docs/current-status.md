@@ -111,8 +111,13 @@ Desktop Ribbon/Bars from the Codex lane remains preserved in the combined checkp
 - normalized shortcut resolution and WPF/WinForms keyboard bindings;
 - loaded desktop smoke coverage for presentation, activation, state refresh, customization and shortcuts.
 
-Remaining Ribbon work is **`RIBBON-MAUI`**: MAUI presentation, customization UI/input mapping and loaded runtime smoke. That remains a separate Codex lane.
+`RIBBON-MAUI` is locally implemented and awaiting exact-head GitHub CI before
+being declared closed. The local implementation adds MAUI Ribbon/Bar presenters,
+shortcut binding, Ribbon customization binding and a loaded MAUI Windows Ribbon
+smoke. Local validation passed architecture verification, `NeraSpreadSheet.slnx`
+build with **0 warnings / 0 errors**, Core **1212/1212**, MAUI **34/34** and
+the loaded Ribbon smoke marker.
 
 ## Current boundaries
 
-PR #1 remains **Draft, open and unmerged**. Q003B, Q003C and the defined Q003D preservation scope are closed, but the repository is not release-ready. Major remaining roadmap areas include `RIBBON-MAUI`, standard Excel pivot creation/semantic import/cache-record compatibility, broader drawing/media compatibility, packaging/versioning, security/isolation/recovery hardening and final acceptance/release evidence.
+PR #1 remains **Draft, open and unmerged**. Q003B, Q003C and the defined Q003D preservation scope are closed, and `RIBBON-MAUI` is local-green but still needs exact-head GitHub CI evidence. Major remaining roadmap areas include standard Excel pivot creation/semantic import/cache-record compatibility, broader drawing/media compatibility, packaging/versioning, security/isolation/recovery hardening and final acceptance/release evidence.
