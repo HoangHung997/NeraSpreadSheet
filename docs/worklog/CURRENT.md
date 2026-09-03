@@ -3,8 +3,8 @@
 - Repository: `HoangHung997/NeraSpreadSheet`.
 - Branch: `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
-- Latest verified implementation merge checkpoint: `47591a8ac223f0ee5141e92bb31fca304fbe0a50`.
-- Verified implementation CI through `PACKAGING-SDK`: full run `33787957484` / #1239 — success; iOS gate `33787957432` / #42 — success; Q003C/OpenXML gate `33787957448` / #39 — success.
+- Latest verified implementation merge checkpoint: `dd0134a43f3888b78b64106e45210acf9231d83a`.
+- Verified implementation CI through the first two `SECURITY-RECOVERY` patches: full run `33791467660` / #1248 — success; iOS gate `33791467628` / #51 — success; Q003C/OpenXML gate `33791467663` / #48 — success.
 - Formula implementation: **DONE**, **546/546** locked catalog names; formula suite **518/518**.
 - Q001, Q002, Q003A, Q003B: **DONE**.
 - Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
@@ -25,8 +25,10 @@
 - `PACKAGING-SDK`: **DONE for package-readiness gate scope**. Package metadata,
   README packaging, explicit SDK package IDs, CI pack artifact upload and a
   packaging metadata verifier are exact-head validated.
-- `SECURITY-RECOVERY`: **ACTIVE**. Trust/isolation/recovery hardening is the
-  next lane before localization/a11y completion and the final Windows 11 demo.
+- `SECURITY-RECOVERY`: **ACTIVE**. External provider exception containment and
+  document save failure recovery are exact-head validated; additional bounded
+  trust/recovery coverage remains before localization/a11y completion and the
+  final Windows 11 demo.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -49,7 +51,7 @@
 
 ## Validation
 
-At implementation checkpoint `47591a8ac223f0ee5141e92bb31fca304fbe0a50`:
+At implementation checkpoint `dd0134a43f3888b78b64106e45210acf9231d83a`:
 
 - Core solution: **1216/1216 passed**.
 - Formula: **518/518 passed**.
@@ -58,6 +60,8 @@ At implementation checkpoint `47591a8ac223f0ee5141e92bb31fca304fbe0a50`:
 - Architecture verification: **passed**.
 - SDK packaging metadata verification: **passed**.
 - SDK package pack + `sdk-packages` artifact upload: **passed**.
+- External formula provider exception containment tests: **passed**.
+- Document save failure recovery test: **passed**.
 - Windows desktop GPU runtime smoke: **passed**.
 - Android loaded analytics accessibility smoke: **passed**.
 - iOS loaded VoiceOver analytics accessibility smoke: **passed**.
@@ -78,5 +82,6 @@ At implementation checkpoint `47591a8ac223f0ee5141e92bb31fca304fbe0a50`:
 
 ## Next single step
 
-Inventory `SECURITY-RECOVERY` trust/isolation/recovery surfaces and add focused
-hardening tests without marking PR #1 ready.
+Continue `SECURITY-RECOVERY` with the next bounded trust/recovery surface,
+starting from OpenXML package graph and preserve-unknown recovery checks,
+without marking PR #1 ready.

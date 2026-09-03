@@ -188,11 +188,35 @@ Exact-head GitHub evidence at commit
 - iOS analytics accessibility gate: **#42 / run 33787957432 — success**;
 - Q003C/OpenXML gate: **#39 / run 33787957448 — success**.
 
+## SECURITY-RECOVERY — ACTIVE
+
+First two hardening patches are integrated and exact-head validated:
+
+- external formula provider failures are contained at scalar, higher-order and
+  dynamic-array boundaries and return `#N/A` instead of escaping through formula
+  evaluation;
+- `WEBSERVICE`, `CALL` and `STOCKHISTORY` provider exception paths are covered;
+- document-level XLSX saves now snapshot seekable/readable destinations and
+  restore the previous bytes if the final write or flush fails after package
+  validation;
+- the save-failure recovery path is covered by a failing stream test that
+  verifies existing destination bytes survive unchanged.
+
+Exact-head GitHub evidence at commit
+`dd0134a43f3888b78b64106e45210acf9231d83a`:
+
+- full CI: **#1248 / run 33791467660 — success**;
+- iOS analytics accessibility gate: **#51 / run 33791467628 — success**;
+- Q003C/OpenXML gate: **#48 / run 33791467663 — success**;
+- `sdk-packages` artifact: ID `9907540966`, digest
+  `sha256:81c468df338b9fcc6343f777b05d89ee6b4e7751d43df24cec3c46f9207f86c9`.
+
 ## Current boundaries
 
 PR #1 remains **Draft, open and unmerged**. Q003B, Q003C, the defined Q003D
 preservation scope, `RIBBON-MAUI`, `PIVOT-OPENXML-STANDARD`,
 `DRAWING-MEDIA-COMPAT` and `PACKAGING-SDK` are closed for their defined scopes.
-Major remaining roadmap areas include security/isolation/recovery hardening,
-broader localization/accessibility completion and final acceptance/release
-evidence.
+`SECURITY-RECOVERY` remains active after the first two validated hardening
+patches. Major remaining roadmap areas include additional security/isolation
+coverage, broader localization/accessibility completion and final
+acceptance/release evidence.
