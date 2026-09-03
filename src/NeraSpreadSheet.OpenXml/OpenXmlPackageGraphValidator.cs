@@ -61,11 +61,25 @@ internal static class OpenXmlPackageGraphValidator
             stream,
             ZipArchiveMode.Read,
             leaveOpen: true);
+        var archiveEntryNames = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase);
         foreach (var entry in archive.Entries)
         {
             if (entry.FullName.EndsWith('/'))
             {
                 continue;
+            }
+
+            if (!archiveEntryNames.Add(entry.FullName))
+            {
+                throw new InvalidDataException(
+                    "The XLSX package contains multiple parts with the same package URI.");
+            }
+
+            if (archiveEntryNames.Count > MaxPartCount)
+            {
+                throw new InvalidDataException(
+                    "The XLSX package relationship graph exceeds the supported part-count limit.");
             }
 
             if (string.Equals(

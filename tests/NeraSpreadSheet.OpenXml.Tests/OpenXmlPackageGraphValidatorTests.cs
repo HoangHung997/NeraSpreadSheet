@@ -246,6 +246,16 @@ public sealed class OpenXmlPackageGraphValidatorTests
             OpenXmlPackageGraphValidator.Validate(packageBytes));
     }
 
+    [TestMethod]
+    public void PackageGraphValidationRejectsDuplicateArchivePartNames()
+    {
+        var packageBytes = CreateMinimalSpreadsheetPackage(
+            duplicateWorksheetEntry: true);
+
+        AssertInvalidData(() =>
+            OpenXmlPackageGraphValidator.Validate(packageBytes));
+    }
+
     private static void AssertInvalidData(Action action)
     {
         try
@@ -263,7 +273,8 @@ public sealed class OpenXmlPackageGraphValidatorTests
         string worksheetEntryName = "xl/worksheets/sheet1.xml",
         string worksheetContentTypePartName = "/xl/worksheets/sheet1.xml",
         string worksheetRelationshipType = WorksheetRelationshipType,
-        string? externalTarget = null)
+        string? externalTarget = null,
+        bool duplicateWorksheetEntry = false)
     {
         using var stream = new MemoryStream();
         using (var archive = new ZipArchive(
@@ -319,6 +330,18 @@ public sealed class OpenXmlPackageGraphValidatorTests
                   <sheetData/>
                 </worksheet>
                 """);
+            if (duplicateWorksheetEntry)
+            {
+                WriteEntry(
+                    archive,
+                    worksheetEntryName,
+                    """
+                    <?xml version="1.0" encoding="utf-8"?>
+                    <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+                      <sheetData/>
+                    </worksheet>
+                    """);
+            }
         }
 
         return stream.ToArray();
