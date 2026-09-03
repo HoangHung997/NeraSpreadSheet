@@ -263,6 +263,9 @@ internal static class OpenXmlPackageGraphValidator
     {
         try
         {
+            ValidatePercentEscapes(
+                value,
+                errorMessage);
             return Uri.UnescapeDataString(value);
         }
         catch (UriFormatException exception)
@@ -272,6 +275,29 @@ internal static class OpenXmlPackageGraphValidator
                 exception);
         }
     }
+
+    private static void ValidatePercentEscapes(
+        string value,
+        string errorMessage)
+    {
+        for (var index = 0; index < value.Length; index++)
+        {
+            if (value[index] != '%')
+            {
+                continue;
+            }
+
+            if (index + 2 >= value.Length ||
+                !IsHexDigit(value[index + 1]) ||
+                !IsHexDigit(value[index + 2]))
+            {
+                throw new InvalidDataException(errorMessage);
+            }
+        }
+    }
+
+    private static bool IsHexDigit(char character) =>
+        character is >= '0' and <= '9' or >= 'A' and <= 'F' or >= 'a' and <= 'f';
 
     private static bool ContainsControlCharacter(string value)
     {

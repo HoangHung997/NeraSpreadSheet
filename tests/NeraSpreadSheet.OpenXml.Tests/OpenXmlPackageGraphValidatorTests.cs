@@ -40,6 +40,31 @@ public sealed class OpenXmlPackageGraphValidatorTests
     }
 
     [TestMethod]
+    public void SafeReferenceTargetFormsUsedByExcelAreAccepted()
+    {
+        Uri[] safeTargets =
+        [
+            new(
+                "https://example.invalid/files/Book%202026.xlsx?sheet=Sheet%201#A1",
+                UriKind.Absolute),
+            new(
+                "file:///C:/Users/Public/Documents/Book%202026.xlsx",
+                UriKind.Absolute),
+            new(
+                "../media/image%201.png",
+                UriKind.Relative),
+            new(
+                "#'Sheet 1'!A1",
+                UriKind.Relative),
+        ];
+
+        foreach (var safeTarget in safeTargets)
+        {
+            OpenXmlPackageGraphValidator.ValidateReferenceTarget(safeTarget);
+        }
+    }
+
+    [TestMethod]
     public void UnsafeLiteralAndEscapedPartUrisAreRejected()
     {
         string[] unsafeUris =
@@ -124,6 +149,26 @@ public sealed class OpenXmlPackageGraphValidatorTests
         AssertInvalidData(() =>
             OpenXmlPackageGraphValidator.ValidateReferenceTarget(
                 new Uri("bad%0Atarget", UriKind.Relative)));
+    }
+
+    [TestMethod]
+    public void MalformedEscapedReferenceTargetsAreRejected()
+    {
+        string[] invalidTargets =
+        [
+            "https://example.invalid/bad%",
+            "relative/bad%2",
+            "file:///C:/Temp/bad%GG.xlsx",
+        ];
+
+        foreach (var invalidTarget in invalidTargets)
+        {
+            AssertInvalidData(() =>
+                OpenXmlPackageGraphValidator.ValidateReferenceTarget(
+                    new Uri(
+                        invalidTarget,
+                        UriKind.RelativeOrAbsolute)));
+        }
     }
 
     private static void AssertInvalidData(Action action)
