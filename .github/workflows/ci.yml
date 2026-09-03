@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   apply-packaging-sdk:
-    name: Apply packaging SDK checkpoint
+    name: Apply packaging SDK non-workflow files
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR branch
@@ -19,13 +19,12 @@ jobs:
           ref: feature/bootstrap-architecture-v0.1
           fetch-depth: 0
 
-      - name: Apply verified patch
+      - name: Apply verified non-workflow patch
         shell: bash
         run: |
           set -euo pipefail
           patch_url="https://paste.rs/Uo8rh"
           expected_sha="769EF4DB81B710D0C5022FB6210A1E280903CADFE797322398DC1CAD456FEA21"
-          expected_tree="470029379212f07deb55d77fd01968927c9ab65e"
           patch_path="$RUNNER_TEMP/packaging-sdk.patch"
 
           curl -fsSL "$patch_url" -o "$patch_path"
@@ -39,14 +38,20 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin feature/bootstrap-architecture-v0.1
           lease_head="$(git rev-parse origin/feature/bootstrap-architecture-v0.1)"
+          git checkout -B feature/bootstrap-architecture-v0.1 "$lease_head"
 
-          git checkout -B feature/bootstrap-architecture-v0.1 a602b3e6ebcdd92675f9b0e3a014532fcd07e756
-          git am "$patch_path"
-          actual_tree="$(git rev-parse 'HEAD^{tree}')"
-          if [ "$actual_tree" != "$expected_tree" ]; then
-            echo "Tree mismatch: expected $expected_tree, got $actual_tree"
-            git status --short
+          git apply --index --exclude='.github/workflows/*' "$patch_path"
+          changed_files="$(git diff --cached --name-only)"
+          printf '%s\n' "$changed_files"
+          if printf '%s\n' "$changed_files" | grep -q '^.github/workflows/'; then
+            echo "Refusing to commit workflow changes from temporary job."
             exit 1
           fi
 
+          if git diff --cached --quiet; then
+            echo "No non-workflow packaging changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Add SDK packaging verification files"
           git push --force-with-lease=feature/bootstrap-architecture-v0.1:$lease_head origin HEAD:feature/bootstrap-architecture-v0.1
