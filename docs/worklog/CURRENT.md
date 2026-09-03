@@ -3,8 +3,8 @@
 - Repository: `HoangHung997/NeraSpreadSheet`.
 - Branch: `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
-- Latest verified implementation merge checkpoint: `ff7af0da897efc5007645905f529c4bdbe9eb202`.
-- Verified implementation CI through `RIBBON-MAUI`: full run `33777851358` / #1214 — success; iOS gate `33777851359` / #17 — success; Q003C/OpenXML gate `33777851399` / #14 — success.
+- Latest verified implementation merge checkpoint: `47591a8ac223f0ee5141e92bb31fca304fbe0a50`.
+- Verified implementation CI through `PACKAGING-SDK`: full run `33787957484` / #1239 — success; iOS gate `33787957432` / #42 — success; Q003C/OpenXML gate `33787957448` / #39 — success.
 - Formula implementation: **DONE**, **546/546** locked catalog names; formula suite **518/518**.
 - Q001, Q002, Q003A, Q003B: **DONE**.
 - Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
@@ -22,11 +22,12 @@
   drawing parts through repeated preserved session saves. OpenXML 69/69, Core
   1216/1216, solution build 0 warnings/errors and architecture verification are
   green locally.
-- `PACKAGING-SDK`: **ACTIVE, local implementation complete**. Package
-  metadata, README packaging, explicit SDK package IDs, CI pack artifact upload
-  and a packaging metadata verifier are integrated locally; exact-head GitHub
-  evidence is still pending.
-- Weighted implementation-roadmap score: **83.08% ≈ 83%**.
+- `PACKAGING-SDK`: **DONE for package-readiness gate scope**. Package metadata,
+  README packaging, explicit SDK package IDs, CI pack artifact upload and a
+  packaging metadata verifier are exact-head validated.
+- `SECURITY-RECOVERY`: **ACTIVE**. Trust/isolation/recovery hardening is the
+  next lane before localization/a11y completion and the final Windows 11 demo.
+- Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
 
 ## Q003B/Q003C/Q003D checkpoint
@@ -48,13 +49,15 @@
 
 ## Validation
 
-At implementation checkpoint `b806cc7ed2317b456a6171672e577ee816e4692d`:
+At implementation checkpoint `47591a8ac223f0ee5141e92bb31fca304fbe0a50`:
 
-- Core solution: **1212/1212 passed**.
+- Core solution: **1216/1216 passed**.
 - Formula: **518/518 passed**.
-- OpenXML: **65/65 passed**.
+- OpenXML: **69/69 passed**.
 - Build/analyzers: **0 warnings, 0 errors**.
 - Architecture verification: **passed**.
+- SDK packaging metadata verification: **passed**.
+- SDK package pack + `sdk-packages` artifact upload: **passed**.
 - Windows desktop GPU runtime smoke: **passed**.
 - Android loaded analytics accessibility smoke: **passed**.
 - iOS loaded VoiceOver analytics accessibility smoke: **passed**.
@@ -70,11 +73,10 @@ At implementation checkpoint `b806cc7ed2317b456a6171672e577ee816e4692d`:
 - Broader drawing/media compatibility remains beyond the managed chart + foreign drawing preservation gates.
 - User-facing drawing/image editing tools and rich media semantic import remain
   outside the first Drawing/Media preservation lane.
-- Exact-head hosted CI evidence for `PACKAGING-SDK`, plugin
-  trust/isolation/recovery, broader performance/security corpora and final
-  release acceptance remain incomplete.
+- Plugin trust/isolation/recovery, broader performance/security corpora and
+  final release acceptance remain incomplete.
 
 ## Next single step
 
-Remote-integrate `PACKAGING-SDK` and collect exact-head CI evidence without
-marking PR #1 ready.
+Inventory `SECURITY-RECOVERY` trust/isolation/recovery surfaces and add focused
+hardening tests without marking PR #1 ready.

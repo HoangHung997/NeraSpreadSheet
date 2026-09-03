@@ -18,8 +18,8 @@ security/recovery hardening and the final Windows 11 demo lane.
 | Batch | Status | Scope |
 |---|---|---|
 | `PACKAGING-SDK-001` | Done | Inventory project/package metadata, target frameworks, packable projects and samples. |
-| `PACKAGING-SDK-002` | Done locally | Add package/version/API compatibility checks that fit the existing build. |
-| `PACKAGING-SDK-003` | In progress | Update docs and collect local plus exact-head GitHub evidence. |
+| `PACKAGING-SDK-002` | Done | Add package/version/API compatibility checks that fit the existing build. |
+| `PACKAGING-SDK-003` | Done | Update docs and collect local plus exact-head GitHub evidence. |
 
 ## Scope
 
@@ -36,8 +36,8 @@ security/recovery hardening and the final Windows 11 demo lane.
 
 ## Current status
 
-`PACKAGING-SDK` is implemented locally and awaiting remote integration plus
-exact-head GitHub evidence.
+`PACKAGING-SDK` is closed for the package-readiness gate scope at exact-head
+checkpoint `47591a8ac223f0ee5141e92bb31fca304fbe0a50`.
 
 ## Inventory
 
@@ -86,5 +86,13 @@ exact-head GitHub evidence.
 
 ## Exact-head status
 
-Pending. The lane is not closed until the remote integration commit and its
-exact-head GitHub Actions evidence are green.
+Closed at commit `47591a8ac223f0ee5141e92bb31fca304fbe0a50`.
+
+- Full CI: **#1239 / run 33787957484 — success**.
+- Core job: build/test, architecture verification, SDK packaging metadata
+  verification, SDK package pack and artifact upload all succeeded.
+- `sdk-packages` artifact: ID `9906198247`, digest
+  `sha256:3d697797e79866e1420bd58702d574eb1469cd26856cdd57a3cfe80b8d77bd06`,
+  expires `2026-12-02`.
+- iOS analytics accessibility gate: **#42 / run 33787957432 — success**.
+- Q003C/OpenXML gate: **#39 / run 33787957448 — success**.

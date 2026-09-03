@@ -1,6 +1,6 @@
 # NeraSpreadSheet roadmap
 
-Project progress is tracked with the fixed weighted rubric in [`docs/project-progress.md`](docs/project-progress.md). The current roadmap implementation score is **83.08%**, reported as **83%**.
+Project progress is tracked with the fixed weighted rubric in [`docs/project-progress.md`](docs/project-progress.md). The current roadmap implementation score is **83.98%**, reported as **84%**.
 
 - [x] Sparse workbook, editing, dependency calculation and structural transforms.
 - [x] Fractional scrolling and WPF/WinForms/MAUI renderer hosts.

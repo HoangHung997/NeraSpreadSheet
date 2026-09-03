@@ -2,7 +2,7 @@
 
 ## Overall roadmap implementation progress
 
-The fixed weighted roadmap rubric in [`project-progress.md`](project-progress.md) currently evaluates to **83.08%**, reported as **83%**. This is an implementation-roadmap score, not a claim that NeraSpreadSheet implements 83% of every Microsoft Excel feature and not a production-readiness percentage.
+The fixed weighted roadmap rubric in [`project-progress.md`](project-progress.md) currently evaluates to **83.98%**, reported as **84%**. This is an implementation-roadmap score, not a claim that NeraSpreadSheet implements 84% of every Microsoft Excel feature and not a production-readiness percentage.
 
 ## Formula subsystem — CLOSED
 
@@ -159,7 +159,7 @@ This lane is preservation-first. User-authored pictures, VML drawings,
 background pictures, OLE/control objects, video/audio and rich shape semantics
 remain opaque until Nera has first-class ownership models for them.
 
-## PACKAGING-SDK — ACTIVE, LOCAL IMPLEMENTATION COMPLETE
+## PACKAGING-SDK — DONE FOR PACKAGE-READINESS GATE SCOPE
 
 Implemented and locally validated:
 
@@ -175,14 +175,24 @@ Implemented and locally validated:
 
 Local validation produced 17 SDK packages, confirmed every package contains
 `README.md`, and kept Core Release tests at 1216/1216 with 0 build warnings and
-0 errors. Exact-head GitHub evidence is still pending, so this lane is not yet
-closed.
+0 errors.
+
+Exact-head GitHub evidence at commit
+`47591a8ac223f0ee5141e92bb31fca304fbe0a50`:
+
+- full CI: **#1239 / run 33787957484 — success**;
+- Core job: build/test, architecture verification, SDK packaging metadata
+  verification, SDK package pack and artifact upload all passed;
+- `sdk-packages` artifact: ID `9906198247`, digest
+  `sha256:3d697797e79866e1420bd58702d574eb1469cd26856cdd57a3cfe80b8d77bd06`;
+- iOS analytics accessibility gate: **#42 / run 33787957432 — success**;
+- Q003C/OpenXML gate: **#39 / run 33787957448 — success**.
 
 ## Current boundaries
 
 PR #1 remains **Draft, open and unmerged**. Q003B, Q003C, the defined Q003D
-preservation scope, `RIBBON-MAUI`, `PIVOT-OPENXML-STANDARD` and
-`DRAWING-MEDIA-COMPAT` are closed for their defined scopes. `PACKAGING-SDK` is
-implemented locally and awaiting exact-head GitHub evidence. Major remaining
-roadmap areas include security/isolation/recovery hardening and final
-acceptance/release evidence.
+preservation scope, `RIBBON-MAUI`, `PIVOT-OPENXML-STANDARD`,
+`DRAWING-MEDIA-COMPAT` and `PACKAGING-SDK` are closed for their defined scopes.
+Major remaining roadmap areas include security/isolation/recovery hardening,
+broader localization/accessibility completion and final acceptance/release
+evidence.

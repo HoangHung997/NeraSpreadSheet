@@ -3,7 +3,7 @@
 Repository: `HoangHung997/NeraSpreadSheet`
 Branch: `feature/bootstrap-architecture-v0.1`
 PR: #1 Draft, open, unmerged
-Current roadmap score: `83.08% ~= 83%`
+Current roadmap score: `83.98% ~= 84%`
 
 This file is the shared coordination ledger for Codex/ChatGPT work. Agents must
 claim one lane at a time, keep scope boundaries explicit, and update this file
@@ -26,8 +26,8 @@ before moving to another lane.
 | 1 | `RIBBON-MAUI` | Codex | Done | MAUI Ribbon/Bar presenters, shortcut/input mapping, customization entry point, tests, loaded Windows smoke; exact-head CI #1214, iOS gate #17, OpenXML gate #14 all success |
 | 2 | `PIVOT-OPENXML-STANDARD` | Codex | Done | Standard pivot creation/import/cache-record compatibility with explicit scope docs and OpenXML/Core/architecture gates |
 | 3 | `DRAWING-MEDIA-COMPAT` | Codex | Done | Broader drawing/media preservation/materialization corpus |
-| 4 | `PACKAGING-SDK` | Codex | Active | Local package metadata/readme/pack-artifact gate complete; exact-head GitHub evidence pending |
-| 5 | `SECURITY-RECOVERY` | Unclaimed | Pending | Trust/isolation/recovery hardening and tests |
+| 4 | `PACKAGING-SDK` | Codex | Done | Package metadata/readme/pack-artifact gate exact-head validated; CI #1239, iOS gate #42, OpenXML gate #39 all success |
+| 5 | `SECURITY-RECOVERY` | Codex | Active | Trust/isolation/recovery hardening and tests |
 | 6 | `LOCALIZATION-A11Y-COMPLETE` | Unclaimed | Pending | Accessibility/localization gaps beyond analytics bridge |
 | 7 | `WIN11-DEMO-APP` | Unclaimed | Pending | Runnable Windows 11 demo app packaging the finished stack |
 | 8 | `FINAL-ACCEPTANCE` | Unclaimed | Pending | Full validation, docs, release evidence, PR ready criteria |
@@ -70,6 +70,8 @@ Out of scope for this lane:
 | 2026-09-04 | Codex | `DRAWING-MEDIA-COMPAT` | Remote integration complete at `53c9da051a0a616e194058690e016e0f756a7b7f` with matching local tree `f85d0e5a7f3ac7853dc33458abc114e62c15c44a`; moving to `PACKAGING-SDK`. |
 | 2026-09-04 | Codex | `PACKAGING-SDK` | Claimed after Drawing/Media compatibility lane; scope is package/versioning/API compatibility validation before security/recovery and Win11 demo lanes. |
 | 2026-09-04 | Codex | `PACKAGING-SDK` | Local implementation complete: common package URL/readme/tags, explicit SDK `PackageId`s, packaging verifier, CI pack step and SDK package artifact upload. Local Release Core 1216/1216, architecture and packaging verifiers passed, and 17 SDK packages include `README.md`. |
+| 2026-09-04 | Codex | `PACKAGING-SDK` | Closed at `47591a8ac223f0ee5141e92bb31fca304fbe0a50`: exact-head CI #1239, iOS gate #42 and Q003C/OpenXML gate #39 all succeeded; `sdk-packages` artifact ID `9906198247` uploaded with digest `sha256:3d697797e79866e1420bd58702d574eb1469cd26856cdd57a3cfe80b8d77bd06`. |
+| 2026-09-04 | Codex | `SECURITY-RECOVERY` | Claimed after PACKAGING-SDK exact-head evidence; scope is trust/isolation/recovery hardening before broader localization/a11y and Win11 demo lanes. |
 
 ## Closed lane: PIVOT-OPENXML-STANDARD
 
@@ -121,7 +123,7 @@ Out of scope for this lane:
 - Reopening formula, Q003B accessibility, Q003C managed chart or
   `PIVOT-OPENXML-STANDARD` semantics unless a regression is discovered.
 
-## Active lane: PACKAGING-SDK
+## Closed lane: PACKAGING-SDK
 
 Scope:
 
@@ -140,6 +142,28 @@ Out of scope for this lane:
 Batch status:
 
 - `PACKAGING-SDK-001`: Done.
-- `PACKAGING-SDK-002`: Done locally.
-- `PACKAGING-SDK-003`: In progress; remote integration and exact-head GitHub
-  evidence are pending.
+- `PACKAGING-SDK-002`: Done.
+- `PACKAGING-SDK-003`: Done; exact-head CI #1239, iOS gate #42 and Q003C/OpenXML
+  gate #39 all succeeded.
+
+## Active lane: SECURITY-RECOVERY
+
+Scope:
+
+- Inventory plugin/external input boundaries, persistence recovery paths and
+  renderer/session failure modes.
+- Add focused trust/isolation/recovery tests before final demo packaging.
+- Keep PR #1 Draft until final acceptance/release gates are complete.
+
+Out of scope for this lane:
+
+- Final Windows 11 demo app packaging.
+- Publishing packages or marking the PR ready.
+- Broad localization/a11y completion beyond security-relevant recovery paths.
+
+Batch status:
+
+- `SECURITY-RECOVERY-001`: In progress; inventory current trust, recovery and
+  failure-handling surfaces.
+- `SECURITY-RECOVERY-002`: Pending; add focused hardening tests/fixes.
+- `SECURITY-RECOVERY-003`: Pending; collect local and exact-head evidence.
