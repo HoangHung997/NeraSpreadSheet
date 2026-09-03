@@ -190,7 +190,7 @@ Exact-head GitHub evidence at commit
 
 ## SECURITY-RECOVERY — ACTIVE
 
-First nine hardening patches are integrated and exact-head validated:
+First ten hardening patches are integrated and exact-head validated:
 
 - external formula provider failures are contained at scalar, higher-order and
   dynamic-array boundaries and return `#N/A` instead of escaping through formula
@@ -224,22 +224,25 @@ First nine hardening patches are integrated and exact-head validated:
 - `[Content_Types].xml` override `PartName` values are validated during archive
   scanning so malformed escaped package part names in the content-type table
   are rejected before OpenXML SDK load.
+- duplicate ZIP entries are rejected during archive scanning so ambiguous
+  repeated package part names cannot reach OpenXML SDK load or preservation
+  merge paths.
 
 Exact-head GitHub evidence at commit
-`af80a91df5b077077b0017d59ce5fd09eb5e5f52`:
+`275c1b4e5e24b5c53d27546492c4e343509e127f`:
 
-- full CI: **#1282 / run 33814277469 — success**;
-- iOS analytics accessibility gate: **#100 / run 33814277070 — success**;
-- Q003C/OpenXML gate: **#97 / run 33814277138 — success**;
-- `sdk-packages` artifact: ID `9915968341`, digest
-  `sha256:4f459def7b996b1933420fd462bb6be7812e5c0ae34c8722e21ed80b6022bcd1`.
+- full CI: **#1286 / run 33816357502 — success**;
+- iOS analytics accessibility gate: **#106 / run 33816357459 — success**;
+- Q003C/OpenXML gate: **#103 / run 33816357453 — success**;
+- `sdk-packages` artifact: ID `9916694642`, digest
+  `sha256:a2a7d18733f941a770202723f67bddb7212ee3ecff07a8e75ddacdbc6c9df306`.
 
 ## Current boundaries
 
 PR #1 remains **Draft, open and unmerged**. Q003B, Q003C, the defined Q003D
 preservation scope, `RIBBON-MAUI`, `PIVOT-OPENXML-STANDARD`,
 `DRAWING-MEDIA-COMPAT` and `PACKAGING-SDK` are closed for their defined scopes.
-`SECURITY-RECOVERY` remains active after the first nine validated hardening
+`SECURITY-RECOVERY` remains active after the first ten validated hardening
 patches. Major remaining roadmap areas include additional security/isolation
 coverage, broader localization/accessibility completion and final
 acceptance/release evidence.

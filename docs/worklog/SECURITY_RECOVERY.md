@@ -19,7 +19,7 @@ completion and final Windows 11 demo packaging.
 | Batch | Status | Scope |
 |---|---|---|
 | `SECURITY-RECOVERY-001` | Done for first pass | Inventory plugin/external input boundaries, persistence recovery paths and renderer/session failure modes. |
-| `SECURITY-RECOVERY-002` | Done for first nine patches | Add focused hardening tests and fixes for the highest-risk bounded surfaces. |
+| `SECURITY-RECOVERY-002` | Done for first ten patches | Add focused hardening tests and fixes for the highest-risk bounded surfaces. |
 | `SECURITY-RECOVERY-003` | In progress | Update docs and collect local plus exact-head GitHub evidence. |
 
 ## Scope
@@ -38,7 +38,7 @@ completion and final Windows 11 demo packaging.
 
 ## Current status
 
-First nine hardening patches are integrated and exact-head validated. The lane
+First ten hardening patches are integrated and exact-head validated. The lane
 remains active for additional bounded trust/recovery coverage before moving to
 localization/a11y completion.
 
@@ -86,25 +86,27 @@ localization/a11y completion.
 - Added `[Content_Types].xml` override `PartName` validation during archive
   scanning so malformed escaped package part names in the content-type table
   are rejected before OpenXML SDK load.
+- Added duplicate ZIP entry rejection during archive scanning so ambiguous
+  packages with repeated part names are rejected before OpenXML SDK load.
 - Local validation uses the repo-local .NET SDK 10.0.302 install: Core solution
-  1227/1227 and OpenXML 80/80 passed.
+  1228/1228 and OpenXML 81/81 passed.
 
 ## Exact-head evidence
 
-Commit: `af80a91df5b077077b0017d59ce5fd09eb5e5f52`.
+Commit: `275c1b4e5e24b5c53d27546492c4e343509e127f`.
 
-- Full CI: #1282 / run `33814277469` -- success.
-- iOS analytics accessibility gate: #100 / run `33814277070` -- success.
-- Q003C/OpenXML gate: #97 / run `33814277138` -- success.
-- `sdk-packages` artifact from CI #1282: ID `9915968341`, digest
-  `sha256:4f459def7b996b1933420fd462bb6be7812e5c0ae34c8722e21ed80b6022bcd1`,
-  expires `2026-12-02T22:42:03Z`.
+- Full CI: #1286 / run `33816357502` -- success.
+- iOS analytics accessibility gate: #106 / run `33816357459` -- success.
+- Q003C/OpenXML gate: #103 / run `33816357453` -- success.
+- `sdk-packages` artifact from CI #1286: ID `9916694642`, digest
+  `sha256:a2a7d18733f941a770202723f67bddb7212ee3ecff07a8e75ddacdbc6c9df306`,
+  expires `2026-12-02T23:09:39Z`.
 
 ## Next candidate surfaces
 
 - OpenXML package graph validation: extend archive-level validation only if a
   real fixture exposes another compatibility-safe gap beyond ZIP part,
-  relationship entry and content-type override scanning.
+  duplicate entry, relationship entry and content-type override scanning.
 - Preserve-unknown recovery: extend atomic rejection coverage only if a new
   mismatched envelope case is found beyond worksheet topology replacement.
 - Host/session failure containment: add narrowly scoped tests for renderer or
