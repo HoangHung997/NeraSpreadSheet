@@ -395,9 +395,16 @@ public sealed partial class NeraDynamicArrayFormulaEngine
         {
             arguments.Add(EvaluateScalarNode(argument, context, dependencies));
         }
-        return external.TryEvaluateExternalArrayFunction("STOCKHISTORY", arguments, out var value)
-            ? FormulaArrayEvaluationResult.Success(value, DistinctDependencies(dependencies))
-            : Failure("#N/A", FormulaErrorCode.NotAvailable, dependencies);
+        try
+        {
+            return external.TryEvaluateExternalArrayFunction("STOCKHISTORY", arguments, out var value)
+                ? FormulaArrayEvaluationResult.Success(value, DistinctDependencies(dependencies))
+                : Failure("#N/A", FormulaErrorCode.NotAvailable, dependencies);
+        }
+        catch (Exception)
+        {
+            return Failure("#N/A", FormulaErrorCode.NotAvailable, dependencies);
+        }
     }
 
     private static bool TryF019Numbers(FormulaArrayValue array, out double[] values)

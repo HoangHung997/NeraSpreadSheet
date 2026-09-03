@@ -53,9 +53,16 @@ internal static class F019HigherOrderExternalFormulaFunctions
         {
             return FormulaEvaluationResult.Failure(FormulaErrorCode.NotAvailable);
         }
-        return external.TryEvaluateExternalFunction(name, invocation.FlattenValues(), out var value)
-            ? FormulaEvaluationResult.Success(value)
-            : FormulaEvaluationResult.Failure(FormulaErrorCode.NotAvailable);
+        try
+        {
+            return external.TryEvaluateExternalFunction(name, invocation.FlattenValues(), out var value)
+                ? FormulaEvaluationResult.Success(value)
+                : FormulaEvaluationResult.Failure(FormulaErrorCode.NotAvailable);
+        }
+        catch (Exception)
+        {
+            return FormulaEvaluationResult.Failure(FormulaErrorCode.NotAvailable);
+        }
     }
 }
 

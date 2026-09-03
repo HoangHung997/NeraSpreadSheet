@@ -92,9 +92,16 @@ internal static class F019StatisticsMatrixAndExternalFormulaFunctions
         {
             return NumericError();
         }
-        return external.TryEvaluateExternalFunction(name, flattened, out var value)
-            ? FormulaEvaluationResult.Success(value)
-            : NotAvailable();
+        try
+        {
+            return external.TryEvaluateExternalFunction(name, flattened, out var value)
+                ? FormulaEvaluationResult.Success(value)
+                : NotAvailable();
+        }
+        catch (Exception)
+        {
+            return NotAvailable();
+        }
     }
 
     private static FormulaEvaluationResult EvaluateForecastEts(

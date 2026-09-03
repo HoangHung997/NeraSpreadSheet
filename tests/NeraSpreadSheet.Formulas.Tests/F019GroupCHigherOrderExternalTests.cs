@@ -56,6 +56,12 @@ public sealed class F019GroupCHigherOrderExternalTests
     [TestMethod] public void Cubevalue_Contract_IsValidated()=>AssertNumber("=CUBEVALUE(\"conn\",\"member\")",42,ExternalContext());
     [TestMethod] public void Rtd_Contract_IsValidated()=>AssertNumber("=RTD(\"prog\",\"server\",\"topic\")",7,ExternalContext());
     [TestMethod] public void Copilot_Contract_IsValidated()=>AssertText("=COPILOT(\"prompt\")","answer",ExternalContext());
+    [TestMethod] public void ExternalProviderExceptions_FailClosed()
+    {
+        var r=_scalar.Evaluate("=CALL(\"lib\",\"proc\",\"J\")",ThrowingExternalContext.Instance);
+        Assert.IsFalse(r.IsSuccess);
+        Assert.AreEqual("#N/A",r.Value.RawValue);
+    }
 
     private FormulaArrayValue Array(string f,IFormulaEvaluationContext c){Assert.IsTrue(_dynamic.TryEvaluate(f,c,out var r),f);Assert.IsTrue(r.IsSuccess,f+" => "+r.ErrorValue.RawValue);return r.Value!;}
     private void AssertNumber(string f,double e,IFormulaEvaluationContext c){var r=_scalar.Evaluate(f,c);Assert.IsTrue(r.IsSuccess,f+" => "+r.Value.RawValue);Assert.AreEqual(e,N(r.Value),1e-10,f);}
@@ -84,5 +90,12 @@ public sealed class F019GroupCHigherOrderExternalTests
             return name is "CALL" or "REGISTER.ID" or "CUBEKPIMEMBER" or "CUBEMEMBER" or "CUBEMEMBERPROPERTY" or "CUBERANKEDMEMBER" or "CUBESET" or "CUBESETCOUNT" or "CUBEVALUE" or "RTD" or "COPILOT";
         }
         public bool TryEvaluateExternalArrayFunction(string functionName,IReadOnlyList<CellValue> arguments,out FormulaArrayValue value){value=null!;return false;}
+    }
+    private sealed class ThrowingExternalContext:IFormulaExternalFunctionContext
+    {
+        public static ThrowingExternalContext Instance{get;}=new();
+        public CellValue GetCellValue(string? worksheetName,CellAddress address)=>CellValue.Blank;
+        public bool TryEvaluateExternalFunction(string name,IReadOnlyList<CellValue> args,out CellValue value){value=CellValue.Blank;throw new InvalidOperationException("External provider failed.");}
+        public bool TryEvaluateExternalArrayFunction(string functionName,IReadOnlyList<CellValue> arguments,out FormulaArrayValue value){value=null!;throw new InvalidOperationException("External array provider failed.");}
     }
 }

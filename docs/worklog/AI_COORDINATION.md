@@ -72,6 +72,7 @@ Out of scope for this lane:
 | 2026-09-04 | Codex | `PACKAGING-SDK` | Local implementation complete: common package URL/readme/tags, explicit SDK `PackageId`s, packaging verifier, CI pack step and SDK package artifact upload. Local Release Core 1216/1216, architecture and packaging verifiers passed, and 17 SDK packages include `README.md`. |
 | 2026-09-04 | Codex | `PACKAGING-SDK` | Closed at `47591a8ac223f0ee5141e92bb31fca304fbe0a50`: exact-head CI #1239, iOS gate #42 and Q003C/OpenXML gate #39 all succeeded; `sdk-packages` artifact ID `9906198247` uploaded with digest `sha256:3d697797e79866e1420bd58702d574eb1469cd26856cdd57a3cfe80b8d77bd06`. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | Claimed after PACKAGING-SDK exact-head evidence; scope is trust/isolation/recovery hardening before broader localization/a11y and Win11 demo lanes. |
+| 2026-09-04 | Codex | `SECURITY-RECOVERY` | First hardening patch prepared: external formula provider exceptions are contained and mapped to `#N/A`, with scalar and dynamic-array provider boundary tests. Local SDK 10.0.302 is unavailable in this workspace session, so validation is deferred to GitHub CI. |
 
 ## Closed lane: PIVOT-OPENXML-STANDARD
 
@@ -163,7 +164,8 @@ Out of scope for this lane:
 
 Batch status:
 
-- `SECURITY-RECOVERY-001`: In progress; inventory current trust, recovery and
-  failure-handling surfaces.
-- `SECURITY-RECOVERY-002`: Pending; add focused hardening tests/fixes.
+- `SECURITY-RECOVERY-001`: Done for first pass; inventory current trust,
+  recovery and failure-handling surfaces.
+- `SECURITY-RECOVERY-002`: In progress; first patch contains external provider
+  exception containment and tests.
 - `SECURITY-RECOVERY-003`: Pending; collect local and exact-head evidence.

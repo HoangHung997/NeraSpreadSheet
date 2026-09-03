@@ -18,8 +18,8 @@ completion and final Windows 11 demo packaging.
 
 | Batch | Status | Scope |
 |---|---|---|
-| `SECURITY-RECOVERY-001` | In progress | Inventory plugin/external input boundaries, persistence recovery paths and renderer/session failure modes. |
-| `SECURITY-RECOVERY-002` | Pending | Add focused hardening tests and fixes for the highest-risk bounded surfaces. |
+| `SECURITY-RECOVERY-001` | Done for first pass | Inventory plugin/external input boundaries, persistence recovery paths and renderer/session failure modes. |
+| `SECURITY-RECOVERY-002` | In progress | Add focused hardening tests and fixes for the highest-risk bounded surfaces. |
 | `SECURITY-RECOVERY-003` | Pending | Update docs and collect local plus exact-head GitHub evidence. |
 
 ## Scope
@@ -38,4 +38,27 @@ completion and final Windows 11 demo packaging.
 
 ## Current status
 
-Inventory started from the PACKAGING-SDK exact-head checkpoint.
+First-pass inventory started from the PACKAGING-SDK exact-head checkpoint.
+
+## First-pass inventory
+
+- Formula external-state functions already require an explicit
+  `IFormulaExternalFunctionContext` and fail closed with `#N/A` when no provider
+  is present.
+- Formula function registry policy blocks external-state functions by default
+  unless the host opts in.
+- OpenXML package loading validates package graphs before import, including part
+  URI, relationship identifier/type and reference target safety.
+- Unknown-part preservation is opt-in and bounded by worksheet topology checks.
+- Renderer recovery has Direct2D, swap-chain and WPF shared-texture stress
+  coverage.
+
+## Implementation checkpoint
+
+- Added exception containment around external formula provider calls so a host
+  provider failure returns `#N/A` instead of escaping through formula evaluation.
+- Covered scalar external functions (`WEBSERVICE`, `CALL`) and the dynamic-array
+  external `STOCKHISTORY` provider boundary with fail-closed tests.
+- Local test execution is blocked in this workspace session because only .NET
+  SDK 8.0.424 is on PATH while `global.json` requires 10.0.302. GitHub CI will
+  be the validation source for this batch.

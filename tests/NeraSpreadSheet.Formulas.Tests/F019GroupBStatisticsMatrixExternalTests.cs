@@ -104,6 +104,16 @@ public sealed class F019GroupBStatisticsMatrixExternalTests
         var r = EvaluateArray("=STOCKHISTORY(\"MSFT\",1)", ExternalContext());
         Assert.AreEqual(2, r.RowCount); Assert.AreEqual("Date", r[0,0].RawValue); Assert.AreEqual(100d, Number(r[1,1]));
     }
+    [TestMethod] public void ExternalProviderExceptions_FailClosed()
+    {
+        var scalar = _scalar.Evaluate("=WEBSERVICE(\"https://example.invalid/data\")", ThrowingExternalContext.Instance);
+        Assert.IsFalse(scalar.IsSuccess);
+        Assert.AreEqual("#N/A", scalar.Value.RawValue);
+
+        Assert.IsTrue(_dynamic.TryEvaluate("=STOCKHISTORY(\"MSFT\",1)", ThrowingExternalContext.Instance, out var array));
+        Assert.IsFalse(array.IsSuccess);
+        Assert.AreEqual("#N/A", array.ErrorValue.RawValue);
+    }
 
     private FormulaArrayValue EvaluateArray(string formula, IFormulaEvaluationContext context)
     {
@@ -147,6 +157,21 @@ public sealed class F019GroupBStatisticsMatrixExternalTests
                 return true;
             }
             value=null!;return false;
+        }
+    }
+    private sealed class ThrowingExternalContext : IFormulaExternalFunctionContext
+    {
+        public static ThrowingExternalContext Instance { get; } = new();
+        public CellValue GetCellValue(string? worksheetName,CellAddress address)=>CellValue.Blank;
+        public bool TryEvaluateExternalFunction(string functionName,IReadOnlyList<CellValue> arguments,out CellValue value)
+        {
+            value=CellValue.Blank;
+            throw new InvalidOperationException("External provider failed.");
+        }
+        public bool TryEvaluateExternalArrayFunction(string functionName,IReadOnlyList<CellValue> arguments,out FormulaArrayValue value)
+        {
+            value=null!;
+            throw new InvalidOperationException("External array provider failed.");
         }
     }
 }
