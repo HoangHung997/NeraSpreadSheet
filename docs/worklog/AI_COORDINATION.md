@@ -27,7 +27,7 @@ before moving to another lane.
 | 2 | `PIVOT-OPENXML-STANDARD` | Codex | Done | Standard pivot creation/import/cache-record compatibility with explicit scope docs and OpenXML/Core/architecture gates |
 | 3 | `DRAWING-MEDIA-COMPAT` | Codex | Done | Broader drawing/media preservation/materialization corpus |
 | 4 | `PACKAGING-SDK` | Codex | Done | Package metadata/readme/pack-artifact gate exact-head validated; CI #1239, iOS gate #42, OpenXML gate #39 all success |
-| 5 | `SECURITY-RECOVERY` | Codex | Active | External provider, document/workbook/session save recovery, preserve-unknown topology rejection and OpenXML graph escaped URI hardening exact-head validated; lane remains active for next bounded surface |
+| 5 | `SECURITY-RECOVERY` | Codex | Active | External provider, document/workbook/session save recovery, preserve-unknown topology rejection and OpenXML graph escaped URI hardening plus archive-level package relationship scanning exact-head validated; lane remains active for next bounded surface |
 | 6 | `LOCALIZATION-A11Y-COMPLETE` | Unclaimed | Pending | Accessibility/localization gaps beyond analytics bridge |
 | 7 | `WIN11-DEMO-APP` | Unclaimed | Pending | Runnable Windows 11 demo app packaging the finished stack |
 | 8 | `FINAL-ACCEPTANCE` | Unclaimed | Pending | Full validation, docs, release evidence, PR ready criteria |
@@ -79,6 +79,7 @@ Out of scope for this lane:
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | Preserve-unknown worksheet reference replacement rejection exact-head validated at `472e89ce787c1071d80b119025c176b6abb78c57`: full CI #1264, iOS gate #73 and Q003C/OpenXML gate #70 all succeeded. SDK packages artifact `9912165390` was uploaded. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | OpenXML graph malformed escaped relationship target rejection exact-head validated at `7faaf10f940b9b1c165d499b71a27f2d1b2ba51e`: full CI #1268, iOS gate #79 and Q003C/OpenXML gate #76 all succeeded. SDK packages artifact `9913122998` was uploaded. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | OpenXML graph escaped part URI and relationship type regression coverage exact-head validated at `9d0a5c07bd2c53ab64b98bf4890a15d8d1028123`: full CI #1272, iOS gate #85 and Q003C/OpenXML gate #82 all succeeded. SDK packages artifact `9913929809` was uploaded. |
+| 2026-09-04 | Codex | `SECURITY-RECOVERY` | Package-level OpenXML archive relationship scan exact-head validated at `7f87a9bc2d7e8cb2d26b5b66210f1fa35005d839`: local Core 1226/1226 and OpenXML 79/79 passed; full CI #1278, iOS gate #94 and Q003C/OpenXML gate #91 all succeeded. SDK packages artifact `9915090019` was uploaded. |
 
 ## Closed lane: PIVOT-OPENXML-STANDARD
 
@@ -172,9 +173,10 @@ Batch status:
 
 - `SECURITY-RECOVERY-001`: Done for first pass; inventory current trust,
   recovery and failure-handling surfaces.
-- `SECURITY-RECOVERY-002`: Done for the first seven patches; external provider
+- `SECURITY-RECOVERY-002`: Done for the first eight patches; external provider
   exception containment plus document, workbook and session save failure
   recovery, preserve-unknown worksheet topology rejection and OpenXML graph
-  malformed escaped URI rejection are integrated.
+  malformed escaped URI rejection plus archive-level package relationship
+  scanning are integrated.
 - `SECURITY-RECOVERY-003`: In progress; exact-head evidence collected for the
-  first seven patches, lane remains active for additional bounded coverage.
+  first eight patches, lane remains active for additional bounded coverage.

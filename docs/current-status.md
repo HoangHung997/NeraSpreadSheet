@@ -190,7 +190,7 @@ Exact-head GitHub evidence at commit
 
 ## SECURITY-RECOVERY — ACTIVE
 
-First seven hardening patches are integrated and exact-head validated:
+First eight hardening patches are integrated and exact-head validated:
 
 - external formula provider failures are contained at scalar, higher-order and
   dynamic-array boundaries and return `#N/A` instead of escaping through formula
@@ -216,22 +216,27 @@ First seven hardening patches are integrated and exact-head validated:
 - malformed percent-escapes in part URIs and relationship type URIs are covered
   by direct validator regressions while safe escaped part/type forms remain
   accepted.
+- package-level XLSX archive scanning now validates every ZIP part name and
+  `.rels` entry before OpenXML SDK load, covering malformed escaped internal
+  part targets, relationship type URIs and external relationship targets even
+  when the SDK would not materialize those relationships into the workbook
+  object graph.
 
 Exact-head GitHub evidence at commit
-`9d0a5c07bd2c53ab64b98bf4890a15d8d1028123`:
+`7f87a9bc2d7e8cb2d26b5b66210f1fa35005d839`:
 
-- full CI: **#1272 / run 33808603048 — success**;
-- iOS analytics accessibility gate: **#85 / run 33808603099 — success**;
-- Q003C/OpenXML gate: **#82 / run 33808603053 — success**;
-- `sdk-packages` artifact: ID `9913929809`, digest
-  `sha256:0cb17b992a4cd391182b50c3f7e6176ee29ce510af0d8d71e7067651b8563a43`.
+- full CI: **#1278 / run 33811795200 — success**;
+- iOS analytics accessibility gate: **#94 / run 33811795075 — success**;
+- Q003C/OpenXML gate: **#91 / run 33811795185 — success**;
+- `sdk-packages` artifact: ID `9915090019`, digest
+  `sha256:df48cc5bef76c5dca04f9cddccbd38b855846319a1157c4f2e15cc4355d91c2d`.
 
 ## Current boundaries
 
 PR #1 remains **Draft, open and unmerged**. Q003B, Q003C, the defined Q003D
 preservation scope, `RIBBON-MAUI`, `PIVOT-OPENXML-STANDARD`,
 `DRAWING-MEDIA-COMPAT` and `PACKAGING-SDK` are closed for their defined scopes.
-`SECURITY-RECOVERY` remains active after the first seven validated hardening
+`SECURITY-RECOVERY` remains active after the first eight validated hardening
 patches. Major remaining roadmap areas include additional security/isolation
 coverage, broader localization/accessibility completion and final
 acceptance/release evidence.
