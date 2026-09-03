@@ -190,7 +190,7 @@ Exact-head GitHub evidence at commit
 
 ## SECURITY-RECOVERY — ACTIVE
 
-First four hardening patches are integrated and exact-head validated:
+First five hardening patches are integrated and exact-head validated:
 
 - external formula provider failures are contained at scalar, higher-order and
   dynamic-array boundaries and return `#N/A` instead of escaping through formula
@@ -208,22 +208,24 @@ First four hardening patches are integrated and exact-head validated:
 - the document, workbook and session save-failure recovery paths are covered by
   failing stream tests that verify existing destination bytes survive
   unchanged.
+- preserve-unknown worksheet reference replacement is rejected before
+  destination bytes are mutated.
 
 Exact-head GitHub evidence at commit
-`06feca4168cb18fb5182601ee7654bd6887dfde5`:
+`472e89ce787c1071d80b119025c176b6abb78c57`:
 
-- full CI: **#1257 / run 33800497771 — success**;
-- iOS analytics accessibility gate: **#64 / run 33800497627 — success**;
-- Q003C/OpenXML gate: **#61 / run 33800497874 — success**;
-- `sdk-packages` artifact: ID `9910892535`, digest
-  `sha256:5b46d539f86a7b024ea3648e8221223dc3288413b5f199a861ba4d656cb75f0e`.
+- full CI: **#1264 / run 33803900656 — success**;
+- iOS analytics accessibility gate: **#73 / run 33803900644 — success**;
+- Q003C/OpenXML gate: **#70 / run 33803900652 — success**;
+- `sdk-packages` artifact: ID `9912165390`, digest
+  `sha256:7899693710f09747e26dc8b6d15c1a5667e5a792d2518798edb149b00940944e`.
 
 ## Current boundaries
 
 PR #1 remains **Draft, open and unmerged**. Q003B, Q003C, the defined Q003D
 preservation scope, `RIBBON-MAUI`, `PIVOT-OPENXML-STANDARD`,
 `DRAWING-MEDIA-COMPAT` and `PACKAGING-SDK` are closed for their defined scopes.
-`SECURITY-RECOVERY` remains active after the first four validated hardening
+`SECURITY-RECOVERY` remains active after the first five validated hardening
 patches. Major remaining roadmap areas include additional security/isolation
 coverage, broader localization/accessibility completion and final
 acceptance/release evidence.

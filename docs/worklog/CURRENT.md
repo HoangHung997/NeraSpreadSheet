@@ -3,8 +3,8 @@
 - Repository: `HoangHung997/NeraSpreadSheet`.
 - Branch: `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
-- Latest verified implementation merge checkpoint: `06feca4168cb18fb5182601ee7654bd6887dfde5`.
-- Verified implementation CI through the first four `SECURITY-RECOVERY` patches: full run `33800497771` / #1257 — success; iOS gate `33800497627` / #64 — success; Q003C/OpenXML gate `33800497874` / #61 — success.
+- Latest verified implementation merge checkpoint: `472e89ce787c1071d80b119025c176b6abb78c57`.
+- Verified implementation CI through the first five `SECURITY-RECOVERY` patches: full run `33803900656` / #1264 — success; iOS gate `33803900644` / #73 — success; Q003C/OpenXML gate `33803900652` / #70 — success.
 - Formula implementation: **DONE**, **546/546** locked catalog names; formula suite **518/518**.
 - Q001, Q002, Q003A, Q003B: **DONE**.
 - Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
@@ -25,9 +25,10 @@
 - `PACKAGING-SDK`: **DONE for package-readiness gate scope**. Package metadata,
   README packaging, explicit SDK package IDs, CI pack artifact upload and a
   packaging metadata verifier are exact-head validated.
-- `SECURITY-RECOVERY`: **ACTIVE**. External provider exception containment and
-  document, workbook and session save failure recovery are exact-head
-  validated; additional bounded trust/recovery coverage remains before
+- `SECURITY-RECOVERY`: **ACTIVE**. External provider exception containment,
+  document/workbook/session save failure recovery and preserve-unknown
+  worksheet topology rejection are exact-head validated; additional bounded
+  trust/recovery coverage remains before
   localization/a11y completion and the final Windows 11 demo.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
@@ -51,11 +52,11 @@
 
 ## Validation
 
-At implementation checkpoint `06feca4168cb18fb5182601ee7654bd6887dfde5`:
+At implementation checkpoint `472e89ce787c1071d80b119025c176b6abb78c57`:
 
-- Core solution: **1216/1216 passed**.
+- Core solution: **1217/1217 passed**.
 - Formula: **518/518 passed**.
-- OpenXML: **69/69 passed**.
+- OpenXML: **70/70 passed**.
 - Build/analyzers: **0 warnings, 0 errors**.
 - Architecture verification: **passed**.
 - SDK packaging metadata verification: **passed**.
@@ -64,6 +65,7 @@ At implementation checkpoint `06feca4168cb18fb5182601ee7654bd6887dfde5`:
 - Document save failure recovery test: **passed**.
 - Workbook save failure recovery test: **passed**.
 - Session save failure recovery test: **passed**.
+- Preserve-unknown worksheet replacement atomic rejection test: **passed**.
 - Windows desktop GPU runtime smoke: **passed**.
 - Android loaded analytics accessibility smoke: **passed**.
 - iOS loaded VoiceOver analytics accessibility smoke: **passed**.
@@ -85,5 +87,4 @@ At implementation checkpoint `06feca4168cb18fb5182601ee7654bd6887dfde5`:
 ## Next single step
 
 Continue `SECURITY-RECOVERY` with the next bounded trust/recovery surface,
-starting from preserve-unknown recovery or OpenXML graph rejection checks,
-without marking PR #1 ready.
+starting from OpenXML graph rejection checks, without marking PR #1 ready.
