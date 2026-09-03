@@ -190,7 +190,7 @@ Exact-head GitHub evidence at commit
 
 ## SECURITY-RECOVERY — ACTIVE
 
-First three hardening patches are integrated and exact-head validated:
+First four hardening patches are integrated and exact-head validated:
 
 - external formula provider failures are contained at scalar, higher-order and
   dynamic-array boundaries and return `#N/A` instead of escaping through formula
@@ -201,24 +201,29 @@ First three hardening patches are integrated and exact-head validated:
   validation;
 - workbook-level XLSX saves now use the same recovery path for generated
   packages and preserve-unknown output;
-- the document and workbook save-failure recovery paths are covered by failing
-  stream tests that verify existing destination bytes survive unchanged.
+- session-level XLSX saves now use the same recovery path after applying split
+  view, analytics, pivot and chart package metadata;
+- document, workbook and session final package writes now use a shared internal
+  recovery helper;
+- the document, workbook and session save-failure recovery paths are covered by
+  failing stream tests that verify existing destination bytes survive
+  unchanged.
 
 Exact-head GitHub evidence at commit
-`e819c9b26c2136cc6fd9d08c8e4711f6129c888b`:
+`06feca4168cb18fb5182601ee7654bd6887dfde5`:
 
-- full CI: **#1254 / run 33798063286 — success**;
-- iOS analytics accessibility gate: **#60 / run 33798063047 — success**;
-- Q003C/OpenXML gate: **#57 / run 33798063208 — success**;
-- `sdk-packages` artifact: ID `9910001536`, digest
-  `sha256:e47762e21f3cd60cc7a30eaa1c9461d7dffc770739ba0a5e58e316d96edd0ff0`.
+- full CI: **#1257 / run 33800497771 — success**;
+- iOS analytics accessibility gate: **#64 / run 33800497627 — success**;
+- Q003C/OpenXML gate: **#61 / run 33800497874 — success**;
+- `sdk-packages` artifact: ID `9910892535`, digest
+  `sha256:5b46d539f86a7b024ea3648e8221223dc3288413b5f199a861ba4d656cb75f0e`.
 
 ## Current boundaries
 
 PR #1 remains **Draft, open and unmerged**. Q003B, Q003C, the defined Q003D
 preservation scope, `RIBBON-MAUI`, `PIVOT-OPENXML-STANDARD`,
 `DRAWING-MEDIA-COMPAT` and `PACKAGING-SDK` are closed for their defined scopes.
-`SECURITY-RECOVERY` remains active after the first three validated hardening
+`SECURITY-RECOVERY` remains active after the first four validated hardening
 patches. Major remaining roadmap areas include additional security/isolation
 coverage, broader localization/accessibility completion and final
 acceptance/release evidence.
