@@ -66,6 +66,7 @@ Out of scope for this lane:
 | 2026-09-03 | Codex | `PIVOT-OPENXML-STANDARD` | Local implementation complete: standard PivotTable/PivotCache/PivotCacheRecords export, compatible semantic import, preservation-only behavior retained for `PreserveUnknownParts`, OpenXML 68/68, Core 1215/1215, architecture pass, solution build 0 warnings/errors. |
 | 2026-09-04 | Codex | `PIVOT-OPENXML-STANDARD` | Remote integration complete at `0ee635e54f7b13bf4fc85f306eda1c1723669692` with matching local tree `0b4f9d403bf6d80489ac1949604ba0ca15173b59`; moving to `DRAWING-MEDIA-COMPAT`. |
 | 2026-09-04 | Codex | `DRAWING-MEDIA-COMPAT` | Claimed after Pivot standard package lane; scope is broader drawing/media preservation and materialization without reopening completed analytics/pivot contracts. |
+| 2026-09-04 | Codex | `DRAWING-MEDIA-COMPAT` | Added first local preservation gate for worksheet drawing image anchors, sheet background pictures and legacy VML drawing parts through repeated preserved session saves. OpenXML 69/69, Core 1216/1216, solution build 0 warnings/errors and architecture pass are green locally. |
 
 ## Closed lane: PIVOT-OPENXML-STANDARD
 
@@ -101,6 +102,15 @@ Scope:
   graphs.
 - Keep chart and pivot OpenXML gates green while expanding drawing/media
   compatibility.
+
+Batch status:
+
+- `DRAWING-MEDIA-001`: Done locally; awaiting GitHub CI.
+- `DRAWING-MEDIA-002`: Done; preservation-only is the right scope until Nera has
+  a first-class model for user-authored pictures, VML drawings and background
+  pictures.
+- `DRAWING-MEDIA-003`: Done locally, CI pending; update final status evidence
+  after exact-head GitHub runs.
 
 Out of scope for this lane:
 

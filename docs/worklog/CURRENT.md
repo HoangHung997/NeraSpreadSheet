@@ -17,6 +17,11 @@
 - `PIVOT-OPENXML-STANDARD`: **DONE for defined scope**. Standard PivotTable,
   PivotCache and PivotCacheRecords export/import are integrated, local OpenXML
   and Core tests pass, and Q003D preservation-only behavior remains intact.
+- `DRAWING-MEDIA-COMPAT`: **ACTIVE**. First local preservation gate covers
+  worksheet drawing image anchors, sheet background pictures and legacy VML
+  drawing parts through repeated preserved session saves. OpenXML 69/69, Core
+  1216/1216, solution build 0 warnings/errors and architecture verification are
+  green locally.
 - Weighted implementation-roadmap score: **83.08% ≈ 83%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -59,6 +64,8 @@ At implementation checkpoint `b806cc7ed2317b456a6171672e577ee816e4692d`:
   slicers/timelines and broader Excel UI parity remain outside the current
   standard pivot lane.
 - Broader drawing/media compatibility remains beyond the managed chart + foreign drawing preservation gates.
+- First broader drawing/media preservation gate is local-green; exact-head CI is
+  pending.
 - Packaging/versioning, plugin trust/isolation/recovery, broader performance/security corpora and final release acceptance remain incomplete.
 
 ## Next single step
