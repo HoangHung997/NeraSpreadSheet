@@ -2,9 +2,10 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
+using OpenXmlSheet = DocumentFormat.OpenXml.Spreadsheet.Sheet;
+using OpenXmlSheets = DocumentFormat.OpenXml.Spreadsheet.Sheets;
 
 namespace NeraSpreadSheet.OpenXml.Tests;
 
@@ -289,8 +290,8 @@ public sealed class UnknownPartPreservationTests
             ?? throw new AssertFailedException(
                 "The test package is missing workbook markup.");
         var firstSheetId = workbookXml
-            .GetFirstChild<Sheets>()?
-            .Elements<Sheet>()
+            .GetFirstChild<OpenXmlSheets>()?
+            .Elements<OpenXmlSheet>()
             .First()
             .Id?
             .Value
