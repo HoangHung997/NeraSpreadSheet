@@ -22,7 +22,7 @@ materialization while preserving the existing package-envelope contract.
 |---|---|---|
 | `DRAWING-MEDIA-001` | Done locally | Preserve worksheet drawing image anchors, worksheet background pictures and legacy VML drawing parts through repeated preserved session saves. |
 | `DRAWING-MEDIA-002` | Done | Keep this roadmap phase preservation-only because Nera has no first-class model for user-authored pictures, VML drawings or background pictures yet. |
-| `DRAWING-MEDIA-003` | Done locally, CI pending | Update status docs and collect local plus GitHub exact-head evidence. |
+| `DRAWING-MEDIA-003` | Done locally | Update status docs and collect local plus GitHub exact-head evidence. |
 
 ## Scope
 
@@ -64,8 +64,13 @@ Validation:
 - `dotnet test NeraSpreadSheet.Core.slnx --no-restore` passed locally with
   **1216/1216** tests.
 - `scripts/verify-architecture.ps1` passed locally.
+- Remote branch integration reached commit
+  `53c9da051a0a616e194058690e016e0f756a7b7f` with the same tree as the local
+  validated implementation:
+  `f85d0e5a7f3ac7853dc33458abc114e62c15c44a`.
 
 Current status:
 
-`DRAWING-MEDIA-COMPAT` is local-green for the defined first drawing/media
-preservation scope. Exact-head GitHub CI is still pending.
+`DRAWING-MEDIA-COMPAT` is closed for the defined first drawing/media
+preservation scope. Follow-on drawing/media work remains listed in the
+out-of-scope section above.
