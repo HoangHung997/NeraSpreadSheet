@@ -59,6 +59,12 @@ First-pass inventory started from the PACKAGING-SDK exact-head checkpoint.
   provider failure returns `#N/A` instead of escaping through formula evaluation.
 - Covered scalar external functions (`WEBSERVICE`, `CALL`) and the dynamic-array
   external `STOCKHISTORY` provider boundary with fail-closed tests.
+- Added seekable/readable destination recovery for document-level XLSX saves:
+  if final destination write or flush fails after validation, the serializer
+  restores the previous destination bytes and then surfaces the original write
+  failure.
+- Covered the save-failure path with a stream that throws on the first package
+  write and verifies that existing destination bytes survive unchanged.
 - Local test execution is blocked in this workspace session because only .NET
   SDK 8.0.424 is on PATH while `global.json` requires 10.0.302. GitHub CI will
   be the validation source for this batch.
