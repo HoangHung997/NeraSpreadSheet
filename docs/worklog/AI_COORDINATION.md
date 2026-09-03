@@ -25,8 +25,8 @@ before moving to another lane.
 |---:|---|---|---|---|
 | 1 | `RIBBON-MAUI` | Codex | Done | MAUI Ribbon/Bar presenters, shortcut/input mapping, customization entry point, tests, loaded Windows smoke; exact-head CI #1214, iOS gate #17, OpenXML gate #14 all success |
 | 2 | `PIVOT-OPENXML-STANDARD` | Codex | Done | Standard pivot creation/import/cache-record compatibility with explicit scope docs and OpenXML/Core/architecture gates |
-| 3 | `DRAWING-MEDIA-COMPAT` | Codex | Active | Broader drawing/media preservation/materialization corpus |
-| 4 | `PACKAGING-SDK` | Unclaimed | Pending | Package/versioning/API compatibility validation |
+| 3 | `DRAWING-MEDIA-COMPAT` | Codex | Done | Broader drawing/media preservation/materialization corpus |
+| 4 | `PACKAGING-SDK` | Codex | Active | Package/versioning/API compatibility validation |
 | 5 | `SECURITY-RECOVERY` | Unclaimed | Pending | Trust/isolation/recovery hardening and tests |
 | 6 | `LOCALIZATION-A11Y-COMPLETE` | Unclaimed | Pending | Accessibility/localization gaps beyond analytics bridge |
 | 7 | `WIN11-DEMO-APP` | Unclaimed | Pending | Runnable Windows 11 demo app packaging the finished stack |
@@ -67,6 +67,8 @@ Out of scope for this lane:
 | 2026-09-04 | Codex | `PIVOT-OPENXML-STANDARD` | Remote integration complete at `0ee635e54f7b13bf4fc85f306eda1c1723669692` with matching local tree `0b4f9d403bf6d80489ac1949604ba0ca15173b59`; moving to `DRAWING-MEDIA-COMPAT`. |
 | 2026-09-04 | Codex | `DRAWING-MEDIA-COMPAT` | Claimed after Pivot standard package lane; scope is broader drawing/media preservation and materialization without reopening completed analytics/pivot contracts. |
 | 2026-09-04 | Codex | `DRAWING-MEDIA-COMPAT` | Added first local preservation gate for worksheet drawing image anchors, sheet background pictures and legacy VML drawing parts through repeated preserved session saves. OpenXML 69/69, Core 1216/1216, solution build 0 warnings/errors and architecture pass are green locally. |
+| 2026-09-04 | Codex | `DRAWING-MEDIA-COMPAT` | Remote integration complete at `53c9da051a0a616e194058690e016e0f756a7b7f` with matching local tree `f85d0e5a7f3ac7853dc33458abc114e62c15c44a`; moving to `PACKAGING-SDK`. |
+| 2026-09-04 | Codex | `PACKAGING-SDK` | Claimed after Drawing/Media compatibility lane; scope is package/versioning/API compatibility validation before security/recovery and Win11 demo lanes. |
 
 ## Closed lane: PIVOT-OPENXML-STANDARD
 
@@ -90,7 +92,7 @@ Out of scope for this lane:
 - User-mode pivot destination editing; export uses a deterministic default
   placement beside the source range until destination-cell modeling is added.
 
-## Active lane: DRAWING-MEDIA-COMPAT
+## Closed lane: DRAWING-MEDIA-COMPAT
 
 Scope:
 
@@ -105,15 +107,31 @@ Scope:
 
 Batch status:
 
-- `DRAWING-MEDIA-001`: Done locally; awaiting GitHub CI.
+- `DRAWING-MEDIA-001`: Done.
 - `DRAWING-MEDIA-002`: Done; preservation-only is the right scope until Nera has
   a first-class model for user-authored pictures, VML drawings and background
   pictures.
-- `DRAWING-MEDIA-003`: Done locally, CI pending; update final status evidence
-  after exact-head GitHub runs.
+- `DRAWING-MEDIA-003`: Done locally; exact-head GitHub evidence is collected on
+  the follow-up direct checkpoint commit.
 
 Out of scope for this lane:
 
 - Product packaging and Win11 demo integration.
 - Reopening formula, Q003B accessibility, Q003C managed chart or
   `PIVOT-OPENXML-STANDARD` semantics unless a regression is discovered.
+
+## Active lane: PACKAGING-SDK
+
+Scope:
+
+- Inventory NuGet/package metadata, public API surface and sample integration
+  expectations after the OpenXML/Ribbon/MAUI lanes.
+- Add focused validation for versioning and package readiness without changing
+  runtime behavior unnecessarily.
+- Keep PR #1 Draft until final acceptance/release gates are complete.
+
+Out of scope for this lane:
+
+- Trust/isolation/recovery hardening.
+- Final Windows 11 demo app packaging.
+- Publishing packages or marking the PR ready.
