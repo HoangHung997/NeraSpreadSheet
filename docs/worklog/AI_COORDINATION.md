@@ -27,7 +27,7 @@ before moving to another lane.
 | 2 | `PIVOT-OPENXML-STANDARD` | Codex | Done | Standard pivot creation/import/cache-record compatibility with explicit scope docs and OpenXML/Core/architecture gates |
 | 3 | `DRAWING-MEDIA-COMPAT` | Codex | Done | Broader drawing/media preservation/materialization corpus |
 | 4 | `PACKAGING-SDK` | Codex | Done | Package metadata/readme/pack-artifact gate exact-head validated; CI #1239, iOS gate #42, OpenXML gate #39 all success |
-| 5 | `SECURITY-RECOVERY` | Codex | Active | Trust/isolation/recovery hardening and tests |
+| 5 | `SECURITY-RECOVERY` | Codex | Active | External provider, document-save and workbook-save recovery hardening exact-head validated; lane remains active for next bounded surface |
 | 6 | `LOCALIZATION-A11Y-COMPLETE` | Unclaimed | Pending | Accessibility/localization gaps beyond analytics bridge |
 | 7 | `WIN11-DEMO-APP` | Unclaimed | Pending | Runnable Windows 11 demo app packaging the finished stack |
 | 8 | `FINAL-ACCEPTANCE` | Unclaimed | Pending | Full validation, docs, release evidence, PR ready criteria |
@@ -74,6 +74,7 @@ Out of scope for this lane:
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | Claimed after PACKAGING-SDK exact-head evidence; scope is trust/isolation/recovery hardening before broader localization/a11y and Win11 demo lanes. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | First hardening patch prepared: external formula provider exceptions are contained and mapped to `#N/A`, with scalar and dynamic-array provider boundary tests. Local SDK 10.0.302 is unavailable in this workspace session, so validation is deferred to GitHub CI. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | First two hardening patches exact-head validated at `dd0134a43f3888b78b64106e45210acf9231d83a`: full CI #1248, iOS gate #51 and Q003C/OpenXML gate #48 all succeeded. Document save failure recovery is covered and SDK packages artifact `9907540966` was uploaded. |
+| 2026-09-04 | Codex | `SECURITY-RECOVERY` | Workbook save failure recovery exact-head validated at `e819c9b26c2136cc6fd9d08c8e4711f6129c888b`: full CI #1254, iOS gate #60 and Q003C/OpenXML gate #57 all succeeded. SDK packages artifact `9910001536` was uploaded. |
 
 ## Closed lane: PIVOT-OPENXML-STANDARD
 
@@ -167,7 +168,8 @@ Batch status:
 
 - `SECURITY-RECOVERY-001`: Done for first pass; inventory current trust,
   recovery and failure-handling surfaces.
-- `SECURITY-RECOVERY-002`: Done for the first two patches; external provider
-  exception containment and document save failure recovery are integrated.
+- `SECURITY-RECOVERY-002`: Done for the first three patches; external provider
+  exception containment, document save failure recovery and workbook save
+  failure recovery are integrated.
 - `SECURITY-RECOVERY-003`: In progress; exact-head evidence collected for the
-  first two patches, lane remains active for additional bounded coverage.
+  first three patches, lane remains active for additional bounded coverage.

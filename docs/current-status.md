@@ -190,7 +190,7 @@ Exact-head GitHub evidence at commit
 
 ## SECURITY-RECOVERY — ACTIVE
 
-First two hardening patches are integrated and exact-head validated:
+First three hardening patches are integrated and exact-head validated:
 
 - external formula provider failures are contained at scalar, higher-order and
   dynamic-array boundaries and return `#N/A` instead of escaping through formula
@@ -199,24 +199,26 @@ First two hardening patches are integrated and exact-head validated:
 - document-level XLSX saves now snapshot seekable/readable destinations and
   restore the previous bytes if the final write or flush fails after package
   validation;
-- the save-failure recovery path is covered by a failing stream test that
-  verifies existing destination bytes survive unchanged.
+- workbook-level XLSX saves now use the same recovery path for generated
+  packages and preserve-unknown output;
+- the document and workbook save-failure recovery paths are covered by failing
+  stream tests that verify existing destination bytes survive unchanged.
 
 Exact-head GitHub evidence at commit
-`dd0134a43f3888b78b64106e45210acf9231d83a`:
+`e819c9b26c2136cc6fd9d08c8e4711f6129c888b`:
 
-- full CI: **#1248 / run 33791467660 — success**;
-- iOS analytics accessibility gate: **#51 / run 33791467628 — success**;
-- Q003C/OpenXML gate: **#48 / run 33791467663 — success**;
-- `sdk-packages` artifact: ID `9907540966`, digest
-  `sha256:81c468df338b9fcc6343f777b05d89ee6b4e7751d43df24cec3c46f9207f86c9`.
+- full CI: **#1254 / run 33798063286 — success**;
+- iOS analytics accessibility gate: **#60 / run 33798063047 — success**;
+- Q003C/OpenXML gate: **#57 / run 33798063208 — success**;
+- `sdk-packages` artifact: ID `9910001536`, digest
+  `sha256:e47762e21f3cd60cc7a30eaa1c9461d7dffc770739ba0a5e58e316d96edd0ff0`.
 
 ## Current boundaries
 
 PR #1 remains **Draft, open and unmerged**. Q003B, Q003C, the defined Q003D
 preservation scope, `RIBBON-MAUI`, `PIVOT-OPENXML-STANDARD`,
 `DRAWING-MEDIA-COMPAT` and `PACKAGING-SDK` are closed for their defined scopes.
-`SECURITY-RECOVERY` remains active after the first two validated hardening
+`SECURITY-RECOVERY` remains active after the first three validated hardening
 patches. Major remaining roadmap areas include additional security/isolation
 coverage, broader localization/accessibility completion and final
 acceptance/release evidence.

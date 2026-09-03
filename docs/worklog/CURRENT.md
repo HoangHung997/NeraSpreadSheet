@@ -3,8 +3,8 @@
 - Repository: `HoangHung997/NeraSpreadSheet`.
 - Branch: `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
-- Latest verified implementation merge checkpoint: `dd0134a43f3888b78b64106e45210acf9231d83a`.
-- Verified implementation CI through the first two `SECURITY-RECOVERY` patches: full run `33791467660` / #1248 — success; iOS gate `33791467628` / #51 — success; Q003C/OpenXML gate `33791467663` / #48 — success.
+- Latest verified implementation merge checkpoint: `e819c9b26c2136cc6fd9d08c8e4711f6129c888b`.
+- Verified implementation CI through the first three `SECURITY-RECOVERY` patches: full run `33798063286` / #1254 — success; iOS gate `33798063047` / #60 — success; Q003C/OpenXML gate `33798063208` / #57 — success.
 - Formula implementation: **DONE**, **546/546** locked catalog names; formula suite **518/518**.
 - Q001, Q002, Q003A, Q003B: **DONE**.
 - Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
@@ -25,10 +25,10 @@
 - `PACKAGING-SDK`: **DONE for package-readiness gate scope**. Package metadata,
   README packaging, explicit SDK package IDs, CI pack artifact upload and a
   packaging metadata verifier are exact-head validated.
-- `SECURITY-RECOVERY`: **ACTIVE**. External provider exception containment and
-  document save failure recovery are exact-head validated; additional bounded
-  trust/recovery coverage remains before localization/a11y completion and the
-  final Windows 11 demo.
+- `SECURITY-RECOVERY`: **ACTIVE**. External provider exception containment,
+  document save failure recovery and workbook save failure recovery are
+  exact-head validated; additional bounded trust/recovery coverage remains
+  before localization/a11y completion and the final Windows 11 demo.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -51,7 +51,7 @@
 
 ## Validation
 
-At implementation checkpoint `dd0134a43f3888b78b64106e45210acf9231d83a`:
+At implementation checkpoint `e819c9b26c2136cc6fd9d08c8e4711f6129c888b`:
 
 - Core solution: **1216/1216 passed**.
 - Formula: **518/518 passed**.
@@ -62,6 +62,7 @@ At implementation checkpoint `dd0134a43f3888b78b64106e45210acf9231d83a`:
 - SDK package pack + `sdk-packages` artifact upload: **passed**.
 - External formula provider exception containment tests: **passed**.
 - Document save failure recovery test: **passed**.
+- Workbook save failure recovery test: **passed**.
 - Windows desktop GPU runtime smoke: **passed**.
 - Android loaded analytics accessibility smoke: **passed**.
 - iOS loaded VoiceOver analytics accessibility smoke: **passed**.
@@ -83,5 +84,5 @@ At implementation checkpoint `dd0134a43f3888b78b64106e45210acf9231d83a`:
 ## Next single step
 
 Continue `SECURITY-RECOVERY` with the next bounded trust/recovery surface,
-starting from OpenXML package graph and preserve-unknown recovery checks,
+starting from session-level save recovery or preserve-unknown recovery checks,
 without marking PR #1 ready.

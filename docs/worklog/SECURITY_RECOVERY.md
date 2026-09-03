@@ -19,7 +19,7 @@ completion and final Windows 11 demo packaging.
 | Batch | Status | Scope |
 |---|---|---|
 | `SECURITY-RECOVERY-001` | Done for first pass | Inventory plugin/external input boundaries, persistence recovery paths and renderer/session failure modes. |
-| `SECURITY-RECOVERY-002` | Done for first two patches | Add focused hardening tests and fixes for the highest-risk bounded surfaces. |
+| `SECURITY-RECOVERY-002` | Done for first three patches | Add focused hardening tests and fixes for the highest-risk bounded surfaces. |
 | `SECURITY-RECOVERY-003` | In progress | Update docs and collect local plus exact-head GitHub evidence. |
 
 ## Scope
@@ -38,7 +38,7 @@ completion and final Windows 11 demo packaging.
 
 ## Current status
 
-First two hardening patches are integrated and exact-head validated. The lane
+First three hardening patches are integrated and exact-head validated. The lane
 remains active for additional bounded trust/recovery coverage before moving to
 localization/a11y completion.
 
@@ -65,22 +65,25 @@ localization/a11y completion.
   if final destination write or flush fails after validation, the serializer
   restores the previous destination bytes and then surfaces the original write
   failure.
-- Covered the save-failure path with a stream that throws on the first package
-  write and verifies that existing destination bytes survive unchanged.
+- Added the same seekable/readable destination recovery to workbook-level XLSX
+  saves, including both normal generated packages and preserve-unknown output.
+- Covered both document-level and workbook-level save-failure paths with a
+  stream that throws on the first package write and verifies that existing
+  destination bytes survive unchanged.
 - Local test execution is blocked in this workspace session because only .NET
   SDK 8.0.424 is on PATH while `global.json` requires 10.0.302. GitHub CI will
   be the validation source for this batch.
 
 ## Exact-head evidence
 
-Commit: `dd0134a43f3888b78b64106e45210acf9231d83a`.
+Commit: `e819c9b26c2136cc6fd9d08c8e4711f6129c888b`.
 
-- Full CI: #1248 / run `33791467660` -- success.
-- iOS analytics accessibility gate: #51 / run `33791467628` -- success.
-- Q003C/OpenXML gate: #48 / run `33791467663` -- success.
-- `sdk-packages` artifact from CI #1248: ID `9907540966`, digest
-  `sha256:81c468df338b9fcc6343f777b05d89ee6b4e7751d43df24cec3c46f9207f86c9`,
-  expires `2026-12-02T18:36:01Z`.
+- Full CI: #1254 / run `33798063286` -- success.
+- iOS analytics accessibility gate: #60 / run `33798063047` -- success.
+- Q003C/OpenXML gate: #57 / run `33798063208` -- success.
+- `sdk-packages` artifact from CI #1254: ID `9910001536`, digest
+  `sha256:e47762e21f3cd60cc7a30eaa1c9461d7dffc770739ba0a5e58e316d96edd0ff0`,
+  expires `2026-12-02T19:43:07Z`.
 
 ## Next candidate surfaces
 
