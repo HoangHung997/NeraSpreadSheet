@@ -119,14 +119,33 @@ loaded MAUI Windows Ribbon smoke. GitHub CI evidence: full CI **#1214 / run
 33777851359 — success**, and Q003C/OpenXML gate **#14 / run 33777851399 —
 success**.
 
+## PIVOT-OPENXML-STANDARD — DONE FOR DEFINED SCOPE
+
+Implemented and locally validated:
+
+- Nera-managed pivots materialize as standard Excel PivotTable, PivotCache and
+  PivotCacheRecords package parts during session save;
+- compatible standard worksheet-range PivotTables import into the existing Nera
+  pivot model during normal loads;
+- repeated Save -> Load -> Save keeps a single managed standard pivot package
+  graph instead of accumulating duplicate/orphan pivot parts;
+- explicit `PreserveUnknownParts = true` keeps Q003D preservation-only behavior
+  for external Excel pivots and does not silently reclassify them as
+  Nera-managed pivots;
+- generated standard pivot package graphs remain OpenXML-schema valid.
+
+Supported scope remains intentionally bounded to one row field, one value
+field, worksheet-range sources, header-row field names and
+Sum/Count/Average/Minimum/Maximum aggregation. Slicers, timelines, calculated
+fields/items, filters, multi-axis layouts, OLAP/external data sources,
+refresh/calculation equivalence and user-editable pivot destination cells remain
+future work.
+
 ## Current boundaries
 
 PR #1 remains **Draft, open and unmerged**. Q003B, Q003C, the defined Q003D
-preservation scope and `RIBBON-MAUI` are closed. `PIVOT-OPENXML-STANDARD` is
-local-green and awaiting exact-head GitHub CI before being declared closed. The
-local implementation adds standard Excel PivotTable/PivotCache/PivotCacheRecords
-export for Nera-managed pivots, compatible standard pivot semantic import, and
-regression coverage that preserves Q003D's opt-in external pivot preservation
-behavior. Major remaining roadmap areas include broader drawing/media
-compatibility, packaging/versioning, security/isolation/recovery hardening and
-final acceptance/release evidence.
+preservation scope, `RIBBON-MAUI` and `PIVOT-OPENXML-STANDARD` are closed for
+their defined scopes. `DRAWING-MEDIA-COMPAT` is the next active lane. Major
+remaining roadmap areas include broader drawing/media compatibility,
+packaging/versioning, security/isolation/recovery hardening and final
+acceptance/release evidence.
