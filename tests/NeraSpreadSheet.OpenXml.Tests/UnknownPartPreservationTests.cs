@@ -2,6 +2,7 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 
@@ -167,13 +168,60 @@ public sealed class UnknownPartPreservationTests
             destination.ToArray());
     }
 
+    [TestMethod]
+    public async Task WorksheetReferenceReplacementFailsBeforeDestinationMutation()
+    {
+        var serializer =
+            new NeraOpenXmlWorkbookSerializer();
+        await using var sourceStream =
+            await CreateOpaquePackageAsync(
+                serializer,
+                worksheetCount: 2);
+        sourceStream.Position = 0L;
+        var workbook = await serializer.LoadAsync(
+            sourceStream,
+            new OpenXmlImportOptions
+            {
+                PreserveUnknownParts = true,
+            });
+        workbook.RemoveWorksheet(workbook.Worksheets[1]);
+        workbook.AddWorksheet("Replacement");
+
+        var sentinel =
+            Encoding.UTF8.GetBytes("same-count-destination-sentinel");
+        await using var destination =
+            new MemoryStream();
+        await destination.WriteAsync(sentinel);
+        destination.Position = 0L;
+
+        await Assert.ThrowsExactlyAsync<
+            InvalidOperationException>(async () =>
+            await serializer.SaveAsync(
+                workbook,
+                destination,
+                new OpenXmlExportOptions
+                {
+                    PreserveUnknownParts = true,
+                }));
+
+        CollectionAssert.AreEqual(
+            sentinel,
+            destination.ToArray());
+    }
+
     private static async Task<MemoryStream> CreateOpaquePackageAsync(
-        NeraOpenXmlWorkbookSerializer serializer)
+        NeraOpenXmlWorkbookSerializer serializer,
+        int worksheetCount = 1)
     {
         var workbook = new Workbook();
         workbook.Worksheets[0].SetValue(
             default,
             "original");
+        for (var index = 2; index <= worksheetCount; index++)
+        {
+            workbook.AddWorksheet($"Sheet{index}");
+        }
+
         var stream = new MemoryStream();
         await serializer.SaveAsync(
             workbook,
@@ -190,7 +238,7 @@ public sealed class UnknownPartPreservationTests
                 ?? throw new AssertFailedException(
                     "The test package is missing its workbook part.");
             var worksheetPart =
-                workbookPart.WorksheetParts.Single();
+                GetFirstWorksheetPart(workbookPart);
             var workbookOpaque =
                 workbookPart.AddExtendedPart(
                     WorkbookRelationshipType,
@@ -232,6 +280,23 @@ public sealed class UnknownPartPreservationTests
 
         stream.Position = 0L;
         return stream;
+    }
+
+    private static WorksheetPart GetFirstWorksheetPart(
+        WorkbookPart workbookPart)
+    {
+        var workbookXml = workbookPart.Workbook
+            ?? throw new AssertFailedException(
+                "The test package is missing workbook markup.");
+        var firstSheetId = workbookXml
+            .GetFirstChild<Sheets>()?
+            .Elements<Sheet>()
+            .First()
+            .Id?
+            .Value
+            ?? throw new AssertFailedException(
+                "The test package is missing its first worksheet relationship.");
+        return (WorksheetPart)workbookPart.GetPartById(firstSheetId);
     }
 
     private static OpaqueSnapshot InspectOpaquePackage(
