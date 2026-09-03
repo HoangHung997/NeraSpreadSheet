@@ -4,7 +4,7 @@
 - Branch: `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
 - Latest verified implementation merge checkpoint: `ff7af0da897efc5007645905f529c4bdbe9eb202`.
-- Verified implementation CI: full run `33777851358` / #1214 — success; iOS gate `33777851359` / #17 — success; Q003C/OpenXML gate `33777851399` / #14 — success.
+- Verified implementation CI through `RIBBON-MAUI`: full run `33777851358` / #1214 — success; iOS gate `33777851359` / #17 — success; Q003C/OpenXML gate `33777851399` / #14 — success.
 - Formula implementation: **DONE**, **546/546** locked catalog names; formula suite **518/518**.
 - Q001, Q002, Q003A, Q003B: **DONE**.
 - Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
@@ -14,6 +14,9 @@
 - `RIBBON-MAUI`: **DONE**. MAUI presenters, shortcut/customization binding and
   Windows Ribbon smoke are integrated and exact-head CI passed at
   `b806cc7ed2317b456a6171672e577ee816e4692d`.
+- `PIVOT-OPENXML-STANDARD`: **DONE for defined scope**. Standard PivotTable,
+  PivotCache and PivotCacheRecords export/import are integrated, local OpenXML
+  and Core tests pass, and Q003D preservation-only behavior remains intact.
 - Weighted implementation-roadmap score: **83.08% ≈ 83%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -52,8 +55,6 @@ At implementation checkpoint `b806cc7ed2317b456a6171672e577ee816e4692d`:
 
 ## Remaining limits
 
-- `PIVOT-OPENXML-STANDARD` is local-green but awaits exact-head GitHub CI
-  before being declared closed.
 - Pivot refresh/calculation equivalence, user-mode destination-cell modeling,
   slicers/timelines and broader Excel UI parity remain outside the current
   standard pivot lane.
@@ -62,5 +63,6 @@ At implementation checkpoint `b806cc7ed2317b456a6171672e577ee816e4692d`:
 
 ## Next single step
 
-Push `PIVOT-OPENXML-STANDARD` and wait for exact-head GitHub CI. If CI passes,
-mark the lane closed and move to `DRAWING-MEDIA-COMPAT`.
+Claim and implement `DRAWING-MEDIA-COMPAT`: broaden the drawing/media
+compatibility corpus while preserving the managed chart and standard pivot
+OpenXML gates.
