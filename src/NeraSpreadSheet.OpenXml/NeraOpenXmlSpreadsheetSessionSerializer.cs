@@ -115,12 +115,10 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         }
 
         buffer.Position = 0L;
-        if (destination.CanSeek)
-        {
-            destination.Position = 0L;
-            destination.SetLength(0L);
-        }
-        await buffer.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        await OpenXmlPackageWriteRecovery.WritePackageAsync(
+            destination,
+            buffer.ToArray()).ConfigureAwait(false);
     }
 
     private static async Task<MemoryStream> CopyToBufferAsync(

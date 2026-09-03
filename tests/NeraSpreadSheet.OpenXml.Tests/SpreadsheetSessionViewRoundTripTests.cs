@@ -185,4 +185,95 @@ public sealed class SpreadsheetSessionViewRoundTripTests
             throw new AssertFailedException("The worksheet XML is missing.");
         Assert.IsNull(worksheetXml.GetFirstChild<SheetViews>());
     }
+
+    [TestMethod]
+    public async Task SaveSessionRestoresSeekableReadableDestinationWhenWriteFails()
+    {
+        var original = System.Text.Encoding.UTF8.GetBytes(
+            "existing session destination bytes");
+        await using var destination = new FailingWriteStream(original);
+        var workbook = new NeraWorkbook();
+        workbook.Worksheets[0].SetValue(
+            default,
+            "new session package");
+        var session = new SpreadsheetSession(workbook);
+        var serializer = new NeraOpenXmlSpreadsheetSessionSerializer();
+
+        await Assert.ThrowsExactlyAsync<IOException>(async () =>
+            await serializer.SaveSessionAsync(
+                session,
+                destination,
+                new OpenXmlExportOptions()));
+
+        CollectionAssert.AreEqual(
+            original,
+            destination.ToArray());
+    }
+
+    private sealed class FailingWriteStream : Stream
+    {
+        private readonly MemoryStream _inner;
+        private bool _failNextWrite = true;
+
+        public FailingWriteStream(byte[] bytes)
+        {
+            _inner = new MemoryStream(bytes.ToArray());
+        }
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => true;
+
+        public override bool CanWrite => true;
+
+        public override long Length => _inner.Length;
+
+        public override long Position
+        {
+            get => _inner.Position;
+            set => _inner.Position = value;
+        }
+
+        public byte[] ToArray() => _inner.ToArray();
+
+        public override void Flush()
+        {
+        }
+
+        public override Task FlushAsync(CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public override int Read(byte[] buffer, int offset, int count) =>
+            _inner.Read(buffer, offset, count);
+
+        public override long Seek(long offset, SeekOrigin origin) =>
+            _inner.Seek(offset, origin);
+
+        public override void SetLength(long value) =>
+            _inner.SetLength(value);
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            ThrowOnce();
+            _inner.Write(buffer, offset, count);
+        }
+
+        public override ValueTask WriteAsync(
+            ReadOnlyMemory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            ThrowOnce();
+            return _inner.WriteAsync(buffer, cancellationToken);
+        }
+
+        private void ThrowOnce()
+        {
+            if (!_failNextWrite)
+            {
+                return;
+            }
+            _failNextWrite = false;
+            throw new IOException("Simulated destination write failure.");
+        }
+    }
 }
