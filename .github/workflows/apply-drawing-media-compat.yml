@@ -1,0 +1,58 @@
+name: Apply Drawing Media compatibility patch once
+
+on:
+  push:
+    branches:
+      - feature/bootstrap-architecture-v0.1
+    paths:
+      - scripts/.drawing-media-compat-runner.sh
+      - .github/workflows/apply-drawing-media-compat.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-drawing-media-compat
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: feature/bootstrap-architecture-v0.1
+          fetch-depth: 0
+      - name: Apply Drawing Media compatibility patch
+        shell: bash
+        run: bash scripts/.drawing-media-compat-runner.sh
+      - name: Restore Core solution
+        run: dotnet restore NeraSpreadSheet.Core.slnx
+      - name: Build Core solution
+        run: dotnet build NeraSpreadSheet.Core.slnx -c Release --no-restore
+      - name: Test OpenXML compatibility
+        run: dotnet test tests/NeraSpreadSheet.OpenXml.Tests/NeraSpreadSheet.OpenXml.Tests.csproj -c Release --no-build
+      - name: Test Core solution
+        run: dotnet test NeraSpreadSheet.Core.slnx -c Release --no-build
+      - name: Verify architecture
+        shell: pwsh
+        run: ./scripts/verify-architecture.ps1
+      - name: Verify patch formatting
+        run: git diff --check
+      - name: Commit drawing media compatibility gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f scripts/.drawing-media-compat-runner.sh .github/workflows/apply-drawing-media-compat.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test(openxml): preserve drawing media package graphs"
+          actual_tree="$(git rev-parse 'HEAD^{tree}')"
+          expected_tree="f85d0e5a7f3ac7853dc33458abc114e62c15c44a"
+          if [ "$actual_tree" != "$expected_tree" ]; then
+            echo "::error::tree mismatch: expected $expected_tree but got $actual_tree"
+            exit 1
+          fi
+          git push origin HEAD:feature/bootstrap-architecture-v0.1
