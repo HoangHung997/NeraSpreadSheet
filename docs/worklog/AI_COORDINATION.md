@@ -27,7 +27,7 @@ before moving to another lane.
 | 2 | `PIVOT-OPENXML-STANDARD` | Codex | Done | Standard pivot creation/import/cache-record compatibility with explicit scope docs and OpenXML/Core/architecture gates |
 | 3 | `DRAWING-MEDIA-COMPAT` | Codex | Done | Broader drawing/media preservation/materialization corpus |
 | 4 | `PACKAGING-SDK` | Codex | Done | Package metadata/readme/pack-artifact gate exact-head validated; CI #1239, iOS gate #42, OpenXML gate #39 all success |
-| 5 | `SECURITY-RECOVERY` | Codex | Active | External provider, document/workbook/session save recovery and preserve-unknown topology rejection hardening exact-head validated; lane remains active for next bounded surface |
+| 5 | `SECURITY-RECOVERY` | Codex | Active | External provider, document/workbook/session save recovery, preserve-unknown topology rejection and OpenXML graph escaped-target hardening exact-head validated; lane remains active for next bounded surface |
 | 6 | `LOCALIZATION-A11Y-COMPLETE` | Unclaimed | Pending | Accessibility/localization gaps beyond analytics bridge |
 | 7 | `WIN11-DEMO-APP` | Unclaimed | Pending | Runnable Windows 11 demo app packaging the finished stack |
 | 8 | `FINAL-ACCEPTANCE` | Unclaimed | Pending | Full validation, docs, release evidence, PR ready criteria |
@@ -77,6 +77,7 @@ Out of scope for this lane:
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | Workbook save failure recovery exact-head validated at `e819c9b26c2136cc6fd9d08c8e4711f6129c888b`: full CI #1254, iOS gate #60 and Q003C/OpenXML gate #57 all succeeded. SDK packages artifact `9910001536` was uploaded. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | Session save failure recovery and shared package-write recovery helper exact-head validated at `06feca4168cb18fb5182601ee7654bd6887dfde5`: full CI #1257, iOS gate #64 and Q003C/OpenXML gate #61 all succeeded. SDK packages artifact `9910892535` was uploaded. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | Preserve-unknown worksheet reference replacement rejection exact-head validated at `472e89ce787c1071d80b119025c176b6abb78c57`: full CI #1264, iOS gate #73 and Q003C/OpenXML gate #70 all succeeded. SDK packages artifact `9912165390` was uploaded. |
+| 2026-09-04 | Codex | `SECURITY-RECOVERY` | OpenXML graph malformed escaped relationship target rejection exact-head validated at `7faaf10f940b9b1c165d499b71a27f2d1b2ba51e`: full CI #1268, iOS gate #79 and Q003C/OpenXML gate #76 all succeeded. SDK packages artifact `9913122998` was uploaded. |
 
 ## Closed lane: PIVOT-OPENXML-STANDARD
 
@@ -170,8 +171,9 @@ Batch status:
 
 - `SECURITY-RECOVERY-001`: Done for first pass; inventory current trust,
   recovery and failure-handling surfaces.
-- `SECURITY-RECOVERY-002`: Done for the first five patches; external provider
+- `SECURITY-RECOVERY-002`: Done for the first six patches; external provider
   exception containment plus document, workbook and session save failure
-  recovery plus preserve-unknown worksheet topology rejection are integrated.
+  recovery, preserve-unknown worksheet topology rejection and OpenXML graph
+  malformed escaped target rejection are integrated.
 - `SECURITY-RECOVERY-003`: In progress; exact-head evidence collected for the
-  first five patches, lane remains active for additional bounded coverage.
+  first six patches, lane remains active for additional bounded coverage.

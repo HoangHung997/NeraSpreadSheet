@@ -190,7 +190,7 @@ Exact-head GitHub evidence at commit
 
 ## SECURITY-RECOVERY — ACTIVE
 
-First five hardening patches are integrated and exact-head validated:
+First six hardening patches are integrated and exact-head validated:
 
 - external formula provider failures are contained at scalar, higher-order and
   dynamic-array boundaries and return `#N/A` instead of escaping through formula
@@ -210,22 +210,25 @@ First five hardening patches are integrated and exact-head validated:
   unchanged.
 - preserve-unknown worksheet reference replacement is rejected before
   destination bytes are mutated.
+- malformed percent-escapes in relationship targets are rejected before URI
+  decode, while common Excel hyperlink/file/relative/fragment targets remain
+  accepted.
 
 Exact-head GitHub evidence at commit
-`472e89ce787c1071d80b119025c176b6abb78c57`:
+`7faaf10f940b9b1c165d499b71a27f2d1b2ba51e`:
 
-- full CI: **#1264 / run 33803900656 — success**;
-- iOS analytics accessibility gate: **#73 / run 33803900644 — success**;
-- Q003C/OpenXML gate: **#70 / run 33803900652 — success**;
-- `sdk-packages` artifact: ID `9912165390`, digest
-  `sha256:7899693710f09747e26dc8b6d15c1a5667e5a792d2518798edb149b00940944e`.
+- full CI: **#1268 / run 33806404256 — success**;
+- iOS analytics accessibility gate: **#79 / run 33806404229 — success**;
+- Q003C/OpenXML gate: **#76 / run 33806404301 — success**;
+- `sdk-packages` artifact: ID `9913122998`, digest
+  `sha256:a45bff2d295497d72cced6a775481c493e03e3fe46e60e670203e520f05537cd`.
 
 ## Current boundaries
 
 PR #1 remains **Draft, open and unmerged**. Q003B, Q003C, the defined Q003D
 preservation scope, `RIBBON-MAUI`, `PIVOT-OPENXML-STANDARD`,
 `DRAWING-MEDIA-COMPAT` and `PACKAGING-SDK` are closed for their defined scopes.
-`SECURITY-RECOVERY` remains active after the first five validated hardening
+`SECURITY-RECOVERY` remains active after the first six validated hardening
 patches. Major remaining roadmap areas include additional security/isolation
 coverage, broader localization/accessibility completion and final
 acceptance/release evidence.

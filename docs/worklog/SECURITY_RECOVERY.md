@@ -19,7 +19,7 @@ completion and final Windows 11 demo packaging.
 | Batch | Status | Scope |
 |---|---|---|
 | `SECURITY-RECOVERY-001` | Done for first pass | Inventory plugin/external input boundaries, persistence recovery paths and renderer/session failure modes. |
-| `SECURITY-RECOVERY-002` | Done for first five patches | Add focused hardening tests and fixes for the highest-risk bounded surfaces. |
+| `SECURITY-RECOVERY-002` | Done for first six patches | Add focused hardening tests and fixes for the highest-risk bounded surfaces. |
 | `SECURITY-RECOVERY-003` | In progress | Update docs and collect local plus exact-head GitHub evidence. |
 
 ## Scope
@@ -38,7 +38,7 @@ completion and final Windows 11 demo packaging.
 
 ## Current status
 
-First five hardening patches are integrated and exact-head validated. The lane
+First six hardening patches are integrated and exact-head validated. The lane
 remains active for additional bounded trust/recovery coverage before moving to
 localization/a11y completion.
 
@@ -75,25 +75,28 @@ localization/a11y completion.
 - Added a preserve-unknown worksheet-reference replacement gate: replacing a
   preserved worksheet with a new same-count worksheet is rejected before
   destination bytes are mutated.
+- Added strict percent-escape validation for package graph URI text before
+  decoding, so malformed escaped relationship targets are rejected while common
+  Excel hyperlink, file, relative and fragment targets remain accepted.
 - Local test execution is blocked in this workspace session because only .NET
   SDK 8.0.424 is on PATH while `global.json` requires 10.0.302. GitHub CI will
   be the validation source for this batch.
 
 ## Exact-head evidence
 
-Commit: `472e89ce787c1071d80b119025c176b6abb78c57`.
+Commit: `7faaf10f940b9b1c165d499b71a27f2d1b2ba51e`.
 
-- Full CI: #1264 / run `33803900656` -- success.
-- iOS analytics accessibility gate: #73 / run `33803900644` -- success.
-- Q003C/OpenXML gate: #70 / run `33803900652` -- success.
-- `sdk-packages` artifact from CI #1264: ID `9912165390`, digest
-  `sha256:7899693710f09747e26dc8b6d15c1a5667e5a792d2518798edb149b00940944e`,
-  expires `2026-12-02T20:43:17Z`.
+- Full CI: #1268 / run `33806404256` -- success.
+- iOS analytics accessibility gate: #79 / run `33806404229` -- success.
+- Q003C/OpenXML gate: #76 / run `33806404301` -- success.
+- `sdk-packages` artifact from CI #1268: ID `9913122998`, digest
+  `sha256:a45bff2d295497d72cced6a775481c493e03e3fe46e60e670203e520f05537cd`,
+  expires `2026-12-02T21:09:39Z`.
 
 ## Next candidate surfaces
 
 - OpenXML package graph validation: add compatibility-safe tests around escaped
-  relationship target edge cases without blocking valid Excel hyperlink/file
+  part URI or relationship type edge cases without blocking valid Excel-created
   references.
 - Preserve-unknown recovery: extend atomic rejection coverage only if a new
   mismatched envelope case is found beyond worksheet topology replacement.
