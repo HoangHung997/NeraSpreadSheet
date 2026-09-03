@@ -22,8 +22,10 @@
   drawing parts through repeated preserved session saves. OpenXML 69/69, Core
   1216/1216, solution build 0 warnings/errors and architecture verification are
   green locally.
-- `PACKAGING-SDK`: **ACTIVE**. Next lane covers package/versioning/API
-  compatibility validation before security/recovery and Win11 demo work.
+- `PACKAGING-SDK`: **ACTIVE, local implementation complete**. Package
+  metadata, README packaging, explicit SDK package IDs, CI pack artifact upload
+  and a packaging metadata verifier are integrated locally; exact-head GitHub
+  evidence is still pending.
 - Weighted implementation-roadmap score: **83.08% ≈ 83%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -68,9 +70,11 @@ At implementation checkpoint `b806cc7ed2317b456a6171672e577ee816e4692d`:
 - Broader drawing/media compatibility remains beyond the managed chart + foreign drawing preservation gates.
 - User-facing drawing/image editing tools and rich media semantic import remain
   outside the first Drawing/Media preservation lane.
-- Packaging/versioning, plugin trust/isolation/recovery, broader performance/security corpora and final release acceptance remain incomplete.
+- Exact-head hosted CI evidence for `PACKAGING-SDK`, plugin
+  trust/isolation/recovery, broader performance/security corpora and final
+  release acceptance remain incomplete.
 
 ## Next single step
 
-Claim and implement `PACKAGING-SDK`: verify package metadata, versioning and
-public API readiness without marking PR #1 ready.
+Remote-integrate `PACKAGING-SDK` and collect exact-head CI evidence without
+marking PR #1 ready.

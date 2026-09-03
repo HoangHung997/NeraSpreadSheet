@@ -159,11 +159,30 @@ This lane is preservation-first. User-authored pictures, VML drawings,
 background pictures, OLE/control objects, video/audio and rich shape semantics
 remain opaque until Nera has first-class ownership models for them.
 
+## PACKAGING-SDK — ACTIVE, LOCAL IMPLEMENTATION COMPLETE
+
+Implemented and locally validated:
+
+- common NuGet project URL, README file and package tags are defined in
+  `Directory.Build.props`;
+- the root `README.md` is packed into every SDK package;
+- all `src` SDK projects now declare explicit package IDs and descriptions;
+- tests, samples and benchmarks are checked to remain non-packable;
+- `scripts/verify-packaging-sdk.ps1` validates package metadata and source
+  package boundaries;
+- CI now runs the packaging verifier, packs `NeraSpreadSheet.Core.slnx`, and
+  uploads generated `.nupkg` files as the `sdk-packages` artifact.
+
+Local validation produced 17 SDK packages, confirmed every package contains
+`README.md`, and kept Core Release tests at 1216/1216 with 0 build warnings and
+0 errors. Exact-head GitHub evidence is still pending, so this lane is not yet
+closed.
+
 ## Current boundaries
 
 PR #1 remains **Draft, open and unmerged**. Q003B, Q003C, the defined Q003D
 preservation scope, `RIBBON-MAUI`, `PIVOT-OPENXML-STANDARD` and
 `DRAWING-MEDIA-COMPAT` are closed for their defined scopes. `PACKAGING-SDK` is
-the next active lane. Major remaining roadmap areas include
-packaging/versioning, security/isolation/recovery hardening and final
+implemented locally and awaiting exact-head GitHub evidence. Major remaining
+roadmap areas include security/isolation/recovery hardening and final
 acceptance/release evidence.

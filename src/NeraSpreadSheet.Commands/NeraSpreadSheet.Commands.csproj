@@ -2,5 +2,6 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Description>Shared command schema used by spreadsheet, ribbon, toolbar and menu hosts.</Description>
+    <PackageId>NeraSpreadSheet.Commands</PackageId>
   </PropertyGroup>
 </Project>

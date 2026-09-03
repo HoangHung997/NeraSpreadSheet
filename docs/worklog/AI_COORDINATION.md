@@ -26,7 +26,7 @@ before moving to another lane.
 | 1 | `RIBBON-MAUI` | Codex | Done | MAUI Ribbon/Bar presenters, shortcut/input mapping, customization entry point, tests, loaded Windows smoke; exact-head CI #1214, iOS gate #17, OpenXML gate #14 all success |
 | 2 | `PIVOT-OPENXML-STANDARD` | Codex | Done | Standard pivot creation/import/cache-record compatibility with explicit scope docs and OpenXML/Core/architecture gates |
 | 3 | `DRAWING-MEDIA-COMPAT` | Codex | Done | Broader drawing/media preservation/materialization corpus |
-| 4 | `PACKAGING-SDK` | Codex | Active | Package/versioning/API compatibility validation |
+| 4 | `PACKAGING-SDK` | Codex | Active | Local package metadata/readme/pack-artifact gate complete; exact-head GitHub evidence pending |
 | 5 | `SECURITY-RECOVERY` | Unclaimed | Pending | Trust/isolation/recovery hardening and tests |
 | 6 | `LOCALIZATION-A11Y-COMPLETE` | Unclaimed | Pending | Accessibility/localization gaps beyond analytics bridge |
 | 7 | `WIN11-DEMO-APP` | Unclaimed | Pending | Runnable Windows 11 demo app packaging the finished stack |
@@ -69,6 +69,7 @@ Out of scope for this lane:
 | 2026-09-04 | Codex | `DRAWING-MEDIA-COMPAT` | Added first local preservation gate for worksheet drawing image anchors, sheet background pictures and legacy VML drawing parts through repeated preserved session saves. OpenXML 69/69, Core 1216/1216, solution build 0 warnings/errors and architecture pass are green locally. |
 | 2026-09-04 | Codex | `DRAWING-MEDIA-COMPAT` | Remote integration complete at `53c9da051a0a616e194058690e016e0f756a7b7f` with matching local tree `f85d0e5a7f3ac7853dc33458abc114e62c15c44a`; moving to `PACKAGING-SDK`. |
 | 2026-09-04 | Codex | `PACKAGING-SDK` | Claimed after Drawing/Media compatibility lane; scope is package/versioning/API compatibility validation before security/recovery and Win11 demo lanes. |
+| 2026-09-04 | Codex | `PACKAGING-SDK` | Local implementation complete: common package URL/readme/tags, explicit SDK `PackageId`s, packaging verifier, CI pack step and SDK package artifact upload. Local Release Core 1216/1216, architecture and packaging verifiers passed, and 17 SDK packages include `README.md`. |
 
 ## Closed lane: PIVOT-OPENXML-STANDARD
 
@@ -135,3 +136,10 @@ Out of scope for this lane:
 - Trust/isolation/recovery hardening.
 - Final Windows 11 demo app packaging.
 - Publishing packages or marking the PR ready.
+
+Batch status:
+
+- `PACKAGING-SDK-001`: Done.
+- `PACKAGING-SDK-002`: Done locally.
+- `PACKAGING-SDK-003`: In progress; remote integration and exact-head GitHub
+  evidence are pending.
