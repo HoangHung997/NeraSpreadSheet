@@ -170,6 +170,29 @@ public sealed class OpenXmlRoundTripTests
             destination.ToArray());
     }
 
+    [TestMethod]
+    public async Task WorkbookSaveRestoresSeekableReadableDestinationWhenWriteFails()
+    {
+        var original = System.Text.Encoding.UTF8.GetBytes(
+            "existing workbook destination bytes");
+        await using var destination = new FailingWriteStream(original);
+        var workbook = new Workbook();
+        workbook.Worksheets[0].SetValue(
+            default,
+            "new workbook package");
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+
+        await Assert.ThrowsExactlyAsync<IOException>(async () =>
+            await serializer.SaveAsync(
+                workbook,
+                destination,
+                new OpenXmlExportOptions()));
+
+        CollectionAssert.AreEqual(
+            original,
+            destination.ToArray());
+    }
+
     private sealed class FailingWriteStream : Stream
     {
         private readonly MemoryStream _inner;
