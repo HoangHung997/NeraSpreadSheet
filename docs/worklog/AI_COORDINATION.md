@@ -24,8 +24,8 @@ before moving to another lane.
 | Order | Lane | Owner | Status | Exit evidence |
 |---:|---|---|---|---|
 | 1 | `RIBBON-MAUI` | Codex | Done | MAUI Ribbon/Bar presenters, shortcut/input mapping, customization entry point, tests, loaded Windows smoke; exact-head CI #1214, iOS gate #17, OpenXML gate #14 all success |
-| 2 | `PIVOT-OPENXML-STANDARD` | Codex | Local done, CI pending | Standard pivot creation/import/cache-record compatibility with explicit scope docs and OpenXML gates |
-| 3 | `DRAWING-MEDIA-COMPAT` | Unclaimed | Pending | Broader drawing/media preservation/materialization corpus |
+| 2 | `PIVOT-OPENXML-STANDARD` | Codex | Done | Standard pivot creation/import/cache-record compatibility with explicit scope docs and OpenXML/Core/architecture gates |
+| 3 | `DRAWING-MEDIA-COMPAT` | Codex | Active | Broader drawing/media preservation/materialization corpus |
 | 4 | `PACKAGING-SDK` | Unclaimed | Pending | Package/versioning/API compatibility validation |
 | 5 | `SECURITY-RECOVERY` | Unclaimed | Pending | Trust/isolation/recovery hardening and tests |
 | 6 | `LOCALIZATION-A11Y-COMPLETE` | Unclaimed | Pending | Accessibility/localization gaps beyond analytics bridge |
@@ -64,8 +64,10 @@ Out of scope for this lane:
 | 2026-09-03 | Codex | `RIBBON-MAUI` | Closed after exact-head GitHub evidence on `b806cc7ed2317b456a6171672e577ee816e4692d`: CI #1214 success, iOS gate #17 success, OpenXML gate #14 success. |
 | 2026-09-03 | Codex | `PIVOT-OPENXML-STANDARD` | Claimed after `RIBBON-MAUI` exact-head CI passed; scoped to basic standard pivot creation/import/cache records for the existing Nera one-row-field/one-value-field model. |
 | 2026-09-03 | Codex | `PIVOT-OPENXML-STANDARD` | Local implementation complete: standard PivotTable/PivotCache/PivotCacheRecords export, compatible semantic import, preservation-only behavior retained for `PreserveUnknownParts`, OpenXML 68/68, Core 1215/1215, architecture pass, solution build 0 warnings/errors. |
+| 2026-09-04 | Codex | `PIVOT-OPENXML-STANDARD` | Remote integration complete at `0ee635e54f7b13bf4fc85f306eda1c1723669692` with matching local tree `0b4f9d403bf6d80489ac1949604ba0ca15173b59`; moving to `DRAWING-MEDIA-COMPAT`. |
+| 2026-09-04 | Codex | `DRAWING-MEDIA-COMPAT` | Claimed after Pivot standard package lane; scope is broader drawing/media preservation and materialization without reopening completed analytics/pivot contracts. |
 
-## Active lane: PIVOT-OPENXML-STANDARD
+## Closed lane: PIVOT-OPENXML-STANDARD
 
 Scope:
 
@@ -86,3 +88,22 @@ Out of scope for this lane:
 - Full Excel refresh/calculation parity.
 - User-mode pivot destination editing; export uses a deterministic default
   placement beside the source range until destination-cell modeling is added.
+
+## Active lane: DRAWING-MEDIA-COMPAT
+
+Scope:
+
+- Inventory the existing OpenXML drawing/media coverage after managed charts and
+  pivot package gates.
+- Add focused preservation/materialization tests for worksheet drawing content
+  not yet covered by managed charts.
+- Preserve explicit unknown-part behavior for third-party drawing/media package
+  graphs.
+- Keep chart and pivot OpenXML gates green while expanding drawing/media
+  compatibility.
+
+Out of scope for this lane:
+
+- Product packaging and Win11 demo integration.
+- Reopening formula, Q003B accessibility, Q003C managed chart or
+  `PIVOT-OPENXML-STANDARD` semantics unless a regression is discovered.
