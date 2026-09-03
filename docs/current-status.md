@@ -141,11 +141,29 @@ fields/items, filters, multi-axis layouts, OLAP/external data sources,
 refresh/calculation equivalence and user-editable pivot destination cells remain
 future work.
 
+## DRAWING-MEDIA-COMPAT — DONE FOR DEFINED SCOPE
+
+Implemented and locally validated:
+
+- worksheet drawing image content referenced from a `oneCellAnchor` survives
+  repeated preserved session Load/Save cycles;
+- worksheet background `picture` image relationships survive with stable
+  relationship IDs, part URIs and bytes;
+- legacy VML drawing parts referenced by `legacyDrawing` survive repeated
+  preserved session saves;
+- workbook edits made between round trips do not disturb third-party
+  drawing/media package graphs;
+- managed chart and standard pivot OpenXML gates remain green.
+
+This lane is preservation-first. User-authored pictures, VML drawings,
+background pictures, OLE/control objects, video/audio and rich shape semantics
+remain opaque until Nera has first-class ownership models for them.
+
 ## Current boundaries
 
 PR #1 remains **Draft, open and unmerged**. Q003B, Q003C, the defined Q003D
-preservation scope, `RIBBON-MAUI` and `PIVOT-OPENXML-STANDARD` are closed for
-their defined scopes. `DRAWING-MEDIA-COMPAT` is the next active lane. Major
-remaining roadmap areas include broader drawing/media compatibility,
+preservation scope, `RIBBON-MAUI`, `PIVOT-OPENXML-STANDARD` and
+`DRAWING-MEDIA-COMPAT` are closed for their defined scopes. `PACKAGING-SDK` is
+the next active lane. Major remaining roadmap areas include
 packaging/versioning, security/isolation/recovery hardening and final
 acceptance/release evidence.
