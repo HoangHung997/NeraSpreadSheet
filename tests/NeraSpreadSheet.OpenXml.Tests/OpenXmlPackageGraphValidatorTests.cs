@@ -1,6 +1,5 @@
 using System.IO.Compression;
 using System.Text;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace NeraSpreadSheet.OpenXml.Tests;
 
@@ -237,6 +236,16 @@ public sealed class OpenXmlPackageGraphValidatorTests
             OpenXmlPackageGraphValidator.Validate(packageBytes));
     }
 
+    [TestMethod]
+    public void PackageGraphValidationRejectsMalformedEscapedContentTypePartNames()
+    {
+        var packageBytes = CreateMinimalSpreadsheetPackage(
+            worksheetContentTypePartName: "/xl/worksheets/bad%GG.xml");
+
+        AssertInvalidData(() =>
+            OpenXmlPackageGraphValidator.Validate(packageBytes));
+    }
+
     private static void AssertInvalidData(Action action)
     {
         try
@@ -252,6 +261,7 @@ public sealed class OpenXmlPackageGraphValidatorTests
     private static byte[] CreateMinimalSpreadsheetPackage(
         string worksheetTarget = "worksheets/sheet1.xml",
         string worksheetEntryName = "xl/worksheets/sheet1.xml",
+        string worksheetContentTypePartName = "/xl/worksheets/sheet1.xml",
         string worksheetRelationshipType = WorksheetRelationshipType,
         string? externalTarget = null)
     {
@@ -264,12 +274,12 @@ public sealed class OpenXmlPackageGraphValidatorTests
             WriteEntry(
                 archive,
                 "[Content_Types].xml",
-                """
+                $"""
                 <?xml version="1.0" encoding="utf-8"?>
                 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
                   <Default Extension="xml" ContentType="application/xml"/>
                   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-                  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+                  <Override PartName="{worksheetContentTypePartName}" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
                 </Types>
                 """);
             WriteEntry(

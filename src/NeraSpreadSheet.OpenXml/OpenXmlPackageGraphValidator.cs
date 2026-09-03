@@ -9,6 +9,8 @@ internal static class OpenXmlPackageGraphValidator
 {
     private const string RelationshipNamespace =
         "http://schemas.openxmlformats.org/package/2006/relationships";
+    private const string ContentTypesNamespace =
+        "http://schemas.openxmlformats.org/package/2006/content-types";
     private const int MaxPartCount = 100_000;
     private const int MaxRelationshipsPerContainer = 100_000;
     private const int MaxPartUriCharacters = 32 * 1024;
@@ -66,10 +68,14 @@ internal static class OpenXmlPackageGraphValidator
                 continue;
             }
 
-            if (!string.Equals(
+            if (string.Equals(
                     entry.FullName,
                     "[Content_Types].xml",
                     StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateContentTypesEntry(entry);
+            }
+            else
             {
                 ValidatePartUri(
                     new Uri(
@@ -83,6 +89,41 @@ internal static class OpenXmlPackageGraphValidator
             {
                 ValidateRelationshipEntry(entry);
             }
+        }
+    }
+
+    private static void ValidateContentTypesEntry(ZipArchiveEntry entry)
+    {
+        using var stream = entry.Open();
+        var document = XDocument.Load(
+            stream,
+            LoadOptions.None);
+        var types = document.Root;
+        if (types is null ||
+            types.Name != XName.Get(
+                "Types",
+                ContentTypesNamespace))
+        {
+            throw new InvalidDataException(
+                "The XLSX package contains an invalid content types table.");
+        }
+
+        foreach (var contentTypeOverride in types.Elements(
+                     XName.Get(
+                         "Override",
+                         ContentTypesNamespace)))
+        {
+            var partName = (string?)contentTypeOverride.Attribute("PartName");
+            if (partName is null)
+            {
+                throw new InvalidDataException(
+                    "The XLSX package contains an invalid content types table.");
+            }
+
+            ValidatePartUri(
+                new Uri(
+                    partName,
+                    UriKind.Relative));
         }
     }
 
