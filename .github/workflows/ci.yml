@@ -21,7 +21,7 @@ jobs:
       - name: Download patch
         run: curl --fail --silent --show-error --location https://paste.rs/O95Y0 --output security-preserve-worksheet-alias-fix.patch
       - name: Verify patch checksum
-        run: echo "013899b3c26fa88c67fcac663f85ea20f66c57b051cf6f66fdafcdb01adb77a  security-preserve-worksheet-alias-fix.patch" | sha256sum --check -
+        run: echo "013899b3c26fa88c67fcac663f85ea20f66c57b051cf6f66fdaffcdb01adb77a  security-preserve-worksheet-alias-fix.patch" | sha256sum --check -
       - name: Apply patch
         run: git apply --index security-preserve-worksheet-alias-fix.patch
       - name: Commit and push
