@@ -11,9 +11,13 @@ public sealed class OpenXmlPackageGraphValidatorTests
         var partUri = new Uri(
             "/xl/worksheets/sheet1.xml",
             UriKind.Relative);
+        var escapedPartUri = new Uri(
+            "/xl/custom%20parts/item%201.xml",
+            UriKind.Relative);
         var relationshipIds = new HashSet<string>(StringComparer.Ordinal);
 
         var actual = OpenXmlPackageGraphValidator.ValidatePartUri(partUri);
+        var escapedActual = OpenXmlPackageGraphValidator.ValidatePartUri(escapedPartUri);
         OpenXmlPackageGraphValidator.ValidateRelationshipId(
             "rId1",
             relationshipIds);
@@ -24,6 +28,8 @@ public sealed class OpenXmlPackageGraphValidatorTests
             "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet");
         OpenXmlPackageGraphValidator.ValidateRelationshipType(
             "urn:neraspreadsheet:test:opaque");
+        OpenXmlPackageGraphValidator.ValidateRelationshipType(
+            "https://example.invalid/relationships/custom%7Etype");
         OpenXmlPackageGraphValidator.ValidateReferenceTarget(
             new Uri(
                 "https://example.invalid/opaque",
@@ -36,6 +42,9 @@ public sealed class OpenXmlPackageGraphValidatorTests
         Assert.AreEqual(
             "/xl/worksheets/sheet1.xml",
             actual);
+        Assert.AreEqual(
+            "/xl/custom%20parts/item%201.xml",
+            escapedActual);
         Assert.AreEqual(2, relationshipIds.Count);
     }
 
@@ -72,6 +81,9 @@ public sealed class OpenXmlPackageGraphValidatorTests
             "xl/no-leading-slash.xml",
             "/xl/../evil.xml",
             "/xl/%2E%2E/evil.xml",
+            "/xl/bad%.xml",
+            "/xl/bad%2.xml",
+            "/xl/bad%GG.xml",
             "/xl//evil.xml",
             "/xl/%2Fescape.xml",
             "/xl/evil.xml?query=1",
@@ -130,6 +142,9 @@ public sealed class OpenXmlPackageGraphValidatorTests
             " ",
             "relative/relationship/type",
             "urn:nera:bad\ntype",
+            "https://example.invalid/relationships/bad%",
+            "https://example.invalid/relationships/bad%2",
+            "https://example.invalid/relationships/bad%GG",
         ];
 
         foreach (var invalidType in invalidTypes)
