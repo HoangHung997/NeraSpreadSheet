@@ -292,6 +292,38 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         if (ReferenceEquals(_binding, binding)) CloseAndRefresh();
     }
 
+    private async Task SortAndCloseAsync(
+        bool descending,
+        string? customList,
+        CancellationToken token)
+    {
+        var binding = _binding;
+        if (binding is null) return;
+        await binding.ApplyColumnSortAsync(
+            descending,
+            customList?.Contains(',', StringComparison.Ordinal) == true
+                ? customList
+                : null,
+            token);
+        if (ReferenceEquals(_binding, binding)) CloseAndRefresh();
+    }
+
+    private async Task ReapplyAndCloseAsync(CancellationToken token)
+    {
+        var binding = _binding;
+        if (binding is null) return;
+        await binding.ReapplyAsync(token);
+        if (ReferenceEquals(_binding, binding)) CloseAndRefresh();
+    }
+
+    private async Task ClearSortAndCloseAsync(CancellationToken token)
+    {
+        var binding = _binding;
+        if (binding is null) return;
+        await binding.ClearSortAsync(token);
+        if (ReferenceEquals(_binding, binding)) CloseAndRefresh();
+    }
+
     private void CancelOperations()
     {
         CancellationTokenSource[] operations;

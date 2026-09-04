@@ -194,6 +194,10 @@ public sealed class SpreadsheetTableController
     public void SetSortState(Guid tableId, SpreadsheetFilterSortState? sortState)
     {
         var table = GetTable(tableId);
+        if (Equals(table.AutoFilter?.SortState, sortState))
+        {
+            return;
+        }
         SetAutoFilter(tableId, new TableAutoFilter(table.AutoFilter?.Columns ?? [], sortState));
     }
 

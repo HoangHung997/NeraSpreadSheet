@@ -108,7 +108,316 @@ public sealed class SpreadsheetSortController
         _session.Selection.Select(range);
     }
 
-    private static int CompareCellValues(CellValue left, CellValue right)
+    /// <summary>Sorts the current Table data range and stores its ordered AutoFilter sort state atomically.</summary>
+    public bool SortTable(Guid tableId, SpreadsheetFilterSortState sortState)
+    {
+        ArgumentNullException.ThrowIfNull(sortState);
+        if (!_session.ActiveWorksheet.TryGetTable(tableId, out var table) || table is null)
+        {
+            throw new KeyNotFoundException($"Table '{tableId}' was not found.");
+        }
+        var dataRange = table.DataRange;
+        if (dataRange is null)
+        {
+            return false;
+        }
+        ValidateSortState(sortState, table.Range.ColumnCount);
+        var beforeFilter = table.AutoFilter?.Copy();
+        var afterFilter = new TableAutoFilter(
+            beforeFilter?.Columns ?? [],
+            sortState);
+        return ExecuteAutoFilterSort(
+            dataRange.Value,
+            sortState,
+            table.Id,
+            beforeFilter,
+            afterFilter,
+            worksheetFilterBefore: null,
+            worksheetFilterAfter: null,
+            "Sort Table AutoFilter");
+    }
+
+    /// <summary>Sorts the current direct worksheet AutoFilter data range and stores its sort state atomically.</summary>
+    public bool SortWorksheet(SpreadsheetFilterSortState sortState)
+    {
+        ArgumentNullException.ThrowIfNull(sortState);
+        var filter = _session.ActiveWorksheet.AutoFilter ??
+            throw new InvalidOperationException("The active worksheet does not have a direct AutoFilter range.");
+        if (filter.DataRange is not { } dataRange)
+        {
+            return false;
+        }
+        ValidateSortState(sortState, filter.Range.ColumnCount);
+        return ExecuteAutoFilterSort(
+            dataRange,
+            sortState,
+            tableId: null,
+            tableFilterBefore: null,
+            tableFilterAfter: null,
+            filter,
+            filter.WithSortState(sortState),
+            "Sort worksheet AutoFilter");
+    }
+
+    /// <summary>Sorts the owner represented by a current filter target.</summary>
+    public bool SortAutoFilter(
+        SpreadsheetAutoFilterTarget target,
+        SpreadsheetFilterSortState sortState) =>
+        target.OwnerKind switch
+        {
+            SpreadsheetAutoFilterOwnerKind.Table => SortTable(
+                target.TableId ?? throw new ArgumentException(
+                    "The Table target is missing its stable identity.", nameof(target)),
+                sortState),
+            SpreadsheetAutoFilterOwnerKind.Worksheet => SortWorksheet(sortState),
+            _ => throw new ArgumentOutOfRangeException(nameof(target)),
+        };
+
+    /// <summary>Reapplies the current sort state after resolving the owner's latest structural position.</summary>
+    public bool ReapplyAutoFilter(SpreadsheetAutoFilterTarget target)
+    {
+        var state = target.OwnerKind switch
+        {
+            SpreadsheetAutoFilterOwnerKind.Table => GetCurrentTableSortState(
+                target.TableId ?? throw new ArgumentException(
+                    "The Table target is missing its stable identity.", nameof(target))),
+            SpreadsheetAutoFilterOwnerKind.Worksheet =>
+                _session.ActiveWorksheet.AutoFilter?.SortState,
+            _ => throw new ArgumentOutOfRangeException(nameof(target)),
+        };
+        return state is not null && SortAutoFilter(target, state);
+    }
+
+    /// <summary>Clears only AutoFilter sort metadata in one Undo/Redo operation.</summary>
+    public bool ClearAutoFilterSort(SpreadsheetAutoFilterTarget target)
+    {
+        switch (target.OwnerKind)
+        {
+            case SpreadsheetAutoFilterOwnerKind.Table:
+            {
+                var tableId = target.TableId ?? throw new ArgumentException(
+                    "The Table target is missing its stable identity.", nameof(target));
+                if (!_session.ActiveWorksheet.TryGetTable(tableId, out var table) || table is null)
+                {
+                    throw new KeyNotFoundException($"Table '{tableId}' was not found.");
+                }
+                if (table.AutoFilter?.SortState is null)
+                {
+                    return false;
+                }
+                _session.Tables.SetSortState(tableId, null);
+                return true;
+            }
+            case SpreadsheetAutoFilterOwnerKind.Worksheet:
+                if (_session.ActiveWorksheet.AutoFilter?.SortState is null)
+                {
+                    return false;
+                }
+                _session.WorksheetFilter.SetSortState(null);
+                return true;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(target));
+        }
+    }
+
+    private SpreadsheetFilterSortState? GetCurrentTableSortState(Guid tableId)
+    {
+        if (!_session.ActiveWorksheet.TryGetTable(tableId, out var table) || table is null)
+        {
+            throw new KeyNotFoundException($"Table '{tableId}' was not found.");
+        }
+        return table.AutoFilter?.SortState;
+    }
+
+    private bool ExecuteAutoFilterSort(
+        CellRange dataRange,
+        SpreadsheetFilterSortState sortState,
+        Guid? tableId,
+        TableAutoFilter? tableFilterBefore,
+        TableAutoFilter? tableFilterAfter,
+        WorksheetAutoFilter? worksheetFilterBefore,
+        WorksheetAutoFilter? worksheetFilterAfter,
+        string description)
+    {
+        var materialized = checked((long)dataRange.RowCount * dataRange.ColumnCount);
+        if (materialized > _maximumMaterializedCells)
+        {
+            throw new InvalidOperationException(
+                "The AutoFilter data range is too large to materialize for sorting.");
+        }
+        if (_session.ActiveWorksheet.MergedCells.Intersects(dataRange))
+        {
+            throw new InvalidOperationException(
+                "Sorting an AutoFilter range that intersects merged cells is not supported.");
+        }
+
+        var rows = MaterializeRows(dataRange);
+        var sorted = rows.ToArray();
+        Array.Sort(sorted, (left, right) => CompareRows(left, right, sortState));
+        var orderChanged = !rows.Select(static row => row.OriginalRow)
+            .SequenceEqual(sorted.Select(static row => row.OriginalRow));
+        var metadataChanged = tableId is not null
+            ? !Equals(tableFilterBefore?.SortState, tableFilterAfter?.SortState)
+            : !Equals(worksheetFilterBefore, worksheetFilterAfter);
+        if (!orderChanged && !metadataChanged)
+        {
+            return false;
+        }
+
+        var beforeCells = CreateCellUpdates(dataRange, rows);
+        var afterCells = CreateCellUpdates(dataRange, sorted);
+        _session.Execute(new AutoFilterSortOperation(
+            _session.ActiveWorksheet,
+            dataRange,
+            beforeCells,
+            afterCells,
+            tableId,
+            tableFilterBefore,
+            tableFilterAfter,
+            worksheetFilterBefore,
+            worksheetFilterAfter,
+            description));
+        return true;
+    }
+
+    private List<SortRow> MaterializeRows(CellRange range)
+    {
+        var rows = new List<SortRow>(range.RowCount);
+        for (var row = range.Top; row <= range.Bottom; row++)
+        {
+            var cells = new CellData[range.ColumnCount];
+            for (var columnOffset = 0; columnOffset < range.ColumnCount; columnOffset++)
+            {
+                cells[columnOffset] = _session.ActiveWorksheet.GetCell(
+                    new CellAddress(row, range.Left + columnOffset));
+            }
+            rows.Add(new SortRow(row, cells));
+        }
+        return rows;
+    }
+
+    private static KeyValuePair<CellAddress, CellData>[] CreateCellUpdates(
+        CellRange range,
+        IReadOnlyList<SortRow> rows)
+    {
+        var updates = new KeyValuePair<CellAddress, CellData>[
+            checked(rows.Count * range.ColumnCount)];
+        var index = 0;
+        for (var rowOffset = 0; rowOffset < rows.Count; rowOffset++)
+        {
+            for (var columnOffset = 0; columnOffset < range.ColumnCount; columnOffset++)
+            {
+                var target = new CellAddress(
+                    range.Top + rowOffset,
+                    range.Left + columnOffset);
+                var source = new CellAddress(
+                    rows[rowOffset].OriginalRow,
+                    range.Left + columnOffset);
+                var cell = rows[rowOffset].Cells[columnOffset];
+                if (cell.Formula is { } formula && source != target)
+                {
+                    cell = new CellData(
+                        cell.Value,
+                        FormulaReferenceTranslator.Translate(formula, source, target),
+                        cell.StyleId);
+                }
+                updates[index++] = new KeyValuePair<CellAddress, CellData>(
+                    target,
+                    cell);
+            }
+        }
+        return updates;
+    }
+
+    private static int CompareRows(
+        SortRow left,
+        SortRow right,
+        SpreadsheetFilterSortState state)
+    {
+        foreach (var condition in state.Conditions)
+        {
+            var leftValue = left.Cells[condition.ColumnOffset].Value;
+            var rightValue = right.Cells[condition.ColumnOffset].Value;
+            if (leftValue.Kind == CellValueKind.Blank ||
+                rightValue.Kind == CellValueKind.Blank)
+            {
+                var blankComparison = leftValue.Kind == CellValueKind.Blank
+                    ? rightValue.Kind == CellValueKind.Blank ? 0 : 1
+                    : -1;
+                if (blankComparison != 0)
+                {
+                    return blankComparison;
+                }
+            }
+            var comparison = CompareCondition(
+                leftValue,
+                rightValue,
+                condition,
+                state.CaseSensitive);
+            if (comparison != 0)
+            {
+                return condition.Descending ? -comparison : comparison;
+            }
+        }
+        return left.OriginalRow.CompareTo(right.OriginalRow);
+    }
+
+    private static int CompareCondition(
+        CellValue left,
+        CellValue right,
+        SpreadsheetFilterSortCondition condition,
+        bool caseSensitive)
+    {
+        if (condition.SortBy != SpreadsheetFilterSortBy.Value)
+        {
+            throw new NotSupportedException(
+                "Physical color and icon sorting requires evaluated visual-rule semantics and is not supported.");
+        }
+        if (condition.CustomList is { } customList)
+        {
+            var items = customList.Split(',', StringSplitOptions.TrimEntries |
+                StringSplitOptions.RemoveEmptyEntries);
+            var comparer = caseSensitive
+                ? StringComparer.CurrentCulture
+                : StringComparer.CurrentCultureIgnoreCase;
+            var leftIndex = Array.FindIndex(items, item => comparer.Equals(item, left.ToString()));
+            var rightIndex = Array.FindIndex(items, item => comparer.Equals(item, right.ToString()));
+            if (leftIndex >= 0 || rightIndex >= 0)
+            {
+                if (leftIndex < 0) return 1;
+                if (rightIndex < 0) return -1;
+                var customComparison = leftIndex.CompareTo(rightIndex);
+                if (customComparison != 0) return customComparison;
+            }
+        }
+        return CompareCellValues(left, right, caseSensitive);
+    }
+
+    private static void ValidateSortState(
+        SpreadsheetFilterSortState state,
+        int columnCount)
+    {
+        if (state.SortLeftToRight)
+        {
+            throw new NotSupportedException(
+                "Left-to-right AutoFilter sorting is preservation-only and cannot be executed as a row sort.");
+        }
+        if (state.Conditions.Any(condition => condition.ColumnOffset >= columnCount))
+        {
+            throw new ArgumentException(
+                "A sort key is outside the current AutoFilter range.", nameof(state));
+        }
+        if (state.Conditions.Any(condition => condition.SortBy != SpreadsheetFilterSortBy.Value))
+        {
+            throw new NotSupportedException(
+                "Physical color and icon sorting requires evaluated visual-rule semantics and is not supported.");
+        }
+    }
+
+    private static int CompareCellValues(
+        CellValue left,
+        CellValue right,
+        bool caseSensitive = false)
     {
         if (left.Kind == CellValueKind.Blank)
         {
@@ -125,7 +434,9 @@ public sealed class SpreadsheetSortController
                 CellValueKind.Number => ((double)left.RawValue!).CompareTo((double)right.RawValue!),
                 CellValueKind.DateTime => ((DateTime)left.RawValue!).CompareTo((DateTime)right.RawValue!),
                 CellValueKind.Boolean => ((bool)left.RawValue!).CompareTo((bool)right.RawValue!),
-                CellValueKind.Text or CellValueKind.Error => StringComparer.CurrentCultureIgnoreCase.Compare((string?)left.RawValue, (string?)right.RawValue),
+                CellValueKind.Text or CellValueKind.Error =>
+                    (caseSensitive ? StringComparer.CurrentCulture : StringComparer.CurrentCultureIgnoreCase)
+                    .Compare((string?)left.RawValue, (string?)right.RawValue),
                 _ => 0,
             };
         }
@@ -136,7 +447,8 @@ public sealed class SpreadsheetSortController
         {
             return leftNumber.CompareTo(rightNumber);
         }
-        return StringComparer.CurrentCultureIgnoreCase.Compare(left.ToString(), right.ToString());
+        return (caseSensitive ? StringComparer.CurrentCulture : StringComparer.CurrentCultureIgnoreCase)
+            .Compare(left.ToString(), right.ToString());
     }
 
     private static bool TryGetNumeric(CellValue value, out double number)
@@ -159,6 +471,87 @@ public sealed class SpreadsheetSortController
     }
 
     private sealed record SortRow(int OriginalRow, CellData[] Cells);
+
+    private sealed class AutoFilterSortOperation :
+        ISpreadsheetEditOperation,
+        IIncrementalCalculationOperation
+    {
+        private readonly KeyValuePair<CellAddress, CellData>[] _beforeCells;
+        private readonly KeyValuePair<CellAddress, CellData>[] _afterCells;
+        private readonly Guid? _tableId;
+        private readonly TableAutoFilter? _tableFilterBefore;
+        private readonly TableAutoFilter? _tableFilterAfter;
+        private readonly WorksheetAutoFilter? _worksheetFilterBefore;
+        private readonly WorksheetAutoFilter? _worksheetFilterAfter;
+
+        public AutoFilterSortOperation(
+            Worksheet worksheet,
+            CellRange affectedRange,
+            KeyValuePair<CellAddress, CellData>[] beforeCells,
+            KeyValuePair<CellAddress, CellData>[] afterCells,
+            Guid? tableId,
+            TableAutoFilter? tableFilterBefore,
+            TableAutoFilter? tableFilterAfter,
+            WorksheetAutoFilter? worksheetFilterBefore,
+            WorksheetAutoFilter? worksheetFilterAfter,
+            string description)
+        {
+            Worksheet = worksheet;
+            AffectedRange = affectedRange;
+            _beforeCells = beforeCells;
+            _afterCells = afterCells;
+            _tableId = tableId;
+            _tableFilterBefore = tableFilterBefore?.Copy();
+            _tableFilterAfter = tableFilterAfter?.Copy();
+            _worksheetFilterBefore = worksheetFilterBefore?.Copy();
+            _worksheetFilterAfter = worksheetFilterAfter?.Copy();
+            Description = description;
+        }
+
+        public string Description { get; }
+        public Worksheet Worksheet { get; }
+        public CellRange AffectedRange { get; }
+
+        public void Execute()
+        {
+            try
+            {
+                Apply(
+                    _afterCells,
+                    _tableFilterAfter,
+                    _worksheetFilterAfter);
+            }
+            catch
+            {
+                Apply(
+                    _beforeCells,
+                    _tableFilterBefore,
+                    _worksheetFilterBefore);
+                throw;
+            }
+        }
+
+        public void Undo() => Apply(
+            _beforeCells,
+            _tableFilterBefore,
+            _worksheetFilterBefore);
+
+        private void Apply(
+            KeyValuePair<CellAddress, CellData>[] cells,
+            TableAutoFilter? tableFilter,
+            WorksheetAutoFilter? worksheetFilter)
+        {
+            Worksheet.SetCells(cells);
+            if (_tableId is Guid tableId)
+            {
+                Worksheet.SetTableAutoFilter(tableId, tableFilter);
+            }
+            else
+            {
+                Worksheet.SetAutoFilter(worksheetFilter);
+            }
+        }
+    }
 }
 
 public static class SpreadsheetSortCommandIds

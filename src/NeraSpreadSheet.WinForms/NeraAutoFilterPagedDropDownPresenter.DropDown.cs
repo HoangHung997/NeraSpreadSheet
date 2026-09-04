@@ -178,6 +178,14 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             "Tải trang giá trị sau");
         _previousButton = previous;
         _nextButton = next;
+        var sortAscending = CreateCommandButton(
+            "Sắp xếp ↑", new Point(10, 451), 80, "Sắp xếp cột tăng dần");
+        var sortDescending = CreateCommandButton(
+            "Sắp xếp ↓", new Point(96, 451), 80, "Sắp xếp cột giảm dần");
+        var reapply = CreateCommandButton(
+            "Áp dụng lại", new Point(182, 451), 78, "Áp dụng lại lọc và sắp xếp hiện tại");
+        var clearSort = CreateCommandButton(
+            "Xóa SX", new Point(266, 451), 74, "Xóa trạng thái sắp xếp");
         var clear = CreateCommandButton(
             "Xóa lọc",
             new Point(10, 487),
@@ -208,6 +216,10 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             values,
             previous,
             next,
+            sortAscending,
+            sortDescending,
+            reapply,
+            clearSort,
             clear,
             cancel,
             apply,
@@ -254,6 +266,12 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         next.Click += (_, _) => StartOperation(token =>
             MovePageAsync(next: true, token));
         dateBack.Click += (_, _) => StartOperation(NavigateDateBackAsync);
+        sortAscending.Click += (_, _) => StartOperation(token =>
+            SortAndCloseAsync(false, criterionInput.Text, token));
+        sortDescending.Click += (_, _) => StartOperation(token =>
+            SortAndCloseAsync(true, criterionInput.Text, token));
+        reapply.Click += (_, _) => StartOperation(ReapplyAndCloseAsync);
+        clearSort.Click += (_, _) => StartOperation(ClearSortAndCloseAsync);
         clear.Click += (_, _) => StartOperation(ClearAndCloseAsync);
         cancel.Click += (_, _) => Close();
         apply.Click += (_, _) => StartOperation(ApplyAndCloseAsync);
@@ -269,6 +287,10 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         selectNone.KeyDown += keyHandler;
         previous.KeyDown += keyHandler;
         next.KeyDown += keyHandler;
+        sortAscending.KeyDown += keyHandler;
+        sortDescending.KeyDown += keyHandler;
+        reapply.KeyDown += keyHandler;
+        clearSort.KeyDown += keyHandler;
         clear.KeyDown += keyHandler;
         cancel.KeyDown += keyHandler;
         apply.KeyDown += keyHandler;
@@ -413,6 +435,7 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
                 ? $"{first:N0}–{last:N0}/{total:N0}; nguồn bị giới hạn, không thể áp dụng chọn giá trị."
                 : $"{first:N0}–{last:N0}/{total:N0} giá trị.";
         _status.AccessibleName = _status.Text;
+        _status.AccessibleDescription = _binding.AccessibilityAnnouncement;
         _previousButton!.Visible = isValues || isDate;
         _nextButton!.Visible = isValues || isDate;
         _previousButton.Enabled = isDate
@@ -490,6 +513,15 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             _searchBox?.Focused == true)
         {
             StartOperation(ApplyAndCloseAsync);
+            Suppress(e);
+            return;
+        }
+        if (e.KeyCode == Keys.Enter &&
+            _valuesList?.Focused == true &&
+            _valuesList.SelectedIndex >= 0)
+        {
+            var index = _valuesList.SelectedIndex;
+            _valuesList.SetItemChecked(index, !_valuesList.GetItemChecked(index));
             Suppress(e);
         }
     }

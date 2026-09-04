@@ -18,6 +18,7 @@ public sealed class NeraMauiAutoFilterPagedBinding :
 {
     private readonly IDispatcher _dispatcher;
     private readonly SpreadsheetAutoFilterPagedPresenter _presenter;
+    private readonly SemaphoreSlim _operationGate = new(1, 1);
     private bool _disposed;
     private bool _isBusy;
     private string _searchText = string.Empty;
@@ -28,6 +29,7 @@ public sealed class NeraMauiAutoFilterPagedBinding :
     private bool _hasNextPage;
     private bool _isSourceTruncated;
     private IReadOnlyList<SpreadsheetAutoFilterMenuKind> _menuKinds = [];
+    private string _accessibilityAnnouncement = string.Empty;
 
     public NeraMauiAutoFilterPagedBinding(
         SpreadsheetAutoFilterPagedPresenter presenter,
@@ -103,6 +105,12 @@ public sealed class NeraMauiAutoFilterPagedBinding :
         private set => SetField(ref _menuKinds, value);
     }
 
+    public string AccessibilityAnnouncement
+    {
+        get => _accessibilityAnnouncement;
+        private set => SetField(ref _accessibilityAnnouncement, value);
+    }
+
     public Task InitializeAsync(
         CancellationToken cancellationToken = default) =>
         ExecuteAndPublishAsync(
@@ -159,6 +167,20 @@ public sealed class NeraMauiAutoFilterPagedBinding :
             _presenter.ClearVisibleSelectionAsync,
             cancellationToken);
 
+    public Task<bool> ApplyColumnSortAsync(
+        bool descending,
+        string? customList = null,
+        CancellationToken cancellationToken = default) =>
+        ExecuteAndPublishAsync(
+            token => _presenter.ApplyColumnSortAsync(descending, customList, token),
+            cancellationToken);
+
+    public Task<bool> ReapplyAsync(CancellationToken cancellationToken = default) =>
+        ExecuteAndPublishAsync(_presenter.ReapplyAsync, cancellationToken);
+
+    public Task<bool> ClearSortAsync(CancellationToken cancellationToken = default) =>
+        ExecuteAndPublishAsync(_presenter.ClearSortAsync, cancellationToken);
+
     public Task<long> ApplyValueSelectionAsync(
         CancellationToken cancellationToken = default) =>
         ExecuteAndPublishAsync(
@@ -206,6 +228,7 @@ public sealed class NeraMauiAutoFilterPagedBinding :
         }
         _disposed = true;
         _presenter.Dispose();
+        _operationGate.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -217,6 +240,7 @@ public sealed class NeraMauiAutoFilterPagedBinding :
         }
         _disposed = true;
         await _presenter.DisposeAsync().ConfigureAwait(false);
+        _operationGate.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -226,15 +250,28 @@ public sealed class NeraMauiAutoFilterPagedBinding :
     {
         ArgumentNullException.ThrowIfNull(operation);
         ThrowIfDisposed();
-        await SetBusyAsync(true).ConfigureAwait(false);
+        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await operation(cancellationToken).ConfigureAwait(false);
-            await PublishAsync().ConfigureAwait(false);
+            await SetBusyAsync(true).ConfigureAwait(false);
+            try
+            {
+                await InvokeAsync(async () =>
+                    {
+                        await operation(cancellationToken);
+                        return true;
+                    })
+                    .ConfigureAwait(false);
+                await PublishAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                await SetBusyAsync(false).ConfigureAwait(false);
+            }
         }
         finally
         {
-            await SetBusyAsync(false).ConfigureAwait(false);
+            _operationGate.Release();
         }
     }
 
@@ -244,17 +281,25 @@ public sealed class NeraMauiAutoFilterPagedBinding :
     {
         ArgumentNullException.ThrowIfNull(operation);
         ThrowIfDisposed();
-        await SetBusyAsync(true).ConfigureAwait(false);
+        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var result = await operation(cancellationToken)
-                .ConfigureAwait(false);
-            await PublishAsync().ConfigureAwait(false);
-            return result;
+            await SetBusyAsync(true).ConfigureAwait(false);
+            try
+            {
+                var result = await InvokeAsync(() => operation(cancellationToken))
+                    .ConfigureAwait(false);
+                await PublishAsync().ConfigureAwait(false);
+                return result;
+            }
+            finally
+            {
+                await SetBusyAsync(false).ConfigureAwait(false);
+            }
         }
         finally
         {
-            await SetBusyAsync(false).ConfigureAwait(false);
+            _operationGate.Release();
         }
     }
 
@@ -279,6 +324,7 @@ public sealed class NeraMauiAutoFilterPagedBinding :
             HasNextPage = snapshot.HasNextPage;
             IsSourceTruncated = snapshot.IsSourceTruncated;
             MenuKinds = snapshot.MenuKinds;
+            AccessibilityAnnouncement = snapshot.AccessibilityAnnouncement;
             OnPropertyChanged(nameof(Target));
         });
     }
@@ -310,6 +356,35 @@ public sealed class NeraMauiAutoFilterPagedBinding :
         {
             completion.SetException(new InvalidOperationException(
                 "The MAUI dispatcher rejected the AutoFilter binding update."));
+        }
+        return completion.Task;
+    }
+
+    private Task<T> InvokeAsync<T>(Func<Task<T>> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        ThrowIfDisposed();
+        if (!_dispatcher.IsDispatchRequired)
+        {
+            return action();
+        }
+
+        var completion = new TaskCompletionSource<T>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_dispatcher.Dispatch(async () =>
+            {
+                try
+                {
+                    completion.SetResult(await action());
+                }
+                catch (Exception exception)
+                {
+                    completion.SetException(exception);
+                }
+            }))
+        {
+            completion.SetException(new InvalidOperationException(
+                "The MAUI dispatcher rejected the AutoFilter operation."));
         }
         return completion.Task;
     }

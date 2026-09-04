@@ -361,6 +361,9 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
                 fullBounds.Width * zoom,
                 fullBounds.Height * zoom);
             button.CommandParameter = hit;
+            button.Text = hit.IsSorted
+                ? hit.SortDescending == true ? "↓" : "↑"
+                : "▼";
             button.BackgroundColor = ToColor(
                 hit.IsFiltered
                     ? Spreadsheet.RenderTheme.TableFilterButtonActiveBackground
@@ -412,7 +415,18 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
             table.TryGetColumn(hit.ColumnId, out var column) &&
             column is not null)
         {
-            description = $"Lọc cột {column.Name} trong Table {table.Name}";
+            var state = hit.HeaderState switch
+            {
+                SpreadsheetFilterHeaderState.Filtered => "đang lọc",
+                SpreadsheetFilterHeaderState.Sorted => hit.SortDescending == true
+                    ? "đang sắp xếp giảm dần"
+                    : "đang sắp xếp tăng dần",
+                SpreadsheetFilterHeaderState.FilteredAndSorted => hit.SortDescending == true
+                    ? "đang lọc và sắp xếp giảm dần"
+                    : "đang lọc và sắp xếp tăng dần",
+                _ => "chưa lọc hoặc sắp xếp",
+            };
+            description = $"Cột {column.Name} trong Table {table.Name}, {state}";
         }
 
         SemanticProperties.SetDescription(button, description);

@@ -44,6 +44,24 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             SemanticHeadingLevel.Level2);
         panel.Children.Add(title);
 
+        var sortCommands = new HorizontalStackLayout
+        {
+            Spacing = 6d,
+        };
+        var sortAscending = CreateSheetButton(
+            "Sắp xếp ↑", "NeraAutoFilterSortAscending", "Sắp xếp cột tăng dần");
+        var sortDescending = CreateSheetButton(
+            "Sắp xếp ↓", "NeraAutoFilterSortDescending", "Sắp xếp cột giảm dần");
+        var reapply = CreateSheetButton(
+            "Áp dụng lại", "NeraAutoFilterReapply", "Áp dụng lại lọc và sắp xếp hiện tại");
+        var clearSort = CreateSheetButton(
+            "Xóa sắp xếp", "NeraAutoFilterClearSort", "Xóa trạng thái sắp xếp");
+        sortCommands.Children.Add(sortAscending);
+        sortCommands.Children.Add(sortDescending);
+        sortCommands.Children.Add(reapply);
+        sortCommands.Children.Add(clearSort);
+        panel.Children.Add(sortCommands);
+
         var menuKindPicker = new Picker
         {
             Title = "Nhóm điều kiện lọc",
@@ -212,6 +230,12 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         panel.Children.Add(footer);
 
         search.TextChanged += (_, args) => ScheduleSearch(args.NewTextValue);
+        sortAscending.Clicked += (_, _) => StartOperation(token =>
+            SortAndCloseAsync(false, criterionInput.Text, token));
+        sortDescending.Clicked += (_, _) => StartOperation(token =>
+            SortAndCloseAsync(true, criterionInput.Text, token));
+        reapply.Clicked += (_, _) => StartOperation(ReapplyAndCloseAsync);
+        clearSort.Clicked += (_, _) => StartOperation(ClearSortAndCloseAsync);
         menuKindPicker.SelectedIndexChanged += (_, _) =>
         {
             if (!_rebuilding)
@@ -444,6 +468,9 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             _applyButton.IsEnabled = false;
             return;
         }
+        _keyboardActiveIndex = _binding.Items.Count == 0
+            ? 0
+            : Math.Clamp(_keyboardActiveIndex, 0, _binding.Items.Count - 1);
 
         _rebuilding = true;
         var selectedIndex = _menuKindPicker.SelectedIndex;
@@ -489,7 +516,9 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             : _binding.IsSourceTruncated
                 ? $"{first:N0}–{last:N0}/{total:N0}; nguồn bị giới hạn, không thể áp dụng chọn giá trị."
                 : $"{first:N0}–{last:N0}/{total:N0} giá trị.";
-        SemanticProperties.SetDescription(_status, _status.Text);
+        SemanticProperties.SetDescription(
+            _status,
+            $"{_binding.AccessibilityAnnouncement} {_status.Text}");
         _previousButton.IsEnabled = isDate
             ? _datePage?.HasPreviousPage == true && !_binding.IsBusy
             : _binding.HasPreviousPage && !_binding.IsBusy;

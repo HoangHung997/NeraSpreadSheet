@@ -20,7 +20,9 @@ public readonly record struct SpreadsheetAutoFilterTarget
         string columnName,
         bool isFiltered,
         Guid? tableId = null,
-        Guid? tableColumnId = null)
+        Guid? tableColumnId = null,
+        bool isSorted = false,
+        bool? sortDescending = null)
     {
         if (!Enum.IsDefined(ownerKind))
         {
@@ -65,6 +67,8 @@ public readonly record struct SpreadsheetAutoFilterTarget
         OwnerName = ownerName.Trim();
         ColumnName = columnName.Trim();
         IsFiltered = isFiltered;
+        IsSorted = isSorted;
+        SortDescending = isSorted ? sortDescending : null;
         TableId = tableId;
         TableColumnId = tableColumnId;
     }
@@ -88,6 +92,19 @@ public readonly record struct SpreadsheetAutoFilterTarget
     public string ColumnName { get; }
 
     public bool IsFiltered { get; }
+
+    public bool IsSorted { get; }
+
+    public bool? SortDescending { get; }
+
+    public SpreadsheetFilterHeaderState HeaderState =>
+        IsFiltered
+            ? IsSorted
+                ? SpreadsheetFilterHeaderState.FilteredAndSorted
+                : SpreadsheetFilterHeaderState.Filtered
+            : IsSorted
+                ? SpreadsheetFilterHeaderState.Sorted
+                : SpreadsheetFilterHeaderState.None;
 }
 
 public sealed record SpreadsheetAutoFilterPagedPage(
@@ -212,7 +229,12 @@ public static class SpreadsheetAutoFilterTargetResolver
                 table.AutoFilter?.Columns.Any(column =>
                     column.ColumnId == tableTarget.ColumnId) == true,
                 tableTarget.TableId,
-                tableTarget.ColumnId);
+                tableTarget.ColumnId,
+                isSorted: table.AutoFilter?.SortState?.Conditions.Any(condition =>
+                    condition.ColumnOffset == columnOffset) == true,
+                sortDescending: table.AutoFilter?.SortState?.Conditions
+                    .FirstOrDefault(condition => condition.ColumnOffset == columnOffset)
+                    ?.Descending);
             return true;
         }
 
@@ -234,7 +256,12 @@ public static class SpreadsheetAutoFilterTargetResolver
                 worksheetTarget.HeaderCell,
                 session.ActiveWorksheet.Name,
                 columnName,
-                worksheetTarget.IsFiltered);
+                worksheetTarget.IsFiltered,
+                isSorted: session.ActiveWorksheet.AutoFilter?.SortState?.Conditions.Any(condition =>
+                    condition.ColumnOffset == worksheetTarget.ColumnOffset) == true,
+                sortDescending: session.ActiveWorksheet.AutoFilter?.SortState?.Conditions
+                    .FirstOrDefault(condition => condition.ColumnOffset == worksheetTarget.ColumnOffset)
+                    ?.Descending);
             return true;
         }
 

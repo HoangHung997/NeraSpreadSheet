@@ -35,7 +35,10 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             "NeraAutoFilterPagedPopup");
         AutomationProperties.SetName(
             root,
-            $"Lọc {target.ColumnName} trong {target.OwnerName}");
+            $"Lọc {target.ColumnName} trong {target.OwnerName}, {GetHeaderStateText(target.HeaderState, target.SortDescending)}");
+        AutomationProperties.SetHelpText(
+            root,
+            "Alt+mũi tên xuống để mở; dùng phím mũi tên, Home, End, Page Up, Page Down, Space, Enter và Escape để thao tác.");
         KeyboardNavigation.SetTabNavigation(
             root,
             KeyboardNavigationMode.Cycle);
@@ -53,6 +56,21 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         };
         DockPanel.SetDock(title, Dock.Top);
         panel.Children.Add(title);
+
+        var sortCommands = new WrapPanel
+        {
+            Margin = new Thickness(0d, 0d, 0d, 8d),
+        };
+        var sortAscending = CreateCommandButton("Sắp xếp ↑", "NeraAutoFilterSortAscending");
+        var sortDescending = CreateCommandButton("Sắp xếp ↓", "NeraAutoFilterSortDescending");
+        var reapply = CreateCommandButton("Áp dụng lại", "NeraAutoFilterReapply");
+        var clearSort = CreateCommandButton("Xóa sắp xếp", "NeraAutoFilterClearSort");
+        sortCommands.Children.Add(sortAscending);
+        sortCommands.Children.Add(sortDescending);
+        sortCommands.Children.Add(reapply);
+        sortCommands.Children.Add(clearSort);
+        DockPanel.SetDock(sortCommands, Dock.Top);
+        panel.Children.Add(sortCommands);
 
         var menuKind = new ComboBox
         {
@@ -225,6 +243,12 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         panel.Children.Add(footer);
 
         search.TextChanged += (_, _) => ScheduleSearch(search.Text);
+        sortAscending.Click += (_, _) => StartOperation(token =>
+            SortAndCloseAsync(false, criterionInput.Text, token));
+        sortDescending.Click += (_, _) => StartOperation(token =>
+            SortAndCloseAsync(true, criterionInput.Text, token));
+        reapply.Click += (_, _) => StartOperation(ReapplyAndCloseAsync);
+        clearSort.Click += (_, _) => StartOperation(ClearSortAndCloseAsync);
         menuKind.SelectionChanged += (_, _) =>
         {
             if (!_rebuilding)
@@ -289,6 +313,27 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             {
                 _previousButton.RaiseEvent(
                     new RoutedEventArgs(Button.ClickEvent));
+                args.Handled = true;
+            }
+            else if (args.Key is Key.Up or Key.Down or Key.Home or Key.End &&
+                     _valueCheckBoxes.Count > 0)
+            {
+                var current = _valueCheckBoxes.FindIndex(static item => item.IsKeyboardFocusWithin);
+                var nextIndex = args.Key switch
+                {
+                    Key.Home => 0,
+                    Key.End => _valueCheckBoxes.Count - 1,
+                    Key.Up => Math.Max(0, current < 0 ? 0 : current - 1),
+                    _ => Math.Min(_valueCheckBoxes.Count - 1, current + 1),
+                };
+                _valueCheckBoxes[nextIndex].Focus();
+                _valueCheckBoxes[nextIndex].BringIntoView();
+                args.Handled = true;
+            }
+            else if (args.Key == Key.Enter &&
+                     _valueCheckBoxes.FirstOrDefault(static item => item.IsKeyboardFocusWithin) is { } focused)
+            {
+                focused.IsChecked = focused.IsChecked != true;
                 args.Handled = true;
             }
         };
@@ -460,6 +505,9 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         _status.Text = _binding.IsSourceTruncated
             ? $"{first:N0}–{last:N0}/{_binding.TotalItemCount:N0}; nguồn bị giới hạn, không thể áp dụng chọn giá trị."
             : $"{first:N0}–{last:N0}/{_binding.TotalItemCount:N0} giá trị.";
+        AutomationProperties.SetName(
+            _status,
+            $"{_binding.AccessibilityAnnouncement} {_status.Text}");
         _previousButton!.Visibility = isValues
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -526,4 +574,18 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         _nextButton.IsEnabled = _datePage?.HasNextPage == true && !_binding.IsBusy;
         _applyButton!.IsEnabled = !_binding.IsBusy && _selectedDateGroups.Count > 0;
     }
+
+    private static string GetHeaderStateText(
+        SpreadsheetFilterHeaderState state,
+        bool? descending) => state switch
+        {
+            SpreadsheetFilterHeaderState.Filtered => "đang lọc",
+            SpreadsheetFilterHeaderState.Sorted => descending == true
+                ? "đang sắp xếp giảm dần"
+                : "đang sắp xếp tăng dần",
+            SpreadsheetFilterHeaderState.FilteredAndSorted => descending == true
+                ? "đang lọc và sắp xếp giảm dần"
+                : "đang lọc và sắp xếp tăng dần",
+            _ => "chưa lọc hoặc sắp xếp",
+        };
 }

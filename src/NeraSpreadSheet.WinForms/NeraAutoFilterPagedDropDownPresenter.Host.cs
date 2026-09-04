@@ -31,6 +31,7 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             }
 
             button.Tag = hit;
+            button.Text = GetFilterButtonGlyph(hit);
             button.Bounds = ToRectangle(hit.Bounds);
             button.BackColor = ToColor(
                 hit.IsFiltered
@@ -87,10 +88,27 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         if (session is not null &&
             session.TryResolveAutoFilterTarget(hit.HeaderCell, out var target))
         {
-            return $"Lọc cột {target.ColumnName} trong {target.OwnerName}";
+            return $"Cột {target.ColumnName} trong {target.OwnerName}, {GetHeaderStateText(target.HeaderState, target.SortDescending)}";
         }
         return "Mở bộ lọc bảng tính";
     }
+
+    private static string GetFilterButtonGlyph(SpreadsheetAutoFilterButtonHit hit) =>
+        hit.IsSorted ? hit.SortDescending == true ? "↓" : "↑" : "▼";
+
+    private static string GetHeaderStateText(
+        SpreadsheetFilterHeaderState state,
+        bool? descending) => state switch
+        {
+            SpreadsheetFilterHeaderState.Filtered => "đang lọc",
+            SpreadsheetFilterHeaderState.Sorted => descending == true
+                ? "đang sắp xếp giảm dần"
+                : "đang sắp xếp tăng dần",
+            SpreadsheetFilterHeaderState.FilteredAndSorted => descending == true
+                ? "đang lọc và sắp xếp giảm dần"
+                : "đang lọc và sắp xếp tăng dần",
+            _ => "chưa lọc hoặc sắp xếp",
+        };
 
     private void OnFilterButtonClick(object? sender, EventArgs e)
     {

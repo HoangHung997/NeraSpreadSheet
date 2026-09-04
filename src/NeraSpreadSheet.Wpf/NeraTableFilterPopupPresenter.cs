@@ -740,16 +740,23 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
                 var glyph = new StreamGeometry();
                 using (var context = glyph.Open())
                 {
+                    var pointsUp = button.IsSorted && button.SortDescending != true;
                     context.BeginFigure(
-                        new Point(centerX - 3.5d, centerY - 2d),
+                        pointsUp
+                            ? new Point(centerX, centerY - 3d)
+                            : new Point(centerX - 3.5d, centerY - 2d),
                         isFilled: true,
                         isClosed: true);
                     context.LineTo(
-                        new Point(centerX + 3.5d, centerY - 2d),
+                        pointsUp
+                            ? new Point(centerX + 3.5d, centerY + 2.5d)
+                            : new Point(centerX + 3.5d, centerY - 2d),
                         isStroked: true,
                         isSmoothJoin: false);
                     context.LineTo(
-                        new Point(centerX, centerY + 2.5d),
+                        pointsUp
+                            ? new Point(centerX - 3.5d, centerY + 2.5d)
+                            : new Point(centerX, centerY + 2.5d),
                         isStroked: true,
                         isSmoothJoin: false);
                 }
