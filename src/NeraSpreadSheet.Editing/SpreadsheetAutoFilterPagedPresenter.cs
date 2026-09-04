@@ -13,6 +13,7 @@ public sealed record SpreadsheetAutoFilterPagedPresenterSnapshot(
     bool IsSourceTruncated,
     bool HasPreviousPage,
     bool HasNextPage,
+    IReadOnlyList<SpreadsheetAutoFilterMenuKind> MenuKinds,
     IReadOnlyList<SpreadsheetTableFilterValueItem> Values);
 
 /// <summary>
@@ -221,6 +222,13 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
             cancellationToken).ConfigureAwait(false);
     }
 
+    public Task<SpreadsheetAutoFilterDatePage> GetDatePageAsync(
+        SpreadsheetAutoFilterDateParent parent,
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        _view.GetDatePageAsync(parent, offset, pageSize, cancellationToken);
+
     public async Task<long> ApplyValueSelectionAsync(
         CancellationToken cancellationToken = default)
     {
@@ -242,6 +250,16 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
                 secondCondition,
                 combineWithAnd,
                 token),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<long> ApplyRichFilterAsync(
+        SpreadsheetAutoFilterRichCriterion criterion,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(criterion);
+        return await ExecuteMutationAsync(
+            token => _view.ApplyRichFilterAsync(criterion, token),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -421,6 +439,7 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
                 viewSnapshot.IsSourceTruncated,
                 false,
                 false,
+                viewSnapshot.MenuKinds,
                 []);
         }
 
@@ -435,6 +454,7 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
             _page.IsSourceTruncated,
             _page.HasPreviousPage,
             _page.HasNextPage,
+            _page.MenuKinds,
             _page.Values);
     }
 

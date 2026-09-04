@@ -33,6 +33,8 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
     private readonly Grid _sheetOverlay;
     private readonly VerticalStackLayout _sheetPanel;
     private readonly Entry _search;
+    private readonly Picker _menuKindPicker;
+    private readonly Entry _criterionInput;
     private readonly Label _status;
     private readonly CollectionView _values;
     private readonly Button _previousButton;
@@ -63,6 +65,8 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
         _sheetOverlay = sheet.Overlay;
         _sheetPanel = sheet.Panel;
         _search = sheet.Search;
+        _menuKindPicker = sheet.MenuKindPicker;
+        _criterionInput = sheet.CriterionInput;
         _status = sheet.Status;
         _values = sheet.Values;
         _previousButton = sheet.Previous;
@@ -89,6 +93,37 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
     public NeraSpreadsheetView Spreadsheet { get; }
 
     public bool IsFilterSheetOpen => _sheetOverlay.IsVisible;
+
+    public Task<SpreadsheetAutoFilterDatePage> GetDatePageAsync(
+        SpreadsheetAutoFilterDateParent parent,
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        (_binding ?? throw new InvalidOperationException(
+            "Open the AutoFilter sheet before requesting date nodes."))
+        .GetDatePageAsync(parent, offset, pageSize, cancellationToken);
+
+    public async Task<long> ApplyRichFilterAsync(
+        SpreadsheetAutoFilterRichCriterion criterion,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(criterion);
+        var binding = _binding ?? throw new InvalidOperationException(
+            "Open the AutoFilter sheet before applying a rich criterion.");
+        var generation = await binding.ApplyRichFilterAsync(
+            criterion,
+            cancellationToken);
+        if (ReferenceEquals(_binding, binding))
+        {
+            Dispatcher.Dispatch(() =>
+            {
+                CloseFilterSheet();
+                _viewport?.InvalidateMetrics();
+                UpdateButtons();
+            });
+        }
+        return generation;
+    }
 
     public bool TryOpenForActiveCell()
     {
@@ -127,6 +162,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
         _values.ItemsSource = null;
         _sheetOverlay.IsVisible = false;
         _search.Text = string.Empty;
+        _criterionInput.Text = string.Empty;
         _search.Unfocus();
         RestoreFocus();
         OnSheetClosedPlatform();

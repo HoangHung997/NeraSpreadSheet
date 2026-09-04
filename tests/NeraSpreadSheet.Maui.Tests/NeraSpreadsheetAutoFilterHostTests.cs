@@ -20,6 +20,8 @@ public sealed class NeraSpreadsheetAutoFilterHostTests
         Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.TryOpenForActiveCell)));
         Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.TryOpenFilter)));
         Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.CloseFilterSheet)));
+        Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.GetDatePageAsync)));
+        Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.ApplyRichFilterAsync)));
     }
 
     [TestMethod]

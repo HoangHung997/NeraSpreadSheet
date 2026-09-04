@@ -22,6 +22,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private readonly Workbook _workbook;
     private readonly Worksheet _worksheet;
     private readonly NeraSpreadsheetTableHost _host;
+    private readonly NeraSpreadsheetAutoFilterHost _pagedHost;
     private readonly TaskCompletionSource<bool> _framesReady = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
     private int _frameCount;
@@ -31,6 +32,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private bool _keyboardRootAttached;
     private bool _filterApplied;
     private bool _undoRedoVerified;
+    private bool _pagedRichSurfaceVerified;
     private bool _disposed;
     private string? _semanticDescription;
 
@@ -45,7 +47,19 @@ internal sealed class SmokePage : ContentPage, IDisposable
             VerticalOptions = LayoutOptions.Fill,
         };
         _host.Spreadsheet.PaintSurface += OnPaintSurface;
-        Content = _host;
+        _pagedHost = new NeraSpreadsheetAutoFilterHost
+        {
+            Workbook = _workbook,
+            WidthRequest = 2d,
+            HeightRequest = 2d,
+            Opacity = 0.01d,
+            HorizontalOptions = LayoutOptions.Start,
+            VerticalOptions = LayoutOptions.Start,
+        };
+        var root = new Grid();
+        root.Children.Add(_host);
+        root.Children.Add(_pagedHost);
+        Content = root;
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -61,6 +75,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Unloaded -= OnUnloaded;
         _host.Spreadsheet.PaintSurface -= OnPaintSurface;
         _host.Dispose();
+        _pagedHost.Dispose();
         _disposed = true;
         GC.SuppressFinalize(this);
     }
@@ -102,6 +117,12 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 SmokeTimeout);
             await _framesReady.Task
                 .WaitAsync(timeout.Token)
+                .ConfigureAwait(false);
+
+            await DispatchAsync(OpenPagedRichSurface)
+                .ConfigureAwait(false);
+            await Task.Delay(350, timeout.Token).ConfigureAwait(false);
+            await DispatchAsync(ValidatePagedRichSurface)
                 .ConfigureAwait(false);
 
             await DispatchAsync(OpenFilterAndValidateHost)
@@ -165,6 +186,36 @@ internal sealed class SmokePage : ContentPage, IDisposable
             "The loaded host could not open the active Table column filter.");
         Require(_host.IsFilterSheetOpen,
             "The loaded host did not expose an open filter sheet.");
+    }
+
+    private void OpenPagedRichSurface()
+    {
+        Require(_pagedHost.Handler?.PlatformView is not null,
+            "The paged AutoFilter host did not receive a native Windows handler.");
+        var session = _pagedHost.Spreadsheet.Session ??
+            throw new InvalidOperationException(
+                "The paged AutoFilter host did not create a session.");
+        session.Selection.SetActiveCell(new CellAddress(1, 0));
+        Require(_pagedHost.TryOpenForActiveCell(),
+            "The paged AutoFilter host could not open the active filter.");
+    }
+
+    private void ValidatePagedRichSurface()
+    {
+        var picker = GetPrivateField<Picker>(_pagedHost, "_menuKindPicker");
+        var values = GetPrivateField<CollectionView>(_pagedHost, "_values");
+        var criterion = GetPrivateField<Entry>(_pagedHost, "_criterionInput");
+        Require(_pagedHost.IsFilterSheetOpen,
+            "The paged AutoFilter sheet closed before validation.");
+        Require(picker.Handler?.PlatformView is not null && picker.Items.Count >= 2,
+            "The loaded rich filter category picker was not populated.");
+        Require(values.Handler?.PlatformView is not null,
+            "The virtualized current-page CollectionView was not loaded.");
+        Require(criterion.Handler?.PlatformView is not null &&
+                criterion.AutomationId == "NeraAutoFilterPagedCriterion",
+            "The loaded rich criterion editor was not available.");
+        _pagedHost.CloseFilterSheet();
+        _pagedRichSurfaceVerified = true;
     }
 
     private void ValidateSheetAndApplyFilter()
@@ -394,6 +445,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             focusTransitionsVerified = _focusTransitionsVerified,
             filterApplied = _filterApplied,
             undoRedoVerified = _undoRedoVerified,
+            pagedRichSurfaceVerified = _pagedRichSurfaceVerified,
             semanticDescription = _semanticDescription,
             cachedTypefaces = _host.Spreadsheet.CachedTypefaceCount,
             contextGeneration =

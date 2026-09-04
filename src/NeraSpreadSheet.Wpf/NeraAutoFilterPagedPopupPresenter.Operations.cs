@@ -5,6 +5,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
 using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Editing;
 
 namespace NeraSpreadSheet.Wpf;
 
@@ -28,24 +29,26 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         _searchCancellation?.Cancel();
         var cancellation = new CancellationTokenSource();
         _searchCancellation = cancellation;
-        _ = SearchAsync(searchText, cancellation);
+        _ = SearchAsync(searchText, cancellation, _binding);
     }
 
     private async Task SearchAsync(
         string? searchText,
-        CancellationTokenSource cancellation)
+        CancellationTokenSource cancellation,
+        NeraWpfAutoFilterPagedBinding? binding)
     {
         try
         {
             await Task.Delay(SearchDelay, cancellation.Token);
-            if (_binding is null)
+            if (binding is null || !ReferenceEquals(_binding, binding))
             {
                 return;
             }
-            await _binding.SearchAsync(
+            await binding.SearchAsync(
                 searchText,
                 cancellation.Token);
-            if (!cancellation.IsCancellationRequested)
+            if (!cancellation.IsCancellationRequested &&
+                ReferenceEquals(_binding, binding))
             {
                 RebuildPage();
             }
@@ -70,12 +73,13 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         _operationCancellation?.Cancel();
         var cancellation = new CancellationTokenSource();
         _operationCancellation = cancellation;
-        _ = RunOperationAsync(operation, cancellation);
+        _ = RunOperationAsync(operation, cancellation, _binding);
     }
 
     private async Task RunOperationAsync(
         Func<CancellationToken, Task> operation,
-        CancellationTokenSource cancellation)
+        CancellationTokenSource cancellation,
+        NeraWpfAutoFilterPagedBinding? binding)
     {
         try
         {
@@ -86,7 +90,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         }
         catch (Exception exception)
         {
-            if (_status is not null)
+            if (_status is not null && ReferenceEquals(_binding, binding))
             {
                 _status.Text = exception.Message;
             }
@@ -103,22 +107,50 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
 
     private async Task ApplyAndCloseAsync(CancellationToken token)
     {
-        if (_binding is null)
+        var binding = _binding;
+        if (binding is null)
         {
             return;
         }
-        await _binding.ApplyValueSelectionAsync(token);
-        CloseAndRefresh();
+        await ApplyCurrentCriterionAsync(binding, token);
+        if (ReferenceEquals(_binding, binding)) CloseAndRefresh();
+    }
+
+    private async Task ApplyCurrentCriterionAsync(
+        NeraWpfAutoFilterPagedBinding binding,
+        CancellationToken token)
+    {
+        var selectedIndex = _menuKindBox?.SelectedIndex ?? 0;
+        var kind = selectedIndex >= 0 && selectedIndex < binding.MenuKinds.Count
+            ? binding.MenuKinds[selectedIndex]
+            : SpreadsheetAutoFilterMenuKind.Values;
+        if (kind == SpreadsheetAutoFilterMenuKind.Values)
+        {
+            await binding.ApplyValueSelectionAsync(token);
+            return;
+        }
+        var parsed = SpreadsheetAutoFilterCriterionParser.Parse(
+            kind,
+            _criterionInput?.Text);
+        if (parsed.CustomCondition is { } custom)
+        {
+            await binding.ApplyCustomFilterAsync(custom, cancellationToken: token);
+        }
+        else
+        {
+            await binding.ApplyRichFilterAsync(parsed.RichCriterion!, token);
+        }
     }
 
     private async Task ClearAndCloseAsync(CancellationToken token)
     {
-        if (_binding is null)
+        var binding = _binding;
+        if (binding is null)
         {
             return;
         }
-        await _binding.ClearColumnFilterAsync(token);
-        CloseAndRefresh();
+        await binding.ClearColumnFilterAsync(token);
+        if (ReferenceEquals(_binding, binding)) CloseAndRefresh();
     }
 
     private void CancelOperations()

@@ -33,6 +33,8 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
     private FilterButtonAdorner? _adorner;
     private Popup? _popup;
     private TextBox? _searchBox;
+    private ComboBox? _menuKindBox;
+    private TextBox? _criterionInput;
     private TextBlock? _status;
     private StackPanel? _itemsPanel;
     private Button? _previousButton;
@@ -64,6 +66,29 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
     }
 
     public bool IsOpen => _popup?.IsOpen == true;
+
+    public Task<SpreadsheetAutoFilterDatePage> GetDatePageAsync(
+        SpreadsheetAutoFilterDateParent parent,
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        (_binding ?? throw new InvalidOperationException(
+            "Open the AutoFilter popup before requesting date nodes."))
+        .GetDatePageAsync(parent, offset, pageSize, cancellationToken);
+
+    public async Task<long> ApplyRichFilterAsync(
+        SpreadsheetAutoFilterRichCriterion criterion,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(criterion);
+        var binding = _binding ?? throw new InvalidOperationException(
+            "Open the AutoFilter popup before applying a rich criterion.");
+        var generation = await binding.ApplyRichFilterAsync(
+            criterion,
+            cancellationToken);
+        if (ReferenceEquals(_binding, binding)) CloseAndRefresh();
+        return generation;
+    }
 
     public void Close()
     {

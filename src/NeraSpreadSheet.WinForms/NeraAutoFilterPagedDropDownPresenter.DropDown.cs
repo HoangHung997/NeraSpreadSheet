@@ -90,21 +90,38 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             AccessibleRole = AccessibleRole.Text,
         };
         _searchBox = search;
+        var menuKind = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Location = new Point(10, 72),
+            Size = new Size(DropDownWidth - 20, 28),
+            AccessibleName = "Nhóm điều kiện lọc",
+            AccessibleDescription = "Chọn lọc giá trị, văn bản, số, ngày, màu, biểu tượng hoặc điều kiện tùy chỉnh.",
+        };
+        _menuKindBox = menuKind;
+        var criterionInput = new TextBox
+        {
+            PlaceholderText = "Giá trị điều kiện (Top10%, Today, #RRGGBB…)",
+            Location = new Point(10, 105),
+            Size = new Size(DropDownWidth - 20, 27),
+            AccessibleName = "Giá trị điều kiện lọc",
+        };
+        _criterionInput = criterionInput;
         var selectAll = CreateCommandButton(
             "Chọn kết quả",
-            new Point(10, 72),
+            new Point(10, 138),
             108,
             "Chọn mọi giá trị khớp tìm kiếm");
         var selectNone = CreateCommandButton(
             "Bỏ chọn kết quả",
-            new Point(124, 72),
+            new Point(124, 138),
             120,
             "Bỏ chọn mọi giá trị khớp tìm kiếm");
         var status = new Label
         {
             AutoSize = false,
             ForeColor = Color.DimGray,
-            Location = new Point(10, 105),
+            Location = new Point(10, 171),
             Size = new Size(DropDownWidth - 20, 34),
             AccessibleRole = AccessibleRole.StaticText,
         };
@@ -113,8 +130,8 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         {
             CheckOnClick = true,
             IntegralHeight = false,
-            Location = new Point(10, 141),
-            Size = new Size(DropDownWidth - 20, 218),
+            Location = new Point(10, 207),
+            Size = new Size(DropDownWidth - 20, 200),
             AccessibleName = $"Trang giá trị lọc của cột {target.ColumnName}",
             AccessibleDescription =
                 "Danh sách chỉ chứa trang hiện hành; Space để chọn hoặc bỏ chọn.",
@@ -123,35 +140,37 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         _valuesList = values;
         var previous = CreateCommandButton(
             "◀ Trang trước",
-            new Point(10, 365),
+            new Point(10, 413),
             105,
             "Tải trang giá trị trước");
         var next = CreateCommandButton(
             "Trang sau ▶",
-            new Point(121, 365),
+            new Point(121, 413),
             105,
             "Tải trang giá trị sau");
         _previousButton = previous;
         _nextButton = next;
         var clear = CreateCommandButton(
             "Xóa lọc",
-            new Point(10, 419),
+            new Point(10, 487),
             82,
             "Xóa bộ lọc hiện tại của cột này");
         var cancel = CreateCommandButton(
             "Hủy",
-            new Point(184, 419),
+            new Point(184, 487),
             66,
             "Đóng mà không áp dụng thay đổi");
         var apply = CreateCommandButton(
             "Áp dụng",
-            new Point(256, 419),
+            new Point(256, 487),
             84,
             "Áp dụng lựa chọn trên toàn danh sách đã phân trang");
         _applyButton = apply;
         panel.Controls.AddRange([
             title,
             search,
+            menuKind,
+            criterionInput,
             selectAll,
             selectNone,
             status,
@@ -249,6 +268,8 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         {
             _dropDown = null;
             _searchBox = null;
+            _menuKindBox = null;
+            _criterionInput = null;
             _valuesList = null;
             _status = null;
             _previousButton = null;
@@ -268,6 +289,16 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         }
 
         _rebuilding = true;
+        if (_menuKindBox is not null)
+        {
+            var selectedIndex = _menuKindBox.SelectedIndex;
+            _menuKindBox.DataSource = _binding.MenuKinds
+                .Select(static kind => kind.GetDefaultDisplayName())
+                .ToArray();
+            _menuKindBox.SelectedIndex = _binding.MenuKinds.Count == 0
+                ? -1
+                : Math.Clamp(selectedIndex, 0, _binding.MenuKinds.Count - 1);
+        }
         _valuesList.BeginUpdate();
         try
         {
