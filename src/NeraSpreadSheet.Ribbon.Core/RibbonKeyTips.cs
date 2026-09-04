@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using NeraSpreadSheet.Commands;
 
 namespace NeraSpreadSheet.Ribbon.Core;
@@ -29,15 +30,16 @@ public sealed class RibbonKeyTipController
 {
     private const int MaximumGeneratedTipLength = 4;
     private const string KeyTipAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    private static readonly IReadOnlyDictionary<string, CommandId> EmptyCommandTips =
-        new Dictionary<string, CommandId>(StringComparer.OrdinalIgnoreCase);
-    private readonly IReadOnlyDictionary<string, string> _tabTips;
-    private readonly Dictionary<string, CommandId> _quickAccessToolbarTips;
-    private readonly Dictionary<string, CommandId> _backstageTips;
-    private readonly Dictionary<string, Dictionary<string, CommandId>> _tabCommandTips;
-    private readonly Dictionary<CommandId, string> _quickAccessToolbarTipsByCommand;
-    private readonly Dictionary<CommandId, string> _backstageTipsByCommand;
-    private readonly Dictionary<string, Dictionary<CommandId, string>> _tabCommandTipsByCommand;
+    private static readonly FrozenDictionary<string, CommandId> EmptyCommandTips =
+        Array.Empty<KeyValuePair<string, CommandId>>()
+            .ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+    private readonly FrozenDictionary<string, string> _tabTips;
+    private readonly FrozenDictionary<string, CommandId> _quickAccessToolbarTips;
+    private readonly FrozenDictionary<string, CommandId> _backstageTips;
+    private readonly FrozenDictionary<string, FrozenDictionary<string, CommandId>> _tabCommandTips;
+    private readonly FrozenDictionary<CommandId, string> _quickAccessToolbarTipsByCommand;
+    private readonly FrozenDictionary<CommandId, string> _backstageTipsByCommand;
+    private readonly FrozenDictionary<string, FrozenDictionary<CommandId, string>> _tabCommandTipsByCommand;
     private string _input = string.Empty;
 
     internal RibbonKeyTipController(
@@ -47,7 +49,7 @@ public sealed class RibbonKeyTipController
         _tabTips = CreateTabTips(definition, snapshot);
         _quickAccessToolbarTips = CreateSurfaceTipMap(definition.QuickAccessToolbar);
         _backstageTips = CreateSurfaceTipMap(definition.Backstage);
-        _tabCommandTips = snapshot.Tabs.ToDictionary(
+        _tabCommandTips = snapshot.Tabs.ToFrozenDictionary(
             static tab => tab.Id,
             static tab => CreateUniqueCommandTips(
                 tab.Groups.SelectMany(static group => group.Items)
@@ -55,7 +57,7 @@ public sealed class RibbonKeyTipController
             StringComparer.OrdinalIgnoreCase);
         _quickAccessToolbarTipsByCommand = Reverse(_quickAccessToolbarTips);
         _backstageTipsByCommand = Reverse(_backstageTips);
-        _tabCommandTipsByCommand = _tabCommandTips.ToDictionary(
+        _tabCommandTipsByCommand = _tabCommandTips.ToFrozenDictionary(
             static pair => pair.Key,
             static pair => Reverse(pair.Value),
             StringComparer.OrdinalIgnoreCase);
@@ -181,7 +183,7 @@ public sealed class RibbonKeyTipController
     /// <summary>Gets a cached key tip for a command in the active scope.</summary>
     public bool TryGetCommandTip(CommandId commandId, out string keyTip)
     {
-        Dictionary<CommandId, string>? tips = Scope switch
+        FrozenDictionary<CommandId, string>? tips = Scope switch
         {
             RibbonKeyTipScope.QuickAccessToolbar => _quickAccessToolbarTipsByCommand,
             RibbonKeyTipScope.Backstage => _backstageTipsByCommand,
@@ -241,7 +243,7 @@ public sealed class RibbonKeyTipController
         return new(RibbonKeyTipAction.ActivateCommand, commandId);
     }
 
-    private static Dictionary<string, string> CreateTabTips(
+    private static FrozenDictionary<string, string> CreateTabTips(
         RibbonDefinition definition,
         RibbonPresentationSnapshot snapshot)
     {
@@ -277,10 +279,10 @@ public sealed class RibbonKeyTipController
         {
             result.Add(generatedTabs[index].Id, generatedTips[index]);
         }
-        return result;
+        return result.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
     }
 
-    private static Dictionary<string, CommandId> CreateUniqueCommandTips(
+    private static FrozenDictionary<string, CommandId> CreateUniqueCommandTips(
         IEnumerable<CommandId> commandIds)
     {
         var ids = commandIds.Distinct().ToArray();
@@ -292,7 +294,7 @@ public sealed class RibbonKeyTipController
         {
             result.Add(tips[index], ids[index]);
         }
-        return result;
+        return result.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
     }
 
     private static string[] AllocateUniqueTips(
@@ -348,8 +350,8 @@ public sealed class RibbonKeyTipController
         int length)
     {
         var seed = string.Concat(caption.Concat(fallback)
-            .Where(char.IsLetterOrDigit)
-            .Select(char.ToUpperInvariant));
+            .Select(char.ToUpperInvariant)
+            .Where(KeyTipAlphabet.Contains));
         if (seed.Length < length)
         {
             yield break;
@@ -389,16 +391,16 @@ public sealed class RibbonKeyTipController
     private static bool IsAvailable(string candidate, HashSet<string> used) =>
         !used.Any(existing => HasPrefixCollision(existing, candidate));
 
-    private static Dictionary<string, CommandId> CreateSurfaceTipMap(
+    private static FrozenDictionary<string, CommandId> CreateSurfaceTipMap(
         IEnumerable<RibbonCommandSurfaceItem> items) =>
-        items.ToDictionary(
+        items.ToFrozenDictionary(
             static item => item.KeyTip,
             static item => item.CommandId,
             StringComparer.OrdinalIgnoreCase);
 
-    private static Dictionary<CommandId, string> Reverse(
+    private static FrozenDictionary<CommandId, string> Reverse(
         IReadOnlyDictionary<string, CommandId> tips) =>
-        tips.ToDictionary(static pair => pair.Value, static pair => pair.Key);
+        tips.ToFrozenDictionary(static pair => pair.Value, static pair => pair.Key);
 
     private static bool HasPrefixCollision(string left, string right) =>
         left.StartsWith(right, StringComparison.OrdinalIgnoreCase) ||

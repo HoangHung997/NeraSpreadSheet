@@ -39,6 +39,7 @@ internal sealed class SmokePage : ContentPage
             var registry = new CommandRegistry();
             var gridlines = new ToggleHandler();
             var save = new OneShotHandler();
+            var open = new OneShotHandler();
             registry.Register(
                 new CommandDescriptor(
                     "view.gridlines",
@@ -55,6 +56,14 @@ internal sealed class SmokePage : ContentPage
                     iconKey: "file.save",
                     shortcut: "Ctrl+S"),
                 save);
+            registry.Register(
+                new CommandDescriptor(
+                    "file.open",
+                    "Mở",
+                    tooltip: "Mở sổ tính",
+                    iconKey: "file.open",
+                    shortcut: "Ctrl+O"),
+                open);
 
             var ribbonRuntime = new RibbonRuntimeController(
                 CreateRibbonDefinition(),
@@ -62,7 +71,8 @@ internal sealed class SmokePage : ContentPage
             var barRuntime = new BarRuntimeController(
                 CreateBarDefinition(),
                 registry);
-            using var shortcutSource = new SmokeShortcutSource();
+            using var ribbonShortcutSource = new SmokeShortcutSource();
+            using var barShortcutSource = new SmokeShortcutSource();
             var ribbon = new NeraMauiRibbonView(ribbonRuntime)
             {
                 CommandContextFactory = id => new CommandContext(
@@ -152,16 +162,39 @@ internal sealed class SmokePage : ContentPage
             {
                 WidthRequest = 1_600d,
             };
-            using var ribbonShortcut = ribbon.BindShortcuts(shortcutSource);
-            using var barShortcut = bar.BindShortcuts(shortcutSource);
+            var compactRuntime = new RibbonRuntimeController(
+                new RibbonDefinition([
+                    new RibbonTabDefinition("compact", "Thu gọn", [
+                        new RibbonGroupDefinition("display", "Hiển thị", [
+                            new RibbonItemDefinition("view.gridlines"),
+                        ]),
+                    ]),
+                ]),
+                registry);
+            using var compactRibbon = new NeraMauiRibbonView(compactRuntime)
+            {
+                WidthRequest = 70d,
+                MaximumWidthRequest = 70d,
+                HorizontalOptions = LayoutOptions.Start,
+            };
+            using var ribbonShortcut = ribbon.BindShortcuts(ribbonShortcutSource);
+            using var barShortcut = bar.BindShortcuts(barShortcutSource);
+            var focusOrigin = new Button
+            {
+                Text = "Ô trang tính giả lập",
+                AutomationId = "worksheet-focus-origin",
+            };
 
             _host.Children.Add(ribbon);
             _host.Children.Add(bar);
             _host.Children.Add(overflowRibbon);
             _host.Children.Add(complexRibbon);
+            _host.Children.Add(compactRibbon);
+            _host.Children.Add(focusOrigin);
             await Task.Delay(500).ConfigureAwait(true);
             overflowRibbon.Rebuild();
             complexRibbon.Rebuild();
+            compactRibbon.Rebuild();
 
             Require(ribbon.Handler?.PlatformView is not null,
                 "The MAUI Ribbon view did not receive a native platform view.");
@@ -184,7 +217,7 @@ internal sealed class SmokePage : ContentPage
             Require(ribbon.IsBackstageOpen && ((Grid)ribbon.Content).Children
                     .OfType<VerticalStackLayout>()
                     .Single().Children.OfType<Button>()
-                    .Any(static button => button.AutomationId == "ribbon-backstage-file.save"),
+                    .Any(static button => button.AutomationId == "ribbon-backstage-file.open"),
                 "The MAUI Ribbon did not open its accessible backstage surface.");
             ((Grid)ribbon.Content).Children.OfType<HorizontalStackLayout>()
                 .SelectMany(static layout => layout.Children.OfType<Button>())
@@ -193,15 +226,28 @@ internal sealed class SmokePage : ContentPage
             await Task.Delay(100).ConfigureAwait(true);
             ribbon.IsMinimized = true;
             await Task.Delay(100).ConfigureAwait(true);
-            Require(ribbon.IsMinimized,
-                "The MAUI Ribbon did not restore its minimized state.");
-            ribbon.EnterKeyTipMode();
-            Require(await ribbon.ProcessKeyTipAsync(ribbonRuntime.KeyTips.TabTips["view"]),
-                "The MAUI Ribbon did not enter the tab key-tip scope.");
+            var minimizedRoot = (Grid)ribbon.Content;
+            Require(ribbon.IsMinimized && minimizedRoot.Children
+                    .OfType<VisualElement>()
+                    .Where(child => minimizedRoot.GetRow(child) is 2 or 3)
+                    .All(static child => !child.IsVisible),
+                "The minimized MAUI Ribbon left groups or overflow visible.");
+            Require(focusOrigin.Focus(),
+                "The MAUI worksheet focus origin could not receive focus.");
+            await Task.Delay(100).ConfigureAwait(true);
+            ribbon.EnterKeyTipMode(focusOrigin);
+            Require(await ribbon.ProcessKeyTipCharacterAsync('F') &&
+                    ribbon.IsBackstageOpen &&
+                    ((Grid)ribbon.Content).Children.OfType<VerticalStackLayout>()
+                        .Single().IsVisible,
+                "The MAUI F key tip did not reveal the backstage surface.");
             ribbon.EscapeKeyTipMode();
             ribbon.EscapeKeyTipMode();
+            await Task.Delay(100).ConfigureAwait(true);
             Require(ribbon.KeyTipScope == RibbonKeyTipScope.Inactive,
                 "The MAUI Ribbon did not unwind key-tip scopes with Escape.");
+            Require(focusOrigin.IsFocused,
+                "The MAUI Ribbon did not restore external focus after rebuilding Key Tips.");
             ribbon.IsMinimized = false;
             Require(bar.Handler?.PlatformView is not null,
                 "The MAUI Bar presenter did not receive a native platform view.");
@@ -213,6 +259,15 @@ internal sealed class SmokePage : ContentPage
                 "The MAUI Ribbon did not resolve its default command icon.");
             Require(bar.CommandButtons[0].ImageSource is not null,
                 "The MAUI Bar did not resolve its default command icon.");
+            compactRibbon.EnterKeyTipMode();
+            Require(await compactRibbon.ProcessKeyTipAsync(
+                    compactRuntime.KeyTips.TabTips["compact"]),
+                "The compact MAUI Ribbon did not enter its command key-tip scope.");
+            Require(compactRibbon.LayoutSnapshot.Tabs[0].Groups[0].Items[0].Size ==
+                    RibbonItemSize.Compact &&
+                    compactRibbon.CommandButtons.Single().Text.Contains('[') &&
+                    compactRibbon.CommandButtons.Single().ImageSource is not null,
+                "The compact MAUI command did not keep both its icon and textual key tip.");
             Require(overflowRibbon.LayoutSnapshot.Tabs[0].HasOverflow,
                 "The narrow MAUI Ribbon did not expose its overflow surface.");
             Require(overflowRibbon.CommandButtons.Count == 12 &&
@@ -322,8 +377,16 @@ internal sealed class SmokePage : ContentPage
                     ribbon.CommandButtons[0]) == true,
                 "The MAUI Ribbon did not refresh checked state after activation.");
 
-            Require(shortcutSource.Raise("Ctrl+S"),
+            Require(ribbonShortcutSource.Raise("Ctrl+O"),
+                "The MAUI shortcut source did not mark a backstage shortcut handled.");
+            await Task.Delay(100).ConfigureAwait(true);
+            Require(open.ExecutionCount == 1 &&
+                    Equals(open.LastParameter, "ribbon:file.open"),
+                "The MAUI backstage shortcut did not activate through Ribbon runtime.");
+
+            Require(barShortcutSource.Raise("Ctrl+S"),
                 "The MAUI shortcut source did not mark the Bar shortcut handled.");
+            await Task.Delay(100).ConfigureAwait(true);
             Require(save.ExecutionCount == 1 &&
                     Equals(save.LastParameter, "bar:file.save"),
                 "The MAUI Bar shortcut did not activate through runtime.");
@@ -438,7 +501,7 @@ internal sealed class SmokePage : ContentPage
         ],
         [new RibbonContextualTabRule("table-design", RibbonContextRequirement.Table, "TB")],
         [new RibbonCommandSurfaceItem("view.gridlines", "1")],
-        [new RibbonCommandSurfaceItem("file.save", "S")]);
+        [new RibbonCommandSurfaceItem("file.open", "O")]);
 
     private static BarDefinition CreateBarDefinition() =>
         new(

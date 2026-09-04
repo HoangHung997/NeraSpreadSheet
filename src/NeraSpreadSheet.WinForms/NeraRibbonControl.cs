@@ -36,6 +36,7 @@ public sealed class NeraRibbonControl : UserControl
     private bool _resizeRebuildPending;
     private bool _isBackstageOpen;
     private Control? _focusBeforeKeyTips;
+    private string? _focusBeforeKeyTipsControlName;
     private bool _disposed;
 
     public NeraRibbonControl(RibbonRuntimeController runtime)
@@ -138,8 +139,9 @@ public sealed class NeraRibbonControl : UserControl
 
     public void EnterKeyTipMode()
     {
-        _focusBeforeKeyTips = FindForm()?.ActiveControl;
+        CaptureKeyTipOrigin();
         _runtime.KeyTips.Enter();
+        _isBackstageOpen = false;
         Rebuild();
     }
 
@@ -148,6 +150,10 @@ public sealed class NeraRibbonControl : UserControl
         var result = _runtime.KeyTips.Process(keyTip);
         return await ApplyKeyTipResultAsync(result);
     }
+
+    /// <summary>Consumes one native key-tip character.</summary>
+    public ValueTask<bool> ProcessKeyTipCharacterAsync(char character) =>
+        ApplyKeyTipResultAsync(_runtime.KeyTips.ProcessCharacter(character));
 
     private async ValueTask<bool> ApplyKeyTipResultAsync(RibbonKeyTipResult result)
     {
@@ -160,12 +166,20 @@ public sealed class NeraRibbonControl : UserControl
         }
         if (result.CommandId is { } commandId)
         {
-            await ActivateCommandAsync(commandId);
-            RestoreKeyTipOrigin();
-            return true;
+            try
+            {
+                return await ActivateCommandAsync(commandId);
+            }
+            finally
+            {
+                _isBackstageOpen = false;
+                Rebuild();
+                RestoreKeyTipOrigin();
+            }
         }
         if (result.Action == RibbonKeyTipAction.ScopeChanged)
         {
+            _isBackstageOpen = _runtime.KeyTips.Scope == RibbonKeyTipScope.Backstage;
             Rebuild();
             return true;
         }
@@ -175,15 +189,15 @@ public sealed class NeraRibbonControl : UserControl
     public void EscapeKeyTipMode()
     {
         var result = _runtime.KeyTips.Escape();
-        if (result.Action == RibbonKeyTipAction.Exit)
-        {
-            RestoreKeyTipOrigin();
-        }
         if (_runtime.KeyTips.Scope == RibbonKeyTipScope.Tabs)
         {
             _isBackstageOpen = false;
         }
         Rebuild();
+        if (result.Action == RibbonKeyTipAction.Exit)
+        {
+            RestoreKeyTipOrigin();
+        }
     }
 
     public IDisposable BindShortcuts(Control owner)
@@ -192,7 +206,11 @@ public sealed class NeraRibbonControl : UserControl
         var binding = new NeraWinFormsShortcutBinding(
             owner,
             _runtime.TryResolveShortcut,
-            ActivateCommandAsync);
+            ActivateCommandAsync,
+            EnterKeyTipMode,
+            () => _runtime.KeyTips.Scope != RibbonKeyTipScope.Inactive,
+            ProcessKeyTipCharacterAsync,
+            EscapeKeyTipMode);
         _shortcutBindings.Add(binding);
         return binding;
     }
@@ -372,11 +390,24 @@ public sealed class NeraRibbonControl : UserControl
         file.Click += (_, _) =>
         {
             _isBackstageOpen = !_isBackstageOpen;
+            var restoreFocus = false;
             if (_isBackstageOpen)
             {
-                _runtime.KeyTips.OpenBackstage();
+                if (_runtime.KeyTips.Scope != RibbonKeyTipScope.Inactive)
+                {
+                    _runtime.KeyTips.OpenBackstage();
+                }
+            }
+            else
+            {
+                ExitKeyTipMode();
+                restoreFocus = true;
             }
             Rebuild();
+            if (restoreFocus)
+            {
+                RestoreKeyTipOrigin();
+            }
         };
         _topBar.Controls.Add(file);
         foreach (var command in _runtime.Snapshot.QuickAccessToolbar)
@@ -424,8 +455,47 @@ public sealed class NeraRibbonControl : UserControl
 
     private void RestoreKeyTipOrigin()
     {
-        _focusBeforeKeyTips?.Focus();
+        if (_focusBeforeKeyTipsControlName is { } name)
+        {
+            FindDescendants<Control>(this)
+                .FirstOrDefault(control => string.Equals(
+                    control.Name,
+                    name,
+                    StringComparison.Ordinal))
+                ?.Focus();
+        }
+        else
+        {
+            _focusBeforeKeyTips?.Focus();
+        }
         _focusBeforeKeyTips = null;
+        _focusBeforeKeyTipsControlName = null;
+    }
+
+    private void CaptureKeyTipOrigin()
+    {
+        var form = FindForm();
+        var focused = form is null
+            ? null
+            : FindDescendants<Control>(form).FirstOrDefault(static control => control.Focused) ??
+              form.ActiveControl;
+        if (focused is not null && FindDescendants<Control>(this).Contains(focused) &&
+            !string.IsNullOrEmpty(focused.Name))
+        {
+            _focusBeforeKeyTipsControlName = focused.Name;
+            _focusBeforeKeyTips = null;
+            return;
+        }
+        _focusBeforeKeyTips = focused;
+        _focusBeforeKeyTipsControlName = null;
+    }
+
+    private void ExitKeyTipMode()
+    {
+        while (_runtime.KeyTips.Scope != RibbonKeyTipScope.Inactive)
+        {
+            _runtime.KeyTips.Escape();
+        }
     }
 
     private static void DisposeChildren(Control parent)
@@ -468,7 +538,8 @@ public sealed class NeraRibbonControl : UserControl
         var resolvedIcon = command.IconKey is { Length: > 0 } iconKey
             ? ResolveIcon(iconKey, item.Size == RibbonItemSize.Large ? 32 : 16)
             : null;
-        button.Text = item.Size == RibbonItemSize.Compact && resolvedIcon is not null
+        button.Text = item.Size == RibbonItemSize.Compact && resolvedIcon is not null &&
+                      _runtime.KeyTips.Scope != RibbonKeyTipScope.Tab
             ? string.Empty
             : DecorateCommandCaption(command);
         button.Tag = command.CommandId;
@@ -504,9 +575,9 @@ public sealed class NeraRibbonControl : UserControl
         {
             return command.Caption;
         }
-        var tip = _runtime.KeyTips.GetCommandTips()
-            .FirstOrDefault(pair => pair.Value == command.CommandId).Key;
-        return string.IsNullOrEmpty(tip) ? command.Caption : $"{command.Caption} [{tip}]";
+        return _runtime.KeyTips.TryGetCommandTip(command.CommandId, out var tip)
+            ? $"{command.Caption} [{tip}]"
+            : command.Caption;
     }
 
     private Panel CreateSeparator(RibbonItemLayout item) => new()
@@ -953,11 +1024,11 @@ public sealed class NeraRibbonControl : UserControl
         await ActivateCommandAsync(commandId);
     }
 
-    private async ValueTask ActivateCommandAsync(CommandId commandId)
+    private async ValueTask<bool> ActivateCommandAsync(CommandId commandId)
     {
         try
         {
-            await _runtime.TryActivateAsync(
+            return await _runtime.TryActivateAsync(
                 commandId,
                 CommandContextFactory?.Invoke(commandId) ?? default);
         }
@@ -971,6 +1042,7 @@ public sealed class NeraRibbonControl : UserControl
             handler(
                 this,
                 new NeraWinFormsCommandActivationFailedEventArgs(commandId, exception));
+            return false;
         }
     }
 
