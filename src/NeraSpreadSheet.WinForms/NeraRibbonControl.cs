@@ -174,7 +174,7 @@ public sealed class NeraRibbonControl : UserControl
                 };
                 foreach (var item in group.Items)
                 {
-                    items.Controls.Add(CreateCommandButton(item));
+                    items.Controls.Add(CreateRibbonItem(item));
                 }
                 box.Controls.Add(items);
                 groups.Controls.Add(box);
@@ -223,15 +223,26 @@ public sealed class NeraRibbonControl : UserControl
         base.Dispose(disposing);
     }
 
+    private Control CreateRibbonItem(RibbonItemLayout item) =>
+        item.Presentation.Kind switch
+        {
+            RibbonItemKind.Separator => CreateSeparator(item),
+            RibbonItemKind.SplitButton => CreateSplitButton(item),
+            RibbonItemKind.DropDown or RibbonItemKind.Menu => CreateDropDown(item),
+            RibbonItemKind.ComboBox or RibbonItemKind.ColorPicker => CreateComboBox(item),
+            RibbonItemKind.Gallery => CreateGallery(item),
+            _ => CreateCommandButton(item),
+        };
+
     private ButtonBase CreateCommandButton(RibbonItemLayout item)
     {
         var command = item.Presentation.Command;
-        ButtonBase button = command.IsChecked.HasValue
+        ButtonBase button = item.Presentation.IsToggle
             ? new CheckBox
             {
                 Appearance = Appearance.Button,
                 AutoCheck = false,
-                Checked = command.IsChecked.Value,
+                Checked = command.IsChecked ?? false,
                 TextAlign = ContentAlignment.MiddleCenter,
             }
             : new Button();
@@ -249,7 +260,7 @@ public sealed class NeraRibbonControl : UserControl
             Math.Max(1, (int)Math.Round(item.Width / LayoutSnapshot.Scale) - 4),
             item.Size == RibbonItemSize.Large ? 58 : 30);
         button.Margin = new Padding(2);
-        button.AccessibleName = command.Caption;
+        button.AccessibleName = item.Presentation.AutomationName;
         button.AccessibleDescription = command.Tooltip;
         if (resolvedIcon is Image image)
         {
@@ -269,6 +280,172 @@ public sealed class NeraRibbonControl : UserControl
         return button;
     }
 
+    private static Panel CreateSeparator(RibbonItemLayout item) => new()
+    {
+        Name = $"ribbon-command-{item.Presentation.Command.CommandId.Value}",
+        AccessibleName = item.Presentation.AutomationName,
+        BackColor = SystemColors.ControlDark,
+        Size = new Size(1, 42),
+        Margin = new Padding(5, 6, 5, 6),
+        Tag = item.Presentation.Command.CommandId,
+    };
+
+    private FlowLayoutPanel CreateSplitButton(RibbonItemLayout item)
+    {
+        var panel = new FlowLayoutPanel
+        {
+            AutoSize = false,
+            WrapContents = false,
+            FlowDirection = FlowDirection.LeftToRight,
+            Size = new Size(
+                Math.Max(1, (int)Math.Round(item.Width / LayoutSnapshot.Scale) - 4),
+                item.Size == RibbonItemSize.Large ? 58 : 30),
+            Margin = new Padding(2),
+            Tag = item.Presentation.Command.CommandId,
+        };
+        var primary = CreateCommandButton(item);
+        primary.Margin = Padding.Empty;
+        primary.Width = Math.Max(1, panel.Width - 24);
+        var menuButton = CreateDropDownButton(item, "▼", 24);
+        menuButton.Margin = Padding.Empty;
+        panel.Controls.Add(primary);
+        panel.Controls.Add(menuButton);
+        return panel;
+    }
+
+    private Button CreateDropDown(RibbonItemLayout item) =>
+        CreateDropDownButton(
+            item,
+            item.Presentation.Command.Caption,
+            Math.Max(1, (int)Math.Round(item.Width / LayoutSnapshot.Scale) - 4));
+
+    private Button CreateDropDownButton(
+        RibbonItemLayout item,
+        string text,
+        int width)
+    {
+        var command = item.Presentation.Command;
+        var menu = new ContextMenuStrip();
+        foreach (var choice in command.SelectableItems)
+        {
+            menu.Items.Add(CreateChoiceMenuItem(command.CommandId, choice));
+        }
+        _overflowMenus.Add(menu);
+        var button = new Button
+        {
+            Name = $"ribbon-command-{command.CommandId.Value}",
+            Text = text,
+            Tag = command.CommandId,
+            Enabled = command.IsEnabled,
+            AccessibleName = item.Presentation.AutomationName,
+            AccessibleDescription = command.Tooltip,
+            Size = new Size(width, item.Size == RibbonItemSize.Large ? 58 : 30),
+        };
+        _toolTip.SetToolTip(button, BuildToolTip(command));
+        if (command.IconKey is { Length: > 0 } iconKey &&
+            ResolveIcon(iconKey, 16) is Image image)
+        {
+            button.Image = image;
+            button.TextImageRelation = TextImageRelation.ImageBeforeText;
+        }
+        button.Click += (_, _) => menu.Show(button, new Point(0, button.Height));
+        return button;
+    }
+
+    private ToolStripMenuItem CreateChoiceMenuItem(
+        CommandId commandId,
+        CommandItem choice)
+    {
+        var item = new ToolStripMenuItem(choice.Caption)
+        {
+            Tag = new RibbonChoiceTag(commandId, choice.Value),
+            Enabled = choice.IsEnabled,
+            Checked = choice.IsChecked ?? false,
+            CheckOnClick = false,
+            AccessibleName = choice.Caption,
+            ToolTipText = choice.Tooltip ?? choice.Caption,
+        };
+        foreach (var child in choice.Children)
+        {
+            item.DropDownItems.Add(CreateChoiceMenuItem(commandId, child));
+        }
+        if (choice.IconKey is { Length: > 0 } iconKey)
+        {
+            item.Image = ResolveIcon(iconKey, 16);
+        }
+        if (choice.Children.Count == 0)
+        {
+            item.Click += OnChoiceMenuItemClick;
+        }
+        return item;
+    }
+
+    private ComboBox CreateComboBox(RibbonItemLayout item)
+    {
+        var command = item.Presentation.Command;
+        var combo = new ComboBox
+        {
+            Name = $"ribbon-command-{command.CommandId.Value}",
+            Tag = command.CommandId,
+            DataSource = command.SelectableItems.ToArray(),
+            DisplayMember = nameof(CommandItem.Caption),
+            ValueMember = nameof(CommandItem.Value),
+            Enabled = command.IsEnabled,
+            AccessibleName = item.Presentation.AutomationName,
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Size = new Size(
+                Math.Max(1, (int)Math.Round(item.Width / LayoutSnapshot.Scale) - 4),
+                30),
+            Margin = new Padding(2),
+        };
+        if (command.SelectedValue is not null)
+        {
+            combo.SelectedValue = command.SelectedValue;
+        }
+        _toolTip.SetToolTip(combo, BuildToolTip(command));
+        combo.SelectedIndexChanged += OnChoiceSelectionCommitted;
+        return combo;
+    }
+
+    private FlowLayoutPanel CreateGallery(RibbonItemLayout item)
+    {
+        var command = item.Presentation.Command;
+        var panel = new FlowLayoutPanel
+        {
+            Name = $"ribbon-command-{command.CommandId.Value}",
+            Tag = command.CommandId,
+            AccessibleName = item.Presentation.AutomationName,
+            WrapContents = true,
+            AutoScroll = false,
+            Size = new Size(
+                Math.Max(1, (int)Math.Round(item.Width / LayoutSnapshot.Scale) - 4),
+                item.Size == RibbonItemSize.Large ? 58 : 30),
+            Margin = new Padding(2),
+        };
+        foreach (var choice in command.SelectableItems)
+        {
+            var button = new CheckBox
+            {
+                Appearance = Appearance.Button,
+                AutoCheck = false,
+                Text = choice.Caption,
+                Tag = command.CommandId,
+                Enabled = command.IsEnabled && choice.IsEnabled,
+                Checked = string.Equals(
+                    command.SelectedValue,
+                    choice.Value,
+                    StringComparison.Ordinal),
+                AutoSize = true,
+                AccessibleName = choice.Caption,
+            };
+            _toolTip.SetToolTip(button, choice.Tooltip ?? choice.Caption);
+            button.Click += async (_, _) =>
+                await ActivateItemAsync(command.CommandId, choice.Value);
+            panel.Controls.Add(button);
+        }
+        return panel;
+    }
+
     private void AddOverflowButton(FlowLayoutPanel groups, RibbonTabLayout tab)
     {
         var overflowGroups = tab.Groups
@@ -286,16 +463,33 @@ public sealed class NeraRibbonControl : UserControl
             foreach (var item in group.Items)
             {
                 var command = item.Presentation.Command;
+                if (item.Presentation.Kind == RibbonItemKind.Separator)
+                {
+                    groupItem.DropDownItems.Add(new ToolStripSeparator());
+                    continue;
+                }
                 var commandItem = new ToolStripMenuItem(command.Caption)
                 {
                     Tag = command.CommandId,
                     Enabled = command.IsEnabled,
                     Checked = command.IsChecked ?? false,
                     CheckOnClick = false,
-                    AccessibleName = command.Caption,
+                    AccessibleName = item.Presentation.AutomationName,
                     ToolTipText = command.Tooltip,
                 };
-                commandItem.Click += OnOverflowCommandClick;
+                if (item.Presentation.Kind is RibbonItemKind.Button or RibbonItemKind.Toggle)
+                {
+                    commandItem.Click += OnOverflowCommandClick;
+                }
+                else
+                {
+                    foreach (var choice in command.SelectableItems)
+                    {
+                        commandItem.DropDownItems.Add(CreateChoiceMenuItem(
+                            command.CommandId,
+                            choice));
+                    }
+                }
                 groupItem.DropDownItems.Add(commandItem);
             }
             menu.Items.Add(groupItem);
@@ -319,8 +513,8 @@ public sealed class NeraRibbonControl : UserControl
         {
             _selectedTabId = selectedId;
         }
-        var focused = FindDescendants<ButtonBase>(this)
-            .FirstOrDefault(static button => button.Focused && button.Tag is CommandId);
+        var focused = FindDescendants<Control>(this)
+            .FirstOrDefault(static control => control.Focused && control.Tag is CommandId);
         if (focused?.Tag is CommandId focusedId)
         {
             _focusedCommandId = focusedId;
@@ -338,8 +532,8 @@ public sealed class NeraRibbonControl : UserControl
         {
             return;
         }
-        FindDescendants<ButtonBase>(this)
-            .FirstOrDefault(button => button.Tag is CommandId id && id == commandId)
+        FindDescendants<Control>(this)
+            .FirstOrDefault(control => control.Tag is CommandId id && id == commandId)
             ?.Focus();
     }
 
@@ -364,6 +558,26 @@ public sealed class NeraRibbonControl : UserControl
         if (sender is ToolStripMenuItem { Tag: CommandId commandId })
         {
             await ActivateCommandAsync(commandId);
+        }
+    }
+
+    private async void OnChoiceMenuItemClick(object? sender, EventArgs e)
+    {
+        if (sender is ToolStripMenuItem { Tag: RibbonChoiceTag choice })
+        {
+            await ActivateItemAsync(choice.CommandId, choice.Value);
+        }
+    }
+
+    private async void OnChoiceSelectionCommitted(object? sender, EventArgs e)
+    {
+        if (sender is ComboBox
+            {
+                Tag: CommandId commandId,
+                SelectedValue: string selectedValue,
+            })
+        {
+            await ActivateItemAsync(commandId, selectedValue);
         }
     }
 
@@ -463,6 +677,28 @@ public sealed class NeraRibbonControl : UserControl
         }
     }
 
+    private async ValueTask ActivateItemAsync(
+        CommandId commandId,
+        string selectedValue)
+    {
+        try
+        {
+            var context = CommandContextFactory?.Invoke(commandId) ?? default;
+            await _runtime.TryActivateItemAsync(commandId, selectedValue, context);
+        }
+        catch (Exception exception)
+        {
+            var handler = CommandActivationFailed;
+            if (handler is null)
+            {
+                throw;
+            }
+            handler(this, new NeraWinFormsCommandActivationFailedEventArgs(
+                commandId,
+                exception));
+        }
+    }
+
     private void OnSnapshotChanged(object? sender, EventArgs e)
     {
         if (_disposed || IsDisposed)
@@ -484,6 +720,16 @@ public sealed class NeraRibbonControl : UserControl
             Rebuild();
         }
     }
+
+    private static string BuildToolTip(CommandPresentation command) =>
+        string.Join(
+            " ",
+            new[] { command.Tooltip, command.Shortcut }
+                .Where(static value => !string.IsNullOrWhiteSpace(value))) is { Length: > 0 } value
+            ? value
+            : command.Caption;
+
+    private sealed record RibbonChoiceTag(CommandId CommandId, string Value);
 }
 
 public sealed class NeraWinFormsCommandActivationFailedEventArgs : EventArgs

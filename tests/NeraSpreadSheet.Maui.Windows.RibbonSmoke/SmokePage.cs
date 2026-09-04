@@ -102,13 +102,56 @@ internal sealed class SmokePage : ContentPage
                 MaximumWidthRequest = 70d,
                 HorizontalOptions = LayoutOptions.Start,
             };
+            var complexRegistry = new CommandRegistry();
+            var complexHandlers = new Dictionary<RibbonItemKind, SelectionHandler>();
+            var complexItems = new List<RibbonItemDefinition>();
+            var complexOrder = 0;
+            foreach (var kind in Enum.GetValues<RibbonItemKind>()
+                         .Where(static kind => kind != RibbonItemKind.Separator))
+            {
+                var handler = new SelectionHandler();
+                complexHandlers.Add(kind, handler);
+                complexRegistry.Register(
+                    new CommandDescriptor(
+                        $"complex.{kind}",
+                        kind.ToString(),
+                        tooltip: $"Tooltip {kind}",
+                        iconKey: "missing.icon.key"),
+                    handler);
+                complexItems.Add(new RibbonItemDefinition(
+                    $"complex.{kind}",
+                    kind,
+                    order: complexOrder++,
+                    automationName: $"Automation {kind}",
+                    measurement: static context => context.Kind switch
+                    {
+                        RibbonItemKind.Gallery => 160d,
+                        RibbonItemKind.ComboBox or RibbonItemKind.ColorPicker => 120d,
+                        _ => context.DefaultWidth,
+                    }));
+            }
+            complexItems.Add(RibbonItemDefinition.Separator("primary", complexOrder));
+            using var complexRibbon = new NeraMauiRibbonView(
+                new RibbonRuntimeController(
+                    new RibbonDefinition([
+                        new RibbonTabDefinition("complex", "Phức hợp", [
+                            new RibbonGroupDefinition("items", "Mục", complexItems),
+                        ]),
+                    ]),
+                    complexRegistry))
+            {
+                WidthRequest = 1_600d,
+            };
             using var ribbonShortcut = ribbon.BindShortcuts(shortcutSource);
             using var barShortcut = bar.BindShortcuts(shortcutSource);
 
             _host.Children.Add(ribbon);
             _host.Children.Add(bar);
             _host.Children.Add(overflowRibbon);
-            await Task.Delay(250).ConfigureAwait(true);
+            _host.Children.Add(complexRibbon);
+            await Task.Delay(500).ConfigureAwait(true);
+            overflowRibbon.Rebuild();
+            complexRibbon.Rebuild();
 
             Require(ribbon.Handler?.PlatformView is not null,
                 "The MAUI Ribbon view did not receive a native platform view.");
@@ -138,6 +181,18 @@ internal sealed class SmokePage : ContentPage
             Require(overflowHost.MaximumHeightRequest == 360d &&
                     overflowHost.Content is VerticalStackLayout,
                 "The MAUI overflow surface is not bounded and scrollable.");
+            Require(complexRibbon.ItemControls.Count ==
+                    Enum.GetValues<RibbonItemKind>().Length,
+                "The MAUI Ribbon did not render every complex item kind.");
+            Require(complexRibbon.ItemControls.All(static control =>
+                    control.Handler?.PlatformView is not null),
+                "A complex MAUI Ribbon item did not receive a native platform view.");
+            var combo = complexRibbon.ItemControls.OfType<Picker>().First();
+            combo.SelectedIndex = 1;
+            await Task.Delay(100).ConfigureAwait(true);
+            Require(complexHandlers[RibbonItemKind.ComboBox].SelectedValue == "two" &&
+                    complexHandlers[RibbonItemKind.ComboBox].ExecutionCount == 1,
+                "The MAUI combo item did not activate its selected value.");
 
             Require(await ribbon.TryActivateCommandAsync("view.gridlines"),
                 "The MAUI Ribbon command did not activate through runtime.");
@@ -195,6 +250,7 @@ internal sealed class SmokePage : ContentPage
             shortcut = "Ctrl+S",
             customization = "hide-reset",
             overflow = "bounded-scroll",
+            complexItems = "all-kinds-selection",
         });
         Environment.Exit(0);
     }
@@ -344,6 +400,31 @@ internal sealed class SmokePage : ContentPage
         {
             ExecutionCount++;
             LastParameter = context.Parameter;
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class SelectionHandler : IStatefulCommandHandler
+    {
+        public string? SelectedValue { get; private set; } = "one";
+
+        public int ExecutionCount { get; private set; }
+
+        public bool CanExecute(CommandContext context) => true;
+
+        public CommandState GetState(CommandContext context) => new(
+            true,
+            SelectedValue: SelectedValue,
+            ItemsSource:
+            [
+                new CommandItem("one", "Một"),
+                new CommandItem("two", "Hai"),
+            ]);
+
+        public ValueTask ExecuteAsync(CommandContext context)
+        {
+            ExecutionCount++;
+            SelectedValue = ((RibbonItemActivation)context.Parameter!).SelectedValue;
             return ValueTask.CompletedTask;
         }
     }

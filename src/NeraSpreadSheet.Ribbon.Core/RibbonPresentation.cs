@@ -64,15 +64,26 @@ public sealed class RibbonItemPresentation
 {
     internal RibbonItemPresentation(
         CommandPresentation command,
-        bool isLarge)
+        RibbonItemDefinition definition)
     {
         Command = command;
-        IsLarge = isLarge;
+        Definition = definition;
     }
 
     public CommandPresentation Command { get; }
 
-    public bool IsLarge { get; }
+    public RibbonItemDefinition Definition { get; }
+
+    public RibbonItemKind Kind => Definition.Kind;
+
+    public bool IsLarge => Definition.IsLarge;
+
+    /// <summary>Gets whether the item uses toggle chrome.</summary>
+    public bool IsToggle => Kind == RibbonItemKind.Toggle ||
+        (Definition.UsesLegacyAutomaticToggle && Command.IsChecked.HasValue);
+
+    /// <summary>Gets the automation name, falling back to the command caption.</summary>
+    public string AutomationName => Definition.AutomationName ?? Command.Caption;
 }
 
 /// <summary>
@@ -121,7 +132,7 @@ public sealed class RibbonPresentationProjector
         var items = group.Items
             .Select(item => new RibbonItemPresentation(
                 Resolve(item.CommandId, context, cache),
-                item.IsLarge))
+                item))
             .ToArray();
         return new RibbonGroupPresentation(
             group.Id,

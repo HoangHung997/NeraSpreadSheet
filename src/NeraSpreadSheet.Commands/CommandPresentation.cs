@@ -3,15 +3,55 @@ namespace NeraSpreadSheet.Commands;
 /// <summary>
 /// Immutable command metadata and runtime state consumed by host presenters.
 /// </summary>
-public sealed record CommandPresentation(
-    CommandId CommandId,
-    bool IsRegistered,
-    string Caption,
-    string? Tooltip,
-    string? IconKey,
-    string? Shortcut,
-    bool IsEnabled,
-    bool? IsChecked);
+public sealed record CommandPresentation
+{
+    public CommandPresentation(
+        CommandId CommandId,
+        bool IsRegistered,
+        string Caption,
+        string? Tooltip,
+        string? IconKey,
+        string? Shortcut,
+        bool IsEnabled,
+        bool? IsChecked,
+        string? SelectedValue = null,
+        IEnumerable<CommandItem>? ItemsSource = null)
+    {
+        this.CommandId = CommandId;
+        this.IsRegistered = IsRegistered;
+        this.Caption = Caption;
+        this.Tooltip = Tooltip;
+        this.IconKey = IconKey;
+        this.Shortcut = Shortcut;
+        this.IsEnabled = IsEnabled;
+        this.IsChecked = IsChecked;
+        this.SelectedValue = SelectedValue;
+        this.ItemsSource = Array.AsReadOnly((ItemsSource ?? []).ToArray());
+    }
+
+    public CommandId CommandId { get; }
+
+    public bool IsRegistered { get; }
+
+    public string Caption { get; }
+
+    public string? Tooltip { get; }
+
+    public string? IconKey { get; }
+
+    public string? Shortcut { get; }
+
+    public bool IsEnabled { get; }
+
+    public bool? IsChecked { get; }
+
+    public string? SelectedValue { get; }
+
+    public IReadOnlyList<CommandItem> ItemsSource { get; }
+
+    /// <summary>Gets the immutable selectable item list.</summary>
+    public IReadOnlyList<CommandItem> SelectableItems => ItemsSource;
+}
 
 /// <summary>
 /// Resolves registered descriptors and dispatcher state into presentation values.
@@ -45,7 +85,9 @@ public sealed class CommandPresentationResolver
                 IconKey: null,
                 Shortcut: null,
                 IsEnabled: false,
-                IsChecked: null);
+                IsChecked: null,
+                SelectedValue: null,
+                ItemsSource: []);
         }
 
         var state = _dispatcher.QueryState(commandId, context);
@@ -60,6 +102,8 @@ public sealed class CommandPresentationResolver
             descriptor.IconKey,
             descriptor.Shortcut,
             state.IsEnabled,
-            state.IsChecked);
+            state.IsChecked,
+            state.SelectedValue,
+            state.ItemsSource);
     }
 }
