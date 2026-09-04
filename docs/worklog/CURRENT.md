@@ -5,8 +5,8 @@
   `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
 - Latest exact-head CI checkpoint:
-  `34a81c5d45c2b28397c1688ae665cce0d0e8dfe7`; full CI #1302, iOS gate #123
-  and Q003C/OpenXML gate #120 passed.
+  `f9340c1bf3c59e2c85336c961cf017d2c9ef8858`; full CI #1303, iOS gate #124
+  and Q003C/OpenXML gate #121 passed.
 - Iconography implementation commit:
   `2b933fd8b04042c0c52854dd73651161e9ae9322`; implementation/docs head
   `661504994f2b411c5f7d5a7c88fe836176335ba5` passed all exact-head gates.
@@ -101,7 +101,10 @@
   `docs/ribbon-table-filter-ux-delivery-plan.md` and
   `docs/worklog/RIBBON_TABLE_FILTER_UX.md`. With two independent lanes the
   target release-candidate date is 28/10/2026; the one-lane fallback target is
-  20/11/2026. `RIBBON-007` and `FILTER-005` are the first `READY` tasks.
+  20/11/2026. Schedule commit
+  `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` passed full CI #1303, iOS #124
+  and Q003C/OpenXML #121. `RIBBON-007` and `FILTER-005` are the first `READY`
+  tasks.
 - PR remains Draft; do not merge or mark Ready.
 
 ## Q003B/Q003C/Q003D checkpoint

@@ -53,6 +53,7 @@ waits.
 | Checkpoint | Implementation SHA | Integration SHA | Exact-head CI | Result |
 | --- | --- | --- | --- | --- |
 | Baseline/iconography | `2b933fd8b04042c0c52854dd73651161e9ae9322` | `34a81c5d45c2b28397c1688ae665cce0d0e8dfe7` | full #1302; iOS #123; Q003C #120 | Green |
+| Program schedule | `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` | `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` | full #1303; iOS #124; Q003C #121 | Green |
 
 Append one row only after exact-head CI completes. Never mark a checkpoint
 `DONE` using a green run from a parent commit.
