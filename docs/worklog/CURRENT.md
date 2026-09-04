@@ -4,11 +4,10 @@
 - Local branch: `fix/adaptive-navigation-scroll`; integration branch:
   `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
-- Latest verified implementation checkpoint:
-  `d86376403e15011304974c5476fe11683347fd19`.
-- Verified implementation CI through `EXCEL-BASIC-COMPAT-002`: full run
-  `33847611435` / #1296 — success; iOS gate `33847611511` / #117 — success;
-  Q003C/OpenXML gate `33847611444` / #114 — success.
+- Latest verified checkpoint: `cc6319e2896629827cd17b7fe942c9c0246a87e3`.
+- Verified CI through the final `EXCEL-BASIC-COMPAT-002` documentation head:
+  full run `33848300149` / #1297 — success; iOS gate `33848300018` / #118 —
+  success; Q003C/OpenXML gate `33848300189` / #115 — success.
 - Formula implementation: **DONE**, **546/546** locked catalog names; current formula suite **524/524**.
 - Q001, Q002, Q003A, Q003B: **DONE**.
 - Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
@@ -69,6 +68,12 @@
   editor overlay matches cell typography/alignment/wrapping with Alt+Enter line
   breaks. Full CI #1296, iOS gate #117 and Q003C/OpenXML gate #114 passed at
   implementation checkpoint `d86376403e15011304974c5476fe11683347fd19`.
+- `EXCEL-BASIC-VISIBILITY-004`: **LOCAL IMPLEMENTATION COMPLETE**. Excel
+  desktop observation confirmed arrow navigation skips hidden rows/columns.
+  The SDK now stores manual visibility as normalized sparse intervals, retains
+  custom sizes, maps visibility through structural edits/reorder, round-trips
+  standard XLSX hidden flags, provides undoable commands and makes WPF/WinForms
+  normal and split keyboard paths skip hidden axes. Exact-head CI is pending.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -180,6 +185,22 @@ For `EXCEL-BASIC-COMPAT-002` local validation:
   environment-sensitive WPF automation/activation assertions documented above
   remain red on this desktop.
 
+For `EXCEL-BASIC-VISIBILITY-004` local validation:
+
+- Excel desktop: Down from `A107` skipped hidden rows 108-148 to `A149`; Right
+  from `A107` skipped a temporarily hidden column B to `C107`; the temporary
+  hide was undone and the workbook was not saved;
+- Core solution: **1254/1254 passed**;
+- focused Core, Editing, Viewport, OpenXML and loaded WPF/WinForms visibility
+  tests: **12/12 passed**;
+- full solution build/analyzers: **0 warnings, 0 errors**;
+- architecture verification and SDK packaging verification: **passed**;
+- external Win11 demo build, internal smoke and supplied-workbook smoke:
+  **passed**;
+- full Windows.Rendering: **54/56 passed locally**; the same two unrelated,
+  environment-sensitive WPF automation/activation assertions documented above
+  remain red on this desktop.
+
 ## Remaining limits
 
 - Pivot refresh/calculation equivalence, user-mode destination-cell modeling,
@@ -196,6 +217,6 @@ For `EXCEL-BASIC-COMPAT-002` local validation:
 
 ## Next single step
 
-Resume the next bounded `SECURITY-RECOVERY` surface from verified checkpoint
-`d86376403e15011304974c5476fe11683347fd19`; keep PR #1 Draft and require all
-exact-head gates again before the next handoff.
+Commit and push `EXCEL-BASIC-VISIBILITY-004` to
+`feature/bootstrap-architecture-v0.1`, then require all exact-head GitHub gates
+before closing the lane; keep PR #1 Draft.

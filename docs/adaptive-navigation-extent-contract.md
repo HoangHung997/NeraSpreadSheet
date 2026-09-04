@@ -44,6 +44,8 @@ When enabled:
 - scrollbar movement changes the viewport only and does not change selection;
 - arrow, Enter and Tab navigation call `ScrollCellIntoView` so the active cell
   never moves outside the body viewport;
+- manual hidden row/column ranges are skipped through the shared visible-cell
+  navigator before `ScrollCellIntoView` is called;
 - frozen row/column extents remain fixed and are excluded from the scrollable
   visibility rectangle;
 - offsets remain continuous `double` values and never snap to cell boundaries.

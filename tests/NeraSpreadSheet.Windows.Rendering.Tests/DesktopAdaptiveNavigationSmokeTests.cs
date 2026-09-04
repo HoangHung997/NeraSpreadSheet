@@ -188,6 +188,102 @@ public sealed class DesktopAdaptiveNavigationSmokeTests
         });
     }
 
+    [TestMethod]
+    [Timeout(105_000)]
+    public void WpfArrowNavigationShouldSkipHiddenRowsAndColumns()
+    {
+        RunInSta(() =>
+        {
+            var workbook = new Workbook();
+            workbook.Worksheets[0].Dimensions.HideRows(1, 3);
+            workbook.Worksheets[0].Dimensions.HideColumns(1, 2);
+            using var control = new WpfControl { Workbook = workbook };
+            var window = new WpfWindow
+            {
+                Content = new WpfAdornerDecorator { Child = control },
+                Width = 280d,
+                Height = 180d,
+                Left = -32_000d,
+                Top = -32_000d,
+                ShowInTaskbar = false,
+                WindowStartupLocation = WpfWindowStartupLocation.Manual,
+            };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                PumpFor(TimeSpan.FromMilliseconds(100d));
+                Assert.IsTrue(control.Focus());
+
+                RaiseWpfKey(control, WpfKey.Right);
+                Assert.AreEqual(
+                    new CellAddress(0, 3),
+                    control.Session!.Selection.ActiveCell);
+                RaiseWpfKey(control, WpfKey.Down);
+                Assert.AreEqual(
+                    new CellAddress(4, 3),
+                    control.Session.Selection.ActiveCell);
+                RaiseWpfKey(control, WpfKey.Left);
+                Assert.AreEqual(
+                    new CellAddress(4, 0),
+                    control.Session.Selection.ActiveCell);
+                RaiseWpfKey(control, WpfKey.Up);
+                Assert.AreEqual(
+                    new CellAddress(0, 0),
+                    control.Session.Selection.ActiveCell);
+            }
+            finally
+            {
+                window.Close();
+                PumpFor(TimeSpan.FromMilliseconds(40d));
+            }
+        });
+    }
+
+    [TestMethod]
+    [Timeout(105_000)]
+    public void WinFormsArrowNavigationShouldSkipHiddenRowsAndColumns()
+    {
+        RunInSta(() =>
+        {
+            var workbook = new Workbook();
+            workbook.Worksheets[0].Dimensions.HideRows(1, 3);
+            workbook.Worksheets[0].Dimensions.HideColumns(1, 2);
+            using var form = new WinFormsForm
+            {
+                ShowInTaskbar = false,
+                StartPosition = WinFormsFormStartPosition.Manual,
+                Location = new System.Drawing.Point(-32_000, -32_000),
+                ClientSize = new System.Drawing.Size(280, 180),
+            };
+            using var control = new WinFormsControl
+            {
+                Dock = WinFormsDockStyle.Fill,
+                Workbook = workbook,
+            };
+            form.Controls.Add(control);
+            form.Show();
+            WinFormsApplication.DoEvents();
+
+            RaiseWinFormsKey(control, WinFormsKeys.Right);
+            Assert.AreEqual(
+                new CellAddress(0, 3),
+                control.Session!.Selection.ActiveCell);
+            RaiseWinFormsKey(control, WinFormsKeys.Down);
+            Assert.AreEqual(
+                new CellAddress(4, 3),
+                control.Session.Selection.ActiveCell);
+            RaiseWinFormsKey(control, WinFormsKeys.Left);
+            Assert.AreEqual(
+                new CellAddress(4, 0),
+                control.Session.Selection.ActiveCell);
+            RaiseWinFormsKey(control, WinFormsKeys.Up);
+            Assert.AreEqual(
+                new CellAddress(0, 0),
+                control.Session.Selection.ActiveCell);
+        });
+    }
+
     private static void RaiseWpfKey(WpfControl target, WpfKey key)
     {
         var source = WpfPresentationSource.FromVisual(target) ??

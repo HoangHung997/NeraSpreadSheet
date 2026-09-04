@@ -617,6 +617,8 @@ public sealed class Worksheet
             _cells.ToArray(),
             Dimensions.GetRowOverrides().ToArray(),
             Dimensions.GetColumnOverrides().ToArray(),
+            [.. Dimensions.GetHiddenRowRanges()],
+            [.. Dimensions.GetHiddenColumnRanges()],
             MergedCells.Ranges.ToArray(),
             _rowStyles.Capture(),
             _columnStyles.Capture(),
@@ -632,7 +634,7 @@ public sealed class Worksheet
         var transformedCells =
             CreateStructuralCells(change);
         var transformedDimensions =
-            Dimensions.CreateStructuralOverrides(change);
+            Dimensions.CreateStructuralState(change);
         var transformedMergedCells =
             MergedCells.CreateStructuralRanges(change);
         var transformedStyles =
@@ -657,7 +659,7 @@ public sealed class Worksheet
         }
 
         ReplaceCells(transformedCells);
-        Dimensions.ReplaceStructuralOverrides(
+        Dimensions.ReplaceStructuralState(
             change,
             transformedDimensions);
         MergedCells.ReplaceAll(transformedMergedCells);
@@ -682,7 +684,7 @@ public sealed class Worksheet
         var transformedCells =
             CreateAxisMoveCells(move);
         var transformedDimensions =
-            Dimensions.CreateAxisMoveOverrides(move);
+            Dimensions.CreateAxisMoveState(move);
         var transformedMergedCells =
             MergedCells.CreateAxisMoveRanges(move);
         var transformedStyles =
@@ -707,7 +709,7 @@ public sealed class Worksheet
         }
 
         ReplaceCells(transformedCells);
-        Dimensions.ReplaceAxisMoveOverrides(
+        Dimensions.ReplaceAxisMoveState(
             move,
             transformedDimensions);
         MergedCells.ReplaceAll(transformedMergedCells);
@@ -728,9 +730,11 @@ public sealed class Worksheet
         ArgumentNullException.ThrowIfNull(state);
 
         ReplaceCells(state.Cells);
-        Dimensions.RestoreOverrides(
+        Dimensions.RestoreState(
             state.RowHeights,
             state.ColumnWidths,
+            state.HiddenRows,
+            state.HiddenColumns,
             signalChange);
         MergedCells.ReplaceAll(state.MergedCells);
         RestoreAxisStylesWithoutPublish(
@@ -754,9 +758,11 @@ public sealed class Worksheet
         ArgumentNullException.ThrowIfNull(state);
 
         ReplaceCells(state.Cells);
-        Dimensions.RestoreOverrides(
+        Dimensions.RestoreState(
             state.RowHeights,
             state.ColumnWidths,
+            state.HiddenRows,
+            state.HiddenColumns,
             signalMove);
         MergedCells.ReplaceAll(state.MergedCells);
         RestoreAxisStylesWithoutPublish(

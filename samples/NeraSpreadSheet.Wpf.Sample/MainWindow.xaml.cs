@@ -181,6 +181,22 @@ public partial class MainWindow : Window
         await ExecuteStructureCommandAsync(
             SpreadsheetStructureCommandIds.DeleteColumns);
 
+    private async void HideRowsClick(object sender, RoutedEventArgs e) =>
+        await ExecuteStructureCommandAsync(
+            SpreadsheetStructureCommandIds.HideRows);
+
+    private async void UnhideRowsClick(object sender, RoutedEventArgs e) =>
+        await ExecuteStructureCommandAsync(
+            SpreadsheetStructureCommandIds.UnhideRows);
+
+    private async void HideColumnsClick(object sender, RoutedEventArgs e) =>
+        await ExecuteStructureCommandAsync(
+            SpreadsheetStructureCommandIds.HideColumns);
+
+    private async void UnhideColumnsClick(object sender, RoutedEventArgs e) =>
+        await ExecuteStructureCommandAsync(
+            SpreadsheetStructureCommandIds.UnhideColumns);
+
     private async Task ExecuteStructureCommandAsync(CommandId commandId)
     {
         if (Spreadsheet.Session is not { } session)

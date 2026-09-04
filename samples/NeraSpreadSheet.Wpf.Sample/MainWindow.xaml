@@ -34,6 +34,10 @@
             <Button Click="DeleteRowsClick" Padding="10,3" ToolTip="Delete the selected whole row range, or one row at the active cell.">Delete Row</Button>
             <Button Click="InsertColumnsClick" Padding="10,3" ToolTip="Insert the selected whole column range, or one column at the active cell.">Insert Col</Button>
             <Button Click="DeleteColumnsClick" Padding="10,3" ToolTip="Delete the selected whole column range, or one column at the active cell.">Delete Col</Button>
+            <Button Click="HideRowsClick" Padding="10,3">Ẩn hàng</Button>
+            <Button Click="UnhideRowsClick" Padding="10,3">Hiện hàng</Button>
+            <Button Click="HideColumnsClick" Padding="10,3">Ẩn cột</Button>
+            <Button Click="UnhideColumnsClick" Padding="10,3">Hiện cột</Button>
             <Separator />
             <ToggleButton x:Name="GpuToggle" Click="GpuClick" Padding="10,3"
                           ToolTip="Bật Direct2D trên D3D11 shared texture/D3DImage; tắt để dùng DrawingContext fallback.">

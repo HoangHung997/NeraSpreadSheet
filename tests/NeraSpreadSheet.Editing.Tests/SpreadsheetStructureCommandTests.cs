@@ -57,5 +57,9 @@ public sealed class SpreadsheetStructureCommandTests
         Assert.IsTrue(session.CommandDispatcher.QueryState(SpreadsheetStructureCommandIds.DeleteRows).IsEnabled);
         Assert.IsTrue(session.CommandDispatcher.QueryState(SpreadsheetStructureCommandIds.InsertColumns).IsEnabled);
         Assert.IsTrue(session.CommandDispatcher.QueryState(SpreadsheetStructureCommandIds.DeleteColumns).IsEnabled);
+        Assert.IsTrue(session.CommandDispatcher.QueryState(SpreadsheetStructureCommandIds.HideRows).IsEnabled);
+        Assert.IsTrue(session.CommandDispatcher.QueryState(SpreadsheetStructureCommandIds.HideColumns).IsEnabled);
+        Assert.IsFalse(session.CommandDispatcher.QueryState(SpreadsheetStructureCommandIds.UnhideRows).IsEnabled);
+        Assert.IsFalse(session.CommandDispatcher.QueryState(SpreadsheetStructureCommandIds.UnhideColumns).IsEnabled);
     }
 }

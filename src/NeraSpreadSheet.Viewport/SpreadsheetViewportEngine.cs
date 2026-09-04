@@ -646,21 +646,33 @@ public sealed class SpreadsheetViewportEngine
             rows.SetSize(index, size);
         }
 
+        var hiddenRows = worksheet.Dimensions
+            .GetHiddenRowRanges()
+            .Select(static range => new AxisIndexRange(
+                range.Start,
+                range.End));
         if (hasActiveFilters)
         {
             var snapshot = GetWorksheetSnapshot(worksheet);
-            rows.SetHiddenRanges(
+            hiddenRows = hiddenRows.Concat(
                 snapshot.GetFilteredOutRowSpans()
                     .Select(static span => new AxisIndexRange(
                         span.StartRowIndex,
                         span.EndRowIndex)));
         }
+        rows.SetHiddenRanges(hiddenRows);
 
         var columns = new SparseAxisMetricIndex(SpreadsheetLimits.MaxColumns, worksheet.Dimensions.DefaultColumnWidth);
         foreach (var (index, size) in worksheet.Dimensions.GetColumnOverrides())
         {
             columns.SetSize(index, size);
         }
+        columns.SetHiddenRanges(
+            worksheet.Dimensions
+                .GetHiddenColumnRanges()
+                .Select(static range => new AxisIndexRange(
+                    range.Start,
+                    range.End)));
 
         _rows = rows;
         _columns = columns;

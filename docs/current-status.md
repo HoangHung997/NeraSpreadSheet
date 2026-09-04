@@ -24,6 +24,16 @@ matches effective cell typography, alignment and wrapping. Implementation
 checkpoint `d86376403e15011304974c5476fe11683347fd19` passed full CI #1296,
 iOS gate #117 and Q003C/OpenXML gate #114.
 
+## EXCEL-BASIC-VISIBILITY-004 — LOCAL IMPLEMENTATION COMPLETE
+
+Excel-observed manual row/column visibility is being added as reusable sparse
+SDK state. Hide/unhide commands, undo/redo, retained custom sizes, OpenXML
+round trips and WPF/WinForms keyboard skipping are implemented locally. Core
+tests pass 1254/1254, focused loaded desktop visibility smokes pass 2/2, the
+solution builds with 0 warnings/errors, architecture and SDK packaging checks
+pass, and the external Win11 demo passes its internal and supplied-workbook
+smokes. Exact-head GitHub Actions evidence is pending.
+
 ## Formula subsystem — CLOSED
 
 | Counter | Value |

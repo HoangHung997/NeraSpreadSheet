@@ -44,6 +44,7 @@ public sealed class SpreadsheetSession
         View = new SpreadsheetViewController(this);
         Structure = new SpreadsheetStructureController(this);
         Reorder = new SpreadsheetAxisReorderController(this);
+        AxisVisibility = new SpreadsheetAxisVisibilityController(this);
         Commands = new CommandRegistry();
         SpreadsheetCommandCatalog.Register(Commands, this);
         SpreadsheetClipboardCommandCatalog.Register(Commands, Clipboard);
@@ -54,7 +55,8 @@ public sealed class SpreadsheetSession
         SpreadsheetStructureCommandCatalog.Register(
             Commands,
             this,
-            Structure);
+            Structure,
+            AxisVisibility);
         SpreadsheetAnalyticsCommandCatalog.Register(
             Commands,
             Analytics);
@@ -101,6 +103,8 @@ public sealed class SpreadsheetSession
     public SpreadsheetStructureController Structure { get; }
 
     public SpreadsheetAxisReorderController Reorder { get; }
+
+    public SpreadsheetAxisVisibilityController AxisVisibility { get; }
 
     public CommandRegistry Commands { get; }
 

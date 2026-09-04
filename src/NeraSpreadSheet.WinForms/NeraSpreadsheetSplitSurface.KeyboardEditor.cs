@@ -241,9 +241,11 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         }
 
         var active = _session.Selection.ActiveCell;
-        var row = Math.Clamp(active.RowIndex + rowDelta, 0, SpreadsheetLimits.MaxRows - 1);
-        var column = Math.Clamp(active.ColumnIndex + columnDelta, 0, SpreadsheetLimits.MaxColumns - 1);
-        var next = new CellAddress(row, column);
+        var next = SpreadsheetVisibleCellNavigation.GetNextVisibleCell(
+            _session.ActiveWorksheet,
+            active,
+            rowDelta,
+            columnDelta);
         if (extend)
         {
             _session.Selection.ExtendTo(next);

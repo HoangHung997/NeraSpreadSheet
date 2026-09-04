@@ -82,6 +82,38 @@ public sealed class OpenXmlRoundTripTests
     }
 
     [TestMethod]
+    public async Task SaveAndLoadShouldPreserveHiddenRangesAndRetainedSizes()
+    {
+        var workbook = new Workbook();
+        var dimensions = workbook.Worksheets[0].Dimensions;
+        dimensions.SetRowHeight(5, 42d);
+        dimensions.SetColumnWidth(3, 126d);
+        dimensions.HideRows(5, 3);
+        dimensions.HideColumns(3, 2);
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        await using var stream = new MemoryStream();
+
+        await serializer.SaveAsync(
+            workbook,
+            stream,
+            new OpenXmlExportOptions());
+        stream.Position = 0;
+        var loaded = await serializer.LoadAsync(
+            stream,
+            new OpenXmlImportOptions());
+
+        var loadedDimensions = loaded.Worksheets[0].Dimensions;
+        Assert.IsTrue(loadedDimensions.IsRowHidden(5));
+        Assert.IsTrue(loadedDimensions.IsRowHidden(7));
+        Assert.IsTrue(loadedDimensions.IsColumnHidden(3));
+        Assert.IsTrue(loadedDimensions.IsColumnHidden(4));
+        loadedDimensions.UnhideRows(5);
+        loadedDimensions.UnhideColumns(3);
+        Assert.AreEqual(42d, loadedDimensions.GetRowHeight(5), 0.01d);
+        Assert.AreEqual(126d, loadedDimensions.GetColumnWidth(3), 1d);
+    }
+
+    [TestMethod]
     public async Task LoadCanIgnoreCachedFormulaValue()
     {
         var workbook = new Workbook();

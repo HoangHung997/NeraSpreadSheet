@@ -518,18 +518,19 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                     continue;
                 }
 
-                var size = column.Hidden?.Value == true
-                    ? 0d
-                    : column.Width?.Value is double width
-                        ? ExcelColumnWidthToPixels(width)
-                        : worksheet.Dimensions.DefaultColumnWidth;
-                for (var index = first; index <= last; index++)
+                if (column.Width?.Value is double width)
                 {
-                    if (column.Width is not null ||
-                        column.Hidden?.Value == true)
+                    var size = ExcelColumnWidthToPixels(width);
+                    for (var index = first; index <= last; index++)
                     {
                         worksheet.Dimensions.SetColumnWidth(index, size);
                     }
+                }
+                if (column.Hidden?.Value == true)
+                {
+                    worksheet.Dimensions.HideColumns(
+                        first,
+                        checked(last - first + 1));
                 }
 
                 if (importAxisStyles &&
@@ -563,15 +564,15 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             }
 
             var rowIndex = (int)oneBased - 1;
-            if (row.Hidden?.Value == true)
-            {
-                worksheet.Dimensions.SetRowHeight(rowIndex, 0d);
-            }
-            else if (row.Height?.Value is double points)
+            if (row.Height?.Value is double points)
             {
                 worksheet.Dimensions.SetRowHeight(
                     rowIndex,
                     points * PixelsPerPoint);
+            }
+            if (row.Hidden?.Value == true)
+            {
+                worksheet.Dimensions.HideRows(rowIndex);
             }
 
             if (importAxisStyles &&
@@ -618,6 +619,11 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                     .ToArray());
         var rowIndexes = usedByRow.Keys
             .Concat(worksheet.Dimensions.GetRowOverrides().Keys)
+            .Concat(worksheet.Dimensions
+                .GetHiddenRowRanges()
+                .SelectMany(static range => Enumerable.Range(
+                    range.Start,
+                    range.Length)))
             .Distinct()
             .OrderBy(index => index);
 
@@ -629,19 +635,17 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             {
                 RowIndex = (uint)(rowIndex + 1),
             };
+            var rowHidden = worksheet.Dimensions.IsRowHidden(rowIndex);
+            if (rowHidden)
+            {
+                row.Hidden = true;
+            }
             if (worksheet.Dimensions
                 .GetRowOverrides()
                 .TryGetValue(rowIndex, out var height))
             {
-                if (height <= 0d)
-                {
-                    row.Hidden = true;
-                }
-                else
-                {
-                    row.Height = height / PixelsPerPoint;
-                    row.CustomHeight = true;
-                }
+                row.Height = height / PixelsPerPoint;
+                row.CustomHeight = true;
             }
 
             var rowOperations = FindAxisOperations(
@@ -733,16 +737,17 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                         ComposeAxisOperations(operations))
                     : null,
             };
-            if (pair.Value <= 0d)
-            {
-                column.Hidden = true;
-                column.Width = 0d;
-            }
-            else
-            {
-                column.Width = PixelsToExcelColumnWidth(pair.Value);
-            }
+            column.Width = PixelsToExcelColumnWidth(pair.Value);
             columns.Append(column);
+        }
+        foreach (var range in worksheet.Dimensions.GetHiddenColumnRanges())
+        {
+            columns.Append(new Column
+            {
+                Min = checked((uint)(range.Start + 1)),
+                Max = checked((uint)(range.End + 1)),
+                Hidden = true,
+            });
         }
         return columns;
     }

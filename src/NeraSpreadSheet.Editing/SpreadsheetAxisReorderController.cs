@@ -292,6 +292,13 @@ public sealed class SpreadsheetAxisReorderController
                     pair.Value))
                 .OrderBy(static pair => pair.Key)
                 .ToArray();
+            var beforeHidden = _move.Axis == WorksheetAxis.Row
+                ? worksheetBefore.HiddenRows
+                : worksheetBefore.HiddenColumns;
+            var afterHidden = beforeHidden
+                .SelectMany(range => _move.MapInterval(range.Start, range.End))
+                .OrderBy(static range => range.Start)
+                .ToArray();
             var defaultSize = _move.Axis == WorksheetAxis.Row
                 ? Worksheet.Dimensions.DefaultRowHeight
                 : Worksheet.Dimensions.DefaultColumnWidth;
@@ -307,7 +314,9 @@ public sealed class SpreadsheetAxisReorderController
                     axisOffset,
                     defaultSize,
                     beforeOverrides,
-                    afterOverrides);
+                    afterOverrides,
+                    beforeHidden,
+                    afterHidden);
                 mapped = _move.Axis == WorksheetAxis.Row
                     ? mapped.WithPaneScroll(
                         pane,
@@ -325,7 +334,9 @@ public sealed class SpreadsheetAxisReorderController
             double offset,
             double defaultSize,
             IReadOnlyList<KeyValuePair<int, double>> beforeOverrides,
-            IReadOnlyList<KeyValuePair<int, double>> afterOverrides)
+            IReadOnlyList<KeyValuePair<int, double>> afterOverrides,
+            IReadOnlyList<WorksheetAxisInterval> beforeHidden,
+            IReadOnlyList<WorksheetAxisInterval> afterHidden)
         {
             if (offset <= 0d)
             {
@@ -335,15 +346,18 @@ public sealed class SpreadsheetAxisReorderController
             var sourceIndex = FindAxisIndex(
                 offset,
                 defaultSize,
-                beforeOverrides);
+                beforeOverrides,
+                beforeHidden);
             var sourceStart = GetAxisOffset(
                 sourceIndex,
                 defaultSize,
-                beforeOverrides);
+                beforeOverrides,
+                beforeHidden);
             var sourceSize = GetAxisSize(
                 sourceIndex,
                 defaultSize,
-                beforeOverrides);
+                beforeOverrides,
+                beforeHidden);
             var localOffset = Math.Clamp(
                 offset - sourceStart,
                 0d,
@@ -352,20 +366,26 @@ public sealed class SpreadsheetAxisReorderController
             return GetAxisOffset(
                 targetIndex,
                 defaultSize,
-                afterOverrides) + localOffset;
+                afterOverrides,
+                afterHidden) + localOffset;
         }
 
         private int FindAxisIndex(
             double offset,
             double defaultSize,
-            IReadOnlyList<KeyValuePair<int, double>> overrides)
+            IReadOnlyList<KeyValuePair<int, double>> overrides,
+            IReadOnlyList<WorksheetAxisInterval> hiddenRanges)
         {
             var low = 0;
             var high = _move.AxisLength - 1;
             while (low <= high)
             {
                 var middle = low + ((high - low) / 2);
-                var start = GetAxisOffset(middle, defaultSize, overrides);
+                var start = GetAxisOffset(
+                    middle,
+                    defaultSize,
+                    overrides,
+                    hiddenRanges);
                 if (start <= offset)
                 {
                     low = middle + 1;
@@ -375,10 +395,44 @@ public sealed class SpreadsheetAxisReorderController
                     high = middle - 1;
                 }
             }
-            return Math.Clamp(high, 0, _move.AxisLength - 1);
+            var candidate = Math.Clamp(high, 0, _move.AxisLength - 1);
+            foreach (var range in hiddenRanges)
+            {
+                if (candidate < range.Start)
+                {
+                    break;
+                }
+                if (candidate <= range.End)
+                {
+                    return range.End < _move.AxisLength - 1
+                        ? range.End + 1
+                        : Math.Max(0, range.Start - 1);
+                }
+            }
+            return candidate;
         }
 
         private static double GetAxisOffset(
+            int index,
+            double defaultSize,
+            IReadOnlyList<KeyValuePair<int, double>> overrides,
+            IReadOnlyList<WorksheetAxisInterval> hiddenRanges)
+        {
+            var offset = GetRawAxisOffset(index, defaultSize, overrides);
+            foreach (var range in hiddenRanges)
+            {
+                if (range.Start >= index)
+                {
+                    break;
+                }
+                var endExclusive = Math.Min(index, checked(range.End + 1));
+                offset -= GetRawAxisOffset(endExclusive, defaultSize, overrides) -
+                          GetRawAxisOffset(range.Start, defaultSize, overrides);
+            }
+            return offset;
+        }
+
+        private static double GetRawAxisOffset(
             int index,
             double defaultSize,
             IReadOnlyList<KeyValuePair<int, double>> overrides)
@@ -398,8 +452,14 @@ public sealed class SpreadsheetAxisReorderController
         private static double GetAxisSize(
             int index,
             double defaultSize,
-            IReadOnlyList<KeyValuePair<int, double>> overrides)
+            IReadOnlyList<KeyValuePair<int, double>> overrides,
+            IReadOnlyList<WorksheetAxisInterval> hiddenRanges)
         {
+            if (hiddenRanges.Any(range =>
+                    index >= range.Start && index <= range.End))
+            {
+                return 0d;
+            }
             foreach (var (overrideIndex, size) in overrides)
             {
                 if (overrideIndex == index)

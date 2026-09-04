@@ -97,9 +97,11 @@ public static class SpreadsheetPrintPageGridBuilder
             index => page.RepeatedRows is { } repeated &&
                      index >= repeated.Top &&
                      index <= repeated.Bottom,
-            index => worksheet.RowHeights.TryGetValue(index, out var size)
-                ? size
-                : worksheet.DefaultRowHeight);
+            index => worksheet.IsRowHidden(index)
+                ? 0d
+                : worksheet.RowHeights.TryGetValue(index, out var size)
+                    ? size
+                    : worksheet.DefaultRowHeight);
         var columns = BuildSlots(
             columnIndexes,
             originX,
@@ -107,9 +109,11 @@ public static class SpreadsheetPrintPageGridBuilder
             index => page.RepeatedColumns is { } repeated &&
                      index >= repeated.Left &&
                      index <= repeated.Right,
-            index => worksheet.ColumnWidths.TryGetValue(index, out var size)
-                ? size
-                : worksheet.DefaultColumnWidth);
+            index => worksheet.IsColumnHidden(index)
+                ? 0d
+                : worksheet.ColumnWidths.TryGetValue(index, out var size)
+                    ? size
+                    : worksheet.DefaultColumnWidth);
         return new SpreadsheetPrintPageGrid(page, rows, columns);
     }
 

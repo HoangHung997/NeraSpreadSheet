@@ -25,4 +25,32 @@ public sealed class CellBoundsTests
         var engine = new SpreadsheetViewportEngine(new SpreadsheetSession(workbook));
         Assert.IsFalse(engine.TryGetCellBounds(new CellAddress(3, 0), 0d, 0d, out _));
     }
+
+    [TestMethod]
+    public void HiddenAxisRangesShouldCompressViewportWithoutMaterializingEntries()
+    {
+        var workbook = new Workbook();
+        var dimensions = workbook.Worksheets[0].Dimensions;
+        dimensions.HideRows(1, 3);
+        dimensions.HideColumns(1, 2);
+        var engine = new SpreadsheetViewportEngine(new SpreadsheetSession(workbook));
+
+        Assert.IsFalse(engine.TryGetCellBounds(
+            new CellAddress(2, 0),
+            0d,
+            0d,
+            out _));
+        Assert.IsFalse(engine.TryGetCellBounds(
+            new CellAddress(0, 2),
+            0d,
+            0d,
+            out _));
+        Assert.IsTrue(engine.TryGetCellBounds(
+            new CellAddress(4, 3),
+            0d,
+            0d,
+            out var bounds));
+        Assert.AreEqual(dimensions.DefaultColumnWidth, bounds.X, 1e-9);
+        Assert.AreEqual(dimensions.DefaultRowHeight, bounds.Y, 1e-9);
+    }
 }

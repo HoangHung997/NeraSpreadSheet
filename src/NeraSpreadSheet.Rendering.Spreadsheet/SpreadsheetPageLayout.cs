@@ -547,14 +547,18 @@ public static class SpreadsheetPageLayoutPlanner
     private static double GetRowSize(
         WorksheetSnapshot worksheet,
         int index) =>
-        worksheet.RowHeights.TryGetValue(index, out var size)
+        worksheet.IsRowHidden(index)
+            ? 0d
+            : worksheet.RowHeights.TryGetValue(index, out var size)
             ? size
             : worksheet.DefaultRowHeight;
 
     private static double GetColumnSize(
         WorksheetSnapshot worksheet,
         int index) =>
-        worksheet.ColumnWidths.TryGetValue(index, out var size)
+        worksheet.IsColumnHidden(index)
+            ? 0d
+            : worksheet.ColumnWidths.TryGetValue(index, out var size)
             ? size
             : worksheet.DefaultColumnWidth;
 

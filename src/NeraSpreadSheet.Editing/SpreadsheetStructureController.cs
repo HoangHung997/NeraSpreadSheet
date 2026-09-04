@@ -339,13 +339,17 @@ public sealed class SpreadsheetStructureController
             var overrides = _change.Axis == WorksheetAxis.Row
                 ? before.RowHeights
                 : before.ColumnWidths;
+            var hiddenRanges = _change.Axis == WorksheetAxis.Row
+                ? before.HiddenRows
+                : before.HiddenColumns;
             var defaultSize = _change.Axis == WorksheetAxis.Row
                 ? Worksheet.Dimensions.DefaultRowHeight
                 : Worksheet.Dimensions.DefaultColumnWidth;
             var changeStart = GetAxisOffset(
                 _change.Index,
                 defaultSize,
-                overrides);
+                overrides,
+                hiddenRanges);
             if (_change.Kind == WorksheetStructuralChangeKind.Insert)
             {
                 return offset < changeStart
@@ -356,7 +360,8 @@ public sealed class SpreadsheetStructureController
             var changeEnd = GetAxisOffset(
                 _change.Index + _change.Count,
                 defaultSize,
-                overrides);
+                overrides,
+                hiddenRanges);
             if (offset < changeStart)
             {
                 return offset;
@@ -369,6 +374,26 @@ public sealed class SpreadsheetStructureController
         }
 
         private static double GetAxisOffset(
+            int index,
+            double defaultSize,
+            IReadOnlyList<KeyValuePair<int, double>> overrides,
+            IReadOnlyList<WorksheetAxisInterval> hiddenRanges)
+        {
+            var offset = GetRawAxisOffset(index, defaultSize, overrides);
+            foreach (var range in hiddenRanges)
+            {
+                if (range.Start >= index)
+                {
+                    break;
+                }
+                var endExclusive = Math.Min(index, checked(range.End + 1));
+                offset -= GetRawAxisOffset(endExclusive, defaultSize, overrides) -
+                          GetRawAxisOffset(range.Start, defaultSize, overrides);
+            }
+            return offset;
+        }
+
+        private static double GetRawAxisOffset(
             int index,
             double defaultSize,
             IReadOnlyList<KeyValuePair<int, double>> overrides)

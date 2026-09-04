@@ -204,12 +204,14 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
             scroll.OffsetY,
             SpreadsheetLimits.MaxRows,
             worksheet.Dimensions.DefaultRowHeight,
-            worksheet.Dimensions.GetRowOverrides());
+            worksheet.Dimensions.GetRowOverrides(),
+            worksheet.Dimensions.GetHiddenRowRanges());
         var columnIndex = FindAxisIndexAtOffset(
             scroll.OffsetX,
             SpreadsheetLimits.MaxColumns,
             worksheet.Dimensions.DefaultColumnWidth,
-            worksheet.Dimensions.GetColumnOverrides());
+            worksheet.Dimensions.GetColumnOverrides(),
+            worksheet.Dimensions.GetHiddenColumnRanges());
         return new CellAddress(rowIndex, columnIndex).ToA1();
     }
 
@@ -305,11 +307,13 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
             GetAxisOffset(
                 address.ColumnIndex,
                 worksheet.Dimensions.DefaultColumnWidth,
-                worksheet.Dimensions.GetColumnOverrides()),
+                worksheet.Dimensions.GetColumnOverrides(),
+                worksheet.Dimensions.GetHiddenColumnRanges()),
             GetAxisOffset(
                 address.RowIndex,
                 worksheet.Dimensions.DefaultRowHeight,
-                worksheet.Dimensions.GetRowOverrides()));
+                worksheet.Dimensions.GetRowOverrides(),
+                worksheet.Dimensions.GetHiddenRowRanges()));
         return true;
     }
 
@@ -573,7 +577,8 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         double offset,
         int axisLength,
         double defaultSize,
-        IReadOnlyDictionary<int, double> overrides)
+        IReadOnlyDictionary<int, double> overrides,
+        IReadOnlyList<WorksheetAxisInterval> hiddenRanges)
     {
         if (offset <= 0d)
         {
@@ -584,7 +589,7 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         while (low < high)
         {
             var middle = low + ((high - low + 1) / 2);
-            if (GetAxisOffset(middle, defaultSize, overrides) <= offset)
+            if (GetAxisOffset(middle, defaultSize, overrides, hiddenRanges) <= offset)
             {
                 low = middle;
             }
@@ -593,10 +598,44 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
                 high = middle - 1;
             }
         }
-        return Math.Min(low, axisLength - 1);
+        var candidate = Math.Min(low, axisLength - 1);
+        foreach (var range in hiddenRanges)
+        {
+            if (candidate < range.Start)
+            {
+                break;
+            }
+            if (candidate <= range.End)
+            {
+                return range.End < axisLength - 1
+                    ? range.End + 1
+                    : Math.Max(0, range.Start - 1);
+            }
+        }
+        return candidate;
     }
 
     private static double GetAxisOffset(
+        int index,
+        double defaultSize,
+        IReadOnlyDictionary<int, double> overrides,
+        IReadOnlyList<WorksheetAxisInterval> hiddenRanges)
+    {
+        var offset = GetRawAxisOffset(index, defaultSize, overrides);
+        foreach (var range in hiddenRanges)
+        {
+            if (range.Start >= index)
+            {
+                break;
+            }
+            var endExclusive = Math.Min(index, checked(range.End + 1));
+            offset -= GetRawAxisOffset(endExclusive, defaultSize, overrides) -
+                      GetRawAxisOffset(range.Start, defaultSize, overrides);
+        }
+        return offset;
+    }
+
+    private static double GetRawAxisOffset(
         int index,
         double defaultSize,
         IReadOnlyDictionary<int, double> overrides)

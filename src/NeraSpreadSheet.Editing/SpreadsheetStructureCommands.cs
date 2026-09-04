@@ -9,18 +9,35 @@ public static class SpreadsheetStructureCommandIds
     public static CommandId DeleteRows { get; } = new("Structure.Row.Delete");
     public static CommandId InsertColumns { get; } = new("Structure.Column.Insert");
     public static CommandId DeleteColumns { get; } = new("Structure.Column.Delete");
+    public static CommandId HideRows { get; } = new("Structure.Row.Hide");
+    public static CommandId UnhideRows { get; } = new("Structure.Row.Unhide");
+    public static CommandId HideColumns { get; } = new("Structure.Column.Hide");
+    public static CommandId UnhideColumns { get; } = new("Structure.Column.Unhide");
 }
 
 public static class SpreadsheetStructureCommandCatalog
 {
+    /// <summary>
+    /// Registers structural commands while preserving the legacy registration
+    /// entry point for SDK consumers.
+    /// </summary>
     public static void Register(
         CommandRegistry registry,
         SpreadsheetSession session,
-        SpreadsheetStructureController structure)
+        SpreadsheetStructureController structure) =>
+        Register(registry, session, structure, session.AxisVisibility);
+
+    /// <summary>Registers structural and axis-visibility commands.</summary>
+    public static void Register(
+        CommandRegistry registry,
+        SpreadsheetSession session,
+        SpreadsheetStructureController structure,
+        SpreadsheetAxisVisibilityController visibility)
     {
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(structure);
+        ArgumentNullException.ThrowIfNull(visibility);
 
         registry.Register(
             new CommandDescriptor(SpreadsheetStructureCommandIds.InsertRows, "Insert rows"),
@@ -58,6 +75,54 @@ public static class SpreadsheetStructureCommandCatalog
                     var operation = GetAxisOperation(session, WorksheetAxis.Column);
                     structure.DeleteColumns(operation.Index, operation.Count);
                 }));
+        registry.Register(
+            new CommandDescriptor(SpreadsheetStructureCommandIds.HideRows, "Ẩn hàng"),
+            new StructureCommandHandler(
+                () => GetAxisState(session, WorksheetAxis.Row),
+                () =>
+                {
+                    var operation = GetAxisOperation(session, WorksheetAxis.Row);
+                    visibility.HideRows(operation.Index, operation.Count);
+                }));
+        registry.Register(
+            new CommandDescriptor(SpreadsheetStructureCommandIds.UnhideRows, "Hiện hàng"),
+            new StructureCommandHandler(
+                () => GetUnhideState(session, WorksheetAxis.Row),
+                () =>
+                {
+                    var operation = GetAxisOperation(session, WorksheetAxis.Row);
+                    visibility.UnhideRows(operation.Index, operation.Count);
+                }));
+        registry.Register(
+            new CommandDescriptor(SpreadsheetStructureCommandIds.HideColumns, "Ẩn cột"),
+            new StructureCommandHandler(
+                () => GetAxisState(session, WorksheetAxis.Column),
+                () =>
+                {
+                    var operation = GetAxisOperation(session, WorksheetAxis.Column);
+                    visibility.HideColumns(operation.Index, operation.Count);
+                }));
+        registry.Register(
+            new CommandDescriptor(SpreadsheetStructureCommandIds.UnhideColumns, "Hiện cột"),
+            new StructureCommandHandler(
+                () => GetUnhideState(session, WorksheetAxis.Column),
+                () =>
+                {
+                    var operation = GetAxisOperation(session, WorksheetAxis.Column);
+                    visibility.UnhideColumns(operation.Index, operation.Count);
+                }));
+    }
+
+    private static CommandState GetUnhideState(
+        SpreadsheetSession session,
+        WorksheetAxis axis)
+    {
+        var operation = GetAxisOperation(session, axis);
+        var dimensions = session.ActiveWorksheet.Dimensions;
+        var enabled = axis == WorksheetAxis.Row
+            ? dimensions.HasHiddenRows(operation.Index, operation.Count)
+            : dimensions.HasHiddenColumns(operation.Index, operation.Count);
+        return new CommandState(enabled);
     }
 
     private static CommandState GetAxisState(SpreadsheetSession session, WorksheetAxis axis)

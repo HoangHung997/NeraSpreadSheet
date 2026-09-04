@@ -61,6 +61,10 @@ public sealed class MainForm : Form
         toolbar.Items.Add(CreateButton("Delete Row", DeleteRowsClick));
         toolbar.Items.Add(CreateButton("Insert Col", InsertColumnsClick));
         toolbar.Items.Add(CreateButton("Delete Col", DeleteColumnsClick));
+        toolbar.Items.Add(CreateButton("Ẩn hàng", HideRowsClick));
+        toolbar.Items.Add(CreateButton("Hiện hàng", UnhideRowsClick));
+        toolbar.Items.Add(CreateButton("Ẩn cột", HideColumnsClick));
+        toolbar.Items.Add(CreateButton("Hiện cột", UnhideColumnsClick));
         toolbar.Items.Add(new ToolStripSeparator());
         ConfigureRendererMenu();
         toolbar.Items.Add(_rendererButton);
@@ -378,6 +382,22 @@ public sealed class MainForm : Form
     private async void DeleteColumnsClick(object? sender, EventArgs e) =>
         await ExecuteStructureCommandAsync(
             SpreadsheetStructureCommandIds.DeleteColumns);
+
+    private async void HideRowsClick(object? sender, EventArgs e) =>
+        await ExecuteStructureCommandAsync(
+            SpreadsheetStructureCommandIds.HideRows);
+
+    private async void UnhideRowsClick(object? sender, EventArgs e) =>
+        await ExecuteStructureCommandAsync(
+            SpreadsheetStructureCommandIds.UnhideRows);
+
+    private async void HideColumnsClick(object? sender, EventArgs e) =>
+        await ExecuteStructureCommandAsync(
+            SpreadsheetStructureCommandIds.HideColumns);
+
+    private async void UnhideColumnsClick(object? sender, EventArgs e) =>
+        await ExecuteStructureCommandAsync(
+            SpreadsheetStructureCommandIds.UnhideColumns);
 
     private async Task ExecuteStructureCommandAsync(CommandId commandId)
     {

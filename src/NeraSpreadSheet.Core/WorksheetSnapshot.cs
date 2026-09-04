@@ -18,6 +18,8 @@ public sealed class WorksheetSnapshot
     private readonly SpreadsheetTable[] _tables;
     private readonly FormulaSpillRange[] _formulaSpills;
     private readonly WorksheetAutoFilter? _autoFilter;
+    private readonly WorksheetAxisInterval[] _hiddenRows;
+    private readonly WorksheetAxisInterval[] _hiddenColumns;
     private readonly ConcurrentDictionary<AxisStyleCacheKey, CellStyle>
         _axisStyleCache = new();
 
@@ -29,6 +31,8 @@ public sealed class WorksheetSnapshot
         double defaultColumnWidth,
         IReadOnlyDictionary<int, double> rowHeights,
         IReadOnlyDictionary<int, double> columnWidths,
+        WorksheetAxisInterval[] hiddenRows,
+        WorksheetAxisInterval[] hiddenColumns,
         CellRange[] mergedCells,
         WorksheetAxisStyleSpan[] rowStyleSpans,
         WorksheetAxisStyleSpan[] columnStyleSpans,
@@ -46,6 +50,8 @@ public sealed class WorksheetSnapshot
         DefaultColumnWidth = defaultColumnWidth;
         RowHeights = rowHeights;
         ColumnWidths = columnWidths;
+        _hiddenRows = [.. hiddenRows];
+        _hiddenColumns = [.. hiddenColumns];
         _mergedCells = mergedCells;
         _rowStyleSpans = rowStyleSpans
             .Select(static span => span.Clone())
@@ -102,6 +108,10 @@ public sealed class WorksheetSnapshot
     public IReadOnlyDictionary<int, double> RowHeights { get; }
 
     public IReadOnlyDictionary<int, double> ColumnWidths { get; }
+
+    public IReadOnlyList<WorksheetAxisInterval> HiddenRowRanges => _hiddenRows;
+
+    public IReadOnlyList<WorksheetAxisInterval> HiddenColumnRanges => _hiddenColumns;
 
     public IReadOnlyList<CellRange> MergedCells => _mergedCells;
 
@@ -243,6 +253,12 @@ public sealed class WorksheetSnapshot
         TryGetFormulaSpillOwner(address, out var owner) &&
         owner != address;
 
+    public bool IsRowHidden(int rowIndex) =>
+        IsHidden(_hiddenRows, rowIndex);
+
+    public bool IsColumnHidden(int columnIndex) =>
+        IsHidden(_hiddenColumns, columnIndex);
+
     public bool IsRowVisible(int rowIndex)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(rowIndex);
@@ -323,6 +339,8 @@ public sealed class WorksheetSnapshot
             worksheet.Dimensions.DefaultColumnWidth,
             rows,
             columns,
+            [.. worksheet.Dimensions.GetHiddenRowRanges()],
+            [.. worksheet.Dimensions.GetHiddenColumnRanges()],
             [.. worksheet.MergedCells.Ranges],
             axisStyles.RowSpans,
             axisStyles.ColumnSpans,
@@ -332,6 +350,33 @@ public sealed class WorksheetSnapshot
             [.. worksheet.Tables],
             [.. worksheet.GetFormulaSpills()],
             worksheet.AutoFilter);
+    }
+
+    private static bool IsHidden(
+        WorksheetAxisInterval[] ranges,
+        int index)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        var low = 0;
+        var high = ranges.Length - 1;
+        while (low <= high)
+        {
+            var middle = low + ((high - low) / 2);
+            var range = ranges[middle];
+            if (index < range.Start)
+            {
+                high = middle - 1;
+            }
+            else if (index > range.End)
+            {
+                low = middle + 1;
+            }
+            else
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private CellAddress ResolveMergedAnchor(
