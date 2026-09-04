@@ -49,6 +49,7 @@ public sealed class RibbonCustomizationTests
             new CommandId("edit.paste"),
             customized.Tabs[1].Groups[0].Items[0].CommandId);
         Assert.IsTrue(customized.Tabs[1].Groups[0].Items[0].IsLarge);
+        Assert.AreEqual(12, customized.Tabs[1].Groups[0].CollapsePriority);
     }
 
     [TestMethod]
@@ -137,7 +138,8 @@ public sealed class RibbonCustomizationTests
                             new RibbonItemDefinition("edit.copy", Order: 0),
                             new RibbonItemDefinition("edit.paste", Order: 1),
                         ],
-                        order: 0),
+                        order: 0,
+                        collapsePriority: 12),
                     new RibbonGroupDefinition(
                         "font",
                         "Phông",

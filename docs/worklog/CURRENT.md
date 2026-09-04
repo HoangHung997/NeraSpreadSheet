@@ -96,14 +96,18 @@
   external Win11 demo consumes the new APIs without forcing a full recalculate
   after each edit.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
-- `RTFUX-2026`: **SCHEDULED**. The complete Table/Filter/Ribbon/UX delivery
+- `RTFUX-2026`: **INTEGRATING**. The complete Table/Filter/Ribbon/UX delivery
   sequence and two-lane ownership protocol are recorded in
   `docs/ribbon-table-filter-ux-delivery-plan.md` and
   `docs/worklog/RIBBON_TABLE_FILTER_UX.md`. With two independent lanes the
   target release-candidate date is 28/10/2026; the one-lane fallback target is
-  20/11/2026. `RIBBON-007` and `FILTER-005` started early on 04/09/2026 in
-  isolated worktrees from exact integration SHA
-  `21d496cad0d54506b0015d62e4ae80de57c34e6a`. Schedule commit
+  20/11/2026. `RIBBON-007` and `FILTER-005` completed in isolated worktrees and
+  were cherry-picked without conflicts, then integration review hardened Ribbon
+  focus/selection/overflow and rich-filter wildcard/month/dxf/sort semantics.
+  Local gates are Core solution **1296/1296**, OpenXML **93/93**, MAUI
+  **34/34**, focused desktop Ribbon **3/3**, and loaded MAUI Windows Ribbon
+  smoke **success**. Exact-head CI is pending before successor tasks open.
+  Schedule commit
   `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` passed full CI #1303, iOS #124
   and Q003C/OpenXML #121.
 - PR remains Draft; do not merge or mark Ready.
@@ -277,9 +281,9 @@ For `RIBBON-ICONOGRAPHY-006` local validation:
 
 ## Next step
 
-Monitor the active `RIBBON-007` and `FILTER-005` task branches independently;
-integrate the first completed implementation only after its focused gates pass,
-then immediately open its successor without waiting for the planned date.
+Push the combined `RIBBON-007` + `FILTER-005` integration head and require full
+CI, iOS and Q003C/OpenXML success at that exact SHA. Then mark both checkpoints
+DONE and immediately open `RIBBON-008` and `FILTER-006` in isolated worktrees.
 
 ## Remaining limits
 

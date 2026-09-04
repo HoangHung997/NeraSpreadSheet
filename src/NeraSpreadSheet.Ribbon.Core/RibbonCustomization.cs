@@ -100,7 +100,8 @@ public sealed class RibbonCustomization
             group.Id,
             group.Caption,
             items,
-            customization?.Order ?? group.Order);
+            customization?.Order ?? group.Order,
+            group.CollapsePriority);
     }
 }
 

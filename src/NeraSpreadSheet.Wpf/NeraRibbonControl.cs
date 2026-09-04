@@ -23,6 +23,8 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     private NeraIconTheme _iconTheme = NeraIconTheme.Light;
     private string? _selectedTabId;
     private CommandId? _focusedCommandId;
+    private bool _restoreCommandFocus;
+    private bool _resizeRebuildPending;
     private bool _disposed;
 
     public NeraRibbonControl(RibbonRuntimeController runtime)
@@ -138,7 +140,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
                 scale,
                 _selectedTabId,
                 _focusedCommandId));
-        _selectedTabId = LayoutSnapshot.SelectedTabId;
+        var selectedTabId = LayoutSnapshot.SelectedTabId;
         _focusedCommandId = LayoutSnapshot.FocusedCommandId;
         _tabs.Items.Clear();
         foreach (var tab in LayoutSnapshot.Tabs)
@@ -184,14 +186,15 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             AutomationProperties.SetName(tabItem, tab.Presentation.Caption);
             _tabs.Items.Add(tabItem);
         }
-        if (_tabs.Items.Count > 0 && _selectedTabId is not null)
+        if (_tabs.Items.Count > 0 && selectedTabId is not null)
         {
             _tabs.SelectedItem = _tabs.Items.OfType<TabItem>().First(item =>
                 string.Equals(
                     item.Tag as string,
-                    _selectedTabId,
+                    selectedTabId,
                     StringComparison.OrdinalIgnoreCase));
         }
+        _selectedTabId = selectedTabId;
         RestoreFocus();
     }
 
@@ -255,8 +258,10 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        if (command.IconKey is { Length: > 0 } iconKey &&
-            ResolveIcon(iconKey, isLarge ? 32 : 16) is ImageSource source)
+        var resolvedIcon = command.IconKey is { Length: > 0 } iconKey
+            ? ResolveIcon(iconKey, isLarge ? 32 : 16)
+            : null;
+        if (resolvedIcon is ImageSource source)
         {
             panel.Children.Add(new Image
             {
@@ -271,7 +276,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         }
         panel.Children.Add(new TextBlock
         {
-            Text = item.Size == RibbonItemSize.Compact && command.IconKey is not null
+            Text = item.Size == RibbonItemSize.Compact && resolvedIcon is not null
                 ? string.Empty
                 : command.Caption,
             TextAlignment = TextAlignment.Center,
@@ -327,16 +332,22 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         {
             _selectedTabId = selectedId;
         }
-        if (System.Windows.Input.Keyboard.FocusedElement is FrameworkElement
-            { Tag: CommandId focusedId })
+        var focused = FindVisualDescendants<FrameworkElement>(_tabs)
+            .FirstOrDefault(static element => element.IsKeyboardFocused);
+        if (focused?.Tag is CommandId focusedId)
         {
             _focusedCommandId = focusedId;
+            _restoreCommandFocus = true;
+        }
+        else if (System.Windows.Input.Keyboard.FocusedElement is not null)
+        {
+            _restoreCommandFocus = false;
         }
     }
 
     private void RestoreFocus()
     {
-        if (_focusedCommandId is not { } commandId)
+        if (!_restoreCommandFocus || _focusedCommandId is not { } commandId)
         {
             return;
         }
@@ -382,8 +393,27 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     {
         if (!_disposed && e.WidthChanged)
         {
-            Rebuild();
+            ScheduleResizeRebuild();
         }
+    }
+
+    private void ScheduleResizeRebuild()
+    {
+        if (_resizeRebuildPending)
+        {
+            return;
+        }
+        _resizeRebuildPending = true;
+        _ = Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Render,
+            new Action(() =>
+            {
+                _resizeRebuildPending = false;
+                if (!_disposed)
+                {
+                    Rebuild();
+                }
+            }));
     }
 
     private ImageSource? ResolveIcon(string iconKey, int pixelSize)

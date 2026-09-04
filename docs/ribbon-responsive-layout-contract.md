@@ -18,7 +18,9 @@ hơn 0.
 Presenter WPF chuyển DIP sang physical pixel bằng DPI của visual. WinForms dùng
 client pixel và `DeviceDpi`. MAUI dùng width logical cùng `LayoutScale` do host cập
 nhật khi cửa sổ đổi màn hình. Theme/icon refresh và resize dựng lại cây command
-chrome nhỏ, không đi qua worksheet scroll/render frame.
+chrome nhỏ, không đi qua worksheet scroll/render frame. Resize liên tục phải được
+coalesce vào dispatcher/UI-frame kế tiếp để không dựng lại Ribbon theo từng raw
+event.
 
 ## Collapse deterministic
 
@@ -40,7 +42,14 @@ Request mang stable selected-tab ID và focused-command ID. Layout giữ identit
 nếu target còn tồn tại, chọn tab đầu tiên nếu tab đã biến mất và xóa focus ID nếu
 command không còn trong presentation. Presenter capture identity trước rebuild,
 khôi phục native focus khi command vẫn inline và tiếp tục giữ logical focus ID khi
-command tạm nằm trong overflow để lần resize rộng sau có thể khôi phục.
+command tạm nằm trong overflow để lần resize rộng sau có thể khôi phục. Presenter
+chỉ khôi phục native focus nếu focus trước rebuild thực sự thuộc Ribbon; resize
+không được giành focus từ worksheet/editor hoặc control ngoài Ribbon.
+
+Khi semantic icon key không resolve được, presenter phải giữ caption nhìn thấy ở
+mọi mode thay vì tạo một nút compact trống. Tooltip và automation name luôn có
+caption làm fallback. Overflow của MAUI là surface dọc có chiều cao bị chặn và có
+thể cuộn; số command lớn không được làm surface vượt vô hạn khỏi viewport.
 
 ## Giới hạn
 

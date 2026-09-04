@@ -15,8 +15,8 @@ Task owners write their own `docs/worklog/<CHECKPOINT>.md` handoff.
 
 | Order | Checkpoint | Lane | State | Owner | Branch | Dependency | Planned window |
 | ---: | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `RIBBON-007` | A | `ACTIVE` | Codex task `RIBBON-007 Responsive Ribbon` | `feature/ribbon-007-responsive-layout` | baseline | started early 04/09; cap 09/09 |
-| 2 | `FILTER-005` | B | `ACTIVE` | Codex task `FILTER-005 Rich Filter Semantics` | `feature/filter-005-rich-semantics` | baseline | started early 04/09; cap 11/09 |
+| 1 | `RIBBON-007` | A | `CI` | Codex task `RIBBON-007 Responsive Ribbon` | `feature/ribbon-007-responsive-layout` | baseline | integrated 04/09; exact-head CI pending |
+| 2 | `FILTER-005` | B | `CI` | Codex task `FILTER-005 Rich Filter Semantics` | `feature/filter-005-rich-semantics` | baseline | integrated 04/09; exact-head CI pending |
 | 3 | `RIBBON-008` | A | `BACKLOG` | Unclaimed | `feature/ribbon-008-item-model` | `RIBBON-007` | 10–16/09 |
 | 4 | `FILTER-006` | B | `BACKLOG` | Unclaimed | `feature/filter-006-native-ux` | `FILTER-005`; integration waits for `RIBBON-008` | 14–18/09 |
 | 5 | `RIBBON-009` | A | `BACKLOG` | Unclaimed | `feature/ribbon-009-contextual-qat` | `RIBBON-008` | 17–22/09 |

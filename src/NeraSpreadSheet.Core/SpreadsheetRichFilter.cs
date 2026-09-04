@@ -141,11 +141,38 @@ public enum SpreadsheetDynamicFilterType
 }
 
 /// <summary>Describes a dynamic filter. ReferenceDate makes evaluation deterministic when supplied.</summary>
-public sealed record SpreadsheetDynamicFilter(
-    SpreadsheetDynamicFilterType Type,
-    double? Value = null,
-    double? MaximumValue = null,
-    DateTime? ReferenceDate = null);
+public sealed record SpreadsheetDynamicFilter
+{
+    /// <summary>Creates a validated dynamic-filter criterion.</summary>
+    public SpreadsheetDynamicFilter(
+        SpreadsheetDynamicFilterType Type,
+        double? Value = null,
+        double? MaximumValue = null,
+        DateTime? ReferenceDate = null)
+    {
+        if (!Enum.IsDefined(Type))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Type));
+        }
+        if (Value is double value && !double.IsFinite(value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Value));
+        }
+        if (MaximumValue is double maximum && !double.IsFinite(maximum))
+        {
+            throw new ArgumentOutOfRangeException(nameof(MaximumValue));
+        }
+        this.Type = Type;
+        this.Value = Value;
+        this.MaximumValue = MaximumValue;
+        this.ReferenceDate = ReferenceDate;
+    }
+
+    public SpreadsheetDynamicFilterType Type { get; }
+    public double? Value { get; }
+    public double? MaximumValue { get; }
+    public DateTime? ReferenceDate { get; }
+}
 
 /// <summary>Describes a Top/Bottom item or percentage filter.</summary>
 public sealed record SpreadsheetTopBottomFilter
@@ -153,7 +180,8 @@ public sealed record SpreadsheetTopBottomFilter
     /// <summary>Creates a validated Top/Bottom item or percentage filter.</summary>
     public SpreadsheetTopBottomFilter(bool top, bool percent, double value)
     {
-        if (!double.IsFinite(value) || value <= 0d || value > 500d)
+        var maximum = percent ? 100d : 500d;
+        if (!double.IsFinite(value) || value <= 0d || value > maximum)
         {
             throw new ArgumentOutOfRangeException(nameof(value));
         }
@@ -189,8 +217,18 @@ public sealed record SpreadsheetIconFilter
     public SpreadsheetIconFilter(string iconSet, uint iconId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(iconSet);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(iconId, 4U);
-        IconSet = iconSet.Trim();
+        var normalized = iconSet.Trim();
+        if (normalized[0] is not ('3' or '4' or '5'))
+        {
+            throw new ArgumentException(
+                "An icon filter requires a 3-, 4-, or 5-icon SpreadsheetML set.",
+                nameof(iconSet));
+        }
+        var iconCount = checked((uint)(normalized[0] - '0'));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(
+            iconId,
+            iconCount);
+        IconSet = normalized;
         IconId = iconId;
     }
 
@@ -264,6 +302,11 @@ public sealed class SpreadsheetFilterSortState : IEquatable<SpreadsheetFilterSor
         bool sortLeftToRight = false)
     {
         ArgumentNullException.ThrowIfNull(conditions);
+        if (sortLeftToRight)
+        {
+            throw new NotSupportedException(
+                "Left-to-right filter sorting is reserved for FILTER-007.");
+        }
         _conditions = conditions.Select(static condition => condition ?? throw new ArgumentException(
             "A sort state cannot contain a null condition.", nameof(conditions))).ToArray();
         if (_conditions.Length == 0)

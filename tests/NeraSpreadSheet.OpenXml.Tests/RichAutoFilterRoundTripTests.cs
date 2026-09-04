@@ -82,6 +82,257 @@ public sealed class RichAutoFilterRoundTripTests
     }
 
     [TestMethod]
+    public async Task CalendarMonthDynamicFiltersUseSpreadsheetMlMonthTokens()
+    {
+        var workbook = new Workbook();
+        workbook.Worksheets[0].SetAutoFilter(new WorksheetAutoFilter(
+            new CellRange(new CellAddress(0, 0), new CellAddress(2, 0)),
+            [new WorksheetAutoFilterColumn(
+                0,
+                dynamicFilter: new SpreadsheetDynamicFilter(
+                    SpreadsheetDynamicFilterType.September))]));
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        await using var stream = new MemoryStream();
+
+        await serializer.SaveAsync(workbook, stream, new OpenXmlExportOptions());
+        AssertSchemaValid(stream);
+        stream.Position = 0;
+        using (var document = SpreadsheetDocument.Open(stream, false))
+        {
+            var xml = Load(document.WorkbookPart!.WorksheetParts.Single());
+            Assert.AreEqual(
+                "M9",
+                (string?)xml.Descendants(SpreadsheetNamespace + "dynamicFilter")
+                    .Single()
+                    .Attribute("type"));
+        }
+        stream.Position = 0;
+
+        var loaded = await serializer.LoadAsync(stream, new OpenXmlImportOptions());
+
+        Assert.AreEqual(
+            SpreadsheetDynamicFilterType.September,
+            loaded.Worksheets[0].AutoFilter!.Columns.Single().DynamicFilter!.Type);
+    }
+
+    [TestMethod]
+    public async Task CustomFilterLiteralWildcardsRoundTripAsEscapedText()
+    {
+        var workbook = new Workbook();
+        workbook.Worksheets[0].SetAutoFilter(new WorksheetAutoFilter(
+            new CellRange(new CellAddress(0, 0), new CellAddress(2, 0)),
+            [new WorksheetAutoFilterColumn(
+                0,
+                firstCondition: new TableFilterCondition(
+                    TableFilterComparisonOperator.Equal,
+                    CellValue.FromText("abc*?~")))]));
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        await using var stream = new MemoryStream();
+
+        await serializer.SaveAsync(workbook, stream, new OpenXmlExportOptions());
+        stream.Position = 0;
+        using (var document = SpreadsheetDocument.Open(stream, false))
+        {
+            var xml = Load(document.WorkbookPart!.WorksheetParts.Single());
+            Assert.AreEqual(
+                "abc~*~?~~",
+                (string?)xml.Descendants(SpreadsheetNamespace + "customFilter")
+                    .Single()
+                    .Attribute("val"));
+        }
+        stream.Position = 0;
+
+        var loaded = await serializer.LoadAsync(stream, new OpenXmlImportOptions());
+        var condition = loaded.Worksheets[0].AutoFilter!.Columns.Single()
+            .FirstCondition!;
+
+        Assert.AreEqual(TableFilterComparisonOperator.Equal, condition.Operator);
+        Assert.AreEqual("abc*?~", condition.Value.RawValue);
+    }
+
+    [TestMethod]
+    public async Task UnsupportedStandardFilterMarkupShouldRejectStrictAndSurvivePreservedSave()
+    {
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        foreach (var mutation in new[] { "wildcard", "calendar", "sort", "left-to-right" })
+        {
+            await using var source = new MemoryStream();
+            await serializer.SaveAsync(
+                CreateRichWorksheetWorkbook(),
+                source,
+                new OpenXmlExportOptions());
+            source.Position = 0;
+            using (var document = SpreadsheetDocument.Open(source, true))
+            {
+                var part = document.WorkbookPart!.WorksheetParts.Single();
+                var xml = Load(part);
+                var autoFilter = xml.Root!.Element(SpreadsheetNamespace + "autoFilter")!;
+                if (mutation == "wildcard")
+                {
+                    var column = autoFilter.Elements(SpreadsheetNamespace + "filterColumn").First();
+                    column.RemoveNodes();
+                    column.Add(new XElement(
+                        SpreadsheetNamespace + "customFilters",
+                        new XElement(
+                            SpreadsheetNamespace + "customFilter",
+                            new XAttribute("operator", "equal"),
+                            new XAttribute("val", "a?b"))));
+                }
+                else if (mutation == "calendar")
+                {
+                    autoFilter.Descendants(SpreadsheetNamespace + "filters").First()
+                        .SetAttributeValue("calendarType", "gregorian");
+                }
+                else if (mutation == "sort")
+                {
+                    autoFilter.Element(SpreadsheetNamespace + "sortState")!
+                        .SetAttributeValue("sortMethod", "stroke");
+                }
+                else
+                {
+                    autoFilter.Element(SpreadsheetNamespace + "sortState")!
+                        .SetAttributeValue("columnSort", 1);
+                }
+                Save(part, xml);
+            }
+            source.Position = 0;
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() =>
+                serializer.LoadAsync(source, new OpenXmlImportOptions()));
+            source.Position = 0;
+            var preserved = await serializer.LoadAsync(
+                source,
+                new OpenXmlImportOptions { PreserveUnknownParts = true });
+            await using var destination = new MemoryStream();
+
+            await serializer.SaveAsync(
+                preserved,
+                destination,
+                new OpenXmlExportOptions { PreserveUnknownParts = true });
+
+            destination.Position = 0;
+            using var saved = SpreadsheetDocument.Open(destination, false);
+            var savedXml = Load(saved.WorkbookPart!.WorksheetParts.Single());
+            var savedFilter = savedXml.Root!.Element(SpreadsheetNamespace + "autoFilter")!;
+            if (mutation == "wildcard")
+            {
+                Assert.AreEqual(
+                    "a?b",
+                    (string?)savedFilter.Descendants(SpreadsheetNamespace + "customFilter")
+                        .First()
+                        .Attribute("val"));
+            }
+            else if (mutation == "calendar")
+            {
+                Assert.AreEqual(
+                    "gregorian",
+                    (string?)savedFilter.Descendants(SpreadsheetNamespace + "filters")
+                        .First()
+                        .Attribute("calendarType"));
+            }
+            else if (mutation == "sort")
+            {
+                Assert.AreEqual(
+                    "stroke",
+                    (string?)savedFilter.Element(SpreadsheetNamespace + "sortState")!
+                        .Attribute("sortMethod"));
+            }
+            else
+            {
+                Assert.AreEqual(
+                    "1",
+                    (string?)savedFilter.Element(SpreadsheetNamespace + "sortState")!
+                        .Attribute("columnSort"));
+            }
+        }
+    }
+
+    [TestMethod]
+    public async Task PreservedUnsupportedConditionalFormattingShouldKeepColorFilterDxfBinding()
+    {
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        await using var source = new MemoryStream();
+        await serializer.SaveAsync(
+            CreateRichWorksheetWorkbook(),
+            source,
+            new OpenXmlExportOptions());
+        source.Position = 0;
+        using (var document = SpreadsheetDocument.Open(source, true))
+        {
+            var workbookPart = document.WorkbookPart!;
+            var stylesPart = workbookPart.WorkbookStylesPart!;
+            var styles = Load(stylesPart);
+            var dxfs = styles.Root!.Element(SpreadsheetNamespace + "dxfs")!;
+            dxfs.AddFirst(new XElement(
+                SpreadsheetNamespace + "dxf",
+                new XElement(
+                    SpreadsheetNamespace + "fill",
+                    new XElement(
+                        SpreadsheetNamespace + "patternFill",
+                        new XAttribute("patternType", "solid"),
+                        new XElement(
+                            SpreadsheetNamespace + "fgColor",
+                            new XAttribute("rgb", "FFFF0000")),
+                        new XElement(
+                            SpreadsheetNamespace + "bgColor",
+                            new XAttribute("indexed", 64))))));
+            dxfs.SetAttributeValue("count", dxfs.Elements(SpreadsheetNamespace + "dxf").Count());
+            Save(stylesPart, styles);
+
+            var worksheetPart = workbookPart.WorksheetParts.Single();
+            var worksheet = Load(worksheetPart);
+            worksheet.Descendants(SpreadsheetNamespace + "colorFilter")
+                .Single()
+                .SetAttributeValue("dxfId", 1);
+            var sheetData = worksheet.Root!.Element(SpreadsheetNamespace + "sheetData")!;
+            sheetData.AddAfterSelf(new XElement(
+                SpreadsheetNamespace + "conditionalFormatting",
+                new XAttribute("sqref", "A1"),
+                new XElement(
+                    SpreadsheetNamespace + "cfRule",
+                    new XAttribute("type", "colorScale"),
+                    new XAttribute("priority", 1),
+                    new XElement(
+                        SpreadsheetNamespace + "colorScale",
+                        new XElement(SpreadsheetNamespace + "cfvo", new XAttribute("type", "min")),
+                        new XElement(SpreadsheetNamespace + "cfvo", new XAttribute("type", "max")),
+                        new XElement(SpreadsheetNamespace + "color", new XAttribute("rgb", "FFFF0000")),
+                        new XElement(SpreadsheetNamespace + "color", new XAttribute("rgb", "FF00FF00"))))));
+            Save(worksheetPart, worksheet);
+        }
+        source.Position = 0;
+        var loaded = await serializer.LoadAsync(
+            source,
+            new OpenXmlImportOptions { PreserveUnknownParts = true });
+        await using var destination = new MemoryStream();
+
+        await serializer.SaveAsync(
+            loaded,
+            destination,
+            new OpenXmlExportOptions { PreserveUnknownParts = true });
+
+        AssertSchemaValid(destination);
+        destination.Position = 0;
+        using var saved = SpreadsheetDocument.Open(destination, false);
+        var savedWorksheet = Load(saved.WorkbookPart!.WorksheetParts.Single());
+        Assert.AreEqual(
+            "1",
+            (string?)savedWorksheet.Descendants(SpreadsheetNamespace + "colorFilter")
+                .Single()
+                .Attribute("dxfId"));
+        Assert.IsNotNull(savedWorksheet.Descendants(SpreadsheetNamespace + "colorScale")
+            .SingleOrDefault());
+        var savedStyles = Load(saved.WorkbookPart!.WorkbookStylesPart!);
+        var dxf = savedStyles.Root!.Element(SpreadsheetNamespace + "dxfs")!
+            .Elements(SpreadsheetNamespace + "dxf")
+            .ElementAt(1);
+        Assert.AreEqual(
+            "FF1E78D2",
+            (string?)dxf.Descendants(SpreadsheetNamespace + "fgColor")
+                .Single()
+                .Attribute("rgb"));
+    }
+
+    [TestMethod]
     public async Task ProducerExtensionsOnRichCriteriaAndSortSurvivePreservedSave()
     {
         var serializer = new NeraOpenXmlWorkbookSerializer();

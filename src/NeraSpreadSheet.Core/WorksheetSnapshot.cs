@@ -22,7 +22,7 @@ public sealed class WorksheetSnapshot
     private readonly WorksheetAxisInterval[] _hiddenColumns;
     private readonly ConcurrentDictionary<AxisStyleCacheKey, CellStyle>
         _axisStyleCache = new();
-    private readonly ConcurrentDictionary<FilterPredicateCacheKey, Func<int, bool>>
+    private readonly ConcurrentDictionary<FilterPredicateCacheKey, Lazy<Func<int, bool>>>
         _filterPredicateCache = new();
     private readonly CellStyle[] _styles;
 
@@ -323,12 +323,14 @@ public sealed class WorksheetSnapshot
         var key = new FilterPredicateCacheKey(dataRange, columnIndex, filter);
         var predicate = _filterPredicateCache.GetOrAdd(
             key,
-            cacheKey => SpreadsheetFilterEvaluator.CreateRowPredicate(
-                this,
-                cacheKey.DataRange,
-                cacheKey.ColumnIndex,
-                cacheKey.Filter));
-        return predicate(rowIndex);
+            cacheKey => new Lazy<Func<int, bool>>(
+                () => SpreadsheetFilterEvaluator.CreateRowPredicate(
+                    this,
+                    cacheKey.DataRange,
+                    cacheKey.ColumnIndex,
+                    cacheKey.Filter),
+                LazyThreadSafetyMode.ExecutionAndPublication));
+        return predicate.Value(rowIndex);
     }
 
     public IEnumerable<KeyValuePair<CellAddress, CellData>>

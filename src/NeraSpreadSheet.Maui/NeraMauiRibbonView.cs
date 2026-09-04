@@ -18,8 +18,8 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     private readonly VerticalStackLayout _overflowCommands = new()
     {
         Spacing = 4d,
-        IsVisible = false,
     };
+    private readonly ScrollView _overflowHost;
     private readonly List<Button> _commandButtons = [];
     private readonly List<IDisposable> _shortcutBindings = [];
     private Func<string, ImageSource?>? _iconResolver;
@@ -28,11 +28,21 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     private string? _selectedTabId;
     private CommandId? _focusedCommandId;
     private double _layoutScale = 1d;
+    private bool _restoreCommandFocus;
+    private bool _isRebuilding;
+    private bool _resizeRebuildPending;
     private bool _disposed;
 
     public NeraMauiRibbonView(RibbonRuntimeController runtime)
     {
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
+        _overflowHost = new ScrollView
+        {
+            Content = _overflowCommands,
+            IsVisible = false,
+            Orientation = ScrollOrientation.Vertical,
+            MaximumHeightRequest = 360d,
+        };
         AutomationId = "NeraMauiRibbon";
         SemanticProperties.SetDescription(this, "Thanh Ribbon NeraSpreadSheet");
         _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
@@ -44,7 +54,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             Content = _tabStrip,
         }, 0, 0);
         _root.Add(_groups, 0, 1);
-        _root.Add(_overflowCommands, 0, 2);
+        _root.Add(_overflowHost, 0, 2);
         Content = _root;
         _runtime.SnapshotChanged += OnSnapshotChanged;
         SizeChanged += OnRibbonSizeChanged;
@@ -153,19 +163,27 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     public void Rebuild()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        CaptureFocus();
-        LayoutSnapshot = _layoutEngine.Layout(
-            _runtime.Snapshot,
-            new RibbonLayoutRequest(
-                Width > 0d ? Width * LayoutScale : double.PositiveInfinity,
-                LayoutScale,
-                _selectedTabId,
-                _focusedCommandId));
-        _selectedTabId = LayoutSnapshot.SelectedTabId;
-        _focusedCommandId = LayoutSnapshot.FocusedCommandId;
-        RebuildTabs(LayoutSnapshot);
-        RebuildGroups(LayoutSnapshot);
-        RestoreFocus();
+        _isRebuilding = true;
+        try
+        {
+            CaptureFocus();
+            LayoutSnapshot = _layoutEngine.Layout(
+                _runtime.Snapshot,
+                new RibbonLayoutRequest(
+                    Width > 0d ? Width * LayoutScale : double.PositiveInfinity,
+                    LayoutScale,
+                    _selectedTabId,
+                    _focusedCommandId));
+            _selectedTabId = LayoutSnapshot.SelectedTabId;
+            _focusedCommandId = LayoutSnapshot.FocusedCommandId;
+            RebuildTabs(LayoutSnapshot);
+            RebuildGroups(LayoutSnapshot);
+            RestoreFocus();
+        }
+        finally
+        {
+            _isRebuilding = false;
+        }
     }
 
     public void Dispose()
@@ -262,8 +280,10 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             WidthRequest = item.Width / LayoutScale,
             MinimumHeightRequest = item.Size == RibbonItemSize.Large ? 56d : 36d,
         };
-        if (command.IconKey is { Length: > 0 } iconKey &&
-            ResolveIcon(iconKey, item.Size == RibbonItemSize.Large ? 32 : 16) is ImageSource source)
+        var resolvedIcon = command.IconKey is { Length: > 0 } iconKey
+            ? ResolveIcon(iconKey, item.Size == RibbonItemSize.Large ? 32 : 16)
+            : null;
+        if (resolvedIcon is ImageSource source)
         {
             button.ImageSource = source;
             button.ContentLayout = item.Size == RibbonItemSize.Large
@@ -275,11 +295,13 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             command,
             "ribbon-command",
             item.Size == RibbonItemSize.Large);
-        if (item.Size == RibbonItemSize.Compact && command.IconKey is not null)
+        if (item.Size == RibbonItemSize.Compact && resolvedIcon is not null)
         {
             button.Text = string.Empty;
         }
         button.Clicked += OnCommandClicked;
+        button.Focused += OnCommandFocused;
+        button.Unfocused += OnCommandUnfocused;
         _commandButtons.Add(button);
         return button;
     }
@@ -303,7 +325,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         };
         SemanticProperties.SetDescription(overflowButton, "Lệnh Ribbon bổ sung");
         overflowButton.Clicked += (_, _) =>
-            _overflowCommands.IsVisible = !_overflowCommands.IsVisible;
+            _overflowHost.IsVisible = !_overflowHost.IsVisible;
         _groups.Children.Add(overflowButton);
 
         foreach (var group in overflowGroups)
@@ -326,12 +348,13 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         if (focused?.CommandParameter is CommandId commandId)
         {
             _focusedCommandId = commandId;
+            _restoreCommandFocus = true;
         }
     }
 
     private void RestoreFocus()
     {
-        if (_focusedCommandId is not { } commandId)
+        if (!_restoreCommandFocus || _focusedCommandId is not { } commandId)
         {
             return;
         }
@@ -341,7 +364,52 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
 
     private void OnRibbonSizeChanged(object? sender, EventArgs e)
     {
-        RebuildIfAlive();
+        ScheduleResizeRebuild();
+    }
+
+    private void ScheduleResizeRebuild()
+    {
+        if (_disposed || _resizeRebuildPending)
+        {
+            return;
+        }
+        _resizeRebuildPending = true;
+        void RebuildOnce()
+        {
+            _resizeRebuildPending = false;
+            if (!_disposed)
+            {
+                Rebuild();
+            }
+        }
+        var dispatcher = Dispatcher;
+        if (dispatcher is null)
+        {
+            RebuildOnce();
+        }
+        else if (!dispatcher.Dispatch(RebuildOnce))
+        {
+            _resizeRebuildPending = false;
+            throw new InvalidOperationException(
+                "The MAUI dispatcher rejected the Ribbon resize rebuild.");
+        }
+    }
+
+    private void OnCommandFocused(object? sender, FocusEventArgs e)
+    {
+        if (sender is Button { CommandParameter: CommandId commandId })
+        {
+            _focusedCommandId = commandId;
+            _restoreCommandFocus = true;
+        }
+    }
+
+    private void OnCommandUnfocused(object? sender, FocusEventArgs e)
+    {
+        if (!_isRebuilding)
+        {
+            _restoreCommandFocus = false;
+        }
     }
 
     private ImageSource? ResolveIcon(string iconKey, int pixelSize)

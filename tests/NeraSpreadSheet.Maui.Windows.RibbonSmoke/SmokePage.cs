@@ -73,11 +73,41 @@ internal sealed class SmokePage : ContentPage
                 CommandContextFactory = id => new CommandContext(
                     Parameter: $"bar:{id.Value}"),
             };
+            var overflowRegistry = new CommandRegistry();
+            var overflowItems = new List<RibbonItemDefinition>();
+            for (var index = 0; index < 12; index++)
+            {
+                var id = $"overflow.command-{index}";
+                overflowRegistry.Register(
+                    new CommandDescriptor(
+                        id,
+                        $"Lệnh {index}",
+                        iconKey: "missing.icon.key"),
+                    new ToggleHandler());
+                overflowItems.Add(new RibbonItemDefinition(id));
+            }
+            using var overflowRibbon = new NeraMauiRibbonView(
+                new RibbonRuntimeController(
+                    new RibbonDefinition([
+                        new RibbonTabDefinition("overflow", "Thu gọn", [
+                            new RibbonGroupDefinition(
+                                "commands",
+                                "Lệnh",
+                                overflowItems),
+                        ]),
+                    ]),
+                    overflowRegistry))
+            {
+                WidthRequest = 70d,
+                MaximumWidthRequest = 70d,
+                HorizontalOptions = LayoutOptions.Start,
+            };
             using var ribbonShortcut = ribbon.BindShortcuts(shortcutSource);
             using var barShortcut = bar.BindShortcuts(shortcutSource);
 
             _host.Children.Add(ribbon);
             _host.Children.Add(bar);
+            _host.Children.Add(overflowRibbon);
             await Task.Delay(250).ConfigureAwait(true);
 
             Require(ribbon.Handler?.PlatformView is not null,
@@ -95,6 +125,19 @@ internal sealed class SmokePage : ContentPage
                 "The MAUI Ribbon did not resolve its default command icon.");
             Require(bar.CommandButtons[0].ImageSource is not null,
                 "The MAUI Bar did not resolve its default command icon.");
+            Require(overflowRibbon.LayoutSnapshot.Tabs[0].HasOverflow,
+                "The narrow MAUI Ribbon did not expose its overflow surface.");
+            Require(overflowRibbon.CommandButtons.Count == 12 &&
+                    overflowRibbon.CommandButtons.All(static button =>
+                        !string.IsNullOrWhiteSpace(button.Text)),
+                "A missing compact icon hid its MAUI command caption.");
+            var overflowRoot = (Grid)overflowRibbon.Content;
+            var overflowHost = overflowRoot.Children.OfType<ScrollView>()
+                .Single(static scroll =>
+                    scroll.Orientation == ScrollOrientation.Vertical);
+            Require(overflowHost.MaximumHeightRequest == 360d &&
+                    overflowHost.Content is VerticalStackLayout,
+                "The MAUI overflow surface is not bounded and scrollable.");
 
             Require(await ribbon.TryActivateCommandAsync("view.gridlines"),
                 "The MAUI Ribbon command did not activate through runtime.");
@@ -151,6 +194,7 @@ internal sealed class SmokePage : ContentPage
             barCommand = "file.save",
             shortcut = "Ctrl+S",
             customization = "hide-reset",
+            overflow = "bounded-scroll",
         });
         Environment.Exit(0);
     }

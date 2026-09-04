@@ -23,6 +23,8 @@ public sealed class NeraRibbonControl : UserControl
     private NeraIconTheme _iconTheme = NeraIconTheme.Light;
     private string? _selectedTabId;
     private CommandId? _focusedCommandId;
+    private bool _restoreCommandFocus;
+    private bool _resizeRebuildPending;
     private bool _disposed;
 
     public NeraRibbonControl(RibbonRuntimeController runtime)
@@ -124,7 +126,7 @@ public sealed class NeraRibbonControl : UserControl
                 scale,
                 _selectedTabId,
                 _focusedCommandId));
-        _selectedTabId = LayoutSnapshot.SelectedTabId;
+        var selectedTabId = LayoutSnapshot.SelectedTabId;
         _focusedCommandId = LayoutSnapshot.FocusedCommandId;
         var oldPages = _tabs.TabPages.Cast<TabPage>().ToArray();
         _tabs.TabPages.Clear();
@@ -181,18 +183,19 @@ public sealed class NeraRibbonControl : UserControl
             page.Controls.Add(groups);
             _tabs.TabPages.Add(page);
         }
-        if (_selectedTabId is not null)
+        if (selectedTabId is not null)
         {
             var selected = _tabs.TabPages.Cast<TabPage>().FirstOrDefault(page =>
                 string.Equals(
                     page.Tag as string,
-                    _selectedTabId,
+                    selectedTabId,
                     StringComparison.OrdinalIgnoreCase));
             if (selected is not null)
             {
                 _tabs.SelectedTab = selected;
             }
         }
+        _selectedTabId = selectedTabId;
         RestoreFocus();
     }
 
@@ -233,7 +236,10 @@ public sealed class NeraRibbonControl : UserControl
             }
             : new Button();
         button.Name = $"ribbon-command-{command.CommandId.Value}";
-        button.Text = item.Size == RibbonItemSize.Compact && command.IconKey is not null
+        var resolvedIcon = command.IconKey is { Length: > 0 } iconKey
+            ? ResolveIcon(iconKey, item.Size == RibbonItemSize.Large ? 32 : 16)
+            : null;
+        button.Text = item.Size == RibbonItemSize.Compact && resolvedIcon is not null
             ? string.Empty
             : command.Caption;
         button.Tag = command.CommandId;
@@ -245,24 +251,20 @@ public sealed class NeraRibbonControl : UserControl
         button.Margin = new Padding(2);
         button.AccessibleName = command.Caption;
         button.AccessibleDescription = command.Tooltip;
-        if (command.IconKey is { Length: > 0 } iconKey &&
-            ResolveIcon(iconKey, item.Size == RibbonItemSize.Large ? 32 : 16) is Image image)
+        if (resolvedIcon is Image image)
         {
             button.Image = image;
             button.TextImageRelation = item.Size == RibbonItemSize.Large
                 ? TextImageRelation.ImageAboveText
                 : TextImageRelation.ImageBeforeText;
         }
-        if (!string.IsNullOrWhiteSpace(command.Tooltip) ||
-            !string.IsNullOrWhiteSpace(command.Shortcut))
-        {
-            _toolTip.SetToolTip(
-                button,
-                string.Join(
-                    " ",
-                    new[] { command.Tooltip, command.Shortcut }
-                        .Where(static value => !string.IsNullOrWhiteSpace(value))));
-        }
+        var toolTip = string.Join(
+            " ",
+            new[] { command.Tooltip, command.Shortcut }
+                .Where(static value => !string.IsNullOrWhiteSpace(value)));
+        _toolTip.SetToolTip(
+            button,
+            string.IsNullOrWhiteSpace(toolTip) ? command.Caption : toolTip);
         button.Click += OnCommandClick;
         return button;
     }
@@ -322,12 +324,17 @@ public sealed class NeraRibbonControl : UserControl
         if (focused?.Tag is CommandId focusedId)
         {
             _focusedCommandId = focusedId;
+            _restoreCommandFocus = true;
+        }
+        else if (FindForm()?.ActiveControl is not null)
+        {
+            _restoreCommandFocus = false;
         }
     }
 
     private void RestoreFocus()
     {
-        if (_focusedCommandId is not { } commandId)
+        if (!_restoreCommandFocus || _focusedCommandId is not { } commandId)
         {
             return;
         }
@@ -372,8 +379,30 @@ public sealed class NeraRibbonControl : UserControl
     {
         if (!_disposed)
         {
-            Rebuild();
+            ScheduleResizeRebuild();
         }
+    }
+
+    private void ScheduleResizeRebuild()
+    {
+        if (_resizeRebuildPending)
+        {
+            return;
+        }
+        if (!IsHandleCreated)
+        {
+            Rebuild();
+            return;
+        }
+        _resizeRebuildPending = true;
+        BeginInvoke((Action)(() =>
+        {
+            _resizeRebuildPending = false;
+            if (!_disposed && !IsDisposed)
+            {
+                Rebuild();
+            }
+        }));
     }
 
     private void OnRibbonDpiChanged(object? sender, EventArgs e)

@@ -76,14 +76,20 @@ internal static class OpenXmlTablePackagePatcher
                    generatedStream,
                    false))
         {
+            var outputWorkbookPart = preservedDocument.WorkbookPart
+                ?? throw new InvalidDataException(
+                    "The preserved package is missing its workbook part.");
+            var generatedWorkbookPart = generatedDocument.WorkbookPart
+                ?? throw new InvalidDataException(
+                    "The generated package is missing its workbook part.");
+            var differentialStyleMap =
+                OpenXmlDifferentialStyleRemapper.MergeGeneratedStyles(
+                    outputWorkbookPart,
+                    generatedWorkbookPart);
             var preservedParts = GetWorksheetParts(
-                preservedDocument.WorkbookPart
-                ?? throw new InvalidDataException(
-                    "The preserved package is missing its workbook part."));
+                outputWorkbookPart);
             var generatedParts = GetWorksheetParts(
-                generatedDocument.WorkbookPart
-                ?? throw new InvalidDataException(
-                    "The generated package is missing its workbook part."));
+                generatedWorkbookPart);
             if (preservedParts.Length != expectedWorksheetCount ||
                 generatedParts.Length != expectedWorksheetCount)
             {
@@ -98,7 +104,8 @@ internal static class OpenXmlTablePackagePatcher
                 cancellationToken.ThrowIfCancellationRequested();
                 PatchWorksheet(
                     preservedParts[index],
-                    generatedParts[index]);
+                    generatedParts[index],
+                    differentialStyleMap);
             }
         }
 
@@ -134,7 +141,8 @@ internal static class OpenXmlTablePackagePatcher
 
     private static void PatchWorksheet(
         WorksheetPart preservedPart,
-        WorksheetPart generatedPart)
+        WorksheetPart generatedPart,
+        IReadOnlyDictionary<uint, uint> differentialStyleMap)
     {
         var preservedDocument = LoadPartXml(preservedPart);
         var generatedDocument = LoadPartXml(generatedPart);
@@ -184,7 +192,8 @@ internal static class OpenXmlTablePackagePatcher
             {
                 PatchTableDefinition(
                     preservedTablePart,
-                    generatedTablePart);
+                    generatedTablePart,
+                    differentialStyleMap);
                 continue;
             }
 
@@ -198,7 +207,10 @@ internal static class OpenXmlTablePackagePatcher
             }
             var created = preservedPart
                 .AddNewPart<TableDefinitionPart>(relationshipId);
-            CopyPartContent(generatedTablePart, created);
+            CopyTablePart(
+                generatedTablePart,
+                created,
+                differentialStyleMap);
         }
 
         foreach (var (relationshipId, tablePart) in
@@ -224,7 +236,8 @@ internal static class OpenXmlTablePackagePatcher
 
     private static void PatchTableDefinition(
         TableDefinitionPart preservedPart,
-        TableDefinitionPart generatedPart)
+        TableDefinitionPart generatedPart,
+        IReadOnlyDictionary<uint, uint> differentialStyleMap)
     {
         var preservedDocument = LoadPartXml(preservedPart);
         var generatedDocument = LoadPartXml(generatedPart);
@@ -240,6 +253,10 @@ internal static class OpenXmlTablePackagePatcher
             throw new InvalidDataException(
                 "A table-definition part contains invalid root markup.");
         }
+
+        OpenXmlDifferentialStyleRemapper.RewriteFilterReferences(
+            generatedRoot,
+            differentialStyleMap);
 
         if (!generatedRoot.Elements(
                 SpreadsheetNamespace + "extLst").Any())
@@ -259,6 +276,21 @@ internal static class OpenXmlTablePackagePatcher
                 generatedFilter);
         }
         SavePartXml(preservedPart, generatedDocument);
+    }
+
+    private static void CopyTablePart(
+        TableDefinitionPart generatedPart,
+        TableDefinitionPart createdPart,
+        IReadOnlyDictionary<uint, uint> differentialStyleMap)
+    {
+        var document = LoadPartXml(generatedPart);
+        var root = document.Root
+            ?? throw new InvalidDataException(
+                "The generated table part is empty.");
+        OpenXmlDifferentialStyleRemapper.RewriteFilterReferences(
+            root,
+            differentialStyleMap);
+        SavePartXml(createdPart, document);
     }
 
     private static bool TryGetPartById(

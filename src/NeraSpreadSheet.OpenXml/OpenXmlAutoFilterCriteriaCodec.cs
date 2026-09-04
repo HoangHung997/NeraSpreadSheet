@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Xml.Linq;
 using NeraSpreadSheet.Core;
 
@@ -35,6 +36,7 @@ internal static class OpenXmlAutoFilterCriteriaCodec
         if (definition.Name == Ns + "customFilters") return ParseCustom(definition);
         if (definition.Name == Ns + "top10")
         {
+            EnsureOnlyAttributes(definition, "top", "percent", "val");
             var value = ReadDouble(definition, "val", required: true)!.Value;
             return Empty(topBottom: new SpreadsheetTopBottomFilter(
                 ReadBoolean(definition, "top", true),
@@ -43,6 +45,7 @@ internal static class OpenXmlAutoFilterCriteriaCodec
         }
         if (definition.Name == Ns + "dynamicFilter")
         {
+            EnsureOnlyAttributes(definition, "type", "val", "maxVal");
             var type = ParseDynamic(Required(definition, "type"));
             return Empty(dynamicFilter: new SpreadsheetDynamicFilter(
                 type,
@@ -51,12 +54,14 @@ internal static class OpenXmlAutoFilterCriteriaCodec
         }
         if (definition.Name == Ns + "colorFilter")
         {
+            EnsureOnlyAttributes(definition, "dxfId", "cellColor");
             var dxfId = ReadUInt(definition, "dxfId");
             var cellColor = ReadBoolean(definition, "cellColor", true);
             return Empty(colorFilter: resolveColor(dxfId, cellColor));
         }
         if (definition.Name == Ns + "iconFilter")
         {
+            EnsureOnlyAttributes(definition, "iconSet", "iconId");
             return Empty(iconFilter: new SpreadsheetIconFilter(
                 Required(definition, "iconSet"),
                 ReadUInt(definition, "iconId")));
@@ -120,8 +125,23 @@ internal static class OpenXmlAutoFilterCriteriaCodec
         if (elements.Length == 0) return null;
         if (elements.Length > 1) throw new InvalidDataException("An AutoFilter cannot contain duplicate sortState elements.");
         var element = elements[0];
+        EnsureOnlyAttributes(element, "ref", "caseSensitive", "columnSort");
+        if (ReadBoolean(element, "columnSort", false))
+        {
+            throw new InvalidDataException(
+                "Left-to-right AutoFilter sort state is not supported yet.");
+        }
         var conditions = element.Elements(Ns + "sortCondition").Select(condition =>
         {
+            EnsureOnlyAttributes(
+                condition,
+                "ref",
+                "descending",
+                "sortBy",
+                "customList",
+                "dxfId",
+                "iconSet",
+                "iconId");
             var reference = ParseRange(Required(condition, "ref"));
             if (reference.Left != reference.Right || reference.Left < ownerRange.Left || reference.Left > ownerRange.Right)
                 throw new InvalidDataException("An AutoFilter sort condition must reference one owner column.");
@@ -159,6 +179,11 @@ internal static class OpenXmlAutoFilterCriteriaCodec
         Func<SpreadsheetColorFilter, uint> getColorStyleId)
     {
         if (state is null) return null;
+        if (state.SortLeftToRight)
+        {
+            throw new NotSupportedException(
+                "Left-to-right AutoFilter sort state is not supported yet.");
+        }
         var result = new XElement(Ns + "sortState", new XAttribute("ref", ToRange(dataRange)));
         if (state.CaseSensitive) result.Add(new XAttribute("caseSensitive", 1));
         if (state.SortLeftToRight) result.Add(new XAttribute("columnSort", 1));
@@ -183,7 +208,12 @@ internal static class OpenXmlAutoFilterCriteriaCodec
 
     private static ParsedFilterCriteria ParseValues(XElement element)
     {
-        var values = element.Elements(Ns + "filter").Select(item => ParseValue(RequiredAllowEmpty(item, "val"))).ToArray();
+        EnsureOnlyAttributes(element, "blank");
+        var values = element.Elements(Ns + "filter").Select(item =>
+        {
+            EnsureOnlyAttributes(item, "val");
+            return ParseValue(RequiredAllowEmpty(item, "val"));
+        }).ToArray();
         var groups = element.Elements(Ns + "dateGroupItem").Select(ParseDateGroup).ToArray();
         if (values.Length + groups.Length > MaxFilterValuesPerColumn) throw new InvalidDataException("The value-filter collection is too large.");
         if (element.Elements().Any(item => item.Name != Ns + "filter" && item.Name != Ns + "dateGroupItem"))
@@ -198,6 +228,7 @@ internal static class OpenXmlAutoFilterCriteriaCodec
 
     private static ParsedFilterCriteria ParseCustom(XElement element)
     {
+        EnsureOnlyAttributes(element, "and");
         var conditions = element.Elements(Ns + "customFilter").Select(ParseCustomCondition).ToArray();
         if (conditions.Length is < 1 or > 2 || element.Elements().Any(item => item.Name != Ns + "customFilter"))
             throw new InvalidDataException("A custom filter requires one or two conditions.");
@@ -207,16 +238,38 @@ internal static class OpenXmlAutoFilterCriteriaCodec
 
     private static TableFilterCondition ParseCustomCondition(XElement element)
     {
+        EnsureOnlyAttributes(element, "operator", "val");
         var op = (string?)element.Attribute("operator") ?? "equal";
         var value = RequiredAllowEmpty(element, "val");
         if (op is "equal" or "notEqual" && value.Length == 0)
             return new(op == "equal" ? TableFilterComparisonOperator.IsBlank : TableFilterComparisonOperator.IsNotBlank, CellValue.Blank);
-        if (op is "equal" or "notEqual" && TryWildcard(value, out var wildcard, out var literal))
-            return new(op == "notEqual" ? TableFilterComparisonOperator.DoesNotContain : wildcard, CellValue.FromText(literal));
+        if (op is "equal" or "notEqual")
+        {
+            var pattern = ParseWildcardPattern(value);
+            if (pattern.HasWildcard)
+            {
+                if (op == "notEqual" &&
+                    pattern.Operator != TableFilterComparisonOperator.Contains)
+                {
+                    throw new InvalidDataException(
+                        "Negated leading-only or trailing-only wildcard filters are not supported.");
+                }
+                return new(
+                    op == "notEqual"
+                        ? TableFilterComparisonOperator.DoesNotContain
+                        : pattern.Operator,
+                    CellValue.FromText(pattern.Literal));
+            }
+            return new(
+                op == "equal"
+                    ? TableFilterComparisonOperator.Equal
+                    : TableFilterComparisonOperator.NotEqual,
+                pattern.HadEscape
+                    ? CellValue.FromText(pattern.Literal)
+                    : ParseValue(pattern.Literal));
+        }
         return new(op switch
         {
-            "equal" => TableFilterComparisonOperator.Equal,
-            "notEqual" => TableFilterComparisonOperator.NotEqual,
             "greaterThan" => TableFilterComparisonOperator.GreaterThan,
             "greaterThanOrEqual" => TableFilterComparisonOperator.GreaterThanOrEqual,
             "lessThan" => TableFilterComparisonOperator.LessThan,
@@ -229,8 +282,8 @@ internal static class OpenXmlAutoFilterCriteriaCodec
     {
         var (op, value) = condition.Operator switch
         {
-            TableFilterComparisonOperator.Equal => ("equal", FormatValue(condition.Value)),
-            TableFilterComparisonOperator.NotEqual => ("notEqual", FormatValue(condition.Value)),
+            TableFilterComparisonOperator.Equal => ("equal", FormatCustomLiteral(condition.Value)),
+            TableFilterComparisonOperator.NotEqual => ("notEqual", FormatCustomLiteral(condition.Value)),
             TableFilterComparisonOperator.GreaterThan => ("greaterThan", FormatValue(condition.Value)),
             TableFilterComparisonOperator.GreaterThanOrEqual => ("greaterThanOrEqual", FormatValue(condition.Value)),
             TableFilterComparisonOperator.LessThan => ("lessThan", FormatValue(condition.Value)),
@@ -248,6 +301,15 @@ internal static class OpenXmlAutoFilterCriteriaCodec
 
     private static SpreadsheetFilterDateGroup ParseDateGroup(XElement item)
     {
+        EnsureOnlyAttributes(
+            item,
+            "year",
+            "month",
+            "day",
+            "hour",
+            "minute",
+            "second",
+            "dateTimeGrouping");
         var grouping = Required(item, "dateTimeGrouping") switch
         {
             "year" => SpreadsheetFilterDateGrouping.Year,
@@ -281,6 +343,18 @@ internal static class OpenXmlAutoFilterCriteriaCodec
         "Q2" => SpreadsheetDynamicFilterType.Quarter2,
         "Q3" => SpreadsheetDynamicFilterType.Quarter3,
         "Q4" => SpreadsheetDynamicFilterType.Quarter4,
+        "M1" => SpreadsheetDynamicFilterType.January,
+        "M2" => SpreadsheetDynamicFilterType.February,
+        "M3" => SpreadsheetDynamicFilterType.March,
+        "M4" => SpreadsheetDynamicFilterType.April,
+        "M5" => SpreadsheetDynamicFilterType.May,
+        "M6" => SpreadsheetDynamicFilterType.June,
+        "M7" => SpreadsheetDynamicFilterType.July,
+        "M8" => SpreadsheetDynamicFilterType.August,
+        "M9" => SpreadsheetDynamicFilterType.September,
+        "M10" => SpreadsheetDynamicFilterType.October,
+        "M11" => SpreadsheetDynamicFilterType.November,
+        "M12" => SpreadsheetDynamicFilterType.December,
         _ when Enum.TryParse<SpreadsheetDynamicFilterType>(value, true, out var parsed) => parsed,
         _ => throw new InvalidDataException($"Unsupported dynamic-filter type '{value}'."),
     };
@@ -290,6 +364,8 @@ internal static class OpenXmlAutoFilterCriteriaCodec
         SpreadsheetDynamicFilterType.Quarter2 => "Q2",
         SpreadsheetDynamicFilterType.Quarter3 => "Q3",
         SpreadsheetDynamicFilterType.Quarter4 => "Q4",
+        >= SpreadsheetDynamicFilterType.January and <= SpreadsheetDynamicFilterType.December =>
+            $"M{(int)(value - SpreadsheetDynamicFilterType.January) + 1}",
         _ => char.ToLowerInvariant(value.ToString()[0]) + value.ToString()[1..],
     };
     private static string FormatSortBy(SpreadsheetFilterSortBy value) => value switch
@@ -304,6 +380,10 @@ internal static class OpenXmlAutoFilterCriteriaCodec
         CellValueKind.DateTime => ((DateTime)value.RawValue!).ToOADate().ToString("R", CultureInfo.InvariantCulture),
         _ => value.ToString()
     };
+    private static string FormatCustomLiteral(CellValue value) =>
+        value.Kind == CellValueKind.Text
+            ? EscapeWildcardLiteral((string)value.RawValue!)
+            : FormatValue(value);
     private static string Required(XElement element, string name) { var value = (string?)element.Attribute(name); return string.IsNullOrWhiteSpace(value) ? throw new InvalidDataException($"Required attribute '{name}' is missing.") : value; }
     private static string RequiredAllowEmpty(XElement element, string name) => element.Attribute(name)?.Value ?? throw new InvalidDataException($"Required attribute '{name}' is missing.");
     private static uint ReadUInt(XElement element, string name) => uint.TryParse(Required(element, name), NumberStyles.None, CultureInfo.InvariantCulture, out var value) ? value : throw new InvalidDataException($"Attribute '{name}' is not an unsigned integer.");
@@ -311,8 +391,97 @@ internal static class OpenXmlAutoFilterCriteriaCodec
     private static double? ReadDouble(XElement element, string name, bool required) { var text = (string?)element.Attribute(name); if (text is null && !required) return null; return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && double.IsFinite(value) ? value : throw new InvalidDataException($"Attribute '{name}' is not a finite number."); }
     private static bool ReadBoolean(XElement element, string name, bool fallback) => (string?)element.Attribute(name) switch { null => fallback, "1" or "true" => true, "0" or "false" => false, _ => throw new InvalidDataException($"Attribute '{name}' is not a boolean.") };
     private static void Add(XElement element, string name, int? value) { if (value is not null) element.Add(new XAttribute(name, value.Value)); }
-    private static bool TryWildcard(string pattern, out TableFilterComparisonOperator op, out string value)
-    { var leading = pattern.StartsWith('*'); var trailing = pattern.EndsWith('*') && pattern.Length > 1; if (!leading && !trailing) { op = default; value = ""; return false; } value = pattern.Trim('*').Replace("~*", "*", StringComparison.Ordinal).Replace("~?", "?", StringComparison.Ordinal).Replace("~~", "~", StringComparison.Ordinal); op = leading && trailing ? TableFilterComparisonOperator.Contains : leading ? TableFilterComparisonOperator.EndsWith : TableFilterComparisonOperator.BeginsWith; return value.Length > 0; }
+    private static WildcardPattern ParseWildcardPattern(string pattern)
+    {
+        var tokens = new List<(char Value, bool IsWildcard)>();
+        var hadEscape = false;
+        for (var index = 0; index < pattern.Length; index++)
+        {
+            var value = pattern[index];
+            if (value == '~' && index + 1 < pattern.Length &&
+                pattern[index + 1] is '~' or '*' or '?')
+            {
+                hadEscape = true;
+                tokens.Add((pattern[++index], false));
+                continue;
+            }
+            if (value == '?')
+            {
+                throw new InvalidDataException(
+                    "Single-character wildcard filters are not supported.");
+            }
+            tokens.Add((value, value == '*'));
+        }
+
+        var wildcardIndexes = tokens
+            .Select((token, index) => (token, index))
+            .Where(static item => item.token.IsWildcard)
+            .Select(static item => item.index)
+            .ToArray();
+        if (wildcardIndexes.Length == 0)
+        {
+            return new WildcardPattern(
+                false,
+                hadEscape,
+                default,
+                new string(tokens.Select(static token => token.Value).ToArray()));
+        }
+        if (wildcardIndexes.Length > 2 ||
+            wildcardIndexes.Any(index => index != 0 && index != tokens.Count - 1))
+        {
+            throw new InvalidDataException(
+                "Only leading and trailing multi-character wildcards are supported.");
+        }
+
+        var leading = wildcardIndexes.Contains(0);
+        var trailing = wildcardIndexes.Contains(tokens.Count - 1);
+        var literal = new string(tokens
+            .Where(static token => !token.IsWildcard)
+            .Select(static token => token.Value)
+            .ToArray());
+        var @operator = leading && trailing
+            ? TableFilterComparisonOperator.Contains
+            : leading
+                ? TableFilterComparisonOperator.EndsWith
+                : TableFilterComparisonOperator.BeginsWith;
+        return new WildcardPattern(true, hadEscape, @operator, literal);
+    }
+
+    private static string EscapeWildcardLiteral(string value)
+    {
+        var result = new StringBuilder(value.Length);
+        foreach (var character in value)
+        {
+            if (character is '~' or '*' or '?')
+            {
+                result.Append('~');
+            }
+            result.Append(character);
+        }
+        return result.ToString();
+    }
+
+    private static void EnsureOnlyAttributes(
+        XElement element,
+        params string[] allowedNames)
+    {
+        var allowed = allowedNames.ToHashSet(StringComparer.Ordinal);
+        var unsupported = element.Attributes().FirstOrDefault(attribute =>
+            !attribute.IsNamespaceDeclaration &&
+            attribute.Name.Namespace == XNamespace.None &&
+            !allowed.Contains(attribute.Name.LocalName));
+        if (unsupported is not null)
+        {
+            throw new InvalidDataException(
+                $"Unsupported '{element.Name.LocalName}' attribute '{unsupported.Name.LocalName}'.");
+        }
+    }
+
+    private readonly record struct WildcardPattern(
+        bool HasWildcard,
+        bool HadEscape,
+        TableFilterComparisonOperator Operator,
+        string Literal);
     private static string Wildcard(CellValue value, bool leading, bool trailing) { var text = value.Kind == CellValueKind.Text ? (string)value.RawValue! : value.ToString(); text = text.Replace("~", "~~", StringComparison.Ordinal).Replace("*", "~*", StringComparison.Ordinal).Replace("?", "~?", StringComparison.Ordinal); return (leading ? "*" : "") + text + (trailing ? "*" : ""); }
     private static CellRange ParseRange(string text) { var parts = text.Split(':'); if (parts.Length is < 1 or > 2 || !CellAddress.TryParseA1(parts[0], out var first) || !CellAddress.TryParseA1(parts[^1], out var second) || first.RowIndex > second.RowIndex || first.ColumnIndex > second.ColumnIndex) throw new InvalidDataException($"'{text}' is not a valid range."); return new(first, second); }
     private static string ToRange(CellRange range) => $"{range.TopLeft.ToA1()}:{range.BottomRight.ToA1()}";

@@ -33,6 +33,11 @@ emitted through the existing compressed `FilteredRowSpan` path. Filter
 mutations, Undo and Redo invalidate only the affected Table/direct-filter range
 through the prepared dependency graph.
 
+Only aggregate criteria (Top/Bottom, Above/Below Average and icon ranking) may
+scan the bounded numeric source column. Value, custom, date-group, dynamic-date
+and color predicates compile without an aggregate scan. Concurrent compilation
+for the same snapshot/column is single-execution.
+
 Color filtering compares the effective base/row/column cell style captured by
 Core. Icon filtering uses deterministic equal numeric buckets inferred from the
 3/4/5-icon set because the current Core conditional-formatting model does not
@@ -56,7 +61,16 @@ Generated packages must remain schema-valid. When
 `PreserveUnknownParts=true`, namespace-qualified attributes, extension lists,
 unsupported producer-owned filter columns and unsupported sort markup are
 retained across repeated saves. Without preservation, unsupported standard
-criteria are rejected before workbook restoration completes.
+criteria or attributes are rejected before workbook restoration completes.
+Dynamic month tokens use the SpreadsheetML `M1`..`M12` values. Text literals
+escape `*`, `?` and `~` when exported; unsupported wildcard expressions are
+rejected instead of being silently reinterpreted.
+
+Generated filter differential styles are merged with preserved workbook `dxfs`
+through an explicit ID remap. Existing differential-style IDs remain stable, and
+worksheet/table color-filter plus color-sort references are rewritten to the
+merged output IDs so unrelated conditional formatting cannot change their
+meaning.
 
 ## Transaction and identity rules
 
@@ -66,5 +80,8 @@ Structural column insertion/deletion remaps sort offsets and drops a sort key
 only when its source column is deleted. Sparse workbook storage is not expanded
 to materialize the worksheet axis.
 
-FILTER-005 owns sort metadata and round-trip. Physical row sorting, reapply,
-native indicators and complete keyboard/focus behavior remain FILTER-007 work.
+FILTER-005 owns supported top-to-bottom sort metadata and round-trip. Excel
+left-to-right (`columnSort=1`) sort state is preservation-only until FILTER-007;
+strict import and new Core construction reject it instead of modeling a column
+offset as a row sort. Physical row sorting, reapply, native indicators and
+complete keyboard/focus behavior remain FILTER-007 work.

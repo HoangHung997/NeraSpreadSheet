@@ -139,6 +139,29 @@ public sealed class RichTableFilterTests
     }
 
     [TestMethod]
+    public void DateGroupsHonorEarlyExcel1900Serials()
+    {
+        var worksheet = new Workbook().Worksheets[0];
+        worksheet.SetValue(new CellAddress(0, 0), "Date");
+        worksheet.SetValue(new CellAddress(1, 0), 1d);
+        worksheet.SetValue(new CellAddress(2, 0), 2d);
+        worksheet.SetAutoFilter(new WorksheetAutoFilter(
+            new CellRange(new CellAddress(0, 0), new CellAddress(2, 0)),
+            [new WorksheetAutoFilterColumn(0, dateGroups: [
+                new SpreadsheetFilterDateGroup(
+                    1900,
+                    SpreadsheetFilterDateGrouping.Day,
+                    month: 1,
+                    day: 1),
+            ])]));
+
+        var snapshot = WorksheetSnapshot.Capture(worksheet);
+
+        Assert.IsTrue(snapshot.IsRowVisible(1));
+        Assert.IsFalse(snapshot.IsRowVisible(2));
+    }
+
+    [TestMethod]
     public void TopBottomAndDynamicAverageUseOneBoundedColumnScan()
     {
         var worksheet = CreateNumberWorksheet();
@@ -158,6 +181,14 @@ public sealed class RichTableFilterTests
         Assert.IsFalse(average.IsRowVisible(2));
         Assert.IsTrue(average.IsRowVisible(4));
         Assert.IsFalse(average.IsRowVisible(6));
+    }
+
+    [TestMethod]
+    public void TopBottomPercentShouldRejectValuesAboveOneHundred()
+    {
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+            new SpreadsheetTopBottomFilter(top: true, percent: true, value: 100.01d));
+        _ = new SpreadsheetTopBottomFilter(top: true, percent: false, value: 500d);
     }
 
     [TestMethod]

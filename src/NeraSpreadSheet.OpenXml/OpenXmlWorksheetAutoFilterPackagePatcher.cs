@@ -36,14 +36,20 @@ internal static class OpenXmlWorksheetAutoFilterPackagePatcher
                    generatedStream,
                    false))
         {
+            var outputWorkbookPart = preservedDocument.WorkbookPart
+                ?? throw new InvalidDataException(
+                    "The preserved package is missing its workbook part.");
+            var generatedWorkbookPart = generatedDocument.WorkbookPart
+                ?? throw new InvalidDataException(
+                    "The generated package is missing its workbook part.");
+            var differentialStyleMap =
+                OpenXmlDifferentialStyleRemapper.MergeGeneratedStyles(
+                    outputWorkbookPart,
+                    generatedWorkbookPart);
             var preservedParts = GetWorksheetParts(
-                preservedDocument.WorkbookPart
-                ?? throw new InvalidDataException(
-                    "The preserved package is missing its workbook part."));
+                outputWorkbookPart);
             var generatedParts = GetWorksheetParts(
-                generatedDocument.WorkbookPart
-                ?? throw new InvalidDataException(
-                    "The generated package is missing its workbook part."));
+                generatedWorkbookPart);
             if (preservedParts.Length != expectedWorksheetCount ||
                 generatedParts.Length != expectedWorksheetCount)
             {
@@ -56,7 +62,8 @@ internal static class OpenXmlWorksheetAutoFilterPackagePatcher
                 cancellationToken.ThrowIfCancellationRequested();
                 PatchWorksheet(
                     preservedParts[index],
-                    generatedParts[index]);
+                    generatedParts[index],
+                    differentialStyleMap);
             }
         }
 
@@ -93,7 +100,8 @@ internal static class OpenXmlWorksheetAutoFilterPackagePatcher
 
     private static void PatchWorksheet(
         WorksheetPart preservedPart,
-        WorksheetPart generatedPart)
+        WorksheetPart generatedPart,
+        IReadOnlyDictionary<uint, uint> differentialStyleMap)
     {
         var preservedDocument = LoadPartXml(preservedPart);
         var generatedDocument = LoadPartXml(generatedPart);
@@ -103,6 +111,10 @@ internal static class OpenXmlWorksheetAutoFilterPackagePatcher
         var generatedRoot = generatedDocument.Root
             ?? throw new InvalidDataException(
                 "The generated worksheet is missing its root element.");
+
+        OpenXmlDifferentialStyleRemapper.RewriteFilterReferences(
+            generatedRoot,
+            differentialStyleMap);
 
         OpenXmlWorksheetAutoFilterCodec.PatchPreservedFilter(
             preservedRoot,

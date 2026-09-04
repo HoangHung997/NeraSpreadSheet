@@ -397,6 +397,128 @@ public sealed class DesktopRibbonPresenterSmokeTests
         });
     }
 
+    [TestMethod]
+    [Timeout(120_000)]
+    public void CompactDesktopCommandsShouldKeepCaptionWhenIconIsUnavailable()
+    {
+        RunInSta(() =>
+        {
+            var registry = new CommandRegistry();
+            registry.Register(
+                new CommandDescriptor(
+                    "home.missing-icon",
+                    "Không có biểu tượng",
+                    iconKey: "missing.icon.key"),
+                new OneShotHandler(isChecked: null));
+            var definition = new RibbonDefinition(
+            [
+                new RibbonTabDefinition(
+                    "home",
+                    "Trang đầu",
+                    [
+                        new RibbonGroupDefinition(
+                            "commands",
+                            "Lệnh",
+                            [new RibbonItemDefinition("home.missing-icon")]),
+                    ]),
+            ]);
+            using var wpfRibbon = new NeraSpreadSheet.Wpf.NeraRibbonControl(
+                new RibbonRuntimeController(definition, registry))
+            {
+                Width = 70d,
+            };
+            using var winFormsRibbon = new NeraSpreadSheet.WinForms.NeraRibbonControl(
+                new RibbonRuntimeController(definition, registry));
+            winFormsRibbon.ClientSize = new System.Drawing.Size(
+                (int)Math.Ceiling(70d * winFormsRibbon.DeviceDpi / 96d),
+                120);
+
+            wpfRibbon.Measure(new System.Windows.Size(70d, 120d));
+            wpfRibbon.Arrange(new System.Windows.Rect(0d, 0d, 70d, 120d));
+            wpfRibbon.UpdateLayout();
+            wpfRibbon.Rebuild();
+            winFormsRibbon.Rebuild();
+
+            Assert.AreEqual(
+                RibbonItemSize.Compact,
+                wpfRibbon.LayoutSnapshot.Tabs[0].Groups[0].Items[0].Size);
+            var wpfTabs = (System.Windows.Controls.TabControl)wpfRibbon.Content;
+            var wpfTab = (System.Windows.Controls.TabItem)wpfTabs.Items[0];
+            var wpfGroups = (System.Windows.Controls.StackPanel)wpfTab.Content;
+            var wpfGroup = (System.Windows.Controls.GroupBox)wpfGroups.Children[0];
+            var wpfItems = (System.Windows.Controls.StackPanel)wpfGroup.Content;
+            var wpfButton = (WpfButtonBase)wpfItems.Children[0];
+            var wpfContent = (System.Windows.Controls.StackPanel)wpfButton.Content;
+            Assert.AreEqual(
+                "Không có biểu tượng",
+                wpfContent.Children.OfType<System.Windows.Controls.TextBlock>()
+                    .Single().Text);
+            var winFormsButton = FindWinFormsDescendants<WinFormsButtonBase>(
+                    winFormsRibbon)
+                .Single(control => control.Tag is CommandId);
+            Assert.AreEqual(
+                RibbonItemSize.Compact,
+                winFormsRibbon.LayoutSnapshot.Tabs[0].Groups[0].Items[0].Size);
+            Assert.AreEqual("Không có biểu tượng", winFormsButton.Text);
+            Assert.IsNull(winFormsButton.Image);
+        });
+    }
+
+    [TestMethod]
+    [Timeout(120_000)]
+    public void DesktopRibbonRebuildShouldPreserveSelectedTabIdentity()
+    {
+        RunInSta(() =>
+        {
+            var registry = new CommandRegistry();
+            registry.Register(
+                new CommandDescriptor("home.command", "Trang đầu"),
+                new OneShotHandler(isChecked: null));
+            registry.Register(
+                new CommandDescriptor("insert.command", "Chèn"),
+                new OneShotHandler(isChecked: null));
+            var definition = new RibbonDefinition(
+            [
+                new RibbonTabDefinition("home", "Trang đầu", [
+                    new RibbonGroupDefinition("home.group", "Trang đầu", [
+                        new RibbonItemDefinition("home.command"),
+                    ]),
+                ]),
+                new RibbonTabDefinition("insert", "Chèn", [
+                    new RibbonGroupDefinition("insert.group", "Chèn", [
+                        new RibbonItemDefinition("insert.command"),
+                    ]),
+                ]),
+            ]);
+            using var wpfRibbon = new NeraSpreadSheet.Wpf.NeraRibbonControl(
+                new RibbonRuntimeController(definition, registry));
+            using var winFormsRibbon = new NeraSpreadSheet.WinForms.NeraRibbonControl(
+                new RibbonRuntimeController(definition, registry));
+            wpfRibbon.Measure(new System.Windows.Size(400d, 120d));
+            wpfRibbon.Arrange(new System.Windows.Rect(0d, 0d, 400d, 120d));
+            wpfRibbon.UpdateLayout();
+            wpfRibbon.Rebuild();
+            winFormsRibbon.ClientSize = new System.Drawing.Size(400, 120);
+            winFormsRibbon.Rebuild();
+            var wpfTabs = FindWpfDescendants<System.Windows.Controls.TabControl>(
+                    wpfRibbon)
+                .Single();
+            var winFormsTabs = FindWinFormsDescendants<System.Windows.Forms.TabControl>(
+                    winFormsRibbon)
+                .Single();
+            wpfTabs.SelectedIndex = 1;
+            winFormsTabs.SelectedIndex = 1;
+
+            wpfRibbon.Rebuild();
+            winFormsRibbon.Rebuild();
+
+            Assert.AreEqual(
+                "insert",
+                ((System.Windows.Controls.TabItem)wpfTabs.SelectedItem).Tag);
+            Assert.AreEqual("insert", winFormsTabs.SelectedTab!.Tag);
+        });
+    }
+
     private static RibbonDefinition CreateRibbonDefinition() =>
         new(
         [

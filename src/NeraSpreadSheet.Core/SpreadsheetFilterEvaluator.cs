@@ -19,7 +19,7 @@ internal static class SpreadsheetFilterDate
                 var serial = (double)value.RawValue!;
                 date = dateSystem == ExcelDateSystem.Date1904
                     ? new DateTime(1904, 1, 1).AddDays(serial)
-                    : DateTime.FromOADate(serial);
+                    : DateTime.FromOADate(serial < 60d ? serial + 1d : serial);
                 return true;
             }
             catch (ArgumentException)
@@ -44,7 +44,13 @@ internal static class SpreadsheetFilterEvaluator
     {
         ArgumentNullException.ThrowIfNull(worksheet);
         ArgumentNullException.ThrowIfNull(filter);
-        var numeric = EnumerateNumeric(worksheet, dataRange, worksheetColumnIndex).ToArray();
+        var requiresNumericAggregate = filter.TopBottom is not null ||
+            filter.IconFilter is not null ||
+            filter.DynamicFilter?.Type is SpreadsheetDynamicFilterType.AboveAverage or
+                SpreadsheetDynamicFilterType.BelowAverage;
+        var numeric = requiresNumericAggregate
+            ? EnumerateNumeric(worksheet, dataRange, worksheetColumnIndex).ToArray()
+            : [];
         double? threshold = null;
         if (filter.TopBottom is { } topBottom && numeric.Length > 0)
         {
@@ -60,8 +66,12 @@ internal static class SpreadsheetFilterEvaluator
             SpreadsheetDynamicFilterType.AboveAverage or SpreadsheetDynamicFilterType.BelowAverage && numeric.Length > 0
                 ? numeric.Average()
                 : (double?)null;
-        var minimum = numeric.Length > 0 ? numeric.Min() : (double?)null;
-        var maximum = numeric.Length > 0 ? numeric.Max() : (double?)null;
+        var minimum = filter.IconFilter is not null && numeric.Length > 0
+            ? numeric.Min()
+            : (double?)null;
+        var maximum = filter.IconFilter is not null && numeric.Length > 0
+            ? numeric.Max()
+            : (double?)null;
 
         return rowIndex =>
         {

@@ -312,7 +312,10 @@ internal static class SpreadsheetFilterPredicate
                 {
                     date = dateSystem == ExcelDateSystem.Date1904
                         ? new DateTime(1904, 1, 1).AddDays((double)value.RawValue!)
-                        : DateTime.FromOADate((double)value.RawValue!);
+                        : DateTime.FromOADate(
+                            (double)value.RawValue! < 60d
+                                ? (double)value.RawValue! + 1d
+                                : (double)value.RawValue!);
                     return true;
                 }
                 catch (ArgumentException)
