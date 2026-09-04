@@ -15,8 +15,8 @@ Task owners write their own `docs/worklog/<CHECKPOINT>.md` handoff.
 
 | Order | Checkpoint | Lane | State | Owner | Branch | Dependency | Planned window |
 | ---: | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `RIBBON-007` | A | `READY` | Unclaimed | `feature/ribbon-007-responsive-layout` | baseline | 07–09/09 |
-| 2 | `FILTER-005` | B | `READY` | Unclaimed | `feature/filter-005-rich-semantics` | baseline | 07–11/09 |
+| 1 | `RIBBON-007` | A | `ACTIVE` | Codex task `RIBBON-007 Responsive Ribbon` | `feature/ribbon-007-responsive-layout` | baseline | started early 04/09; cap 09/09 |
+| 2 | `FILTER-005` | B | `ACTIVE` | Codex task `FILTER-005 Rich Filter Semantics` | `feature/filter-005-rich-semantics` | baseline | started early 04/09; cap 11/09 |
 | 3 | `RIBBON-008` | A | `BACKLOG` | Unclaimed | `feature/ribbon-008-item-model` | `RIBBON-007` | 10–16/09 |
 | 4 | `FILTER-006` | B | `BACKLOG` | Unclaimed | `feature/filter-006-native-ux` | `FILTER-005`; integration waits for `RIBBON-008` | 14–18/09 |
 | 5 | `RIBBON-009` | A | `BACKLOG` | Unclaimed | `feature/ribbon-009-contextual-qat` | `RIBBON-008` | 17–22/09 |
@@ -57,3 +57,10 @@ waits.
 
 Append one row only after exact-head CI completes. Never mark a checkpoint
 `DONE` using a green run from a parent commit.
+
+## Acceleration record
+
+- 04/09/2026: both first checkpoints were started from exact integration SHA
+  `21d496cad0d54506b0015d62e4ae80de57c34e6a`, three days before the calendar
+  start. A successor starts immediately after its predecessor is integrated and
+  green; calendar dates are not idle-time barriers.

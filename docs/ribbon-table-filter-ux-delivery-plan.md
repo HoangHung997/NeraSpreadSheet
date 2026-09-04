@@ -90,6 +90,10 @@ Lịch tính theo ngày làm việc từ 07/09/2026, không tính thứ Bảy v�
 Ngày kết thúc là mục tiêu kỹ thuật, có thể dịch chuyển nếu phát hiện sai khác
 OpenXML hoặc runtime blocker mới.
 
+Để rút ngắn thời gian, hai checkpoint đầu được khởi động sớm từ 04/09/2026.
+Các mốc trong bảng là trần kế hoạch; checkpoint kế tiếp được mở ngay khi
+dependency và exact-head gate của nó xanh, không chờ đến ngày ghi trong lịch.
+
 ### Lane A — Ribbon
 
 | Mã | Thời gian | Số ngày | Kết quả bắt buộc |

@@ -101,10 +101,11 @@
   `docs/ribbon-table-filter-ux-delivery-plan.md` and
   `docs/worklog/RIBBON_TABLE_FILTER_UX.md`. With two independent lanes the
   target release-candidate date is 28/10/2026; the one-lane fallback target is
-  20/11/2026. Schedule commit
+  20/11/2026. `RIBBON-007` and `FILTER-005` started early on 04/09/2026 in
+  isolated worktrees from exact integration SHA
+  `21d496cad0d54506b0015d62e4ae80de57c34e6a`. Schedule commit
   `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` passed full CI #1303, iOS #124
-  and Q003C/OpenXML #121. `RIBBON-007` and `FILTER-005` are the first `READY`
-  tasks.
+  and Q003C/OpenXML #121.
 - PR remains Draft; do not merge or mark Ready.
 
 ## Q003B/Q003C/Q003D checkpoint
@@ -276,9 +277,9 @@ For `RIBBON-ICONOGRAPHY-006` local validation:
 
 ## Next step
 
-Claim `RIBBON-007` on an isolated feature branch from the latest integration
-HEAD, then implement the host-neutral responsive Ribbon measurement/collapse
-snapshot before changing WPF, WinForms or MAUI presenters.
+Monitor the active `RIBBON-007` and `FILTER-005` task branches independently;
+integrate the first completed implementation only after its focused gates pass,
+then immediately open its successor without waiting for the planned date.
 
 ## Remaining limits
 

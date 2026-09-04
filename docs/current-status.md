@@ -13,8 +13,10 @@ and a single-writer coordination board in
 The plan starts from exact-head green baseline
 `34a81c5d45c2b28397c1688ae665cce0d0e8dfe7`, targets a Windows 11 x64 demo and
 NuGet release candidate on **28 October 2026** with two independent lanes, and
-documents the sequential fallback through **20 November 2026**. The first
-ready checkpoints are `RIBBON-007` and `FILTER-005`. Schedule checkpoint
+documents the sequential fallback through **20 November 2026**. `RIBBON-007`
+and `FILTER-005` were started early in isolated worktrees on 04 September 2026;
+successors start immediately after dependency gates rather than waiting for the
+calendar date. Schedule checkpoint
 `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` passed full CI #1303, iOS gate
 #124 and Q003C/OpenXML gate #121.
 
