@@ -5,10 +5,10 @@
   `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
 - Latest verified implementation checkpoint:
-  `3a4b8e885b204d99354216a29dd9ead759672c8c`.
-- Verified implementation CI through `EXCEL-BASIC-NAV-002`: full run
-  `33836662403` / #1292 — success; iOS gate `33836662383` / #113 — success;
-  Q003C/OpenXML gate `33836662385` / #110 — success.
+  `45fae777c58a4a83bb65716c3dc3aecf71c5dd83`.
+- Verified implementation CI through `EXCEL-BASIC-NAV-003`: full run
+  `33841803159` / #1294 — success; iOS gate `33841803144` / #115 — success;
+  Q003C/OpenXML gate `33841803148` / #112 — success.
 - Formula implementation: **DONE**, **546/546** locked catalog names; current formula suite **522/522**.
 - Q001, Q002, Q003A, Q003B: **DONE**.
 - Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
@@ -51,14 +51,15 @@
   58/58, loaded desktop smoke 2/2, Core 1243/1243, build/analyzers and
   architecture verification pass locally. Full CI #1292, iOS gate #113 and
   Q003C/OpenXML gate #110 passed at the implementation checkpoint.
-- `EXCEL-BASIC-NAV-003`: **IMPLEMENTED LOCALLY; EXACT-HEAD CI PENDING**. The
+- `EXCEL-BASIC-NAV-003`: **DONE FOR DEFINED SCOPE**. The
   reusable adaptive extent now keeps at least one viewport plus a configurable
   default tail of 100 rows and 20 columns. Manual scrollbar movement preserves
   selection and the current viewport without compounded extent growth;
   keyboard navigation still moves selection and scrolls it into view. Viewport
   59/59, focused loaded desktop smoke 2/2, Core 1244/1244, build/analyzers and
   architecture verification pass locally. The external Win11 demo build and
-  internal smoke pass with the lighter demo-only chrome.
+  packaged smoke pass with the lighter demo-only chrome. Full CI #1294, iOS
+  gate #115 and Q003C/OpenXML gate #112 passed at the implementation checkpoint.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
 

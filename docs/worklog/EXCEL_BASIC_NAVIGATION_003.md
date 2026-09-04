@@ -26,8 +26,12 @@
 
 - Viewport: 59/59 passed.
 - Focused loaded WPF/WinForms adaptive navigation smoke: 2/2 passed.
-- Full build, architecture verification, demo packaging and exact-head GitHub
-  Actions evidence are recorded in `CURRENT.md` at handoff.
+- Core solution: 1244/1244 passed; build/analyzers 0 warnings, 0 errors.
+- Architecture verification: passed.
+- External demo build, internal smoke, self-contained publish and packaged EXE
+  smoke: passed.
+- Implementation checkpoint `45fae777c58a4a83bb65716c3dc3aecf71c5dd83`:
+  full CI #1294, iOS gate #115 and Q003C/OpenXML gate #112 all passed.
 
 ## Boundaries
 
@@ -36,3 +40,8 @@
 - MAUI does not yet expose this desktop host opt-in.
 - Final scrollbar thumb geometry remains a host responsibility because it
   depends on the actual body viewport and surrounding application chrome.
+
+## Status
+
+Implementation complete and exact-head validated at
+`45fae777c58a4a83bb65716c3dc3aecf71c5dd83`.
