@@ -44,6 +44,7 @@ internal sealed class SmokePage : ContentPage
                     "view.gridlines",
                     "Đường lưới",
                     tooltip: "Bật tắt đường lưới",
+                    iconKey: "view.gridlines",
                     shortcut: "Ctrl+G"),
                 gridlines);
             registry.Register(
@@ -51,6 +52,7 @@ internal sealed class SmokePage : ContentPage
                     "file.save",
                     "Lưu",
                     tooltip: "Lưu sổ tính",
+                    iconKey: "file.save",
                     shortcut: "Ctrl+S"),
                 save);
 
@@ -86,6 +88,10 @@ internal sealed class SmokePage : ContentPage
                 "The MAUI Ribbon did not render the expected command.");
             Require(bar.CommandButtons.Count == 1,
                 "The MAUI Bar did not render the expected command.");
+            Require(ribbon.CommandButtons[0].ImageSource is not null,
+                "The MAUI Ribbon did not resolve its default command icon.");
+            Require(bar.CommandButtons[0].ImageSource is not null,
+                "The MAUI Bar did not resolve its default command icon.");
 
             Require(await ribbon.TryActivateCommandAsync("view.gridlines"),
                 "The MAUI Ribbon command did not activate through runtime.");

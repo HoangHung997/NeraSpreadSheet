@@ -174,10 +174,10 @@ public static class SpreadsheetSortCommandCatalog
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(sort);
         registry.Register(
-            new CommandDescriptor(SpreadsheetSortCommandIds.SortAscending, "Sort ascending"),
+            new CommandDescriptor(SpreadsheetSortCommandIds.SortAscending, "Sort ascending", iconKey: "data.sort-ascending"),
             new SortCommandHandler(sort, ascending: true));
         registry.Register(
-            new CommandDescriptor(SpreadsheetSortCommandIds.SortDescending, "Sort descending"),
+            new CommandDescriptor(SpreadsheetSortCommandIds.SortDescending, "Sort descending", iconKey: "data.sort-descending"),
             new SortCommandHandler(sort, ascending: false));
     }
 

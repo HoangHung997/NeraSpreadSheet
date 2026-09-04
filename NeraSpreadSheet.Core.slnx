@@ -5,6 +5,7 @@
   <Project Path="src/NeraSpreadSheet.Layout/NeraSpreadSheet.Layout.csproj" />
   <Project Path="src/NeraSpreadSheet.Scrolling/NeraSpreadSheet.Scrolling.csproj" />
   <Project Path="src/NeraSpreadSheet.Commands/NeraSpreadSheet.Commands.csproj" />
+  <Project Path="src/NeraSpreadSheet.Iconography/NeraSpreadSheet.Iconography.csproj" />
   <Project Path="src/NeraSpreadSheet.Interaction/NeraSpreadSheet.Interaction.csproj" />
   <Project Path="src/NeraSpreadSheet.Editing/NeraSpreadSheet.Editing.csproj" />
   <Project Path="src/NeraSpreadSheet.Ribbon.Core/NeraSpreadSheet.Ribbon.Core.csproj" />
@@ -22,6 +23,7 @@
   <Project Path="tests/NeraSpreadSheet.Layout.Tests/NeraSpreadSheet.Layout.Tests.csproj" />
   <Project Path="tests/NeraSpreadSheet.Scrolling.Tests/NeraSpreadSheet.Scrolling.Tests.csproj" />
   <Project Path="tests/NeraSpreadSheet.Commands.Tests/NeraSpreadSheet.Commands.Tests.csproj" />
+  <Project Path="tests/NeraSpreadSheet.Iconography.Tests/NeraSpreadSheet.Iconography.Tests.csproj" />
   <Project Path="tests/NeraSpreadSheet.Interaction.Tests/NeraSpreadSheet.Interaction.Tests.csproj" />
   <Project Path="tests/NeraSpreadSheet.Editing.Tests/NeraSpreadSheet.Editing.Tests.csproj" />
   <Project Path="tests/NeraSpreadSheet.Rendering.Spreadsheet.Tests/NeraSpreadSheet.Rendering.Spreadsheet.Tests.csproj" />

@@ -40,7 +40,7 @@ public static class SpreadsheetStructureCommandCatalog
         ArgumentNullException.ThrowIfNull(visibility);
 
         registry.Register(
-            new CommandDescriptor(SpreadsheetStructureCommandIds.InsertRows, "Insert rows"),
+            new CommandDescriptor(SpreadsheetStructureCommandIds.InsertRows, "Insert rows", iconKey: "row.insert"),
             new StructureCommandHandler(
                 () => GetAxisState(session, WorksheetAxis.Row),
                 () =>
@@ -49,7 +49,7 @@ public static class SpreadsheetStructureCommandCatalog
                     structure.InsertRows(operation.Index, operation.Count);
                 }));
         registry.Register(
-            new CommandDescriptor(SpreadsheetStructureCommandIds.DeleteRows, "Delete rows"),
+            new CommandDescriptor(SpreadsheetStructureCommandIds.DeleteRows, "Delete rows", iconKey: "row.delete"),
             new StructureCommandHandler(
                 () => GetAxisState(session, WorksheetAxis.Row),
                 () =>
@@ -58,7 +58,7 @@ public static class SpreadsheetStructureCommandCatalog
                     structure.DeleteRows(operation.Index, operation.Count);
                 }));
         registry.Register(
-            new CommandDescriptor(SpreadsheetStructureCommandIds.InsertColumns, "Insert columns"),
+            new CommandDescriptor(SpreadsheetStructureCommandIds.InsertColumns, "Insert columns", iconKey: "column.insert"),
             new StructureCommandHandler(
                 () => GetAxisState(session, WorksheetAxis.Column),
                 () =>
@@ -67,7 +67,7 @@ public static class SpreadsheetStructureCommandCatalog
                     structure.InsertColumns(operation.Index, operation.Count);
                 }));
         registry.Register(
-            new CommandDescriptor(SpreadsheetStructureCommandIds.DeleteColumns, "Delete columns"),
+            new CommandDescriptor(SpreadsheetStructureCommandIds.DeleteColumns, "Delete columns", iconKey: "column.delete"),
             new StructureCommandHandler(
                 () => GetAxisState(session, WorksheetAxis.Column),
                 () =>
@@ -76,7 +76,7 @@ public static class SpreadsheetStructureCommandCatalog
                     structure.DeleteColumns(operation.Index, operation.Count);
                 }));
         registry.Register(
-            new CommandDescriptor(SpreadsheetStructureCommandIds.HideRows, "Ẩn hàng"),
+            new CommandDescriptor(SpreadsheetStructureCommandIds.HideRows, "Ẩn hàng", iconKey: "row.hide"),
             new StructureCommandHandler(
                 () => GetAxisState(session, WorksheetAxis.Row),
                 () =>
@@ -85,7 +85,7 @@ public static class SpreadsheetStructureCommandCatalog
                     visibility.HideRows(operation.Index, operation.Count);
                 }));
         registry.Register(
-            new CommandDescriptor(SpreadsheetStructureCommandIds.UnhideRows, "Hiện hàng"),
+            new CommandDescriptor(SpreadsheetStructureCommandIds.UnhideRows, "Hiện hàng", iconKey: "row.unhide"),
             new StructureCommandHandler(
                 () => GetUnhideState(session, WorksheetAxis.Row),
                 () =>
@@ -94,7 +94,7 @@ public static class SpreadsheetStructureCommandCatalog
                     visibility.UnhideRows(operation.Index, operation.Count);
                 }));
         registry.Register(
-            new CommandDescriptor(SpreadsheetStructureCommandIds.HideColumns, "Ẩn cột"),
+            new CommandDescriptor(SpreadsheetStructureCommandIds.HideColumns, "Ẩn cột", iconKey: "column.hide"),
             new StructureCommandHandler(
                 () => GetAxisState(session, WorksheetAxis.Column),
                 () =>
@@ -103,7 +103,7 @@ public static class SpreadsheetStructureCommandCatalog
                     visibility.HideColumns(operation.Index, operation.Count);
                 }));
         registry.Register(
-            new CommandDescriptor(SpreadsheetStructureCommandIds.UnhideColumns, "Hiện cột"),
+            new CommandDescriptor(SpreadsheetStructureCommandIds.UnhideColumns, "Hiện cột", iconKey: "column.unhide"),
             new StructureCommandHandler(
                 () => GetUnhideState(session, WorksheetAxis.Column),
                 () =>

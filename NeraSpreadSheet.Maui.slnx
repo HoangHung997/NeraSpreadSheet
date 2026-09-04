@@ -5,6 +5,7 @@
   <Project Path="src/NeraSpreadSheet.Layout/NeraSpreadSheet.Layout.csproj" />
   <Project Path="src/NeraSpreadSheet.Scrolling/NeraSpreadSheet.Scrolling.csproj" />
   <Project Path="src/NeraSpreadSheet.Commands/NeraSpreadSheet.Commands.csproj" />
+  <Project Path="src/NeraSpreadSheet.Iconography/NeraSpreadSheet.Iconography.csproj" />
   <Project Path="src/NeraSpreadSheet.Ribbon.Core/NeraSpreadSheet.Ribbon.Core.csproj" />
   <Project Path="src/NeraSpreadSheet.Bars.Core/NeraSpreadSheet.Bars.Core.csproj" />
   <Project Path="src/NeraSpreadSheet.DataGrid.Core/NeraSpreadSheet.DataGrid.Core.csproj" />

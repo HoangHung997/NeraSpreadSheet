@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Iconography;
 using NeraSpreadSheet.Ribbon.Core;
 
 namespace NeraSpreadSheet.WinForms;
@@ -15,6 +16,9 @@ public sealed class NeraRibbonControl : UserControl
     private readonly TabControl _tabs = new() { Dock = DockStyle.Fill };
     private readonly ToolTip _toolTip = new();
     private readonly List<IDisposable> _shortcutBindings = [];
+    private Func<string, Image?>? _iconResolver;
+    private Func<NeraIconRequest, Image?>? _iconRequestResolver;
+    private NeraIconTheme _iconTheme = NeraIconTheme.Light;
     private bool _disposed;
 
     public NeraRibbonControl(RibbonRuntimeController runtime)
@@ -29,7 +33,50 @@ public sealed class NeraRibbonControl : UserControl
 
     [Browsable(false)]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-    public Func<string, Image?>? IconResolver { get; set; }
+    public Func<string, Image?>? IconResolver
+    {
+        get => _iconResolver;
+        set
+        {
+            if (ReferenceEquals(_iconResolver, value))
+            {
+                return;
+            }
+            _iconResolver = value;
+            RebuildIfAlive();
+        }
+    }
+
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Func<NeraIconRequest, Image?>? IconRequestResolver
+    {
+        get => _iconRequestResolver;
+        set
+        {
+            if (ReferenceEquals(_iconRequestResolver, value))
+            {
+                return;
+            }
+            _iconRequestResolver = value;
+            RebuildIfAlive();
+        }
+    }
+
+    [DefaultValue(NeraIconTheme.Light)]
+    public NeraIconTheme IconTheme
+    {
+        get => _iconTheme;
+        set
+        {
+            if (_iconTheme == value)
+            {
+                return;
+            }
+            _iconTheme = value;
+            RebuildIfAlive();
+        }
+    }
 
     [Browsable(false)]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -141,10 +188,12 @@ public sealed class NeraRibbonControl : UserControl
         button.AccessibleName = command.Caption;
         button.AccessibleDescription = command.Tooltip;
         if (command.IconKey is { Length: > 0 } iconKey &&
-            IconResolver?.Invoke(iconKey) is Image image)
+            ResolveIcon(iconKey, item.IsLarge ? 32 : 16) is Image image)
         {
             button.Image = image;
-            button.TextImageRelation = TextImageRelation.ImageAboveText;
+            button.TextImageRelation = item.IsLarge
+                ? TextImageRelation.ImageAboveText
+                : TextImageRelation.ImageBeforeText;
         }
         if (!string.IsNullOrWhiteSpace(command.Tooltip) ||
             !string.IsNullOrWhiteSpace(command.Shortcut))
@@ -158,6 +207,26 @@ public sealed class NeraRibbonControl : UserControl
         }
         button.Click += OnCommandClick;
         return button;
+    }
+
+    private Image? ResolveIcon(string iconKey, int pixelSize)
+    {
+        var legacy = IconResolver?.Invoke(iconKey);
+        if (legacy is not null)
+        {
+            return legacy;
+        }
+
+        var request = new NeraIconRequest(iconKey, pixelSize, IconTheme);
+        return IconRequestResolver?.Invoke(request) ?? NeraWinFormsIconProvider.Resolve(request);
+    }
+
+    private void RebuildIfAlive()
+    {
+        if (!_disposed && !IsDisposed)
+        {
+            Rebuild();
+        }
     }
 
     private async void OnCommandClick(object? sender, EventArgs e)

@@ -254,6 +254,7 @@ public static class SpreadsheetFormattingCommandCatalog
             new CommandDescriptor(
                 SpreadsheetFormattingCommandIds.Bold,
                 "Bold",
+                iconKey: "font.bold",
                 shortcut: "Ctrl+B"),
             new StyleCommandHandler(
                 () => new CommandState(
@@ -264,6 +265,7 @@ public static class SpreadsheetFormattingCommandCatalog
             new CommandDescriptor(
                 SpreadsheetFormattingCommandIds.Italic,
                 "Italic",
+                iconKey: "font.italic",
                 shortcut: "Ctrl+I"),
             new StyleCommandHandler(
                 () => new CommandState(

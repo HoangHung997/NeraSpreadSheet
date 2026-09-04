@@ -17,19 +17,19 @@ public static class SpreadsheetClipboardCommandCatalog
         ArgumentNullException.ThrowIfNull(clipboard);
 
         registry.Register(
-            new CommandDescriptor(SpreadsheetClipboardCommandIds.Copy, "Copy", shortcut: "Ctrl+C"),
+            new CommandDescriptor(SpreadsheetClipboardCommandIds.Copy, "Copy", iconKey: "edit.copy", shortcut: "Ctrl+C"),
             new ClipboardCommandHandler(
                 () => CommandState.Enabled,
                 () => { clipboard.CopyPrimarySelection(); return true; }));
 
         registry.Register(
-            new CommandDescriptor(SpreadsheetClipboardCommandIds.Cut, "Cut", shortcut: "Ctrl+X"),
+            new CommandDescriptor(SpreadsheetClipboardCommandIds.Cut, "Cut", iconKey: "edit.cut", shortcut: "Ctrl+X"),
             new ClipboardCommandHandler(
                 () => CommandState.Enabled,
                 clipboard.CutPrimarySelection));
 
         registry.Register(
-            new CommandDescriptor(SpreadsheetClipboardCommandIds.Paste, "Paste", shortcut: "Ctrl+V"),
+            new CommandDescriptor(SpreadsheetClipboardCommandIds.Paste, "Paste", iconKey: "edit.paste", shortcut: "Ctrl+V"),
             new ClipboardCommandHandler(
                 () => new CommandState(clipboard.CanPaste),
                 clipboard.PasteAtActiveCell));

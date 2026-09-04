@@ -5,6 +5,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using NeraSpreadSheet.Bars.Core;
 using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Iconography;
 
 namespace NeraSpreadSheet.Wpf;
 
@@ -15,6 +16,9 @@ public sealed class NeraBarPresenter : IDisposable
 {
     private readonly BarRuntimeController _runtime;
     private readonly List<IDisposable> _shortcutBindings = [];
+    private Func<string, ImageSource?>? _iconResolver;
+    private Func<NeraIconRequest, ImageSource?>? _iconRequestResolver;
+    private NeraIconTheme _iconTheme = NeraIconTheme.Light;
     private bool _disposed;
 
     public NeraBarPresenter(BarRuntimeController runtime)
@@ -29,7 +33,53 @@ public sealed class NeraBarPresenter : IDisposable
 
     public Func<CommandId, CommandContext>? CommandContextFactory { get; set; }
 
-    public Func<string, ImageSource?>? IconResolver { get; set; }
+    public Func<string, ImageSource?>? IconResolver
+    {
+        get => _iconResolver;
+        set
+        {
+            if (ReferenceEquals(_iconResolver, value))
+            {
+                return;
+            }
+            _iconResolver = value;
+            RebuildIfAlive();
+        }
+    }
+
+    /// <summary>
+    /// Resolves an icon with its requested size and theme. The legacy resolver takes precedence.
+    /// </summary>
+    public Func<NeraIconRequest, ImageSource?>? IconRequestResolver
+    {
+        get => _iconRequestResolver;
+        set
+        {
+            if (ReferenceEquals(_iconRequestResolver, value))
+            {
+                return;
+            }
+            _iconRequestResolver = value;
+            RebuildIfAlive();
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the theme used by the built-in icon provider.
+    /// </summary>
+    public NeraIconTheme IconTheme
+    {
+        get => _iconTheme;
+        set
+        {
+            if (_iconTheme == value)
+            {
+                return;
+            }
+            _iconTheme = value;
+            RebuildIfAlive();
+        }
+    }
 
     public event EventHandler<NeraWpfCommandActivationFailedEventArgs>? CommandActivationFailed;
 
@@ -206,7 +256,7 @@ public sealed class NeraBarPresenter : IDisposable
     private Image? CreateIcon(CommandPresentation command)
     {
         if (command.IconKey is not { Length: > 0 } iconKey ||
-            IconResolver?.Invoke(iconKey) is not ImageSource source)
+            ResolveIcon(iconKey) is not ImageSource source)
         {
             return null;
         }
@@ -217,6 +267,26 @@ public sealed class NeraBarPresenter : IDisposable
             Height = 16d,
             Stretch = Stretch.Uniform,
         };
+    }
+
+    private ImageSource? ResolveIcon(string iconKey)
+    {
+        var legacy = IconResolver?.Invoke(iconKey);
+        if (legacy is not null)
+        {
+            return legacy;
+        }
+
+        var request = new NeraIconRequest(iconKey, 16, IconTheme);
+        return IconRequestResolver?.Invoke(request) ?? NeraWpfIconProvider.Resolve(request);
+    }
+
+    private void RebuildIfAlive()
+    {
+        if (!_disposed)
+        {
+            Rebuild();
+        }
     }
 
     private StackPanel CreateToolbarContent(CommandPresentation command)

@@ -563,30 +563,35 @@ public static class SpreadsheetAnalyticsCommandCatalog
             controller,
             SpreadsheetAnalyticsCommandIds.InsertColumnChart,
             "Insert column chart",
+            "insert.chart.column",
             SpreadsheetChartType.Column);
         RegisterChart(
             registry,
             controller,
             SpreadsheetAnalyticsCommandIds.InsertBarChart,
             "Insert bar chart",
+            "insert.chart.bar",
             SpreadsheetChartType.Bar);
         RegisterChart(
             registry,
             controller,
             SpreadsheetAnalyticsCommandIds.InsertLineChart,
             "Insert line chart",
+            "insert.chart.line",
             SpreadsheetChartType.Line);
         RegisterChart(
             registry,
             controller,
             SpreadsheetAnalyticsCommandIds.InsertPieChart,
             "Insert pie chart",
+            "insert.chart.pie",
             SpreadsheetChartType.Pie);
 
         registry.Register(
             new CommandDescriptor(
                 SpreadsheetAnalyticsCommandIds.InsertSumPivot,
-                "Insert pivot summary"),
+                "Insert pivot summary",
+                iconKey: "insert.pivot"),
             new AnalyticsCommandHandler(
                 () => controller.CanInsertPivotFromSelection,
                 () => controller.InsertPivotFromSelection()));
@@ -597,10 +602,11 @@ public static class SpreadsheetAnalyticsCommandCatalog
         SpreadsheetAnalyticsController controller,
         CommandId commandId,
         string label,
+        string iconKey,
         SpreadsheetChartType chartType)
     {
         registry.Register(
-            new CommandDescriptor(commandId, label),
+            new CommandDescriptor(commandId, label, iconKey: iconKey),
             new AnalyticsCommandHandler(
                 () => controller.CanInsertChartFromSelection,
                 () => controller.InsertChartFromSelection(chartType)));

@@ -1,5 +1,6 @@
 using Microsoft.Maui.Controls;
 using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Iconography;
 using NeraSpreadSheet.Ribbon.Core;
 
 namespace NeraSpreadSheet.Maui;
@@ -15,6 +16,9 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     private readonly HorizontalStackLayout _groups = new() { Spacing = 8d };
     private readonly List<Button> _commandButtons = [];
     private readonly List<IDisposable> _shortcutBindings = [];
+    private Func<string, ImageSource?>? _iconResolver;
+    private Func<NeraIconRequest, ImageSource?>? _iconRequestResolver;
+    private NeraIconTheme _iconTheme = NeraIconTheme.Light;
     private int _selectedIndex;
     private bool _disposed;
 
@@ -40,7 +44,53 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         Rebuild();
     }
 
-    public Func<string, ImageSource?>? IconResolver { get; set; }
+    public Func<string, ImageSource?>? IconResolver
+    {
+        get => _iconResolver;
+        set
+        {
+            if (ReferenceEquals(_iconResolver, value))
+            {
+                return;
+            }
+            _iconResolver = value;
+            RebuildIfAlive();
+        }
+    }
+
+    /// <summary>
+    /// Resolves an icon with its requested size and theme. The legacy resolver takes precedence.
+    /// </summary>
+    public Func<NeraIconRequest, ImageSource?>? IconRequestResolver
+    {
+        get => _iconRequestResolver;
+        set
+        {
+            if (ReferenceEquals(_iconRequestResolver, value))
+            {
+                return;
+            }
+            _iconRequestResolver = value;
+            RebuildIfAlive();
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the theme used by the built-in icon provider.
+    /// </summary>
+    public NeraIconTheme IconTheme
+    {
+        get => _iconTheme;
+        set
+        {
+            if (_iconTheme == value)
+            {
+                return;
+            }
+            _iconTheme = value;
+            RebuildIfAlive();
+        }
+    }
 
     public Func<CommandId, CommandContext>? CommandContextFactory { get; set; }
 
@@ -166,7 +216,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             MinimumHeightRequest = item.IsLarge ? 56d : 36d,
         };
         if (command.IconKey is { Length: > 0 } iconKey &&
-            IconResolver?.Invoke(iconKey) is ImageSource source)
+            ResolveIcon(iconKey, item.IsLarge ? 32 : 16) is ImageSource source)
         {
             button.ImageSource = source;
             button.ContentLayout = item.IsLarge
@@ -181,6 +231,26 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         button.Clicked += OnCommandClicked;
         _commandButtons.Add(button);
         return button;
+    }
+
+    private ImageSource? ResolveIcon(string iconKey, int pixelSize)
+    {
+        var legacy = IconResolver?.Invoke(iconKey);
+        if (legacy is not null)
+        {
+            return legacy;
+        }
+
+        var request = new NeraIconRequest(iconKey, pixelSize, IconTheme);
+        return IconRequestResolver?.Invoke(request) ?? NeraMauiIconProvider.Resolve(request);
+    }
+
+    private void RebuildIfAlive()
+    {
+        if (!_disposed)
+        {
+            DispatchOrRun(Rebuild);
+        }
     }
 
     private void OnTabClicked(object? sender, EventArgs e)

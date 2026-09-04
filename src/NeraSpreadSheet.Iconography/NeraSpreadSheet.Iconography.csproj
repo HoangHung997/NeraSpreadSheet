@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Description>Default cross-platform icon catalog and embedded assets for NeraSpreadSheet command chrome.</Description>
+    <PackageId>NeraSpreadSheet.Iconography</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="icons.catalog.json" />
+    <EmbeddedResource Include="Assets/Svg/*.svg" />
+    <EmbeddedResource Include="Assets/Generated/*.png" />
+    <None Include="ThirdPartyLicenses/*.txt" Pack="true" PackagePath="ThirdPartyLicenses/" />
+  </ItemGroup>
+</Project>

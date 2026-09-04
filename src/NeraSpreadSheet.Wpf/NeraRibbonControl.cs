@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Iconography;
 using NeraSpreadSheet.Ribbon.Core;
 
 namespace NeraSpreadSheet.Wpf;
@@ -16,6 +17,9 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     private readonly RibbonRuntimeController _runtime;
     private readonly TabControl _tabs = new();
     private readonly List<IDisposable> _shortcutBindings = [];
+    private Func<string, ImageSource?>? _iconResolver;
+    private Func<NeraIconRequest, ImageSource?>? _iconRequestResolver;
+    private NeraIconTheme _iconTheme = NeraIconTheme.Light;
     private bool _disposed;
 
     public NeraRibbonControl(RibbonRuntimeController runtime)
@@ -31,7 +35,53 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     /// <summary>
     /// Resolves an optional WPF image for a command icon key.
     /// </summary>
-    public Func<string, ImageSource?>? IconResolver { get; set; }
+    public Func<string, ImageSource?>? IconResolver
+    {
+        get => _iconResolver;
+        set
+        {
+            if (ReferenceEquals(_iconResolver, value))
+            {
+                return;
+            }
+            _iconResolver = value;
+            RebuildIfAlive();
+        }
+    }
+
+    /// <summary>
+    /// Resolves an icon with its requested size and theme. The legacy resolver takes precedence.
+    /// </summary>
+    public Func<NeraIconRequest, ImageSource?>? IconRequestResolver
+    {
+        get => _iconRequestResolver;
+        set
+        {
+            if (ReferenceEquals(_iconRequestResolver, value))
+            {
+                return;
+            }
+            _iconRequestResolver = value;
+            RebuildIfAlive();
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the theme used by the built-in icon provider.
+    /// </summary>
+    public NeraIconTheme IconTheme
+    {
+        get => _iconTheme;
+        set
+        {
+            if (_iconTheme == value)
+            {
+                return;
+            }
+            _iconTheme = value;
+            RebuildIfAlive();
+        }
+    }
 
     /// <summary>
     /// Supplies command context at activation time.
@@ -143,7 +193,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             }
             : new Button();
         button.CommandParameter = command.CommandId;
-        button.Content = CreateCommandContent(command);
+        button.Content = CreateCommandContent(item);
         button.IsEnabled = command.IsEnabled;
         button.MinWidth = item.IsLarge ? 72d : 42d;
         button.MinHeight = item.IsLarge ? 58d : 30d;
@@ -162,21 +212,26 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         return button;
     }
 
-    private StackPanel CreateCommandContent(CommandPresentation command)
+    private StackPanel CreateCommandContent(RibbonItemPresentation item)
     {
+        var command = item.Command;
         var panel = new StackPanel
         {
-            Orientation = Orientation.Vertical,
+            Orientation = item.IsLarge ? Orientation.Vertical : Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
         };
         if (command.IconKey is { Length: > 0 } iconKey &&
-            IconResolver?.Invoke(iconKey) is ImageSource source)
+            ResolveIcon(iconKey, item.IsLarge ? 32 : 16) is ImageSource source)
         {
             panel.Children.Add(new Image
             {
                 Source = source,
-                Width = 16d,
-                Height = 16d,
+                Width = item.IsLarge ? 32d : 16d,
+                Height = item.IsLarge ? 32d : 16d,
+                Margin = item.IsLarge
+                    ? new Thickness(0d, 0d, 0d, 3d)
+                    : new Thickness(0d, 0d, 4d, 0d),
                 Stretch = Stretch.Uniform,
             });
         }
@@ -186,6 +241,26 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             TextAlignment = TextAlignment.Center,
         });
         return panel;
+    }
+
+    private ImageSource? ResolveIcon(string iconKey, int pixelSize)
+    {
+        var legacy = IconResolver?.Invoke(iconKey);
+        if (legacy is not null)
+        {
+            return legacy;
+        }
+
+        var request = new NeraIconRequest(iconKey, pixelSize, IconTheme);
+        return IconRequestResolver?.Invoke(request) ?? NeraWpfIconProvider.Resolve(request);
+    }
+
+    private void RebuildIfAlive()
+    {
+        if (!_disposed)
+        {
+            Rebuild();
+        }
     }
 
     private async void OnCommandClick(object sender, RoutedEventArgs e)

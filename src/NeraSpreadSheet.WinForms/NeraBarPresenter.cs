@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using NeraSpreadSheet.Bars.Core;
 using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Iconography;
 
 namespace NeraSpreadSheet.WinForms;
 
@@ -12,6 +13,9 @@ public sealed class NeraBarPresenter : IDisposable
 {
     private readonly BarRuntimeController _runtime;
     private readonly List<IDisposable> _shortcutBindings = [];
+    private Func<string, Image?>? _iconResolver;
+    private Func<NeraIconRequest, Image?>? _iconRequestResolver;
+    private NeraIconTheme _iconTheme = NeraIconTheme.Light;
     private bool _disposed;
 
     public NeraBarPresenter(BarRuntimeController runtime)
@@ -26,7 +30,47 @@ public sealed class NeraBarPresenter : IDisposable
 
     public Func<CommandId, CommandContext>? CommandContextFactory { get; set; }
 
-    public Func<string, Image?>? IconResolver { get; set; }
+    public Func<string, Image?>? IconResolver
+    {
+        get => _iconResolver;
+        set
+        {
+            if (ReferenceEquals(_iconResolver, value))
+            {
+                return;
+            }
+            _iconResolver = value;
+            RebuildIfAlive();
+        }
+    }
+
+    public Func<NeraIconRequest, Image?>? IconRequestResolver
+    {
+        get => _iconRequestResolver;
+        set
+        {
+            if (ReferenceEquals(_iconRequestResolver, value))
+            {
+                return;
+            }
+            _iconRequestResolver = value;
+            RebuildIfAlive();
+        }
+    }
+
+    public NeraIconTheme IconTheme
+    {
+        get => _iconTheme;
+        set
+        {
+            if (_iconTheme == value)
+            {
+                return;
+            }
+            _iconTheme = value;
+            RebuildIfAlive();
+        }
+    }
 
     public event EventHandler<NeraWinFormsCommandActivationFailedEventArgs>? CommandActivationFailed;
 
@@ -123,10 +167,30 @@ public sealed class NeraBarPresenter : IDisposable
         control.AccessibleDescription = command.Tooltip;
         if (command.IconKey is { Length: > 0 } iconKey)
         {
-            control.Image = IconResolver?.Invoke(iconKey);
+            control.Image = ResolveIcon(iconKey);
         }
         control.Click += OnCommandClick;
         return control;
+    }
+
+    private Image? ResolveIcon(string iconKey)
+    {
+        var legacy = IconResolver?.Invoke(iconKey);
+        if (legacy is not null)
+        {
+            return legacy;
+        }
+
+        var request = new NeraIconRequest(iconKey, 16, IconTheme);
+        return IconRequestResolver?.Invoke(request) ?? NeraWinFormsIconProvider.Resolve(request);
+    }
+
+    private void RebuildIfAlive()
+    {
+        if (!_disposed && !NativeControl.IsDisposed)
+        {
+            Rebuild();
+        }
     }
 
     private static ToolStrip CreateRoot(BarKind kind) => kind switch

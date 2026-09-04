@@ -318,28 +318,32 @@ public static class SpreadsheetViewCommandCatalog
         registry.Register(
             new CommandDescriptor(
                 SpreadsheetViewCommandIds.FreezePanes,
-                "Freeze panes"),
+                "Freeze panes",
+                iconKey: "view.freeze-panes"),
             new ViewCommandHandler(
                 () => new CommandState(true, IsChecked: view.HasFrozenPanes),
                 view.FreezeAtActiveCell));
         registry.Register(
             new CommandDescriptor(
                 SpreadsheetViewCommandIds.UnfreezePanes,
-                "Unfreeze panes"),
+                "Unfreeze panes",
+                iconKey: "view.unfreeze-panes"),
             new ViewCommandHandler(
                 () => new CommandState(view.HasFrozenPanes),
                 view.Unfreeze));
         registry.Register(
             new CommandDescriptor(
                 SpreadsheetViewCommandIds.UndoSplitViewChange,
-                "Undo split view change"),
+                "Undo split view change",
+                iconKey: "view.split-undo"),
             new ViewCommandHandler(
                 () => new CommandState(view.CanUndoSplitViewChange),
                 view.UndoSplitViewChange));
         registry.Register(
             new CommandDescriptor(
                 SpreadsheetViewCommandIds.RedoSplitViewChange,
-                "Redo split view change"),
+                "Redo split view change",
+                iconKey: "view.split-redo"),
             new ViewCommandHandler(
                 () => new CommandState(view.CanRedoSplitViewChange),
                 view.RedoSplitViewChange));

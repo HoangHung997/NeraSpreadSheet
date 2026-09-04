@@ -6,6 +6,7 @@ using NeraSpreadSheet.Ribbon.Core;
 using WpfAutomationProperties = System.Windows.Automation.AutomationProperties;
 using WpfButtonBase = System.Windows.Controls.Primitives.ButtonBase;
 using WpfMenuItem = System.Windows.Controls.MenuItem;
+using WpfImage = System.Windows.Controls.Image;
 using WpfPanel = System.Windows.Controls.StackPanel;
 using WpfToggleButton = System.Windows.Controls.Primitives.ToggleButton;
 using WpfWindow = System.Windows.Window;
@@ -44,10 +45,15 @@ public sealed class DesktopRibbonPresenterSmokeTests
                     "view.gridlines",
                     "Đường lưới",
                     tooltip: "Hiện hoặc ẩn đường lưới",
+                    iconKey: "view.gridlines",
                     shortcut: "Ctrl+G"),
                 ribbonHandler);
             registry.Register(
-                new CommandDescriptor("file.save", "Lưu", shortcut: "Ctrl+S"),
+                new CommandDescriptor(
+                    "file.save",
+                    "Lưu",
+                    iconKey: "file.save",
+                    shortcut: "Ctrl+S"),
                 menuHandler);
             var ribbonRuntime = new RibbonRuntimeController(
                 CreateRibbonDefinition(),
@@ -85,6 +91,9 @@ public sealed class DesktopRibbonPresenterSmokeTests
                     WpfAutomationProperties.GetName(toggle));
                 Assert.IsTrue(toggle.IsEnabled);
                 Assert.IsFalse(toggle.IsChecked);
+                var ribbonIcon = FindWpfDescendants<WpfImage>(toggle).Single();
+                Assert.AreEqual(32d, ribbonIcon.Width);
+                Assert.IsNotNull(ribbonIcon.Source);
 
                 toggle.RaiseEvent(new System.Windows.RoutedEventArgs(
                     WpfButtonBase.ClickEvent));
@@ -99,6 +108,7 @@ public sealed class DesktopRibbonPresenterSmokeTests
                 var save = FindWpfMenuItems(menu.NativeControl)
                     .Single(item => item.CommandParameter is CommandId);
                 Assert.AreEqual("Ctrl+S", save.InputGestureText);
+                Assert.IsNotNull(save.Icon);
                 save.RaiseEvent(new System.Windows.RoutedEventArgs(
                     WpfMenuItem.ClickEvent));
                 FlushWpf(window);
@@ -125,10 +135,17 @@ public sealed class DesktopRibbonPresenterSmokeTests
             var ribbonHandler = new OneShotHandler(isChecked: false);
             var menuHandler = new OneShotHandler(isChecked: null);
             registry.Register(
-                new CommandDescriptor("view.gridlines", "Đường lưới"),
+                new CommandDescriptor(
+                    "view.gridlines",
+                    "Đường lưới",
+                    iconKey: "view.gridlines"),
                 ribbonHandler);
             registry.Register(
-                new CommandDescriptor("file.save", "Lưu", shortcut: "Ctrl+S"),
+                new CommandDescriptor(
+                    "file.save",
+                    "Lưu",
+                    iconKey: "file.save",
+                    shortcut: "Ctrl+S"),
                 menuHandler);
             var ribbonRuntime = new RibbonRuntimeController(
                 CreateRibbonDefinition(),
@@ -159,6 +176,8 @@ public sealed class DesktopRibbonPresenterSmokeTests
             Assert.AreEqual("ribbon-command-view.gridlines", toggle.Name);
             Assert.AreEqual("Đường lưới", toggle.AccessibleName);
             Assert.IsTrue(toggle.Enabled);
+            Assert.IsNotNull(toggle.Image);
+            Assert.AreEqual(new System.Drawing.Size(32, 32), toggle.Image.Size);
             PerformWinFormsClick(toggle);
             WinFormsApplication.DoEvents();
 
@@ -170,6 +189,7 @@ public sealed class DesktopRibbonPresenterSmokeTests
 
             var save = FindWinFormsItems(menu.NativeControl.Items)
                 .Single(item => item.Tag is CommandId);
+            Assert.IsNotNull(save.Image);
             save.PerformClick();
             WinFormsApplication.DoEvents();
             Assert.AreEqual(1, menuHandler.ExecutionCount);

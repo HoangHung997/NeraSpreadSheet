@@ -4,6 +4,31 @@
 
 The fixed weighted roadmap rubric in [`project-progress.md`](project-progress.md) currently evaluates to **83.98%**, reported as **84%**. This is an implementation-roadmap score, not a claim that NeraSpreadSheet implements 84% of every Microsoft Excel feature and not a production-readiness percentage.
 
+## RIBBON-ICONOGRAPHY-006 — IMPLEMENTED LOCALLY; CI PENDING
+
+The SDK now contains a separate, packable `NeraSpreadSheet.Iconography`
+project with **272 semantic keys**, **242 unique SVG masters** and **4,840 PNG
+variants**. Assets cover File/Quick Access, Home, Insert, Page Layout, Formulas,
+Data/Filter, Review, View, contextual Table Design and Ribbon customization at
+16/20/24/32/48 pixels in light, dark and both high-contrast polarities.
+
+WPF, WinForms and MAUI Ribbon/Bar presenters now resolve default cached native
+icons without application setup. Existing string resolvers remain the highest
+priority override, with a new size/theme-aware resolver underneath them. Large
+Ribbon commands use 32-pixel artwork; compact commands and Bars use 16 pixels.
+Changing the resolver or theme rebuilds command chrome immediately. The 30
+currently registered production commands carry stable semantic icon keys.
+
+The catalog is generated from a pinned Microsoft Fluent UI System Icons commit
+under its MIT license plus a small set of independently composed Nera glyphs.
+Four checked-in contact sheets provide visual QA. Local gates: Core solution
+**1270/1270**, icon catalog **4/4**, focused loaded WPF/WinForms Ribbon
+**4/4**, MAUI **34/34**, loaded MAUI Windows Ribbon smoke **success**, builds
+and analyzers **0 warnings / 0 errors**, architecture and SDK packaging checks
+passed. The single full Windows test failure is the already documented local
+foreground-window restriction at `window.Activate()` and occurs before SDK
+behavior is exercised. Exact-head GitHub CI remains the completion gate.
+
 ## EXCEL-BASIC-NAV-003 — DONE FOR DEFINED SCOPE
 
 The adaptive desktop navigation contract now keeps a bounded, configurable

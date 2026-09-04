@@ -145,12 +145,12 @@ public static class SpreadsheetMergeCommandCatalog
         ArgumentNullException.ThrowIfNull(merge);
 
         registry.Register(
-            new CommandDescriptor(SpreadsheetMergeCommandIds.MergeCells, "Merge cells"),
+            new CommandDescriptor(SpreadsheetMergeCommandIds.MergeCells, "Merge cells", iconKey: "align.merge"),
             new MergeCommandHandler(
                 () => new CommandState(merge.CanMergeSelection),
                 merge.MergeSelection));
         registry.Register(
-            new CommandDescriptor(SpreadsheetMergeCommandIds.UnmergeCells, "Unmerge cells"),
+            new CommandDescriptor(SpreadsheetMergeCommandIds.UnmergeCells, "Unmerge cells", iconKey: "align.unmerge"),
             new MergeCommandHandler(
                 () => new CommandState(merge.CanUnmergeActiveCell),
                 merge.UnmergeActiveCell));

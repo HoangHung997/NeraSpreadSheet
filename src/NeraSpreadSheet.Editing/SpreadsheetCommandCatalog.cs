@@ -18,25 +18,25 @@ public static class SpreadsheetCommandCatalog
         ArgumentNullException.ThrowIfNull(session);
 
         registry.Register(
-            new CommandDescriptor(SpreadsheetCommandIds.Undo, "Undo", shortcut: "Ctrl+Z"),
+            new CommandDescriptor(SpreadsheetCommandIds.Undo, "Undo", iconKey: "edit.undo", shortcut: "Ctrl+Z"),
             new SessionCommandHandler(
                 () => new CommandState(session.History.CanUndo, DisplayText: session.History.NextUndoDescription),
                 () => session.Undo()));
 
         registry.Register(
-            new CommandDescriptor(SpreadsheetCommandIds.Redo, "Redo", shortcut: "Ctrl+Y"),
+            new CommandDescriptor(SpreadsheetCommandIds.Redo, "Redo", iconKey: "edit.redo", shortcut: "Ctrl+Y"),
             new SessionCommandHandler(
                 () => new CommandState(session.History.CanRedo, DisplayText: session.History.NextRedoDescription),
                 () => session.Redo()));
 
         registry.Register(
-            new CommandDescriptor(SpreadsheetCommandIds.ClearContents, "Clear contents", shortcut: "Delete"),
+            new CommandDescriptor(SpreadsheetCommandIds.ClearContents, "Clear contents", iconKey: "cell.clear", shortcut: "Delete"),
             new SessionCommandHandler(
                 () => new CommandState(session.ActiveWorksheet.EnumerateUsedCells().Any(pair => session.Selection.Contains(pair.Key))),
                 () => session.ClearSelection()));
 
         registry.Register(
-            new CommandDescriptor(SpreadsheetCommandIds.RecalculateWorkbook, "Recalculate workbook", shortcut: "F9"),
+            new CommandDescriptor(SpreadsheetCommandIds.RecalculateWorkbook, "Recalculate workbook", iconKey: "formula.recalculate", shortcut: "F9"),
             new SessionCommandHandler(
                 () => CommandState.Enabled,
                 () => { session.Recalculate(); return true; }));
