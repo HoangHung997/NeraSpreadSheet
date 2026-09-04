@@ -168,6 +168,41 @@ internal sealed class SmokePage : ContentPage
             Require(ribbon.LayoutSnapshot.SelectedTabId == "view" &&
                     ribbon.LayoutSnapshot.Tabs.Count == 1,
                 "The MAUI Ribbon did not consume the shared responsive layout snapshot.");
+            ribbonRuntime.SetSelectionContext(new RibbonSelectionContext(true, true));
+            await Task.Delay(100).ConfigureAwait(true);
+            Require(ribbon.LayoutSnapshot.Tabs.Count == 2,
+                "The MAUI contextual Table Design tab did not follow table selection state.");
+            Require(((Grid)ribbon.Content).Children.OfType<HorizontalStackLayout>()
+                    .SelectMany(static layout => layout.Children.OfType<Button>())
+                    .Any(static button => button.AutomationId == "ribbon-qat-view.gridlines"),
+                "The MAUI Ribbon did not render its QAT command.");
+            var fileButton = ((Grid)ribbon.Content).Children.OfType<HorizontalStackLayout>()
+                .SelectMany(static layout => layout.Children.OfType<Button>())
+                .Single(static button => button.AutomationId == "ribbon-file");
+            fileButton.SendClicked();
+            await Task.Delay(100).ConfigureAwait(true);
+            Require(ribbon.IsBackstageOpen && ((Grid)ribbon.Content).Children
+                    .OfType<VerticalStackLayout>()
+                    .Single().Children.OfType<Button>()
+                    .Any(static button => button.AutomationId == "ribbon-backstage-file.save"),
+                "The MAUI Ribbon did not open its accessible backstage surface.");
+            ((Grid)ribbon.Content).Children.OfType<HorizontalStackLayout>()
+                .SelectMany(static layout => layout.Children.OfType<Button>())
+                .Single(static button => button.AutomationId == "ribbon-file")
+                .SendClicked();
+            await Task.Delay(100).ConfigureAwait(true);
+            ribbon.IsMinimized = true;
+            await Task.Delay(100).ConfigureAwait(true);
+            Require(ribbon.IsMinimized,
+                "The MAUI Ribbon did not restore its minimized state.");
+            ribbon.EnterKeyTipMode();
+            Require(await ribbon.ProcessKeyTipAsync(ribbonRuntime.KeyTips.TabTips["view"]),
+                "The MAUI Ribbon did not enter the tab key-tip scope.");
+            ribbon.EscapeKeyTipMode();
+            ribbon.EscapeKeyTipMode();
+            Require(ribbon.KeyTipScope == RibbonKeyTipScope.Inactive,
+                "The MAUI Ribbon did not unwind key-tip scopes with Escape.");
+            ribbon.IsMinimized = false;
             Require(bar.Handler?.PlatformView is not null,
                 "The MAUI Bar presenter did not receive a native platform view.");
             Require(ribbon.CommandButtons.Count == 1,
@@ -391,7 +426,19 @@ internal sealed class SmokePage : ContentPage
                         "Hiển thị",
                         [new RibbonItemDefinition("view.gridlines")]),
                 ]),
-        ]);
+            new RibbonTabDefinition(
+                "table-design",
+                "Thiết kế Bảng",
+                [
+                    new RibbonGroupDefinition(
+                        "table",
+                        "Bảng",
+                        [new RibbonItemDefinition("view.gridlines")]),
+                ]),
+        ],
+        [new RibbonContextualTabRule("table-design", RibbonContextRequirement.Table, "TB")],
+        [new RibbonCommandSurfaceItem("view.gridlines", "1")],
+        [new RibbonCommandSurfaceItem("file.save", "S")]);
 
     private static BarDefinition CreateBarDefinition() =>
         new(

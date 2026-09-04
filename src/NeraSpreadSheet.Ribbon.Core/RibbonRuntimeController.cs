@@ -11,6 +11,7 @@ public sealed class RibbonRuntimeController
     private readonly RibbonPresentationProjector _projector;
     private HashSet<CommandId> _visibleCommands = [];
     private CommandShortcutMap _shortcuts = CommandShortcutMap.Create([]);
+    private RibbonSelectionContext _selectionContext;
 
     /// <summary>
     /// Creates a host-neutral runtime over one immutable ribbon definition.
@@ -55,6 +56,47 @@ public sealed class RibbonRuntimeController
     /// Gets the latest command-state snapshot.
     /// </summary>
     public RibbonPresentationSnapshot Snapshot { get; private set; }
+
+    /// <summary>Gets the selection state currently controlling contextual tabs.</summary>
+    public RibbonSelectionContext SelectionContext => _selectionContext;
+
+    /// <summary>Gets the persisted expanded/minimized state.</summary>
+    public bool IsMinimized { get; private set; }
+
+    /// <summary>Gets the current host-neutral key-tip navigation state.</summary>
+    public RibbonKeyTipController KeyTips { get; private set; } = null!;
+
+    /// <summary>Updates selection/table state and atomically republishes visible tabs.</summary>
+    public RibbonPresentationSnapshot SetSelectionContext(
+        RibbonSelectionContext selectionContext,
+        CommandContext context = default)
+    {
+        _selectionContext = selectionContext;
+        return Publish(EffectiveDefinition, context);
+    }
+
+    /// <summary>Updates the expanded/minimized state without changing command projection.</summary>
+    public void SetMinimized(bool isMinimized)
+    {
+        if (IsMinimized == isMinimized)
+        {
+            return;
+        }
+        IsMinimized = isMinimized;
+        SnapshotChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Restores persisted view state and publishes one coherent update.</summary>
+    public void RestoreViewState(RibbonViewState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (IsMinimized == state.IsMinimized)
+        {
+            return;
+        }
+        IsMinimized = state.IsMinimized;
+        SnapshotChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>
     /// Replaces the customization and publishes a new presentation snapshot.
@@ -244,16 +286,19 @@ public sealed class RibbonRuntimeController
         RibbonDefinition definition,
         CommandContext context)
     {
-        var snapshot = _projector.Project(definition, context);
+        var snapshot = _projector.Project(definition, context, _selectionContext);
         _shortcuts = CommandShortcutMap.Create(snapshot.Tabs
             .SelectMany(static tab => tab.Groups)
             .SelectMany(static group => group.Items)
             .Select(static item => item.Command));
-        _visibleCommands = definition.Tabs
+        _visibleCommands = snapshot.Tabs
             .SelectMany(static tab => tab.Groups)
             .SelectMany(static group => group.Items)
-            .Select(static item => item.CommandId)
+            .Select(static item => item.Command.CommandId)
+            .Concat(snapshot.QuickAccessToolbar.Select(static command => command.CommandId))
+            .Concat(snapshot.Backstage.Select(static command => command.CommandId))
             .ToHashSet();
+        KeyTips = new RibbonKeyTipController(definition, snapshot);
         return snapshot;
     }
 }

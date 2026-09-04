@@ -35,6 +35,100 @@ public sealed class DesktopRibbonPresenterSmokeTests
 
     [TestMethod]
     [Timeout(120_000)]
+    public void DesktopContextualQatBackstageAndKeyTipsShouldLoadAndRestoreState()
+    {
+        RunInSta(() =>
+        {
+            var registry = new CommandRegistry();
+            var home = new OneShotHandler(null);
+            var table = new OneShotHandler(null);
+            var file = new OneShotHandler(null);
+            registry.Register(new CommandDescriptor("home.copy", "Sao chép"), home);
+            registry.Register(new CommandDescriptor("table.rename", "Đổi tên bảng"), table);
+            registry.Register(new CommandDescriptor("file.save", "Lưu"), file);
+            var definition = CreateContextualRibbonDefinition();
+            var runtime = new RibbonRuntimeController(definition, registry);
+
+            using var wpfRibbon = new NeraSpreadSheet.Wpf.NeraRibbonControl(runtime);
+            var window = new WpfWindow
+            {
+                Content = wpfRibbon,
+                ShowInTaskbar = false,
+                Width = 700d,
+                Height = 260d,
+            };
+            try
+            {
+                window.Show();
+                FlushWpf(window);
+                Assert.AreEqual(1, wpfRibbon.LayoutSnapshot.Tabs.Count);
+                runtime.SetSelectionContext(new RibbonSelectionContext(true, true));
+                FlushWpf(window);
+                Assert.AreEqual(2, wpfRibbon.LayoutSnapshot.Tabs.Count);
+                Assert.IsNotNull(FindWpfDescendants<System.Windows.Controls.Button>(wpfRibbon)
+                    .Single(button => WpfAutomationProperties.GetAutomationId(button) ==
+                        "ribbon-qat-home.copy"));
+                var wpfFile = FindWpfDescendants<System.Windows.Controls.Button>(wpfRibbon)
+                    .Single(button => WpfAutomationProperties.GetAutomationId(button) ==
+                        "ribbon-file");
+                wpfFile.RaiseEvent(new System.Windows.RoutedEventArgs(WpfButtonBase.ClickEvent));
+                FlushWpf(window);
+                Assert.IsTrue(wpfRibbon.IsBackstageOpen);
+                Assert.AreEqual(
+                    System.Windows.Visibility.Visible,
+                    FindWpfDescendants<System.Windows.Controls.Button>(wpfRibbon)
+                        .Single(button => WpfAutomationProperties.GetAutomationId(button) ==
+                            "ribbon-backstage-file.save").Visibility);
+                wpfRibbon.IsMinimized = true;
+                FlushWpf(window);
+                Assert.IsTrue(wpfRibbon.IsMinimized);
+                wpfRibbon.EnterKeyTipMode();
+                Assert.IsTrue(wpfRibbon.ProcessKeyTipAsync(runtime.KeyTips.TabTips["home"])
+                    .AsTask().GetAwaiter().GetResult());
+                Assert.AreEqual(RibbonKeyTipScope.Tab, wpfRibbon.KeyTipScope);
+                wpfRibbon.EscapeKeyTipMode();
+                wpfRibbon.EscapeKeyTipMode();
+                Assert.AreEqual(RibbonKeyTipScope.Inactive, wpfRibbon.KeyTipScope);
+            }
+            finally
+            {
+                window.Close();
+                FlushWpf(window);
+            }
+
+            var winRuntime = new RibbonRuntimeController(definition, registry);
+            using var form = new WinFormsForm { ClientSize = new System.Drawing.Size(700, 260) };
+            using var winRibbon = new NeraSpreadSheet.WinForms.NeraRibbonControl(winRuntime)
+            {
+                Dock = WinFormsDockStyle.Fill,
+            };
+            form.Controls.Add(winRibbon);
+            form.Show();
+            WinFormsApplication.DoEvents();
+            winRuntime.SetSelectionContext(new RibbonSelectionContext(true, true));
+            WinFormsApplication.DoEvents();
+            Assert.AreEqual(2, winRibbon.LayoutSnapshot.Tabs.Count);
+            Assert.IsNotNull(FindWinFormsDescendants<System.Windows.Forms.Button>(winRibbon)
+                .Single(button => button.Name == "ribbon-backstage-file.save"));
+            PerformWinFormsClick(FindWinFormsDescendants<System.Windows.Forms.Button>(winRibbon)
+                .Single(button => button.Name == "ribbon-file"));
+            WinFormsApplication.DoEvents();
+            Assert.IsTrue(winRibbon.IsBackstageOpen);
+            winRibbon.IsMinimized = true;
+            WinFormsApplication.DoEvents();
+            Assert.IsTrue(winRibbon.IsMinimized);
+            winRibbon.EnterKeyTipMode();
+            Assert.IsTrue(winRibbon.ProcessKeyTipAsync(winRuntime.KeyTips.TabTips["home"])
+                .AsTask().GetAwaiter().GetResult());
+            winRibbon.EscapeKeyTipMode();
+            winRibbon.EscapeKeyTipMode();
+            Assert.AreEqual(RibbonKeyTipScope.Inactive, winRibbon.KeyTipScope);
+            form.Close();
+        });
+    }
+
+    [TestMethod]
+    [Timeout(120_000)]
     public void WpfRibbonAndMenuShouldLoadActivateAndRefreshNativeState()
     {
         RunInSta(() =>
@@ -442,8 +536,7 @@ public sealed class DesktopRibbonPresenterSmokeTests
             Assert.AreEqual(
                 RibbonItemSize.Compact,
                 wpfRibbon.LayoutSnapshot.Tabs[0].Groups[0].Items[0].Size);
-            var wpfTabs = (System.Windows.Controls.TabControl)wpfRibbon.Content;
-            var wpfTab = (System.Windows.Controls.TabItem)wpfTabs.Items[0];
+            var wpfTab = (System.Windows.Controls.TabItem)wpfRibbon.NativeTabControl.Items[0];
             var wpfGroups = (System.Windows.Controls.StackPanel)wpfTab.Content;
             var wpfGroup = (System.Windows.Controls.GroupBox)wpfGroups.Children[0];
             var wpfItems = (System.Windows.Controls.StackPanel)wpfGroup.Content;
@@ -556,6 +649,17 @@ public sealed class DesktopRibbonPresenterSmokeTests
                         [new RibbonItemDefinition("home.right", IsLarge: true)]),
                 ]),
         ]);
+
+    private static RibbonDefinition CreateContextualRibbonDefinition() => new(
+        [
+            new RibbonTabDefinition("home", "Trang đầu", [
+                new RibbonGroupDefinition("clipboard", "Bảng tạm", [new("home.copy")])]),
+            new RibbonTabDefinition("table-design", "Thiết kế Bảng", [
+                new RibbonGroupDefinition("table", "Bảng", [new("table.rename")])]),
+        ],
+        [new RibbonContextualTabRule("table-design", RibbonContextRequirement.Table, "TB")],
+        [new RibbonCommandSurfaceItem("home.copy", "1")],
+        [new RibbonCommandSurfaceItem("file.save", "S")]);
 
     private static BarDefinition CreateMenuDefinition() =>
         new(

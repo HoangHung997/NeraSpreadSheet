@@ -13,6 +13,8 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     private readonly RibbonRuntimeController _runtime;
     private readonly RibbonResponsiveLayoutEngine _layoutEngine = new();
     private readonly Grid _root = new();
+    private readonly HorizontalStackLayout _topBar = new() { Spacing = 4d };
+    private readonly VerticalStackLayout _backstage = new() { Spacing = 4d };
     private readonly HorizontalStackLayout _tabStrip = new() { Spacing = 4d };
     private readonly HorizontalStackLayout _groups = new() { Spacing = 8d };
     private readonly VerticalStackLayout _overflowCommands = new()
@@ -35,6 +37,8 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     private bool _isRebuilding;
     private bool _isOverflowOpen;
     private bool _resizeRebuildPending;
+    private bool _isBackstageOpen;
+    private VisualElement? _focusBeforeKeyTips;
     private bool _disposed;
 
     public NeraMauiRibbonView(RibbonRuntimeController runtime)
@@ -52,13 +56,17 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
         _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
         _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        _root.Add(_topBar, 0, 0);
         _root.Add(new ScrollView
         {
             Orientation = ScrollOrientation.Horizontal,
             Content = _tabStrip,
-        }, 0, 0);
-        _root.Add(_groups, 0, 1);
-        _root.Add(_overflowHost, 0, 2);
+        }, 0, 1);
+        _root.Add(_groups, 0, 2);
+        _root.Add(_overflowHost, 0, 3);
+        _root.Add(_backstage, 0, 1);
+        Grid.SetRowSpan(_backstage, 3);
         Content = _root;
         _runtime.SnapshotChanged += OnSnapshotChanged;
         SizeChanged += OnRibbonSizeChanged;
@@ -142,6 +150,73 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     /// </summary>
     public RibbonLayoutSnapshot LayoutSnapshot { get; private set; } = null!;
 
+    public string FileCaption { get; set; } = "Tệp";
+
+    public string FileAutomationName { get; set; } = "Mở khu vực Tệp";
+
+    public bool IsMinimized
+    {
+        get => _runtime.IsMinimized;
+        set => _runtime.SetMinimized(value);
+    }
+
+    public bool IsBackstageOpen => _isBackstageOpen;
+
+    public RibbonKeyTipScope KeyTipScope => _runtime.KeyTips.Scope;
+
+    public void EnterKeyTipMode()
+    {
+        _focusBeforeKeyTips = _focusIdentities.Keys.FirstOrDefault(static element => element.IsFocused);
+        _runtime.KeyTips.Enter();
+        Rebuild();
+    }
+
+    public async ValueTask<bool> ProcessKeyTipAsync(string keyTip)
+    {
+        var result = _runtime.KeyTips.Process(keyTip);
+        return await ApplyKeyTipResultAsync(result).ConfigureAwait(false);
+    }
+
+    public ValueTask<bool> ProcessKeyTipCharacterAsync(char character) =>
+        ApplyKeyTipResultAsync(_runtime.KeyTips.ProcessCharacter(character));
+
+    private async ValueTask<bool> ApplyKeyTipResultAsync(RibbonKeyTipResult result)
+    {
+        if (result.TabId is { } tabId)
+        {
+            _isBackstageOpen = false;
+            _selectedTabId = tabId;
+            Rebuild();
+            return true;
+        }
+        if (result.CommandId is { } commandId)
+        {
+            var executed = await ActivateCommandAsync(commandId).ConfigureAwait(false);
+            RestoreKeyTipOrigin();
+            return executed;
+        }
+        if (result.Action == RibbonKeyTipAction.ScopeChanged)
+        {
+            Rebuild();
+            return true;
+        }
+        return false;
+    }
+
+    public void EscapeKeyTipMode()
+    {
+        var result = _runtime.KeyTips.Escape();
+        if (result.Action == RibbonKeyTipAction.Exit)
+        {
+            RestoreKeyTipOrigin();
+        }
+        if (_runtime.KeyTips.Scope == RibbonKeyTipScope.Tabs)
+        {
+            _isBackstageOpen = false;
+        }
+        Rebuild();
+    }
+
     public IReadOnlyList<Button> CommandButtons => _commandButtons;
 
     /// <summary>Gets the native MAUI root created for each visible Ribbon item.</summary>
@@ -183,8 +258,14 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
                     _focusedCommandId));
             _selectedTabId = LayoutSnapshot.SelectedTabId;
             _focusedCommandId = LayoutSnapshot.FocusedCommandId;
+            RebuildTopBar();
+            RebuildBackstage();
             RebuildTabs(LayoutSnapshot);
             RebuildGroups(LayoutSnapshot);
+            _tabStrip.IsVisible = !_isBackstageOpen;
+            _groups.IsVisible = !_isBackstageOpen && !_runtime.IsMinimized;
+            _overflowHost.IsVisible = !_isBackstageOpen && _overflowHost.IsVisible;
+            _backstage.IsVisible = _isBackstageOpen;
             RestoreFocus();
         }
         finally
@@ -209,6 +290,8 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         }
         _shortcutBindings.Clear();
         _tabStrip.Children.Clear();
+        _topBar.Children.Clear();
+        _backstage.Children.Clear();
         _groups.Children.Clear();
         _overflowCommands.Children.Clear();
         _commandButtons.Clear();
@@ -216,6 +299,80 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         _focusIdentities.Clear();
         GC.SuppressFinalize(this);
     }
+
+    private void RebuildTopBar()
+    {
+        _topBar.Children.Clear();
+        var file = new Button
+        {
+            Text = _runtime.KeyTips.Scope == RibbonKeyTipScope.Tabs
+                ? $"{FileCaption} [F]"
+                : FileCaption,
+            AutomationId = "ribbon-file",
+            Padding = new Thickness(10d, 4d),
+        };
+        SemanticProperties.SetDescription(file, FileAutomationName);
+        file.Clicked += (_, _) =>
+        {
+            _isBackstageOpen = !_isBackstageOpen;
+            if (_isBackstageOpen)
+            {
+                _runtime.KeyTips.OpenBackstage();
+            }
+            Rebuild();
+        };
+        _topBar.Children.Add(file);
+        foreach (var command in _runtime.Snapshot.QuickAccessToolbar)
+        {
+            var button = new Button
+            {
+                Text = _runtime.KeyTips.Scope switch
+                {
+                    RibbonKeyTipScope.Tabs => $"{command.Caption} [Q→{FindSurfaceTip(_runtime.Definition.QuickAccessToolbar, command.CommandId)}]",
+                    RibbonKeyTipScope.QuickAccessToolbar => $"{command.Caption} [{FindSurfaceTip(_runtime.Definition.QuickAccessToolbar, command.CommandId)}]",
+                    _ => command.Caption,
+                },
+                AutomationId = $"ribbon-qat-{command.CommandId.Value}",
+                CommandParameter = command.CommandId,
+                IsEnabled = command.IsEnabled,
+                Padding = new Thickness(10d, 4d),
+            };
+            SemanticProperties.SetDescription(button, command.Caption);
+            button.Clicked += OnCommandClicked;
+            _topBar.Children.Add(button);
+        }
+    }
+
+    private void RebuildBackstage()
+    {
+        _backstage.Children.Clear();
+        foreach (var command in _runtime.Snapshot.Backstage)
+        {
+            var button = new Button
+            {
+                Text = _runtime.KeyTips.Scope == RibbonKeyTipScope.Backstage
+                    ? $"{command.Caption} [{FindSurfaceTip(_runtime.Definition.Backstage, command.CommandId)}]"
+                    : command.Caption,
+                AutomationId = $"ribbon-backstage-{command.CommandId.Value}",
+                CommandParameter = command.CommandId,
+                IsEnabled = command.IsEnabled,
+            };
+            SemanticProperties.SetDescription(button, command.Caption);
+            button.Clicked += OnCommandClicked;
+            _backstage.Children.Add(button);
+        }
+    }
+
+    private void RestoreKeyTipOrigin()
+    {
+        _focusBeforeKeyTips?.Focus();
+        _focusBeforeKeyTips = null;
+    }
+
+    private static string FindSurfaceTip(
+        IReadOnlyList<RibbonCommandSurfaceItem> items,
+        CommandId commandId) =>
+        items.First(item => item.CommandId == commandId).KeyTip;
 
     private void RebuildTabs(RibbonLayoutSnapshot snapshot)
     {
@@ -225,7 +382,9 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             var tab = snapshot.Tabs[index];
             var button = new Button
             {
-                Text = tab.Presentation.Caption,
+                Text = _runtime.KeyTips.Scope == RibbonKeyTipScope.Tabs
+                    ? $"{tab.Presentation.Caption} [{_runtime.KeyTips.TabTips[tab.Presentation.Id]}]"
+                    : tab.Presentation.Caption,
                 AutomationId = $"ribbon-tab-{tab.Presentation.Id}",
                 CommandParameter = tab.Presentation.Id,
                 IsEnabled = !string.Equals(
@@ -311,6 +470,12 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             "ribbon-command",
             item.Size == RibbonItemSize.Large,
             automationSuffix);
+        if (_runtime.KeyTips.Scope == RibbonKeyTipScope.Tab &&
+            _runtime.KeyTips.GetCommandTips().FirstOrDefault(pair =>
+                pair.Value == command.CommandId).Key is { Length: > 0 } keyTip)
+        {
+            button.Text = $"{command.Caption} [{keyTip}]";
+        }
         var toggleState = item.Presentation.IsToggle
             ? command.IsChecked == true ? "Đang bật" : "Đang tắt"
             : null;
