@@ -329,7 +329,8 @@ public sealed class RibbonResponsiveLayoutEngine
 
         public double Measure(RibbonLayoutMetrics metrics, double scale) =>
             (metrics.GroupChromeWidth +
-             Sizes.Sum(size => GetItemWidth(size, metrics)) +
+             Presentation.Items.Select((item, index) =>
+                 GetItemWidth(item, Sizes[index], metrics)).Sum() +
              Math.Max(0, Sizes.Length - 1) * metrics.Spacing) * scale;
 
         public RibbonGroupLayout ToLayout(RibbonLayoutMetrics metrics, double scale)
@@ -338,7 +339,7 @@ public sealed class RibbonResponsiveLayoutEngine
                 new RibbonItemLayout(
                     item,
                     Sizes[index],
-                    GetItemWidth(Sizes[index], metrics) * scale)).ToArray();
+                    GetItemWidth(item, Sizes[index], metrics) * scale)).ToArray();
             var mode = IsOverflow
                 ? RibbonGroupLayoutMode.Overflow
                 : Sizes.SequenceEqual(Presentation.Items.Select(item => item.IsLarge
@@ -354,13 +355,33 @@ public sealed class RibbonResponsiveLayoutEngine
         }
 
         private static double GetItemWidth(
+            RibbonItemPresentation item,
             RibbonItemSize size,
-            RibbonLayoutMetrics metrics) => size switch
+            RibbonLayoutMetrics metrics)
+        {
+            var defaultWidth = size switch
             {
                 RibbonItemSize.Large => metrics.LargeItemWidth,
                 RibbonItemSize.Small => metrics.SmallItemWidth,
                 RibbonItemSize.Compact => metrics.CompactItemWidth,
                 _ => throw new ArgumentOutOfRangeException(nameof(size)),
             };
+            if (item.Definition.Measurement is not { } measurement)
+            {
+                return defaultWidth;
+            }
+
+            var width = measurement(new RibbonItemMeasurementContext(
+                item.Kind,
+                size,
+                item.Command,
+                defaultWidth));
+            if (!double.IsFinite(width) || width < 0d)
+            {
+                throw new InvalidOperationException(
+                    $"Ribbon item measurement for '{item.Command.CommandId}' must be finite and non-negative.");
+            }
+            return width;
+        }
     }
 }

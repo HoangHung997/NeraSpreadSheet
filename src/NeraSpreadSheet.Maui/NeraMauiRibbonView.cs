@@ -21,6 +21,8 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     };
     private readonly ScrollView _overflowHost;
     private readonly List<Button> _commandButtons = [];
+    private readonly List<VisualElement> _itemControls = [];
+    private readonly Dictionary<VisualElement, CommandId> _focusIdentities = [];
     private readonly List<IDisposable> _shortcutBindings = [];
     private Func<string, ImageSource?>? _iconResolver;
     private Func<NeraIconRequest, ImageSource?>? _iconRequestResolver;
@@ -140,6 +142,9 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
 
     public IReadOnlyList<Button> CommandButtons => _commandButtons;
 
+    /// <summary>Gets the native MAUI root created for each visible Ribbon item.</summary>
+    public IReadOnlyList<VisualElement> ItemControls => _itemControls;
+
     public event EventHandler<NeraMauiCommandActivationFailedEventArgs>?
         CommandActivationFailed;
 
@@ -205,6 +210,8 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         _groups.Children.Clear();
         _overflowCommands.Children.Clear();
         _commandButtons.Clear();
+        _itemControls.Clear();
+        _focusIdentities.Clear();
         GC.SuppressFinalize(this);
     }
 
@@ -237,6 +244,8 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         _overflowCommands.Children.Clear();
         _overflowCommands.IsVisible = false;
         _commandButtons.Clear();
+        _itemControls.Clear();
+        _focusIdentities.Clear();
         if (snapshot.Tabs.Count == 0)
         {
             return;
@@ -263,7 +272,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             var items = new HorizontalStackLayout { Spacing = 4d };
             foreach (var item in group.Items)
             {
-                items.Children.Add(CreateCommandButton(item));
+                items.Children.Add(CreateRibbonItem(item));
             }
             groupLayout.Children.Add(items);
             _groups.Children.Add(groupLayout);
@@ -295,15 +304,216 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             command,
             "ribbon-command",
             item.Size == RibbonItemSize.Large);
+        SemanticProperties.SetDescription(button, item.Presentation.AutomationName);
         if (item.Size == RibbonItemSize.Compact && resolvedIcon is not null)
         {
             button.Text = string.Empty;
         }
         button.Clicked += OnCommandClicked;
-        button.Focused += OnCommandFocused;
-        button.Unfocused += OnCommandUnfocused;
+        TrackFocus(button, command.CommandId);
         _commandButtons.Add(button);
         return button;
+    }
+
+    private View CreateRibbonItem(RibbonItemLayout item)
+    {
+        View view = item.Presentation.Kind switch
+        {
+            RibbonItemKind.Separator => CreateSeparator(item),
+            RibbonItemKind.SplitButton => CreateSplitButton(item),
+            RibbonItemKind.DropDown or RibbonItemKind.Menu => CreateDropDown(item),
+            RibbonItemKind.ComboBox or RibbonItemKind.ColorPicker => CreatePicker(item),
+            RibbonItemKind.Gallery => CreateGallery(item),
+            _ => CreateCommandButton(item),
+        };
+        _itemControls.Add(view);
+        return view;
+    }
+
+    private BoxView CreateSeparator(RibbonItemLayout item) => new()
+    {
+        AutomationId = $"ribbon-command-{item.Presentation.Command.CommandId.Value}",
+        WidthRequest = Math.Max(1d, item.Width / LayoutScale),
+        HeightRequest = 36d,
+        Color = Colors.Gray,
+        Margin = new Thickness(4d, 6d),
+    };
+
+    private VerticalStackLayout CreateSplitButton(RibbonItemLayout item)
+    {
+        var choices = CreateChoiceStack(item);
+        var menuButton = new Button
+        {
+            Text = "▼",
+            AutomationId = $"ribbon-menu-{item.Presentation.Command.CommandId.Value}",
+            IsEnabled = item.Presentation.Command.IsEnabled,
+            WidthRequest = 36d,
+            Padding = new Thickness(4d),
+        };
+        menuButton.Clicked += (_, _) => choices.IsVisible = !choices.IsVisible;
+        TrackFocus(menuButton, item.Presentation.Command.CommandId);
+        var row = new HorizontalStackLayout { Spacing = 0d };
+        var primary = CreateCommandButton(item);
+        primary.WidthRequest = Math.Max(1d, item.Width / LayoutScale - 36d);
+        row.Children.Add(primary);
+        row.Children.Add(menuButton);
+        var stack = new VerticalStackLayout
+        {
+            Spacing = 2d,
+            WidthRequest = item.Width / LayoutScale,
+        };
+        stack.Children.Add(row);
+        stack.Children.Add(choices);
+        return stack;
+    }
+
+    private VerticalStackLayout CreateDropDown(RibbonItemLayout item)
+    {
+        var choices = CreateChoiceStack(item);
+        var command = item.Presentation.Command;
+        var button = new Button
+        {
+            Text = command.Caption,
+            AutomationId = $"ribbon-command-{command.CommandId.Value}",
+            IsEnabled = command.IsEnabled,
+            WidthRequest = item.Width / LayoutScale,
+            Padding = new Thickness(8d, 6d),
+            CommandParameter = command.CommandId,
+        };
+        SemanticProperties.SetDescription(button, item.Presentation.AutomationName);
+        SemanticProperties.SetHint(button, BuildToolTip(command));
+        if (command.IconKey is { Length: > 0 } iconKey &&
+            ResolveIcon(iconKey, 16) is ImageSource source)
+        {
+            button.ImageSource = source;
+            button.ContentLayout = new Button.ButtonContentLayout(
+                Button.ButtonContentLayout.ImagePosition.Left,
+                4d);
+        }
+        button.Clicked += (_, _) => choices.IsVisible = !choices.IsVisible;
+        TrackFocus(button, command.CommandId);
+        var stack = new VerticalStackLayout { Spacing = 2d };
+        stack.Children.Add(button);
+        stack.Children.Add(choices);
+        return stack;
+    }
+
+    private VerticalStackLayout CreateChoiceStack(RibbonItemLayout item)
+    {
+        var command = item.Presentation.Command;
+        var choices = new VerticalStackLayout
+        {
+            IsVisible = false,
+            Spacing = 2d,
+        };
+        AddChoiceButtons(choices, command.CommandId, command.SelectableItems, 0);
+        return choices;
+    }
+
+    private void AddChoiceButtons(
+        VerticalStackLayout target,
+        CommandId commandId,
+        IReadOnlyList<CommandItem> choices,
+        int depth)
+    {
+        foreach (var choice in choices)
+        {
+            if (choice.Children.Count > 0)
+            {
+                target.Children.Add(new Label
+                {
+                    Text = choice.Caption,
+                    Margin = new Thickness(depth * 12d, 2d, 0d, 0d),
+                });
+                AddChoiceButtons(target, commandId, choice.Children, depth + 1);
+                continue;
+            }
+            var button = new Button
+            {
+                Text = choice.Caption,
+                CommandParameter = new RibbonChoice(commandId, choice.Value),
+                IsEnabled = choice.IsEnabled,
+                Padding = new Thickness(8d, 4d),
+                Margin = new Thickness(depth * 12d, 0d, 0d, 0d),
+            };
+            SemanticProperties.SetDescription(button, choice.Caption);
+            SemanticProperties.SetHint(button, choice.Tooltip ?? choice.Caption);
+            if (choice.IconKey is { Length: > 0 } iconKey &&
+                ResolveIcon(iconKey, 16) is ImageSource source)
+            {
+                button.ImageSource = source;
+            }
+            button.Clicked += OnChoiceClicked;
+            TrackFocus(button, commandId);
+            target.Children.Add(button);
+        }
+    }
+
+    private Picker CreatePicker(RibbonItemLayout item)
+    {
+        var command = item.Presentation.Command;
+        var choices = command.SelectableItems.ToArray();
+        var picker = new Picker
+        {
+            AutomationId = $"ribbon-command-{command.CommandId.Value}",
+            Title = command.Caption,
+            ItemsSource = choices.Select(static choice => choice.Caption).ToArray(),
+            SelectedIndex = Array.FindIndex(choices, choice => string.Equals(
+                choice.Value,
+                command.SelectedValue,
+                StringComparison.Ordinal)),
+            IsEnabled = command.IsEnabled,
+            WidthRequest = item.Width / LayoutScale,
+        };
+        SemanticProperties.SetDescription(picker, item.Presentation.AutomationName);
+        SemanticProperties.SetHint(picker, BuildToolTip(command));
+        picker.SelectedIndexChanged += async (_, _) =>
+        {
+            if (!_isRebuilding && picker.SelectedIndex >= 0)
+            {
+                await ActivateItemAsync(
+                    command.CommandId,
+                    choices[picker.SelectedIndex].Value).ConfigureAwait(false);
+            }
+        };
+        TrackFocus(picker, command.CommandId);
+        return picker;
+    }
+
+    private HorizontalStackLayout CreateGallery(RibbonItemLayout item)
+    {
+        var command = item.Presentation.Command;
+        var gallery = new HorizontalStackLayout
+        {
+            AutomationId = $"ribbon-command-{command.CommandId.Value}",
+            Spacing = 2d,
+            WidthRequest = item.Width / LayoutScale,
+        };
+        SemanticProperties.SetDescription(gallery, item.Presentation.AutomationName);
+        foreach (var choice in command.SelectableItems)
+        {
+            var button = new Button
+            {
+                Text = choice.Caption,
+                CommandParameter = new RibbonChoice(command.CommandId, choice.Value),
+                IsEnabled = command.IsEnabled && choice.IsEnabled,
+                Padding = new Thickness(6d, 4d),
+                BorderWidth = string.Equals(
+                    command.SelectedValue,
+                    choice.Value,
+                    StringComparison.Ordinal) ? 2d : 0d,
+            };
+            SemanticProperties.SetDescription(button, choice.Caption);
+            if (choice.IconKey is { Length: > 0 } iconKey &&
+                ResolveIcon(iconKey, 16) is ImageSource source)
+            {
+                button.ImageSource = source;
+            }
+            button.Clicked += OnChoiceClicked;
+            TrackFocus(button, command.CommandId);
+            gallery.Children.Add(button);
+        }
+        return gallery;
     }
 
     private void AddOverflow(RibbonTabLayout tab)
@@ -337,17 +547,17 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             });
             foreach (var item in group.Items)
             {
-                _overflowCommands.Children.Add(CreateCommandButton(item));
+                _overflowCommands.Children.Add(CreateRibbonItem(item));
             }
         }
     }
 
     private void CaptureFocus()
     {
-        var focused = _commandButtons.FirstOrDefault(static button => button.IsFocused);
-        if (focused?.CommandParameter is CommandId commandId)
+        var focused = _focusIdentities.FirstOrDefault(static pair => pair.Key.IsFocused);
+        if (focused.Key is not null)
         {
-            _focusedCommandId = commandId;
+            _focusedCommandId = focused.Value;
             _restoreCommandFocus = true;
         }
     }
@@ -358,8 +568,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         {
             return;
         }
-        _commandButtons.FirstOrDefault(button =>
-            button.CommandParameter is CommandId id && id == commandId)?.Focus();
+        _focusIdentities.FirstOrDefault(pair => pair.Value == commandId).Key?.Focus();
     }
 
     private void OnRibbonSizeChanged(object? sender, EventArgs e)
@@ -397,11 +606,19 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
 
     private void OnCommandFocused(object? sender, FocusEventArgs e)
     {
-        if (sender is Button { CommandParameter: CommandId commandId })
+        if (sender is VisualElement element &&
+            _focusIdentities.TryGetValue(element, out var commandId))
         {
             _focusedCommandId = commandId;
             _restoreCommandFocus = true;
         }
+    }
+
+    private void TrackFocus(VisualElement element, CommandId commandId)
+    {
+        _focusIdentities[element] = commandId;
+        element.Focused += OnCommandFocused;
+        element.Unfocused += OnCommandUnfocused;
     }
 
     private void OnCommandUnfocused(object? sender, FocusEventArgs e)
@@ -452,6 +669,14 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         }
     }
 
+    private async void OnChoiceClicked(object? sender, EventArgs e)
+    {
+        if (sender is Button { CommandParameter: RibbonChoice choice })
+        {
+            await ActivateItemAsync(choice.CommandId, choice.Value).ConfigureAwait(false);
+        }
+    }
+
     private async ValueTask<bool> ActivateCommandAsync(CommandId commandId)
     {
         try
@@ -459,6 +684,30 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             return await _runtime.TryActivateAsync(
                 commandId,
                 CommandContextFactory?.Invoke(commandId) ?? default)
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            var handler = CommandActivationFailed;
+            if (handler is null)
+            {
+                throw;
+            }
+            handler(this, new NeraMauiCommandActivationFailedEventArgs(
+                commandId,
+                exception));
+            return false;
+        }
+    }
+
+    private async ValueTask<bool> ActivateItemAsync(
+        CommandId commandId,
+        string selectedValue)
+    {
+        try
+        {
+            var context = CommandContextFactory?.Invoke(commandId) ?? default;
+            return await _runtime.TryActivateItemAsync(commandId, selectedValue, context)
                 .ConfigureAwait(false);
         }
         catch (Exception exception)
@@ -498,4 +747,16 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
                 "The MAUI dispatcher rejected the Ribbon rebuild.");
         }
     }
+
+    private static string BuildToolTip(CommandPresentation command) =>
+        (command.Tooltip, command.Shortcut) switch
+        {
+            ({ Length: > 0 } tooltip, { Length: > 0 } shortcut) =>
+                $"{tooltip} ({shortcut})",
+            ({ Length: > 0 } tooltip, _) => tooltip,
+            (_, { Length: > 0 } shortcut) => shortcut,
+            _ => command.Caption,
+        };
+
+    private sealed record RibbonChoice(CommandId CommandId, string Value);
 }

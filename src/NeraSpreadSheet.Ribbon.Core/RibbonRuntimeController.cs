@@ -100,6 +100,23 @@ public sealed class RibbonRuntimeController
     }
 
     /// <summary>
+    /// Executes a selectable Ribbon value while retaining any host-supplied
+    /// command parameter in a structured activation payload.
+    /// </summary>
+    public ValueTask<bool> TryActivateItemAsync(
+        CommandId commandId,
+        string? selectedValue,
+        CommandContext context = default) =>
+        TryActivateAsync(
+            commandId,
+            context with
+            {
+                Parameter = new RibbonItemActivation(
+                    selectedValue,
+                    context.Parameter),
+            });
+
+    /// <summary>
     /// Resolves a shortcut against commands visible in the current ribbon snapshot.
     /// </summary>
     public bool TryResolveShortcut(string shortcut, out CommandId commandId) =>

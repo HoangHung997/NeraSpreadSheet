@@ -90,8 +90,7 @@ public sealed class RibbonCustomization
                 continue;
             }
 
-            items.Add(new RibbonItemDefinition(
-                item.CommandId,
+            items.Add(item.WithLayout(
                 itemOverride?.IsLarge ?? item.IsLarge,
                 itemOverride?.Order ?? item.Order));
         }
