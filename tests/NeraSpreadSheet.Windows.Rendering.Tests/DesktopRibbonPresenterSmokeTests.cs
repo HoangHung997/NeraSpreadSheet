@@ -30,6 +30,8 @@ namespace NeraSpreadSheet.Windows.Rendering.Tests;
 public sealed class DesktopRibbonPresenterSmokeTests
 {
     private static readonly TimeSpan StaTimeout = TimeSpan.FromSeconds(90d);
+    private static readonly string[] ResponsiveCommandIds =
+        ["home.high", "home.left", "home.right"];
 
     [TestMethod]
     [Timeout(120_000)]
@@ -305,6 +307,96 @@ public sealed class DesktopRibbonPresenterSmokeTests
         });
     }
 
+    [TestMethod]
+    [Timeout(120_000)]
+    public void DesktopRibbonsShouldConsumeTheSameResponsiveSnapshotWhenLoaded()
+    {
+        RunInSta(() =>
+        {
+            var registry = new CommandRegistry();
+            foreach (var id in ResponsiveCommandIds)
+            {
+                registry.Register(
+                    new CommandDescriptor(id, id, iconKey: "view.gridlines"),
+                    new OneShotHandler(isChecked: null));
+            }
+            var definition = CreateResponsiveRibbonDefinition();
+            var wpfRuntime = new RibbonRuntimeController(definition, registry);
+            var winFormsRuntime = new RibbonRuntimeController(definition, registry);
+            using var wpfRibbon = new NeraSpreadSheet.Wpf.NeraRibbonControl(
+                wpfRuntime)
+            {
+                Width = 140d,
+            };
+            var window = new WpfWindow
+            {
+                Content = wpfRibbon,
+                Width = 160d,
+                Height = 180d,
+                ShowInTaskbar = false,
+                WindowStartupLocation = WpfWindowStartupLocation.Manual,
+                Left = -32_000d,
+                Top = -32_000d,
+            };
+            using var form = new WinFormsForm
+            {
+                ClientSize = new System.Drawing.Size(160, 180),
+                ShowInTaskbar = false,
+                StartPosition = WinFormsFormStartPosition.Manual,
+                Location = new System.Drawing.Point(-32_000, -32_000),
+            };
+            using var winFormsRibbon = new NeraSpreadSheet.WinForms.NeraRibbonControl(
+                winFormsRuntime)
+            {
+                Dock = WinFormsDockStyle.None,
+                ClientSize = new System.Drawing.Size(140, 120),
+            };
+            form.Controls.Add(winFormsRibbon);
+
+            try
+            {
+                window.Show();
+                form.Show();
+                FlushWpf(window);
+                WinFormsApplication.DoEvents();
+                wpfRibbon.Rebuild();
+                winFormsRibbon.Rebuild();
+
+                var engine = new RibbonResponsiveLayoutEngine();
+                var expectedWpf = engine.Layout(
+                    wpfRuntime.Snapshot,
+                    new RibbonLayoutRequest(
+                        wpfRibbon.LayoutSnapshot.AvailableWidth,
+                        wpfRibbon.LayoutSnapshot.Scale));
+                var expectedWinForms = engine.Layout(
+                    winFormsRuntime.Snapshot,
+                    new RibbonLayoutRequest(
+                        winFormsRibbon.LayoutSnapshot.AvailableWidth,
+                        winFormsRibbon.LayoutSnapshot.Scale));
+                CollectionAssert.AreEqual(
+                    expectedWpf.Tabs[0].Groups.Select(static group => group.Mode).ToArray(),
+                    wpfRibbon.LayoutSnapshot.Tabs[0].Groups
+                        .Select(static group => group.Mode).ToArray());
+                CollectionAssert.AreEqual(
+                    expectedWinForms.Tabs[0].Groups.Select(static group => group.Mode).ToArray(),
+                    winFormsRibbon.LayoutSnapshot.Tabs[0].Groups
+                        .Select(static group => group.Mode).ToArray());
+                Assert.IsTrue(wpfRibbon.LayoutSnapshot.Tabs[0].HasOverflow);
+                Assert.IsTrue(winFormsRibbon.LayoutSnapshot.Tabs[0].HasOverflow);
+                Assert.IsNotInstanceOfType<System.Windows.Controls.ScrollViewer>(
+                    FindWpfDescendants<System.Windows.Controls.TabItem>(wpfRibbon)
+                        .Single().Content);
+            }
+            finally
+            {
+                form.Close();
+                window.Close();
+                WinFormsApplication.DoEvents();
+                FlushWpf(window);
+            }
+        });
+    }
+
     private static RibbonDefinition CreateRibbonDefinition() =>
         new(
         [
@@ -316,6 +408,30 @@ public sealed class DesktopRibbonPresenterSmokeTests
                         "display",
                         "Hiển thị",
                         [new RibbonItemDefinition("view.gridlines", IsLarge: true)]),
+                ]),
+        ]);
+
+    private static RibbonDefinition CreateResponsiveRibbonDefinition() =>
+        new(
+        [
+            new RibbonTabDefinition(
+                "home",
+                "Trang đầu",
+                [
+                    new RibbonGroupDefinition(
+                        "high",
+                        "Quan trọng",
+                        [new RibbonItemDefinition("home.high", IsLarge: true)],
+                        order: 0,
+                        collapsePriority: 10),
+                    new RibbonGroupDefinition(
+                        "left",
+                        "Trái",
+                        [new RibbonItemDefinition("home.left", IsLarge: true)]),
+                    new RibbonGroupDefinition(
+                        "right",
+                        "Phải",
+                        [new RibbonItemDefinition("home.right", IsLarge: true)]),
                 ]),
         ]);
 
