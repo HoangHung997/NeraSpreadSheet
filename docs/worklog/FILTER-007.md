@@ -117,3 +117,22 @@ Windows rendering remained 65/66 with only the documented environment-only
 Architecture and packaging verification passed. Loaded MAUI Windows TableFilter
 smoke passed with 13 GPU frames and every reported
 filter/focus/history/rich/sort flag true.
+
+## Final post-review follow-up
+
+The final independent review closed two native-host gaps without changing the
+shared Table/AutoFilter model:
+
+- WinForms now handles `PageUp` and `PageDown` only while the bounded values or
+  date-navigation list owns focus. Search editors, menu pickers and command
+  buttons retain their native key behavior.
+- WinForms Table and paged AutoFilter headers, plus both MAUI production
+  headers, now expose distinct non-color glyphs for none, filtered, sorted and
+  filtered-and-sorted states. Ascending and descending directions remain
+  distinct in both sorted states.
+
+Final focused evidence: loaded WPF/WinForms paged AutoFilter 7/7, MAUI
+AutoFilter host 5/5, and Editing sort/paged presenter 19/19 passed in Release.
+Architecture and packaging verification passed. The implementation remained
+within WinForms/MAUI filter hosts, their focused tests and this FILTER-007
+worklog; shared status, shared worklog and Ribbon files were not changed.

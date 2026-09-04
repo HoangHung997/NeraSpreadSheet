@@ -375,9 +375,9 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
                 fullBounds.Width * zoom,
                 fullBounds.Height * zoom);
             button.CommandParameter = hit;
-            button.Text = hit.IsSorted
-                ? hit.SortDescending == true ? "↓" : "↑"
-                : "▼";
+            button.Text = NeraMauiFilterHeaderGlyphs.Get(
+                hit.HeaderState,
+                hit.SortDescending);
             button.BackgroundColor = ToColor(
                 hit.IsFiltered
                     ? Spreadsheet.RenderTheme.TableFilterButtonActiveBackground

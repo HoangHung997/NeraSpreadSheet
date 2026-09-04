@@ -125,9 +125,9 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             }
 
             button.Tag = hit;
-            button.Text = hit.IsSorted
-                ? hit.SortDescending == true ? "↓" : "↑"
-                : "▼";
+            button.Text = NeraWinFormsFilterHeaderGlyphs.Get(
+                hit.HeaderState,
+                hit.SortDescending);
             button.Bounds = ToRectangle(hit.Bounds);
             button.BackColor = ToColor(
                 hit.IsFiltered
