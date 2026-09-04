@@ -5,6 +5,8 @@
 - Branch: `feature/ribbon-009-contextual-qat`.
 - Base integration SHA: `d595539d616cba1bb5543ab3530035f927304069`.
 - Implementation SHA: `e1e38b37416f0df1a6fea2cb59346deb22e7d3e6`.
+- Review hardening SHAs: `a743826` (Core/API/runtime) và `5e4ffe7` +
+  `e393840` (native hosts, loaded smokes và MAUI API compatibility).
 - Owned paths: `NeraSpreadSheet.Ribbon.Core`, WPF/WinForms/MAUI Ribbon presenter,
   Ribbon-only tests/smokes, contract này và `docs/ribbon-contextual-qat-contract.md`.
 - Excluded: Table/Filter files và shared board/status/worklog.
@@ -23,20 +25,40 @@
 - WPF, WinForms và MAUI dựng native File/QAT/backstage chrome, accessibility metadata
   và phản ánh contextual/minimized runtime state.
 
+## Review hardening
+
+- Giữ exact CLR overload `Project(RibbonDefinition, CommandContext)` và tránh tạo
+  overload mơ hồ cho `EnterKeyTipMode` trên MAUI.
+- `ProcessCharacter('F'/'Q')` mở đúng Backstage/QAT; WPF/WinForms bind Alt, Escape và
+  ký tự ở window/form owner, kể cả khi focus ở worksheet sibling. Close File không để
+  stale Backstage scope.
+- Focus origin dùng stable automation/control identity qua rebuild; MAUI rebuild và
+  restore focus trên UI dispatcher sau activation bất đồng bộ.
+- Minimized ẩn group và overflow thật trên cả ba presenter; compact item có icon vẫn
+  giữ badge Key Tip dạng chữ.
+- Key-tip allocator ASCII bounded chịu catalog lớn, mapping/reverse mapping là cache
+  bất biến; shortcut map gồm tab, QAT và backstage.
+- Production audit chạy với `SpreadsheetSession` thật và exact registry snapshot,
+  phát hiện cả command bị thiếu lẫn registration mới chưa có placement/manifest.
+- Selection/customization publish nguyên tử; malformed view-state root chuẩn hóa về
+  `InvalidDataException`.
+
 ## Validation
 
 - Core solution Release build/analyzers: **0 warnings / 0 errors**.
-- Core solution: **1.331/1.331 passed**; Commands/Ribbon: **85/85 passed**.
-- Focused loaded WPF/WinForms Ribbon: **11/11 passed**.
+- Core solution: **1.341/1.341 passed**; Commands/Ribbon: **95/95 passed**.
+- Focused loaded WPF/WinForms Ribbon presenter: **9/9 passed**.
 - MAUI presenter: **36/36 passed**.
 - Loaded MAUI Windows Ribbon smoke: **success**, gồm contextual Table Design,
-  QAT, backstage, minimized và Key Tips ngoài coverage item/overflow sẵn có.
+  QAT/backstage shortcut, `F` theo từng ký tự, external-focus restore, minimized
+  group/overflow và compact icon+badge ngoài coverage item/overflow sẵn có.
 - MAUI Windows, Android, iOS và Mac Catalyst Release builds: **0 warnings / 0
   errors**. Android dùng SDK API 36 user-scoped đã có từ RIBBON-008.
 - Architecture verification và SDK packaging verification: **passed**.
-- Full Windows.Rendering: **66/67 passed locally**. Lỗi duy nhất là smoke native
+- Full Windows.Rendering: **67/68 passed locally**. Lỗi duy nhất là smoke native
   mouse đã biết không thể đưa cửa sổ background thành foreground tại
-  `window.Activate()`; nó dừng trước khi chạy hành vi SDK và không thuộc Ribbon.
+  `window.Activate()`; test đó chạy riêng **1/1 passed**, lỗi full run dừng trước khi
+  chạy hành vi SDK và không thuộc Ribbon.
 - Exact-head GitHub Actions: pending sau push branch; workflow_dispatch sẽ chạy
   trên commit handoff cuối.
 
