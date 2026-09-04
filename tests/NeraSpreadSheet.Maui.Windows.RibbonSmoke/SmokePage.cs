@@ -75,15 +75,18 @@ internal sealed class SmokePage : ContentPage
             };
             var overflowRegistry = new CommandRegistry();
             var overflowItems = new List<RibbonItemDefinition>();
+            var overflowHandlers = new List<ToggleHandler>();
             for (var index = 0; index < 12; index++)
             {
                 var id = $"overflow.command-{index}";
+                var handler = new ToggleHandler();
+                overflowHandlers.Add(handler);
                 overflowRegistry.Register(
                     new CommandDescriptor(
                         id,
                         $"Lệnh {index}",
                         iconKey: "missing.icon.key"),
-                    new ToggleHandler());
+                    handler);
                 overflowItems.Add(new RibbonItemDefinition(id));
             }
             using var overflowRibbon = new NeraMauiRibbonView(
@@ -109,7 +112,14 @@ internal sealed class SmokePage : ContentPage
             foreach (var kind in Enum.GetValues<RibbonItemKind>()
                          .Where(static kind => kind != RibbonItemKind.Separator))
             {
-                var handler = new SelectionHandler();
+                var handler = new SelectionHandler(
+                    kind == RibbonItemKind.Button
+                        ? true
+                        : kind == RibbonItemKind.Toggle ? false : null,
+                    kind == RibbonItemKind.Gallery
+                        ? 12
+                        : kind == RibbonItemKind.ComboBox ? 3 : 2,
+                    kind == RibbonItemKind.ComboBox ? 3 : null);
                 complexHandlers.Add(kind, handler);
                 complexRegistry.Register(
                     new CommandDescriptor(
@@ -181,12 +191,86 @@ internal sealed class SmokePage : ContentPage
             Require(overflowHost.MaximumHeightRequest == 360d &&
                     overflowHost.Content is VerticalStackLayout,
                 "The MAUI overflow surface is not bounded and scrollable.");
+            var overflowButton = overflowRoot.Children
+                .OfType<HorizontalStackLayout>()
+                .SelectMany(static layout => layout.Children.OfType<Button>())
+                .Single(static button => button.AutomationId == "ribbon-overflow");
+            overflowButton.SendClicked();
+            await Task.Delay(100).ConfigureAwait(true);
+            Require(overflowHost.IsVisible &&
+                    ((VerticalStackLayout)overflowHost.Content).IsVisible,
+                "The MAUI overflow button did not reveal usable command content.");
+            overflowRibbon.CommandButtons[0].SendClicked();
+            await Task.Delay(100).ConfigureAwait(true);
+            Require(overflowHandlers[0].ExecutionCount == 1,
+                "A loaded command inside the MAUI overflow did not activate.");
             Require(complexRibbon.ItemControls.Count ==
                     Enum.GetValues<RibbonItemKind>().Length,
                 "The MAUI Ribbon did not render every complex item kind.");
             Require(complexRibbon.ItemControls.All(static control =>
                     control.Handler?.PlatformView is not null),
                 "A complex MAUI Ribbon item did not receive a native platform view.");
+            var separator = complexRibbon.ItemControls.OfType<BoxView>().Single();
+            Require(separator.WidthRequest == 8d &&
+                    separator.Margin.Left + separator.Margin.Right == 0d,
+                "The MAUI separator did not occupy its measured logical width.");
+            var gallery = complexRibbon.ItemControls.OfType<ScrollView>()
+                .Single(static scroll =>
+                    scroll.AutomationId == "ribbon-command-complex.Gallery");
+            Require(gallery.Orientation == ScrollOrientation.Horizontal &&
+                    gallery.Content is HorizontalStackLayout galleryItems &&
+                    galleryItems.Children.Count == 12 &&
+                    galleryItems.Children.OfType<Button>().All(static button =>
+                        button.ImageSource is not null),
+                "The MAUI gallery is not horizontally scrollable with item icons.");
+            var toggleButton = complexRibbon.CommandButtons.Single(static button =>
+                button.AutomationId == "ribbon-command-complex.Toggle");
+            Require(toggleButton.BorderWidth == 1d &&
+                    SemanticProperties.GetDescription(toggleButton).Contains(
+                        "Đang tắt",
+                        StringComparison.Ordinal) &&
+                    SemanticProperties.GetHint(toggleButton).Contains(
+                        "Tooltip Toggle",
+                        StringComparison.Ordinal),
+                "The MAUI toggle did not expose visible and accessible unchecked state.");
+            var split = complexRibbon.ItemControls.OfType<VerticalStackLayout>()
+                .Single(static stack => stack.Children
+                    .OfType<HorizontalStackLayout>()
+                    .SelectMany(static row => row.Children.OfType<Button>())
+                    .Any(static button => button.AutomationId ==
+                        "ribbon-command-complex.SplitButton-primary"));
+            var splitButtons = split.Children.OfType<HorizontalStackLayout>()
+                .Single().Children.OfType<Button>().ToArray();
+            Require(splitButtons.Select(static button => button.AutomationId)
+                    .Order(StringComparer.Ordinal)
+                    .SequenceEqual(
+                    [
+                        "ribbon-command-complex.SplitButton-menu",
+                        "ribbon-command-complex.SplitButton-primary",
+                    ],
+                    StringComparer.Ordinal),
+                "The MAUI split-button subparts do not have stable unique identities.");
+            Require(splitButtons.Single(static button =>
+                    button.AutomationId.EndsWith("-menu", StringComparison.Ordinal)).Focus(),
+                "The MAUI split disclosure could not receive focus.");
+            await Task.Delay(100).ConfigureAwait(true);
+            Require(splitButtons.Single(static button =>
+                    button.AutomationId.EndsWith("-menu", StringComparison.Ordinal)).IsFocused,
+                "The loaded MAUI split disclosure did not acquire focus.");
+            complexRibbon.Rebuild();
+            await Task.Delay(100).ConfigureAwait(true);
+            var rebuiltSplit = complexRibbon.ItemControls.OfType<VerticalStackLayout>()
+                .Single(static stack => stack.Children
+                    .OfType<HorizontalStackLayout>()
+                    .SelectMany(static row => row.Children.OfType<Button>())
+                    .Any(static button => button.AutomationId ==
+                        "ribbon-command-complex.SplitButton-primary"));
+            Require(rebuiltSplit.Children.OfType<HorizontalStackLayout>()
+                    .Single().Children.OfType<Button>()
+                    .Single(static button =>
+                        button.AutomationId.EndsWith("-menu", StringComparison.Ordinal))
+                    .IsFocused,
+                "The MAUI split-button did not restore the focused subpart.");
             var combo = complexRibbon.ItemControls.OfType<Picker>().First();
             combo.SelectedIndex = 1;
             await Task.Delay(100).ConfigureAwait(true);
@@ -406,6 +490,26 @@ internal sealed class SmokePage : ContentPage
 
     private sealed class SelectionHandler : IStatefulCommandHandler
     {
+        private readonly bool? _isChecked;
+        private readonly IReadOnlyList<CommandItem> _items;
+
+        public SelectionHandler(
+            bool? isChecked,
+            int itemCount,
+            int? disabledIndex)
+        {
+            _isChecked = isChecked;
+            _items = Enumerable.Range(1, itemCount)
+                .Select(index => new CommandItem(
+                    index == disabledIndex
+                        ? "disabled"
+                        : index == 1 ? "one" : index == 2 ? "two" : $"choice-{index}",
+                    $"Mục {index}",
+                    isEnabled: index != disabledIndex,
+                    iconKey: "file.new"))
+                .ToArray();
+        }
+
         public string? SelectedValue { get; private set; } = "one";
 
         public int ExecutionCount { get; private set; }
@@ -414,17 +518,18 @@ internal sealed class SmokePage : ContentPage
 
         public CommandState GetState(CommandContext context) => new(
             true,
-            SelectedValue: SelectedValue,
-            ItemsSource:
-            [
-                new CommandItem("one", "Một"),
-                new CommandItem("two", "Hai"),
-            ]);
+            _isChecked,
+            null,
+            SelectedValue,
+            _items);
 
         public ValueTask ExecuteAsync(CommandContext context)
         {
             ExecutionCount++;
-            SelectedValue = ((RibbonItemActivation)context.Parameter!).SelectedValue;
+            if (context.Parameter is RibbonItemActivation activation)
+            {
+                SelectedValue = activation.SelectedValue;
+            }
             return ValueTask.CompletedTask;
         }
     }

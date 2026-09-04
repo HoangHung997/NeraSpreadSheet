@@ -103,18 +103,33 @@ public sealed class RibbonRuntimeController
     /// Executes a selectable Ribbon value while retaining any host-supplied
     /// command parameter in a structured activation payload.
     /// </summary>
-    public ValueTask<bool> TryActivateItemAsync(
+    public async ValueTask<bool> TryActivateItemAsync(
         CommandId commandId,
         string? selectedValue,
-        CommandContext context = default) =>
-        TryActivateAsync(
-            commandId,
-            context with
-            {
-                Parameter = new RibbonItemActivation(
-                    selectedValue,
-                    context.Parameter),
-            });
+        CommandContext context = default)
+    {
+        if (!TryResolveSelectableLeaf(commandId, selectedValue, out _))
+        {
+            return false;
+        }
+
+        var activationContext = context with
+        {
+            Parameter = new RibbonItemActivation(
+                selectedValue,
+                context.Parameter),
+        };
+        var executed = await _dispatcher
+            .TryExecuteAsync(commandId, activationContext)
+            .ConfigureAwait(false);
+        if (executed)
+        {
+            // Command state belongs to the workbook/host context. The structured
+            // item activation payload is only an execution parameter.
+            Publish(EffectiveDefinition, context);
+        }
+        return executed;
+    }
 
     /// <summary>
     /// Resolves a shortcut against commands visible in the current ribbon snapshot.
@@ -134,6 +149,87 @@ public sealed class RibbonRuntimeController
 
     private RibbonDefinition ApplyCustomization(RibbonCustomization? customization) =>
         customization is null ? Definition : customization.ApplyTo(Definition);
+
+    private bool TryResolveSelectableLeaf(
+        CommandId commandId,
+        string? selectedValue,
+        out CommandItem? selectedItem)
+    {
+        selectedItem = null;
+        if (string.IsNullOrWhiteSpace(selectedValue))
+        {
+            return false;
+        }
+
+        var presentation = Snapshot.Tabs
+            .SelectMany(static tab => tab.Groups)
+            .SelectMany(static group => group.Items)
+            .FirstOrDefault(item =>
+                item.Command.CommandId == commandId &&
+                IsSelectableKind(item.Kind));
+        if (presentation is null || !presentation.Command.IsEnabled)
+        {
+            return false;
+        }
+
+        var ambiguous = false;
+        var selectedPathEnabled = false;
+        FindSelectableLeaf(
+            presentation.Command.SelectableItems,
+            selectedValue,
+            ancestorsEnabled: true,
+            ref selectedItem,
+            ref selectedPathEnabled,
+            ref ambiguous);
+        return !ambiguous && selectedItem is not null && selectedPathEnabled;
+    }
+
+    private static bool IsSelectableKind(RibbonItemKind kind) => kind is
+        RibbonItemKind.SplitButton or
+        RibbonItemKind.DropDown or
+        RibbonItemKind.Menu or
+        RibbonItemKind.ComboBox or
+        RibbonItemKind.Gallery or
+        RibbonItemKind.ColorPicker;
+
+    private static void FindSelectableLeaf(
+        IReadOnlyList<CommandItem> items,
+        string selectedValue,
+        bool ancestorsEnabled,
+        ref CommandItem? selectedItem,
+        ref bool selectedPathEnabled,
+        ref bool ambiguous)
+    {
+        foreach (var item in items)
+        {
+            if (item.Children.Count > 0)
+            {
+                FindSelectableLeaf(
+                    item.Children,
+                    selectedValue,
+                    ancestorsEnabled && item.IsEnabled,
+                    ref selectedItem,
+                    ref selectedPathEnabled,
+                    ref ambiguous);
+                if (ambiguous)
+                {
+                    return;
+                }
+                continue;
+            }
+            if (!string.Equals(item.Value, selectedValue, StringComparison.Ordinal))
+            {
+                continue;
+            }
+            if (selectedItem is not null)
+            {
+                ambiguous = true;
+                return;
+            }
+            selectedItem = item;
+            selectedPathEnabled = ancestorsEnabled && item.IsEnabled;
+        }
+    }
 
     private RibbonPresentationSnapshot Publish(
         RibbonDefinition definition,

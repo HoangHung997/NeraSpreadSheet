@@ -3,8 +3,20 @@ namespace NeraSpreadSheet.Commands;
 /// <summary>
 /// Immutable command metadata and runtime state consumed by host presenters.
 /// </summary>
-public sealed record CommandPresentation
+public sealed record CommandPresentation(
+    CommandId CommandId,
+    bool IsRegistered,
+    string Caption,
+    string? Tooltip,
+    string? IconKey,
+    string? Shortcut,
+    bool IsEnabled,
+    bool? IsChecked)
 {
+    /// <summary>
+    /// Creates command presentation with selectable state while retaining the
+    /// original eight-parameter record constructor for binary compatibility.
+    /// </summary>
     public CommandPresentation(
         CommandId CommandId,
         bool IsRegistered,
@@ -14,40 +26,27 @@ public sealed record CommandPresentation
         string? Shortcut,
         bool IsEnabled,
         bool? IsChecked,
-        string? SelectedValue = null,
-        IEnumerable<CommandItem>? ItemsSource = null)
+        string? SelectedValue,
+        IEnumerable<CommandItem>? ItemsSource)
+        : this(
+            CommandId,
+            IsRegistered,
+            Caption,
+            Tooltip,
+            IconKey,
+            Shortcut,
+            IsEnabled,
+            IsChecked)
     {
-        this.CommandId = CommandId;
-        this.IsRegistered = IsRegistered;
-        this.Caption = Caption;
-        this.Tooltip = Tooltip;
-        this.IconKey = IconKey;
-        this.Shortcut = Shortcut;
-        this.IsEnabled = IsEnabled;
-        this.IsChecked = IsChecked;
         this.SelectedValue = SelectedValue;
-        this.ItemsSource = Array.AsReadOnly((ItemsSource ?? []).ToArray());
+        this.ItemsSource = CommandItem.MaterializeUnique(
+            ItemsSource ?? [],
+            "command presentation items source");
     }
-
-    public CommandId CommandId { get; }
-
-    public bool IsRegistered { get; }
-
-    public string Caption { get; }
-
-    public string? Tooltip { get; }
-
-    public string? IconKey { get; }
-
-    public string? Shortcut { get; }
-
-    public bool IsEnabled { get; }
-
-    public bool? IsChecked { get; }
 
     public string? SelectedValue { get; }
 
-    public IReadOnlyList<CommandItem> ItemsSource { get; }
+    public IReadOnlyList<CommandItem> ItemsSource { get; } = [];
 
     /// <summary>Gets the immutable selectable item list.</summary>
     public IReadOnlyList<CommandItem> SelectableItems => ItemsSource;

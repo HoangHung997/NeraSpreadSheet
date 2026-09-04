@@ -28,27 +28,11 @@ public delegate double RibbonItemMeasurementCallback(
     RibbonItemMeasurementContext context);
 
 /// <summary>Immutable host-neutral definition of one Ribbon item.</summary>
-public sealed class RibbonItemDefinition
+public sealed record RibbonItemDefinition(
+    CommandId CommandId,
+    bool IsLarge = false,
+    int Order = 0)
 {
-    /// <summary>
-    /// Creates a source-compatible command button. A checked command state is
-    /// presented as a toggle for definitions created before explicit item kinds.
-    /// </summary>
-    public RibbonItemDefinition(
-        CommandId CommandId,
-        bool IsLarge = false,
-        int Order = 0)
-        : this(
-            CommandId,
-            RibbonItemKind.Button,
-            IsLarge,
-            Order,
-            automationName: null,
-            measurement: null,
-            usesLegacyAutomaticToggle: true)
-    {
-    }
-
     /// <summary>Creates an explicitly typed command-backed Ribbon item.</summary>
     public RibbonItemDefinition(
         CommandId commandId,
@@ -57,25 +41,7 @@ public sealed class RibbonItemDefinition
         int order = 0,
         string? automationName = null,
         RibbonItemMeasurementCallback? measurement = null)
-        : this(
-            commandId,
-            kind,
-            isLarge,
-            order,
-            automationName,
-            measurement,
-            usesLegacyAutomaticToggle: false)
-    {
-    }
-
-    private RibbonItemDefinition(
-        CommandId commandId,
-        RibbonItemKind kind,
-        bool isLarge,
-        int order,
-        string? automationName,
-        RibbonItemMeasurementCallback? measurement,
-        bool usesLegacyAutomaticToggle)
+        : this(commandId, isLarge, order)
     {
         if (!Enum.IsDefined(kind))
         {
@@ -88,16 +54,40 @@ public sealed class RibbonItemDefinition
                 nameof(kind));
         }
 
-        CommandId = commandId;
         Kind = kind;
-        IsLarge = isLarge;
-        Order = order;
         AutomationName = NormalizeOptional(automationName);
         Measurement = measurement;
-        UsesLegacyAutomaticToggle = usesLegacyAutomaticToggle;
+        UsesLegacyAutomaticToggle = false;
     }
 
     private RibbonItemDefinition(string separatorId, int order)
+        : this(
+            new CommandId($"ribbon.separator.{NormalizeSeparatorId(separatorId)}"),
+            false,
+            order)
+    {
+        Kind = RibbonItemKind.Separator;
+        AutomationName = "Dấu phân cách";
+        Measurement = static _ => 8d;
+        UsesLegacyAutomaticToggle = false;
+    }
+
+    public RibbonItemKind Kind { get; private init; } = RibbonItemKind.Button;
+
+    public string? AutomationName { get; private init; }
+
+    public RibbonItemMeasurementCallback? Measurement { get; private init; }
+
+    internal bool UsesLegacyAutomaticToggle { get; private init; } = true;
+
+    /// <summary>Creates a non-command separator with stable identity.</summary>
+    public static RibbonItemDefinition Separator(string id, int order = 0) =>
+        new(id, order);
+
+    internal RibbonItemDefinition WithLayout(bool isLarge, int order) =>
+        this with { IsLarge = isLarge, Order = order };
+
+    private static string NormalizeSeparatorId(string separatorId)
     {
         if (string.IsNullOrWhiteSpace(separatorId))
         {
@@ -105,44 +95,8 @@ public sealed class RibbonItemDefinition
                 "A Ribbon separator id is required.",
                 nameof(separatorId));
         }
-
-        var normalizedId = separatorId.Trim();
-        CommandId = new CommandId($"ribbon.separator.{normalizedId}");
-        Kind = RibbonItemKind.Separator;
-        Order = order;
-        AutomationName = "Dấu phân cách";
-        Measurement = static _ => 8d;
+        return separatorId.Trim();
     }
-
-    public CommandId CommandId { get; }
-
-    public RibbonItemKind Kind { get; }
-
-    public bool IsLarge { get; }
-
-    public int Order { get; }
-
-    public string? AutomationName { get; }
-
-    public RibbonItemMeasurementCallback? Measurement { get; }
-
-    internal bool UsesLegacyAutomaticToggle { get; }
-
-    /// <summary>Creates a non-command separator with stable identity.</summary>
-    public static RibbonItemDefinition Separator(string id, int order = 0) =>
-        new(id, order);
-
-    internal RibbonItemDefinition WithLayout(bool isLarge, int order) =>
-        Kind == RibbonItemKind.Separator
-            ? Separator(CommandId.Value["ribbon.separator.".Length..], order)
-            : new RibbonItemDefinition(
-                CommandId,
-                Kind,
-                isLarge,
-                order,
-                AutomationName,
-                Measurement,
-                UsesLegacyAutomaticToggle);
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

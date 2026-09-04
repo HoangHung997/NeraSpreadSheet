@@ -22,16 +22,18 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     private readonly ScrollView _overflowHost;
     private readonly List<Button> _commandButtons = [];
     private readonly List<VisualElement> _itemControls = [];
-    private readonly Dictionary<VisualElement, CommandId> _focusIdentities = [];
+    private readonly Dictionary<VisualElement, RibbonFocusIdentity> _focusIdentities = [];
     private readonly List<IDisposable> _shortcutBindings = [];
     private Func<string, ImageSource?>? _iconResolver;
     private Func<NeraIconRequest, ImageSource?>? _iconRequestResolver;
     private NeraIconTheme _iconTheme = NeraIconTheme.Light;
     private string? _selectedTabId;
+    private string? _focusedSubpartId;
     private CommandId? _focusedCommandId;
     private double _layoutScale = 1d;
     private bool _restoreCommandFocus;
     private bool _isRebuilding;
+    private bool _isOverflowOpen;
     private bool _resizeRebuildPending;
     private bool _disposed;
 
@@ -242,12 +244,14 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     {
         _groups.Children.Clear();
         _overflowCommands.Children.Clear();
-        _overflowCommands.IsVisible = false;
+        _overflowCommands.IsVisible = true;
+        _overflowHost.IsVisible = false;
         _commandButtons.Clear();
         _itemControls.Clear();
         _focusIdentities.Clear();
         if (snapshot.Tabs.Count == 0)
         {
+            _isOverflowOpen = false;
             return;
         }
 
@@ -280,7 +284,9 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         AddOverflow(tab);
     }
 
-    private Button CreateCommandButton(RibbonItemLayout item)
+    private Button CreateCommandButton(
+        RibbonItemLayout item,
+        string? automationSuffix = null)
     {
         var command = item.Presentation.Command;
         var button = new Button
@@ -303,14 +309,33 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             button,
             command,
             "ribbon-command",
-            item.Size == RibbonItemSize.Large);
-        SemanticProperties.SetDescription(button, item.Presentation.AutomationName);
+            item.Size == RibbonItemSize.Large,
+            automationSuffix);
+        var toggleState = item.Presentation.IsToggle
+            ? command.IsChecked == true ? "Đang bật" : "Đang tắt"
+            : null;
+        SemanticProperties.SetDescription(
+            button,
+            toggleState is null
+                ? item.Presentation.AutomationName
+                : $"{item.Presentation.AutomationName}. {toggleState}");
+        SemanticProperties.SetHint(button, BuildToolTip(command));
+        if (item.Presentation.IsToggle)
+        {
+            button.BorderWidth = command.IsChecked == true ? 2d : 1d;
+            button.BorderColor = command.IsChecked == true
+                ? Colors.DodgerBlue
+                : Colors.Gray;
+            button.FontAttributes = command.IsChecked == true
+                ? FontAttributes.Bold
+                : FontAttributes.None;
+        }
         if (item.Size == RibbonItemSize.Compact && resolvedIcon is not null)
         {
             button.Text = string.Empty;
         }
         button.Clicked += OnCommandClicked;
-        TrackFocus(button, command.CommandId);
+        TrackFocus(button, command.CommandId, button.AutomationId);
         _commandButtons.Add(button);
         return button;
     }
@@ -336,7 +361,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         WidthRequest = Math.Max(1d, item.Width / LayoutScale),
         HeightRequest = 36d,
         Color = Colors.Gray,
-        Margin = new Thickness(4d, 6d),
+        Margin = new Thickness(0d, 6d),
     };
 
     private VerticalStackLayout CreateSplitButton(RibbonItemLayout item)
@@ -345,15 +370,24 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         var menuButton = new Button
         {
             Text = "▼",
-            AutomationId = $"ribbon-menu-{item.Presentation.Command.CommandId.Value}",
+            AutomationId = $"ribbon-command-{item.Presentation.Command.CommandId.Value}-menu",
             IsEnabled = item.Presentation.Command.IsEnabled,
             WidthRequest = 36d,
             Padding = new Thickness(4d),
         };
+        SemanticProperties.SetDescription(
+            menuButton,
+            $"{item.Presentation.AutomationName}, mở danh sách");
+        SemanticProperties.SetHint(
+            menuButton,
+            BuildToolTip(item.Presentation.Command));
         menuButton.Clicked += (_, _) => choices.IsVisible = !choices.IsVisible;
-        TrackFocus(menuButton, item.Presentation.Command.CommandId);
+        TrackFocus(
+            menuButton,
+            item.Presentation.Command.CommandId,
+            menuButton.AutomationId);
         var row = new HorizontalStackLayout { Spacing = 0d };
-        var primary = CreateCommandButton(item);
+        var primary = CreateCommandButton(item, "primary");
         primary.WidthRequest = Math.Max(1d, item.Width / LayoutScale - 36d);
         row.Children.Add(primary);
         row.Children.Add(menuButton);
@@ -406,7 +440,12 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             IsVisible = false,
             Spacing = 2d,
         };
-        AddChoiceButtons(choices, command.CommandId, command.SelectableItems, 0);
+        AddChoiceButtons(
+            choices,
+            command.CommandId,
+            command.SelectableItems,
+            0,
+            command.IsEnabled);
         return choices;
     }
 
@@ -414,7 +453,8 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         VerticalStackLayout target,
         CommandId commandId,
         IReadOnlyList<CommandItem> choices,
-        int depth)
+        int depth,
+        bool ancestorsEnabled)
     {
         foreach (var choice in choices)
         {
@@ -425,14 +465,20 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
                     Text = choice.Caption,
                     Margin = new Thickness(depth * 12d, 2d, 0d, 0d),
                 });
-                AddChoiceButtons(target, commandId, choice.Children, depth + 1);
+                AddChoiceButtons(
+                    target,
+                    commandId,
+                    choice.Children,
+                    depth + 1,
+                    ancestorsEnabled && choice.IsEnabled);
                 continue;
             }
             var button = new Button
             {
                 Text = choice.Caption,
+                AutomationId = $"ribbon-command-{commandId.Value}-choice-{choice.Value}",
                 CommandParameter = new RibbonChoice(commandId, choice.Value),
-                IsEnabled = choice.IsEnabled,
+                IsEnabled = ancestorsEnabled && choice.IsEnabled,
                 Padding = new Thickness(8d, 4d),
                 Margin = new Thickness(depth * 12d, 0d, 0d, 0d),
             };
@@ -444,7 +490,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
                 button.ImageSource = source;
             }
             button.Clicked += OnChoiceClicked;
-            TrackFocus(button, commandId);
+            TrackFocus(button, commandId, button.AutomationId);
             target.Children.Add(button);
         }
     }
@@ -467,27 +513,44 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         };
         SemanticProperties.SetDescription(picker, item.Presentation.AutomationName);
         SemanticProperties.SetHint(picker, BuildToolTip(command));
-        picker.SelectedIndexChanged += async (_, _) =>
+        EventHandler? selectionChanged = null;
+        selectionChanged = async (_, _) =>
         {
             if (!_isRebuilding && picker.SelectedIndex >= 0)
             {
-                await ActivateItemAsync(
+                var activated = await ActivateItemAsync(
                     command.CommandId,
-                    choices[picker.SelectedIndex].Value).ConfigureAwait(false);
+                    choices[picker.SelectedIndex].Value).ConfigureAwait(true);
+                if (!activated)
+                {
+                    picker.SelectedIndexChanged -= selectionChanged;
+                    try
+                    {
+                        picker.SelectedIndex = Array.FindIndex(
+                            choices,
+                            choice => string.Equals(
+                                choice.Value,
+                                command.SelectedValue,
+                                StringComparison.Ordinal));
+                    }
+                    finally
+                    {
+                        picker.SelectedIndexChanged += selectionChanged;
+                    }
+                }
             }
         };
-        TrackFocus(picker, command.CommandId);
+        picker.SelectedIndexChanged += selectionChanged;
+        TrackFocus(picker, command.CommandId, picker.AutomationId);
         return picker;
     }
 
-    private HorizontalStackLayout CreateGallery(RibbonItemLayout item)
+    private ScrollView CreateGallery(RibbonItemLayout item)
     {
         var command = item.Presentation.Command;
         var gallery = new HorizontalStackLayout
         {
-            AutomationId = $"ribbon-command-{command.CommandId.Value}",
             Spacing = 2d,
-            WidthRequest = item.Width / LayoutScale,
         };
         SemanticProperties.SetDescription(gallery, item.Presentation.AutomationName);
         foreach (var choice in command.SelectableItems)
@@ -495,6 +558,8 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             var button = new Button
             {
                 Text = choice.Caption,
+                AutomationId =
+                    $"ribbon-command-{command.CommandId.Value}-choice-{choice.Value}",
                 CommandParameter = new RibbonChoice(command.CommandId, choice.Value),
                 IsEnabled = command.IsEnabled && choice.IsEnabled,
                 Padding = new Thickness(6d, 4d),
@@ -504,16 +569,25 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
                     StringComparison.Ordinal) ? 2d : 0d,
             };
             SemanticProperties.SetDescription(button, choice.Caption);
+            SemanticProperties.SetHint(button, choice.Tooltip ?? choice.Caption);
             if (choice.IconKey is { Length: > 0 } iconKey &&
                 ResolveIcon(iconKey, 16) is ImageSource source)
             {
                 button.ImageSource = source;
             }
             button.Clicked += OnChoiceClicked;
-            TrackFocus(button, command.CommandId);
+            TrackFocus(button, command.CommandId, button.AutomationId);
             gallery.Children.Add(button);
         }
-        return gallery;
+        var scroll = new ScrollView
+        {
+            AutomationId = $"ribbon-command-{command.CommandId.Value}",
+            Orientation = ScrollOrientation.Horizontal,
+            Content = gallery,
+            WidthRequest = item.Width / LayoutScale,
+        };
+        SemanticProperties.SetDescription(scroll, item.Presentation.AutomationName);
+        return scroll;
     }
 
     private void AddOverflow(RibbonTabLayout tab)
@@ -523,6 +597,8 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             .ToArray();
         if (overflowGroups.Length == 0)
         {
+            _isOverflowOpen = false;
+            _overflowHost.IsVisible = false;
             return;
         }
 
@@ -535,7 +611,10 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         };
         SemanticProperties.SetDescription(overflowButton, "Lệnh Ribbon bổ sung");
         overflowButton.Clicked += (_, _) =>
-            _overflowHost.IsVisible = !_overflowHost.IsVisible;
+        {
+            _isOverflowOpen = !_isOverflowOpen;
+            _overflowHost.IsVisible = _isOverflowOpen;
+        };
         _groups.Children.Add(overflowButton);
 
         foreach (var group in overflowGroups)
@@ -550,6 +629,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
                 _overflowCommands.Children.Add(CreateRibbonItem(item));
             }
         }
+        _overflowHost.IsVisible = _isOverflowOpen;
     }
 
     private void CaptureFocus()
@@ -557,7 +637,8 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         var focused = _focusIdentities.FirstOrDefault(static pair => pair.Key.IsFocused);
         if (focused.Key is not null)
         {
-            _focusedCommandId = focused.Value;
+            _focusedCommandId = focused.Value.CommandId;
+            _focusedSubpartId = focused.Value.SubpartId;
             _restoreCommandFocus = true;
         }
     }
@@ -568,7 +649,33 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         {
             return;
         }
-        _focusIdentities.FirstOrDefault(pair => pair.Value == commandId).Key?.Focus();
+        var exact = _focusIdentities.FirstOrDefault(pair =>
+            pair.Value.CommandId == commandId &&
+            string.Equals(
+                pair.Value.SubpartId,
+                _focusedSubpartId,
+                StringComparison.Ordinal));
+        var target = exact.Key ?? _focusIdentities.FirstOrDefault(pair =>
+            pair.Value.CommandId == commandId).Key;
+        if (target is null)
+        {
+            return;
+        }
+        if (target.Handler?.PlatformView is not null && target.Focus())
+        {
+            return;
+        }
+
+        EventHandler? loaded = null;
+        loaded = (_, _) =>
+        {
+            target.Loaded -= loaded;
+            if (!_disposed)
+            {
+                target.Focus();
+            }
+        };
+        target.Loaded += loaded;
     }
 
     private void OnRibbonSizeChanged(object? sender, EventArgs e)
@@ -607,16 +714,22 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     private void OnCommandFocused(object? sender, FocusEventArgs e)
     {
         if (sender is VisualElement element &&
-            _focusIdentities.TryGetValue(element, out var commandId))
+            _focusIdentities.TryGetValue(element, out var identity))
         {
-            _focusedCommandId = commandId;
+            _focusedCommandId = identity.CommandId;
+            _focusedSubpartId = identity.SubpartId;
             _restoreCommandFocus = true;
         }
     }
 
-    private void TrackFocus(VisualElement element, CommandId commandId)
+    private void TrackFocus(
+        VisualElement element,
+        CommandId commandId,
+        string? subpartId = null)
     {
-        _focusIdentities[element] = commandId;
+        _focusIdentities[element] = new RibbonFocusIdentity(
+            commandId,
+            subpartId ?? element.AutomationId);
         element.Focused += OnCommandFocused;
         element.Unfocused += OnCommandUnfocused;
     }
@@ -658,6 +771,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         }
 
         _selectedTabId = tabId;
+        _isOverflowOpen = false;
         Rebuild();
     }
 
@@ -759,4 +873,8 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         };
 
     private sealed record RibbonChoice(CommandId CommandId, string Value);
+
+    private readonly record struct RibbonFocusIdentity(
+        CommandId CommandId,
+        string? SubpartId);
 }

@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Media;
 using NeraSpreadSheet.Commands;
 using NeraSpreadSheet.Iconography;
@@ -22,8 +23,10 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     private Func<NeraIconRequest, ImageSource?>? _iconRequestResolver;
     private NeraIconTheme _iconTheme = NeraIconTheme.Light;
     private string? _selectedTabId;
+    private string? _focusedAutomationId;
     private CommandId? _focusedCommandId;
     private bool _restoreCommandFocus;
+    private bool _suppressChoiceActivation;
     private bool _resizeRebuildPending;
     private bool _disposed;
 
@@ -267,7 +270,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         var separator = new Separator
         {
             Tag = item.Presentation.Command.CommandId,
-            Margin = new Thickness(4d, 6d, 4d, 6d),
+            Margin = new Thickness(0d, 6d, 0d, 6d),
             Width = Math.Max(1d, item.Width / LayoutSnapshot.Scale),
         };
         AutomationProperties.SetAutomationId(
@@ -285,11 +288,20 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             Margin = new Thickness(2d),
             Tag = item.Presentation.Command.CommandId,
         };
-        var menu = CreateChoiceMenu(item, header: "▼", compactHeader: false);
+        var menu = CreateChoiceMenu(
+            item,
+            header: "▼",
+            compactHeader: false,
+            automationSuffix: "menu");
+        menu.Margin = new Thickness(0d);
         DockPanel.SetDock(menu, Dock.Right);
         panel.Children.Add(menu);
         var primary = CreateCommandButton(item);
+        AutomationProperties.SetAutomationId(
+            primary,
+            $"ribbon-command-{item.Presentation.Command.CommandId.Value}-primary");
         primary.Width = double.NaN;
+        primary.Margin = new Thickness(0d);
         panel.Children.Add(primary);
         return panel;
     }
@@ -300,7 +312,8 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     private Menu CreateChoiceMenu(
         RibbonItemLayout item,
         string header,
-        bool compactHeader)
+        bool compactHeader,
+        string? automationSuffix = null)
     {
         var command = item.Presentation.Command;
         var root = new MenuItem
@@ -315,7 +328,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         };
         AutomationProperties.SetAutomationId(
             root,
-            $"ribbon-command-{command.CommandId.Value}");
+            $"ribbon-command-{command.CommandId.Value}{(automationSuffix is null ? string.Empty : $"-{automationSuffix}")}");
         AutomationProperties.SetName(root, item.Presentation.AutomationName);
         if (command.IconKey is { Length: > 0 } iconKey &&
             ResolveIcon(iconKey, 16) is ImageSource rootIcon)
@@ -387,26 +400,30 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             Margin = new Thickness(2d),
             ToolTip = BuildToolTip(command),
         };
+        var itemStyle = new Style(typeof(ComboBoxItem));
+        itemStyle.Setters.Add(new Setter(
+            UIElement.IsEnabledProperty,
+            new Binding(nameof(CommandItem.IsEnabled))));
+        combo.ItemContainerStyle = itemStyle;
         AutomationProperties.SetAutomationId(combo, $"ribbon-command-{command.CommandId.Value}");
         AutomationProperties.SetName(combo, item.Presentation.AutomationName);
         combo.SelectionChanged += OnChoiceSelectionChanged;
         return combo;
     }
 
-    private WrapPanel CreateGallery(RibbonItemLayout item)
+    private ScrollViewer CreateGallery(RibbonItemLayout item)
     {
         var command = item.Presentation.Command;
-        var panel = new WrapPanel
+        var panel = new StackPanel
         {
-            Width = Math.Max(1d, item.Width / LayoutSnapshot.Scale - 4d),
-            Margin = new Thickness(2d),
+            Orientation = Orientation.Horizontal,
             Tag = command.CommandId,
         };
         foreach (var choice in command.SelectableItems)
         {
             var button = new ToggleButton
             {
-                Content = choice.Caption,
+                Content = CreateGalleryChoiceContent(choice),
                 Tag = command.CommandId,
                 CommandParameter = choice.Value,
                 IsEnabled = command.IsEnabled && choice.IsEnabled,
@@ -419,11 +436,42 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
                 Padding = new Thickness(4d, 2d, 4d, 2d),
             };
             AutomationProperties.SetName(button, choice.Caption);
+            AutomationProperties.SetAutomationId(
+                button,
+                $"ribbon-command-{command.CommandId.Value}-choice-{choice.Value}");
             button.Click += OnChoiceButtonClick;
             panel.Children.Add(button);
         }
-        AutomationProperties.SetAutomationId(panel, $"ribbon-command-{command.CommandId.Value}");
-        AutomationProperties.SetName(panel, item.Presentation.AutomationName);
+        var scroll = new ScrollViewer
+        {
+            Content = panel,
+            Width = Math.Max(1d, item.Width / LayoutSnapshot.Scale - 4d),
+            Margin = new Thickness(2d),
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Tag = command.CommandId,
+        };
+        AutomationProperties.SetAutomationId(scroll, $"ribbon-command-{command.CommandId.Value}");
+        AutomationProperties.SetName(scroll, item.Presentation.AutomationName);
+        return scroll;
+    }
+
+    private object CreateGalleryChoiceContent(CommandItem choice)
+    {
+        if (choice.IconKey is not { Length: > 0 } iconKey ||
+            ResolveIcon(iconKey, 16) is not ImageSource source)
+        {
+            return choice.Caption;
+        }
+        var panel = new StackPanel { Orientation = Orientation.Horizontal };
+        panel.Children.Add(new Image
+        {
+            Source = source,
+            Width = 16d,
+            Height = 16d,
+            Margin = new Thickness(0d, 0d, 4d, 0d),
+        });
+        panel.Children.Add(new TextBlock { Text = choice.Caption });
         return panel;
     }
 
@@ -494,8 +542,8 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
                     CommandParameter = command.CommandId,
                     Tag = command.CommandId,
                     IsEnabled = command.IsEnabled,
-                    IsCheckable = command.IsChecked.HasValue,
-                    IsChecked = command.IsChecked ?? false,
+                    IsCheckable = item.Presentation.IsToggle,
+                    IsChecked = item.Presentation.IsToggle && command.IsChecked == true,
                     ToolTip = BuildToolTip(command),
                 };
                 AutomationProperties.SetAutomationId(
@@ -510,6 +558,27 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
                 }
                 else
                 {
+                    if (item.Presentation.Kind == RibbonItemKind.SplitButton)
+                    {
+                        var primary = new MenuItem
+                        {
+                            Header = command.Caption,
+                            CommandParameter = command.CommandId,
+                            Tag = command.CommandId,
+                            IsEnabled = command.IsEnabled,
+                            ToolTip = BuildToolTip(command),
+                        };
+                        AutomationProperties.SetAutomationId(
+                            primary,
+                            $"ribbon-command-{command.CommandId.Value}-primary");
+                        AutomationProperties.SetName(primary, item.Presentation.AutomationName);
+                        primary.Click += OnOverflowCommandClick;
+                        commandItem.Items.Add(primary);
+                        if (command.SelectableItems.Count > 0)
+                        {
+                            commandItem.Items.Add(new Separator());
+                        }
+                    }
                     foreach (var choice in command.SelectableItems)
                     {
                         commandItem.Items.Add(CreateChoiceMenuItem(command.CommandId, choice));
@@ -533,6 +602,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         if (focused?.Tag is CommandId focusedId)
         {
             _focusedCommandId = focusedId;
+            _focusedAutomationId = AutomationProperties.GetAutomationId(focused);
             _restoreCommandFocus = true;
         }
         else if (System.Windows.Input.Keyboard.FocusedElement is not null)
@@ -547,8 +617,14 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         {
             return;
         }
-        var target = FindVisualDescendants<FrameworkElement>(_tabs)
-            .FirstOrDefault(element => element.Tag is CommandId id && id == commandId);
+        var candidates = FindVisualDescendants<FrameworkElement>(_tabs)
+            .Where(element => element.Tag is CommandId id && id == commandId)
+            .ToArray();
+        var target = candidates.FirstOrDefault(element => string.Equals(
+                AutomationProperties.GetAutomationId(element),
+                _focusedAutomationId,
+                StringComparison.Ordinal))
+            ?? candidates.FirstOrDefault();
         target?.Focus();
     }
 
@@ -603,13 +679,28 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
 
     private async void OnChoiceSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (sender is ComboBox
-            {
-                Tag: CommandId commandId,
-                SelectedValue: string selectedValue,
-            })
+        if (_suppressChoiceActivation ||
+            sender is not ComboBox { Tag: CommandId commandId } combo)
         {
-            await ActivateItemAsync(commandId, selectedValue);
+            return;
+        }
+
+        if (combo.SelectedValue is not string selectedValue ||
+            !await ActivateItemAsync(commandId, selectedValue))
+        {
+            _suppressChoiceActivation = true;
+            try
+            {
+                combo.SelectedValue = _runtime.Snapshot.Tabs
+                    .SelectMany(static tab => tab.Groups)
+                    .SelectMany(static group => group.Items)
+                    .FirstOrDefault(item => item.Command.CommandId == commandId)
+                    ?.Command.SelectedValue;
+            }
+            finally
+            {
+                _suppressChoiceActivation = false;
+            }
         }
     }
 
@@ -698,14 +789,14 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         }
     }
 
-    private async ValueTask ActivateItemAsync(
+    private async ValueTask<bool> ActivateItemAsync(
         CommandId commandId,
         string selectedValue)
     {
         try
         {
             var context = CommandContextFactory?.Invoke(commandId) ?? default;
-            await _runtime.TryActivateItemAsync(commandId, selectedValue, context);
+            return await _runtime.TryActivateItemAsync(commandId, selectedValue, context);
         }
         catch (Exception exception)
         {
@@ -715,6 +806,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
                 throw;
             }
             handler(this, new NeraWpfCommandActivationFailedEventArgs(commandId, exception));
+            return false;
         }
     }
 
