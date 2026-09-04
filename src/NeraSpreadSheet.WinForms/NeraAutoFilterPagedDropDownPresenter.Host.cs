@@ -45,12 +45,15 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             button.BringToFront();
         }
 
-        foreach (var (key, button) in _buttons)
+        foreach (var key in _buttons.Keys
+                     .Where(key => !visibleKeys.Contains(key))
+                     .ToArray())
         {
-            if (!visibleKeys.Contains(key))
-            {
-                button.Visible = false;
-            }
+            var button = _buttons[key];
+            button.Click -= OnFilterButtonClick;
+            _control.Controls.Remove(button);
+            button.Dispose();
+            _buttons.Remove(key);
         }
     }
 

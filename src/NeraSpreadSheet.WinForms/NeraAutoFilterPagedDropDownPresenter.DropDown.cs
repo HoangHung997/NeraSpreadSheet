@@ -107,16 +107,44 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             AccessibleName = "Giá trị điều kiện lọc",
         };
         _criterionInput = criterionInput;
+        var conditionJoin = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Location = new Point(10, 138),
+            Size = new Size(82, 28),
+            DataSource = new[] { "Và", "Hoặc" },
+            AccessibleName = "Cách kết hợp điều kiện",
+            Visible = false,
+        };
+        _conditionJoinBox = conditionJoin;
+        var secondCriterion = new TextBox
+        {
+            PlaceholderText = "Điều kiện thứ hai",
+            Location = new Point(98, 138),
+            Size = new Size(DropDownWidth - 108, 27),
+            AccessibleName = "Điều kiện lọc thứ hai",
+            Visible = false,
+        };
+        _secondCriterionInput = secondCriterion;
         var selectAll = CreateCommandButton(
             "Chọn kết quả",
             new Point(10, 138),
             108,
             "Chọn mọi giá trị khớp tìm kiếm");
+        _selectAllButton = selectAll;
         var selectNone = CreateCommandButton(
             "Bỏ chọn kết quả",
             new Point(124, 138),
             120,
             "Bỏ chọn mọi giá trị khớp tìm kiếm");
+        _selectNoneButton = selectNone;
+        var dateBack = CreateCommandButton(
+            "◀ Lùi một cấp ngày",
+            new Point(10, 138),
+            150,
+            "Quay về cấp ngày cha");
+        dateBack.Visible = false;
+        _dateBackButton = dateBack;
         var status = new Label
         {
             AutoSize = false,
@@ -171,8 +199,11 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             search,
             menuKind,
             criterionInput,
+            conditionJoin,
+            secondCriterion,
             selectAll,
             selectNone,
+            dateBack,
             status,
             values,
             previous,
@@ -183,47 +214,56 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         ]);
 
         search.TextChanged += (_, _) => ScheduleSearch(search.Text);
+        menuKind.SelectedIndexChanged += (_, _) =>
+        {
+            if (!_rebuilding)
+            {
+                StartOperation(RefreshSelectedModeAsync);
+            }
+        };
         values.ItemCheck += OnValueItemCheck;
+        values.DoubleClick += (_, _) =>
+        {
+            if (values.SelectedItem is DateListItem { Node.HasChildren: true } item)
+            {
+                StartOperation(token => NavigateDateIntoAsync(item.Node, token));
+            }
+        };
         selectAll.Click += (_, _) => StartOperation(async token =>
         {
-            if (_binding is null)
+            var binding = _binding;
+            if (binding is null)
             {
                 return;
             }
-            await _binding.SelectAllVisibleAsync(token);
-            RebuildPage();
+            await binding.SelectAllVisibleAsync(token);
+            if (ReferenceEquals(_binding, binding)) RebuildPage();
         });
         selectNone.Click += (_, _) => StartOperation(async token =>
         {
-            if (_binding is null)
+            var binding = _binding;
+            if (binding is null)
             {
                 return;
             }
-            await _binding.ClearVisibleSelectionAsync(token);
-            RebuildPage();
+            await binding.ClearVisibleSelectionAsync(token);
+            if (ReferenceEquals(_binding, binding)) RebuildPage();
         });
-        previous.Click += (_, _) => StartOperation(async token =>
-        {
-            if (_binding is not null &&
-                await _binding.MovePreviousPageAsync(token))
-            {
-                RebuildPage();
-            }
-        });
-        next.Click += (_, _) => StartOperation(async token =>
-        {
-            if (_binding is not null &&
-                await _binding.MoveNextPageAsync(token))
-            {
-                RebuildPage();
-            }
-        });
+        previous.Click += (_, _) => StartOperation(token =>
+            MovePageAsync(next: false, token));
+        next.Click += (_, _) => StartOperation(token =>
+            MovePageAsync(next: true, token));
+        dateBack.Click += (_, _) => StartOperation(NavigateDateBackAsync);
         clear.Click += (_, _) => StartOperation(ClearAndCloseAsync);
         cancel.Click += (_, _) => Close();
         apply.Click += (_, _) => StartOperation(ApplyAndCloseAsync);
 
         KeyEventHandler keyHandler = (_, args) => OnDropDownKeyDown(args);
         search.KeyDown += keyHandler;
+        menuKind.KeyDown += keyHandler;
+        criterionInput.KeyDown += keyHandler;
+        conditionJoin.KeyDown += keyHandler;
+        secondCriterion.KeyDown += keyHandler;
         values.KeyDown += keyHandler;
         selectAll.KeyDown += keyHandler;
         selectNone.KeyDown += keyHandler;
@@ -244,11 +284,13 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         }
         StartOperation(async token =>
         {
-            if (_binding is null)
+            var binding = _binding;
+            if (binding is null)
             {
                 return;
             }
-            await _binding.InitializeAsync(token);
+            await binding.InitializeAsync(token);
+            if (!ReferenceEquals(_binding, binding)) return;
             RebuildPage();
             FocusSearchBox(dropDown);
         });
@@ -270,11 +312,18 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             _searchBox = null;
             _menuKindBox = null;
             _criterionInput = null;
+            _secondCriterionInput = null;
+            _conditionJoinBox = null;
+            _selectAllButton = null;
+            _selectNoneButton = null;
+            _dateBackButton = null;
             _valuesList = null;
             _status = null;
             _previousButton = null;
             _nextButton = null;
             _applyButton = null;
+            _datePage = null;
+            _selectedDateGroups.Clear();
         }
         RestoreFocus();
     }
@@ -292,25 +341,55 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         if (_menuKindBox is not null)
         {
             var selectedIndex = _menuKindBox.SelectedIndex;
-            _menuKindBox.DataSource = _binding.MenuKinds
+            var labels = _binding.MenuKinds
                 .Select(static kind => kind.GetDefaultDisplayName())
                 .ToArray();
-            _menuKindBox.SelectedIndex = _binding.MenuKinds.Count == 0
+            _menuKindBox.BeginUpdate();
+            _menuKindBox.DataSource = null;
+            _menuKindBox.Items.Clear();
+            _menuKindBox.Items.AddRange(labels);
+            _menuKindBox.SelectedIndex = labels.Length == 0
                 ? -1
-                : Math.Clamp(selectedIndex, 0, _binding.MenuKinds.Count - 1);
+                : Math.Clamp(selectedIndex, 0, labels.Length - 1);
+            _menuKindBox.EndUpdate();
         }
+        var kind = GetSelectedMenuKind(_binding);
+        var isValues = kind == SpreadsheetAutoFilterMenuKind.Values;
+        var isDate = kind == SpreadsheetAutoFilterMenuKind.Date;
+        var isCustom = kind == SpreadsheetAutoFilterMenuKind.Custom;
+        _criterionInput!.Visible = !isValues && !isDate;
+        _secondCriterionInput!.Visible = isCustom;
+        _conditionJoinBox!.Visible = isCustom;
+        _searchBox!.Visible = isValues;
+        _selectAllButton!.Visible = isValues;
+        _selectNoneButton!.Visible = isValues;
+        _dateBackButton!.Visible = isDate && _dateParent.Year is not null;
+        _valuesList.Visible = isValues || isDate;
         _valuesList.BeginUpdate();
         try
         {
             _valuesList.Items.Clear();
-            foreach (var item in _binding.Items)
+            if (isDate)
             {
-                _valuesList.Items.Add(
-                    new FilterListItem(
-                        item.Value,
-                        DisplayValue(item.Value),
-                        item.Count),
-                    item.IsSelected);
+                foreach (var node in _datePage?.Nodes ?? [])
+                {
+                    var group = ToDateGroup(node);
+                    _valuesList.Items.Add(
+                        new DateListItem(node, DisplayDateNode(node)),
+                        _selectedDateGroups.Contains(group));
+                }
+            }
+            else
+            {
+                foreach (var item in _binding.Items)
+                {
+                    _valuesList.Items.Add(
+                        new FilterListItem(
+                            item.Value,
+                            DisplayValue(item.Value),
+                            item.Count),
+                        item.IsSelected);
+                }
             }
         }
         finally
@@ -319,21 +398,33 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             _rebuilding = false;
         }
 
-        var first = _binding.TotalItemCount == 0
-            ? 0
-            : _binding.PageOffset + 1;
-        var last = Math.Min(
-            _binding.TotalItemCount,
-            _binding.PageOffset + _binding.Items.Count);
-        _status.Text = _binding.IsSourceTruncated
-            ? $"{first:N0}–{last:N0}/{_binding.TotalItemCount:N0}; nguồn đã bị giới hạn."
-            : $"{first:N0}–{last:N0}/{_binding.TotalItemCount:N0} giá trị.";
+        var total = isDate ? _datePage?.TotalNodeCount ?? 0 : _binding.TotalItemCount;
+        var offset = isDate ? _datePage?.Offset ?? 0 : _binding.PageOffset;
+        var pageCount = isDate ? _datePage?.Nodes.Count ?? 0 : _binding.Items.Count;
+        var first = total == 0 ? 0 : offset + 1;
+        var last = Math.Min(total, offset + pageCount);
+        _status.Text = !isValues && !isDate
+            ? isCustom
+                ? "Nhập một hoặc hai điều kiện rồi chọn cách kết hợp."
+                : "Nhập điều kiện lọc rồi chọn Áp dụng."
+            : isDate
+            ? $"{first:N0}–{last:N0}/{total:N0} nhóm ngày; đã chọn {_selectedDateGroups.Count:N0}."
+            : _binding.IsSourceTruncated
+                ? $"{first:N0}–{last:N0}/{total:N0}; nguồn bị giới hạn, không thể áp dụng chọn giá trị."
+                : $"{first:N0}–{last:N0}/{total:N0} giá trị.";
         _status.AccessibleName = _status.Text;
-        _previousButton!.Enabled =
-            _binding.HasPreviousPage && !_binding.IsBusy;
-        _nextButton!.Enabled =
-            _binding.HasNextPage && !_binding.IsBusy;
-        _applyButton!.Enabled = !_binding.IsBusy;
+        _previousButton!.Visible = isValues || isDate;
+        _nextButton!.Visible = isValues || isDate;
+        _previousButton.Enabled = isDate
+            ? _datePage?.HasPreviousPage == true && !_binding.IsBusy
+            : _binding.HasPreviousPage && !_binding.IsBusy;
+        _nextButton.Enabled = isDate
+            ? _datePage?.HasNextPage == true && !_binding.IsBusy
+            : _binding.HasNextPage && !_binding.IsBusy;
+        _applyButton!.Enabled =
+            !_binding.IsBusy &&
+            (!isDate || _selectedDateGroups.Count > 0) &&
+            (!isValues || !_binding.IsSourceTruncated);
     }
 
     private void OnValueItemCheck(object? sender, ItemCheckEventArgs e)
@@ -342,10 +433,35 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         {
             return;
         }
+        if (_valuesList?.Items[e.Index] is DateListItem dateItem)
+        {
+            var group = ToDateGroup(dateItem.Node);
+            if (e.NewValue == CheckState.Checked)
+            {
+                _selectedDateGroups.Add(group);
+            }
+            else
+            {
+                _selectedDateGroups.Remove(group);
+            }
+            if (_status is not null)
+            {
+                _status.Text = $"Đã chọn {_selectedDateGroups.Count:N0} nhóm ngày.";
+            }
+            return;
+        }
         StartOperation(token => _binding.SetSelectedAsync(
             e.Index,
             e.NewValue == CheckState.Checked,
             token));
+    }
+
+    private sealed record DateListItem(
+        SpreadsheetAutoFilterDateNode Node,
+        string Text)
+    {
+        public override string ToString() =>
+            $"{(Node.HasChildren ? "▶ " : string.Empty)}{Text}  ({Node.Count:N0})";
     }
 
     private void OnDropDownKeyDown(KeyEventArgs e)

@@ -78,6 +78,51 @@ public sealed class NeraMauiAutoFilterPagedBindingTests
             .AutoFilter!.Columns.Single().TopBottom);
     }
 
+    [TestMethod]
+    public async Task DateTreeAndTwoConditionsFlowThroughNativeBinding()
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        var columnId = Guid.NewGuid();
+        worksheet.SetValue(new CellAddress(0, 0), "Date");
+        worksheet.SetValue(new CellAddress(1, 0), new DateTime(2025, 1, 2));
+        worksheet.SetValue(new CellAddress(2, 0), new DateTime(2026, 3, 4));
+        worksheet.AddTable(new SpreadsheetTable(
+            Guid.NewGuid(),
+            "Dates",
+            new CellRange(new CellAddress(0, 0), new CellAddress(2, 0)),
+            [new SpreadsheetTableColumn(columnId, "Date")]));
+        var session = new SpreadsheetSession(workbook);
+        session.Selection.SetActiveCell(new CellAddress(1, 0));
+        Assert.IsTrue(session.TryResolveActiveAutoFilterTarget(out var target));
+        await using var binding = new NeraMauiAutoFilterPagedBinding(
+            new SpreadsheetAutoFilterPagedPresenter(session, target),
+            new ImmediateDispatcher());
+        await binding.InitializeAsync();
+
+        var dates = await binding.GetDatePageAsync(
+            new SpreadsheetAutoFilterDateParent(null, null),
+            0,
+            100);
+        Assert.AreEqual(2, dates.TotalNodeCount);
+        CollectionAssert.Contains(
+            binding.MenuKinds.ToArray(),
+            SpreadsheetAutoFilterMenuKind.Date);
+
+        await binding.ApplyCustomFilterAsync(
+            new TableFilterCondition(
+                TableFilterComparisonOperator.AfterDate,
+                CellValue.FromDateTime(new DateTime(2025, 1, 1))),
+            new TableFilterCondition(
+                TableFilterComparisonOperator.BeforeDate,
+                CellValue.FromDateTime(new DateTime(2027, 1, 1))),
+            combineWithAnd: true);
+        var filter = worksheet.Tables.Single().AutoFilter!.Columns.Single();
+        Assert.IsNotNull(filter.FirstCondition);
+        Assert.IsNotNull(filter.SecondCondition);
+        Assert.IsTrue(filter.CombineWithAnd);
+    }
+
     private static Fixture CreateFixture()
     {
         var workbook = new Workbook();

@@ -21,9 +21,21 @@ public static class SpreadsheetWorksheetFilterButtonGeometry
             SpreadsheetRenderTheme? theme = null)
     {
         ArgumentNullException.ThrowIfNull(worksheet);
+        return GetVisibleButtons(worksheet.AutoFilter, layout, theme);
+    }
+
+    /// <summary>
+    /// Computes visible direct-worksheet AutoFilter buttons from filter
+    /// metadata only, without capturing cell contents.
+    /// </summary>
+    public static IReadOnlyList<SpreadsheetWorksheetFilterButtonHit>
+        GetVisibleButtons(
+            WorksheetAutoFilter? filter,
+            ViewportLayout layout,
+            SpreadsheetRenderTheme? theme = null)
+    {
         ArgumentNullException.ThrowIfNull(layout);
         theme ??= new SpreadsheetRenderTheme();
-        var filter = worksheet.AutoFilter;
         if (!theme.ShowTableFilterButtons ||
             filter is null ||
             !filter.HasHeaderRow)

@@ -62,6 +62,33 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         SemanticProperties.SetDescription(criterionInput, "Giá trị điều kiện lọc");
         panel.Children.Add(criterionInput);
 
+        var customConditions = new Grid
+        {
+            IsVisible = false,
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(new GridLength(96d)),
+                new ColumnDefinition(GridLength.Star),
+            },
+            ColumnSpacing = 8d,
+        };
+        var conditionJoin = new Picker
+        {
+            ItemsSource = new[] { "Và", "Hoặc" },
+            SelectedIndex = 0,
+            AutomationId = "NeraAutoFilterPagedConditionJoin",
+        };
+        SemanticProperties.SetDescription(conditionJoin, "Cách kết hợp hai điều kiện");
+        var secondCriterion = new Entry
+        {
+            Placeholder = "Điều kiện thứ hai",
+            AutomationId = "NeraAutoFilterPagedSecondCriterion",
+        };
+        SemanticProperties.SetDescription(secondCriterion, "Điều kiện lọc thứ hai");
+        customConditions.Add(conditionJoin, 0, 0);
+        customConditions.Add(secondCriterion, 1, 0);
+        panel.Children.Add(customConditions);
+
         var search = new Entry
         {
             Placeholder = "Tìm giá trị",
@@ -91,6 +118,14 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         selectionCommands.Children.Add(selectNone);
         panel.Children.Add(selectionCommands);
 
+        var dateBack = CreateSheetButton(
+            "◀ Lùi một cấp ngày",
+            "NeraAutoFilterPagedDateBack",
+            "Quay về năm hoặc danh sách năm");
+        dateBack.IsVisible = false;
+        dateBack.HorizontalOptions = LayoutOptions.Start;
+        panel.Children.Add(dateBack);
+
         var status = new Label
         {
             TextColor = Colors.Gray,
@@ -114,6 +149,23 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             values,
             "Trang hiện hành của danh sách giá trị lọc");
         panel.Children.Add(values);
+
+        var dateValues = new CollectionView
+        {
+            AutomationId = "NeraAutoFilterPagedDateValues",
+            SelectionMode = SelectionMode.None,
+            ItemsLayout = new LinearItemsLayout(ItemsLayoutOrientation.Vertical)
+            {
+                ItemSpacing = 2d,
+            },
+            HeightRequest = 280d,
+            ItemTemplate = CreateDateTemplate(),
+            IsVisible = false,
+        };
+        SemanticProperties.SetDescription(
+            dateValues,
+            "Cây ngày được tải lười theo năm, tháng và ngày");
+        panel.Children.Add(dateValues);
 
         var paging = new HorizontalStackLayout
         {
@@ -160,41 +212,39 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         panel.Children.Add(footer);
 
         search.TextChanged += (_, args) => ScheduleSearch(args.NewTextValue);
+        menuKindPicker.SelectedIndexChanged += (_, _) =>
+        {
+            if (!_rebuilding)
+            {
+                StartOperation(RefreshSelectedModeAsync);
+            }
+        };
         search.Completed += (_, _) => StartOperation(ApplyAndCloseAsync);
         selectAll.Clicked += (_, _) => StartOperation(async token =>
         {
-            if (_binding is null)
+            var binding = _binding;
+            if (binding is null)
             {
                 return;
             }
-            await _binding.SelectAllVisibleAsync(token);
-            UpdateSheetState();
+            await binding.SelectAllVisibleAsync(token);
+            if (ReferenceEquals(_binding, binding)) UpdateSheetState();
         });
         selectNone.Clicked += (_, _) => StartOperation(async token =>
         {
-            if (_binding is null)
+            var binding = _binding;
+            if (binding is null)
             {
                 return;
             }
-            await _binding.ClearVisibleSelectionAsync(token);
-            UpdateSheetState();
+            await binding.ClearVisibleSelectionAsync(token);
+            if (ReferenceEquals(_binding, binding)) UpdateSheetState();
         });
-        previous.Clicked += (_, _) => StartOperation(async token =>
-        {
-            if (_binding is not null &&
-                await _binding.MovePreviousPageAsync(token))
-            {
-                UpdateSheetState();
-            }
-        });
-        next.Clicked += (_, _) => StartOperation(async token =>
-        {
-            if (_binding is not null &&
-                await _binding.MoveNextPageAsync(token))
-            {
-                UpdateSheetState();
-            }
-        });
+        previous.Clicked += (_, _) => StartOperation(token =>
+            MovePageAsync(next: false, token));
+        next.Clicked += (_, _) => StartOperation(token =>
+            MovePageAsync(next: true, token));
+        dateBack.Clicked += (_, _) => StartOperation(NavigateDateBackAsync);
         clear.Clicked += (_, _) => StartOperation(ClearAndCloseAsync);
         cancel.Clicked += (_, _) => CloseFilterSheet();
         apply.Clicked += (_, _) => StartOperation(ApplyAndCloseAsync);
@@ -218,9 +268,14 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             panel,
             menuKindPicker,
             criterionInput,
+            secondCriterion,
+            conditionJoin,
+            selectionCommands,
+            dateBack,
             search,
             status,
             values,
+            dateValues,
             previous,
             next,
             apply);
@@ -237,6 +292,9 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
                 CheckBox.IsCheckedProperty,
                 nameof(SpreadsheetTableFilterValueItem.IsSelected),
                 mode: BindingMode.OneWay);
+            checkBox.SetBinding(
+                SemanticProperties.DescriptionProperty,
+                nameof(SpreadsheetTableFilterValueItem.DisplayText));
             var value = new Label
             {
                 VerticalOptions = LayoutOptions.Center,
@@ -274,6 +332,56 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             return row;
         });
 
+    private DataTemplate CreateDateTemplate() =>
+        new(() =>
+        {
+            var checkBox = new CheckBox
+            {
+                VerticalOptions = LayoutOptions.Center,
+            };
+            checkBox.SetBinding(
+                CheckBox.IsCheckedProperty,
+                nameof(DateItem.IsSelected),
+                mode: BindingMode.OneWay);
+            checkBox.SetBinding(
+                SemanticProperties.DescriptionProperty,
+                nameof(DateItem.DisplayText));
+            var value = new Label
+            {
+                VerticalOptions = LayoutOptions.Center,
+                LineBreakMode = LineBreakMode.TailTruncation,
+            };
+            value.SetBinding(Label.TextProperty, nameof(DateItem.DisplayText));
+            var drill = CreateSheetButton(
+                "Mở ▶",
+                "NeraAutoFilterPagedDateDrill",
+                "Tải lười cấp ngày con");
+            drill.SetBinding(
+                VisualElement.IsVisibleProperty,
+                nameof(DateItem.HasChildren));
+            drill.SetBinding(
+                SemanticProperties.DescriptionProperty,
+                nameof(DateItem.DisplayText),
+                stringFormat: "Mở {0}");
+            var row = new Grid
+            {
+                ColumnDefinitions =
+                {
+                    new ColumnDefinition(GridLength.Auto),
+                    new ColumnDefinition(GridLength.Star),
+                    new ColumnDefinition(GridLength.Auto),
+                },
+                ColumnSpacing = 8d,
+                Padding = new Thickness(4d, 2d),
+            };
+            row.Add(checkBox, 0, 0);
+            row.Add(value, 1, 0);
+            row.Add(drill, 2, 0);
+            checkBox.CheckedChanged += OnDateCheckChanged;
+            drill.Clicked += OnDateDrillClicked;
+            return row;
+        });
+
     private void OnValueCheckChanged(
         object? sender,
         CheckedChangedEventArgs e)
@@ -297,6 +405,35 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         }
     }
 
+    private void OnDateCheckChanged(
+        object? sender,
+        CheckedChangedEventArgs e)
+    {
+        if (_rebuilding || sender is not CheckBox { BindingContext: DateItem item })
+        {
+            return;
+        }
+        var group = ToDateGroup(item.Node);
+        if (e.Value)
+        {
+            _selectedDateGroups.Add(group);
+        }
+        else
+        {
+            _selectedDateGroups.Remove(group);
+        }
+        _status.Text = $"Đã chọn {_selectedDateGroups.Count:N0} nhóm ngày.";
+        _applyButton.IsEnabled = _selectedDateGroups.Count > 0;
+    }
+
+    private void OnDateDrillClicked(object? sender, EventArgs e)
+    {
+        if (sender is Button { BindingContext: DateItem { HasChildren: true } item })
+        {
+            StartOperation(token => NavigateDateIntoAsync(item.Node, token));
+        }
+    }
+
     private void UpdateSheetState()
     {
         if (_binding is null)
@@ -308,6 +445,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             return;
         }
 
+        _rebuilding = true;
         var selectedIndex = _menuKindPicker.SelectedIndex;
         _menuKindPicker.ItemsSource = _binding.MenuKinds
             .Select(static kind => kind.GetDefaultDisplayName())
@@ -315,22 +453,53 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         _menuKindPicker.SelectedIndex = _binding.MenuKinds.Count == 0
             ? -1
             : Math.Clamp(selectedIndex, 0, _binding.MenuKinds.Count - 1);
+        _rebuilding = false;
+        var kind = GetSelectedMenuKind(_binding);
+        var isValues = kind == SpreadsheetAutoFilterMenuKind.Values;
+        var isDate = kind == SpreadsheetAutoFilterMenuKind.Date;
+        var isCustom = kind == SpreadsheetAutoFilterMenuKind.Custom;
+        _criterionInput.IsVisible = !isValues && !isDate;
+        if (_secondCriterionInput.Parent is VisualElement customPanel)
+        {
+            customPanel.IsVisible = isCustom;
+        }
+        _search.IsVisible = isValues;
+        _selectionCommands.IsVisible = isValues;
+        _values.IsVisible = isValues;
+        _dateValues.IsVisible = isDate;
+        _dateBackButton.IsVisible = isDate && _dateParent.Year is not null;
+        _dateValues.ItemsSource = isDate
+            ? _datePage?.Nodes.Select(node => new DateItem(
+                node,
+                DisplayDateNode(node),
+                _selectedDateGroups.Contains(ToDateGroup(node)))).ToArray()
+            : null;
 
-        var first = _binding.TotalItemCount == 0
-            ? 0
-            : _binding.PageOffset + 1;
-        var last = Math.Min(
-            _binding.TotalItemCount,
-            _binding.PageOffset + _binding.Items.Count);
-        _status.Text = _binding.IsSourceTruncated
-            ? $"{first:N0}–{last:N0}/{_binding.TotalItemCount:N0}; nguồn đã bị giới hạn."
-            : $"{first:N0}–{last:N0}/{_binding.TotalItemCount:N0} giá trị.";
+        var total = isDate ? _datePage?.TotalNodeCount ?? 0 : _binding.TotalItemCount;
+        var offset = isDate ? _datePage?.Offset ?? 0 : _binding.PageOffset;
+        var count = isDate ? _datePage?.Nodes.Count ?? 0 : _binding.Items.Count;
+        var first = total == 0 ? 0 : offset + 1;
+        var last = Math.Min(total, offset + count);
+        _status.Text = !isValues && !isDate
+            ? isCustom
+                ? "Nhập một hoặc hai điều kiện rồi chọn cách kết hợp."
+                : "Nhập điều kiện lọc rồi chọn Áp dụng."
+            : isDate
+            ? $"{first:N0}–{last:N0}/{total:N0} nhóm ngày; đã chọn {_selectedDateGroups.Count:N0}."
+            : _binding.IsSourceTruncated
+                ? $"{first:N0}–{last:N0}/{total:N0}; nguồn bị giới hạn, không thể áp dụng chọn giá trị."
+                : $"{first:N0}–{last:N0}/{total:N0} giá trị.";
         SemanticProperties.SetDescription(_status, _status.Text);
-        _previousButton.IsEnabled =
-            _binding.HasPreviousPage && !_binding.IsBusy;
-        _nextButton.IsEnabled =
-            _binding.HasNextPage && !_binding.IsBusy;
-        _applyButton.IsEnabled = !_binding.IsBusy;
+        _previousButton.IsEnabled = isDate
+            ? _datePage?.HasPreviousPage == true && !_binding.IsBusy
+            : _binding.HasPreviousPage && !_binding.IsBusy;
+        _nextButton.IsEnabled = isDate
+            ? _datePage?.HasNextPage == true && !_binding.IsBusy
+            : _binding.HasNextPage && !_binding.IsBusy;
+        _applyButton.IsEnabled =
+            !_binding.IsBusy &&
+            (!isDate || _selectedDateGroups.Count > 0) &&
+            (!isValues || !_binding.IsSourceTruncated);
     }
 
     private static Button CreateSheetButton(
@@ -356,10 +525,23 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         VerticalStackLayout Panel,
         Picker MenuKindPicker,
         Entry CriterionInput,
+        Entry SecondCriterionInput,
+        Picker ConditionJoinPicker,
+        HorizontalStackLayout SelectionCommands,
+        Button DateBack,
         Entry Search,
         Label Status,
         CollectionView Values,
+        CollectionView DateValues,
         Button Previous,
         Button Next,
         Button Apply);
+
+    private sealed record DateItem(
+        SpreadsheetAutoFilterDateNode Node,
+        string DisplayText,
+        bool IsSelected)
+    {
+        public bool HasChildren => Node.HasChildren;
+    }
 }

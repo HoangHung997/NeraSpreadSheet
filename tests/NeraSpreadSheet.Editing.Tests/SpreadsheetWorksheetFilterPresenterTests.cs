@@ -144,6 +144,26 @@ public sealed class SpreadsheetWorksheetFilterPresenterTests
             presenter.OpenFilterMenu(2));
     }
 
+    [TestMethod]
+    public void TruncatedWorksheetCatalogCannotSilentlyApplyRetainedValues()
+    {
+        var fixture = CreateFixture();
+        var menu = new SpreadsheetWorksheetFilterPresenterController(
+                fixture.Session)
+            .OpenFilterMenu(
+                0,
+                maximumRows: 4,
+                maximumDistinctValues: 2);
+        var undoCount = fixture.Session.History.UndoCount;
+
+        Assert.IsTrue(menu.IsDistinctValueTruncated);
+        Assert.IsFalse(menu.CanApplyValueSelection);
+        Assert.ThrowsExactly<InvalidOperationException>(
+            menu.ApplyValueSelection);
+        Assert.AreEqual(undoCount, fixture.Session.History.UndoCount);
+        Assert.AreEqual(0, fixture.Worksheet.AutoFilter!.Columns.Count);
+    }
+
     private static readonly CellRange FilterRange = new(
         new CellAddress(0, 0),
         new CellAddress(4, 1));

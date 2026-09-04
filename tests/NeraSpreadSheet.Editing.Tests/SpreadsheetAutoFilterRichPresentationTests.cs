@@ -100,6 +100,14 @@ public sealed class SpreadsheetAutoFilterRichPresentationTests
             SpreadsheetAutoFilterCriterionParser.Parse(
                 SpreadsheetAutoFilterMenuKind.Date,
                 "2026-09-04").RichCriterion!.DateGroups.Single().Grouping);
+        var groupedDates = SpreadsheetAutoFilterCriterionParser.Parse(
+            SpreadsheetAutoFilterMenuKind.Date,
+            "Year:2025;Month:2026-02;Day:2026-03-04;" +
+            "Hour:2026-03-04 05;Minute:2026-03-04 05:06;" +
+            "Second:2026-03-04 05:06:07").RichCriterion!.DateGroups;
+        CollectionAssert.AreEqual(
+            Enum.GetValues<SpreadsheetFilterDateGrouping>(),
+            groupedDates.Select(static group => group.Grouping).ToArray());
         Assert.AreEqual(
             SpreadsheetFilterColorKind.Fill,
             SpreadsheetAutoFilterCriterionParser.Parse(
@@ -120,6 +128,24 @@ public sealed class SpreadsheetAutoFilterRichPresentationTests
             SpreadsheetAutoFilterCriterionParser.Parse(
                 SpreadsheetAutoFilterMenuKind.Custom,
                 "GreaterThan:10").CustomCondition!.Operator);
+        var combined = SpreadsheetAutoFilterCriterionParser.Parse(
+            SpreadsheetAutoFilterMenuKind.Custom,
+            "GreaterThan:10 AND LessThanOrEqual:20");
+        Assert.AreEqual(
+            TableFilterComparisonOperator.GreaterThan,
+            combined.CustomCondition!.Operator);
+        Assert.AreEqual(
+            TableFilterComparisonOperator.LessThanOrEqual,
+            combined.SecondCustomCondition!.Operator);
+        Assert.IsTrue(combined.CombineWithAnd);
+        var alternative = SpreadsheetAutoFilterCriterionParser.Parse(
+            SpreadsheetAutoFilterMenuKind.Custom,
+            "Contains:North OR Contains:South");
+        Assert.IsFalse(alternative.CombineWithAnd);
+        Assert.AreEqual(
+            TableFilterComparisonOperator.IsBlank,
+            SpreadsheetAutoFilterCriterionParser.ParseCustomCondition(
+                "IsBlank").Operator);
         Assert.IsTrue(
             SpreadsheetAutoFilterCriterionParser.Parse(
                 SpreadsheetAutoFilterMenuKind.TopBottom,
@@ -129,6 +155,11 @@ public sealed class SpreadsheetAutoFilterRichPresentationTests
             SpreadsheetAutoFilterCriterionParser.Parse(
                 SpreadsheetAutoFilterMenuKind.Dynamic,
                 "Today").RichCriterion!.DynamicFilter!.Type);
+        Assert.AreEqual(
+            SpreadsheetDynamicFilterType.AboveAverage,
+            SpreadsheetAutoFilterCriterionParser.Parse(
+                SpreadsheetAutoFilterMenuKind.Dynamic,
+                "AboveAverage").RichCriterion!.DynamicFilter!.Type);
     }
 
     [TestMethod]
@@ -193,6 +224,116 @@ public sealed class SpreadsheetAutoFilterRichPresentationTests
         Assert.AreEqual(10_000, snapshot.TotalItemCount);
         Assert.AreEqual(100, snapshot.Values.Count);
         Assert.IsFalse(snapshot.IsSourceTruncated);
+    }
+
+    [TestMethod]
+    [Timeout(60_000)]
+    public async Task MoreThanTenThousandDistinctValuesAreTruncatedAndCannotApply()
+    {
+        const int distinctValueCount = 10_001;
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        var tableId = Guid.NewGuid();
+        var columnId = Guid.NewGuid();
+        worksheet.SetValue(new CellAddress(0, 0), "Value");
+        for (var row = 1; row <= distinctValueCount; row++)
+        {
+            worksheet.SetValue(new CellAddress(row, 0), $"Value{row:00000}");
+        }
+        worksheet.AddTable(new SpreadsheetTable(
+            tableId,
+            "DistinctValues",
+            new CellRange(
+                new CellAddress(0, 0),
+                new CellAddress(distinctValueCount, 0)),
+            [new SpreadsheetTableColumn(columnId, "Value")]));
+        var session = new SpreadsheetSession(workbook);
+        session.Selection.SetActiveCell(new CellAddress(1, 0));
+        Assert.IsTrue(session.TryResolveActiveAutoFilterTarget(out var target));
+        await using var presenter = new SpreadsheetAutoFilterPagedPresenter(
+            session,
+            target,
+            pageSize: 100);
+
+        await presenter.InitializeAsync();
+
+        Assert.AreEqual(10_000, presenter.Capture().TotalItemCount);
+        Assert.IsTrue(presenter.Capture().IsSourceTruncated);
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+            await presenter.ApplyValueSelectionAsync());
+        Assert.AreEqual(0, session.History.UndoCount);
+        Assert.IsNull(worksheet.Tables.Single().AutoFilter);
+    }
+
+    [TestMethod]
+    public async Task DateTreeUsesEffectiveNumberFormatAndWorkbookDateSystem()
+    {
+        await AssertDateSerialProjectionAsync(ExcelDateSystem.Date1900);
+        await AssertDateSerialProjectionAsync(ExcelDateSystem.Date1904);
+    }
+
+    [TestMethod]
+    public async Task DateTreeRejectsMonthWithoutYearParent()
+    {
+        var fixture = CreateMixedTableFixture();
+        await using var presenter = new SpreadsheetAutoFilterPagedPresenter(
+            fixture.Session,
+            fixture.Target);
+        await presenter.InitializeAsync();
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(async () =>
+            await presenter.GetDatePageAsync(
+                new SpreadsheetAutoFilterDateParent(null, 1),
+                0,
+                10));
+    }
+
+    private static async Task AssertDateSerialProjectionAsync(
+        ExcelDateSystem dateSystem)
+    {
+        var workbook = new Workbook { DateSystem = dateSystem };
+        var worksheet = workbook.Worksheets[0];
+        var tableId = Guid.NewGuid();
+        var columnId = Guid.NewGuid();
+        var expectedDate = new DateTime(2026, 9, 4);
+        var serial = dateSystem == ExcelDateSystem.Date1904
+            ? (expectedDate - new DateTime(1904, 1, 1)).TotalDays
+            : expectedDate.ToOADate();
+        worksheet.SetValue(new CellAddress(0, 0), "Date");
+        worksheet.SetValue(new CellAddress(1, 0), serial);
+        worksheet.SetValue(new CellAddress(2, 0), serial + 1d);
+        worksheet.AddTable(new SpreadsheetTable(
+            tableId,
+            "SerialDates",
+            new CellRange(
+                new CellAddress(0, 0),
+                new CellAddress(2, 0)),
+            [new SpreadsheetTableColumn(columnId, "Date")]));
+        var session = new SpreadsheetSession(workbook);
+        session.Selection.SelectColumn(0);
+        session.Styles.SetNumberFormat("yyyy-mm-dd");
+        session.Selection.SetActiveCell(new CellAddress(1, 0));
+        Assert.IsTrue(session.TryResolveActiveAutoFilterTarget(out var target));
+        await using var presenter = new SpreadsheetAutoFilterPagedPresenter(
+            session,
+            target);
+
+        await presenter.InitializeAsync();
+        var snapshot = presenter.Capture();
+        CollectionAssert.Contains(
+            snapshot.MenuKinds.ToArray(),
+            SpreadsheetAutoFilterMenuKind.Date);
+        CollectionAssert.Contains(
+            snapshot.MenuKinds.ToArray(),
+            SpreadsheetAutoFilterMenuKind.Dynamic);
+        var years = await presenter.GetDatePageAsync(
+            new SpreadsheetAutoFilterDateParent(null, null),
+            0,
+            10);
+
+        Assert.AreEqual(1, years.TotalNodeCount);
+        Assert.AreEqual(expectedDate.Year, years.Nodes.Single().Year);
+        Assert.AreEqual(2, years.Nodes.Single().Count);
     }
 
     private static Fixture CreateMixedTableFixture()

@@ -170,9 +170,14 @@ public sealed class PagedAutoFilterNativeBindingsTests
             using var presenter = new NeraAutoFilterPagedDropDownPresenter(control);
             control.Session!.Selection.SetActiveCell(new CellAddress(1, 0));
             presenter.Refresh();
+            control.Focus();
             System.Windows.Forms.Application.DoEvents();
             Assert.IsTrue(presenter.TryOpenForActiveCell());
-            await Task.Delay(250);
+            var binding = GetPrivateField<NeraWinFormsAutoFilterPagedBinding>(
+                presenter,
+                "_binding");
+            await binding.InitializeAsync();
+            InvokePrivate(presenter, "RebuildPage");
             var kinds = GetPrivateField<System.Windows.Forms.ComboBox>(
                 presenter,
                 "_menuKindBox");
@@ -188,6 +193,172 @@ public sealed class PagedAutoFilterNativeBindingsTests
             Assert.IsFalse(string.IsNullOrWhiteSpace(kinds.AccessibleName));
             Assert.IsFalse(string.IsNullOrWhiteSpace(criterion.AccessibleName));
             Assert.IsTrue(values.Items.Count <= 100);
+        });
+    }
+
+    [TestMethod]
+    [Timeout(60_000)]
+    public async Task LoadedDesktopPresentersRenderLazyDateTreeAndTwoConditionEditor()
+    {
+        await RunOnWpfDispatcherAsync(async () =>
+        {
+            var fixture = CreateDateFixture();
+            using var control = new NeraSpreadSheet.Wpf.NeraSpreadsheetControl
+            {
+                Workbook = fixture.Session.Workbook,
+            };
+            var window = new System.Windows.Window
+            {
+                Width = 520d,
+                Height = 320d,
+                Left = -32_000d,
+                Top = -32_000d,
+                ShowInTaskbar = false,
+                Content = new System.Windows.Documents.AdornerDecorator
+                {
+                    Child = control,
+                },
+            };
+            using var presenter = new NeraAutoFilterPagedPopupPresenter(control);
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                control.Session!.Selection.SetActiveCell(new CellAddress(1, 0));
+                Assert.IsTrue(presenter.TryOpenForActiveCell());
+                await Task.Delay(250);
+                var kinds = GetPrivateField<System.Windows.Controls.ComboBox>(
+                    presenter,
+                    "_menuKindBox");
+                kinds.SelectedIndex = FindMenuIndex(
+                    kinds,
+                    SpreadsheetAutoFilterMenuKind.Date);
+                await GetPrivateField<Task>(presenter, "_operationTail");
+                var datePage = GetPrivateField<SpreadsheetAutoFilterDatePage>(
+                    presenter,
+                    "_datePage");
+                var items = GetPrivateField<System.Windows.Controls.StackPanel>(
+                    presenter,
+                    "_itemsPanel");
+                Assert.AreEqual(2, datePage.TotalNodeCount);
+                Assert.AreEqual(2, items.Children.Count);
+                Assert.IsTrue(items.Children.Cast<System.Windows.Controls.Grid>()
+                    .All(row => row.Children.OfType<System.Windows.Controls.CheckBox>().Any()));
+
+                kinds.SelectedIndex = FindMenuIndex(
+                    kinds,
+                    SpreadsheetAutoFilterMenuKind.Custom);
+                await GetPrivateField<Task>(presenter, "_operationTail");
+                Assert.AreEqual(
+                    System.Windows.Visibility.Visible,
+                    GetPrivateField<System.Windows.UIElement>(presenter, "_customConditionPanel")
+                        .Visibility);
+                Assert.IsNotNull(GetPrivateField<System.Windows.Controls.TextBox>(
+                    presenter,
+                    "_secondCriterionInput"));
+            }
+            finally
+            {
+                presenter.Close();
+                window.Close();
+            }
+        });
+
+        await RunOnWinFormsThreadAsync(async formControl =>
+        {
+            var fixture = CreateDateFixture();
+            formControl.Size = new System.Drawing.Size(520, 320);
+            using var control = new NeraSpreadSheet.WinForms.NeraSpreadsheetControl
+            {
+                Dock = System.Windows.Forms.DockStyle.Fill,
+                Workbook = fixture.Session.Workbook,
+            };
+            formControl.Controls.Add(control);
+            control.CreateControl();
+            using var presenter = new NeraAutoFilterPagedDropDownPresenter(control);
+            control.Session!.Selection.SetActiveCell(new CellAddress(1, 0));
+            presenter.Refresh();
+            control.Focus();
+            System.Windows.Forms.Application.DoEvents();
+            Assert.IsTrue(presenter.TryOpenForActiveCell());
+            var binding = GetPrivateField<NeraWinFormsAutoFilterPagedBinding>(
+                presenter,
+                "_binding");
+            await binding.InitializeAsync();
+            InvokePrivate(presenter, "RebuildPage");
+            var kinds = GetPrivateField<System.Windows.Forms.ComboBox>(
+                presenter,
+                "_menuKindBox");
+            kinds.SelectedIndex = FindMenuIndex(
+                kinds,
+                SpreadsheetAutoFilterMenuKind.Date);
+            await GetPrivateField<Task>(presenter, "_operationTail");
+            var datePage = GetPrivateField<SpreadsheetAutoFilterDatePage>(
+                presenter,
+                "_datePage");
+            var values = GetPrivateField<System.Windows.Forms.CheckedListBox>(
+                presenter,
+                "_valuesList");
+            Assert.AreEqual(2, datePage.TotalNodeCount);
+            Assert.AreEqual(2, values.Items.Count);
+
+            kinds.SelectedIndex = FindMenuIndex(
+                kinds,
+                SpreadsheetAutoFilterMenuKind.Custom);
+            await GetPrivateField<Task>(presenter, "_operationTail");
+            Assert.IsTrue(GetPrivateField<System.Windows.Forms.TextBox>(
+                presenter,
+                "_secondCriterionInput").Visible);
+            Assert.IsTrue(GetPrivateField<System.Windows.Forms.ComboBox>(
+                presenter,
+                "_conditionJoinBox").Visible);
+        });
+    }
+
+    [TestMethod]
+    [Timeout(60_000)]
+    public async Task WinFormsHeaderButtonPoolRemainsBoundedWhileScrolling()
+    {
+        await RunOnWinFormsThreadAsync(formControl =>
+        {
+            var workbook = new Workbook();
+            var worksheet = workbook.Worksheets[0];
+            const int lastColumn = 249;
+            worksheet.SetValue(new CellAddress(0, 0), "First");
+            worksheet.SetValue(new CellAddress(0, lastColumn), "Last");
+            worksheet.SetValue(new CellAddress(1, lastColumn), "Value");
+            worksheet.SetAutoFilter(new WorksheetAutoFilter(
+                new CellRange(
+                    new CellAddress(0, 0),
+                    new CellAddress(1, lastColumn))));
+            formControl.Size = new System.Drawing.Size(520, 320);
+            using var control = new NeraSpreadSheet.WinForms.NeraSpreadsheetControl
+            {
+                Dock = System.Windows.Forms.DockStyle.Fill,
+                Workbook = workbook,
+            };
+            formControl.Controls.Add(control);
+            control.CreateControl();
+            using var presenter = new NeraAutoFilterPagedDropDownPresenter(control);
+
+            presenter.Refresh();
+            System.Windows.Forms.Application.DoEvents();
+            var buttons = GetPrivateField<System.Collections.IDictionary>(
+                presenter,
+                "_buttons");
+            Assert.IsGreaterThan(0, buttons.Count);
+            Assert.IsLessThanOrEqualTo(10, buttons.Count);
+
+            control.ScrollTo(12_000d, 0d);
+            presenter.Refresh();
+            System.Windows.Forms.Application.DoEvents();
+            Assert.IsGreaterThan(0, buttons.Count);
+            Assert.IsLessThanOrEqualTo(10, buttons.Count);
+            Assert.AreEqual(
+                buttons.Count,
+                control.Controls.OfType<System.Windows.Forms.Button>()
+                    .Count(static button => button.Text == "▼"));
+            return Task.CompletedTask;
         });
     }
 
@@ -300,6 +471,57 @@ public sealed class PagedAutoFilterNativeBindingsTests
         return new Fixture(session, target);
     }
 
+    private static Fixture CreateDateFixture()
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        var columnId = Guid.NewGuid();
+        worksheet.SetValue(new CellAddress(0, 0), "Date");
+        worksheet.SetValue(new CellAddress(1, 0), new DateTime(2025, 1, 2));
+        worksheet.SetValue(new CellAddress(2, 0), new DateTime(2026, 3, 4));
+        worksheet.AddTable(new SpreadsheetTable(
+            Guid.NewGuid(),
+            "Dates",
+            new CellRange(new CellAddress(0, 0), new CellAddress(2, 0)),
+            [new SpreadsheetTableColumn(columnId, "Date")]));
+        var session = new SpreadsheetSession(workbook);
+        session.Selection.SetActiveCell(new CellAddress(1, 0));
+        Assert.IsTrue(session.TryResolveActiveAutoFilterTarget(out var target));
+        return new Fixture(session, target);
+    }
+
+    private static int FindMenuIndex(
+        System.Windows.Controls.ComboBox comboBox,
+        SpreadsheetAutoFilterMenuKind kind)
+    {
+        var expected = kind.GetDefaultDisplayName();
+        for (var index = 0; index < comboBox.Items.Count; index++)
+        {
+            if (string.Equals(comboBox.Items[index]?.ToString(), expected, StringComparison.Ordinal))
+            {
+                return index;
+            }
+        }
+        throw new AssertFailedException(
+            $"Menu '{expected}' was not found. Actual: {string.Join(", ", comboBox.Items.Cast<object>())}.");
+    }
+
+    private static int FindMenuIndex(
+        System.Windows.Forms.ComboBox comboBox,
+        SpreadsheetAutoFilterMenuKind kind)
+    {
+        var expected = kind.GetDefaultDisplayName();
+        for (var index = 0; index < comboBox.Items.Count; index++)
+        {
+            if (string.Equals(comboBox.Items[index]?.ToString(), expected, StringComparison.Ordinal))
+            {
+                return index;
+            }
+        }
+        throw new AssertFailedException(
+            $"Menu '{expected}' was not found. Actual: {string.Join(", ", comboBox.Items.Cast<object>())}.");
+    }
+
     private static T GetPrivateField<T>(object instance, string fieldName)
         where T : class =>
         (T)(instance.GetType().GetField(
@@ -307,6 +529,14 @@ public sealed class PagedAutoFilterNativeBindingsTests
             BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(instance)
             ?? throw new AssertFailedException(
                 $"Field '{fieldName}' was not initialized."));
+
+    private static void InvokePrivate(object instance, string methodName) =>
+        (instance.GetType().GetMethod(
+            methodName,
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new AssertFailedException(
+                $"Method '{methodName}' was not found."))
+        .Invoke(instance, null);
 
     private sealed record Fixture(
         SpreadsheetSession Session,

@@ -183,6 +183,101 @@ public sealed class SpreadsheetTablePresenterTests
     }
 
     [TestMethod]
+    public void TruncatedValueCatalogIsRejectedWithoutHistoryMutation()
+    {
+        var context = CreateFilteredTable(withInitialFilter: false);
+        var presenter = new SpreadsheetTablePresenterController(context.Session);
+        var menu = presenter.OpenFilterMenu(
+            context.Table.Id,
+            context.StatusColumnId,
+            maximumRows: 5,
+            maximumDistinctValues: 2);
+
+        Assert.IsTrue(menu.IsDistinctValueTruncated);
+        Assert.IsFalse(menu.Capture().CanApplyValueSelection);
+        Assert.ThrowsExactly<InvalidOperationException>(
+            menu.ApplyValueSelection);
+        Assert.AreEqual(0, context.Session.History.UndoCount);
+        Assert.IsNull(context.Worksheet.Tables.Single().AutoFilter);
+    }
+
+    [TestMethod]
+    public void ApplyingUnchangedTableFilterDoesNotCreateUndoHistory()
+    {
+        var context = CreateFilteredTable(withInitialFilter: false);
+        var presenter = new SpreadsheetTablePresenterController(context.Session);
+        var menu = presenter.OpenFilterMenu(
+            context.Table.Id,
+            context.StatusColumnId);
+
+        menu.ApplyValueSelection();
+        presenter.ClearColumnFilter(
+            context.Table.Id,
+            context.StatusColumnId);
+
+        Assert.AreEqual(0, context.Session.History.UndoCount);
+        Assert.IsNull(context.Worksheet.Tables.Single().AutoFilter);
+    }
+
+    [TestMethod]
+    public void ReapplyingEquivalentTableCriterionDoesNotCreateAnotherUndoEntry()
+    {
+        var context = CreateFilteredTable(withInitialFilter: false);
+        var presenter = new SpreadsheetTablePresenterController(context.Session);
+        var condition = new TableFilterCondition(
+            TableFilterComparisonOperator.Contains,
+            CellValue.FromText("Open"));
+
+        presenter.ApplyCustomFilter(
+            context.Table.Id,
+            context.StatusColumnId,
+            condition);
+        presenter.ApplyCustomFilter(
+            context.Table.Id,
+            context.StatusColumnId,
+            condition);
+
+        Assert.AreEqual(1, context.Session.History.UndoCount);
+    }
+
+    [TestMethod]
+    [Timeout(60_000)]
+    public void EnumerationDetectsDistinctOverflowAtLateRowBeyondOneHundredThousand()
+    {
+        const int dataRowCount = 100_001;
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        var columnId = Guid.NewGuid();
+        var table = new SpreadsheetTable(
+            Guid.NewGuid(),
+            "LateUnique",
+            new CellRange(
+                new CellAddress(0, 0),
+                new CellAddress(dataRowCount, 0)),
+            [new SpreadsheetTableColumn(columnId, "Value")]);
+        worksheet.AddTable(table);
+        worksheet.SetValue(new CellAddress(0, 0), "Value");
+        for (var row = 1; row < dataRowCount; row++)
+        {
+            worksheet.SetValue(new CellAddress(row, 0), "Repeated");
+        }
+        worksheet.SetValue(new CellAddress(dataRowCount, 0), "LateUnique");
+        var session = new SpreadsheetSession(workbook);
+
+        var menu = new SpreadsheetTablePresenterController(session)
+            .OpenFilterMenu(
+                table.Id,
+                columnId,
+                maximumRows: dataRowCount,
+                maximumDistinctValues: 1);
+
+        Assert.AreEqual(dataRowCount, menu.ScannedRowCount);
+        Assert.IsFalse(menu.IsRowScanTruncated);
+        Assert.IsTrue(menu.IsDistinctValueTruncated);
+        Assert.AreEqual(0, session.History.UndoCount);
+    }
+
+    [TestMethod]
     public void CustomFilterAndClearColumnPreserveOtherColumnFilters()
     {
         var workbook = new Workbook();

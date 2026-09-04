@@ -35,16 +35,36 @@ public static class SpreadsheetAutoFilterButtonGeometry
             SpreadsheetRenderTheme? theme = null)
     {
         ArgumentNullException.ThrowIfNull(worksheet);
+        return GetVisibleButtons(
+            worksheet.Tables,
+            worksheet.AutoFilter,
+            layout,
+            theme);
+    }
+
+    /// <summary>
+    /// Computes the visible combined button stream from filter metadata only.
+    /// This overload is intended for native paint/input paths where capturing
+    /// every used cell would make pointer movement proportional to sheet size.
+    /// </summary>
+    public static IReadOnlyList<SpreadsheetAutoFilterButtonHit>
+        GetVisibleButtons(
+            IReadOnlyList<SpreadsheetTable> tables,
+            WorksheetAutoFilter? worksheetFilter,
+            ViewportLayout layout,
+            SpreadsheetRenderTheme? theme = null)
+    {
+        ArgumentNullException.ThrowIfNull(tables);
         ArgumentNullException.ThrowIfNull(layout);
         theme ??= new SpreadsheetRenderTheme();
 
         var tableButtons = SpreadsheetTableFilterButtonGeometry
-            .GetVisibleButtons(worksheet, layout, theme);
+            .GetVisibleButtons(tables, layout, theme);
         var worksheetButtons = SpreadsheetWorksheetFilterButtonGeometry
-            .GetVisibleButtons(worksheet, layout, theme);
+            .GetVisibleButtons(worksheetFilter, layout, theme);
         var result = new List<SpreadsheetAutoFilterButtonHit>(
             checked(tableButtons.Count + worksheetButtons.Count));
-        var tablesById = worksheet.Tables.ToDictionary(
+        var tablesById = tables.ToDictionary(
             static table => table.Id);
         foreach (var button in tableButtons)
         {

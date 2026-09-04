@@ -17,6 +17,7 @@ public sealed class SpreadsheetTableFilterPagedSession :
 {
     private readonly object _gate = new();
     private readonly SemaphoreSlim _operationGate = new(1, 1);
+    private readonly CancellationTokenSource _disposeCancellation = new();
     private readonly SpreadsheetTablePresenterController _controller;
     private readonly Guid _tableId;
     private readonly Guid _columnId;
@@ -91,29 +92,46 @@ public sealed class SpreadsheetTableFilterPagedSession :
         CancellationToken cancellationToken = default)
     {
         CancellationTokenSource refreshCancellation;
+        CancellationTokenSource? previousCancellation;
         long requestedGeneration;
         lock (_gate)
         {
             ThrowIfDisposed();
-            _refreshCancellation?.Cancel();
-            _refreshCancellation?.Dispose();
+            previousCancellation = _refreshCancellation;
             refreshCancellation = CancellationTokenSource
-                .CreateLinkedTokenSource(cancellationToken);
+                .CreateLinkedTokenSource(
+                    cancellationToken,
+                    _disposeCancellation.Token);
             _refreshCancellation = refreshCancellation;
             requestedGeneration = checked(++_generation);
         }
+        previousCancellation?.Cancel();
 
-        SpreadsheetTableFilterMenu menu;
+        var operationEntered = false;
         try
         {
-            menu = await Task.Run(
+            var requestToken = refreshCancellation.Token;
+            await _operationGate.WaitAsync(requestToken)
+                .ConfigureAwait(false);
+            operationEntered = true;
+            var menu = await Task.Run(
                 () => _controller.OpenFilterMenu(
                     _tableId,
                     _columnId,
                     _maximumRows,
-                    _maximumDistinctValues),
-                refreshCancellation.Token).ConfigureAwait(false);
-            refreshCancellation.Token.ThrowIfCancellationRequested();
+                    _maximumDistinctValues,
+                    requestToken),
+                requestToken).ConfigureAwait(false);
+            requestToken.ThrowIfCancellationRequested();
+            if (!CompleteRefresh(
+                    refreshCancellation,
+                    requestedGeneration,
+                    menu))
+            {
+                throw new OperationCanceledException(
+                    "A newer Table filter-value refresh superseded this request.",
+                    requestToken);
+            }
         }
         catch
         {
@@ -123,16 +141,25 @@ public sealed class SpreadsheetTableFilterPagedSession :
                 menu: null);
             throw;
         }
-
-        if (!CompleteRefresh(
-                refreshCancellation,
-                requestedGeneration,
-                menu))
+        finally
         {
-            throw new OperationCanceledException(
-                "A newer Table filter-value refresh superseded this request.");
+            if (operationEntered)
+            {
+                _operationGate.Release();
+            }
+            refreshCancellation.Dispose();
         }
 
+        lock (_gate)
+        {
+            if (_disposed ||
+                requestedGeneration != _generation ||
+                _menu is null)
+            {
+                throw new OperationCanceledException(
+                    "A newer Table filter-value refresh superseded this request.");
+            }
+        }
         Refreshed?.Invoke(this, EventArgs.Empty);
         return requestedGeneration;
     }
@@ -143,25 +170,29 @@ public sealed class SpreadsheetTableFilterPagedSession :
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        await _operationGate.WaitAsync(cancellationToken)
+        using var operationCancellation =
+            CreateOperationCancellation(cancellationToken);
+        var operationToken = operationCancellation.Token;
+        await _operationGate.WaitAsync(operationToken)
             .ConfigureAwait(false);
         try
         {
+            operationToken.ThrowIfCancellationRequested();
             var (menu, generation) = GetReadyMenu();
             return await Task.Run(
                 () =>
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
+                    operationToken.ThrowIfCancellationRequested();
                     menu.SetSearchText(searchText);
                     var page = menu.CapturePage(
                         offset,
                         pageSize,
-                        cancellationToken);
+                        operationToken);
                     return new SpreadsheetTableFilterPagedResult(
                         generation,
                         page);
                 },
-                cancellationToken).ConfigureAwait(false);
+                operationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -175,11 +206,14 @@ public sealed class SpreadsheetTableFilterPagedSession :
         bool selected,
         CancellationToken cancellationToken = default)
     {
-        await _operationGate.WaitAsync(cancellationToken)
+        using var operationCancellation =
+            CreateOperationCancellation(cancellationToken);
+        var operationToken = operationCancellation.Token;
+        await _operationGate.WaitAsync(operationToken)
             .ConfigureAwait(false);
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            operationToken.ThrowIfCancellationRequested();
             GetReadyMenu(generation).SetSelected(value, selected);
         }
         finally
@@ -219,16 +253,19 @@ public sealed class SpreadsheetTableFilterPagedSession :
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        using var operationCancellation =
+            CreateOperationCancellation(cancellationToken);
+        var operationToken = operationCancellation.Token;
+        await _operationGate.WaitAsync(operationToken).ConfigureAwait(false);
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            operationToken.ThrowIfCancellationRequested();
             return GetReadyMenu(generation).CaptureDatePage(
                 generation,
                 parent,
                 offset,
                 pageSize,
-                cancellationToken);
+                operationToken);
         }
         finally
         {
@@ -240,12 +277,16 @@ public sealed class SpreadsheetTableFilterPagedSession :
         long generation,
         CancellationToken cancellationToken = default)
     {
-        await _operationGate.WaitAsync(cancellationToken)
+        using var operationCancellation =
+            CreateOperationCancellation(cancellationToken);
+        var operationToken = operationCancellation.Token;
+        await _operationGate.WaitAsync(operationToken)
             .ConfigureAwait(false);
+        long invalidatedGeneration;
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteMutation(
+            operationToken.ThrowIfCancellationRequested();
+            invalidatedGeneration = ExecuteMutation(
                 generation,
                 static menu => menu.ApplyValueSelection());
         }
@@ -253,6 +294,8 @@ public sealed class SpreadsheetTableFilterPagedSession :
         {
             _operationGate.Release();
         }
+        Invalidated?.Invoke(this, EventArgs.Empty);
+        return invalidatedGeneration;
     }
 
     public async Task<long> ApplyCustomFilterAsync(
@@ -263,12 +306,16 @@ public sealed class SpreadsheetTableFilterPagedSession :
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(firstCondition);
-        await _operationGate.WaitAsync(cancellationToken)
+        using var operationCancellation =
+            CreateOperationCancellation(cancellationToken);
+        var operationToken = operationCancellation.Token;
+        await _operationGate.WaitAsync(operationToken)
             .ConfigureAwait(false);
+        long invalidatedGeneration;
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteMutation(
+            operationToken.ThrowIfCancellationRequested();
+            invalidatedGeneration = ExecuteMutation(
                 generation,
                 menu => menu.ApplyCustomFilter(
                     firstCondition,
@@ -279,6 +326,8 @@ public sealed class SpreadsheetTableFilterPagedSession :
         {
             _operationGate.Release();
         }
+        Invalidated?.Invoke(this, EventArgs.Empty);
+        return invalidatedGeneration;
     }
 
     public async Task<long> ApplyRichFilterAsync(
@@ -287,28 +336,40 @@ public sealed class SpreadsheetTableFilterPagedSession :
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(criterion);
-        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        using var operationCancellation =
+            CreateOperationCancellation(cancellationToken);
+        var operationToken = operationCancellation.Token;
+        await _operationGate.WaitAsync(operationToken).ConfigureAwait(false);
+        long invalidatedGeneration;
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteMutation(generation, menu => menu.ApplyRichFilter(criterion));
+            operationToken.ThrowIfCancellationRequested();
+            invalidatedGeneration = ExecuteMutation(
+                generation,
+                menu => menu.ApplyRichFilter(criterion));
         }
         finally
         {
             _operationGate.Release();
         }
+        Invalidated?.Invoke(this, EventArgs.Empty);
+        return invalidatedGeneration;
     }
 
     public async Task<long> ClearColumnFilterAsync(
         long generation,
         CancellationToken cancellationToken = default)
     {
-        await _operationGate.WaitAsync(cancellationToken)
+        using var operationCancellation =
+            CreateOperationCancellation(cancellationToken);
+        var operationToken = operationCancellation.Token;
+        await _operationGate.WaitAsync(operationToken)
             .ConfigureAwait(false);
+        long invalidatedGeneration;
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteMutation(
+            operationToken.ThrowIfCancellationRequested();
+            invalidatedGeneration = ExecuteMutation(
                 generation,
                 static menu => menu.ClearColumnFilter());
         }
@@ -316,10 +377,13 @@ public sealed class SpreadsheetTableFilterPagedSession :
         {
             _operationGate.Release();
         }
+        Invalidated?.Invoke(this, EventArgs.Empty);
+        return invalidatedGeneration;
     }
 
     public void Dispose()
     {
+        CancellationTokenSource? refreshCancellation;
         lock (_gate)
         {
             if (_disposed)
@@ -328,18 +392,19 @@ public sealed class SpreadsheetTableFilterPagedSession :
             }
             _disposed = true;
             _menu = null;
-            _refreshCancellation?.Cancel();
-            _refreshCancellation?.Dispose();
+            refreshCancellation = _refreshCancellation;
             _refreshCancellation = null;
         }
-        _operationGate.Dispose();
+        _disposeCancellation.Cancel();
+        refreshCancellation?.Cancel();
         GC.SuppressFinalize(this);
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         Dispose();
-        return ValueTask.CompletedTask;
+        await _operationGate.WaitAsync().ConfigureAwait(false);
+        _operationGate.Release();
     }
 
     private async Task ChangeVisibleSelectionAsync(
@@ -348,20 +413,23 @@ public sealed class SpreadsheetTableFilterPagedSession :
         bool select,
         CancellationToken cancellationToken)
     {
-        await _operationGate.WaitAsync(cancellationToken)
+        using var operationCancellation =
+            CreateOperationCancellation(cancellationToken);
+        var operationToken = operationCancellation.Token;
+        await _operationGate.WaitAsync(operationToken)
             .ConfigureAwait(false);
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            operationToken.ThrowIfCancellationRequested();
             var menu = GetReadyMenu(generation);
             menu.SetSearchText(searchText);
             if (select)
             {
-                menu.SelectAllVisible();
+                menu.SelectAllVisible(operationToken);
             }
             else
             {
-                menu.ClearVisibleSelection();
+                menu.ClearVisibleSelection(operationToken);
             }
         }
         finally
@@ -419,7 +487,6 @@ public sealed class SpreadsheetTableFilterPagedSession :
             invalidatedGeneration = checked(++_generation);
         }
 
-        Invalidated?.Invoke(this, EventArgs.Empty);
         return invalidatedGeneration;
     }
 
@@ -449,8 +516,19 @@ public sealed class SpreadsheetTableFilterPagedSession :
                 _refreshCancellation = null;
             }
         }
-        refreshCancellation.Dispose();
         return published;
+    }
+
+    private CancellationTokenSource CreateOperationCancellation(
+        CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            ThrowIfDisposed();
+            return CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _disposeCancellation.Token);
+        }
     }
 
     private void ThrowIfDisposed()

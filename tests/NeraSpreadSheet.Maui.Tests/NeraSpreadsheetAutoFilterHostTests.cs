@@ -1,5 +1,6 @@
 using Microsoft.Maui.Controls;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Reflection;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 
@@ -22,6 +23,15 @@ public sealed class NeraSpreadsheetAutoFilterHostTests
         Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.CloseFilterSheet)));
         Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.GetDatePageAsync)));
         Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.ApplyRichFilterAsync)));
+        Assert.AreEqual(
+            typeof(CollectionView),
+            type.GetField("_dateValues", BindingFlags.Instance | BindingFlags.NonPublic)?.FieldType);
+        Assert.AreEqual(
+            typeof(Entry),
+            type.GetField("_secondCriterionInput", BindingFlags.Instance | BindingFlags.NonPublic)?.FieldType);
+        Assert.AreEqual(
+            typeof(Picker),
+            type.GetField("_conditionJoinPicker", BindingFlags.Instance | BindingFlags.NonPublic)?.FieldType);
     }
 
     [TestMethod]

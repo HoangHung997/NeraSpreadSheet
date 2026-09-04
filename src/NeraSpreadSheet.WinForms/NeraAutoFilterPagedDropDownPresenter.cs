@@ -22,20 +22,30 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter : IDisposable
 
     private readonly NeraSpreadsheetControl _control;
     private readonly Dictionary<FilterButtonKey, Button> _buttons = [];
+    private readonly object _operationStateGate = new();
+    private readonly HashSet<CancellationTokenSource> _operationCancellations = [];
     private SpreadsheetSession? _viewportSession;
     private SpreadsheetViewportEngine? _viewport;
     private ToolStripDropDown? _dropDown;
     private TextBox? _searchBox;
     private ComboBox? _menuKindBox;
     private TextBox? _criterionInput;
+    private TextBox? _secondCriterionInput;
+    private ComboBox? _conditionJoinBox;
+    private Button? _selectAllButton;
+    private Button? _selectNoneButton;
+    private Button? _dateBackButton;
     private CheckedListBox? _valuesList;
     private Label? _status;
     private Button? _previousButton;
     private Button? _nextButton;
     private Button? _applyButton;
     private NeraWinFormsAutoFilterPagedBinding? _binding;
-    private CancellationTokenSource? _operationCancellation;
+    private Task _operationTail = Task.CompletedTask;
     private CancellationTokenSource? _searchCancellation;
+    private SpreadsheetAutoFilterDateParent _dateParent = new(null, null);
+    private SpreadsheetAutoFilterDatePage? _datePage;
+    private readonly HashSet<SpreadsheetFilterDateGroup> _selectedDateGroups = [];
     private Control? _focusBeforeOpen;
     private bool _rebuilding;
     private bool _disposed;
@@ -173,7 +183,8 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter : IDisposable
             overscan: 0d,
             _control.RenderTheme);
         return SpreadsheetAutoFilterButtonGeometry.GetVisibleButtons(
-                WorksheetSnapshot.Capture(session.ActiveWorksheet),
+                session.ActiveWorksheet.Tables,
+                session.ActiveWorksheet.AutoFilter,
                 frame.Layout,
                 _control.RenderTheme)
             .Select(button => button with
