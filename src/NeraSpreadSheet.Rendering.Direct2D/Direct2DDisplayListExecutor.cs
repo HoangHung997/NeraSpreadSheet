@@ -226,9 +226,22 @@ internal sealed class Direct2DDisplayListExecutor : IDisposable
         format = _writeFactory.CreateTextFormat(
             style.FontFamily,
             (FontWeight)weightValue,
-            FontStyle.Normal,
+            style.Italic ? FontStyle.Italic : FontStyle.Normal,
             (float)style.FontSize);
         format.WordWrapping = style.Wrap ? WordWrapping.Wrap : WordWrapping.NoWrap;
+        format.TextAlignment = style.HorizontalAlignment switch
+        {
+            TextHorizontalAlignment.Center => TextAlignment.Center,
+            TextHorizontalAlignment.Right => TextAlignment.Trailing,
+            TextHorizontalAlignment.Justify => TextAlignment.Justified,
+            _ => TextAlignment.Leading,
+        };
+        format.ParagraphAlignment = style.VerticalAlignment switch
+        {
+            TextVerticalAlignment.Center => ParagraphAlignment.Center,
+            TextVerticalAlignment.Bottom => ParagraphAlignment.Far,
+            _ => ParagraphAlignment.Near,
+        };
         _textFormats.Add(style, format);
         return format;
     }
@@ -241,12 +254,24 @@ internal sealed class Direct2DDisplayListExecutor : IDisposable
         return _textLayouts.GetOrAdd(key, CreateTextLayout);
     }
 
-    private IDWriteTextLayout CreateTextLayout(TextLayoutKey key) =>
-        _writeFactory.CreateTextLayout(
+    private IDWriteTextLayout CreateTextLayout(TextLayoutKey key)
+    {
+        var layout = _writeFactory.CreateTextLayout(
             key.Text,
             GetTextFormat(key.Style),
             key.Width,
             key.Height);
+        var range = new TextRange(0, checked((uint)key.Text.Length));
+        if (key.Style.Underline)
+        {
+            layout.SetUnderline(true, range);
+        }
+        if (key.Style.Strikethrough)
+        {
+            layout.SetStrikethrough(true, range);
+        }
+        return layout;
+    }
 
     private void DrawText(
         ID2D1RenderTarget target,
@@ -262,11 +287,28 @@ internal sealed class Direct2DDisplayListExecutor : IDisposable
         var origin = new Vector2(
             (float)(command.Bounds.X + offsetX),
             (float)(command.Bounds.Y + offsetY));
-        target.DrawTextLayout(
-            origin,
-            GetTextLayout(command),
-            GetBrush(target, command.Style.Color),
-            DrawTextOptions.Clip);
+        var previousTransform = target.Transform;
+        try
+        {
+            if (command.Style.TextRotationDegrees != 0)
+            {
+                var center = new Vector2(
+                    (float)(command.Bounds.X + offsetX + (command.Bounds.Width / 2d)),
+                    (float)(command.Bounds.Y + offsetY + (command.Bounds.Height / 2d)));
+                target.Transform = Matrix3x2.CreateRotation(
+                    (float)(-command.Style.TextRotationDegrees * Math.PI / 180d),
+                    center) * previousTransform;
+            }
+            target.DrawTextLayout(
+                origin,
+                GetTextLayout(command),
+                GetBrush(target, command.Style.Color),
+                DrawTextOptions.Clip);
+        }
+        finally
+        {
+            target.Transform = previousTransform;
+        }
     }
 
     private static void UnwindRenderStates(ID2D1RenderTarget target, Stack<RenderState> states)

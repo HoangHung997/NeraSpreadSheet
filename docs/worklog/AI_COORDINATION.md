@@ -203,3 +203,26 @@ Batch status:
   relationship and content-type override scanning are integrated.
 - `SECURITY-RECOVERY-003`: In progress; exact-head evidence collected for the
   first ten patches, lane remains active for additional bounded coverage.
+
+## Active lane: EXCEL-FORMAT-EDIT-HELP-005
+
+Owner: Codex on `feature/excel-format-editing-help`.
+
+Scope:
+
+- shared Excel-compatible formatting and expanded Format Cells round trip;
+- WPF full-cell editor geometry and Enter/Alt+Enter behavior;
+- indexed dependency preparation plus affected-only edit recalculation;
+- signature, description and active-argument help for the implemented formula
+  surface;
+- integration and packaging of the external Windows 11 x64 demo.
+
+Coordination boundary:
+
+- Do not modify the files in this lane from another branch until its exact-head
+  CI result is recorded here.
+- The external demo directory is outside this repository and is not a merge
+  source; only reusable SDK behavior belongs in Git.
+
+Status: implementation and local gates passed; commit/push/exact-head CI and
+the final demo publish archive are pending.

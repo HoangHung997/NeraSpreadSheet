@@ -18,9 +18,25 @@ internal static class WpfCellEditorStyle
         editor.FontStyle = style.Font.Italic
             ? FontStyles.Italic
             : FontStyles.Normal;
-        editor.TextDecorations = style.Font.Underline
-            ? TextDecorations.Underline
-            : null;
+        if (style.Font.Underline ||
+            style.Font.DoubleUnderline ||
+            style.Font.StrikeThrough)
+        {
+            var decorations = new TextDecorationCollection();
+            if (style.Font.Underline || style.Font.DoubleUnderline)
+            {
+                decorations.Add(TextDecorations.Underline[0]);
+            }
+            if (style.Font.StrikeThrough)
+            {
+                decorations.Add(TextDecorations.Strikethrough[0]);
+            }
+            editor.TextDecorations = decorations;
+        }
+        else
+        {
+            editor.TextDecorations = null;
+        }
         editor.Foreground = new SolidColorBrush(Color.FromArgb(
             style.Font.Color.Alpha,
             style.Font.Color.Red,
@@ -34,6 +50,8 @@ internal static class WpfCellEditorStyle
         {
             CellHorizontalAlignment.Center => TextAlignment.Center,
             CellHorizontalAlignment.Right => TextAlignment.Right,
+            CellHorizontalAlignment.Justify or CellHorizontalAlignment.Distributed => TextAlignment.Justify,
+            CellHorizontalAlignment.CenterContinuous => TextAlignment.Center,
             _ => TextAlignment.Left,
         };
         editor.VerticalContentAlignment = style.Alignment.Vertical switch

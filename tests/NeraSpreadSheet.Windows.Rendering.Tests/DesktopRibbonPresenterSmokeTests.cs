@@ -10,6 +10,10 @@ using WpfPanel = System.Windows.Controls.StackPanel;
 using WpfToggleButton = System.Windows.Controls.Primitives.ToggleButton;
 using WpfWindow = System.Windows.Window;
 using WpfWindowStartupLocation = System.Windows.WindowStartupLocation;
+using WpfKey = System.Windows.Input.Key;
+using WpfKeyEventArgs = System.Windows.Input.KeyEventArgs;
+using WpfKeyboard = System.Windows.Input.Keyboard;
+using WpfPresentationSource = System.Windows.PresentationSource;
 using WinFormsApplication = System.Windows.Forms.Application;
 using WinFormsButtonBase = System.Windows.Forms.ButtonBase;
 using WinFormsControl = System.Windows.Forms.Control;
@@ -227,6 +231,57 @@ public sealed class DesktopRibbonPresenterSmokeTests
             }
             Assert.IsFalse(form.KeyPreview);
             Assert.AreEqual(1, winFormsHandler.ExecutionCount);
+        });
+    }
+
+    [TestMethod]
+    [Timeout(120_000)]
+    public void WpfShortcutBindingShouldIgnorePlainTextKeysWithoutThrowing()
+    {
+        RunInSta(() =>
+        {
+            var registry = new CommandRegistry();
+            registry.Register(
+                new CommandDescriptor("file.save", "Lưu", shortcut: "Ctrl+S"),
+                new OneShotHandler(isChecked: null));
+            var runtime = new RibbonRuntimeController(
+                CreateRibbonDefinition(),
+                registry);
+            using var ribbon = new NeraSpreadSheet.Wpf.NeraRibbonControl(runtime);
+            var window = new WpfWindow
+            {
+                Content = ribbon,
+                ShowInTaskbar = false,
+                WindowStartupLocation = WpfWindowStartupLocation.Manual,
+                Left = -32_000d,
+                Top = -32_000d,
+            };
+            using var binding = ribbon.BindShortcuts(window);
+            try
+            {
+                window.Show();
+                FlushWpf(window);
+                var source = WpfPresentationSource.FromVisual(window) ??
+                    throw new AssertFailedException(
+                        "The WPF window did not have a presentation source.");
+                var args = new WpfKeyEventArgs(
+                    WpfKeyboard.PrimaryDevice,
+                    source,
+                    Environment.TickCount,
+                    WpfKey.S)
+                {
+                    RoutedEvent = WpfKeyboard.PreviewKeyDownEvent,
+                };
+
+                window.RaiseEvent(args);
+
+                Assert.IsFalse(args.Handled);
+            }
+            finally
+            {
+                window.Close();
+                FlushWpf(window);
+            }
         });
     }
 

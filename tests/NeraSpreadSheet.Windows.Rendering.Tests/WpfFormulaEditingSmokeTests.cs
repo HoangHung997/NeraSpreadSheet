@@ -6,6 +6,10 @@ using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Wpf;
 using WpfTextBox = System.Windows.Controls.TextBox;
+using WpfKey = System.Windows.Input.Key;
+using WpfKeyEventArgs = System.Windows.Input.KeyEventArgs;
+using WpfKeyboard = System.Windows.Input.Keyboard;
+using WpfPresentationSource = System.Windows.PresentationSource;
 
 namespace NeraSpreadSheet.Windows.Rendering.Tests;
 
@@ -109,6 +113,110 @@ public sealed class WpfFormulaEditingSmokeTests
             control.ZoomByWheel(-120);
             Assert.AreEqual(1d, control.Zoom, 1e-9);
             Assert.IsTrue(control.CancelEditor());
+        });
+    }
+
+    [TestMethod]
+    [Timeout(60_000)]
+    public void WpfEditorShouldCommitPlainEnterBeforeTextBoxAddsNewline()
+    {
+        RunInSta(() =>
+        {
+            var session = new SpreadsheetSession(new Workbook());
+            using var control = new NeraSpreadsheetControl
+            {
+                Width = 400d,
+                Height = 240d,
+                Session = session,
+            };
+            var window = new Window
+            {
+                Content = control,
+                ShowInTaskbar = false,
+                Left = -32_000d,
+                Top = -32_000d,
+            };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                control.BeginEdit("committed");
+                var editor = FindVisibleEditor(control);
+                var source = WpfPresentationSource.FromVisual(editor) ??
+                    throw new AssertFailedException(
+                        "The WPF editor did not have a presentation source.");
+                var args = new WpfKeyEventArgs(
+                    WpfKeyboard.PrimaryDevice,
+                    source,
+                    Environment.TickCount,
+                    WpfKey.Enter)
+                {
+                    RoutedEvent = WpfKeyboard.PreviewKeyDownEvent,
+                };
+
+                editor.RaiseEvent(args);
+
+                Assert.IsTrue(args.Handled);
+                Assert.IsFalse(control.IsEditing);
+                Assert.AreEqual("committed", session.ActiveWorksheet.GetValue(default));
+                Assert.AreEqual(new CellAddress(1, 0), session.Selection.ActiveCell);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [TestMethod]
+    [Timeout(60_000)]
+    public void WpfEditorShouldCommitEnterWhenFormulaSuggestionsAreVisible()
+    {
+        RunInSta(() =>
+        {
+            var session = new SpreadsheetSession(new Workbook());
+            using var control = new NeraSpreadsheetControl
+            {
+                Width = 400d,
+                Height = 240d,
+                Session = session,
+            };
+            var window = new Window
+            {
+                Content = control,
+                ShowInTaskbar = false,
+                Left = -32_000d,
+                Top = -32_000d,
+            };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                control.BeginEdit("=SU");
+                Assert.IsTrue(control.CurrentFormulaSuggestions.Count > 0);
+                var editor = FindVisibleEditor(control);
+                var source = WpfPresentationSource.FromVisual(editor) ??
+                    throw new AssertFailedException(
+                        "The WPF editor did not have a presentation source.");
+                var args = new WpfKeyEventArgs(
+                    WpfKeyboard.PrimaryDevice,
+                    source,
+                    Environment.TickCount,
+                    WpfKey.Enter)
+                {
+                    RoutedEvent = WpfKeyboard.PreviewKeyDownEvent,
+                };
+
+                editor.RaiseEvent(args);
+
+                Assert.IsTrue(args.Handled);
+                Assert.IsFalse(control.IsEditing);
+                Assert.AreEqual("=SU", session.ActiveWorksheet.GetFormula(default));
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 

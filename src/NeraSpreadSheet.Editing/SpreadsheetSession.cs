@@ -61,6 +61,7 @@ public sealed class SpreadsheetSession
             Commands,
             Analytics);
         CommandDispatcher = new CommandDispatcher(Commands);
+        Calculation.PrepareDependencyGraph(Workbook);
     }
 
     public Workbook Workbook { get; }

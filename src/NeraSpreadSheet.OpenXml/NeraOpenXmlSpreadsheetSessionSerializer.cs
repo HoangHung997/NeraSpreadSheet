@@ -73,7 +73,9 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         var workbook = await _workbookSerializer
             .LoadAsync(buffer, options, cancellationToken)
             .ConfigureAwait(false);
-        var session = new SpreadsheetSession(workbook);
+        var session = await Task.Run(
+            () => new SpreadsheetSession(workbook),
+            cancellationToken).ConfigureAwait(false);
 
         buffer.Position = 0L;
         using var document = SpreadsheetDocument.Open(buffer, false);

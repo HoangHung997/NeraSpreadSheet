@@ -84,12 +84,18 @@ public sealed partial class NeraSpreadsheetControl
             return false;
         }
 
-        var currentLocal = PointFromScreen(bounds.TopLeft);
-        var requestedLocal = PointFromScreen(new Point(screenX, screenY));
+        var source = PresentationSource.FromVisual(this);
+        if (source?.CompositionTarget is null)
+        {
+            return false;
+        }
+
+        var localDelta = source.CompositionTarget.TransformFromDevice.Transform(
+            new Vector(screenX - bounds.Left, screenY - bounds.Top));
         return _session.AnalyticsPlacements.MoveBy(
             item,
-            requestedLocal.X - currentLocal.X,
-            requestedLocal.Y - currentLocal.Y);
+            localDelta.X,
+            localDelta.Y);
     }
 
     internal bool ResizeNativeAnalyticsItem(
@@ -112,12 +118,16 @@ public sealed partial class NeraSpreadsheetControl
             return false;
         }
 
-        var localTopLeft = PointFromScreen(screenBounds.TopLeft);
-        var localBottomRight = PointFromScreen(new Point(
-            screenBounds.Left + screenWidth,
-            screenBounds.Top + screenHeight));
-        var width = localBottomRight.X - localTopLeft.X;
-        var height = localBottomRight.Y - localTopLeft.Y;
+        var source = PresentationSource.FromVisual(this);
+        if (source?.CompositionTarget is null)
+        {
+            return false;
+        }
+
+        var localSize = source.CompositionTarget.TransformFromDevice.Transform(
+            new Vector(screenWidth, screenHeight));
+        var width = localSize.X;
+        var height = localSize.Y;
         if (width <= 0d || height <= 0d)
         {
             return false;

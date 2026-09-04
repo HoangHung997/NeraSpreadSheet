@@ -41,6 +41,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
     private bool _sessionEventsAttached;
     private bool _disposed;
     private Rect _editorBounds = Rect.Empty;
+    private Rect _editorClipBounds = Rect.Empty;
     private WpfRenderingBackend _renderingBackend;
     private bool _useAdaptiveNavigationExtent;
     private int _adaptiveNavigationTrailingRowCount =
@@ -70,8 +71,10 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
             BorderThickness = new Thickness(1d),
             Padding = new Thickness(2d, 0d, 2d, 0d),
             VerticalContentAlignment = VerticalAlignment.Center,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
         };
-        _editor.KeyDown += OnEditorKeyDown;
+        _editor.PreviewKeyDown += OnEditorKeyDown;
         InitializeFormulaEditingUi();
         _visuals.Add(_gpuSurface);
         _visuals.Add(_editor);
@@ -253,7 +256,10 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
     protected override Size MeasureOverride(Size availableSize)
     {
         _gpuSurface.Measure(availableSize);
-        _editor.Measure(availableSize);
+        _editor.Measure(
+            _editor.Visibility == Visibility.Visible && !_editorBounds.IsEmpty
+                ? _editorBounds.Size
+                : new Size(0d, 0d));
         return new Size(0d, 0d);
     }
 
@@ -263,10 +269,14 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         if (_editor.Visibility == Visibility.Visible && !_editorBounds.IsEmpty)
         {
             _editor.Arrange(_editorBounds);
+            _editor.Clip = _editorClipBounds.IsEmpty
+                ? null
+                : new RectangleGeometry(_editorClipBounds);
         }
         else
         {
             _editor.Arrange(new Rect(0d, 0d, 0d, 0d));
+            _editor.Clip = null;
         }
         return finalSize;
     }
@@ -890,7 +900,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         }
         Loaded -= OnLoaded;
         Unloaded -= OnUnloaded;
-        _editor.KeyDown -= OnEditorKeyDown;
+        _editor.PreviewKeyDown -= OnEditorKeyDown;
         DisposeFormulaEditingUi();
         _gpuSurface.Dispose();
         _disposed = true;
@@ -1334,6 +1344,8 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         {
             _editor.Visibility = Visibility.Collapsed;
             _editorBounds = Rect.Empty;
+            _editorClipBounds = Rect.Empty;
+            InvalidateMeasure();
             InvalidateArrange();
             return;
         }
@@ -1369,7 +1381,13 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         }
 
         _editor.Visibility = Visibility.Visible;
-        _editorBounds = visible;
+        _editorBounds = candidate;
+        _editorClipBounds = new Rect(
+            visible.X - candidate.X,
+            visible.Y - candidate.Y,
+            visible.Width,
+            visible.Height);
+        InvalidateMeasure();
         InvalidateArrange();
     }
 
@@ -1377,6 +1395,8 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
     {
         _editor.Visibility = Visibility.Collapsed;
         _editorBounds = Rect.Empty;
+        _editorClipBounds = Rect.Empty;
+        InvalidateMeasure();
         InvalidateArrange();
     }
 

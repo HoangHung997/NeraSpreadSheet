@@ -158,9 +158,51 @@ internal sealed class WpfDisplayListRenderer
             MaxTextWidth = Math.Max(0.1d, command.Bounds.Width),
             MaxTextHeight = Math.Max(0.1d, command.Bounds.Height),
             Trimming = TextTrimming.CharacterEllipsis,
+            TextAlignment = command.Style.HorizontalAlignment switch
+            {
+                TextHorizontalAlignment.Center => TextAlignment.Center,
+                TextHorizontalAlignment.Right => TextAlignment.Right,
+                TextHorizontalAlignment.Justify => TextAlignment.Justify,
+                _ => TextAlignment.Left,
+            },
         };
+        if (command.Style.Underline || command.Style.Strikethrough)
+        {
+            var decorations = new TextDecorationCollection();
+            if (command.Style.Underline)
+            {
+                decorations.Add(TextDecorations.Underline[0]);
+            }
+            if (command.Style.Strikethrough)
+            {
+                decorations.Add(TextDecorations.Strikethrough[0]);
+            }
+            formatted.SetTextDecorations(decorations);
+        }
 
-        drawingContext.DrawText(formatted, new Point(command.Bounds.X + offsetX, command.Bounds.Y + offsetY));
+        var yOffset = command.Style.VerticalAlignment switch
+        {
+            TextVerticalAlignment.Center => Math.Max(0d, (command.Bounds.Height - formatted.Height) / 2d),
+            TextVerticalAlignment.Bottom => Math.Max(0d, command.Bounds.Height - formatted.Height),
+            _ => 0d,
+        };
+        var origin = new Point(
+            command.Bounds.X + offsetX,
+            command.Bounds.Y + offsetY + yOffset);
+        if (command.Style.TextRotationDegrees != 0)
+        {
+            var centerX = command.Bounds.X + offsetX + (command.Bounds.Width / 2d);
+            var centerY = command.Bounds.Y + offsetY + (command.Bounds.Height / 2d);
+            drawingContext.PushTransform(new RotateTransform(
+                -command.Style.TextRotationDegrees,
+                centerX,
+                centerY));
+            drawingContext.DrawText(formatted, origin);
+            drawingContext.Pop();
+            return;
+        }
+
+        drawingContext.DrawText(formatted, origin);
     }
 
     private SolidColorBrush GetBrush(ColorRgba color)
@@ -199,7 +241,7 @@ internal sealed class WpfDisplayListRenderer
 
         typeface = new Typeface(
             new FontFamily(style.FontFamily),
-            FontStyles.Normal,
+            style.Italic ? FontStyles.Italic : FontStyles.Normal,
             FontWeight.FromOpenTypeWeight(Math.Clamp(style.FontWeight, 1, 999)),
             FontStretches.Normal);
         _typefaces.Add(style, typeface);

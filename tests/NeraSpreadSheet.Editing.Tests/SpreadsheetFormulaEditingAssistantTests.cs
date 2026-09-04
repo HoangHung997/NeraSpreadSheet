@@ -1,5 +1,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Formulas;
 
 namespace NeraSpreadSheet.Editing.Tests;
 
@@ -79,5 +80,53 @@ public sealed class SpreadsheetFormulaEditingAssistantTests
             "Sales Data");
 
         Assert.AreEqual("='Sales Data'!A1", result.Text);
+    }
+
+    [TestMethod]
+    public void HelpCatalogShouldCoverEveryRegisteredNameAndAlias()
+    {
+        var registry = new BuiltInFormulaFunctionRegistry();
+        var expected = registry.Descriptors
+            .SelectMany(static descriptor => descriptor.EnumerateFormulaNames())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        var assistant = new SpreadsheetFormulaEditingAssistant(
+            registry.Descriptors);
+
+        Assert.AreEqual(expected, assistant.FunctionHelp.Count);
+        Assert.IsTrue(assistant.FunctionHelp.All(static help =>
+            !string.IsNullOrWhiteSpace(help.Signature) &&
+            !string.IsNullOrWhiteSpace(help.Description)));
+    }
+
+    [TestMethod]
+    public void DefaultHelpCatalogShouldIncludeEngineOwnedFunctions()
+    {
+        var assistant = new SpreadsheetFormulaEditingAssistant();
+
+        Assert.IsTrue(assistant.FunctionHelp.Count >
+            new BuiltInFormulaFunctionRegistry().Descriptors.Count);
+        Assert.IsTrue(assistant.FunctionHelp.Any(static help => help.Name == "IF"));
+        Assert.IsTrue(assistant.FunctionHelp.Any(static help => help.Name == "SEQUENCE"));
+        Assert.IsTrue(assistant.FunctionHelp.Any(static help => help.Name == "BYROW"));
+    }
+
+    [TestMethod]
+    public void FunctionHelpShouldTrackNestedActiveArgument()
+    {
+        var assistant = new SpreadsheetFormulaEditingAssistant();
+        const string formula = "=IF(A1,SUM(B1,B2),\"x,y\")";
+        var insideSum = formula.IndexOf("B2", StringComparison.Ordinal) + 1;
+
+        var nested = assistant.GetFunctionHelp(formula, insideSum);
+        var outer = assistant.GetFunctionHelp(
+            formula,
+            formula.IndexOf("x,y", StringComparison.Ordinal) + 2);
+
+        Assert.AreEqual("SUM", nested?.Function.Name);
+        Assert.AreEqual(1, nested?.ActiveArgumentIndex);
+        Assert.AreEqual("IF", outer?.Function.Name);
+        Assert.AreEqual(2, outer?.ActiveArgumentIndex);
+        Assert.AreEqual("value_if_false", outer?.ActiveArgument?.Name);
     }
 }

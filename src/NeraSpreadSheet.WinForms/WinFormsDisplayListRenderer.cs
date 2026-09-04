@@ -13,6 +13,7 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
     private readonly Dictionary<(string Family, float Size, FontStyle Style), Font> _fonts = [];
     private readonly StringFormat _singleLineFormat;
     private readonly StringFormat _wrappedFormat;
+    private readonly Dictionary<TextStyle, StringFormat> _textFormats = [];
     private bool _disposed;
 
     public WinFormsDisplayListRenderer()
@@ -76,6 +77,7 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
         foreach (var font in _fonts.Values) font.Dispose();
         _singleLineFormat.Dispose();
         _wrappedFormat.Dispose();
+        foreach (var format in _textFormats.Values) format.Dispose();
         _disposed = true;
     }
 
@@ -161,12 +163,37 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
         {
             return;
         }
-        graphics.DrawString(
-            command.Text,
-            GetFont(command.Style),
-            GetBrush(command.Style.Color),
-            ToRectangleF(command.Bounds.Translate(offsetX, offsetY)),
-            command.Style.Wrap ? _wrappedFormat : _singleLineFormat);
+        var bounds = ToRectangleF(command.Bounds.Translate(offsetX, offsetY));
+        if (command.Style.TextRotationDegrees == 0)
+        {
+            graphics.DrawString(
+                command.Text,
+                GetFont(command.Style),
+                GetBrush(command.Style.Color),
+                bounds,
+                GetTextFormat(command.Style));
+            return;
+        }
+
+        var state = graphics.Save();
+        try
+        {
+            var centerX = bounds.Left + (bounds.Width / 2f);
+            var centerY = bounds.Top + (bounds.Height / 2f);
+            graphics.TranslateTransform(centerX, centerY);
+            graphics.RotateTransform(-command.Style.TextRotationDegrees);
+            graphics.TranslateTransform(-centerX, -centerY);
+            graphics.DrawString(
+                command.Text,
+                GetFont(command.Style),
+                GetBrush(command.Style.Color),
+                bounds,
+                GetTextFormat(command.Style));
+        }
+        finally
+        {
+            graphics.Restore(state);
+        }
     }
 
     private SolidBrush GetBrush(ColorRgba color)
@@ -190,11 +217,39 @@ internal sealed class WinFormsDisplayListRenderer : IDisposable
     private Font GetFont(TextStyle style)
     {
         var fontStyle = style.FontWeight >= 600 ? FontStyle.Bold : FontStyle.Regular;
+        if (style.Italic) fontStyle |= FontStyle.Italic;
+        if (style.Underline) fontStyle |= FontStyle.Underline;
+        if (style.Strikethrough) fontStyle |= FontStyle.Strikeout;
         var key = (style.FontFamily, (float)style.FontSize, fontStyle);
         if (_fonts.TryGetValue(key, out var font)) return font;
         font = new Font(style.FontFamily, key.Item2, fontStyle, GraphicsUnit.Pixel);
         _fonts.Add(key, font);
         return font;
+    }
+
+    private StringFormat GetTextFormat(TextStyle style)
+    {
+        if (_textFormats.TryGetValue(style, out var format))
+        {
+            return format;
+        }
+        format = new StringFormat(style.Wrap ? _wrappedFormat : _singleLineFormat)
+        {
+            Alignment = style.HorizontalAlignment switch
+            {
+                TextHorizontalAlignment.Center => StringAlignment.Center,
+                TextHorizontalAlignment.Right => StringAlignment.Far,
+                _ => StringAlignment.Near,
+            },
+            LineAlignment = style.VerticalAlignment switch
+            {
+                TextVerticalAlignment.Center => StringAlignment.Center,
+                TextVerticalAlignment.Bottom => StringAlignment.Far,
+                _ => StringAlignment.Near,
+            },
+        };
+        _textFormats.Add(style, format);
+        return format;
     }
 
     private static RenderState EnsureTopState(Stack<RenderState> states, RenderStateKind expected)

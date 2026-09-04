@@ -8,6 +8,7 @@ public sealed class Workbook
         InvalidWorksheetNameCharacters =
         SearchValues.Create("[]:*?/\\");
     private readonly List<Worksheet> _worksheets = [];
+    private ExcelDateSystem _dateSystem;
 
     public Workbook()
         : this(createDefaultWorksheet: true)
@@ -28,6 +29,20 @@ public sealed class Workbook
         _worksheets.SelectMany(static worksheet => worksheet.Tables);
 
     public CellStyleCatalog Styles { get; } = new();
+
+    public ExcelDateSystem DateSystem
+    {
+        get => _dateSystem;
+        set
+        {
+            if (_dateSystem == value)
+            {
+                return;
+            }
+            _dateSystem = value;
+            Version++;
+        }
+    }
 
     public long Version { get; private set; }
 

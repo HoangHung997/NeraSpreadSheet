@@ -29,4 +29,30 @@ public sealed class IncrementalCalculationTests
         Assert.AreEqual(9d, sheet.GetCell(new CellAddress(0, 2)).Value.RawValue);
         Assert.AreEqual(11d, sheet.GetCell(new CellAddress(0, 3)).Value.RawValue);
     }
+
+    [TestMethod]
+    public void PreparedGraphShouldAvoidFullCalculationOnFirstEdit()
+    {
+        var workbook = new Workbook();
+        var sheet = workbook.Worksheets[0];
+        sheet.SetValue(new CellAddress(0, 0), 2d);
+        sheet.SetCell(
+            new CellAddress(0, 1),
+            new CellData(CellValue.FromNumber(4d), "=A1*2"));
+        sheet.SetCell(
+            new CellAddress(0, 3),
+            new CellData(CellValue.FromNumber(999d), "=10+1"));
+        var engine = new WorkbookCalculationEngine();
+
+        Assert.AreEqual(2, engine.PrepareDependencyGraph(workbook));
+        sheet.SetValue(new CellAddress(0, 0), 3d);
+        var result = engine.RecalculateAffected(
+            workbook,
+            sheet,
+            new CellRange(default, default));
+
+        Assert.AreEqual(1, result.FormulaCellCount);
+        Assert.AreEqual(6d, sheet.GetValue(new CellAddress(0, 1)));
+        Assert.AreEqual(999d, sheet.GetValue(new CellAddress(0, 3)));
+    }
 }

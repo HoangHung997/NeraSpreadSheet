@@ -256,13 +256,20 @@ public sealed class SkiaDisplayListRenderer : IDisposable
             antialias: true);
         try
         {
+            if (command.Style.TextRotationDegrees != 0)
+            {
+                canvas.RotateDegrees(
+                    -command.Style.TextRotationDegrees,
+                    checked((float)(command.Bounds.Left + (command.Bounds.Width / 2d))),
+                    checked((float)(command.Bounds.Top + (command.Bounds.Height / 2d))));
+            }
             if (command.Style.Wrap)
             {
-                DrawWrappedText(canvas, command.Text, command.Bounds);
+                DrawWrappedText(canvas, command.Text, command.Bounds, command.Style);
             }
             else
             {
-                DrawTextLine(canvas, command.Text, command.Bounds.X, command.Bounds.Y);
+                DrawTextLine(canvas, command.Text, command.Bounds, command.Style);
             }
         }
         finally
@@ -274,69 +281,60 @@ public sealed class SkiaDisplayListRenderer : IDisposable
     private void DrawWrappedText(
         SKCanvas canvas,
         string text,
-        RectD bounds)
+        RectD bounds,
+        TextStyle style)
     {
         var lineHeight = Math.Max(1f, _font.Spacing);
-        var baselineY = checked((float)bounds.Top) - _font.Metrics.Ascent;
+        var lines = CreateWrappedLines(text, checked((float)bounds.Width));
+        var contentHeight = lines.Count * lineHeight;
+        var verticalOffset = ResolveVerticalOffset(style, contentHeight, bounds.Height);
+        var baselineY = checked((float)(bounds.Top + verticalOffset)) - _font.Metrics.Ascent;
         var maxY = checked((float)bounds.Bottom);
-        var maxWidth = checked((float)bounds.Width);
 
-        foreach (var paragraph in text.Replace("\r\n", "\n", StringComparison.Ordinal)
-                     .Replace('\r', '\n')
-                     .Split('\n'))
+        foreach (var line in lines)
         {
             if (baselineY > maxY)
             {
                 break;
             }
-
-            if (paragraph.Length == 0)
+            if (line.Length > 0)
             {
-                baselineY += lineHeight;
-                continue;
+                DrawTextAtBaseline(
+                    canvas,
+                    line,
+                    ResolveTextX(line, bounds, style),
+                    baselineY,
+                    style);
             }
-
-            var words = paragraph.Split(' ', StringSplitOptions.None);
-            var line = string.Empty;
-            foreach (var word in words)
-            {
-                var candidate = line.Length == 0 ? word : $"{line} {word}";
-                if (line.Length > 0 && _font.MeasureText(candidate) > maxWidth)
-                {
-                    DrawTextAtBaseline(canvas, line, checked((float)bounds.Left), baselineY);
-                    baselineY += lineHeight;
-                    if (baselineY > maxY)
-                    {
-                        return;
-                    }
-
-                    line = word;
-                }
-                else
-                {
-                    line = candidate;
-                }
-            }
-
-            if (line.Length > 0 && baselineY <= maxY)
-            {
-                DrawTextAtBaseline(canvas, line, checked((float)bounds.Left), baselineY);
-                baselineY += lineHeight;
-            }
+            baselineY += lineHeight;
         }
     }
 
-    private void DrawTextLine(SKCanvas canvas, string text, double x, double y)
+    private void DrawTextLine(
+        SKCanvas canvas,
+        string text,
+        RectD bounds,
+        TextStyle style)
     {
-        var baseline = checked((float)y) - _font.Metrics.Ascent;
-        DrawTextAtBaseline(canvas, text, checked((float)x), baseline);
+        var baseline = checked((float)(bounds.Top + ResolveVerticalOffset(
+            style,
+            _font.Spacing,
+            bounds.Height))) - _font.Metrics.Ascent;
+        DrawTextAtBaseline(
+            canvas,
+            text,
+            ResolveTextX(text, bounds, style),
+            baseline,
+            style);
     }
 
     private void DrawTextAtBaseline(
         SKCanvas canvas,
         string text,
         float x,
-        float baselineY) =>
+        float baselineY,
+        TextStyle style)
+    {
         canvas.DrawText(
             text,
             x,
@@ -344,10 +342,77 @@ public sealed class SkiaDisplayListRenderer : IDisposable
             SKTextAlign.Left,
             _font,
             _paint);
+        var width = _font.MeasureText(text);
+        if (style.Underline)
+        {
+            canvas.DrawLine(x, baselineY + 2f, x + width, baselineY + 2f, _paint);
+        }
+        if (style.Strikethrough)
+        {
+            canvas.DrawLine(
+                x,
+                baselineY + (_font.Metrics.Ascent * 0.4f),
+                x + width,
+                baselineY + (_font.Metrics.Ascent * 0.4f),
+                _paint);
+        }
+    }
+
+    private List<string> CreateWrappedLines(string text, float maxWidth)
+    {
+        var lines = new List<string>();
+        foreach (var paragraph in text.Replace("\r\n", "\n", StringComparison.Ordinal)
+                     .Replace('\r', '\n')
+                     .Split('\n'))
+        {
+            if (paragraph.Length == 0)
+            {
+                lines.Add(string.Empty);
+                continue;
+            }
+            var line = string.Empty;
+            foreach (var word in paragraph.Split(' ', StringSplitOptions.None))
+            {
+                var candidate = line.Length == 0 ? word : $"{line} {word}";
+                if (line.Length > 0 && _font.MeasureText(candidate) > maxWidth)
+                {
+                    lines.Add(line);
+                    line = word;
+                }
+                else
+                {
+                    line = candidate;
+                }
+            }
+            lines.Add(line);
+        }
+        return lines;
+    }
+
+    private float ResolveTextX(string text, RectD bounds, TextStyle style)
+    {
+        var width = _font.MeasureText(text);
+        return style.HorizontalAlignment switch
+        {
+            TextHorizontalAlignment.Center => checked((float)(bounds.Left + ((bounds.Width - width) / 2d))),
+            TextHorizontalAlignment.Right => checked((float)(bounds.Right - width)),
+            _ => checked((float)bounds.Left),
+        };
+    }
+
+    private static double ResolveVerticalOffset(
+        TextStyle style,
+        double contentHeight,
+        double boundsHeight) => style.VerticalAlignment switch
+        {
+            TextVerticalAlignment.Center => Math.Max(0d, (boundsHeight - contentHeight) / 2d),
+            TextVerticalAlignment.Bottom => Math.Max(0d, boundsHeight - contentHeight),
+            _ => 0d,
+        };
 
     private SKTypeface ResolveTypeface(TextStyle style)
     {
-        var key = new TypefaceKey(style.FontFamily, style.FontWeight);
+        var key = new TypefaceKey(style.FontFamily, style.FontWeight, style.Italic);
         return _typefaces.GetOrAdd(key, CreateTypefaceResource).Typeface;
     }
 
@@ -356,7 +421,7 @@ public sealed class SkiaDisplayListRenderer : IDisposable
         var fontStyle = new SKFontStyle(
             Math.Clamp(key.FontWeight, 1, 1000),
             (int)SKFontStyleWidth.Normal,
-            SKFontStyleSlant.Upright);
+            key.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright);
         var typeface = SKTypeface.FromFamilyName(key.FamilyName, fontStyle)
             ?? SKTypeface.Default;
         return new TypefaceResource(
@@ -407,7 +472,7 @@ public sealed class SkiaDisplayListRenderer : IDisposable
         checked((float)bounds.Right),
         checked((float)bounds.Bottom));
 
-    private readonly record struct TypefaceKey(string FamilyName, int FontWeight);
+    private readonly record struct TypefaceKey(string FamilyName, int FontWeight, bool Italic);
 
     private sealed class TypefaceResource : IDisposable
     {

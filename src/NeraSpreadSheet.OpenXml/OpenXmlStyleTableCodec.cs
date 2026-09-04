@@ -152,6 +152,7 @@ internal sealed class OpenXmlStyleTable
                 numberFormats,
                 ref nextNumberFormatId);
             var alignment = BuildAlignment(style.Alignment);
+            var protection = BuildProtection(style.Protection);
             cellFormats.Append(new CellFormat
             {
                 FontId = fontId,
@@ -165,6 +166,8 @@ internal sealed class OpenXmlStyleTable
                 ApplyNumberFormat = numberFormatId != 0U,
                 ApplyAlignment = alignment is not null,
                 Alignment = alignment,
+                ApplyProtection = protection is not null,
+                Protection = protection,
             });
         }
 
@@ -263,6 +266,7 @@ internal sealed class OpenXmlStyleTable
             {
                 FormatCode = ResolveNumberFormatCode(numberFormatId, numberFormats),
             },
+            Protection = ReadProtection(cellFormat.Protection),
         };
     }
 
@@ -289,9 +293,29 @@ internal sealed class OpenXmlStyleTable
             Size = font.FontSize?.Val?.Value is double size && double.IsFinite(size) && size > 0d
                 ? size
                 : NeraCellStyle.Default.Font.Size,
-            Weight = font.Bold is null ? 400 : 700,
-            Italic = font.Italic is not null,
-            Underline = font.Underline is not null,
+            Weight = ReadOnOff(font.Bold) ? 700 : 400,
+            Italic = ReadOnOff(font.Italic),
+            Underline = font.Underline is not null &&
+                        !IsUnderlineValue(
+                            font.Underline.Val?.Value,
+                            UnderlineValues.None),
+            DoubleUnderline =
+                IsUnderlineValue(
+                    font.Underline?.Val?.Value,
+                    UnderlineValues.Double) ||
+                IsUnderlineValue(
+                    font.Underline?.Val?.Value,
+                    UnderlineValues.DoubleAccounting),
+            StrikeThrough = ReadOnOff(font.Strike),
+            Outline = ReadOnOff(font.Outline),
+            Shadow = ReadOnOff(font.Shadow),
+            VerticalAlignment = font.VerticalTextAlignment?.Val?.Value is { } fontVertical &&
+                                fontVertical.Equals(VerticalAlignmentRunValues.Superscript)
+                ? CellFontVerticalAlignment.Superscript
+                : font.VerticalTextAlignment?.Val?.Value is { } subscriptVertical &&
+                  subscriptVertical.Equals(VerticalAlignmentRunValues.Subscript)
+                    ? CellFontVerticalAlignment.Subscript
+                    : CellFontVerticalAlignment.None,
             Color = ReadColor(font.Color, NeraCellStyle.Default.Font.Color),
         };
     }
@@ -299,14 +323,17 @@ internal sealed class OpenXmlStyleTable
     private static CellFillStyle ReadFill(OpenXmlFill? fill)
     {
         var pattern = fill?.PatternFill;
-        if (pattern?.PatternType?.Value != PatternValues.Solid)
+        if (pattern is null)
         {
             return new CellFillStyle();
         }
+        var patternType = FromOpenXmlPattern(pattern.PatternType?.Value);
         return new CellFillStyle
         {
-            IsVisible = true,
+            IsVisible = patternType != CellFillPattern.None,
             Color = ReadColor(pattern.ForegroundColor, ColorRgba.Transparent),
+            BackgroundColor = ReadColor(pattern.BackgroundColor, ColorRgba.Transparent),
+            Pattern = patternType,
         };
     }
 
@@ -316,6 +343,9 @@ internal sealed class OpenXmlStyleTable
         Top = ReadBorderSide(border?.TopBorder),
         Right = ReadBorderSide(border?.RightBorder),
         Bottom = ReadBorderSide(border?.BottomBorder),
+        Diagonal = ReadBorderSide(border?.DiagonalBorder),
+        DiagonalUp = border?.DiagonalUp?.Value ?? false,
+        DiagonalDown = border?.DiagonalDown?.Value ?? false,
     };
 
     private static NeraBorderSide ReadBorderSide(BorderPropertiesType? side)
@@ -325,31 +355,17 @@ internal sealed class OpenXmlStyleTable
             return new NeraBorderSide();
         }
 
-        var style = CellBorderLineStyle.Thin;
-        var width = 1d;
-        if (styleValue.Equals(BorderStyleValues.Medium))
+        var style = FromOpenXmlBorderStyle(styleValue);
+        var width = style switch
         {
-            style = CellBorderLineStyle.Medium;
-            width = 2d;
-        }
-        else if (styleValue.Equals(BorderStyleValues.Thick))
-        {
-            style = CellBorderLineStyle.Thick;
-            width = 3d;
-        }
-        else if (styleValue.Equals(BorderStyleValues.Dashed))
-        {
-            style = CellBorderLineStyle.Dashed;
-        }
-        else if (styleValue.Equals(BorderStyleValues.Dotted))
-        {
-            style = CellBorderLineStyle.Dotted;
-        }
-        else if (styleValue.Equals(BorderStyleValues.Double))
-        {
-            style = CellBorderLineStyle.DoubleLine;
-            width = 2d;
-        }
+            CellBorderLineStyle.Medium or
+            CellBorderLineStyle.MediumDashed or
+            CellBorderLineStyle.MediumDashDot or
+            CellBorderLineStyle.MediumDashDotDot or
+            CellBorderLineStyle.DoubleLine => 2d,
+            CellBorderLineStyle.Thick => 3d,
+            _ => 1d,
+        };
 
         return new NeraBorderSide
         {
@@ -376,19 +392,19 @@ internal sealed class OpenXmlStyleTable
         var vertical = alignment.Vertical?.Value;
         return new CellAlignmentStyle
         {
-            Horizontal = horizontal?.Equals(HorizontalAlignmentValues.Left) == true
-                ? CellHorizontalAlignment.Left
-                : horizontal?.Equals(HorizontalAlignmentValues.Center) == true
-                    ? CellHorizontalAlignment.Center
-                    : horizontal?.Equals(HorizontalAlignmentValues.Right) == true
-                        ? CellHorizontalAlignment.Right
-                        : CellHorizontalAlignment.General,
-            Vertical = vertical?.Equals(VerticalAlignmentValues.Top) == true
-                ? CellVerticalAlignment.Top
-                : vertical?.Equals(VerticalAlignmentValues.Center) == true
-                    ? CellVerticalAlignment.Center
-                    : CellVerticalAlignment.Bottom,
+            Horizontal = FromOpenXmlHorizontalAlignment(horizontal),
+            Vertical = FromOpenXmlVerticalAlignment(vertical),
             WrapText = alignment.WrapText?.Value ?? false,
+            ShrinkToFit = alignment.ShrinkToFit?.Value ?? false,
+            JustifyLastLine = alignment.JustifyLastLine?.Value ?? false,
+            Indent = checked((int)(alignment.Indent?.Value ?? 0U)),
+            RelativeIndent = alignment.RelativeIndent?.Value ?? 0,
+            ReadingOrder = alignment.ReadingOrder?.Value switch
+            {
+                1U => CellReadingOrder.LeftToRight,
+                2U => CellReadingOrder.RightToLeft,
+                _ => CellReadingOrder.Context,
+            },
             TextRotationDegrees = rotation,
         };
     }
@@ -432,9 +448,33 @@ internal sealed class OpenXmlStyleTable
         {
             element.Append(new Italic());
         }
-        if (font.Underline)
+        if (font.StrikeThrough)
         {
-            element.Append(new Underline());
+            element.Append(new Strike());
+        }
+        if (font.Outline)
+        {
+            element.Append(new Outline());
+        }
+        if (font.Shadow)
+        {
+            element.Append(new Shadow());
+        }
+        if (font.Underline || font.DoubleUnderline)
+        {
+            element.Append(new Underline
+            {
+                Val = font.DoubleUnderline ? UnderlineValues.Double : UnderlineValues.Single,
+            });
+        }
+        if (font.VerticalAlignment != CellFontVerticalAlignment.None)
+        {
+            element.Append(new VerticalTextAlignment
+            {
+                Val = font.VerticalAlignment == CellFontVerticalAlignment.Superscript
+                    ? VerticalAlignmentRunValues.Superscript
+                    : VerticalAlignmentRunValues.Subscript,
+            });
         }
         element.Append(new FontSize { Val = font.Size });
         element.Append(new Color { Rgb = ToArgb(font.Color) });
@@ -473,9 +513,11 @@ internal sealed class OpenXmlStyleTable
         {
             element = new OpenXmlFill(new PatternFill(
                 new ForegroundColor { Rgb = ToArgb(fill.Color) },
-                new BackgroundColor { Indexed = 64U })
+                new BackgroundColor { Rgb = ToArgb(fill.BackgroundColor) })
             {
-                PatternType = PatternValues.Solid,
+                PatternType = ToOpenXmlPattern(fill.Pattern == CellFillPattern.None
+                    ? CellFillPattern.Solid
+                    : fill.Pattern),
             });
         }
         fills.Append(element);
@@ -498,7 +540,11 @@ internal sealed class OpenXmlStyleTable
             BuildRightBorder(border.Right),
             BuildTopBorder(border.Top),
             BuildBottomBorder(border.Bottom),
-            new DiagonalBorder()));
+            ApplyBorder(new DiagonalBorder(), border.Diagonal))
+        {
+            DiagonalUp = border.DiagonalUp,
+            DiagonalDown = border.DiagonalDown,
+        });
         ids.Add(border, id);
         return id;
     }
@@ -526,6 +572,13 @@ internal sealed class OpenXmlStyleTable
             CellBorderLineStyle.Dashed => BorderStyleValues.Dashed,
             CellBorderLineStyle.Dotted => BorderStyleValues.Dotted,
             CellBorderLineStyle.DoubleLine => BorderStyleValues.Double,
+            CellBorderLineStyle.Hair => BorderStyleValues.Hair,
+            CellBorderLineStyle.MediumDashed => BorderStyleValues.MediumDashed,
+            CellBorderLineStyle.DashDot => BorderStyleValues.DashDot,
+            CellBorderLineStyle.MediumDashDot => BorderStyleValues.MediumDashDot,
+            CellBorderLineStyle.DashDotDot => BorderStyleValues.DashDotDot,
+            CellBorderLineStyle.MediumDashDotDot => BorderStyleValues.MediumDashDotDot,
+            CellBorderLineStyle.SlantDashDot => BorderStyleValues.SlantDashDot,
             _ => BorderStyleValues.Thin,
         };
         if (side.Style != CellBorderLineStyle.None)
@@ -554,6 +607,10 @@ internal sealed class OpenXmlStyleTable
                 CellHorizontalAlignment.Left => HorizontalAlignmentValues.Left,
                 CellHorizontalAlignment.Center => HorizontalAlignmentValues.Center,
                 CellHorizontalAlignment.Right => HorizontalAlignmentValues.Right,
+                CellHorizontalAlignment.Fill => HorizontalAlignmentValues.Fill,
+                CellHorizontalAlignment.Justify => HorizontalAlignmentValues.Justify,
+                CellHorizontalAlignment.CenterContinuous => HorizontalAlignmentValues.CenterContinuous,
+                CellHorizontalAlignment.Distributed => HorizontalAlignmentValues.Distributed,
                 _ => null,
             },
             Vertical = alignment.Vertical switch
@@ -561,12 +618,134 @@ internal sealed class OpenXmlStyleTable
                 CellVerticalAlignment.Top => VerticalAlignmentValues.Top,
                 CellVerticalAlignment.Center => VerticalAlignmentValues.Center,
                 CellVerticalAlignment.Bottom => VerticalAlignmentValues.Bottom,
+                CellVerticalAlignment.Justify => VerticalAlignmentValues.Justify,
+                CellVerticalAlignment.Distributed => VerticalAlignmentValues.Distributed,
                 _ => null,
             },
             WrapText = alignment.WrapText,
+            ShrinkToFit = alignment.ShrinkToFit,
+            JustifyLastLine = alignment.JustifyLastLine,
+            Indent = checked((uint)alignment.Indent),
+            RelativeIndent = alignment.RelativeIndent,
+            ReadingOrder = alignment.ReadingOrder switch
+            {
+                CellReadingOrder.LeftToRight => 1U,
+                CellReadingOrder.RightToLeft => 2U,
+                _ => 0U,
+            },
             TextRotation = rotation,
         };
     }
+
+    private static CellProtectionStyle ReadProtection(Protection? protection) => new()
+    {
+        Locked = protection?.Locked?.Value ?? true,
+        FormulaHidden = protection?.Hidden?.Value ?? false,
+    };
+
+    private static bool ReadOnOff(BooleanPropertyType? value) =>
+        value is not null && (value.Val?.Value ?? true);
+
+    private static bool IsUnderlineValue(
+        UnderlineValues? value,
+        UnderlineValues expected) =>
+        value is not null && value.Value.Equals(expected);
+
+    private static Protection? BuildProtection(CellProtectionStyle protection) =>
+        protection == NeraCellStyle.Default.Protection
+            ? null
+            : new Protection
+            {
+                Locked = protection.Locked,
+                Hidden = protection.FormulaHidden,
+            };
+
+    private static CellHorizontalAlignment FromOpenXmlHorizontalAlignment(
+        HorizontalAlignmentValues? value)
+    {
+        if (value is null) return CellHorizontalAlignment.General;
+        if (value.Value.Equals(HorizontalAlignmentValues.Left)) return CellHorizontalAlignment.Left;
+        if (value.Value.Equals(HorizontalAlignmentValues.Center)) return CellHorizontalAlignment.Center;
+        if (value.Value.Equals(HorizontalAlignmentValues.Right)) return CellHorizontalAlignment.Right;
+        if (value.Value.Equals(HorizontalAlignmentValues.Fill)) return CellHorizontalAlignment.Fill;
+        if (value.Value.Equals(HorizontalAlignmentValues.Justify)) return CellHorizontalAlignment.Justify;
+        if (value.Value.Equals(HorizontalAlignmentValues.CenterContinuous)) return CellHorizontalAlignment.CenterContinuous;
+        if (value.Value.Equals(HorizontalAlignmentValues.Distributed)) return CellHorizontalAlignment.Distributed;
+        return CellHorizontalAlignment.General;
+    }
+
+    private static CellVerticalAlignment FromOpenXmlVerticalAlignment(
+        VerticalAlignmentValues? value)
+    {
+        if (value is null) return CellVerticalAlignment.Bottom;
+        if (value.Value.Equals(VerticalAlignmentValues.Top)) return CellVerticalAlignment.Top;
+        if (value.Value.Equals(VerticalAlignmentValues.Center)) return CellVerticalAlignment.Center;
+        if (value.Value.Equals(VerticalAlignmentValues.Justify)) return CellVerticalAlignment.Justify;
+        if (value.Value.Equals(VerticalAlignmentValues.Distributed)) return CellVerticalAlignment.Distributed;
+        return CellVerticalAlignment.Bottom;
+    }
+
+    private static CellBorderLineStyle FromOpenXmlBorderStyle(BorderStyleValues value)
+    {
+        if (value.Equals(BorderStyleValues.Medium)) return CellBorderLineStyle.Medium;
+        if (value.Equals(BorderStyleValues.Thick)) return CellBorderLineStyle.Thick;
+        if (value.Equals(BorderStyleValues.Dashed)) return CellBorderLineStyle.Dashed;
+        if (value.Equals(BorderStyleValues.Dotted)) return CellBorderLineStyle.Dotted;
+        if (value.Equals(BorderStyleValues.Double)) return CellBorderLineStyle.DoubleLine;
+        if (value.Equals(BorderStyleValues.Hair)) return CellBorderLineStyle.Hair;
+        if (value.Equals(BorderStyleValues.MediumDashed)) return CellBorderLineStyle.MediumDashed;
+        if (value.Equals(BorderStyleValues.DashDot)) return CellBorderLineStyle.DashDot;
+        if (value.Equals(BorderStyleValues.MediumDashDot)) return CellBorderLineStyle.MediumDashDot;
+        if (value.Equals(BorderStyleValues.DashDotDot)) return CellBorderLineStyle.DashDotDot;
+        if (value.Equals(BorderStyleValues.MediumDashDotDot)) return CellBorderLineStyle.MediumDashDotDot;
+        if (value.Equals(BorderStyleValues.SlantDashDot)) return CellBorderLineStyle.SlantDashDot;
+        return CellBorderLineStyle.Thin;
+    }
+
+    private static CellFillPattern FromOpenXmlPattern(PatternValues? value)
+    {
+        if (value is null) return CellFillPattern.None;
+        if (value.Value.Equals(PatternValues.Solid)) return CellFillPattern.Solid;
+        if (value.Value.Equals(PatternValues.Gray125)) return CellFillPattern.Gray125;
+        if (value.Value.Equals(PatternValues.DarkGray)) return CellFillPattern.DarkGray;
+        if (value.Value.Equals(PatternValues.MediumGray)) return CellFillPattern.MediumGray;
+        if (value.Value.Equals(PatternValues.LightGray)) return CellFillPattern.LightGray;
+        if (value.Value.Equals(PatternValues.DarkHorizontal)) return CellFillPattern.DarkHorizontal;
+        if (value.Value.Equals(PatternValues.DarkVertical)) return CellFillPattern.DarkVertical;
+        if (value.Value.Equals(PatternValues.DarkDown)) return CellFillPattern.DarkDown;
+        if (value.Value.Equals(PatternValues.DarkUp)) return CellFillPattern.DarkUp;
+        if (value.Value.Equals(PatternValues.DarkGrid)) return CellFillPattern.DarkGrid;
+        if (value.Value.Equals(PatternValues.DarkTrellis)) return CellFillPattern.DarkTrellis;
+        if (value.Value.Equals(PatternValues.LightHorizontal)) return CellFillPattern.LightHorizontal;
+        if (value.Value.Equals(PatternValues.LightVertical)) return CellFillPattern.LightVertical;
+        if (value.Value.Equals(PatternValues.LightDown)) return CellFillPattern.LightDown;
+        if (value.Value.Equals(PatternValues.LightUp)) return CellFillPattern.LightUp;
+        if (value.Value.Equals(PatternValues.LightGrid)) return CellFillPattern.LightGrid;
+        if (value.Value.Equals(PatternValues.LightTrellis)) return CellFillPattern.LightTrellis;
+        return CellFillPattern.None;
+    }
+
+    private static PatternValues ToOpenXmlPattern(CellFillPattern value) => value switch
+    {
+        CellFillPattern.Solid => PatternValues.Solid,
+        CellFillPattern.Gray125 => PatternValues.Gray125,
+        CellFillPattern.DarkGray => PatternValues.DarkGray,
+        CellFillPattern.MediumGray => PatternValues.MediumGray,
+        CellFillPattern.LightGray => PatternValues.LightGray,
+        CellFillPattern.DarkHorizontal => PatternValues.DarkHorizontal,
+        CellFillPattern.DarkVertical => PatternValues.DarkVertical,
+        CellFillPattern.DarkDown => PatternValues.DarkDown,
+        CellFillPattern.DarkUp => PatternValues.DarkUp,
+        CellFillPattern.DarkGrid => PatternValues.DarkGrid,
+        CellFillPattern.DarkTrellis => PatternValues.DarkTrellis,
+        CellFillPattern.LightHorizontal => PatternValues.LightHorizontal,
+        CellFillPattern.LightVertical => PatternValues.LightVertical,
+        CellFillPattern.LightDown => PatternValues.LightDown,
+        CellFillPattern.LightUp => PatternValues.LightUp,
+        CellFillPattern.LightGrid => PatternValues.LightGrid,
+        CellFillPattern.LightTrellis => PatternValues.LightTrellis,
+        _ => PatternValues.None,
+    };
 
     private static uint ResolveNumberFormatId(
         string formatCode,

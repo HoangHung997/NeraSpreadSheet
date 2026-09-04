@@ -427,7 +427,8 @@ public sealed class SpreadsheetViewportEngine
             layout,
             selection,
             theme,
-            _session.Workbook.Styles);
+            _session.Workbook.Styles,
+            dateSystem: _session.Workbook.DateSystem);
 
     private DisplayList ComposeCachedDisplayList(
         ViewportLayoutEngine layoutEngine,
@@ -460,6 +461,7 @@ public sealed class SpreadsheetViewportEngine
             actualLayout.ViewportSize.Width,
             actualLayout.ViewportSize.Height,
             overscan,
+            _session.Workbook.DateSystem,
             theme);
 
         DisplayList cachedDisplayList;
@@ -485,7 +487,8 @@ public sealed class SpreadsheetViewportEngine
                 selection,
                 theme,
                 _session.Workbook.Styles,
-                includeFreezeSeparators: false);
+                includeFreezeSeparators: false,
+                _session.Workbook.DateSystem);
             AddDisplayListCacheEntry(key, cachedDisplayList);
         }
 
@@ -706,6 +709,7 @@ public sealed class SpreadsheetViewportEngine
         double ViewportWidth,
         double ViewportHeight,
         double Overscan,
+        ExcelDateSystem DateSystem,
         SpreadsheetRenderTheme Theme);
 
     private sealed class CachedDisplayListEntry

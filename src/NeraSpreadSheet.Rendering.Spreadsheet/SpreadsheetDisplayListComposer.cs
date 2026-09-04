@@ -1,4 +1,3 @@
-using System.Globalization;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Formulas;
 using NeraSpreadSheet.Foundation;
@@ -16,7 +15,8 @@ public static class SpreadsheetDisplayListComposer
         SelectionSnapshot? selection = null,
         SpreadsheetRenderTheme? theme = null,
         CellStyleCatalog? styles = null,
-        bool includeFreezeSeparators = true)
+        bool includeFreezeSeparators = true,
+        ExcelDateSystem dateSystem = ExcelDateSystem.Date1900)
     {
         ArgumentNullException.ThrowIfNull(worksheet);
         ArgumentNullException.ThrowIfNull(layout);
@@ -65,7 +65,8 @@ public static class SpreadsheetDisplayListComposer
                 frozenHeight),
             selection,
             theme,
-            styles);
+            styles,
+            dateSystem);
         DrawPane(
             builder,
             worksheet,
@@ -80,7 +81,8 @@ public static class SpreadsheetDisplayListComposer
                 frozenHeight),
             selection,
             theme,
-            styles);
+            styles,
+            dateSystem);
         DrawPane(
             builder,
             worksheet,
@@ -95,7 +97,8 @@ public static class SpreadsheetDisplayListComposer
                     viewport.Height - frozenHeight)),
             selection,
             theme,
-            styles);
+            styles,
+            dateSystem);
         DrawPane(
             builder,
             worksheet,
@@ -112,7 +115,8 @@ public static class SpreadsheetDisplayListComposer
                     viewport.Height - frozenHeight)),
             selection,
             theme,
-            styles);
+            styles,
+            dateSystem);
 
         if (includeFreezeSeparators)
         {
@@ -161,7 +165,8 @@ public static class SpreadsheetDisplayListComposer
         RectD pane,
         SelectionSnapshot? selection,
         SpreadsheetRenderTheme theme,
-        CellStyleCatalog? styles)
+        CellStyleCatalog? styles,
+        ExcelDateSystem dateSystem)
     {
         if (rows.Length == 0 ||
             columns.Length == 0 ||
@@ -178,7 +183,8 @@ public static class SpreadsheetDisplayListComposer
             rows,
             columns,
             pane,
-            styles);
+            styles,
+            dateSystem);
         DrawGrid(
             builder,
             rows,
@@ -192,7 +198,8 @@ public static class SpreadsheetDisplayListComposer
             columns,
             pane,
             theme,
-            styles);
+            styles,
+            dateSystem);
         if (theme.ShowValidationErrors)
         {
             DrawValidationDiagnostics(
@@ -223,7 +230,8 @@ public static class SpreadsheetDisplayListComposer
         AxisSlot[] rows,
         AxisSlot[] columns,
         RectD pane,
-        CellStyleCatalog? styles)
+        CellStyleCatalog? styles,
+        ExcelDateSystem dateSystem)
     {
         foreach (var row in rows)
         {
@@ -256,7 +264,8 @@ public static class SpreadsheetDisplayListComposer
                     worksheet.GetCell(address),
                     bounds,
                     styles,
-                    backgroundFallback: null);
+                    backgroundFallback: null,
+                    dateSystem);
             }
         }
     }
@@ -268,7 +277,8 @@ public static class SpreadsheetDisplayListComposer
         AxisSlot[] columns,
         RectD pane,
         SpreadsheetRenderTheme theme,
-        CellStyleCatalog? styles)
+        CellStyleCatalog? styles,
+        ExcelDateSystem dateSystem)
     {
         foreach (var range in worksheet.MergedCells)
         {
@@ -289,7 +299,8 @@ public static class SpreadsheetDisplayListComposer
                 worksheet.GetCell(range.TopLeft),
                 bounds,
                 styles,
-                theme.Background);
+                theme.Background,
+                dateSystem);
         }
     }
 
@@ -300,7 +311,8 @@ public static class SpreadsheetDisplayListComposer
         CellData cell,
         RectD bounds,
         CellStyleCatalog? styles,
-        ColorRgba? backgroundFallback)
+        ColorRgba? backgroundFallback,
+        ExcelDateSystem dateSystem)
     {
         var style = ResolveStyle(
             worksheet,
@@ -313,9 +325,7 @@ public static class SpreadsheetDisplayListComposer
 
         if (style.Fill.IsVisible)
         {
-            builder.FillRectangle(
-                bounds,
-                style.Fill.Color);
+            DrawCellFill(builder, bounds, style.Fill);
         }
         else if (backgroundFallback is { } fallback)
         {
@@ -336,16 +346,28 @@ public static class SpreadsheetDisplayListComposer
                     0d,
                     bounds.Height - 2d));
             builder.DrawText(
-                FormatCellValue(
+                ExcelCellValueFormatter.Format(
                     cell.Value,
-                    style.NumberFormat.FormatCode),
+                    style.NumberFormat.FormatCode,
+                    dateSystem),
                 textBounds,
                 new TextStyle(
                     style.Font.Family,
                     style.Font.Size,
                     style.Font.Weight,
                     style.Font.Color,
-                    style.Alignment.WrapText));
+                    style.Alignment.WrapText,
+                    style.Font.Italic,
+                    style.Font.Underline || style.Font.DoubleUnderline,
+                    style.Font.StrikeThrough,
+                    ResolveHorizontalAlignment(style.Alignment.Horizontal, cell.Value),
+                    style.Alignment.Vertical switch
+                    {
+                        CellVerticalAlignment.Top => TextVerticalAlignment.Top,
+                        CellVerticalAlignment.Center => TextVerticalAlignment.Center,
+                        _ => TextVerticalAlignment.Bottom,
+                    },
+                    style.Alignment.TextRotationDegrees));
         }
 
         DrawCellBorders(
@@ -353,6 +375,20 @@ public static class SpreadsheetDisplayListComposer
             bounds,
             style.Border);
     }
+
+    private static TextHorizontalAlignment ResolveHorizontalAlignment(
+        CellHorizontalAlignment alignment,
+        CellValue value) => alignment switch
+        {
+            CellHorizontalAlignment.Left => TextHorizontalAlignment.Left,
+            CellHorizontalAlignment.Center => TextHorizontalAlignment.Center,
+            CellHorizontalAlignment.Right => TextHorizontalAlignment.Right,
+            CellHorizontalAlignment.Justify or CellHorizontalAlignment.Distributed => TextHorizontalAlignment.Justify,
+            CellHorizontalAlignment.CenterContinuous => TextHorizontalAlignment.Center,
+            _ => value.Kind is CellValueKind.Number or CellValueKind.DateTime
+                ? TextHorizontalAlignment.Right
+                : TextHorizontalAlignment.Left,
+        };
 
     private static void DrawValidationDiagnostics(
         DisplayListBuilder builder,
@@ -430,37 +466,6 @@ public static class SpreadsheetDisplayListComposer
                 address,
                 styles);
 
-    private static string FormatCellValue(
-        CellValue value,
-        string formatCode)
-    {
-        if (string.Equals(
-                formatCode,
-                "General",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return value.ToString();
-        }
-
-        try
-        {
-            return value.RawValue switch
-            {
-                double number => number.ToString(
-                    formatCode,
-                    CultureInfo.CurrentCulture),
-                DateTime dateTime => dateTime.ToString(
-                    formatCode,
-                    CultureInfo.CurrentCulture),
-                _ => value.ToString(),
-            };
-        }
-        catch (FormatException)
-        {
-            return value.ToString();
-        }
-    }
-
     private static void DrawCellBorders(
         DisplayListBuilder builder,
         RectD bounds,
@@ -502,6 +507,114 @@ public static class SpreadsheetDisplayListComposer
             new PointD(
                 bounds.Left,
                 bounds.Top));
+        if (border.DiagonalUp)
+        {
+            DrawBorder(
+                builder,
+                border.Diagonal,
+                new PointD(bounds.Left, bounds.Bottom),
+                new PointD(bounds.Right, bounds.Top));
+        }
+        if (border.DiagonalDown)
+        {
+            DrawBorder(
+                builder,
+                border.Diagonal,
+                new PointD(bounds.Left, bounds.Top),
+                new PointD(bounds.Right, bounds.Bottom));
+        }
+    }
+
+    private static void DrawCellFill(
+        DisplayListBuilder builder,
+        RectD bounds,
+        CellFillStyle fill)
+    {
+        var pattern = fill.Pattern == CellFillPattern.None
+            ? CellFillPattern.Solid
+            : fill.Pattern;
+        if (pattern == CellFillPattern.Solid)
+        {
+            builder.FillRectangle(bounds, fill.Color);
+            return;
+        }
+
+        var background = fill.BackgroundColor.Alpha == 0
+            ? ColorRgba.White
+            : fill.BackgroundColor;
+        builder.FillRectangle(bounds, background);
+        builder.PushClip(bounds);
+        var spacing = pattern switch
+        {
+            CellFillPattern.DarkGray => 2d,
+            CellFillPattern.MediumGray or CellFillPattern.Gray125 => 4d,
+            _ => 6d,
+        };
+        var horizontal = pattern is
+            CellFillPattern.DarkHorizontal or CellFillPattern.LightHorizontal or
+            CellFillPattern.DarkGrid or CellFillPattern.LightGrid or
+            CellFillPattern.DarkTrellis or CellFillPattern.LightTrellis or
+            CellFillPattern.DarkGray or CellFillPattern.MediumGray or
+            CellFillPattern.LightGray or CellFillPattern.Gray125;
+        var vertical = pattern is
+            CellFillPattern.DarkVertical or CellFillPattern.LightVertical or
+            CellFillPattern.DarkGrid or CellFillPattern.LightGrid or
+            CellFillPattern.DarkTrellis or CellFillPattern.LightTrellis or
+            CellFillPattern.DarkGray or CellFillPattern.MediumGray or
+            CellFillPattern.LightGray or CellFillPattern.Gray125;
+        var down = pattern is
+            CellFillPattern.DarkDown or CellFillPattern.LightDown or
+            CellFillPattern.DarkTrellis or CellFillPattern.LightTrellis;
+        var up = pattern is
+            CellFillPattern.DarkUp or CellFillPattern.LightUp or
+            CellFillPattern.DarkTrellis or CellFillPattern.LightTrellis;
+        const double patternStrokeWidth = 0.75d;
+        if (horizontal)
+        {
+            for (var y = bounds.Top; y <= bounds.Bottom; y += spacing)
+            {
+                builder.DrawLine(
+                    new PointD(bounds.Left, y),
+                    new PointD(bounds.Right, y),
+                    patternStrokeWidth,
+                    fill.Color);
+            }
+        }
+        if (vertical)
+        {
+            for (var x = bounds.Left; x <= bounds.Right; x += spacing)
+            {
+                builder.DrawLine(
+                    new PointD(x, bounds.Top),
+                    new PointD(x, bounds.Bottom),
+                    patternStrokeWidth,
+                    fill.Color);
+            }
+        }
+        if (down || up)
+        {
+            var diagonalSpan = bounds.Width + bounds.Height;
+            for (var offset = -bounds.Height; offset <= bounds.Width; offset += spacing)
+            {
+                if (down)
+                {
+                    builder.DrawLine(
+                        new PointD(bounds.Left + offset, bounds.Top),
+                        new PointD(bounds.Left + offset + diagonalSpan, bounds.Bottom),
+                        patternStrokeWidth,
+                        fill.Color);
+                }
+                if (up)
+                {
+                    builder.DrawLine(
+                        new PointD(bounds.Left + offset, bounds.Bottom),
+                        new PointD(bounds.Left + offset + diagonalSpan, bounds.Top),
+                        patternStrokeWidth,
+                        fill.Color);
+                }
+            }
+        }
+        builder.PopClip();
     }
 
     private static void DrawBorder(

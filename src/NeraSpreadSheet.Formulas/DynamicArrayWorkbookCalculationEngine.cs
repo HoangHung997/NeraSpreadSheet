@@ -12,6 +12,8 @@ public sealed class DynamicArrayWorkbookCalculationEngine
 
     private readonly IDynamicArrayFormulaEngine _arrayEngine;
     private readonly WorkbookCalculationEngine _scalarCalculation;
+    private readonly HashSet<FormulaCellKey> _dynamicOwners = [];
+    private readonly Dictionary<FormulaCellKey, CellRange> _dynamicFootprints = [];
 
     public DynamicArrayWorkbookCalculationEngine(
         IFormulaEngine? scalarFormulaEngine = null,
@@ -29,11 +31,66 @@ public sealed class DynamicArrayWorkbookCalculationEngine
     public FormulaDependencyGraph DependencyGraph =>
         _scalarCalculation.DependencyGraph;
 
+    /// <summary>
+    /// Prepares static scalar dependencies and discovers dynamic-array owners
+    /// without changing cached workbook values.
+    /// </summary>
+    public int PrepareDependencyGraph(Workbook workbook)
+    {
+        ArgumentNullException.ThrowIfNull(workbook);
+        var count = _scalarCalculation.PrepareDependencyGraph(workbook);
+        _dynamicOwners.Clear();
+        _dynamicFootprints.Clear();
+
+        foreach (var worksheet in workbook.Worksheets)
+        {
+            foreach (var (address, cell) in worksheet.EnumerateUsedCells())
+            {
+                if (cell.Formula is null)
+                {
+                    continue;
+                }
+                var owner = new FormulaCellKey(worksheet.Name, address);
+                var context = new DynamicCalculationContext(
+                    workbook,
+                    worksheet,
+                    address);
+                if (!_arrayEngine.TryEvaluate(
+                        cell.Formula,
+                        context,
+                        out var result))
+                {
+                    continue;
+                }
+
+                _dynamicOwners.Add(owner);
+                DependencyGraph.Replace(owner, result.Dependencies);
+                if (result.IsSuccess &&
+                    TryCreateFootprint(address, result.Value!, out var footprint))
+                {
+                    _dynamicFootprints[owner] = footprint;
+                }
+            }
+
+            foreach (var spill in worksheet.GetFormulaSpills())
+            {
+                var owner = new FormulaCellKey(worksheet.Name, spill.Owner);
+                _dynamicOwners.Add(owner);
+                _dynamicFootprints[owner] = spill.Range;
+            }
+        }
+        DependencyGraph.MarkPrepared();
+        return count;
+    }
+
     public WorkbookCalculationResult Recalculate(Workbook workbook)
     {
         ArgumentNullException.ThrowIfNull(workbook);
         var scalar = _scalarCalculation.Recalculate(workbook);
-        return ReconcileDynamicArrays(workbook, scalar);
+        return ReconcileDynamicArrays(
+            workbook,
+            scalar,
+            DependencyGraph.FormulaCells);
     }
 
     public WorkbookCalculationResult RecalculateAffected(
@@ -43,89 +100,138 @@ public sealed class DynamicArrayWorkbookCalculationEngine
     {
         ArgumentNullException.ThrowIfNull(workbook);
         ArgumentNullException.ThrowIfNull(changedWorksheet);
+        var candidates = new HashSet<FormulaCellKey>(
+            DependencyGraph.GetTransitiveDependents(
+                changedWorksheet.Name,
+                changedRange));
+        candidates.UnionWith(DependencyGraph.GetFormulaCells(
+            changedWorksheet.Name,
+            changedRange));
+        foreach (var (owner, footprint) in _dynamicFootprints)
+        {
+            if (string.Equals(
+                    owner.WorksheetName,
+                    changedWorksheet.Name,
+                    StringComparison.OrdinalIgnoreCase) &&
+                footprint.Intersects(changedRange))
+            {
+                candidates.Add(owner);
+            }
+        }
         var scalar = _scalarCalculation.RecalculateAffected(
             workbook,
             changedWorksheet,
             changedRange);
-        return ReconcileDynamicArrays(workbook, scalar);
+        candidates.UnionWith(DependencyGraph.GetFormulaCells(
+            changedWorksheet.Name,
+            changedRange));
+        return ReconcileDynamicArrays(workbook, scalar, candidates);
     }
 
     private WorkbookCalculationResult ReconcileDynamicArrays(
         Workbook workbook,
-        WorkbookCalculationResult scalarResult)
+        WorkbookCalculationResult scalarResult,
+        IEnumerable<FormulaCellKey> initialCandidates)
     {
         var formulaCellCount = scalarResult.FormulaCellCount;
         var updatedCellCount = scalarResult.UpdatedCellCount;
         var errorCellCount = scalarResult.ErrorCellCount;
 
+        var candidates = new HashSet<FormulaCellKey>(initialCandidates);
         for (var pass = 0;
              pass < MaximumStabilizationPasses;
              pass++)
         {
             var changes = new Dictionary<Worksheet, CellRange>();
-            var dynamicOwners = new HashSet<FormulaCellKey>();
-            foreach (var worksheet in workbook.Worksheets)
+            var nextCandidates = new HashSet<FormulaCellKey>();
+            foreach (var ownerKey in candidates.ToArray())
             {
-                var formulaCells = worksheet.EnumerateUsedCells()
-                    .Where(static pair => pair.Value.Formula is not null)
-                    .ToArray();
-                foreach (var (address, cell) in formulaCells)
-                {
-                    var context = new DynamicCalculationContext(
+                if (!TryResolveOwner(
                         workbook,
-                        worksheet,
-                        address);
-                    if (!_arrayEngine.TryEvaluate(
-                            cell.Formula!,
-                            context,
-                            out var arrayResult))
+                        ownerKey,
+                        out var worksheet,
+                        out var cell) ||
+                    cell.Formula is null)
+                {
+                    if (worksheet is not null &&
+                        worksheet.TryGetFormulaSpill(
+                            ownerKey.Address,
+                            out var obsolete) &&
+                        worksheet.ClearFormulaSpill(ownerKey.Address))
+                    {
+                        AddChange(changes, worksheet, obsolete!.Range);
+                        updatedCellCount = checked(
+                            updatedCellCount +
+                            Math.Max(0, obsolete.Values.Count - 1));
+                    }
+                    _dynamicOwners.Remove(ownerKey);
+                    _dynamicFootprints.Remove(ownerKey);
+                    continue;
+                }
+
+                var address = ownerKey.Address;
+                var context = new DynamicCalculationContext(
+                    workbook,
+                    worksheet,
+                    address);
+                if (!_arrayEngine.TryEvaluate(
+                        cell.Formula,
+                        context,
+                        out var arrayResult))
+                {
+                    if (_dynamicOwners.Remove(ownerKey) &&
+                        worksheet.TryGetFormulaSpill(address, out var obsolete) &&
+                        worksheet.ClearFormulaSpill(address))
+                    {
+                        AddChange(changes, worksheet, obsolete!.Range);
+                        updatedCellCount = checked(
+                            updatedCellCount +
+                            Math.Max(0, obsolete.Values.Count - 1));
+                    }
+                    _dynamicFootprints.Remove(ownerKey);
+                    continue;
+                }
+
+                _dynamicOwners.Add(ownerKey);
+                DependencyGraph.Replace(ownerKey, arrayResult.Dependencies);
+                worksheet.TryGetFormulaSpill(address, out var previous);
+                if (arrayResult.IsSuccess)
+                {
+                    if (TryCreateFootprint(
+                            address,
+                            arrayResult.Value!,
+                            out var footprint))
+                    {
+                        _dynamicFootprints[ownerKey] = footprint;
+                    }
+                    if (previous is not null &&
+                        previous.Values.Equals(arrayResult.Value))
                     {
                         continue;
                     }
 
-                    var ownerKey = new FormulaCellKey(
-                        worksheet.Name,
-                        address);
-                    dynamicOwners.Add(ownerKey);
-                    DependencyGraph.Replace(
-                        ownerKey,
-                        arrayResult.Dependencies);
-                    worksheet.TryGetFormulaSpill(
+                    var applied = worksheet.TryApplyFormulaSpill(
                         address,
-                        out var previous);
-                    if (arrayResult.IsSuccess)
+                        arrayResult.Value!);
+                    if (applied.IsApplied)
                     {
-                        if (previous is not null &&
-                            previous.Values.Equals(arrayResult.Value))
+                        _dynamicFootprints[ownerKey] = applied.Spill!.Range;
+                        AddChange(
+                            changes,
+                            worksheet,
+                            Union(previous?.Range, applied.Spill.Range));
+                        updatedCellCount = checked(
+                            updatedCellCount +
+                            EstimateChangedCells(previous, applied.Spill));
+                    }
+                    else
+                    {
+                        var current = worksheet.GetCell(address);
+                        var alreadyCurrent =
+                            previous is null &&
+                            current.Value == CellValue.FromError("#SPILL!");
+                        if (!alreadyCurrent)
                         {
-                            continue;
-                        }
-
-                        var applied = worksheet.TryApplyFormulaSpill(
-                            address,
-                            arrayResult.Value!);
-                        if (applied.IsApplied)
-                        {
-                            AddChange(
-                                changes,
-                                worksheet,
-                                Union(previous?.Range, applied.Spill!.Range));
-                            updatedCellCount = checked(
-                                updatedCellCount +
-                                EstimateChangedCells(previous, applied.Spill));
-                        }
-                        else
-                        {
-                            var current = worksheet.GetCell(address);
-                            var alreadyBlocked =
-                                previous is null &&
-                                current.Value ==
-                                CellValue.FromError("#SPILL!");
-                            if (alreadyBlocked)
-                            {
-                                continue;
-                            }
-
                             worksheet.SetFormulaSpillError(address);
                             AddChange(
                                 changes,
@@ -139,17 +245,15 @@ public sealed class DynamicArrayWorkbookCalculationEngine
                             errorCellCount++;
                         }
                     }
-                    else
+                }
+                else
+                {
+                    var current = worksheet.GetCell(address);
+                    var alreadyCurrent =
+                        previous is null &&
+                        current.Value == arrayResult.ErrorValue;
+                    if (!alreadyCurrent)
                     {
-                        var current = worksheet.GetCell(address);
-                        var alreadyCurrent =
-                            previous is null &&
-                            current.Value == arrayResult.ErrorValue;
-                        if (alreadyCurrent)
-                        {
-                            continue;
-                        }
-
                         worksheet.SetFormulaSpillError(
                             address,
                             arrayResult.ErrorValue.ToString());
@@ -167,27 +271,6 @@ public sealed class DynamicArrayWorkbookCalculationEngine
                 }
             }
 
-            foreach (var worksheet in workbook.Worksheets)
-            {
-                foreach (var spill in worksheet.GetFormulaSpills())
-                {
-                    var owner = new FormulaCellKey(
-                        worksheet.Name,
-                        spill.Owner);
-                    if (dynamicOwners.Contains(owner))
-                    {
-                        continue;
-                    }
-                    if (worksheet.ClearFormulaSpill(spill.Owner))
-                    {
-                        AddChange(changes, worksheet, spill.Range);
-                        updatedCellCount = checked(
-                            updatedCellCount +
-                            Math.Max(0, spill.Values.Count - 1));
-                    }
-                }
-            }
-
             if (changes.Count == 0)
             {
                 return new WorkbookCalculationResult(
@@ -198,6 +281,15 @@ public sealed class DynamicArrayWorkbookCalculationEngine
 
             foreach (var (worksheet, range) in changes)
             {
+                foreach (var dependent in DependencyGraph.GetTransitiveDependents(
+                             worksheet.Name,
+                             range))
+                {
+                    if (_dynamicOwners.Contains(dependent))
+                    {
+                        nextCandidates.Add(dependent);
+                    }
+                }
                 var affected = _scalarCalculation.RecalculateDependents(
                     workbook,
                     worksheet,
@@ -209,11 +301,58 @@ public sealed class DynamicArrayWorkbookCalculationEngine
                 errorCellCount = checked(
                     errorCellCount + affected.ErrorCellCount);
             }
+            candidates = nextCandidates;
+            if (candidates.Count == 0)
+            {
+                return new WorkbookCalculationResult(
+                    formulaCellCount,
+                    updatedCellCount,
+                    errorCellCount);
+            }
         }
 
         throw new InvalidOperationException(
             $"Dynamic-array calculation did not stabilize within " +
             $"{MaximumStabilizationPasses} passes.");
+    }
+
+    private static bool TryResolveOwner(
+        Workbook workbook,
+        FormulaCellKey owner,
+        out Worksheet worksheet,
+        out CellData cell)
+    {
+        try
+        {
+            worksheet = workbook.GetWorksheet(owner.WorksheetName);
+            cell = worksheet.GetCell(owner.Address);
+            return true;
+        }
+        catch (KeyNotFoundException)
+        {
+            worksheet = null!;
+            cell = CellData.Empty;
+            return false;
+        }
+    }
+
+    private static bool TryCreateFootprint(
+        CellAddress owner,
+        FormulaArrayValue value,
+        out CellRange footprint)
+    {
+        var bottom = (long)owner.RowIndex + value.RowCount - 1L;
+        var right = (long)owner.ColumnIndex + value.ColumnCount - 1L;
+        if (bottom >= SpreadsheetLimits.MaxRows ||
+            right >= SpreadsheetLimits.MaxColumns)
+        {
+            footprint = default;
+            return false;
+        }
+        footprint = new CellRange(
+            owner,
+            new CellAddress((int)bottom, (int)right));
+        return true;
     }
 
     private static int EstimateChangedCells(

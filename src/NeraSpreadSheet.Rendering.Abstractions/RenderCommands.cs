@@ -60,9 +60,30 @@ public sealed record PushTranslationCommand(double DeltaX, double DeltaY) : Rend
 
 public sealed record PopTranslationCommand : RenderCommand;
 
+public enum TextHorizontalAlignment
+{
+    Left,
+    Center,
+    Right,
+    Justify,
+}
+
+public enum TextVerticalAlignment
+{
+    Top,
+    Center,
+    Bottom,
+}
+
 public sealed record TextStyle(
     string FontFamily,
     double FontSize,
     int FontWeight,
     ColorRgba Color,
-    bool Wrap = false);
+    bool Wrap = false,
+    bool Italic = false,
+    bool Underline = false,
+    bool Strikethrough = false,
+    TextHorizontalAlignment HorizontalAlignment = TextHorizontalAlignment.Left,
+    TextVerticalAlignment VerticalAlignment = TextVerticalAlignment.Top,
+    int TextRotationDegrees = 0);

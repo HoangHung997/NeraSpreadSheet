@@ -154,7 +154,12 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             ?? throw new InvalidDataException(
                 "The XLSX workbook does not contain a sheets collection.");
 
-        var workbook = new NeraWorkbook(createDefaultWorksheet: false);
+        var workbook = new NeraWorkbook(createDefaultWorksheet: false)
+        {
+            DateSystem = openXmlWorkbook.WorkbookProperties?.Date1904?.Value == true
+                ? ExcelDateSystem.Date1904
+                : ExcelDateSystem.Date1900,
+        };
         var exactStyleState = NeraOpenXmlStyleStateCodec.Read(workbookPart);
         if (exactStyleState is not null)
         {
@@ -257,6 +262,13 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             true);
         var workbookPart = document.AddWorkbookPart();
         var openXmlWorkbook = new OpenXmlWorkbook();
+        if (workbook.DateSystem == ExcelDateSystem.Date1904)
+        {
+            openXmlWorkbook.WorkbookProperties = new WorkbookProperties
+            {
+                Date1904 = true,
+            };
+        }
         workbookPart.Workbook = openXmlWorkbook;
         var sheets = openXmlWorkbook.AppendChild(new Sheets());
         var styleTable = OpenXmlStyleTable.CreateForExport(workbook);

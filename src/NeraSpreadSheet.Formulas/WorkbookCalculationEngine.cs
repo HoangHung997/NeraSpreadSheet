@@ -19,6 +19,51 @@ public sealed class WorkbookCalculationEngine
 
     public FormulaDependencyGraph DependencyGraph { get; } = new();
 
+    /// <summary>
+    /// Builds static dependency entries without changing cached cell values.
+    /// Dynamic references replace these provisional entries when evaluated.
+    /// </summary>
+    public int PrepareDependencyGraph(Workbook workbook)
+    {
+        ArgumentNullException.ThrowIfNull(workbook);
+        DependencyGraph.Clear();
+        var count = 0;
+        foreach (var worksheet in workbook.Worksheets)
+        {
+            SpreadsheetTableFormulaProjection.RefreshMetadataFromCells(worksheet);
+            foreach (var (address, cell) in worksheet.EnumerateUsedCells())
+            {
+                if (cell.Formula is null)
+                {
+                    continue;
+                }
+
+                count++;
+                var formula = cell.Formula;
+                try
+                {
+                    formula = StructuredReferenceFormulaEngine.Expand(
+                        formula,
+                        workbook,
+                        worksheet,
+                        address);
+                }
+                catch (FormatException)
+                {
+                    // Keep a formula entry even when static parsing fails.
+                }
+                FormulaReferenceAnalyzer.TryGetReferences(
+                    formula,
+                    out var dependencies);
+                DependencyGraph.Replace(
+                    new FormulaCellKey(worksheet.Name, address),
+                    dependencies);
+            }
+        }
+        DependencyGraph.MarkPrepared();
+        return count;
+    }
+
     public WorkbookCalculationResult Recalculate(Workbook workbook)
     {
         ArgumentNullException.ThrowIfNull(workbook);
@@ -40,7 +85,9 @@ public sealed class WorkbookCalculationEngine
                     pair.Key)));
         }
 
-        return RecalculateFormulaCells(workbook, formulaCells);
+        var result = RecalculateFormulaCells(workbook, formulaCells);
+        DependencyGraph.MarkPrepared();
+        return result;
     }
 
     public WorkbookCalculationResult RecalculateAffected(
@@ -51,7 +98,7 @@ public sealed class WorkbookCalculationEngine
         ArgumentNullException.ThrowIfNull(workbook);
         ArgumentNullException.ThrowIfNull(changedWorksheet);
 
-        if (DependencyGraph.FormulaCount == 0)
+        if (!DependencyGraph.IsPrepared)
         {
             return Recalculate(workbook);
         }
@@ -61,32 +108,28 @@ public sealed class WorkbookCalculationEngine
                 changedWorksheet.Name,
                 changedRange));
 
-        foreach (var pair in changedWorksheet.EnumerateUsedCells())
+        foreach (var formulaCell in DependencyGraph.GetFormulaCells(
+                     changedWorksheet.Name,
+                     changedRange))
         {
-            if (pair.Value.Formula is not null &&
-                changedRange.Contains(pair.Key))
+            if (changedWorksheet.GetCell(formulaCell.Address).Formula is not null)
             {
-                candidates.Add(new FormulaCellKey(
-                    changedWorksheet.Name,
-                    pair.Key));
+                candidates.Add(formulaCell);
+            }
+            else
+            {
+                DependencyGraph.Remove(formulaCell);
             }
         }
 
-        foreach (var formulaCell in DependencyGraph.FormulaCells)
+        foreach (var formulaCell in EnumerateNewFormulaCells(
+                     changedWorksheet,
+                     changedRange))
         {
-            if (!string.Equals(
-                    formulaCell.WorksheetName,
-                    changedWorksheet.Name,
-                    StringComparison.OrdinalIgnoreCase) ||
-                !changedRange.Contains(formulaCell.Address))
+            if (DependencyGraph.GetDependencies(formulaCell).Count == 0 &&
+                !DependencyGraph.FormulaCells.Contains(formulaCell))
             {
-                continue;
-            }
-
-            if (changedWorksheet.GetCell(
-                    formulaCell.Address).Formula is null)
-            {
-                DependencyGraph.Remove(formulaCell);
+                candidates.Add(formulaCell);
             }
         }
 
@@ -106,7 +149,7 @@ public sealed class WorkbookCalculationEngine
     {
         ArgumentNullException.ThrowIfNull(workbook);
         ArgumentNullException.ThrowIfNull(changedWorksheet);
-        if (DependencyGraph.FormulaCount == 0)
+        if (!DependencyGraph.IsPrepared || DependencyGraph.FormulaCount == 0)
         {
             return new WorkbookCalculationResult(0, 0, 0);
         }
@@ -119,6 +162,37 @@ public sealed class WorkbookCalculationEngine
             new FrozenCalculationRange(
                 changedWorksheet,
                 changedRange));
+    }
+
+    private static IEnumerable<FormulaCellKey> EnumerateNewFormulaCells(
+        Worksheet worksheet,
+        CellRange range)
+    {
+        const long maximumDirectArea = 4_096L;
+        var area = (long)range.RowCount * range.ColumnCount;
+        if (area <= maximumDirectArea)
+        {
+            for (var row = range.Top; row <= range.Bottom; row++)
+            {
+                for (var column = range.Left; column <= range.Right; column++)
+                {
+                    var address = new CellAddress(row, column);
+                    if (worksheet.GetCell(address).Formula is not null)
+                    {
+                        yield return new FormulaCellKey(worksheet.Name, address);
+                    }
+                }
+            }
+            yield break;
+        }
+
+        foreach (var (address, cell) in worksheet.EnumerateUsedCells())
+        {
+            if (cell.Formula is not null && range.Contains(address))
+            {
+                yield return new FormulaCellKey(worksheet.Name, address);
+            }
+        }
     }
 
     private WorkbookCalculationResult RecalculateFormulaCells(

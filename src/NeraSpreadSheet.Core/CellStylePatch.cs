@@ -14,6 +14,16 @@ public sealed record CellStylePatch
 
     public bool? FontUnderline { get; init; }
 
+    public bool? FontDoubleUnderline { get; init; }
+
+    public bool? FontStrikeThrough { get; init; }
+
+    public bool? FontOutline { get; init; }
+
+    public bool? FontShadow { get; init; }
+
+    public CellFontVerticalAlignment? FontVerticalAlignment { get; init; }
+
     public ColorRgba? FontColor { get; init; }
 
     public CellFillStyle? Fill { get; init; }
@@ -26,9 +36,21 @@ public sealed record CellStylePatch
 
     public bool? WrapText { get; init; }
 
+    public bool? ShrinkToFit { get; init; }
+
+    public bool? JustifyLastLine { get; init; }
+
+    public int? Indent { get; init; }
+
+    public int? RelativeIndent { get; init; }
+
+    public CellReadingOrder? ReadingOrder { get; init; }
+
     public int? TextRotationDegrees { get; init; }
 
     public string? NumberFormatCode { get; init; }
+
+    public CellProtectionStyle? Protection { get; init; }
 
     public bool IsEmpty =>
         FontFamily is null &&
@@ -36,14 +58,25 @@ public sealed record CellStylePatch
         FontWeight is null &&
         FontItalic is null &&
         FontUnderline is null &&
+        FontDoubleUnderline is null &&
+        FontStrikeThrough is null &&
+        FontOutline is null &&
+        FontShadow is null &&
+        FontVerticalAlignment is null &&
         FontColor is null &&
         Fill is null &&
         Border is null &&
         HorizontalAlignment is null &&
         VerticalAlignment is null &&
         WrapText is null &&
+        ShrinkToFit is null &&
+        JustifyLastLine is null &&
+        Indent is null &&
+        RelativeIndent is null &&
+        ReadingOrder is null &&
         TextRotationDegrees is null &&
-        NumberFormatCode is null;
+        NumberFormatCode is null &&
+        Protection is null;
 
     public CellStyle Apply(CellStyle source)
     {
@@ -60,6 +93,11 @@ public sealed record CellStylePatch
             Weight = FontWeight ?? source.Font.Weight,
             Italic = FontItalic ?? source.Font.Italic,
             Underline = FontUnderline ?? source.Font.Underline,
+            DoubleUnderline = FontDoubleUnderline ?? source.Font.DoubleUnderline,
+            StrikeThrough = FontStrikeThrough ?? source.Font.StrikeThrough,
+            Outline = FontOutline ?? source.Font.Outline,
+            Shadow = FontShadow ?? source.Font.Shadow,
+            VerticalAlignment = FontVerticalAlignment ?? source.Font.VerticalAlignment,
             Color = FontColor ?? source.Font.Color,
         };
         var alignment = source.Alignment with
@@ -67,6 +105,11 @@ public sealed record CellStylePatch
             Horizontal = HorizontalAlignment ?? source.Alignment.Horizontal,
             Vertical = VerticalAlignment ?? source.Alignment.Vertical,
             WrapText = WrapText ?? source.Alignment.WrapText,
+            ShrinkToFit = ShrinkToFit ?? source.Alignment.ShrinkToFit,
+            JustifyLastLine = JustifyLastLine ?? source.Alignment.JustifyLastLine,
+            Indent = Indent ?? source.Alignment.Indent,
+            RelativeIndent = RelativeIndent ?? source.Alignment.RelativeIndent,
+            ReadingOrder = ReadingOrder ?? source.Alignment.ReadingOrder,
             TextRotationDegrees =
                 TextRotationDegrees ?? source.Alignment.TextRotationDegrees,
         };
@@ -83,6 +126,7 @@ public sealed record CellStylePatch
             Border = Border ?? source.Border,
             Alignment = alignment,
             NumberFormat = numberFormat,
+            Protection = Protection ?? source.Protection,
         };
     }
 
@@ -112,6 +156,21 @@ public sealed record CellStylePatch
             FontUnderline = before.Font.Underline != after.Font.Underline
                 ? after.Font.Underline
                 : null,
+            FontDoubleUnderline = before.Font.DoubleUnderline != after.Font.DoubleUnderline
+                ? after.Font.DoubleUnderline
+                : null,
+            FontStrikeThrough = before.Font.StrikeThrough != after.Font.StrikeThrough
+                ? after.Font.StrikeThrough
+                : null,
+            FontOutline = before.Font.Outline != after.Font.Outline
+                ? after.Font.Outline
+                : null,
+            FontShadow = before.Font.Shadow != after.Font.Shadow
+                ? after.Font.Shadow
+                : null,
+            FontVerticalAlignment = before.Font.VerticalAlignment != after.Font.VerticalAlignment
+                ? after.Font.VerticalAlignment
+                : null,
             FontColor = before.Font.Color != after.Font.Color
                 ? after.Font.Color
                 : null,
@@ -128,6 +187,21 @@ public sealed record CellStylePatch
             WrapText = before.Alignment.WrapText != after.Alignment.WrapText
                 ? after.Alignment.WrapText
                 : null,
+            ShrinkToFit = before.Alignment.ShrinkToFit != after.Alignment.ShrinkToFit
+                ? after.Alignment.ShrinkToFit
+                : null,
+            JustifyLastLine = before.Alignment.JustifyLastLine != after.Alignment.JustifyLastLine
+                ? after.Alignment.JustifyLastLine
+                : null,
+            Indent = before.Alignment.Indent != after.Alignment.Indent
+                ? after.Alignment.Indent
+                : null,
+            RelativeIndent = before.Alignment.RelativeIndent != after.Alignment.RelativeIndent
+                ? after.Alignment.RelativeIndent
+                : null,
+            ReadingOrder = before.Alignment.ReadingOrder != after.Alignment.ReadingOrder
+                ? after.Alignment.ReadingOrder
+                : null,
             TextRotationDegrees =
                 before.Alignment.TextRotationDegrees !=
                 after.Alignment.TextRotationDegrees
@@ -138,6 +212,9 @@ public sealed record CellStylePatch
                 after.NumberFormat.FormatCode,
                 StringComparison.Ordinal)
                 ? after.NumberFormat.FormatCode
+                : null,
+            Protection = before.Protection != after.Protection
+                ? after.Protection
                 : null,
         };
     }

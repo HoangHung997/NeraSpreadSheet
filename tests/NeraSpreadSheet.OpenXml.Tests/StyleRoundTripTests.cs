@@ -36,12 +36,19 @@ public sealed class StyleRoundTripTests
                 Weight = 550,
                 Italic = true,
                 Underline = true,
+                DoubleUnderline = true,
+                StrikeThrough = true,
+                Outline = true,
+                Shadow = true,
+                VerticalAlignment = CellFontVerticalAlignment.Superscript,
                 Color = new ColorRgba(150, 20, 70),
             },
             Fill = new CellFillStyle
             {
                 IsVisible = true,
                 Color = new ColorRgba(230, 240, 200),
+                BackgroundColor = new ColorRgba(240, 225, 210),
+                Pattern = CellFillPattern.LightTrellis,
             },
             Border = new CellBorderStyle
             {
@@ -49,13 +56,26 @@ public sealed class StyleRoundTripTests
                 Top = border,
                 Right = border,
                 Bottom = border,
+                Diagonal = border,
+                DiagonalUp = true,
+                DiagonalDown = true,
             },
             Alignment = new CellAlignmentStyle
             {
                 Horizontal = CellHorizontalAlignment.Center,
                 Vertical = CellVerticalAlignment.Top,
                 WrapText = true,
+                ShrinkToFit = true,
+                JustifyLastLine = true,
+                Indent = 2,
+                RelativeIndent = 1,
+                ReadingOrder = CellReadingOrder.LeftToRight,
                 TextRotationDegrees = -35,
+            },
+            Protection = new CellProtectionStyle
+            {
+                Locked = false,
+                FormulaHidden = true,
             },
             NumberFormat = new CellNumberFormatStyle
             {
@@ -94,6 +114,29 @@ public sealed class StyleRoundTripTests
         var loaded = await serializer.LoadAsync(stream, new OpenXmlImportOptions());
         var loadedCell = loaded.Worksheets[0].GetCell(new CellAddress(2, 3));
         Assert.AreEqual(style, loaded.Styles.Get(loadedCell.StyleId));
+    }
+
+    [TestMethod]
+    public async Task WorkbookDateSystemShouldRoundTripThroughStandardWorkbookProperties()
+    {
+        var workbook = new NeraWorkbook
+        {
+            DateSystem = ExcelDateSystem.Date1904,
+        };
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        await using var stream = new MemoryStream();
+
+        await serializer.SaveAsync(workbook, stream, new OpenXmlExportOptions());
+
+        stream.Position = 0L;
+        using (var document = SpreadsheetDocument.Open(stream, false))
+        {
+            Assert.IsTrue(document.WorkbookPart?.Workbook?.WorkbookProperties?.Date1904?.Value);
+            AssertSchemaValid(document);
+        }
+        stream.Position = 0L;
+        var loaded = await serializer.LoadAsync(stream, new OpenXmlImportOptions());
+        Assert.AreEqual(ExcelDateSystem.Date1904, loaded.DateSystem);
     }
 
     [TestMethod]

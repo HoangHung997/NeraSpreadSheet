@@ -1,11 +1,14 @@
 # Current Work Handoff
 
 - Repository: `HoangHung997/NeraSpreadSheet`.
-- Local branch: `fix/adaptive-navigation-scroll`; integration branch:
+- Local branch: `feature/excel-format-editing-help`; integration branch:
   `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
 - Latest verified implementation checkpoint:
   `944fadd9864bfeca41abf9ff8e155305fc8cd06c`.
+- Current local implementation head is based on
+  `fe3bc327e977dd60454d4cedf913a6c2e9570637`; commit and exact-head CI are
+  pending for `EXCEL-FORMAT-EDIT-HELP-005`.
 - Verified implementation CI through `EXCEL-BASIC-VISIBILITY-004`: full run
   `33852379077` / #1298 — success; iOS gate `33852379268` / #119 — success;
   Q003C/OpenXML gate `33852379096` / #116 — success.
@@ -78,6 +81,14 @@
   `944fadd9864bfeca41abf9ff8e155305fc8cd06c` passed full CI #1298, iOS gate
   #119 and Q003C/OpenXML gate #116; SDK package artifact 9928856103 was
   produced.
+- `EXCEL-FORMAT-EDIT-HELP-005`: **IMPLEMENTED LOCALLY; CI PENDING**. The SDK
+  now owns shared Excel-compatible value formatting and expanded Format Cells
+  metadata/import/export, cross-backend text style intent, full-cell editor
+  measurement with viewport clipping, Enter/Alt+Enter semantics, indexed
+  incremental calculation and formula signature/argument help for the callable
+  function surface. The WPF invalid text-key shortcut crash is fixed, and the
+  external Win11 demo consumes the new APIs without forcing a full recalculate
+  after each edit.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -205,6 +216,27 @@ For `EXCEL-BASIC-VISIBILITY-004` local validation:
   environment-sensitive WPF automation/activation assertions documented above
   remain red on this desktop.
 
+For `EXCEL-FORMAT-EDIT-HELP-005` local validation:
+
+- Core solution: **1266/1266 passed**;
+- Core formatter: **5/5 passed**;
+- Formulas: **526/526 passed**; Editing: **221/221 passed**; OpenXML:
+  **85/85 passed**; Rendering.Spreadsheet: **121/121 passed**; Skia:
+  **14/14 passed**;
+- focused WPF formula/editor/shortcut tests: **8/8 passed**;
+- WPF analytics accessibility move/resize regression: **1/1 passed** after
+  preserving fractional device-to-document deltas at non-100% DPI;
+- Windows.Rendering: **58/58 passed** when the known native mouse smoke that
+  requires this background process to become the Windows foreground app is
+  excluded; that one smoke stops at `window.Activate()` before exercising SDK
+  behavior on this desktop;
+- build/analyzers: **0 warnings, 0 errors**;
+- architecture verification and SDK packaging verification: **passed**;
+- external Win11 demo build and supplied-workbook smoke: **passed**;
+- supplied workbook: **6 sheets**, **28 cached formula errors before and 28
+  after** recalculation, no newly-created errors; source SHA-256 remained
+  `FD999A5AD06FB66668C6E296D45156F32A08B86CB07A9B908CB94C10F70FF772`.
+
 ## Remaining limits
 
 - Pivot refresh/calculation equivalence, user-mode destination-cell modeling,
@@ -221,5 +253,5 @@ For `EXCEL-BASIC-VISIBILITY-004` local validation:
 
 ## Next single step
 
-Resume the next bounded `SECURITY-RECOVERY` surface after the visibility
-documentation head passes all exact-head GitHub gates; keep PR #1 Draft.
+Commit and push `EXCEL-FORMAT-EDIT-HELP-005`, then require exact-head GitHub
+CI before treating the lane as complete; keep PR #1 Draft.

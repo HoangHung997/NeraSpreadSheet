@@ -36,6 +36,37 @@ smokes. Implementation checkpoint `944fadd9864bfeca41abf9ff8e155305fc8cd06c`
 passed full CI #1298, iOS gate #119 and Q003C/OpenXML gate #116. The SDK package
 artifact is `9928856103`.
 
+## EXCEL-FORMAT-EDIT-HELP-005 — IMPLEMENTED LOCALLY; CI PENDING
+
+The reusable SDK now has one host-neutral Excel value formatter and a wider
+Format Cells model. Common number/date/time, percentage, scientific, fraction,
+conditional-section and locale-currency formats are converted before the
+display list reaches WPF, WinForms, Direct2D or Skia. The workbook 1900/1904
+date system round-trips through OpenXML. Fonts, alignments, rotations, pattern
+fills, common border variants and protection metadata also round-trip, while
+the shared text command carries italic, underline, strike-through, alignment,
+wrapping and rotation intent to all four renderers.
+
+The WPF editor overlay is measured against the complete cell/merged-cell
+rectangle and clipped only by the current viewport, so resizing the app no
+longer changes the text wrap width. Enter commits and leaves edit mode;
+Alt+Enter inserts a line break. Invalid unmodified text keys no longer reach
+the window-level WPF shortcut converter, removing the `=SUM` crash path.
+
+`SpreadsheetSession` prepares indexed static dependencies once. Session XLSX
+loads perform this preparation off the caller/UI context, and ordinary edits
+calculate only the changed formula and transitive dependents. Formula help is
+host-neutral and covers the currently implemented callable surface with
+completion signatures, descriptions, nested-call detection and active argument
+help; WPF and the external Win11 demo present it.
+
+Local gates: Core solution **1266/1266**, Windows rendering **58/58** excluding
+the pre-existing foreground-activation-only native mouse smoke, build/analyzers
+**0 warnings / 0 errors**, architecture and SDK packaging verification passed.
+The supplied six-sheet workbook demo smoke retains **28 cached errors before
+and after** recalculation, adds no new errors and leaves the source SHA-256
+unchanged. Exact-head GitHub CI is the remaining completion gate.
+
 ## Formula subsystem — CLOSED
 
 | Counter | Value |

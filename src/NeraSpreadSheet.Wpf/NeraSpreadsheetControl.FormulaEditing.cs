@@ -14,16 +14,24 @@ public sealed partial class NeraSpreadsheetControl
 {
     private readonly ListBox _formulaSuggestionList = new()
     {
-        DisplayMemberPath = nameof(FormulaFunctionSuggestion.Name),
+        DisplayMemberPath = nameof(FormulaFunctionSuggestion.DisplayText),
         MaxHeight = 220d,
         MinWidth = 180d,
         Background = Brushes.White,
         BorderBrush = Brushes.Gray,
         BorderThickness = new Thickness(1d),
     };
+    private readonly TextBlock _formulaHelpText = new()
+    {
+        MaxWidth = 460d,
+        Margin = new Thickness(8d, 6d, 8d, 8d),
+        TextWrapping = TextWrapping.Wrap,
+        Foreground = Brushes.Black,
+    };
     private Popup? _formulaSuggestionPopup;
     private IReadOnlyList<FormulaFunctionSuggestion> _formulaSuggestions =
         Array.Empty<FormulaFunctionSuggestion>();
+    private FormulaFunctionHelpContext? _formulaHelpContext;
     private CellAddress? _formulaReferenceAnchor;
     private FormulaTextSpan? _formulaReferenceSpan;
     private bool _updatingFormulaText;
@@ -41,6 +49,12 @@ public sealed partial class NeraSpreadsheetControl
         _formulaSuggestions;
 
     /// <summary>
+    /// Gets help for the innermost function invocation at the editor caret.
+    /// </summary>
+    public FormulaFunctionHelpContext? CurrentFormulaHelp =>
+        _formulaHelpContext;
+
+    /// <summary>
     /// Gets the current in-cell edit text, or <see langword="null"/> when the
     /// control is not editing.
     /// </summary>
@@ -55,17 +69,28 @@ public sealed partial class NeraSpreadsheetControl
 
     private void InitializeFormulaEditingUi()
     {
+        var content = new StackPanel();
+        content.Children.Add(_formulaSuggestionList);
+        content.Children.Add(_formulaHelpText);
         _formulaSuggestionPopup = new Popup
         {
             PlacementTarget = _editor,
             Placement = PlacementMode.Bottom,
             StaysOpen = true,
             AllowsTransparency = true,
-            Child = _formulaSuggestionList,
+            Child = new Border
+            {
+                Background = Brushes.White,
+                BorderBrush = Brushes.Gray,
+                BorderThickness = new Thickness(1d),
+                Child = content,
+            },
         };
         _editor.TextChanged += OnFormulaEditorTextChanged;
         _formulaSuggestionList.MouseDoubleClick +=
             OnFormulaSuggestionMouseDoubleClick;
+        _formulaSuggestionList.SelectionChanged +=
+            OnFormulaSuggestionSelectionChanged;
     }
 
     private void DisposeFormulaEditingUi()
@@ -74,6 +99,8 @@ public sealed partial class NeraSpreadsheetControl
         _editor.TextChanged -= OnFormulaEditorTextChanged;
         _formulaSuggestionList.MouseDoubleClick -=
             OnFormulaSuggestionMouseDoubleClick;
+        _formulaSuggestionList.SelectionChanged -=
+            OnFormulaSuggestionSelectionChanged;
         if (_formulaSuggestionPopup is not null)
         {
             _formulaSuggestionPopup.Child = null;
@@ -110,14 +137,23 @@ public sealed partial class NeraSpreadsheetControl
         _formulaSuggestions = _session.FormulaEditing.GetSuggestions(
             _editor.Text,
             caretIndex ?? _editor.CaretIndex);
+        _formulaHelpContext = _session.FormulaEditing.GetFunctionHelp(
+            _editor.Text,
+            caretIndex ?? _editor.CaretIndex);
         _formulaSuggestionList.ItemsSource = _formulaSuggestions;
-        if (_formulaSuggestionPopup is null || _formulaSuggestions.Count == 0)
+        _formulaSuggestionList.Visibility = _formulaSuggestions.Count == 0
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        if (_formulaSuggestionPopup is null ||
+            (_formulaSuggestions.Count == 0 && _formulaHelpContext is null))
         {
             HideFormulaSuggestions();
             return;
         }
 
-        _formulaSuggestionList.SelectedIndex = 0;
+        _formulaSuggestionList.SelectedIndex =
+            _formulaSuggestions.Count == 0 ? -1 : 0;
+        UpdateFormulaHelpText();
         if (IsLoaded)
         {
             _formulaSuggestionPopup.IsOpen = true;
@@ -127,7 +163,9 @@ public sealed partial class NeraSpreadsheetControl
     private void HideFormulaSuggestions()
     {
         _formulaSuggestions = Array.Empty<FormulaFunctionSuggestion>();
+        _formulaHelpContext = null;
         _formulaSuggestionList.ItemsSource = null;
+        _formulaHelpText.Text = string.Empty;
         if (_formulaSuggestionPopup is not null)
         {
             _formulaSuggestionPopup.IsOpen = false;
@@ -160,7 +198,7 @@ public sealed partial class NeraSpreadsheetControl
                 _formulaSuggestionList.SelectedItem);
             return true;
         }
-        if (e.Key is Key.Enter or Key.Return or Key.Tab)
+        if (e.Key == Key.Tab)
         {
             return ApplySelectedFormulaSuggestion();
         }
@@ -182,6 +220,34 @@ public sealed partial class NeraSpreadsheetControl
         }
     }
 
+    private void OnFormulaSuggestionSelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e) =>
+        UpdateFormulaHelpText();
+
+    private void UpdateFormulaHelpText()
+    {
+        if (_formulaSuggestionList.SelectedItem is
+            FormulaFunctionSuggestion suggestion)
+        {
+            _formulaHelpText.Text =
+                $"{suggestion.Signature}\n{suggestion.Description}";
+            return;
+        }
+        if (_formulaHelpContext is not { } context)
+        {
+            _formulaHelpText.Text = string.Empty;
+            return;
+        }
+
+        var argument = context.ActiveArgument;
+        _formulaHelpText.Text = argument is null
+            ? $"{context.Function.Signature}\n{context.Function.Description}"
+            : $"{context.Function.Signature}\n{context.Function.Description}\n" +
+              $"Đối số {context.ActiveArgumentIndex + 1}: " +
+              $"{argument.Name} — {argument.Description}";
+    }
+
     private bool ApplySelectedFormulaSuggestion()
     {
         if (_formulaSuggestionList.SelectedItem is not
@@ -196,7 +262,7 @@ public sealed partial class NeraSpreadsheetControl
             suggestion);
         SetFormulaEditText(edit.Text, edit.CaretIndex);
         _formulaReferenceSpan = null;
-        HideFormulaSuggestions();
+        UpdateFormulaSuggestions(edit.CaretIndex);
         _editor.Focus();
         return true;
     }
