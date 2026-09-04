@@ -1,11 +1,12 @@
 # Current Work Handoff
 
 - Repository: `HoangHung997/NeraSpreadSheet`.
-- Local branch: `feature/ribbon-iconography-ux`; integration branch:
+- Local branch: `feature/ribbon-table-filter-ux-plan`; integration branch:
   `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
 - Latest exact-head CI checkpoint:
-  `106df1ff8725757e125a4172ced6bb49e3c708f5`.
+  `34a81c5d45c2b28397c1688ae665cce0d0e8dfe7`; full CI #1302, iOS gate #123
+  and Q003C/OpenXML gate #120 passed.
 - Iconography implementation commit:
   `2b933fd8b04042c0c52854dd73651161e9ae9322`; implementation/docs head
   `661504994f2b411c5f7d5a7c88fe836176335ba5` passed all exact-head gates.
@@ -95,6 +96,12 @@
   external Win11 demo consumes the new APIs without forcing a full recalculate
   after each edit.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
+- `RTFUX-2026`: **SCHEDULED**. The complete Table/Filter/Ribbon/UX delivery
+  sequence and two-lane ownership protocol are recorded in
+  `docs/ribbon-table-filter-ux-delivery-plan.md` and
+  `docs/worklog/RIBBON_TABLE_FILTER_UX.md`. With two independent lanes the
+  target release-candidate date is 28/10/2026; the one-lane fallback target is
+  20/11/2026. `RIBBON-007` and `FILTER-005` are the first `READY` tasks.
 - PR remains Draft; do not merge or mark Ready.
 
 ## Q003B/Q003C/Q003D checkpoint
@@ -264,6 +271,12 @@ For `RIBBON-ICONOGRAPHY-006` local validation:
 - GitHub `sdk-packages` artifact: `9935206623`, digest
   `sha256:5f852ced9c8c5fe5a12862c06f82eb42201cd3bd3df5d34dbc80408a3f91a8d1`.
 
+## Next step
+
+Claim `RIBBON-007` on an isolated feature branch from the latest integration
+HEAD, then implement the host-neutral responsive Ribbon measurement/collapse
+snapshot before changing WPF, WinForms or MAUI presenters.
+
 ## Remaining limits
 
 - Pivot refresh/calculation equivalence, user-mode destination-cell modeling,
@@ -277,9 +290,3 @@ For `RIBBON-ICONOGRAPHY-006` local validation:
 - Split-pane adaptive scrollbar topology, the MAUI adaptive host opt-in and
   style-only whole-row/whole-column used-tail discovery remain outside the
   adaptive navigation contract.
-
-## Next single step
-
-Start `RIBBON-007` from the exact green iconography checkpoint and implement
-host-neutral responsive group measurement/collapse before adding drag/drop
-customization; keep PR #1 Draft.

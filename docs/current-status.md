@@ -4,6 +4,18 @@
 
 The fixed weighted roadmap rubric in [`project-progress.md`](project-progress.md) currently evaluates to **83.98%**, reported as **84%**. This is an implementation-roadmap score, not a claim that NeraSpreadSheet implements 84% of every Microsoft Excel feature and not a production-readiness percentage.
 
+## TABLE/FILTER/RIBBON/UX — SCHEDULED
+
+The remaining Table, Filter, Ribbon and UX work now has an executable two-lane
+schedule in [`ribbon-table-filter-ux-delivery-plan.md`](ribbon-table-filter-ux-delivery-plan.md)
+and a single-writer coordination board in
+[`worklog/RIBBON_TABLE_FILTER_UX.md`](worklog/RIBBON_TABLE_FILTER_UX.md).
+The plan starts from exact-head green baseline
+`34a81c5d45c2b28397c1688ae665cce0d0e8dfe7`, targets a Windows 11 x64 demo and
+NuGet release candidate on **28 October 2026** with two independent lanes, and
+documents the sequential fallback through **20 November 2026**. The first
+ready checkpoints are `RIBBON-007` and `FILTER-005`.
+
 ## RIBBON-ICONOGRAPHY-006 — DONE FOR DEFINED SCOPE
 
 The SDK now contains a separate, packable `NeraSpreadSheet.Iconography`
