@@ -67,31 +67,30 @@ public sealed class CommandItem
 /// <summary>
 /// Immutable command state consumed by command and Ribbon presentation snapshots.
 /// </summary>
-public readonly record struct CommandState
+public readonly record struct CommandState(
+    bool IsEnabled,
+    bool? IsChecked = null,
+    string? DisplayText = null)
 {
     private readonly IReadOnlyList<CommandItem>? _itemsSource;
 
+    /// <summary>
+    /// Creates command state with a selectable value source while retaining the
+    /// original three-parameter record constructor for binary compatibility.
+    /// </summary>
     public CommandState(
         bool IsEnabled,
-        bool? IsChecked = null,
-        string? DisplayText = null,
-        string? SelectedValue = null,
-        IEnumerable<CommandItem>? ItemsSource = null)
+        bool? IsChecked,
+        string? DisplayText,
+        string? SelectedValue,
+        IEnumerable<CommandItem>? ItemsSource)
+        : this(IsEnabled, IsChecked, DisplayText)
     {
-        this.IsEnabled = IsEnabled;
-        this.IsChecked = IsChecked;
-        this.DisplayText = DisplayText;
         this.SelectedValue = SelectedValue;
         _itemsSource = ItemsSource is null
             ? null
             : CommandItem.MaterializeUnique(ItemsSource, "command state items source");
     }
-
-    public bool IsEnabled { get; }
-
-    public bool? IsChecked { get; }
-
-    public string? DisplayText { get; }
 
     public string? SelectedValue { get; }
 

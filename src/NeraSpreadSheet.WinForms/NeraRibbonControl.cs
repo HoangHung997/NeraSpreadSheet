@@ -22,8 +22,10 @@ public sealed class NeraRibbonControl : UserControl
     private Func<NeraIconRequest, Image?>? _iconRequestResolver;
     private NeraIconTheme _iconTheme = NeraIconTheme.Light;
     private string? _selectedTabId;
+    private string? _focusedControlName;
     private CommandId? _focusedCommandId;
     private bool _restoreCommandFocus;
+    private bool _suppressChoiceActivation;
     private bool _resizeRebuildPending;
     private bool _disposed;
 
@@ -280,13 +282,15 @@ public sealed class NeraRibbonControl : UserControl
         return button;
     }
 
-    private static Panel CreateSeparator(RibbonItemLayout item) => new()
+    private Panel CreateSeparator(RibbonItemLayout item) => new()
     {
         Name = $"ribbon-command-{item.Presentation.Command.CommandId.Value}",
         AccessibleName = item.Presentation.AutomationName,
         BackColor = SystemColors.ControlDark,
-        Size = new Size(1, 42),
-        Margin = new Padding(5, 6, 5, 6),
+        Size = new Size(
+            Math.Max(1, (int)Math.Round(item.Width / LayoutSnapshot.Scale)),
+            42),
+        Margin = new Padding(0, 6, 0, 6),
         Tag = item.Presentation.Command.CommandId,
     };
 
@@ -302,11 +306,14 @@ public sealed class NeraRibbonControl : UserControl
                 item.Size == RibbonItemSize.Large ? 58 : 30),
             Margin = new Padding(2),
             Tag = item.Presentation.Command.CommandId,
+            Name = $"ribbon-command-{item.Presentation.Command.CommandId.Value}",
+            AccessibleName = item.Presentation.AutomationName,
         };
         var primary = CreateCommandButton(item);
+        primary.Name = $"ribbon-command-{item.Presentation.Command.CommandId.Value}-primary";
         primary.Margin = Padding.Empty;
         primary.Width = Math.Max(1, panel.Width - 24);
-        var menuButton = CreateDropDownButton(item, "▼", 24);
+        var menuButton = CreateDropDownButton(item, "▼", 24, "menu");
         menuButton.Margin = Padding.Empty;
         panel.Controls.Add(primary);
         panel.Controls.Add(menuButton);
@@ -322,7 +329,8 @@ public sealed class NeraRibbonControl : UserControl
     private Button CreateDropDownButton(
         RibbonItemLayout item,
         string text,
-        int width)
+        int width,
+        string? automationSuffix = null)
     {
         var command = item.Presentation.Command;
         var menu = new ContextMenuStrip();
@@ -333,7 +341,7 @@ public sealed class NeraRibbonControl : UserControl
         _overflowMenus.Add(menu);
         var button = new Button
         {
-            Name = $"ribbon-command-{command.CommandId.Value}",
+            Name = $"ribbon-command-{command.CommandId.Value}{(automationSuffix is null ? string.Empty : $"-{automationSuffix}")}",
             Text = text,
             Tag = command.CommandId,
             Enabled = command.IsEnabled,
@@ -415,8 +423,9 @@ public sealed class NeraRibbonControl : UserControl
             Name = $"ribbon-command-{command.CommandId.Value}",
             Tag = command.CommandId,
             AccessibleName = item.Presentation.AutomationName,
-            WrapContents = true,
-            AutoScroll = false,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            AutoScroll = true,
             Size = new Size(
                 Math.Max(1, (int)Math.Round(item.Width / LayoutSnapshot.Scale) - 4),
                 item.Size == RibbonItemSize.Large ? 58 : 30),
@@ -426,6 +435,7 @@ public sealed class NeraRibbonControl : UserControl
         {
             var button = new CheckBox
             {
+                Name = $"ribbon-command-{command.CommandId.Value}-choice-{choice.Value}",
                 Appearance = Appearance.Button,
                 AutoCheck = false,
                 Text = choice.Caption,
@@ -438,11 +448,21 @@ public sealed class NeraRibbonControl : UserControl
                 AutoSize = true,
                 AccessibleName = choice.Caption,
             };
+            if (choice.IconKey is { Length: > 0 } iconKey &&
+                ResolveIcon(iconKey, 16) is Image image)
+            {
+                button.Image = image;
+                button.TextImageRelation = TextImageRelation.ImageBeforeText;
+            }
             _toolTip.SetToolTip(button, choice.Tooltip ?? choice.Caption);
             button.Click += async (_, _) =>
                 await ActivateItemAsync(command.CommandId, choice.Value);
             panel.Controls.Add(button);
         }
+        panel.AutoScrollMinSize = new Size(
+            panel.Controls.Cast<Control>().Sum(control =>
+                control.PreferredSize.Width + control.Margin.Horizontal),
+            0);
         return panel;
     }
 
@@ -472,17 +492,39 @@ public sealed class NeraRibbonControl : UserControl
                 {
                     Tag = command.CommandId,
                     Enabled = command.IsEnabled,
-                    Checked = command.IsChecked ?? false,
+                    Checked = item.Presentation.IsToggle && command.IsChecked == true,
                     CheckOnClick = false,
                     AccessibleName = item.Presentation.AutomationName,
                     ToolTipText = command.Tooltip,
                 };
+                if (item.Presentation.IsToggle)
+                {
+                    commandItem.AccessibleRole = AccessibleRole.CheckButton;
+                }
                 if (item.Presentation.Kind is RibbonItemKind.Button or RibbonItemKind.Toggle)
                 {
                     commandItem.Click += OnOverflowCommandClick;
                 }
                 else
                 {
+                    if (item.Presentation.Kind == RibbonItemKind.SplitButton)
+                    {
+                        var primary = new ToolStripMenuItem(command.Caption)
+                        {
+                            Name =
+                                $"ribbon-command-{command.CommandId.Value}-primary",
+                            Tag = command.CommandId,
+                            Enabled = command.IsEnabled,
+                            AccessibleName = item.Presentation.AutomationName,
+                            ToolTipText = BuildToolTip(command),
+                        };
+                        primary.Click += OnOverflowCommandClick;
+                        commandItem.DropDownItems.Add(primary);
+                        if (command.SelectableItems.Count > 0)
+                        {
+                            commandItem.DropDownItems.Add(new ToolStripSeparator());
+                        }
+                    }
                     foreach (var choice in command.SelectableItems)
                     {
                         commandItem.DropDownItems.Add(CreateChoiceMenuItem(
@@ -518,6 +560,7 @@ public sealed class NeraRibbonControl : UserControl
         if (focused?.Tag is CommandId focusedId)
         {
             _focusedCommandId = focusedId;
+            _focusedControlName = focused.Name;
             _restoreCommandFocus = true;
         }
         else if (FindForm()?.ActiveControl is not null)
@@ -532,9 +575,14 @@ public sealed class NeraRibbonControl : UserControl
         {
             return;
         }
-        FindDescendants<Control>(this)
-            .FirstOrDefault(control => control.Tag is CommandId id && id == commandId)
-            ?.Focus();
+        var candidates = FindDescendants<Control>(this)
+            .Where(control => control.Tag is CommandId id && id == commandId)
+            .ToArray();
+        (candidates.FirstOrDefault(control => string.Equals(
+             control.Name,
+             _focusedControlName,
+             StringComparison.Ordinal))
+         ?? candidates.FirstOrDefault())?.Focus();
     }
 
     private static IEnumerable<T> FindDescendants<T>(Control root)
@@ -571,13 +619,35 @@ public sealed class NeraRibbonControl : UserControl
 
     private async void OnChoiceSelectionCommitted(object? sender, EventArgs e)
     {
-        if (sender is ComboBox
-            {
-                Tag: CommandId commandId,
-                SelectedValue: string selectedValue,
-            })
+        if (_suppressChoiceActivation ||
+            sender is not ComboBox { Tag: CommandId commandId } combo)
         {
-            await ActivateItemAsync(commandId, selectedValue);
+            return;
+        }
+
+        if (combo.SelectedValue is not string selectedValue ||
+            !await ActivateItemAsync(commandId, selectedValue))
+        {
+            _suppressChoiceActivation = true;
+            try
+            {
+                var previousValue = _runtime.Snapshot.Tabs
+                    .SelectMany(static tab => tab.Groups)
+                    .SelectMany(static group => group.Items)
+                    .FirstOrDefault(item => item.Command.CommandId == commandId)
+                    ?.Command.SelectedValue;
+                combo.SelectedIndex = previousValue is null
+                    ? -1
+                    : combo.Items.Cast<CommandItem>().ToList().FindIndex(item =>
+                        string.Equals(
+                            item.Value,
+                            previousValue,
+                            StringComparison.Ordinal));
+            }
+            finally
+            {
+                _suppressChoiceActivation = false;
+            }
         }
     }
 
@@ -677,14 +747,14 @@ public sealed class NeraRibbonControl : UserControl
         }
     }
 
-    private async ValueTask ActivateItemAsync(
+    private async ValueTask<bool> ActivateItemAsync(
         CommandId commandId,
         string selectedValue)
     {
         try
         {
             var context = CommandContextFactory?.Invoke(commandId) ?? default;
-            await _runtime.TryActivateItemAsync(commandId, selectedValue, context);
+            return await _runtime.TryActivateItemAsync(commandId, selectedValue, context);
         }
         catch (Exception exception)
         {
@@ -696,6 +766,7 @@ public sealed class NeraRibbonControl : UserControl
             handler(this, new NeraWinFormsCommandActivationFailedEventArgs(
                 commandId,
                 exception));
+            return false;
         }
     }
 

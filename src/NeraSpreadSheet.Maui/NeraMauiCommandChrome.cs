@@ -85,7 +85,8 @@ public static class NeraMauiCommandChrome
         Button button,
         CommandPresentation command,
         string automationPrefix,
-        bool isLarge = false)
+        bool isLarge = false,
+        string? automationSuffix = null)
     {
         ArgumentNullException.ThrowIfNull(button);
         var descriptor = NeraMauiCommandChromeDescriptor.From(
@@ -95,7 +96,9 @@ public static class NeraMauiCommandChrome
         button.Text = descriptor.Caption;
         button.CommandParameter = command.CommandId;
         button.IsEnabled = descriptor.IsEnabled;
-        button.AutomationId = descriptor.AutomationId;
+        button.AutomationId = automationSuffix is null
+            ? descriptor.AutomationId
+            : $"{descriptor.AutomationId}-{automationSuffix}";
         SemanticProperties.SetDescription(button, descriptor.Description);
         SetCommandId(button, descriptor.CommandId);
         SetIsCommandChecked(button, descriptor.IsChecked);

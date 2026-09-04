@@ -290,6 +290,8 @@ public sealed class RibbonResponsiveLayoutEngine
 
     private sealed class GroupState
     {
+        private readonly Dictionary<(int Index, RibbonItemSize Size), double> _measuredWidths = [];
+
         public GroupState(
             RibbonGroupPresentation presentation,
             int index,
@@ -329,8 +331,8 @@ public sealed class RibbonResponsiveLayoutEngine
 
         public double Measure(RibbonLayoutMetrics metrics, double scale) =>
             (metrics.GroupChromeWidth +
-             Presentation.Items.Select((item, index) =>
-                 GetItemWidth(item, Sizes[index], metrics)).Sum() +
+             Presentation.Items.Select((_, index) =>
+                 GetItemWidth(index, Sizes[index], metrics)).Sum() +
              Math.Max(0, Sizes.Length - 1) * metrics.Spacing) * scale;
 
         public RibbonGroupLayout ToLayout(RibbonLayoutMetrics metrics, double scale)
@@ -339,7 +341,7 @@ public sealed class RibbonResponsiveLayoutEngine
                 new RibbonItemLayout(
                     item,
                     Sizes[index],
-                    GetItemWidth(item, Sizes[index], metrics) * scale)).ToArray();
+                    GetItemWidth(index, Sizes[index], metrics) * scale)).ToArray();
             var mode = IsOverflow
                 ? RibbonGroupLayoutMode.Overflow
                 : Sizes.SequenceEqual(Presentation.Items.Select(item => item.IsLarge
@@ -354,11 +356,18 @@ public sealed class RibbonResponsiveLayoutEngine
                 IsOverflow ? 0d : Measure(metrics, scale));
         }
 
-        private static double GetItemWidth(
-            RibbonItemPresentation item,
+        private double GetItemWidth(
+            int index,
             RibbonItemSize size,
             RibbonLayoutMetrics metrics)
         {
+            var key = (index, size);
+            if (_measuredWidths.TryGetValue(key, out var measuredWidth))
+            {
+                return measuredWidth;
+            }
+
+            var item = Presentation.Items[index];
             var defaultWidth = size switch
             {
                 RibbonItemSize.Large => metrics.LargeItemWidth,
@@ -368,6 +377,7 @@ public sealed class RibbonResponsiveLayoutEngine
             };
             if (item.Definition.Measurement is not { } measurement)
             {
+                _measuredWidths.Add(key, defaultWidth);
                 return defaultWidth;
             }
 
@@ -381,6 +391,7 @@ public sealed class RibbonResponsiveLayoutEngine
                 throw new InvalidOperationException(
                     $"Ribbon item measurement for '{item.Command.CommandId}' must be finite and non-negative.");
             }
+            _measuredWidths.Add(key, width);
             return width;
         }
     }
