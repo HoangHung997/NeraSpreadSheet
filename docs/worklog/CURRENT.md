@@ -6,9 +6,9 @@
 - Pull request: #1 Draft, open, unmerged; base `develop`.
 - Latest exact-head CI checkpoint:
   `106df1ff8725757e125a4172ced6bb49e3c708f5`.
-- Current iconography implementation commit:
-  `2b933fd8b04042c0c52854dd73651161e9ae9322`; push and exact-head CI are
-  pending for `RIBBON-ICONOGRAPHY-006`.
+- Iconography implementation commit:
+  `2b933fd8b04042c0c52854dd73651161e9ae9322`; implementation/docs head
+  `661504994f2b411c5f7d5a7c88fe836176335ba5` passed all exact-head gates.
 - Verified implementation CI through `EXCEL-BASIC-VISIBILITY-004`: full run
   `33852379077` / #1298 — success; iOS gate `33852379268` / #119 — success;
   Q003C/OpenXML gate `33852379096` / #116 — success.
@@ -18,7 +18,7 @@
 - Q003D: **DONE for standard Excel PivotTable/PivotCache package preservation scope**.
 - Core solution at the verified Q003D checkpoint: **1212/1212 passed**, build/analyzers **0 warnings / 0 errors**, OpenXML **65/65**.
 - Ribbon/Bars desktop stack through `RIBBON-KEYBOARD`: **integrated and green**.
-- `RIBBON-ICONOGRAPHY-006`: **IMPLEMENTED LOCALLY; CI PENDING**. A packable
+- `RIBBON-ICONOGRAPHY-006`: **DONE FOR DEFINED SCOPE**. A packable
   host-neutral catalog supplies 272 semantic keys, 242 SVG masters and 4,840
   PNG variants across five sizes and four themes. WPF, WinForms and MAUI
   Ribbon/Bar presenters resolve cached default icons while preserving host
@@ -258,6 +258,11 @@ For `RIBBON-ICONOGRAPHY-006` local validation:
 - light and dark contact sheets were inspected. The full Windows suite is
   **58/59 locally** because the already documented foreground-only native
   mouse smoke stops at `window.Activate()` before exercising SDK behavior.
+- exact-head GitHub gates at `661504994f2b411c5f7d5a7c88fe836176335ba5`:
+  full CI `33869186494` / #1301, iOS `33869186323` / #122 and Q003C/OpenXML
+  `33869186310` / #119 — all **success**;
+- GitHub `sdk-packages` artifact: `9935206623`, digest
+  `sha256:5f852ced9c8c5fe5a12862c06f82eb42201cd3bd3df5d34dbc80408a3f91a8d1`.
 
 ## Remaining limits
 
@@ -275,7 +280,6 @@ For `RIBBON-ICONOGRAPHY-006` local validation:
 
 ## Next single step
 
-Push `2b933fd8b04042c0c52854dd73651161e9ae9322` to the integration branch only
-if its remote head is still `106df1ff8725757e125a4172ced6bb49e3c708f5`,
-then require exact-head GitHub CI before treating `RIBBON-ICONOGRAPHY-006` as
-complete; keep PR #1 Draft.
+Start `RIBBON-007` from the exact green iconography checkpoint and implement
+host-neutral responsive group measurement/collapse before adding drag/drop
+customization; keep PR #1 Draft.

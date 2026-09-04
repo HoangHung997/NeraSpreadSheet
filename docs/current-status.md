@@ -4,7 +4,7 @@
 
 The fixed weighted roadmap rubric in [`project-progress.md`](project-progress.md) currently evaluates to **83.98%**, reported as **84%**. This is an implementation-roadmap score, not a claim that NeraSpreadSheet implements 84% of every Microsoft Excel feature and not a production-readiness percentage.
 
-## RIBBON-ICONOGRAPHY-006 — IMPLEMENTED LOCALLY; CI PENDING
+## RIBBON-ICONOGRAPHY-006 — DONE FOR DEFINED SCOPE
 
 The SDK now contains a separate, packable `NeraSpreadSheet.Iconography`
 project with **272 semantic keys**, **242 unique SVG masters** and **4,840 PNG
@@ -27,7 +27,10 @@ Four checked-in contact sheets provide visual QA. Local gates: Core solution
 and analyzers **0 warnings / 0 errors**, architecture and SDK packaging checks
 passed. The single full Windows test failure is the already documented local
 foreground-window restriction at `window.Activate()` and occurs before SDK
-behavior is exercised. Exact-head GitHub CI remains the completion gate.
+behavior is exercised. Exact-head GitHub gates at
+`661504994f2b411c5f7d5a7c88fe836176335ba5` passed: full CI #1301, iOS
+accessibility #122 and Q003C/OpenXML #119. The SDK package artifact is
+`9935206623`.
 
 ## EXCEL-BASIC-NAV-003 — DONE FOR DEFINED SCOPE
 
