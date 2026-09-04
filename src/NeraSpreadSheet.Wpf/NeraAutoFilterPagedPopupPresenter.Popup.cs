@@ -54,6 +54,28 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         DockPanel.SetDock(title, Dock.Top);
         panel.Children.Add(title);
 
+        var menuKind = new ComboBox
+        {
+            Margin = new Thickness(0d, 0d, 0d, 8d),
+            ToolTip = "Chọn nhóm điều kiện lọc",
+        };
+        AutomationProperties.SetAutomationId(menuKind, "NeraAutoFilterPagedMenuKind");
+        AutomationProperties.SetName(menuKind, "Nhóm điều kiện lọc");
+        _menuKindBox = menuKind;
+        DockPanel.SetDock(menuKind, Dock.Top);
+        panel.Children.Add(menuKind);
+
+        var criterionInput = new TextBox
+        {
+            Margin = new Thickness(0d, 0d, 0d, 8d),
+            ToolTip = "Ví dụ: North; 10; 2026-09-04; #33AA66; 3TrafficLights1:0; Top10%; Today",
+        };
+        AutomationProperties.SetAutomationId(criterionInput, "NeraAutoFilterPagedCriterion");
+        AutomationProperties.SetName(criterionInput, "Giá trị điều kiện lọc");
+        _criterionInput = criterionInput;
+        DockPanel.SetDock(criterionInput, Dock.Top);
+        panel.Children.Add(criterionInput);
+
         var search = new TextBox
         {
             Margin = new Thickness(0d, 0d, 0d, 8d),
@@ -259,6 +281,8 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         {
             _popup = null;
             _searchBox = null;
+            _menuKindBox = null;
+            _criterionInput = null;
             _status = null;
             _itemsPanel = null;
             _previousButton = null;
@@ -280,6 +304,16 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         }
 
         _valueCheckBoxes.Clear();
+        if (_menuKindBox is not null)
+        {
+            var selectedIndex = _menuKindBox.SelectedIndex;
+            _menuKindBox.ItemsSource = _binding.MenuKinds
+                .Select(static kind => kind.GetDefaultDisplayName())
+                .ToArray();
+            _menuKindBox.SelectedIndex = _binding.MenuKinds.Count == 0
+                ? -1
+                : Math.Clamp(selectedIndex, 0, _binding.MenuKinds.Count - 1);
+        }
         _itemsPanel.Children.Clear();
         for (var index = 0; index < _binding.Items.Count; index++)
         {

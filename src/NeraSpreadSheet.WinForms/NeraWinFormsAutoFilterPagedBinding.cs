@@ -26,6 +26,7 @@ public sealed class NeraWinFormsAutoFilterPagedBinding :
     private bool _hasPreviousPage;
     private bool _hasNextPage;
     private bool _isSourceTruncated;
+    private IReadOnlyList<SpreadsheetAutoFilterMenuKind> _menuKinds = [];
 
     public NeraWinFormsAutoFilterPagedBinding(
         SpreadsheetAutoFilterPagedPresenter presenter,
@@ -92,6 +93,12 @@ public sealed class NeraWinFormsAutoFilterPagedBinding :
         private set => SetField(ref _isSourceTruncated, value);
     }
 
+    public IReadOnlyList<SpreadsheetAutoFilterMenuKind> MenuKinds
+    {
+        get => _menuKinds;
+        private set => SetField(ref _menuKinds, value);
+    }
+
     public Task InitializeAsync(
         CancellationToken cancellationToken = default) =>
         ExecuteAndPublishAsync(
@@ -153,6 +160,33 @@ public sealed class NeraWinFormsAutoFilterPagedBinding :
         ExecuteAndPublishAsync(
             _presenter.ApplyValueSelectionAsync,
             cancellationToken);
+
+    public Task<long> ApplyRichFilterAsync(
+        SpreadsheetAutoFilterRichCriterion criterion,
+        CancellationToken cancellationToken = default) =>
+        ExecuteAndPublishAsync(
+            token => _presenter.ApplyRichFilterAsync(criterion, token),
+            cancellationToken);
+
+    public Task<long> ApplyCustomFilterAsync(
+        NeraSpreadSheet.Core.TableFilterCondition firstCondition,
+        NeraSpreadSheet.Core.TableFilterCondition? secondCondition = null,
+        bool combineWithAnd = true,
+        CancellationToken cancellationToken = default) =>
+        ExecuteAndPublishAsync(
+            token => _presenter.ApplyCustomFilterAsync(
+                firstCondition,
+                secondCondition,
+                combineWithAnd,
+                token),
+            cancellationToken);
+
+    public Task<SpreadsheetAutoFilterDatePage> GetDatePageAsync(
+        SpreadsheetAutoFilterDateParent parent,
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        _presenter.GetDatePageAsync(parent, offset, pageSize, cancellationToken);
 
     public Task<long> ClearColumnFilterAsync(
         CancellationToken cancellationToken = default) =>
@@ -249,6 +283,7 @@ public sealed class NeraWinFormsAutoFilterPagedBinding :
             HasPreviousPage = snapshot.HasPreviousPage;
             HasNextPage = snapshot.HasNextPage;
             IsSourceTruncated = snapshot.IsSourceTruncated;
+            MenuKinds = snapshot.MenuKinds;
             OnPropertyChanged(nameof(Target));
         });
     }

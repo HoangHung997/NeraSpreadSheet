@@ -212,6 +212,30 @@ public sealed class SpreadsheetTableFilterPagedSession :
             cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<SpreadsheetAutoFilterDatePage> GetDatePageAsync(
+        long generation,
+        SpreadsheetAutoFilterDateParent parent,
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return GetReadyMenu(generation).CaptureDatePage(
+                generation,
+                parent,
+                offset,
+                pageSize,
+                cancellationToken);
+        }
+        finally
+        {
+            _operationGate.Release();
+        }
+    }
+
     public async Task<long> ApplyValueSelectionAsync(
         long generation,
         CancellationToken cancellationToken = default)
@@ -250,6 +274,24 @@ public sealed class SpreadsheetTableFilterPagedSession :
                     firstCondition,
                     secondCondition,
                     combineWithAnd));
+        }
+        finally
+        {
+            _operationGate.Release();
+        }
+    }
+
+    public async Task<long> ApplyRichFilterAsync(
+        long generation,
+        SpreadsheetAutoFilterRichCriterion criterion,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(criterion);
+        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ExecuteMutation(generation, menu => menu.ApplyRichFilter(criterion));
         }
         finally
         {

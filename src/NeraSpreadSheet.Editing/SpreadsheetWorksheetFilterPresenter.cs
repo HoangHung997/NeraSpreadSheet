@@ -22,6 +22,7 @@ public sealed record SpreadsheetWorksheetFilterValuePage(
     bool HasPreviousPage,
     bool HasNextPage,
     bool IsSourceTruncated,
+    IReadOnlyList<SpreadsheetAutoFilterMenuKind> MenuKinds,
     IReadOnlyList<SpreadsheetTableFilterValueItem> Values);
 
 public sealed class SpreadsheetWorksheetFilterMenu
@@ -151,8 +152,23 @@ public sealed class SpreadsheetWorksheetFilterMenu
             offset > 0,
             checked(offset + page.Length) < visible.Count,
             IsTruncated,
+            SpreadsheetAutoFilterRichProjection.GetMenuKinds(_counts.Keys),
             page);
     }
+
+    public SpreadsheetAutoFilterDatePage CaptureDatePage(
+        long generation,
+        SpreadsheetAutoFilterDateParent parent,
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        SpreadsheetAutoFilterRichProjection.CaptureDatePage(
+            _counts,
+            generation,
+            parent,
+            offset,
+            pageSize,
+            cancellationToken);
 
     public void SetSearchText(string? searchText)
     {
@@ -225,6 +241,9 @@ public sealed class SpreadsheetWorksheetFilterMenu
             firstCondition,
             secondCondition,
             combineWithAnd);
+
+    public void ApplyRichFilter(SpreadsheetAutoFilterRichCriterion criterion) =>
+        _owner.ApplyRichFilter(WorksheetColumnIndex, criterion);
 
     public void ClearColumnFilter() =>
         _owner.ClearColumnFilter(WorksheetColumnIndex);
@@ -437,6 +456,24 @@ public sealed class SpreadsheetWorksheetFilterPresenterController
             firstCondition,
             secondCondition,
             combineWithAnd);
+    }
+
+    public void ApplyRichFilter(
+        int worksheetColumnIndex,
+        SpreadsheetAutoFilterRichCriterion criterion)
+    {
+        ArgumentNullException.ThrowIfNull(criterion);
+        var current = RequireCurrent();
+        var columnOffset = worksheetColumnIndex - current.Range.Left;
+        if (columnOffset < 0 || columnOffset >= current.Range.ColumnCount)
+        {
+            throw new ArgumentOutOfRangeException(nameof(worksheetColumnIndex));
+        }
+        var columns = current.Columns
+            .Where(column => column.ColumnOffset != columnOffset)
+            .Select(static column => column.Copy())
+            .Append(criterion.CreateWorksheetColumn(columnOffset));
+        _session.WorksheetFilter.SetAutoFilter(current.WithColumns(columns));
     }
 
     public void ClearColumnFilter(int worksheetColumnIndex) =>

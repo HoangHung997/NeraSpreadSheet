@@ -15,7 +15,7 @@ namespace NeraSpreadSheet.WinForms;
 public sealed partial class NeraAutoFilterPagedDropDownPresenter : IDisposable
 {
     private const int DropDownWidth = 350;
-    private const int DropDownHeight = 470;
+    private const int DropDownHeight = 540;
     private const int PageSize = 100;
     private static readonly TimeSpan SearchDelay =
         TimeSpan.FromMilliseconds(150d);
@@ -26,6 +26,8 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter : IDisposable
     private SpreadsheetViewportEngine? _viewport;
     private ToolStripDropDown? _dropDown;
     private TextBox? _searchBox;
+    private ComboBox? _menuKindBox;
+    private TextBox? _criterionInput;
     private CheckedListBox? _valuesList;
     private Label? _status;
     private Button? _previousButton;
@@ -52,6 +54,29 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter : IDisposable
     }
 
     public bool IsOpen => _dropDown?.Visible == true;
+
+    public Task<SpreadsheetAutoFilterDatePage> GetDatePageAsync(
+        SpreadsheetAutoFilterDateParent parent,
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        (_binding ?? throw new InvalidOperationException(
+            "Open the AutoFilter dropdown before requesting date nodes."))
+        .GetDatePageAsync(parent, offset, pageSize, cancellationToken);
+
+    public async Task<long> ApplyRichFilterAsync(
+        SpreadsheetAutoFilterRichCriterion criterion,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(criterion);
+        var binding = _binding ?? throw new InvalidOperationException(
+            "Open the AutoFilter dropdown before applying a rich criterion.");
+        var generation = await binding.ApplyRichFilterAsync(
+            criterion,
+            cancellationToken);
+        if (ReferenceEquals(_binding, binding)) CloseAndRefresh();
+        return generation;
+    }
 
     public void Close()
     {

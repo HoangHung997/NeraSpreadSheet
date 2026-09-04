@@ -12,6 +12,7 @@ public sealed record SpreadsheetAutoFilterPagedViewSnapshot(
     bool IsInitialized,
     bool IsSourceTruncated,
     bool HasMoreItems,
+    IReadOnlyList<SpreadsheetAutoFilterMenuKind> MenuKinds,
     IReadOnlyList<SpreadsheetTableFilterValueItem> LoadedItems);
 
 /// <summary>
@@ -23,7 +24,7 @@ public sealed class SpreadsheetAutoFilterPagedView :
     IDisposable,
     IAsyncDisposable
 {
-    public const int DefaultPageSize = 200;
+    public const int DefaultPageSize = 100;
 
     private readonly object _stateGate = new();
     private readonly SemaphoreSlim _operationGate = new(1, 1);
@@ -37,6 +38,7 @@ public sealed class SpreadsheetAutoFilterPagedView :
     private int _totalItemCount;
     private bool _isInitialized;
     private bool _isSourceTruncated;
+    private IReadOnlyList<SpreadsheetAutoFilterMenuKind> _menuKinds = [];
     private bool _disposed;
 
     public SpreadsheetAutoFilterPagedView(
@@ -95,6 +97,7 @@ public sealed class SpreadsheetAutoFilterPagedView :
                 _pages.Add(page.Offset, page);
                 _totalItemCount = page.TotalVisibleValueCount;
                 _isSourceTruncated = page.IsSourceTruncated;
+                _menuKinds = page.MenuKinds;
                 _isInitialized = true;
             }
         }
@@ -144,6 +147,7 @@ public sealed class SpreadsheetAutoFilterPagedView :
                 _pages.Add(page.Offset, page);
                 _totalItemCount = page.TotalVisibleValueCount;
                 _isSourceTruncated = page.IsSourceTruncated;
+                _menuKinds = page.MenuKinds;
                 changed = true;
             }
         }
@@ -201,6 +205,7 @@ public sealed class SpreadsheetAutoFilterPagedView :
                 _pages[offset] = page;
                 _totalItemCount = page.TotalVisibleValueCount;
                 _isSourceTruncated = page.IsSourceTruncated;
+                _menuKinds = page.MenuKinds;
                 changed = true;
             }
         }
@@ -330,6 +335,37 @@ public sealed class SpreadsheetAutoFilterPagedView :
             select: false,
             cancellationToken);
 
+    public async Task<SpreadsheetAutoFilterDatePage> GetDatePageAsync(
+        SpreadsheetAutoFilterDateParent parent,
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ThrowIfDisposed();
+            long generation;
+            lock (_stateGate)
+            {
+                EnsureInitializedUnsafe();
+                generation = _generation;
+            }
+            var page = await _session.GetDatePageAsync(
+                generation,
+                parent,
+                offset,
+                pageSize,
+                cancellationToken).ConfigureAwait(false);
+            EnsureGeneration(generation, page.Generation);
+            return page;
+        }
+        finally
+        {
+            _operationGate.Release();
+        }
+    }
+
     public Task<long> ApplyValueSelectionAsync(
         CancellationToken cancellationToken = default) =>
         ExecuteMutationAsync(
@@ -354,6 +390,17 @@ public sealed class SpreadsheetAutoFilterPagedView :
                     secondCondition,
                     combineWithAnd,
                     token),
+            cancellationToken);
+    }
+
+    public Task<long> ApplyRichFilterAsync(
+        SpreadsheetAutoFilterRichCriterion criterion,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(criterion);
+        return ExecuteMutationAsync(
+            (generation, token) =>
+                _session.ApplyRichFilterAsync(generation, criterion, token),
             cancellationToken);
     }
 
@@ -451,6 +498,7 @@ public sealed class SpreadsheetAutoFilterPagedView :
                 _pages.Add(page.Offset, page);
                 _totalItemCount = page.TotalVisibleValueCount;
                 _isSourceTruncated = page.IsSourceTruncated;
+                _menuKinds = page.MenuKinds;
             }
         }
         finally
@@ -488,6 +536,7 @@ public sealed class SpreadsheetAutoFilterPagedView :
                 _totalItemCount = 0;
                 _isInitialized = false;
                 _isSourceTruncated = false;
+                _menuKinds = [];
             }
         }
         finally
@@ -592,6 +641,7 @@ public sealed class SpreadsheetAutoFilterPagedView :
             _isInitialized,
             _isSourceTruncated,
             _isInitialized && items.Count < _totalItemCount,
+            _menuKinds,
             items);
     }
 
@@ -607,6 +657,7 @@ public sealed class SpreadsheetAutoFilterPagedView :
                 _totalItemCount = 0;
                 _isInitialized = false;
                 _isSourceTruncated = false;
+                _menuKinds = [];
                 changed = true;
             }
         }

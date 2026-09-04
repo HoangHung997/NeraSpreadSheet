@@ -44,6 +44,24 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             SemanticHeadingLevel.Level2);
         panel.Children.Add(title);
 
+        var menuKindPicker = new Picker
+        {
+            Title = "Nhóm điều kiện lọc",
+            AutomationId = "NeraAutoFilterPagedMenuKind",
+        };
+        SemanticProperties.SetDescription(
+            menuKindPicker,
+            "Chọn lọc giá trị, văn bản, số, ngày, màu, biểu tượng hoặc điều kiện tùy chỉnh");
+        panel.Children.Add(menuKindPicker);
+
+        var criterionInput = new Entry
+        {
+            Placeholder = "Giá trị điều kiện (Top10%, Today, #RRGGBB…)",
+            AutomationId = "NeraAutoFilterPagedCriterion",
+        };
+        SemanticProperties.SetDescription(criterionInput, "Giá trị điều kiện lọc");
+        panel.Children.Add(criterionInput);
+
         var search = new Entry
         {
             Placeholder = "Tìm giá trị",
@@ -198,6 +216,8 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         return new SheetParts(
             overlay,
             panel,
+            menuKindPicker,
+            criterionInput,
             search,
             status,
             values,
@@ -288,6 +308,14 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             return;
         }
 
+        var selectedIndex = _menuKindPicker.SelectedIndex;
+        _menuKindPicker.ItemsSource = _binding.MenuKinds
+            .Select(static kind => kind.GetDefaultDisplayName())
+            .ToArray();
+        _menuKindPicker.SelectedIndex = _binding.MenuKinds.Count == 0
+            ? -1
+            : Math.Clamp(selectedIndex, 0, _binding.MenuKinds.Count - 1);
+
         var first = _binding.TotalItemCount == 0
             ? 0
             : _binding.PageOffset + 1;
@@ -326,6 +354,8 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
     private sealed record SheetParts(
         Grid Overlay,
         VerticalStackLayout Panel,
+        Picker MenuKindPicker,
+        Entry CriterionInput,
         Entry Search,
         Label Status,
         CollectionView Values,

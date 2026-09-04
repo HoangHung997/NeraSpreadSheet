@@ -100,6 +100,7 @@ public sealed record SpreadsheetAutoFilterPagedPage(
     bool HasPreviousPage,
     bool HasNextPage,
     bool IsSourceTruncated,
+    IReadOnlyList<SpreadsheetAutoFilterMenuKind> MenuKinds,
     IReadOnlyList<SpreadsheetTableFilterValueItem> Values);
 
 public interface ISpreadsheetAutoFilterPagedSession :
@@ -141,6 +142,13 @@ public interface ISpreadsheetAutoFilterPagedSession :
         string? searchText,
         CancellationToken cancellationToken = default);
 
+    Task<SpreadsheetAutoFilterDatePage> GetDatePageAsync(
+        long generation,
+        SpreadsheetAutoFilterDateParent parent,
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
     Task<long> ApplyValueSelectionAsync(
         long generation,
         CancellationToken cancellationToken = default);
@@ -150,6 +158,11 @@ public interface ISpreadsheetAutoFilterPagedSession :
         TableFilterCondition firstCondition,
         TableFilterCondition? secondCondition = null,
         bool combineWithAnd = true,
+        CancellationToken cancellationToken = default);
+
+    Task<long> ApplyRichFilterAsync(
+        long generation,
+        SpreadsheetAutoFilterRichCriterion criterion,
         CancellationToken cancellationToken = default);
 
     Task<long> ClearColumnFilterAsync(
@@ -324,6 +337,7 @@ public static class SpreadsheetAutoFilterPagedSessionFactory
                 result.Page.HasPreviousPage,
                 result.Page.HasNextPage,
                 result.Page.IsSourceTruncated,
+                result.Page.MenuKinds,
                 result.Page.Values);
         }
 
@@ -356,6 +370,19 @@ public static class SpreadsheetAutoFilterPagedSessionFactory
                 searchText,
                 cancellationToken);
 
+        public Task<SpreadsheetAutoFilterDatePage> GetDatePageAsync(
+            long generation,
+            SpreadsheetAutoFilterDateParent parent,
+            int offset,
+            int pageSize,
+            CancellationToken cancellationToken = default) =>
+            _inner.GetDatePageAsync(
+                generation,
+                parent,
+                offset,
+                pageSize,
+                cancellationToken);
+
         public Task<long> ApplyValueSelectionAsync(
             long generation,
             CancellationToken cancellationToken = default) =>
@@ -375,6 +402,12 @@ public static class SpreadsheetAutoFilterPagedSessionFactory
                 secondCondition,
                 combineWithAnd,
                 cancellationToken);
+
+        public Task<long> ApplyRichFilterAsync(
+            long generation,
+            SpreadsheetAutoFilterRichCriterion criterion,
+            CancellationToken cancellationToken = default) =>
+            _inner.ApplyRichFilterAsync(generation, criterion, cancellationToken);
 
         public Task<long> ClearColumnFilterAsync(
             long generation,
@@ -456,6 +489,7 @@ public static class SpreadsheetAutoFilterPagedSessionFactory
                 result.Page.HasPreviousPage,
                 result.Page.HasNextPage,
                 result.Page.IsSourceTruncated,
+                result.Page.MenuKinds,
                 result.Page.Values);
         }
 
@@ -488,6 +522,19 @@ public static class SpreadsheetAutoFilterPagedSessionFactory
                 searchText,
                 cancellationToken);
 
+        public Task<SpreadsheetAutoFilterDatePage> GetDatePageAsync(
+            long generation,
+            SpreadsheetAutoFilterDateParent parent,
+            int offset,
+            int pageSize,
+            CancellationToken cancellationToken = default) =>
+            _inner.GetDatePageAsync(
+                generation,
+                parent,
+                offset,
+                pageSize,
+                cancellationToken);
+
         public Task<long> ApplyValueSelectionAsync(
             long generation,
             CancellationToken cancellationToken = default) =>
@@ -507,6 +554,12 @@ public static class SpreadsheetAutoFilterPagedSessionFactory
                 secondCondition,
                 combineWithAnd,
                 cancellationToken);
+
+        public Task<long> ApplyRichFilterAsync(
+            long generation,
+            SpreadsheetAutoFilterRichCriterion criterion,
+            CancellationToken cancellationToken = default) =>
+            _inner.ApplyRichFilterAsync(generation, criterion, cancellationToken);
 
         public Task<long> ClearColumnFilterAsync(
             long generation,

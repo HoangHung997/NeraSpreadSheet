@@ -27,6 +27,9 @@ public sealed class NeraMauiAutoFilterPagedBindingTests
         Assert.AreEqual(5, binding.TotalItemCount);
         Assert.AreEqual(0, binding.PageOffset);
         Assert.IsTrue(binding.HasNextPage);
+        CollectionAssert.Contains(
+            binding.MenuKinds.ToArray(),
+            SpreadsheetAutoFilterMenuKind.Text);
 
         Assert.IsTrue(await binding.MoveNextPageAsync());
         Assert.AreEqual(2, binding.Items.Count);
@@ -55,6 +58,24 @@ public sealed class NeraMauiAutoFilterPagedBindingTests
         Assert.AreEqual("Value4", binding.Items[0].DisplayText);
         await binding.SetSelectedAsync(0, selected: false);
         Assert.IsFalse(binding.Items[0].IsSelected);
+    }
+
+    [TestMethod]
+    public async Task RichCriterionFlowsThroughSharedPresenterAndHistory()
+    {
+        var fixture = CreateFixture();
+        Assert.IsTrue(fixture.Session.TryResolveActiveAutoFilterTarget(out var target));
+        await using var binding = new NeraMauiAutoFilterPagedBinding(
+            new SpreadsheetAutoFilterPagedPresenter(fixture.Session, target),
+            new ImmediateDispatcher());
+        await binding.InitializeAsync();
+
+        await binding.ApplyRichFilterAsync(new SpreadsheetAutoFilterRichCriterion(
+            topBottom: new SpreadsheetTopBottomFilter(top: true, percent: false, value: 2)));
+
+        Assert.AreEqual(1, fixture.Session.History.UndoCount);
+        Assert.IsNotNull(fixture.Session.ActiveWorksheet.Tables.Single()
+            .AutoFilter!.Columns.Single().TopBottom);
     }
 
     private static Fixture CreateFixture()

@@ -64,6 +64,7 @@ public sealed record SpreadsheetTableFilterValuePage(
     bool HasPreviousPage,
     bool HasNextPage,
     bool IsSourceTruncated,
+    IReadOnlyList<SpreadsheetAutoFilterMenuKind> MenuKinds,
     IReadOnlyList<SpreadsheetTableFilterValueItem> Values);
 
 public sealed class SpreadsheetTableFilterMenu
@@ -206,8 +207,23 @@ public sealed class SpreadsheetTableFilterMenu
             offset > 0,
             checked(offset + page.Length) < visible.Count,
             IsTruncated,
+            SpreadsheetAutoFilterRichProjection.GetMenuKinds(_counts.Keys),
             page);
     }
+
+    public SpreadsheetAutoFilterDatePage CaptureDatePage(
+        long generation,
+        SpreadsheetAutoFilterDateParent parent,
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        SpreadsheetAutoFilterRichProjection.CaptureDatePage(
+            _counts,
+            generation,
+            parent,
+            offset,
+            pageSize,
+            cancellationToken);
 
     public void SetSearchText(string? searchText)
     {
@@ -281,6 +297,9 @@ public sealed class SpreadsheetTableFilterMenu
             firstCondition,
             secondCondition,
             combineWithAnd);
+
+    public void ApplyRichFilter(SpreadsheetAutoFilterRichCriterion criterion) =>
+        _owner.ApplyRichFilter(TableId, ColumnId, criterion);
 
     public void ClearColumnFilter() =>
         _owner.ClearColumnFilter(TableId, ColumnId);
@@ -519,6 +538,24 @@ public sealed class SpreadsheetTablePresenterController
                 firstCondition: firstCondition,
                 secondCondition: secondCondition,
                 combineWithAnd: combineWithAnd));
+    }
+
+    public void ApplyRichFilter(
+        Guid tableId,
+        Guid columnId,
+        SpreadsheetAutoFilterRichCriterion criterion)
+    {
+        ArgumentNullException.ThrowIfNull(criterion);
+        var table = GetTable(tableId);
+        if (!table.TryGetColumn(columnId, out _))
+        {
+            throw new KeyNotFoundException(
+                $"Table column '{columnId}' was not found.");
+        }
+        ReplaceColumnFilter(
+            tableId,
+            columnId,
+            criterion.CreateTableColumn(columnId));
     }
 
     public void ClearColumnFilter(Guid tableId, Guid columnId)
