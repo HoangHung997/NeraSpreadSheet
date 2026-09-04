@@ -5,10 +5,10 @@
   `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
 - Latest verified implementation checkpoint:
-  `45fae777c58a4a83bb65716c3dc3aecf71c5dd83`.
-- Verified implementation CI through `EXCEL-BASIC-NAV-003`: full run
-  `33841803159` / #1294 — success; iOS gate `33841803144` / #115 — success;
-  Q003C/OpenXML gate `33841803148` / #112 — success.
+  `d86376403e15011304974c5476fe11683347fd19`.
+- Verified implementation CI through `EXCEL-BASIC-COMPAT-002`: full run
+  `33847611435` / #1296 — success; iOS gate `33847611511` / #117 — success;
+  Q003C/OpenXML gate `33847611444` / #114 — success.
 - Formula implementation: **DONE**, **546/546** locked catalog names; current formula suite **524/524**.
 - Q001, Q002, Q003A, Q003B: **DONE**.
 - Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
@@ -60,14 +60,15 @@
   architecture verification pass locally. The external Win11 demo build and
   packaged smoke pass with the lighter demo-only chrome. Full CI #1294, iOS
   gate #115 and Q003C/OpenXML gate #112 passed at the implementation checkpoint.
-- `EXCEL-BASIC-COMPAT-002`: **LOCAL IMPLEMENTATION COMPLETE**. Recalculation of
+- `EXCEL-BASIC-COMPAT-002`: **DONE FOR DEFINED SCOPE**. Recalculation of
   the supplied six-sheet workbook now preserves its 28 existing Excel error
   cells and creates zero new errors, compared with 981 total/953 new errors
   before the fix. VLOOKUP/HLOOKUP no longer propagate unrelated table-array
   errors, whole-column VLOOKUP uses sparse used-row evaluation with full-range
   dependencies, WPF supports Ctrl+wheel zoom from 25%-400%, and the reusable
   editor overlay matches cell typography/alignment/wrapping with Alt+Enter line
-  breaks. Exact-head GitHub Actions evidence is pending.
+  breaks. Full CI #1296, iOS gate #117 and Q003C/OpenXML gate #114 passed at
+  implementation checkpoint `d86376403e15011304974c5476fe11683347fd19`.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -195,6 +196,6 @@ For `EXCEL-BASIC-COMPAT-002` local validation:
 
 ## Next single step
 
-Push `EXCEL-BASIC-COMPAT-002` to the integration branch and require full CI,
-iOS and Q003C/OpenXML gates to pass on the exact final HEAD before continuing
-`SECURITY-RECOVERY`; do not mark PR #1 ready.
+Resume the next bounded `SECURITY-RECOVERY` surface from verified checkpoint
+`d86376403e15011304974c5476fe11683347fd19`; keep PR #1 Draft and require all
+exact-head gates again before the next handoff.

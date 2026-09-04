@@ -13,15 +13,16 @@ shared 100-row/20-column defaults as public properties suitable for NuGet
 consumers. Implementation checkpoint `45fae777c58a4a83bb65716c3dc3aecf71c5dd83`
 passed full CI #1294, iOS gate #115 and Q003C/OpenXML gate #112.
 
-## EXCEL-BASIC-COMPAT-002 — LOCAL IMPLEMENTATION COMPLETE
+## EXCEL-BASIC-COMPAT-002 — DONE FOR DEFINED SCOPE
 
 The supplied six-sheet workbook exposed a recalculation regression rather than
 an OpenXML-load failure: 28 cached Excel errors became 981 errors after Nera
 recalculation. Lookup error propagation and sparse whole-column `VLOOKUP`
 support now keep the result at the original 28 errors with zero newly-created
 errors. WPF also provides 25%-400% Ctrl+wheel zoom and an in-cell editor that
-matches effective cell typography, alignment and wrapping. Exact-head GitHub
-Actions evidence is pending.
+matches effective cell typography, alignment and wrapping. Implementation
+checkpoint `d86376403e15011304974c5476fe11683347fd19` passed full CI #1296,
+iOS gate #117 and Q003C/OpenXML gate #114.
 
 ## Formula subsystem — CLOSED
 

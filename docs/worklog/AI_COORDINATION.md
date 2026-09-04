@@ -100,6 +100,7 @@ Out of scope for this lane:
 | 2026-09-04 | Codex | `EXCEL-BASIC-COMPAT-001` | Bounded user-reported hotfix implemented locally: tolerant Excel differential fills and opaque unsupported conditional-format preservation; host-neutral formula suggestions, point-mode references and static reference analysis; visible reference outlines and WPF integration. Supplied six-sheet workbook Load -> Save -> Load passes without modifying the source. Exact-head CI pending. |
 | 2026-09-04 | Codex | `EXCEL-BASIC-COMPAT-001` | Closed for defined scope at `29d07537243d937e3ab83b7c03e71f2041c8d4f5`: full CI #1290, iOS gate #111 and Q003C/OpenXML gate #108 all succeeded. Demo scrollbar and horizontal sheet-tab layout remain outside this SDK hotfix. |
 | 2026-09-04 | Codex | `EXCEL-BASIC-COMPAT-002` | User-workbook recalculation regression fixed locally: 981 errors reduced to the original 28 with zero new errors; sparse whole-column VLOOKUP, path-aware lookup errors, WPF Ctrl+wheel zoom and cell-style-aware multiline editor added. Core 1246/1246, formula 524/524 and external workbook smoke pass; exact-head CI pending. |
+| 2026-09-04 | Codex | `EXCEL-BASIC-COMPAT-002` | Closed for defined scope at `d86376403e15011304974c5476fe11683347fd19`: full CI #1296, iOS gate #117 and Q003C/OpenXML gate #114 all succeeded. |
 
 ## Closed lane: PIVOT-OPENXML-STANDARD
 

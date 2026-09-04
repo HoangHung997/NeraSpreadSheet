@@ -58,4 +58,6 @@
   full worksheet axis.
 - The external demo is outside the SDK repository; only reusable formula/WPF
   behavior and its contracts/tests are committed here.
-- Exact-head GitHub Actions validation remains required.
+- Implementation checkpoint `d86376403e15011304974c5476fe11683347fd19`
+  passed full CI run `33847611435` / #1296, iOS gate `33847611511` / #117 and
+  Q003C/OpenXML gate `33847611444` / #114.
