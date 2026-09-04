@@ -50,13 +50,21 @@ public sealed class DesktopRibbonPresenterSmokeTests
             var runtime = new RibbonRuntimeController(definition, registry);
 
             using var wpfRibbon = new NeraSpreadSheet.Wpf.NeraRibbonControl(runtime);
+            var wpfEditor = new System.Windows.Controls.TextBox { Text = "worksheet" };
+            var wpfRoot = new System.Windows.Controls.DockPanel();
+            System.Windows.Controls.DockPanel.SetDock(
+                wpfRibbon,
+                System.Windows.Controls.Dock.Top);
+            wpfRoot.Children.Add(wpfRibbon);
+            wpfRoot.Children.Add(wpfEditor);
             var window = new WpfWindow
             {
-                Content = wpfRibbon,
+                Content = wpfRoot,
                 ShowInTaskbar = false,
                 Width = 700d,
                 Height = 260d,
             };
+            using var wpfBinding = wpfRibbon.BindShortcuts(window);
             try
             {
                 window.Show();
@@ -79,16 +87,44 @@ public sealed class DesktopRibbonPresenterSmokeTests
                     FindWpfDescendants<System.Windows.Controls.Button>(wpfRibbon)
                         .Single(button => WpfAutomationProperties.GetAutomationId(button) ==
                             "ribbon-backstage-file.save").Visibility);
-                wpfRibbon.IsMinimized = true;
+                wpfFile = FindWpfDescendants<System.Windows.Controls.Button>(wpfRibbon)
+                    .Single(button => WpfAutomationProperties.GetAutomationId(button) ==
+                        "ribbon-file");
+                wpfFile.RaiseEvent(new System.Windows.RoutedEventArgs(WpfButtonBase.ClickEvent));
                 FlushWpf(window);
-                Assert.IsTrue(wpfRibbon.IsMinimized);
+                Assert.IsFalse(wpfRibbon.IsBackstageOpen);
+                var wpfQat = FindWpfDescendants<System.Windows.Controls.Button>(wpfRibbon)
+                    .Single(button => WpfAutomationProperties.GetAutomationId(button) ==
+                        "ribbon-qat-home.copy");
+                wpfQat.Focus();
                 wpfRibbon.EnterKeyTipMode();
                 Assert.IsTrue(wpfRibbon.ProcessKeyTipAsync(runtime.KeyTips.TabTips["home"])
                     .AsTask().GetAwaiter().GetResult());
-                Assert.AreEqual(RibbonKeyTipScope.Tab, wpfRibbon.KeyTipScope);
                 wpfRibbon.EscapeKeyTipMode();
                 wpfRibbon.EscapeKeyTipMode();
+                FlushWpf(window);
+                Assert.IsTrue(FindWpfDescendants<System.Windows.Controls.Button>(wpfRibbon)
+                    .Single(button => WpfAutomationProperties.GetAutomationId(button) ==
+                        "ribbon-qat-home.copy").IsKeyboardFocused);
+                wpfRibbon.IsMinimized = true;
+                FlushWpf(window);
+                Assert.IsTrue(wpfRibbon.IsMinimized);
+                Assert.IsTrue(FindWpfDescendants<System.Windows.Controls.GroupBox>(wpfRibbon)
+                    .All(static group => !group.IsVisible));
+                wpfEditor.Focus();
+                FlushWpf(window);
+                Assert.IsTrue(wpfEditor.IsKeyboardFocused);
+                Assert.IsTrue(RaiseWpfKey(window, WpfKey.LeftAlt).Handled);
+                Assert.AreEqual(RibbonKeyTipScope.Tabs, wpfRibbon.KeyTipScope);
+                Assert.IsTrue(RaiseWpfKey(window, WpfKey.F).Handled);
+                FlushWpf(window);
+                Assert.IsTrue(wpfRibbon.IsBackstageOpen);
+                Assert.IsTrue(RaiseWpfKey(window, WpfKey.Escape).Handled);
+                Assert.IsFalse(wpfRibbon.IsBackstageOpen);
+                Assert.IsTrue(RaiseWpfKey(window, WpfKey.Escape).Handled);
+                FlushWpf(window);
                 Assert.AreEqual(RibbonKeyTipScope.Inactive, wpfRibbon.KeyTipScope);
+                Assert.IsTrue(wpfEditor.IsKeyboardFocused);
             }
             finally
             {
@@ -100,9 +136,13 @@ public sealed class DesktopRibbonPresenterSmokeTests
             using var form = new WinFormsForm { ClientSize = new System.Drawing.Size(700, 260) };
             using var winRibbon = new NeraSpreadSheet.WinForms.NeraRibbonControl(winRuntime)
             {
-                Dock = WinFormsDockStyle.Fill,
+                Dock = WinFormsDockStyle.Top,
+                Height = 220,
             };
+            var winEditor = new System.Windows.Forms.TextBox { Dock = WinFormsDockStyle.Bottom };
             form.Controls.Add(winRibbon);
+            form.Controls.Add(winEditor);
+            using var winBinding = winRibbon.BindShortcuts(form);
             form.Show();
             WinFormsApplication.DoEvents();
             winRuntime.SetSelectionContext(new RibbonSelectionContext(true, true));
@@ -114,15 +154,41 @@ public sealed class DesktopRibbonPresenterSmokeTests
                 .Single(button => button.Name == "ribbon-file"));
             WinFormsApplication.DoEvents();
             Assert.IsTrue(winRibbon.IsBackstageOpen);
-            winRibbon.IsMinimized = true;
+            PerformWinFormsClick(FindWinFormsDescendants<System.Windows.Forms.Button>(winRibbon)
+                .Single(button => button.Name == "ribbon-file"));
             WinFormsApplication.DoEvents();
-            Assert.IsTrue(winRibbon.IsMinimized);
+            Assert.IsFalse(winRibbon.IsBackstageOpen);
+            var winQat = FindWinFormsDescendants<System.Windows.Forms.Button>(winRibbon)
+                .Single(button => button.Name == "ribbon-qat-home.copy");
+            winQat.Focus();
             winRibbon.EnterKeyTipMode();
             Assert.IsTrue(winRibbon.ProcessKeyTipAsync(winRuntime.KeyTips.TabTips["home"])
                 .AsTask().GetAwaiter().GetResult());
             winRibbon.EscapeKeyTipMode();
             winRibbon.EscapeKeyTipMode();
+            WinFormsApplication.DoEvents();
+            Assert.IsTrue(FindWinFormsDescendants<System.Windows.Forms.Button>(winRibbon)
+                .Single(button => button.Name == "ribbon-qat-home.copy").Focused);
+            winRibbon.IsMinimized = true;
+            WinFormsApplication.DoEvents();
+            Assert.IsTrue(winRibbon.IsMinimized);
+            Assert.IsTrue(FindWinFormsDescendants<System.Windows.Forms.FlowLayoutPanel>(winRibbon)
+                .Where(static panel => panel.Parent is System.Windows.Forms.TabPage)
+                .All(static panel => !panel.Visible));
+            winEditor.Focus();
+            WinFormsApplication.DoEvents();
+            Assert.IsTrue(winEditor.Focused);
+            RaiseWinFormsKey(form, System.Windows.Forms.Keys.Menu);
+            Assert.AreEqual(RibbonKeyTipScope.Tabs, winRibbon.KeyTipScope);
+            RaiseWinFormsKey(form, System.Windows.Forms.Keys.F);
+            WinFormsApplication.DoEvents();
+            Assert.IsTrue(winRibbon.IsBackstageOpen);
+            RaiseWinFormsKey(form, System.Windows.Forms.Keys.Escape);
+            Assert.IsFalse(winRibbon.IsBackstageOpen);
+            RaiseWinFormsKey(form, System.Windows.Forms.Keys.Escape);
+            WinFormsApplication.DoEvents();
             Assert.AreEqual(RibbonKeyTipScope.Inactive, winRibbon.KeyTipScope);
+            Assert.IsTrue(winEditor.Focused);
             form.Close();
         });
     }
@@ -559,6 +625,72 @@ public sealed class DesktopRibbonPresenterSmokeTests
 
     [TestMethod]
     [Timeout(120_000)]
+    public void CompactDesktopCommandsShouldKeepTextualBadgeWhenIconIsAvailable()
+    {
+        RunInSta(() =>
+        {
+            var registry = new CommandRegistry();
+            registry.Register(
+                new CommandDescriptor(
+                    "view.gridlines",
+                    "Đường lưới",
+                    iconKey: "view.gridlines"),
+                new OneShotHandler(isChecked: null));
+            var definition = new RibbonDefinition([
+                new RibbonTabDefinition("view", "Xem", [
+                    new RibbonGroupDefinition("display", "Hiển thị", [
+                        new RibbonItemDefinition("view.gridlines"),
+                    ]),
+                ]),
+            ]);
+            var wpfRuntime = new RibbonRuntimeController(definition, registry);
+            var winRuntime = new RibbonRuntimeController(definition, registry);
+            using var wpfRibbon = new NeraSpreadSheet.Wpf.NeraRibbonControl(wpfRuntime)
+            {
+                Width = 70d,
+            };
+            using var winRibbon = new NeraSpreadSheet.WinForms.NeraRibbonControl(winRuntime);
+            winRibbon.ClientSize = new System.Drawing.Size(
+                (int)Math.Ceiling(70d * winRibbon.DeviceDpi / 96d),
+                120);
+            wpfRibbon.Measure(new System.Windows.Size(70d, 120d));
+            wpfRibbon.Arrange(new System.Windows.Rect(0d, 0d, 70d, 120d));
+            wpfRibbon.UpdateLayout();
+            wpfRibbon.Rebuild();
+            winRibbon.Rebuild();
+
+            wpfRibbon.EnterKeyTipMode();
+            Assert.IsTrue(wpfRibbon.ProcessKeyTipAsync(wpfRuntime.KeyTips.TabTips["view"])
+                .AsTask().GetAwaiter().GetResult());
+            winRibbon.EnterKeyTipMode();
+            Assert.IsTrue(winRibbon.ProcessKeyTipAsync(winRuntime.KeyTips.TabTips["view"])
+                .AsTask().GetAwaiter().GetResult());
+
+            Assert.AreEqual(
+                RibbonItemSize.Compact,
+                wpfRibbon.LayoutSnapshot.Tabs[0].Groups[0].Items[0].Size);
+            Assert.AreEqual(
+                RibbonItemSize.Compact,
+                winRibbon.LayoutSnapshot.Tabs[0].Groups[0].Items[0].Size);
+            var wpfTab = (System.Windows.Controls.TabItem)wpfRibbon.NativeTabControl.Items[0];
+            var wpfGroups = (System.Windows.Controls.StackPanel)wpfTab.Content;
+            var wpfGroup = (System.Windows.Controls.GroupBox)wpfGroups.Children[0];
+            var wpfItems = (System.Windows.Controls.StackPanel)wpfGroup.Content;
+            var wpfButton = (WpfButtonBase)wpfItems.Children[0];
+            var wpfContent = (System.Windows.Controls.StackPanel)wpfButton.Content;
+            var wpfText = wpfContent.Children
+                .OfType<System.Windows.Controls.TextBlock>()
+                .Single();
+            var winButton = FindWinFormsDescendants<WinFormsButtonBase>(winRibbon)
+                .Single(control => control.Tag is CommandId);
+            StringAssert.Contains(wpfText.Text, "[");
+            StringAssert.Contains(winButton.Text, "[");
+            Assert.IsNotNull(winButton.Image);
+        });
+    }
+
+    [TestMethod]
+    [Timeout(120_000)]
     public void DesktopRibbonRebuildShouldPreserveSelectedTabIdentity()
     {
         RunInSta(() =>
@@ -730,6 +862,33 @@ public sealed class DesktopRibbonPresenterSmokeTests
             throw new AssertFailedException(
                 $"{button.GetType().FullName}.OnClick was not found.");
         onClick.Invoke(button, [EventArgs.Empty]);
+    }
+
+    private static void RaiseWinFormsKey(WinFormsForm form, System.Windows.Forms.Keys key)
+    {
+        var onKeyDown = typeof(WinFormsControl).GetMethod(
+            "OnKeyDown",
+            System.Reflection.BindingFlags.Instance |
+            System.Reflection.BindingFlags.NonPublic) ??
+            throw new AssertFailedException("Control.OnKeyDown was not found.");
+        onKeyDown.Invoke(form, [new System.Windows.Forms.KeyEventArgs(key)]);
+    }
+
+    private static WpfKeyEventArgs RaiseWpfKey(WpfWindow window, WpfKey key)
+    {
+        var source = WpfPresentationSource.FromVisual(window) ??
+            throw new AssertFailedException(
+                "The WPF window did not have a presentation source.");
+        var args = new WpfKeyEventArgs(
+            WpfKeyboard.PrimaryDevice,
+            source,
+            Environment.TickCount,
+            key)
+        {
+            RoutedEvent = WpfKeyboard.PreviewKeyDownEvent,
+        };
+        window.RaiseEvent(args);
+        return args;
     }
 
     private static IEnumerable<WinFormsToolStripItem> FindWinFormsItems(

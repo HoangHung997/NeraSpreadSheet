@@ -25,6 +25,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     private readonly List<Button> _commandButtons = [];
     private readonly List<VisualElement> _itemControls = [];
     private readonly Dictionary<VisualElement, RibbonFocusIdentity> _focusIdentities = [];
+    private readonly Dictionary<VisualElement, string> _keyTipFocusElements = [];
     private readonly List<IDisposable> _shortcutBindings = [];
     private Func<string, ImageSource?>? _iconResolver;
     private Func<NeraIconRequest, ImageSource?>? _iconRequestResolver;
@@ -39,6 +40,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     private bool _resizeRebuildPending;
     private bool _isBackstageOpen;
     private VisualElement? _focusBeforeKeyTips;
+    private string? _focusBeforeKeyTipsAutomationId;
     private bool _disposed;
 
     public NeraMauiRibbonView(RibbonRuntimeController runtime)
@@ -164,10 +166,16 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
 
     public RibbonKeyTipScope KeyTipScope => _runtime.KeyTips.Scope;
 
-    public void EnterKeyTipMode()
+    public void EnterKeyTipMode() => EnterKeyTipMode(null);
+
+    /// <summary>
+    /// Enters Key Tips while retaining an optional host focus origin outside this view.
+    /// </summary>
+    public void EnterKeyTipMode(VisualElement? focusOrigin)
     {
-        _focusBeforeKeyTips = _focusIdentities.Keys.FirstOrDefault(static element => element.IsFocused);
+        CaptureKeyTipOrigin(focusOrigin);
         _runtime.KeyTips.Enter();
+        _isBackstageOpen = false;
         Rebuild();
     }
 
@@ -191,12 +199,23 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         }
         if (result.CommandId is { } commandId)
         {
-            var executed = await ActivateCommandAsync(commandId).ConfigureAwait(false);
-            RestoreKeyTipOrigin();
-            return executed;
+            try
+            {
+                return await ActivateCommandAsync(commandId).ConfigureAwait(false);
+            }
+            finally
+            {
+                DispatchOrRun(() =>
+                {
+                    _isBackstageOpen = false;
+                    Rebuild();
+                    RestoreKeyTipOriginCore();
+                });
+            }
         }
         if (result.Action == RibbonKeyTipAction.ScopeChanged)
         {
+            _isBackstageOpen = _runtime.KeyTips.Scope == RibbonKeyTipScope.Backstage;
             Rebuild();
             return true;
         }
@@ -206,15 +225,15 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     public void EscapeKeyTipMode()
     {
         var result = _runtime.KeyTips.Escape();
-        if (result.Action == RibbonKeyTipAction.Exit)
-        {
-            RestoreKeyTipOrigin();
-        }
         if (_runtime.KeyTips.Scope == RibbonKeyTipScope.Tabs)
         {
             _isBackstageOpen = false;
         }
         Rebuild();
+        if (result.Action == RibbonKeyTipAction.Exit)
+        {
+            RestoreKeyTipOrigin();
+        }
     }
 
     public IReadOnlyList<Button> CommandButtons => _commandButtons;
@@ -258,13 +277,15 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
                     _focusedCommandId));
             _selectedTabId = LayoutSnapshot.SelectedTabId;
             _focusedCommandId = LayoutSnapshot.FocusedCommandId;
+            _keyTipFocusElements.Clear();
             RebuildTopBar();
             RebuildBackstage();
             RebuildTabs(LayoutSnapshot);
             RebuildGroups(LayoutSnapshot);
             _tabStrip.IsVisible = !_isBackstageOpen;
             _groups.IsVisible = !_isBackstageOpen && !_runtime.IsMinimized;
-            _overflowHost.IsVisible = !_isBackstageOpen && _overflowHost.IsVisible;
+            _overflowHost.IsVisible = !_isBackstageOpen && !_runtime.IsMinimized &&
+                _overflowHost.IsVisible;
             _backstage.IsVisible = _isBackstageOpen;
             RestoreFocus();
         }
@@ -297,6 +318,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         _commandButtons.Clear();
         _itemControls.Clear();
         _focusIdentities.Clear();
+        _keyTipFocusElements.Clear();
         GC.SuppressFinalize(this);
     }
 
@@ -312,14 +334,28 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             Padding = new Thickness(10d, 4d),
         };
         SemanticProperties.SetDescription(file, FileAutomationName);
+        TrackKeyTipFocus(file);
         file.Clicked += (_, _) =>
         {
             _isBackstageOpen = !_isBackstageOpen;
+            var restoreKeyTipOrigin = false;
             if (_isBackstageOpen)
             {
-                _runtime.KeyTips.OpenBackstage();
+                if (_runtime.KeyTips.Scope != RibbonKeyTipScope.Inactive)
+                {
+                    _runtime.KeyTips.OpenBackstage();
+                }
+            }
+            else
+            {
+                ExitKeyTipMode();
+                restoreKeyTipOrigin = true;
             }
             Rebuild();
+            if (restoreKeyTipOrigin)
+            {
+                RestoreKeyTipOrigin();
+            }
         };
         _topBar.Children.Add(file);
         foreach (var command in _runtime.Snapshot.QuickAccessToolbar)
@@ -338,6 +374,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
                 Padding = new Thickness(10d, 4d),
             };
             SemanticProperties.SetDescription(button, command.Caption);
+            TrackKeyTipFocus(button);
             button.Clicked += OnCommandClicked;
             _topBar.Children.Add(button);
         }
@@ -358,6 +395,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
                 IsEnabled = command.IsEnabled,
             };
             SemanticProperties.SetDescription(button, command.Caption);
+            TrackKeyTipFocus(button);
             button.Clicked += OnCommandClicked;
             _backstage.Children.Add(button);
         }
@@ -365,8 +403,46 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
 
     private void RestoreKeyTipOrigin()
     {
-        _focusBeforeKeyTips?.Focus();
+        DispatchOrRun(RestoreKeyTipOriginCore);
+    }
+
+    private void RestoreKeyTipOriginCore()
+    {
+        if (_focusBeforeKeyTipsAutomationId is { } automationId)
+        {
+            _keyTipFocusElements.FirstOrDefault(pair => string.Equals(
+                pair.Value,
+                automationId,
+                StringComparison.Ordinal)).Key?.Focus();
+        }
+        else
+        {
+            _focusBeforeKeyTips?.Focus();
+        }
         _focusBeforeKeyTips = null;
+        _focusBeforeKeyTipsAutomationId = null;
+    }
+
+    private void CaptureKeyTipOrigin(VisualElement? focusOrigin)
+    {
+        var focused = focusOrigin ??
+            _keyTipFocusElements.Keys.FirstOrDefault(static element => element.IsFocused);
+        if (focused is not null && _keyTipFocusElements.TryGetValue(focused, out var automationId))
+        {
+            _focusBeforeKeyTipsAutomationId = automationId;
+            _focusBeforeKeyTips = null;
+            return;
+        }
+        _focusBeforeKeyTips = focused;
+        _focusBeforeKeyTipsAutomationId = null;
+    }
+
+    private void ExitKeyTipMode()
+    {
+        while (_runtime.KeyTips.Scope != RibbonKeyTipScope.Inactive)
+        {
+            _runtime.KeyTips.Escape();
+        }
     }
 
     private static string FindSurfaceTip(
@@ -394,6 +470,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
                 Padding = new Thickness(12d, 6d),
             };
             SemanticProperties.SetDescription(button, tab.Presentation.Caption);
+            TrackKeyTipFocus(button);
             button.Clicked += OnTabClicked;
             _tabStrip.Children.Add(button);
         }
@@ -408,6 +485,11 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         _commandButtons.Clear();
         _itemControls.Clear();
         _focusIdentities.Clear();
+        if (_runtime.IsMinimized)
+        {
+            _isOverflowOpen = false;
+            return;
+        }
         if (snapshot.Tabs.Count == 0)
         {
             _isOverflowOpen = false;
@@ -471,8 +553,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             item.Size == RibbonItemSize.Large,
             automationSuffix);
         if (_runtime.KeyTips.Scope == RibbonKeyTipScope.Tab &&
-            _runtime.KeyTips.GetCommandTips().FirstOrDefault(pair =>
-                pair.Value == command.CommandId).Key is { Length: > 0 } keyTip)
+            _runtime.KeyTips.TryGetCommandTip(command.CommandId, out var keyTip))
         {
             button.Text = $"{command.Caption} [{keyTip}]";
         }
@@ -495,7 +576,8 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
                 ? FontAttributes.Bold
                 : FontAttributes.None;
         }
-        if (item.Size == RibbonItemSize.Compact && resolvedIcon is not null)
+        if (item.Size == RibbonItemSize.Compact && resolvedIcon is not null &&
+            _runtime.KeyTips.Scope != RibbonKeyTipScope.Tab)
         {
             button.Text = string.Empty;
         }
@@ -895,8 +977,17 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         _focusIdentities[element] = new RibbonFocusIdentity(
             commandId,
             subpartId ?? element.AutomationId);
+        TrackKeyTipFocus(element);
         element.Focused += OnCommandFocused;
         element.Unfocused += OnCommandUnfocused;
+    }
+
+    private void TrackKeyTipFocus(VisualElement element)
+    {
+        if (element.AutomationId is { Length: > 0 } automationId)
+        {
+            _keyTipFocusElements[element] = automationId;
+        }
     }
 
     private void OnCommandUnfocused(object? sender, FocusEventArgs e)

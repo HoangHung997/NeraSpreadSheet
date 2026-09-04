@@ -8,8 +8,8 @@ namespace NeraSpreadSheet.Ribbon.Core;
 /// </summary>
 public static class RibbonProductionCommandCatalog
 {
-    public static IReadOnlyList<CommandId> CommandIds { get; } = new CommandId[]
-    {
+    public static IReadOnlyList<CommandId> CommandIds { get; } = Array.AsReadOnly<CommandId>(
+    [
         "Edit.Undo", "Edit.Redo", "Edit.Copy", "Edit.Cut", "Edit.Paste",
         "Cell.ClearContents", "Cell.Format.Bold", "Cell.Format.Italic",
         "Cell.Merge", "Cell.Unmerge", "Formula.RecalculateWorkbook",
@@ -20,7 +20,7 @@ public static class RibbonProductionCommandCatalog
         "View.FreezePanes", "View.UnfreezePanes", "View.Split.Undo", "View.Split.Redo",
         "Insert.Chart.Column", "Insert.Chart.Bar", "Insert.Chart.Line",
         "Insert.Chart.Pie", "Insert.Pivot.Sum",
-    };
+    ]);
 
     /// <summary>Creates the complete built-in command placement used for audit and host bootstrap.</summary>
     public static RibbonDefinition CreateDefaultDefinition() => new(
