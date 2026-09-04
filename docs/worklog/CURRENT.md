@@ -5,7 +5,7 @@
 - Pull request: #1 Draft, open, unmerged; base `develop`.
 - Latest verified implementation merge checkpoint: `275c1b4e5e24b5c53d27546492c4e343509e127f`.
 - Verified implementation CI through the first ten `SECURITY-RECOVERY` patches: full run `33816357502` / #1286 — success; iOS gate `33816357459` / #106 — success; Q003C/OpenXML gate `33816357453` / #103 — success.
-- Formula implementation: **DONE**, **546/546** locked catalog names; formula suite **518/518**.
+- Formula implementation: **DONE**, **546/546** locked catalog names; current formula suite **522/522**.
 - Q001, Q002, Q003A, Q003B: **DONE**.
 - Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
 - Q003D: **DONE for standard Excel PivotTable/PivotCache package preservation scope**.
@@ -32,6 +32,13 @@
   duplicate-entry and content-type override scans, are exact-head validated;
   additional bounded trust/recovery coverage remains before
   localization/a11y completion and the final Windows 11 demo.
+- `EXCEL-BASIC-COMPAT-001`: **implemented locally as a bounded compatibility
+  hotfix**. Excel `bgColor`-only differential fills load, unsupported preserved
+  conditional-format rules remain opaque, formula completion/point mode/static
+  precedent analysis are host-neutral, and WPF binds suggestions, mouse range
+  insertion and colored precedent outlines. The supplied six-sheet workbook
+  passes Load -> Save -> Load without modifying the source. Exact-head CI is
+  pending.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -85,6 +92,21 @@ At implementation checkpoint `275c1b4e5e24b5c53d27546492c4e343509e127f`:
 - MAUI Windows handler + loaded Table-filter/runtime/analytics/scale smokes: **passed**.
 - MAUI Windows loaded Ribbon smoke: **passed**.
 
+For `EXCEL-BASIC-COMPAT-001` local validation on the current uncommitted tree:
+
+- OpenXML: **83/83 passed**;
+- Editing: **214/214 passed**;
+- Rendering.Spreadsheet: **120/120 passed**;
+- Formulas: **522/522 passed**;
+- focused WPF formula editing/reference smoke: **1/1 passed**;
+- supplied workbook in-memory Load -> Save -> Load: **6/6 sheets retained**,
+  source SHA-256 unchanged and **0 OpenXML schema validation errors**;
+- full Windows.Rendering: **49/51 passed locally**; two pre-existing,
+  environment-sensitive UI/scale assertions remain red on this desktop
+  (`WpfAutomationPeerExposesChartInvokeMoveAndResizePatterns` expects 10 px but
+  observes 9.6 px, and a window activation smoke cannot activate). Exact-head
+  GitHub CI remains the release gate.
+
 ## Remaining limits
 
 - Pivot refresh/calculation equivalence, user-mode destination-cell modeling,
@@ -98,7 +120,8 @@ At implementation checkpoint `275c1b4e5e24b5c53d27546492c4e343509e127f`:
 
 ## Next single step
 
-Continue `SECURITY-RECOVERY` with the next bounded trust/recovery surface,
+After exact-head CI validates `EXCEL-BASIC-COMPAT-001`, continue
+`SECURITY-RECOVERY` with the next bounded trust/recovery surface,
 preferring preserve-unknown recovery or host/session failure containment unless
 a real OpenXML fixture reveals another archive-level graph validation gap beyond
 ZIP part, duplicate entry, relationship entry and content-type override

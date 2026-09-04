@@ -78,7 +78,8 @@ internal static class OpenXmlConditionalFormattingCodec
         ]);
 
     public static IReadOnlyList<CellStylePatch> ReadDifferentialStyles(
-        WorkbookPart workbookPart)
+        WorkbookPart workbookPart,
+        bool preserveUnsupportedMarkup = false)
     {
         ArgumentNullException.ThrowIfNull(workbookPart);
         var stylesPart = workbookPart.WorkbookStylesPart;
@@ -128,7 +129,14 @@ internal static class OpenXmlConditionalFormattingCodec
         var result = new CellStylePatch[elements.Length];
         for (var index = 0; index < elements.Length; index++)
         {
-            result[index] = ReadDifferentialStyle(elements[index]);
+            try
+            {
+                result[index] = ReadDifferentialStyle(elements[index]);
+            }
+            catch (InvalidDataException) when (preserveUnsupportedMarkup)
+            {
+                result[index] = new CellStylePatch();
+            }
         }
 
         return result;
@@ -138,6 +146,7 @@ internal static class OpenXmlConditionalFormattingCodec
         WorksheetPart worksheetPart,
         NeraWorksheet worksheet,
         IReadOnlyList<CellStylePatch> workbookDifferentialStyles,
+        bool preserveUnsupportedMarkup,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(worksheetPart);
@@ -167,6 +176,12 @@ internal static class OpenXmlConditionalFormattingCodec
                          .Elements(SpreadsheetNamespace + "cfRule"))
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (preserveUnsupportedMarkup &&
+                    !IsSupportedRuleType(
+                        (string?)ruleElement.Attribute("type")))
+                {
+                    continue;
+                }
                 if (parsed.Count >=
                     WorksheetConditionalFormattingCollection.MaxRulesPerWorksheet)
                 {
@@ -228,6 +243,9 @@ internal static class OpenXmlConditionalFormattingCodec
             worksheet.AddConditionalFormattingRule(rule);
         }
     }
+
+    private static bool IsSupportedRuleType(string? value) =>
+        value is "cellIs" or "expression";
 
     public static OpenXmlConditionalFormattingExportPlan WriteDifferentialStyles(
         WorkbookPart workbookPart,
@@ -738,19 +756,35 @@ internal static class OpenXmlConditionalFormattingCodec
         var pattern = GetSingleChild(fill, "patternFill")
             ?? throw new InvalidDataException(
                 "Differential fills must contain patternFill markup.");
-        var patternType = ReadRequiredAttribute(pattern, "patternType");
+        var patternType = (string?)pattern.Attribute("patternType");
         return patternType switch
         {
             "none" => new CellFillStyle(),
             "solid" => new CellFillStyle
             {
                 IsVisible = true,
-                Color = ReadRequiredColor(pattern, "fgColor"),
+                Color = ReadExcelDifferentialFillColor(pattern),
             },
+            null or "" when
+                ReadOptionalColor(pattern, "fgColor") is not null ||
+                ReadOptionalColor(pattern, "bgColor") is not null =>
+                new CellFillStyle
+                {
+                    IsVisible = true,
+                    Color = ReadExcelDifferentialFillColor(pattern),
+                },
+            null or "" => new CellFillStyle(),
             _ => throw new InvalidDataException(
                 $"Differential fill pattern '{patternType}' is not supported."),
         };
     }
+
+    private static ColorRgba ReadExcelDifferentialFillColor(
+        XElement pattern) =>
+        ReadOptionalColor(pattern, "fgColor") ??
+        ReadOptionalColor(pattern, "bgColor") ??
+        throw new InvalidDataException(
+            "Differential solid fill is missing an fgColor or bgColor color.");
 
     private static CellBorderStyle ReadBorder(XElement border)
     {

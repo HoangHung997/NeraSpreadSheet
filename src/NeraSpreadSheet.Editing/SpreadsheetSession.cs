@@ -40,6 +40,7 @@ public sealed class SpreadsheetSession
         WorksheetFilter =
             new SpreadsheetWorksheetAutoFilterController(this);
         Editor = new SpreadsheetCellEditorController(this);
+        FormulaEditing = new SpreadsheetFormulaEditingAssistant();
         View = new SpreadsheetViewController(this);
         Structure = new SpreadsheetStructureController(this);
         Reorder = new SpreadsheetAxisReorderController(this);
@@ -92,6 +93,8 @@ public sealed class SpreadsheetSession
         WorksheetFilter { get; }
 
     public SpreadsheetCellEditorController Editor { get; }
+
+    public SpreadsheetFormulaEditingAssistant FormulaEditing { get; }
 
     public SpreadsheetViewController View { get; }
 

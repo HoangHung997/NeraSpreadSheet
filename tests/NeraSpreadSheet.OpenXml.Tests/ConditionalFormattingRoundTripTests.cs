@@ -169,6 +169,48 @@ public sealed class ConditionalFormattingRoundTripTests
     }
 
     [TestMethod]
+    public async Task ExcelBackgroundOnlyDifferentialFillsImportAsSolidFills()
+    {
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        foreach (var patternType in new string?[] { null, "solid" })
+        {
+            await using var source = await CreatePackageAsync(serializer);
+            MutateStyleTable(source, root =>
+            {
+                var pattern = root
+                    .Element(SpreadsheetNamespace + "dxfs")?
+                    .Descendants(SpreadsheetNamespace + "patternFill")
+                    .First()
+                    ?? throw new AssertFailedException(
+                        "The generated differential fill is missing patternFill.");
+                pattern.SetAttributeValue("patternType", patternType);
+                var foreground = pattern.Element(
+                    SpreadsheetNamespace + "fgColor")
+                    ?? throw new AssertFailedException(
+                        "The generated differential fill is missing fgColor.");
+                pattern.Element(SpreadsheetNamespace + "bgColor")?.Remove();
+                foreground.Name = SpreadsheetNamespace + "bgColor";
+            });
+
+            source.Position = 0L;
+            var loaded = await serializer.LoadAsync(
+                source,
+                new OpenXmlImportOptions());
+            var worksheet = loaded.Worksheets[0];
+            var rule = worksheet.ConditionalFormattingRules
+                .OrderBy(static item => item.Priority)
+                .First();
+            var fill = worksheet.DifferentialStyles
+                .Get(rule.DifferentialStyleId)
+                .Fill;
+
+            Assert.IsNotNull(fill);
+            Assert.IsTrue(fill.IsVisible);
+            Assert.AreEqual(new ColorRgba(245, 210, 70), fill.Color);
+        }
+    }
+
+    [TestMethod]
     public async Task DuplicatePriorityAndOutOfRangeDxfAreRejected()
     {
         var serializer = new NeraOpenXmlWorkbookSerializer();
@@ -264,6 +306,50 @@ public sealed class ConditionalFormattingRoundTripTests
                 .Value.RawValue);
     }
 
+    [TestMethod]
+    public async Task PreserveUnknownPartsKeepsUnsupportedConditionalRulesOpaque()
+    {
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        await using var source = await CreatePackageAsync(serializer);
+        MutateFirstWorksheet(source, root =>
+        {
+            var rule = root
+                .Descendants(SpreadsheetNamespace + "cfRule")
+                .First();
+            rule.SetAttributeValue("type", "duplicateValues");
+            rule.Elements(SpreadsheetNamespace + "formula").Remove();
+        });
+
+        source.Position = 0L;
+        var workbook = await serializer.LoadAsync(
+            source,
+            new OpenXmlImportOptions
+            {
+                PreserveUnknownParts = true,
+            });
+        workbook.Worksheets[0].SetValue(new CellAddress(0, 6), "edited");
+
+        await using var saved = new MemoryStream();
+        await serializer.SaveAsync(
+            workbook,
+            saved,
+            new OpenXmlExportOptions
+            {
+                PreserveUnknownParts = true,
+            });
+
+        saved.Position = 0L;
+        using var document = SpreadsheetDocument.Open(saved, false);
+        var worksheetPart = document.WorkbookPart?
+            .WorksheetParts.Single()
+            ?? throw new AssertFailedException("Worksheet part is missing.");
+        var worksheetXml = LoadPartXml(worksheetPart);
+        Assert.IsTrue(worksheetXml
+            .Descendants(SpreadsheetNamespace + "cfRule")
+            .Any(static rule =>
+                (string?)rule.Attribute("type") == "duplicateValues"));
+    }
+
     private static NeraWorkbook CreateConditionalWorkbook()
     {
         var workbook = new NeraWorkbook();
@@ -353,6 +439,25 @@ public sealed class ConditionalFormattingRoundTripTests
             mutation(xml.Root
                 ?? throw new AssertFailedException(
                     "Worksheet XML root is missing."));
+            SavePartXml(part, xml);
+        }
+        stream.Position = 0L;
+    }
+
+    private static void MutateStyleTable(
+        MemoryStream stream,
+        Action<XElement> mutation)
+    {
+        stream.Position = 0L;
+        using (var document = SpreadsheetDocument.Open(stream, true))
+        {
+            var part = document.WorkbookPart?.WorkbookStylesPart
+                ?? throw new AssertFailedException(
+                    "Workbook style part is missing.");
+            var xml = LoadPartXml(part);
+            mutation(xml.Root
+                ?? throw new AssertFailedException(
+                    "Workbook style XML root is missing."));
             SavePartXml(part, xml);
         }
         stream.Position = 0L;

@@ -12,7 +12,7 @@ The fixed weighted roadmap rubric in [`project-progress.md`](project-progress.md
 | AST/reference-aware | 40 |
 | Dynamic-array unique | 38 |
 | **Total** | **546 / 546 locked catalog names** |
-| Formula/hardening tests | **518/518** |
+| Formula/hardening tests | **522/522** |
 | Completed formula cycles | F001-F019 |
 
 The formula catalog is considered complete. New names are added only if a compatibility audit supplies concrete evidence worth reopening the catalog.
@@ -236,6 +236,28 @@ Exact-head GitHub evidence at commit
 - Q003C/OpenXML gate: **#103 / run 33816357453 — success**;
 - `sdk-packages` artifact: ID `9916694642`, digest
   `sha256:a2a7d18733f941a770202723f67bddb7212ee3ecff07a8e75ddacdbc6c9df306`.
+
+## EXCEL-BASIC-COMPAT-001 — LOCAL IMPLEMENTATION COMPLETE
+
+The user-reported workbook compatibility and reusable formula-editing gaps now
+have a bounded SDK implementation:
+
+- Excel differential fills that use only `bgColor`, including files with no
+  `patternType`, import without aborting the workbook load;
+- explicit unknown-part preservation tolerates unsupported conditional-format
+  rules and preserves the original rule/`dxf` mapping on save;
+- the supplied six-sheet workbook `Excel_Thuan Thanh 6789.xlsx` passes an
+  in-memory Load -> Save -> Load smoke with its source SHA-256 unchanged and
+  zero OpenXML schema validation errors;
+- host-neutral formula completion, A1 point-mode insertion and static reference
+  analysis APIs are available;
+- shared rendering draws visible precedent outlines, and the WPF control binds
+  suggestions, mouse-drag reference insertion and formula-cell highlights;
+- OpenXML 83/83, Editing 214/214, Rendering.Spreadsheet 120/120 and Formulas
+  522/522 pass locally; the focused WPF formula-editing smoke passes.
+
+The demo-specific visible scrollbar and horizontal sheet-tab layout remain
+outside this SDK change. Exact-head GitHub Actions evidence is pending.
 
 ## Current boundaries
 

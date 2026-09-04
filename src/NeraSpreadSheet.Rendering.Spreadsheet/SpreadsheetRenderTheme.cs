@@ -10,6 +10,14 @@ public sealed record SpreadsheetRenderTheme
     public ColorRgba Text { get; init; } = ColorRgba.Black;
     public ColorRgba Selection { get; init; } = ColorRgba.Selection;
     public ColorRgba ActiveCell { get; init; } = new(16, 92, 52);
+    public IReadOnlyList<ColorRgba> FormulaReferenceColors { get; init; } =
+    [
+        new(33, 115, 201),
+        new(196, 62, 62),
+        new(139, 74, 168),
+        new(210, 124, 31),
+        new(27, 140, 122),
+    ];
     public ColorRgba InvalidCell { get; init; } = new(196, 32, 32);
     public ColorRgba FreezePaneLine { get; init; } = new(128, 128, 128);
     public ColorRgba SplitPaneSeparator { get; init; } = new(176, 176, 176);
@@ -34,6 +42,7 @@ public sealed record SpreadsheetRenderTheme
     public string FontFamily { get; init; } = "Segoe UI";
     public double FontSize { get; init; } = 12d;
     public double SelectionStrokeWidth { get; init; } = 2d;
+    public double FormulaReferenceStrokeWidth { get; init; } = 2d;
     public double InvalidCellStrokeWidth { get; init; } = 2d;
     public double GridStrokeWidth { get; init; } = 1d;
     public double FreezePaneStrokeWidth { get; init; } = 2d;

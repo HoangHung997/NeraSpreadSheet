@@ -32,6 +32,10 @@ before moving to another lane.
 | 7 | `WIN11-DEMO-APP` | Unclaimed | Pending | Runnable Windows 11 demo app packaging the finished stack |
 | 8 | `FINAL-ACCEPTANCE` | Unclaimed | Pending | Full validation, docs, release evidence, PR ready criteria |
 
+User-reported compatibility interrupts may be handled as bounded hotfix lanes
+without transferring ownership of the active roadmap lane. `EXCEL-BASIC-COMPAT-001`
+is such a lane; it does not claim demo scrollbar or sheet-tab work.
+
 ## Closed lane: RIBBON-MAUI
 
 Scope:
@@ -82,6 +86,7 @@ Out of scope for this lane:
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | Package-level OpenXML archive relationship scan exact-head validated at `7f87a9bc2d7e8cb2d26b5b66210f1fa35005d839`: local Core 1226/1226 and OpenXML 79/79 passed; full CI #1278, iOS gate #94 and Q003C/OpenXML gate #91 all succeeded. SDK packages artifact `9915090019` was uploaded. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | Content-type override `PartName` validation exact-head validated at `af80a91df5b077077b0017d59ce5fd09eb5e5f52`: local Core 1227/1227 and OpenXML 80/80 passed; full CI #1282, iOS gate #100 and Q003C/OpenXML gate #97 all succeeded. SDK packages artifact `9915968341` was uploaded. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | Duplicate ZIP package part entry rejection exact-head validated at `275c1b4e5e24b5c53d27546492c4e343509e127f`: local Core 1228/1228 and OpenXML 81/81 passed; full CI #1286, iOS gate #106 and Q003C/OpenXML gate #103 all succeeded. SDK packages artifact `9916694642` was uploaded. |
+| 2026-09-04 | Codex | `EXCEL-BASIC-COMPAT-001` | Bounded user-reported hotfix implemented locally: tolerant Excel differential fills and opaque unsupported conditional-format preservation; host-neutral formula suggestions, point-mode references and static reference analysis; visible reference outlines and WPF integration. Supplied six-sheet workbook Load -> Save -> Load passes without modifying the source. Exact-head CI pending. |
 
 ## Closed lane: PIVOT-OPENXML-STANDARD
 

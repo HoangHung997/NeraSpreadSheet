@@ -60,6 +60,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
             VerticalContentAlignment = VerticalAlignment.Center,
         };
         _editor.KeyDown += OnEditorKeyDown;
+        InitializeFormulaEditingUi();
         _visuals.Add(_gpuSurface);
         _visuals.Add(_editor);
         Loaded += OnLoaded;
@@ -188,8 +189,13 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         _lastLayout = frame.Layout;
         ContentWidth = frame.Layout.ContentWidth;
         ContentHeight = frame.Layout.ContentHeight;
-        var displayList = SpreadsheetChromeDisplayListComposer.Compose(
+        var bodyDisplayList = SpreadsheetFormulaReferenceDisplayListComposer.Compose(
             frame.DisplayList,
+            frame.Layout,
+            GetFormulaReferenceHighlights(),
+            RenderTheme.FormulaReferenceStrokeWidth);
+        var displayList = SpreadsheetChromeDisplayListComposer.Compose(
+            bodyDisplayList,
             frame.Layout,
             _session.Selection.Capture(),
             RenderTheme);
@@ -240,13 +246,18 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         {
             return;
         }
+        var point = e.GetPosition(this);
+        if (TryBeginFormulaReferencePointer(point))
+        {
+            e.Handled = true;
+            return;
+        }
         if (IsEditing)
         {
             CommitEditor();
         }
         Focus();
 
-        var point = e.GetPosition(this);
         if (TryBeginHeaderResize(point.X, point.Y))
         {
             e.Handled = true;
@@ -348,6 +359,11 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         }
 
         var point = e.GetPosition(this);
+        if (UpdateFormulaReferencePointer(point))
+        {
+            e.Handled = true;
+            return;
+        }
         if (_headerResize is { } resize)
         {
             ApplyHeaderResize(resize, point.X, point.Y);
@@ -378,6 +394,12 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         }
 
         var point = e.GetPosition(this);
+        if (UpdateFormulaReferencePointer(point) &&
+            EndFormulaReferencePointer())
+        {
+            e.Handled = true;
+            return;
+        }
         if (_headerResize is { } resize)
         {
             ApplyHeaderResize(resize, point.X, point.Y);
@@ -404,6 +426,11 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
     {
         base.OnLostMouseCapture(e);
         var changed = false;
+        if (_formulaReferenceAnchor is not null)
+        {
+            _formulaReferenceAnchor = null;
+            changed = true;
+        }
         if (_headerResize is not null)
         {
             _headerResize = null;
@@ -570,6 +597,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         }
         var state = _cellEditor.BeginEdit();
         _editor.Text = replacementText ?? state.InitialText;
+        _formulaReferenceSpan = null;
         _editor.Visibility = Visibility.Visible;
         UpdateEditorBounds();
         _editor.Focus();
@@ -581,6 +609,8 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         {
             _editor.CaretIndex = _editor.Text.Length;
         }
+        UpdateFormulaSuggestions(
+            replacementText is null ? _editor.CaretIndex : _editor.Text.Length);
     }
 
     public bool CommitEditor()
@@ -591,6 +621,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
             return false;
         }
         HideEditor();
+        ResetFormulaEditingUi();
         Focus();
         return true;
     }
@@ -603,6 +634,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
             return false;
         }
         HideEditor();
+        ResetFormulaEditingUi();
         Focus();
         return true;
     }
@@ -641,6 +673,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         Loaded -= OnLoaded;
         Unloaded -= OnUnloaded;
         _editor.KeyDown -= OnEditorKeyDown;
+        DisposeFormulaEditingUi();
         _gpuSurface.Dispose();
         _disposed = true;
     }
@@ -976,6 +1009,11 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
     {
         if (_disposed)
         {
+            return;
+        }
+        if (TryHandleFormulaSuggestionKey(e))
+        {
+            e.Handled = true;
             return;
         }
         if (e.Key is Key.Enter or Key.Return)

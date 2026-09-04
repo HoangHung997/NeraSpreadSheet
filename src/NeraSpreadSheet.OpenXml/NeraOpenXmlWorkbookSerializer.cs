@@ -168,7 +168,8 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             exactStyleState?.Catalog);
         var differentialStyles =
             OpenXmlConditionalFormattingCodec.ReadDifferentialStyles(
-                workbookPart);
+                workbookPart,
+                options.PreserveUnknownParts);
         var sharedStrings =
             workbookPart.SharedStringTablePart?.SharedStringTable;
 
@@ -215,6 +216,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 worksheetPart,
                 worksheet,
                 differentialStyles,
+                options.PreserveUnknownParts,
                 cancellationToken);
             OpenXmlDataValidationCodec.ReadWorksheetRules(
                 worksheetPart,

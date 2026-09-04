@@ -140,6 +140,8 @@ internal static class OpenXmlPackagePreserver
                     "Cannot preserve unknown XLSX parts when worksheet topology differs from the captured package.");
             }
 
+            var worksheetPairs = new List<(WorksheetPart Preserved, WorksheetPart Generated)>(
+                workbook.Worksheets.Count);
             for (var index = 0; index < workbook.Worksheets.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -160,12 +162,21 @@ internal static class OpenXmlPackagePreserver
                     index,
                     preservedRelationshipId,
                     preservedWorksheetPart.Uri);
-                PatchWorksheetPart(
-                    preservedWorksheetPart,
-                    generatedWorksheetPart);
+                worksheetPairs.Add((preservedWorksheetPart, generatedWorksheetPart));
                 preservedSheets[index].SetAttributeValue(
                     "name",
                     workbook.Worksheets[index].Name);
+            }
+
+            var preserveConditionalFormatting = worksheetPairs.Any(
+                static pair => ContainsUnsupportedConditionalFormatting(
+                    pair.Preserved));
+            foreach (var pair in worksheetPairs)
+            {
+                PatchWorksheetPart(
+                    pair.Preserved,
+                    pair.Generated,
+                    preserveConditionalFormatting);
             }
 
             SavePartXml(
@@ -173,7 +184,8 @@ internal static class OpenXmlPackagePreserver
                 preservedWorkbookXml);
             PatchStyles(
                 preservedWorkbookPart,
-                generatedWorkbookPart);
+                generatedWorkbookPart,
+                preserveConditionalFormatting);
             NeraOpenXmlStyleStateCodec.Write(
                 preservedWorkbookPart,
                 workbook);
@@ -184,7 +196,8 @@ internal static class OpenXmlPackagePreserver
 
     private static void PatchWorksheetPart(
         WorksheetPart preservedPart,
-        WorksheetPart generatedPart)
+        WorksheetPart generatedPart,
+        bool preserveConditionalFormatting)
     {
         var preservedXml = LoadPartXml(preservedPart);
         var generatedXml = LoadPartXml(generatedPart);
@@ -204,7 +217,10 @@ internal static class OpenXmlPackagePreserver
         ReplaceOwnedElements(
             preservedRoot,
             generatedRoot,
-            WorksheetOwnedElements,
+            preserveConditionalFormatting
+                ? WorksheetOwnedElements.Where(
+                    static name => name != "conditionalFormatting")
+                : WorksheetOwnedElements,
             WorksheetOrder);
         SavePartXml(
             preservedPart,
@@ -213,7 +229,8 @@ internal static class OpenXmlPackagePreserver
 
     private static void PatchStyles(
         WorkbookPart preservedWorkbookPart,
-        WorkbookPart generatedWorkbookPart)
+        WorkbookPart generatedWorkbookPart,
+        bool preserveDifferentialStyles)
     {
         var generatedStylesPart = generatedWorkbookPart.WorkbookStylesPart
             ?? throw new InvalidDataException(
@@ -247,11 +264,24 @@ internal static class OpenXmlPackagePreserver
         ReplaceOwnedElements(
             preservedRoot,
             generatedRoot,
-            StylesheetOwnedElements,
+            preserveDifferentialStyles
+                ? StylesheetOwnedElements.Where(static name => name != "dxfs")
+                : StylesheetOwnedElements,
             StylesheetOrder);
         SavePartXml(
             preservedStylesPart,
             preservedXml);
+    }
+
+    private static bool ContainsUnsupportedConditionalFormatting(
+        WorksheetPart worksheetPart)
+    {
+        var root = LoadPartXml(worksheetPart).Root;
+        return root is not null && root
+            .Descendants(SpreadsheetNamespace + "cfRule")
+            .Any(static rule =>
+                (string?)rule.Attribute("type") is not (
+                    "cellIs" or "expression"));
     }
 
     private static XElement[] GetSheetElements(XDocument workbookXml)

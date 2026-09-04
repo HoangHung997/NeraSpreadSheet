@@ -12,7 +12,7 @@ NeraSpreadSheet is an independent spreadsheet SDK for WPF, WinForms and .NET MAU
 | AST/reference-aware functions | 40 |
 | Dynamic-array unique functions | 38 |
 | **Total functions** | **546 / 546 locked catalog names** |
-| Formula/hardening tests | 518/518 |
+| Formula/hardening tests | 522/522 |
 | Formula implementation | DONE — F001–F019, exact-head CI #922 green |
 | Pull request | #1 Draft, unmerged |
 
