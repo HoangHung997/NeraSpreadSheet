@@ -14,6 +14,13 @@ public sealed class NeraRibbonControl : UserControl
 {
     private readonly RibbonRuntimeController _runtime;
     private readonly RibbonResponsiveLayoutEngine _layoutEngine = new();
+    private readonly FlowLayoutPanel _topBar = new()
+    {
+        Dock = DockStyle.Top,
+        AutoSize = true,
+        WrapContents = false,
+    };
+    private readonly FlowLayoutPanel _backstage = new() { Dock = DockStyle.Fill };
     private readonly TabControl _tabs = new() { Dock = DockStyle.Fill };
     private readonly ToolTip _toolTip = new();
     private readonly List<ContextMenuStrip> _overflowMenus = [];
@@ -27,6 +34,8 @@ public sealed class NeraRibbonControl : UserControl
     private bool _restoreCommandFocus;
     private bool _suppressChoiceActivation;
     private bool _resizeRebuildPending;
+    private bool _isBackstageOpen;
+    private Control? _focusBeforeKeyTips;
     private bool _disposed;
 
     public NeraRibbonControl(RibbonRuntimeController runtime)
@@ -35,6 +44,8 @@ public sealed class NeraRibbonControl : UserControl
         Name = "NeraRibbon";
         AccessibleName = "Thanh Ribbon NeraSpreadSheet";
         Controls.Add(_tabs);
+        Controls.Add(_backstage);
+        Controls.Add(_topBar);
         _runtime.SnapshotChanged += OnSnapshotChanged;
         _tabs.SelectedIndexChanged += OnSelectedIndexChanged;
         Resize += OnRibbonResize;
@@ -102,6 +113,79 @@ public sealed class NeraRibbonControl : UserControl
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public RibbonLayoutSnapshot LayoutSnapshot { get; private set; } = null!;
 
+    [Localizable(true)]
+    [DefaultValue("Tệp")]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+    public string FileCaption { get; set; } = "Tệp";
+
+    [Localizable(true)]
+    [DefaultValue("Mở khu vực Tệp")]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+    public string FileAutomationName { get; set; } = "Mở khu vực Tệp";
+
+    [DefaultValue(false)]
+    public bool IsMinimized
+    {
+        get => _runtime.IsMinimized;
+        set => _runtime.SetMinimized(value);
+    }
+
+    [Browsable(false)]
+    public bool IsBackstageOpen => _isBackstageOpen;
+
+    [Browsable(false)]
+    public RibbonKeyTipScope KeyTipScope => _runtime.KeyTips.Scope;
+
+    public void EnterKeyTipMode()
+    {
+        _focusBeforeKeyTips = FindForm()?.ActiveControl;
+        _runtime.KeyTips.Enter();
+        Rebuild();
+    }
+
+    public async ValueTask<bool> ProcessKeyTipAsync(string keyTip)
+    {
+        var result = _runtime.KeyTips.Process(keyTip);
+        return await ApplyKeyTipResultAsync(result);
+    }
+
+    private async ValueTask<bool> ApplyKeyTipResultAsync(RibbonKeyTipResult result)
+    {
+        if (result.TabId is { } tabId)
+        {
+            _isBackstageOpen = false;
+            _selectedTabId = tabId;
+            Rebuild();
+            return true;
+        }
+        if (result.CommandId is { } commandId)
+        {
+            await ActivateCommandAsync(commandId);
+            RestoreKeyTipOrigin();
+            return true;
+        }
+        if (result.Action == RibbonKeyTipAction.ScopeChanged)
+        {
+            Rebuild();
+            return true;
+        }
+        return false;
+    }
+
+    public void EscapeKeyTipMode()
+    {
+        var result = _runtime.KeyTips.Escape();
+        if (result.Action == RibbonKeyTipAction.Exit)
+        {
+            RestoreKeyTipOrigin();
+        }
+        if (_runtime.KeyTips.Scope == RibbonKeyTipScope.Tabs)
+        {
+            _isBackstageOpen = false;
+        }
+        Rebuild();
+    }
+
     public IDisposable BindShortcuts(Control owner)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -130,6 +214,8 @@ public sealed class NeraRibbonControl : UserControl
                 _focusedCommandId));
         var selectedTabId = LayoutSnapshot.SelectedTabId;
         _focusedCommandId = LayoutSnapshot.FocusedCommandId;
+        RebuildTopBar();
+        RebuildBackstage();
         var oldPages = _tabs.TabPages.Cast<TabPage>().ToArray();
         _tabs.TabPages.Clear();
         _toolTip.RemoveAll();
@@ -144,7 +230,10 @@ public sealed class NeraRibbonControl : UserControl
         }
         foreach (var tab in LayoutSnapshot.Tabs)
         {
-            var page = new TabPage(tab.Presentation.Caption)
+            var page = new TabPage(
+                _runtime.KeyTips.Scope == RibbonKeyTipScope.Tabs
+                    ? $"{tab.Presentation.Caption} [{_runtime.KeyTips.TabTips[tab.Presentation.Id]}]"
+                    : tab.Presentation.Caption)
             {
                 Name = $"ribbon-tab-{tab.Presentation.Id}",
                 Tag = tab.Presentation.Id,
@@ -156,6 +245,7 @@ public sealed class NeraRibbonControl : UserControl
                 AutoScroll = false,
                 WrapContents = false,
                 FlowDirection = FlowDirection.LeftToRight,
+                Visible = !_runtime.IsMinimized,
             };
             foreach (var group in tab.Groups.Where(static group =>
                          group.Mode != RibbonGroupLayoutMode.Overflow))
@@ -198,6 +288,8 @@ public sealed class NeraRibbonControl : UserControl
             }
         }
         _selectedTabId = selectedTabId;
+        _tabs.Visible = !_isBackstageOpen;
+        _backstage.Visible = _isBackstageOpen;
         RestoreFocus();
     }
 
@@ -224,6 +316,130 @@ public sealed class NeraRibbonControl : UserControl
         }
         base.Dispose(disposing);
     }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData is Keys.Menu or (Keys.Alt | Keys.Menu))
+        {
+            EnterKeyTipMode();
+            return true;
+        }
+        if (keyData == Keys.Escape && _runtime.KeyTips.Scope != RibbonKeyTipScope.Inactive)
+        {
+            EscapeKeyTipMode();
+            return true;
+        }
+        if (_runtime.KeyTips.Scope != RibbonKeyTipScope.Inactive &&
+            TryGetKeyTipCharacter(keyData, out var character))
+        {
+            _ = ApplyKeyTipResultAsync(
+                _runtime.KeyTips.ProcessCharacter(character)).AsTask();
+            return true;
+        }
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    private static bool TryGetKeyTipCharacter(Keys keyData, out char character)
+    {
+        var key = keyData & Keys.KeyCode;
+        if (key is >= Keys.A and <= Keys.Z)
+        {
+            character = (char)('A' + (int)key - (int)Keys.A);
+            return true;
+        }
+        if (key is >= Keys.D0 and <= Keys.D9)
+        {
+            character = (char)('0' + (int)key - (int)Keys.D0);
+            return true;
+        }
+        character = default;
+        return false;
+    }
+
+    private void RebuildTopBar()
+    {
+        DisposeChildren(_topBar);
+        _topBar.Controls.Clear();
+        var file = new Button
+        {
+            Text = _runtime.KeyTips.Scope == RibbonKeyTipScope.Tabs
+                ? $"{FileCaption} [F]"
+                : FileCaption,
+            Name = "ribbon-file",
+            AccessibleName = FileAutomationName,
+            AutoSize = true,
+        };
+        file.Click += (_, _) =>
+        {
+            _isBackstageOpen = !_isBackstageOpen;
+            if (_isBackstageOpen)
+            {
+                _runtime.KeyTips.OpenBackstage();
+            }
+            Rebuild();
+        };
+        _topBar.Controls.Add(file);
+        foreach (var command in _runtime.Snapshot.QuickAccessToolbar)
+        {
+            var button = new Button
+            {
+                Text = _runtime.KeyTips.Scope switch
+                {
+                    RibbonKeyTipScope.Tabs => $"{command.Caption} [Q→{FindSurfaceTip(_runtime.Definition.QuickAccessToolbar, command.CommandId)}]",
+                    RibbonKeyTipScope.QuickAccessToolbar => $"{command.Caption} [{FindSurfaceTip(_runtime.Definition.QuickAccessToolbar, command.CommandId)}]",
+                    _ => command.Caption,
+                },
+                Name = $"ribbon-qat-{command.CommandId.Value}",
+                AccessibleName = command.Caption,
+                Tag = command.CommandId,
+                Enabled = command.IsEnabled,
+                AutoSize = true,
+            };
+            button.Click += OnCommandClick;
+            _topBar.Controls.Add(button);
+        }
+    }
+
+    private void RebuildBackstage()
+    {
+        DisposeChildren(_backstage);
+        _backstage.Controls.Clear();
+        foreach (var command in _runtime.Snapshot.Backstage)
+        {
+            var button = new Button
+            {
+                Text = _runtime.KeyTips.Scope == RibbonKeyTipScope.Backstage
+                    ? $"{command.Caption} [{FindSurfaceTip(_runtime.Definition.Backstage, command.CommandId)}]"
+                    : command.Caption,
+                Name = $"ribbon-backstage-{command.CommandId.Value}",
+                AccessibleName = command.Caption,
+                Tag = command.CommandId,
+                Enabled = command.IsEnabled,
+                AutoSize = true,
+            };
+            button.Click += OnCommandClick;
+            _backstage.Controls.Add(button);
+        }
+    }
+
+    private void RestoreKeyTipOrigin()
+    {
+        _focusBeforeKeyTips?.Focus();
+        _focusBeforeKeyTips = null;
+    }
+
+    private static void DisposeChildren(Control parent)
+    {
+        foreach (Control child in parent.Controls)
+        {
+            child.Dispose();
+        }
+    }
+
+    private static string FindSurfaceTip(
+        IReadOnlyList<RibbonCommandSurfaceItem> items,
+        CommandId commandId) =>
+        items.First(item => item.CommandId == commandId).KeyTip;
 
     private Control CreateRibbonItem(RibbonItemLayout item) =>
         item.Presentation.Kind switch
@@ -254,7 +470,7 @@ public sealed class NeraRibbonControl : UserControl
             : null;
         button.Text = item.Size == RibbonItemSize.Compact && resolvedIcon is not null
             ? string.Empty
-            : command.Caption;
+            : DecorateCommandCaption(command);
         button.Tag = command.CommandId;
         button.Enabled = command.IsEnabled;
         button.AutoSize = false;
@@ -280,6 +496,17 @@ public sealed class NeraRibbonControl : UserControl
             string.IsNullOrWhiteSpace(toolTip) ? command.Caption : toolTip);
         button.Click += OnCommandClick;
         return button;
+    }
+
+    private string DecorateCommandCaption(CommandPresentation command)
+    {
+        if (_runtime.KeyTips.Scope != RibbonKeyTipScope.Tab)
+        {
+            return command.Caption;
+        }
+        var tip = _runtime.KeyTips.GetCommandTips()
+            .FirstOrDefault(pair => pair.Value == command.CommandId).Key;
+        return string.IsNullOrEmpty(tip) ? command.Caption : $"{command.Caption} [{tip}]";
     }
 
     private Panel CreateSeparator(RibbonItemLayout item) => new()

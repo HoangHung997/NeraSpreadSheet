@@ -41,7 +41,13 @@ public sealed class RibbonCustomization
             tabs.Add(ApplyTab(tab, tabOverride));
         }
 
-        return new RibbonDefinition(tabs);
+        var retainedTabIds = tabs.Select(static tab => tab.Id).ToHashSet(
+            StringComparer.OrdinalIgnoreCase);
+        return new RibbonDefinition(
+            tabs,
+            definition.ContextualTabs.Where(rule => retainedTabIds.Contains(rule.TabId)),
+            definition.QuickAccessToolbar,
+            definition.Backstage);
     }
 
     private static RibbonTabDefinition ApplyTab(

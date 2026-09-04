@@ -7,12 +7,21 @@ namespace NeraSpreadSheet.Ribbon.Core;
 /// </summary>
 public sealed class RibbonPresentationSnapshot
 {
-    internal RibbonPresentationSnapshot(IReadOnlyList<RibbonTabPresentation> tabs)
+    internal RibbonPresentationSnapshot(
+        IReadOnlyList<RibbonTabPresentation> tabs,
+        IReadOnlyList<CommandPresentation> quickAccessToolbar,
+        IReadOnlyList<CommandPresentation> backstage)
     {
         Tabs = tabs;
+        QuickAccessToolbar = quickAccessToolbar;
+        Backstage = backstage;
     }
 
     public IReadOnlyList<RibbonTabPresentation> Tabs { get; }
+
+    public IReadOnlyList<CommandPresentation> QuickAccessToolbar { get; }
+
+    public IReadOnlyList<CommandPresentation> Backstage { get; }
 }
 
 public sealed class RibbonTabPresentation
@@ -103,14 +112,34 @@ public sealed class RibbonPresentationProjector
     /// </summary>
     public RibbonPresentationSnapshot Project(
         RibbonDefinition definition,
-        CommandContext context = default)
+        CommandContext context = default,
+        RibbonSelectionContext selectionContext = default)
     {
         ArgumentNullException.ThrowIfNull(definition);
         var cache = new Dictionary<CommandId, CommandPresentation>();
         var tabs = definition.Tabs
+            .Where(tab => IsTabVisible(definition, tab, selectionContext))
             .Select(tab => ProjectTab(tab, context, cache))
             .ToArray();
-        return new RibbonPresentationSnapshot(tabs);
+        var quickAccessToolbar = definition.QuickAccessToolbar
+            .Select(item => Resolve(item.CommandId, context, cache))
+            .ToArray();
+        var backstage = definition.Backstage
+            .Select(item => Resolve(item.CommandId, context, cache))
+            .ToArray();
+        return new RibbonPresentationSnapshot(tabs, quickAccessToolbar, backstage);
+    }
+
+    private static bool IsTabVisible(
+        RibbonDefinition definition,
+        RibbonTabDefinition tab,
+        RibbonSelectionContext context)
+    {
+        var rule = definition.ContextualTabs.FirstOrDefault(candidate => string.Equals(
+            candidate.TabId,
+            tab.Id,
+            StringComparison.OrdinalIgnoreCase));
+        return rule is null || rule.IsVisible(context);
     }
 
     private RibbonTabPresentation ProjectTab(
