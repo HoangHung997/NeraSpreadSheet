@@ -31,6 +31,8 @@ internal static class OpenXmlWorksheetAutoFilterCodec
     public static void ReadWorksheetFilter(
         WorksheetPart worksheetPart,
         NeraWorksheet worksheet,
+        IReadOnlyList<CellStylePatch> differentialStyles,
+        bool preserveUnsupportedMarkup,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(worksheetPart);
@@ -50,7 +52,7 @@ internal static class OpenXmlWorksheetAutoFilterCodec
 
         try
         {
-            worksheet.SetAutoFilter(ParseAutoFilter(elements[0], cancellationToken));
+            worksheet.SetAutoFilter(ParseAutoFilter(elements[0], differentialStyles, preserveUnsupportedMarkup, cancellationToken));
         }
         catch (Exception exception) when (
             exception is ArgumentException or InvalidOperationException)
@@ -63,7 +65,8 @@ internal static class OpenXmlWorksheetAutoFilterCodec
 
     public static void WriteWorksheetFilter(
         WorksheetPart worksheetPart,
-        NeraWorksheet worksheet)
+        NeraWorksheet worksheet,
+        OpenXmlConditionalFormattingExportPlan exportPlan)
     {
         ArgumentNullException.ThrowIfNull(worksheetPart);
         ArgumentNullException.ThrowIfNull(worksheet);
@@ -86,8 +89,13 @@ internal static class OpenXmlWorksheetAutoFilterCodec
             new XAttribute("ref", ToA1Range(autoFilter.Range)));
         foreach (var column in autoFilter.Columns.OrderBy(static item => item.ColumnOffset))
         {
-            element.Add(BuildFilterColumn(column));
+            element.Add(BuildFilterColumn(column, worksheet, exportPlan));
         }
+        var sortState = OpenXmlAutoFilterCriteriaCodec.BuildSortState(
+            autoFilter.SortState,
+            autoFilter.DataRange ?? autoFilter.Range,
+            color => exportPlan.GetColorStyleId(worksheet, color));
+        if (sortState is not null) element.Add(sortState);
         InsertInSchemaOrder(root, element);
         SavePartXml(worksheetPart, document);
     }
@@ -113,8 +121,7 @@ internal static class OpenXmlWorksheetAutoFilterCodec
             : new XElement(generated[0]);
         if (replacement is not null && preserved.Length == 1)
         {
-            PreserveOpaqueAttributes(preserved[0], replacement);
-            PreserveExtensionList(preserved[0], replacement);
+            PreserveFilterMarkup(preserved[0], replacement);
         }
         foreach (var element in preserved)
         {
@@ -126,13 +133,25 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         }
     }
 
+    internal static void PreserveFilterMarkup(XElement preserved, XElement replacement)
+    {
+        PreserveOpaqueAttributes(preserved, replacement);
+        PreserveExtensionList(preserved, replacement);
+        PreserveColumnExtensions(preserved, replacement);
+        PreserveSortExtensions(preserved, replacement);
+        PreserveUnownedChildren(preserved, replacement);
+    }
+
     private static WorksheetAutoFilter ParseAutoFilter(
         XElement element,
+        IReadOnlyList<CellStylePatch> differentialStyles,
+        bool preserveUnsupportedMarkup,
         CancellationToken cancellationToken)
     {
         EnsureOnlyAttributes(element, "ref");
         var unsupported = element.Elements().FirstOrDefault(child =>
             child.Name != SpreadsheetNamespace + "filterColumn" &&
+            child.Name != SpreadsheetNamespace + "sortState" &&
             child.Name != SpreadsheetNamespace + "extLst");
         if (unsupported is not null)
         {
@@ -153,35 +172,50 @@ internal static class OpenXmlWorksheetAutoFilterCodec
                 throw new InvalidDataException(
                     "The worksheet AutoFilter contains duplicate column indexes.");
             }
-            columns.Add(ParseFilterColumn(filterColumn, offset));
+            try
+            {
+                columns.Add(ParseFilterColumn(filterColumn, offset, differentialStyles));
+            }
+            catch (InvalidDataException) when (preserveUnsupportedMarkup)
+            {
+                // The package envelope retains this producer-owned criterion.
+            }
         }
-        return new WorksheetAutoFilter(range, columns, hasHeaderRow: true);
+        SpreadsheetFilterSortState? sortState;
+        try
+        {
+            sortState = OpenXmlAutoFilterCriteriaCodec.ParseSortState(
+                element,
+                range,
+                (id, cellColor) => ResolveColor(differentialStyles, id, cellColor));
+        }
+        catch (InvalidDataException) when (preserveUnsupportedMarkup)
+        {
+            sortState = null;
+        }
+        return new WorksheetAutoFilter(range, columns, hasHeaderRow: true, sortState);
     }
 
     private static WorksheetAutoFilterColumn ParseFilterColumn(
         XElement filterColumn,
-        int columnOffset)
+        int columnOffset,
+        IReadOnlyList<CellStylePatch> differentialStyles)
     {
-        EnsureOnlyAttributes(filterColumn, "colId", "hiddenButton", "showButton");
-        var children = filterColumn.Elements()
-            .Where(element => element.Name != SpreadsheetNamespace + "extLst")
-            .ToArray();
-        if (children.Length != 1)
-        {
-            throw new InvalidDataException(
-                "A supported worksheet filterColumn requires exactly one filter definition.");
-        }
-
-        if (children[0].Name == SpreadsheetNamespace + "filters")
-        {
-            return ParseValueFilters(children[0], columnOffset);
-        }
-        if (children[0].Name == SpreadsheetNamespace + "customFilters")
-        {
-            return ParseCustomFilters(children[0], columnOffset);
-        }
-        throw new InvalidDataException(
-            $"Unsupported worksheet AutoFilter type '{children[0].Name.LocalName}'.");
+        var parsed = OpenXmlAutoFilterCriteriaCodec.Parse(
+            filterColumn,
+            (id, cellColor) => ResolveColor(differentialStyles, id, cellColor));
+        return new WorksheetAutoFilterColumn(
+            columnOffset,
+            parsed.Values,
+            parsed.IncludeBlank,
+            parsed.FirstCondition,
+            parsed.SecondCondition,
+            parsed.CombineWithAnd,
+            parsed.DateGroups,
+            parsed.TopBottom,
+            parsed.DynamicFilter,
+            parsed.ColorFilter,
+            parsed.IconFilter);
     }
 
     private static WorksheetAutoFilterColumn ParseValueFilters(
@@ -287,54 +321,33 @@ internal static class OpenXmlWorksheetAutoFilterCodec
             ParseFilterValue(valueText));
     }
 
-    private static XElement BuildFilterColumn(WorksheetAutoFilterColumn column)
+    private static XElement BuildFilterColumn(
+        WorksheetAutoFilterColumn column,
+        NeraWorksheet worksheet,
+        OpenXmlConditionalFormattingExportPlan exportPlan)
     {
         var result = new XElement(
             SpreadsheetNamespace + "filterColumn",
             new XAttribute("colId", column.ColumnOffset));
-        var includeBlank = column.IncludeBlank ||
-                           column.Values.Any(static value => value.IsBlank);
-        if (column.Values.Count > 0 || includeBlank)
-        {
-            if (column.Values.Count > MaxFilterValuesPerColumn)
-            {
-                throw new InvalidOperationException(
-                    $"A worksheet filter column cannot contain more than {MaxFilterValuesPerColumn} values.");
-            }
-            var filters = new XElement(SpreadsheetNamespace + "filters");
-            if (includeBlank)
-            {
-                filters.SetAttributeValue("blank", 1);
-            }
-            foreach (var value in column.Values)
-            {
-                if (!value.IsBlank)
-                {
-                    filters.Add(new XElement(
-                        SpreadsheetNamespace + "filter",
-                        new XAttribute("val", FormatFilterValue(value))));
-                }
-            }
-            result.Add(filters);
-            return result;
-        }
-
-        var customFilters = new XElement(
-            SpreadsheetNamespace + "customFilters");
-        if (column.SecondCondition is not null && column.CombineWithAnd)
-        {
-            customFilters.SetAttributeValue("and", 1);
-        }
-        customFilters.Add(BuildCustomFilter(
-            column.FirstCondition
-            ?? throw new InvalidOperationException(
-                "A worksheet custom filter is missing its first condition.")));
-        if (column.SecondCondition is not null)
-        {
-            customFilters.Add(BuildCustomFilter(column.SecondCondition));
-        }
-        result.Add(customFilters);
+        result.Add(OpenXmlAutoFilterCriteriaCodec.Build(
+            column.Criteria,
+            color => exportPlan.GetColorStyleId(worksheet, color)));
         return result;
+    }
+
+    private static SpreadsheetColorFilter ResolveColor(
+        IReadOnlyList<CellStylePatch> differentialStyles,
+        uint id,
+        bool cellColor)
+    {
+        if (id >= differentialStyles.Count)
+            throw new InvalidDataException("An AutoFilter color references an unavailable differential style.");
+        var patch = differentialStyles[checked((int)id)];
+        if (cellColor && patch.Fill is { } fill)
+            return new SpreadsheetColorFilter(SpreadsheetFilterColorKind.Fill, fill.Color);
+        if (!cellColor && patch.FontColor is { } fontColor)
+            return new SpreadsheetColorFilter(SpreadsheetFilterColorKind.Font, fontColor);
+        throw new InvalidDataException("An AutoFilter differential style does not define the requested color.");
     }
 
     private static XElement BuildCustomFilter(TableFilterCondition condition)
@@ -604,6 +617,64 @@ internal static class OpenXmlWorksheetAutoFilterCodec
         if (preservedExtensions.Length == 1 && generatedExtensions.Length == 0)
         {
             replacement.Add(new XElement(preservedExtensions[0]));
+        }
+    }
+
+    private static void PreserveColumnExtensions(XElement preserved, XElement replacement)
+    {
+        var generatedById = replacement.Elements(SpreadsheetNamespace + "filterColumn")
+            .ToDictionary(element => (string?)element.Attribute("colId") ?? string.Empty, StringComparer.Ordinal);
+        foreach (var oldColumn in preserved.Elements(SpreadsheetNamespace + "filterColumn"))
+        {
+            var id = (string?)oldColumn.Attribute("colId") ?? string.Empty;
+            if (!generatedById.TryGetValue(id, out var newColumn))
+            {
+                var sort = replacement.Element(SpreadsheetNamespace + "sortState");
+                if (sort is null) replacement.Add(new XElement(oldColumn));
+                else sort.AddBeforeSelf(new XElement(oldColumn));
+                continue;
+            }
+            PreserveOpaqueAttributes(oldColumn, newColumn);
+            PreserveExtensionList(oldColumn, newColumn);
+            var oldDefinition = oldColumn.Elements().FirstOrDefault(element => element.Name != SpreadsheetNamespace + "extLst");
+            var newDefinition = newColumn.Elements().FirstOrDefault(element => element.Name != SpreadsheetNamespace + "extLst");
+            if (oldDefinition is not null && newDefinition is not null && oldDefinition.Name == newDefinition.Name)
+            {
+                PreserveOpaqueAttributes(oldDefinition, newDefinition);
+                PreserveExtensionList(oldDefinition, newDefinition);
+            }
+        }
+    }
+
+    private static void PreserveSortExtensions(XElement preserved, XElement replacement)
+    {
+        var oldSort = preserved.Element(SpreadsheetNamespace + "sortState");
+        var newSort = replacement.Element(SpreadsheetNamespace + "sortState");
+        if (oldSort is null) return;
+        if (newSort is null)
+        {
+            var extensions = replacement.Element(SpreadsheetNamespace + "extLst");
+            if (extensions is null) replacement.Add(new XElement(oldSort));
+            else extensions.AddBeforeSelf(new XElement(oldSort));
+            return;
+        }
+        PreserveOpaqueAttributes(oldSort, newSort);
+        PreserveExtensionList(oldSort, newSort);
+        var oldConditions = oldSort.Elements(SpreadsheetNamespace + "sortCondition").ToArray();
+        var newConditions = newSort.Elements(SpreadsheetNamespace + "sortCondition").ToArray();
+        for (var index = 0; index < Math.Min(oldConditions.Length, newConditions.Length); index++)
+        {
+            PreserveOpaqueAttributes(oldConditions[index], newConditions[index]);
+            PreserveExtensionList(oldConditions[index], newConditions[index]);
+        }
+    }
+
+    private static void PreserveUnownedChildren(XElement preserved, XElement replacement)
+    {
+        foreach (var child in preserved.Elements().Where(element =>
+                     element.Name.Namespace != SpreadsheetNamespace))
+        {
+            if (!replacement.Elements(child.Name).Any()) replacement.Add(new XElement(child));
         }
     }
 

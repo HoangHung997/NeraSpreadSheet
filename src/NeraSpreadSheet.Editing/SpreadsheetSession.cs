@@ -93,7 +93,8 @@ public sealed class SpreadsheetSession
     public SpreadsheetAnalyticsInteractionController AnalyticsInteraction { get; }
 
     public SpreadsheetWorksheetAutoFilterController
-        WorksheetFilter { get; }
+        WorksheetFilter
+    { get; }
 
     public SpreadsheetCellEditorController Editor { get; }
 
@@ -280,6 +281,15 @@ public sealed class SpreadsheetSession
                 AffectsCalculation: false,
             })
         {
+            return;
+        }
+        if (operation is ISpreadsheetEditOperation editOperation &&
+            operation is IIncrementalCalculationOperation)
+        {
+            Calculation.RecalculateAffected(
+                Workbook,
+                editOperation.Worksheet,
+                editOperation.AffectedRange);
             return;
         }
         Calculation.Recalculate(Workbook);

@@ -22,11 +22,16 @@ public sealed class WorksheetSnapshot
     private readonly WorksheetAxisInterval[] _hiddenColumns;
     private readonly ConcurrentDictionary<AxisStyleCacheKey, CellStyle>
         _axisStyleCache = new();
+    private readonly ConcurrentDictionary<FilterPredicateCacheKey, Func<int, bool>>
+        _filterPredicateCache = new();
+    private readonly CellStyle[] _styles;
 
     private WorksheetSnapshot(
         string name,
         long version,
         IReadOnlyDictionary<CellAddress, CellData> cells,
+        CellStyle[] styles,
+        ExcelDateSystem dateSystem,
         double defaultRowHeight,
         double defaultColumnWidth,
         IReadOnlyDictionary<int, double> rowHeights,
@@ -46,6 +51,8 @@ public sealed class WorksheetSnapshot
         Name = name;
         Version = version;
         _cells = cells;
+        _styles = [.. styles];
+        DateSystem = dateSystem;
         DefaultRowHeight = defaultRowHeight;
         DefaultColumnWidth = defaultColumnWidth;
         RowHeights = rowHeights;
@@ -83,6 +90,9 @@ public sealed class WorksheetSnapshot
     public long Version { get; }
 
     public int UsedCellCount => _cells.Count;
+
+    /// <summary>Gets the workbook date system captured with this immutable worksheet snapshot.</summary>
+    public ExcelDateSystem DateSystem { get; }
 
     public int RowStyleSpanCount => _rowStyleSpans.Length;
 
@@ -159,6 +169,28 @@ public sealed class WorksheetSnapshot
             static cacheKey => ComposeAxisStyle(
                 cacheKey.RowOperations,
                 cacheKey.ColumnOperations));
+    }
+
+    /// <summary>Gets the effective cell style from the catalog captured with this snapshot.</summary>
+    public CellStyle GetEffectiveStyle(CellAddress address)
+    {
+        address = ResolveMergedAnchor(address);
+        var cell = GetCell(address);
+        if (cell.StyleId != CellStyleCatalog.DefaultStyleId)
+        {
+            if ((uint)cell.StyleId >= (uint)_styles.Length)
+            {
+                throw new InvalidOperationException("The captured cell references an unavailable style.");
+            }
+            return _styles[cell.StyleId];
+        }
+
+        var key = new AxisStyleCacheKey(
+            FindOperations(_rowStyleSpans, address.RowIndex),
+            FindOperations(_columnStyleSpans, address.ColumnIndex));
+        return _axisStyleCache.GetOrAdd(
+            key,
+            static cacheKey => ComposeAxisStyle(cacheKey.RowOperations, cacheKey.ColumnOperations));
     }
 
     public CellStylePatch GetDifferentialStyle(
@@ -282,6 +314,23 @@ public sealed class WorksheetSnapshot
         return true;
     }
 
+    internal bool MatchesFilter(
+        CellRange dataRange,
+        int columnIndex,
+        TableFilterColumn filter,
+        int rowIndex)
+    {
+        var key = new FilterPredicateCacheKey(dataRange, columnIndex, filter);
+        var predicate = _filterPredicateCache.GetOrAdd(
+            key,
+            cacheKey => SpreadsheetFilterEvaluator.CreateRowPredicate(
+                this,
+                cacheKey.DataRange,
+                cacheKey.ColumnIndex,
+                cacheKey.Filter));
+        return predicate(rowIndex);
+    }
+
     public IEnumerable<KeyValuePair<CellAddress, CellData>>
         EnumerateUsedCells() =>
         _cells;
@@ -335,6 +384,8 @@ public sealed class WorksheetSnapshot
             worksheet.Name,
             worksheet.Version,
             cells,
+            [.. worksheet.Workbook.Styles.Snapshot()],
+            worksheet.Workbook.DateSystem,
             worksheet.Dimensions.DefaultRowHeight,
             worksheet.Dimensions.DefaultColumnWidth,
             rows,
@@ -446,4 +497,9 @@ public sealed class WorksheetSnapshot
     private readonly record struct AxisStyleCacheKey(
         WorksheetAxisStyleOperation[] RowOperations,
         WorksheetAxisStyleOperation[] ColumnOperations);
+
+    private readonly record struct FilterPredicateCacheKey(
+        CellRange DataRange,
+        int ColumnIndex,
+        TableFilterColumn Filter);
 }

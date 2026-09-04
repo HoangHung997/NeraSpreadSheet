@@ -171,8 +171,7 @@ public sealed class WorksheetAutoFilterRoundTripTests
                 .Single();
             filterColumn.RemoveNodes();
             filterColumn.Add(new XElement(
-                SpreadsheetNamespace + "top10",
-                new XAttribute("val", 10)));
+                SpreadsheetNamespace + "unsupportedFilter"));
         });
         unsupported.Position = 0L;
         await Assert.ThrowsExactlyAsync<InvalidDataException>(async () =>

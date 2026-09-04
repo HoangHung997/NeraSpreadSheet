@@ -262,6 +262,9 @@ internal static class OpenXmlConditionalFormattingCodec
         var worksheetMaps = new Dictionary<
             NeraWorksheet,
             IReadOnlyDictionary<int, uint>>();
+        var worksheetColorMaps = new Dictionary<
+            NeraWorksheet,
+            IReadOnlyDictionary<SpreadsheetColorFilter, uint>>();
         foreach (var worksheet in workbook.Worksheets)
         {
             var localMap = new Dictionary<int, uint>();
@@ -292,7 +295,37 @@ internal static class OpenXmlConditionalFormattingCodec
                 localMap.Add(rule.DifferentialStyleId, globalId);
             }
 
+            var colorMap = new Dictionary<SpreadsheetColorFilter, uint>();
+            foreach (var color in EnumerateFilterColors(worksheet).Distinct())
+            {
+                var patch = color.Kind == SpreadsheetFilterColorKind.Fill
+                    ? new CellStylePatch
+                    {
+                        Fill = new CellFillStyle
+                        {
+                            IsVisible = true,
+                            Pattern = CellFillPattern.Solid,
+                            Color = color.Color,
+                            BackgroundColor = color.Color,
+                        },
+                    }
+                    : new CellStylePatch { FontColor = color.Color };
+                if (!globalIds.TryGetValue(patch, out var globalId))
+                {
+                    if (globalStyles.Count >= MaxDifferentialStyles)
+                    {
+                        throw new InvalidOperationException(
+                            $"The workbook exceeds the differential-style limit of {MaxDifferentialStyles}.");
+                    }
+                    globalId = checked((uint)globalStyles.Count);
+                    globalStyles.Add(patch);
+                    globalIds.Add(patch, globalId);
+                }
+                colorMap.Add(color, globalId);
+            }
+
             worksheetMaps.Add(worksheet, localMap);
+            worksheetColorMaps.Add(worksheet, colorMap);
         }
 
         var document = LoadPartXml(stylesPart);
@@ -316,7 +349,31 @@ internal static class OpenXmlConditionalFormattingCodec
         }
 
         SavePartXml(stylesPart, document);
-        return new OpenXmlConditionalFormattingExportPlan(worksheetMaps);
+        return new OpenXmlConditionalFormattingExportPlan(worksheetMaps, worksheetColorMaps);
+    }
+
+    private static IEnumerable<SpreadsheetColorFilter> EnumerateFilterColors(
+        NeraWorksheet worksheet)
+    {
+        foreach (var column in worksheet.AutoFilter?.Columns ?? [])
+        {
+            if (column.ColorFilter is { } color) yield return color;
+        }
+        foreach (var condition in worksheet.AutoFilter?.SortState?.Conditions ?? [])
+        {
+            if (condition.Color is { } color) yield return color;
+        }
+        foreach (var table in worksheet.Tables)
+        {
+            foreach (var column in table.AutoFilter?.Columns ?? [])
+            {
+                if (column.ColorFilter is { } color) yield return color;
+            }
+            foreach (var condition in table.AutoFilter?.SortState?.Conditions ?? [])
+            {
+                if (condition.Color is { } color) yield return color;
+            }
+        }
     }
 
     public static void WriteWorksheetRules(
@@ -1378,13 +1435,18 @@ internal sealed class OpenXmlConditionalFormattingExportPlan
     private readonly IReadOnlyDictionary<
         NeraWorksheet,
         IReadOnlyDictionary<int, uint>> _worksheetMaps;
+    private readonly IReadOnlyDictionary<
+        NeraWorksheet,
+        IReadOnlyDictionary<SpreadsheetColorFilter, uint>> _worksheetColorMaps;
 
     public OpenXmlConditionalFormattingExportPlan(
         IReadOnlyDictionary<
             NeraWorksheet,
-            IReadOnlyDictionary<int, uint>> worksheetMaps)
+            IReadOnlyDictionary<int, uint>> worksheetMaps,
+        IReadOnlyDictionary<NeraWorksheet, IReadOnlyDictionary<SpreadsheetColorFilter, uint>> worksheetColorMaps)
     {
         _worksheetMaps = worksheetMaps;
+        _worksheetColorMaps = worksheetColorMaps;
     }
 
     public uint GetDifferentialStyleId(
@@ -1400,5 +1462,14 @@ internal sealed class OpenXmlConditionalFormattingExportPlan
         }
 
         return globalStyleId;
+    }
+
+    public uint GetColorStyleId(NeraWorksheet worksheet, SpreadsheetColorFilter color)
+    {
+        if (!_worksheetColorMaps.TryGetValue(worksheet, out var map) || !map.TryGetValue(color, out var id))
+        {
+            throw new InvalidOperationException("The export plan does not contain the requested filter color.");
+        }
+        return id;
     }
 }

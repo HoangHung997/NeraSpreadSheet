@@ -67,7 +67,13 @@ public sealed class SpreadsheetWorksheetFilterMenu
         IsRowScanTruncated = isRowScanTruncated;
         IsDistinctValueTruncated = isDistinctValueTruncated;
         HasActiveFilter = currentFilter is not null;
-        HasCustomFilter = currentFilter?.FirstCondition is not null;
+        HasCustomFilter = currentFilter is not null &&
+            (currentFilter.FirstCondition is not null ||
+             currentFilter.DateGroups.Count > 0 ||
+             currentFilter.TopBottom is not null ||
+             currentFilter.DynamicFilter is not null ||
+             currentFilter.ColorFilter is not null ||
+             currentFilter.IconFilter is not null);
 
         _selected = currentFilter is null || HasCustomFilter
             ? _counts.Keys.ToHashSet()

@@ -250,6 +250,14 @@ internal static class OpenXmlTablePackagePatcher
                 generatedRoot.Add(new XElement(extensionList));
             }
         }
+        var preservedFilter = preservedRoot.Element(SpreadsheetNamespace + "autoFilter");
+        var generatedFilter = generatedRoot.Element(SpreadsheetNamespace + "autoFilter");
+        if (preservedFilter is not null && generatedFilter is not null)
+        {
+            OpenXmlWorksheetAutoFilterCodec.PreserveFilterMarkup(
+                preservedFilter,
+                generatedFilter);
+        }
         SavePartXml(preservedPart, generatedDocument);
     }
 
