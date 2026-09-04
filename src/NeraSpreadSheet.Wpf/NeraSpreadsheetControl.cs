@@ -43,6 +43,10 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
     private Rect _editorBounds = Rect.Empty;
     private WpfRenderingBackend _renderingBackend;
     private bool _useAdaptiveNavigationExtent;
+    private int _adaptiveNavigationTrailingRowCount =
+        SpreadsheetViewportEngine.DefaultAdaptiveTrailingRowCount;
+    private int _adaptiveNavigationTrailingColumnCount =
+        SpreadsheetViewportEngine.DefaultAdaptiveTrailingColumnCount;
 
     public NeraSpreadsheetControl()
     {
@@ -105,6 +109,50 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
                 return;
             }
             _useAdaptiveNavigationExtent = value;
+            UpdateContentExtent();
+            ClampScrollToContentBounds();
+            InvalidateVisual();
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the minimum blank rows kept after used or navigated content
+    /// when <see cref="UseAdaptiveNavigationExtent"/> is enabled.
+    /// </summary>
+    public int AdaptiveNavigationTrailingRowCount
+    {
+        get => _adaptiveNavigationTrailingRowCount;
+        set
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            if (_adaptiveNavigationTrailingRowCount == value)
+            {
+                return;
+            }
+            _adaptiveNavigationTrailingRowCount = value;
+            UpdateContentExtent();
+            ClampScrollToContentBounds();
+            InvalidateVisual();
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the minimum blank columns kept after used or navigated
+    /// content when <see cref="UseAdaptiveNavigationExtent"/> is enabled.
+    /// </summary>
+    public int AdaptiveNavigationTrailingColumnCount
+    {
+        get => _adaptiveNavigationTrailingColumnCount;
+        set
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            if (_adaptiveNavigationTrailingColumnCount == value)
+            {
+                return;
+            }
+            _adaptiveNavigationTrailingColumnCount = value;
             UpdateContentExtent();
             ClampScrollToContentBounds();
             InvalidateVisual();
@@ -674,6 +722,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         ObjectDisposedException.ThrowIf(_disposed, this);
         var before = _scrollController.Snapshot;
         _scrollController.ScrollTo(offsetX, offsetY, animated);
+        UpdateContentExtent();
         UpdateEditorBounds();
         InvalidateVisual();
         if (!animated && before != _scrollController.Snapshot)
@@ -1106,7 +1155,12 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         var extent = _useAdaptiveNavigationExtent && _session is not null
             ? _viewport.GetAdaptiveNavigationExtent(
                 _session.Selection.ActiveCell,
-                new SizeD(chrome.BodyWidth, chrome.BodyHeight))
+                new SizeD(chrome.BodyWidth, chrome.BodyHeight),
+                new PointD(
+                    _scrollController.Snapshot.OffsetX,
+                    _scrollController.Snapshot.OffsetY),
+                _adaptiveNavigationTrailingRowCount,
+                _adaptiveNavigationTrailingColumnCount)
             : _viewport.GetContentExtent();
         ContentWidth = extent.Width;
         ContentHeight = extent.Height;
@@ -1275,6 +1329,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         var result = _scrollController.AdvanceFrame(elapsed, bounds);
         if (result.Changed)
         {
+            UpdateContentExtent(chrome);
             ScrollChanged?.Invoke(this, new ScrollChangedEventArgs(result.Snapshot));
             UpdateEditorBounds();
             InvalidateVisual();

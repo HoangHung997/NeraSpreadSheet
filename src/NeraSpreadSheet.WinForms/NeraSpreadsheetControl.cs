@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
+using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Layout;
 using NeraSpreadSheet.Rendering;
@@ -46,6 +47,10 @@ public sealed partial class NeraSpreadsheetControl : Control
     private WinFormsRenderingBackend _renderingBackend;
     private bool _swapChainVSync = true;
     private bool _useAdaptiveNavigationExtent;
+    private int _adaptiveNavigationTrailingRowCount =
+        SpreadsheetViewportEngine.DefaultAdaptiveTrailingRowCount;
+    private int _adaptiveNavigationTrailingColumnCount =
+        SpreadsheetViewportEngine.DefaultAdaptiveTrailingColumnCount;
 
     public NeraSpreadsheetControl()
     {
@@ -110,6 +115,50 @@ public sealed partial class NeraSpreadsheetControl : Control
                 return;
             }
             _useAdaptiveNavigationExtent = value;
+            UpdateContentExtent();
+            ClampScrollToContentBounds();
+            Invalidate();
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the minimum blank rows kept after used or navigated content
+    /// when <see cref="UseAdaptiveNavigationExtent"/> is enabled.
+    /// </summary>
+    [DefaultValue(SpreadsheetViewportEngine.DefaultAdaptiveTrailingRowCount)]
+    public int AdaptiveNavigationTrailingRowCount
+    {
+        get => _adaptiveNavigationTrailingRowCount;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            if (_adaptiveNavigationTrailingRowCount == value)
+            {
+                return;
+            }
+            _adaptiveNavigationTrailingRowCount = value;
+            UpdateContentExtent();
+            ClampScrollToContentBounds();
+            Invalidate();
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the minimum blank columns kept after used or navigated
+    /// content when <see cref="UseAdaptiveNavigationExtent"/> is enabled.
+    /// </summary>
+    [DefaultValue(SpreadsheetViewportEngine.DefaultAdaptiveTrailingColumnCount)]
+    public int AdaptiveNavigationTrailingColumnCount
+    {
+        get => _adaptiveNavigationTrailingColumnCount;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            if (_adaptiveNavigationTrailingColumnCount == value)
+            {
+                return;
+            }
+            _adaptiveNavigationTrailingColumnCount = value;
             UpdateContentExtent();
             ClampScrollToContentBounds();
             Invalidate();
@@ -658,6 +707,7 @@ public sealed partial class NeraSpreadsheetControl : Control
     {
         var before = _scrollController.Snapshot;
         _scrollController.ScrollTo(offsetX, offsetY, animated);
+        UpdateContentExtent();
         UpdateEditorBounds();
         Invalidate();
         if (!animated && before != _scrollController.Snapshot)
@@ -1214,7 +1264,12 @@ public sealed partial class NeraSpreadsheetControl : Control
         var extent = _useAdaptiveNavigationExtent && _session is not null
             ? _viewport.GetAdaptiveNavigationExtent(
                 _session.Selection.ActiveCell,
-                new SizeD(chrome.BodyWidth, chrome.BodyHeight))
+                new SizeD(chrome.BodyWidth, chrome.BodyHeight),
+                new PointD(
+                    _scrollController.Snapshot.OffsetX,
+                    _scrollController.Snapshot.OffsetY),
+                _adaptiveNavigationTrailingRowCount,
+                _adaptiveNavigationTrailingColumnCount)
             : _viewport.GetContentExtent();
         ContentWidth = extent.Width;
         ContentHeight = extent.Height;
@@ -1359,6 +1414,7 @@ public sealed partial class NeraSpreadsheetControl : Control
         var result = _scrollController.AdvanceFrame(elapsed, bounds);
         if (result.Changed)
         {
+            UpdateContentExtent(chrome);
             ScrollChanged?.Invoke(this, new ScrollChangedEventArgs(result.Snapshot));
             UpdateEditorBounds();
             Invalidate();

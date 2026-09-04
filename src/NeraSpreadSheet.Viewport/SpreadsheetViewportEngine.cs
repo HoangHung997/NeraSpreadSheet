@@ -10,6 +10,12 @@ namespace NeraSpreadSheet.Viewport;
 
 public sealed class SpreadsheetViewportEngine
 {
+    /// <summary>Default blank rows retained by adaptive navigation.</summary>
+    public const int DefaultAdaptiveTrailingRowCount = 100;
+
+    /// <summary>Default blank columns retained by adaptive navigation.</summary>
+    public const int DefaultAdaptiveTrailingColumnCount = 20;
+
     private readonly SpreadsheetSession _session;
     private readonly SpreadsheetViewportCacheOptions _cacheOptions;
     private readonly Dictionary<DisplayListCacheKey, CachedDisplayListEntry> _displayListCache = [];
@@ -167,7 +173,33 @@ public sealed class SpreadsheetViewportEngine
     /// </summary>
     public SizeD GetAdaptiveNavigationExtent(
         CellAddress navigationCell,
-        SizeD minimumViewportExtent)
+        SizeD minimumViewportExtent) =>
+        GetAdaptiveNavigationExtent(
+            navigationCell,
+            minimumViewportExtent,
+            default,
+            DefaultAdaptiveTrailingRowCount,
+            DefaultAdaptiveTrailingColumnCount);
+
+    /// <summary>
+    /// Gets a compact scroll extent containing the sparse used range, the
+    /// current navigation cell, a configurable trailing workspace and the
+    /// current viewport. Physical worksheet limits are not changed.
+    /// </summary>
+    /// <param name="navigationCell">The cell that keyboard navigation must reach.</param>
+    /// <param name="minimumViewportExtent">The visible worksheet body size.</param>
+    /// <param name="currentScrollOffset">
+    /// The current continuous scroll offset. The returned extent retains the
+    /// current viewport without adding another trailing workspace after it.
+    /// </param>
+    /// <param name="trailingRowCount">Minimum blank rows retained after used or navigated content.</param>
+    /// <param name="trailingColumnCount">Minimum blank columns retained after used or navigated content.</param>
+    public SizeD GetAdaptiveNavigationExtent(
+        CellAddress navigationCell,
+        SizeD minimumViewportExtent,
+        PointD currentScrollOffset,
+        int trailingRowCount = DefaultAdaptiveTrailingRowCount,
+        int trailingColumnCount = DefaultAdaptiveTrailingColumnCount)
     {
         if (!double.IsFinite(minimumViewportExtent.Width) ||
             minimumViewportExtent.Width < 0d ||
@@ -178,6 +210,17 @@ public sealed class SpreadsheetViewportEngine
                 nameof(minimumViewportExtent),
                 "Viewport extents must be finite and non-negative.");
         }
+        if (!double.IsFinite(currentScrollOffset.X) ||
+            currentScrollOffset.X < 0d ||
+            !double.IsFinite(currentScrollOffset.Y) ||
+            currentScrollOffset.Y < 0d)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(currentScrollOffset),
+                "Scroll offsets must be finite and non-negative.");
+        }
+        ArgumentOutOfRangeException.ThrowIfNegative(trailingRowCount);
+        ArgumentOutOfRangeException.ThrowIfNegative(trailingColumnCount);
 
         EnsureMetrics();
         var used = GetNavigationUsedBottomRight();
@@ -185,13 +228,35 @@ public sealed class SpreadsheetViewportEngine
         var lastColumn = Math.Max(
             used.ColumnIndex,
             navigationCell.ColumnIndex);
+
+        var lastRowExclusive = lastRow + 1;
+        var lastColumnExclusive = lastColumn + 1;
+        var trailingRowExclusive = Math.Min(
+            SpreadsheetLimits.MaxRows,
+            lastRowExclusive + trailingRowCount);
+        var trailingColumnExclusive = Math.Min(
+            SpreadsheetLimits.MaxColumns,
+            lastColumnExclusive + trailingColumnCount);
+        var rowBoundary = _rows!.GetOffset(lastRowExclusive);
+        var columnBoundary = _columns!.GetOffset(lastColumnExclusive);
+        var rowTail = Math.Max(
+            minimumViewportExtent.Height,
+            _rows.GetOffset(trailingRowExclusive) - rowBoundary);
+        var columnTail = Math.Max(
+            minimumViewportExtent.Width,
+            _columns.GetOffset(trailingColumnExclusive) - columnBoundary);
+
         return new SizeD(
-            Math.Max(
-                minimumViewportExtent.Width,
-                _columns!.GetOffset(lastColumn + 1)),
-            Math.Max(
-                minimumViewportExtent.Height,
-                _rows!.GetOffset(lastRow + 1)));
+            Math.Min(
+                _columns.TotalExtent,
+                Math.Max(
+                    columnBoundary + columnTail,
+                    currentScrollOffset.X + minimumViewportExtent.Width)),
+            Math.Min(
+                _rows.TotalExtent,
+                Math.Max(
+                    rowBoundary + rowTail,
+                    currentScrollOffset.Y + minimumViewportExtent.Height)));
     }
 
     public void InvalidateMetrics()

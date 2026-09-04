@@ -33,7 +33,7 @@ public sealed class DesktopAdaptiveNavigationSmokeTests
 
     [TestMethod]
     [Timeout(105_000)]
-    public void WpfArrowNavigationKeepsActiveCellVisibleAndContractsEmptyTail()
+    public void WpfArrowNavigationKeepsActiveCellVisibleAndRetainsScrollableTail()
     {
         RunInSta(() =>
         {
@@ -60,6 +60,14 @@ public sealed class DesktopAdaptiveNavigationSmokeTests
                 window.UpdateLayout();
                 PumpFor(TimeSpan.FromMilliseconds(100d));
                 Assert.IsTrue(control.Focus());
+                Assert.IsGreaterThan(control.ActualWidth, control.ContentWidth);
+                Assert.IsGreaterThan(control.ActualHeight, control.ContentHeight);
+
+                control.ScrollTo(120d, 120d);
+                Assert.AreEqual(new CellAddress(0, 0), control.Session!.Selection.ActiveCell);
+                Assert.AreEqual(120d, control.ScrollSnapshot.OffsetX, 1e-9);
+                Assert.AreEqual(120d, control.ScrollSnapshot.OffsetY, 1e-9);
+                control.ScrollTo(0d, 0d);
 
                 for (var index = 0; index < 5; index++)
                 {
@@ -109,7 +117,7 @@ public sealed class DesktopAdaptiveNavigationSmokeTests
 
     [TestMethod]
     [Timeout(105_000)]
-    public void WinFormsArrowNavigationKeepsActiveCellVisibleAndContractsEmptyTail()
+    public void WinFormsArrowNavigationKeepsActiveCellVisibleAndRetainsScrollableTail()
     {
         RunInSta(() =>
         {
@@ -131,6 +139,14 @@ public sealed class DesktopAdaptiveNavigationSmokeTests
             form.Controls.Add(control);
             form.Show();
             WinFormsApplication.DoEvents();
+            Assert.IsGreaterThan(control.ClientSize.Width, control.ContentWidth);
+            Assert.IsGreaterThan(control.ClientSize.Height, control.ContentHeight);
+
+            control.ScrollTo(120d, 120d);
+            Assert.AreEqual(new CellAddress(0, 0), control.Session!.Selection.ActiveCell);
+            Assert.AreEqual(120d, control.ScrollSnapshot.OffsetX, 1e-9);
+            Assert.AreEqual(120d, control.ScrollSnapshot.OffsetY, 1e-9);
+            control.ScrollTo(0d, 0d);
 
             for (var index = 0; index < 5; index++)
             {

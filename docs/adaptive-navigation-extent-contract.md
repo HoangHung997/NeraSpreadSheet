@@ -17,12 +17,18 @@ contains all of the following:
 - merged ranges and table ranges;
 - explicit row-height and column-width overrides;
 - the current navigation cell, even when that cell is empty.
+- a trailing workspace of at least one viewport and, by default, 100 rows and
+  20 columns after the last used or navigated cell;
+- the current scrolled viewport, even when the selection remains elsewhere.
 
 The current navigation cell is deliberately transient. Moving to an empty cell
-beyond the used range expands the extent; moving back contracts it again unless
-data, formatting, a merge, a table or a dimension override still owns that
-tail. The calculation is cached by worksheet and dimension versions so plain
-scrolling never enumerates the sparse cell store.
+beyond the available tail expands the extent. Returning and scrolling back
+allows the far empty range to contract, unless data, formatting, a merge, a
+table or a dimension override still owns that tail. The current scroll offset
+is an extent floor, not another used-range boundary, so dragging a scrollbar
+does not recursively append a new tail. The calculation is cached by worksheet
+and dimension versions so plain scrolling never enumerates the sparse cell
+store.
 
 ## Host behavior
 
@@ -32,7 +38,10 @@ the existing full-sheet scrollbar contract for current applications.
 When enabled:
 
 - `ContentWidth` and `ContentHeight` expose the adaptive scroll extent;
-- a shrinking extent clamps current and target offsets immediately;
+- `AdaptiveNavigationTrailingRowCount` and
+  `AdaptiveNavigationTrailingColumnCount` configure the minimum blank tail;
+- a selection change never clamps away the viewport currently being inspected;
+- scrollbar movement changes the viewport only and does not change selection;
 - arrow, Enter and Tab navigation call `ScrollCellIntoView` so the active cell
   never moves outside the body viewport;
 - frozen row/column extents remain fixed and are excluded from the scrollable
@@ -55,6 +64,8 @@ application command can use the same host behavior.
 ## Validation
 
 - Viewport tests cover active-cell expansion, contraction, retained data,
-  clearing the far tail, merges and dimension overrides.
+  clearing the far tail, merges, dimension overrides and a manually scrolled
+  viewport without compounded growth.
 - Loaded WPF and WinForms smokes cover Left/Right/Up/Down keyboard navigation,
-  automatic scrolling and contraction back to the first used cell.
+  automatic scrolling, independent viewport movement and the persistent
+  scrollable tail.

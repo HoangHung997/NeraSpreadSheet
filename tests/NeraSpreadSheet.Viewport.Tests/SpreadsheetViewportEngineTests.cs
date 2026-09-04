@@ -80,12 +80,13 @@ public sealed class SpreadsheetViewportEngineTests
             new CellAddress(0, 0),
             viewport);
 
-        Assert.AreEqual(viewport, initial);
-        Assert.AreEqual(21d * 80d, expanded.Width, 1e-9);
-        Assert.AreEqual(51d * 20d, expanded.Height, 1e-9);
-        Assert.AreEqual(viewport, returned);
+        Assert.AreEqual(21d * 80d, initial.Width, 1e-9);
+        Assert.AreEqual(101d * 20d, initial.Height, 1e-9);
+        Assert.AreEqual(41d * 80d, expanded.Width, 1e-9);
+        Assert.AreEqual(151d * 20d, expanded.Height, 1e-9);
+        Assert.AreEqual(initial, returned);
         Assert.AreEqual(expanded, retainedByData);
-        Assert.AreEqual(viewport, contractedAfterClear);
+        Assert.AreEqual(initial, contractedAfterClear);
     }
 
     [TestMethod]
@@ -103,10 +104,29 @@ public sealed class SpreadsheetViewportEngineTests
 
         var extent = engine.GetAdaptiveNavigationExtent(
             new CellAddress(0, 0),
-            new SizeD(100d, 100d));
+            new SizeD(0d, 0d),
+            default,
+            trailingRowCount: 0,
+            trailingColumnCount: 0);
 
         Assert.AreEqual(920d, extent.Width, 1e-9);
         Assert.AreEqual(260d, extent.Height, 1e-9);
+    }
+
+    [TestMethod]
+    public void AdaptiveNavigationExtentRetainsScrolledViewportWithoutCompoundingTail()
+    {
+        var workbook = new Workbook();
+        var engine = new SpreadsheetViewportEngine(
+            new SpreadsheetSession(workbook));
+
+        var extent = engine.GetAdaptiveNavigationExtent(
+            new CellAddress(0, 0),
+            new SizeD(320d, 180d),
+            new PointD(2400d, 3200d));
+
+        Assert.AreEqual(2720d, extent.Width, 1e-9);
+        Assert.AreEqual(3380d, extent.Height, 1e-9);
     }
 
     [TestMethod]

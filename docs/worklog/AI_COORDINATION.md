@@ -38,6 +38,11 @@ and `EXCEL-BASIC-NAV-002` are such lanes. The latter owns the reusable adaptive
 navigation extent and desktop keyboard-follow behavior, while demo-only chrome
 remains outside the repository.
 
+`EXCEL-BASIC-NAV-003` refines that reusable contract with a bounded scrollable
+tail and independent viewport/selection behavior after direct Excel comparison.
+The external demo consumes the SDK behavior, but its visual styling remains
+outside the repository.
+
 ## Closed lane: RIBBON-MAUI
 
 Scope:
@@ -79,6 +84,7 @@ Out of scope for this lane:
 | 2026-09-04 | Codex | `PACKAGING-SDK` | Closed at `47591a8ac223f0ee5141e92bb31fca304fbe0a50`: exact-head CI #1239, iOS gate #42 and Q003C/OpenXML gate #39 all succeeded; `sdk-packages` artifact ID `9906198247` uploaded with digest `sha256:3d697797e79866e1420bd58702d574eb1469cd26856cdd57a3cfe80b8d77bd06`. |
 | 2026-09-04 | Codex | `EXCEL-BASIC-NAV-002` | Bounded compatibility hotfix locally complete: adaptive used/navigation extent, WPF/WinForms keyboard-follow scrolling, Viewport 58/58, loaded desktop smoke 2/2, Core 1243/1243 and architecture pass. Exact-head CI pending. |
 | 2026-09-04 | Codex | `EXCEL-BASIC-NAV-002` | Closed at `3a4b8e885b204d99354216a29dd9ead759672c8c`: full CI #1292, iOS gate #113 and Q003C/OpenXML gate #110 all succeeded. |
+| 2026-09-04 | Codex | `EXCEL-BASIC-NAV-003` | Implemented locally: configurable 100-row/20-column adaptive tail, current-viewport retention without compounded growth, independent scrollbar/selection behavior, Viewport 59/59 and focused desktop smoke 2/2. Exact-head CI pending. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | Claimed after PACKAGING-SDK exact-head evidence; scope is trust/isolation/recovery hardening before broader localization/a11y and Win11 demo lanes. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | First hardening patch prepared: external formula provider exceptions are contained and mapped to `#N/A`, with scalar and dynamic-array provider boundary tests. Local SDK 10.0.302 is unavailable in this workspace session, so validation is deferred to GitHub CI. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | First two hardening patches exact-head validated at `dd0134a43f3888b78b64106e45210acf9231d83a`: full CI #1248, iOS gate #51 and Q003C/OpenXML gate #48 all succeeded. Document save failure recovery is covered and SDK packages artifact `9907540966` was uploaded. |

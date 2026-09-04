@@ -4,6 +4,14 @@
 
 The fixed weighted roadmap rubric in [`project-progress.md`](project-progress.md) currently evaluates to **83.98%**, reported as **84%**. This is an implementation-roadmap score, not a claim that NeraSpreadSheet implements 84% of every Microsoft Excel feature and not a production-readiness percentage.
 
+## EXCEL-BASIC-NAV-003 — IMPLEMENTED LOCALLY
+
+The adaptive desktop navigation contract now keeps a bounded, configurable
+blank workspace after used content while preserving the current manually
+scrolled viewport independently from selection. WPF and WinForms expose the
+shared 100-row/20-column defaults as public properties suitable for NuGet
+consumers. Exact-head CI evidence is pending the integration push.
+
 ## Formula subsystem — CLOSED
 
 | Counter | Value |

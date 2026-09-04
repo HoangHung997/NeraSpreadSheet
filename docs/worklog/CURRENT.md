@@ -51,6 +51,14 @@
   58/58, loaded desktop smoke 2/2, Core 1243/1243, build/analyzers and
   architecture verification pass locally. Full CI #1292, iOS gate #113 and
   Q003C/OpenXML gate #110 passed at the implementation checkpoint.
+- `EXCEL-BASIC-NAV-003`: **IMPLEMENTED LOCALLY; EXACT-HEAD CI PENDING**. The
+  reusable adaptive extent now keeps at least one viewport plus a configurable
+  default tail of 100 rows and 20 columns. Manual scrollbar movement preserves
+  selection and the current viewport without compounded extent growth;
+  keyboard navigation still moves selection and scrolls it into view. Viewport
+  59/59, focused loaded desktop smoke 2/2, Core 1244/1244, build/analyzers and
+  architecture verification pass locally. The external Win11 demo build and
+  internal smoke pass with the lighter demo-only chrome.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -132,6 +140,21 @@ For `EXCEL-BASIC-NAV-002` local validation:
 - external Win11 demo build, internal smoke and supplied-workbook smoke:
   **passed**, with the source workbook unchanged.
 
+For `EXCEL-BASIC-NAV-003` local validation:
+
+- Viewport: **59/59 passed**;
+- focused loaded WPF/WinForms adaptive navigation smoke: **2/2 passed**;
+- Core solution: **1244/1244 passed**;
+- build/analyzers: **0 warnings, 0 errors**;
+- architecture verification: **passed**;
+- external Win11 demo build and internal smoke: **passed**;
+- full Windows.Rendering: **51/53 passed locally**; the same two unrelated
+  environment-sensitive WPF automation/activation assertions documented above
+  remain red on this desktop;
+- supplied workbook smoke could not be rerun because Excel currently holds the
+  user's source file open. The preceding navigation checkpoint already passed
+  this unchanged serializer path and this lane does not modify OpenXML code.
+
 ## Remaining limits
 
 - Pivot refresh/calculation equivalence, user-mode destination-cell modeling,
@@ -143,8 +166,8 @@ For `EXCEL-BASIC-NAV-002` local validation:
 - Plugin trust/isolation/recovery, broader performance/security corpora and
   final release acceptance remain incomplete.
 - Split-pane adaptive scrollbar topology, the MAUI adaptive host opt-in and
-  style-only whole-row/whole-column used-tail discovery remain outside
-  `EXCEL-BASIC-NAV-002`.
+  style-only whole-row/whole-column used-tail discovery remain outside the
+  adaptive navigation contract.
 
 ## Next single step
 
