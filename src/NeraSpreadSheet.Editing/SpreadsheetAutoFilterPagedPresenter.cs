@@ -18,6 +18,67 @@ public sealed record SpreadsheetAutoFilterPagedPresenterSnapshot(
     IReadOnlyList<SpreadsheetAutoFilterMenuKind> MenuKinds,
     IReadOnlyList<SpreadsheetTableFilterValueItem> Values)
 {
+    /// <summary>Creates a snapshot using the pre-FILTER-007 result shape.</summary>
+    public SpreadsheetAutoFilterPagedPresenterSnapshot(
+        SpreadsheetAutoFilterTarget target,
+        long generation,
+        string searchText,
+        int pageOffset,
+        int pageSize,
+        int totalItemCount,
+        bool isInitialized,
+        bool isSourceTruncated,
+        bool hasPreviousPage,
+        bool hasNextPage,
+        IReadOnlyList<SpreadsheetAutoFilterMenuKind> menuKinds,
+        IReadOnlyList<SpreadsheetTableFilterValueItem> values)
+        : this(
+            target,
+            generation,
+            searchText,
+            pageOffset,
+            pageSize,
+            totalItemCount,
+            isInitialized,
+            isSourceTruncated,
+            0,
+            false,
+            hasPreviousPage,
+            hasNextPage,
+            menuKinds,
+            values)
+    {
+    }
+
+    /// <summary>Deconstructs the snapshot using the pre-FILTER-007 result shape.</summary>
+    public void Deconstruct(
+        out SpreadsheetAutoFilterTarget target,
+        out long generation,
+        out string searchText,
+        out int pageOffset,
+        out int pageSize,
+        out int totalItemCount,
+        out bool isInitialized,
+        out bool isSourceTruncated,
+        out bool hasPreviousPage,
+        out bool hasNextPage,
+        out IReadOnlyList<SpreadsheetAutoFilterMenuKind> menuKinds,
+        out IReadOnlyList<SpreadsheetTableFilterValueItem> values)
+    {
+        target = Target;
+        generation = Generation;
+        searchText = SearchText;
+        pageOffset = PageOffset;
+        pageSize = PageSize;
+        totalItemCount = TotalItemCount;
+        isInitialized = IsInitialized;
+        isSourceTruncated = IsSourceTruncated;
+        hasPreviousPage = HasPreviousPage;
+        hasNextPage = HasNextPage;
+        menuKinds = MenuKinds;
+        values = Values;
+    }
+
     public string AccessibilityAnnouncement
     {
         get
@@ -499,9 +560,12 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
             ThrowIfDisposed();
             generation = await mutation(cancellationToken)
                 .ConfigureAwait(false);
+            var resultCount = await CountVisibleRowsAsync(cancellationToken)
+                .ConfigureAwait(false);
             lock (_stateGate)
             {
                 _page = null;
+                (_resultRowCount, _isResultCountTruncated) = resultCount;
             }
         }
         finally
@@ -527,19 +591,19 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
             var controller = _sortController ?? throw new InvalidOperationException(
                 "This presenter was created from a detached paged view and cannot mutate sort state.");
             changed = mutation(controller);
+            var resultCount = await CountVisibleRowsAsync(cancellationToken)
+                .ConfigureAwait(false);
             lock (_stateGate)
             {
                 _page = null;
+                (_resultRowCount, _isResultCountTruncated) = resultCount;
             }
         }
         finally
         {
             _operationGate.Release();
         }
-        if (changed)
-        {
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
+        Changed?.Invoke(this, EventArgs.Empty);
         return changed;
     }
 

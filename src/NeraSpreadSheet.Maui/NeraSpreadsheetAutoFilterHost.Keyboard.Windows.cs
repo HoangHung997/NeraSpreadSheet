@@ -4,6 +4,7 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Windows.System;
 using NeraSpreadSheet.Editing;
 
@@ -71,6 +72,20 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
 
         if (IsFilterSheetOpen)
         {
+            var focusedElement = _platformKeyboardRoot?.XamlRoot is { } xamlRoot
+                ? FocusManager.GetFocusedElement(xamlRoot) as DependencyObject
+                : null;
+            var searchFocused = IsPlatformFocusWithin(_search, focusedElement);
+            var valuesFocused = IsPlatformFocusWithin(_values, focusedElement);
+            var dateValuesFocused = IsPlatformFocusWithin(_dateValues, focusedElement);
+            if (!ShouldHandlePlatformFilterKey(
+                    e.Key,
+                    searchFocused,
+                    valuesFocused,
+                    dateValuesFocused))
+            {
+                return;
+            }
             if (e.Key == VirtualKey.Escape)
             {
                 Dispatcher.Dispatch(CloseFilterSheet);
@@ -109,7 +124,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             }
             if (e.Key is VirtualKey.Up or VirtualKey.Down or VirtualKey.Home or VirtualKey.End)
             {
-                Dispatcher.Dispatch(() => MoveValueKeyboardFocus(e.Key));
+                Dispatcher.Dispatch(() => MoveValueKeyboardFocus(e.Key, searchFocused));
                 e.Handled = true;
                 return;
             }
@@ -128,7 +143,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         }
     }
 
-    private void MoveValueKeyboardFocus(VirtualKey key)
+    private void MoveValueKeyboardFocus(VirtualKey key, bool fromSearch)
     {
         var binding = _binding;
         if (binding is null || binding.Items.Count == 0 ||
@@ -140,6 +155,8 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         {
             VirtualKey.Home => 0,
             VirtualKey.End => binding.Items.Count - 1,
+            VirtualKey.Up when fromSearch => binding.Items.Count - 1,
+            VirtualKey.Down when fromSearch => 0,
             VirtualKey.Up => Math.Max(0, _keyboardActiveIndex - 1),
             _ => Math.Min(binding.Items.Count - 1, _keyboardActiveIndex + 1),
         };
@@ -147,6 +164,40 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         SemanticProperties.SetHint(
             _values,
             $"Mục {_keyboardActiveIndex + 1:N0}/{binding.Items.Count:N0}: {binding.Items[_keyboardActiveIndex].DisplayText}");
+    }
+
+    internal static bool ShouldHandlePlatformFilterKey(
+        VirtualKey key,
+        bool searchFocused,
+        bool valuesFocused,
+        bool dateValuesFocused) =>
+        key == VirtualKey.Escape ||
+        (key is VirtualKey.PageUp or VirtualKey.PageDown &&
+            (valuesFocused || dateValuesFocused)) ||
+        (key is VirtualKey.Up or VirtualKey.Down &&
+            (searchFocused || valuesFocused)) ||
+        (key is VirtualKey.Home or VirtualKey.End or VirtualKey.Space or VirtualKey.Enter &&
+            valuesFocused);
+
+    private static bool IsPlatformFocusWithin(
+        VisualElement element,
+        DependencyObject? focusedElement)
+    {
+        if (focusedElement is null ||
+            element.Handler?.PlatformView is not DependencyObject platformView)
+        {
+            return false;
+        }
+        for (var current = focusedElement;
+             current is not null;
+             current = VisualTreeHelper.GetParent(current))
+        {
+            if (ReferenceEquals(current, platformView))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void ToggleKeyboardValue()

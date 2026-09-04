@@ -170,6 +170,61 @@ public sealed class SpreadsheetAutoFilterButtonGeometryTests
         Assert.IsFalse(sorted.SortDescending);
     }
 
+    [TestMethod]
+    public void HitRecordsPreservePreFilter007ConstructorAndDeconstructShapes()
+    {
+        var range = new CellRange(default, new CellAddress(2, 2));
+        var address = new CellAddress(0, 1);
+        var bounds = new RectD(1, 2, 3, 4);
+        var tableId = Guid.NewGuid();
+        var columnId = Guid.NewGuid();
+
+        var combined = new SpreadsheetAutoFilterButtonHit(
+            SpreadsheetAutoFilterButtonOwnerKind.Table,
+            tableId,
+            columnId,
+            range,
+            1,
+            1,
+            address,
+            bounds,
+            true);
+        var (_, _, _, _, _, _, _, _, combinedFiltered) = combined;
+        Assert.IsTrue(combinedFiltered);
+        Assert.IsFalse(combined.IsSorted);
+
+        var table = new SpreadsheetTableFilterButtonHit(
+            tableId, columnId, address, bounds, true);
+        var (_, _, _, _, tableFiltered) = table;
+        Assert.IsTrue(tableFiltered);
+        Assert.IsFalse(table.IsSorted);
+
+        var worksheet = new SpreadsheetWorksheetFilterButtonHit(
+            range, 1, 1, address, bounds, true);
+        var (_, _, _, _, _, worksheetFiltered) = worksheet;
+        Assert.IsTrue(worksheetFiltered);
+        Assert.IsFalse(worksheet.IsSorted);
+
+        Assert.IsNotNull(typeof(SpreadsheetAutoFilterButtonHit).GetConstructor([
+            typeof(SpreadsheetAutoFilterButtonOwnerKind),
+            typeof(Guid?),
+            typeof(Guid?),
+            typeof(CellRange),
+            typeof(int),
+            typeof(int),
+            typeof(CellAddress),
+            typeof(RectD),
+            typeof(bool),
+        ]));
+        Assert.IsNotNull(typeof(SpreadsheetTableFilterButtonHit).GetConstructor([
+            typeof(Guid), typeof(Guid), typeof(CellAddress), typeof(RectD), typeof(bool),
+        ]));
+        Assert.IsNotNull(typeof(SpreadsheetWorksheetFilterButtonHit).GetConstructor([
+            typeof(CellRange), typeof(int), typeof(int), typeof(CellAddress),
+            typeof(RectD), typeof(bool),
+        ]));
+    }
+
     private static ViewportLayout CreateLayout() =>
         new(
             0d,

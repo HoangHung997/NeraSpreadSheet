@@ -19,7 +19,11 @@ public sealed class NeraMauiAutoFilterPagedBinding :
     private readonly IDispatcher _dispatcher;
     private readonly SpreadsheetAutoFilterPagedPresenter _presenter;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
-    private bool _disposed;
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private readonly TaskCompletionSource _disposeCompletion = new(
+        TaskCreationOptions.RunContinuationsAsynchronously);
+    private int _disposeStarted;
+    private volatile bool _disposed;
     private bool _isBusy;
     private string _searchText = string.Empty;
     private int _pageOffset;
@@ -212,7 +216,13 @@ public sealed class NeraMauiAutoFilterPagedBinding :
         int offset,
         int pageSize,
         CancellationToken cancellationToken = default) =>
-        _presenter.GetDatePageAsync(parent, offset, pageSize, cancellationToken);
+        ExecuteWithoutPublishAsync(
+            token => _presenter.GetDatePageAsync(
+                parent,
+                offset,
+                pageSize,
+                token),
+            cancellationToken);
 
     public Task<long> ClearColumnFilterAsync(
         CancellationToken cancellationToken = default) =>
@@ -222,26 +232,60 @@ public sealed class NeraMauiAutoFilterPagedBinding :
 
     public void Dispose()
     {
-        if (_disposed)
-        {
-            return;
-        }
-        _disposed = true;
-        _presenter.Dispose();
-        _operationGate.Dispose();
+        BeginDispose();
         GC.SuppressFinalize(this);
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (_disposed)
+        BeginDispose();
+        await _disposeCompletion.Task.ConfigureAwait(false);
+        GC.SuppressFinalize(this);
+    }
+
+    private void BeginDispose()
+    {
+        if (Interlocked.Exchange(ref _disposeStarted, 1) != 0)
         {
             return;
         }
         _disposed = true;
-        await _presenter.DisposeAsync().ConfigureAwait(false);
-        _operationGate.Dispose();
-        GC.SuppressFinalize(this);
+        _lifetimeCancellation.Cancel();
+        _ = DrainAndDisposeAsync();
+    }
+
+    private async Task DrainAndDisposeAsync()
+    {
+        Exception? failure = null;
+        try
+        {
+            await _operationGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                await _presenter.DisposeAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                _operationGate.Release();
+            }
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+        finally
+        {
+            _operationGate.Dispose();
+            _lifetimeCancellation.Dispose();
+            if (failure is null)
+            {
+                _disposeCompletion.TrySetResult();
+            }
+            else
+            {
+                _disposeCompletion.TrySetException(failure);
+            }
+        }
     }
 
     private async Task ExecuteAndPublishAsync(
@@ -250,7 +294,11 @@ public sealed class NeraMauiAutoFilterPagedBinding :
     {
         ArgumentNullException.ThrowIfNull(operation);
         ThrowIfDisposed();
-        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            _lifetimeCancellation.Token);
+        var operationToken = linkedCancellation.Token;
+        await _operationGate.WaitAsync(operationToken).ConfigureAwait(false);
         try
         {
             await SetBusyAsync(true).ConfigureAwait(false);
@@ -258,7 +306,7 @@ public sealed class NeraMauiAutoFilterPagedBinding :
             {
                 await InvokeAsync(async () =>
                     {
-                        await operation(cancellationToken);
+                        await operation(operationToken);
                         return true;
                     })
                     .ConfigureAwait(false);
@@ -266,7 +314,7 @@ public sealed class NeraMauiAutoFilterPagedBinding :
             }
             finally
             {
-                await SetBusyAsync(false).ConfigureAwait(false);
+                await ClearBusyAfterOperationAsync().ConfigureAwait(false);
             }
         }
         finally
@@ -281,25 +329,66 @@ public sealed class NeraMauiAutoFilterPagedBinding :
     {
         ArgumentNullException.ThrowIfNull(operation);
         ThrowIfDisposed();
-        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            _lifetimeCancellation.Token);
+        var operationToken = linkedCancellation.Token;
+        await _operationGate.WaitAsync(operationToken).ConfigureAwait(false);
         try
         {
             await SetBusyAsync(true).ConfigureAwait(false);
             try
             {
-                var result = await InvokeAsync(() => operation(cancellationToken))
+                var result = await InvokeAsync(() => operation(operationToken))
                     .ConfigureAwait(false);
                 await PublishAsync().ConfigureAwait(false);
                 return result;
             }
             finally
             {
-                await SetBusyAsync(false).ConfigureAwait(false);
+                await ClearBusyAfterOperationAsync().ConfigureAwait(false);
             }
         }
         finally
         {
             _operationGate.Release();
+        }
+    }
+
+    private async Task<T> ExecuteWithoutPublishAsync<T>(
+        Func<CancellationToken, Task<T>> operation,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        ThrowIfDisposed();
+        using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            _lifetimeCancellation.Token);
+        var operationToken = linkedCancellation.Token;
+        await _operationGate.WaitAsync(operationToken).ConfigureAwait(false);
+        try
+        {
+            return await InvokeAsync(() => operation(operationToken))
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _operationGate.Release();
+        }
+    }
+
+    private async Task ClearBusyAfterOperationAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+        try
+        {
+            await SetBusyAsync(false).ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException) when (_disposed)
+        {
         }
     }
 

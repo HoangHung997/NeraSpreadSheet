@@ -271,6 +271,33 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
         DockPanel.SetDock(title, Dock.Top);
         panel.Children.Add(title);
 
+        var sortCommands = new WrapPanel
+        {
+            Margin = new Thickness(0d, 0d, 0d, 8d),
+        };
+        var sortAscending = CreateCommandButton(
+            "Sắp xếp ↑",
+            "NeraTableFilterSortAscending",
+            "Sắp xếp Table tăng dần theo cột này.");
+        var sortDescending = CreateCommandButton(
+            "Sắp xếp ↓",
+            "NeraTableFilterSortDescending",
+            "Sắp xếp Table giảm dần theo cột này.");
+        var reapply = CreateCommandButton(
+            "Áp dụng lại",
+            "NeraTableFilterReapply",
+            "Áp dụng lại thứ tự sắp xếp hiện tại.");
+        var clearSort = CreateCommandButton(
+            "Xóa SX",
+            "NeraTableFilterClearSort",
+            "Xóa trạng thái sắp xếp nhưng giữ nguyên thứ tự hàng hiện tại.");
+        sortCommands.Children.Add(sortAscending);
+        sortCommands.Children.Add(sortDescending);
+        sortCommands.Children.Add(reapply);
+        sortCommands.Children.Add(clearSort);
+        DockPanel.SetDock(sortCommands, Dock.Top);
+        panel.Children.Add(sortCommands);
+
         var search = new TextBox
         {
             Margin = new Thickness(0d, 0d, 0d, 8d),
@@ -413,6 +440,14 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
                 SpreadsheetTableFilterNavigationCommand.ClearVisibleSelection);
             RebuildItems(restoreValueFocus: false);
         };
+        sortAscending.Click += (_, _) =>
+            SortAndClose(menu, descending: false);
+        sortDescending.Click += (_, _) =>
+            SortAndClose(menu, descending: true);
+        reapply.Click += (_, _) =>
+            ReapplyAndClose(menu);
+        clearSort.Click += (_, _) =>
+            ClearSortAndClose(menu);
         apply.Click += (_, _) =>
         {
             menu.ApplyValueSelection();
@@ -433,6 +468,62 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
 
         RebuildItems(restoreValueFocus: false);
         return root;
+    }
+
+    private void SortAndClose(
+        SpreadsheetTableFilterMenu menu,
+        bool descending)
+    {
+        var session = _control.Session ??
+            throw new InvalidOperationException("A spreadsheet session is required for sorting.");
+        var target = ResolveCurrentTarget(session, menu);
+        session.Sort.SortAutoFilter(
+            target,
+            new SpreadsheetFilterSortState([
+                new SpreadsheetFilterSortCondition(
+                    target.ColumnOffset,
+                    descending),
+            ]));
+        CloseAndRefresh();
+    }
+
+    private void ReapplyAndClose(SpreadsheetTableFilterMenu menu)
+    {
+        var session = _control.Session ??
+            throw new InvalidOperationException("A spreadsheet session is required for sorting.");
+        session.Sort.ReapplyAutoFilter(ResolveCurrentTarget(session, menu));
+        CloseAndRefresh();
+    }
+
+    private void ClearSortAndClose(SpreadsheetTableFilterMenu menu)
+    {
+        var session = _control.Session ??
+            throw new InvalidOperationException("A spreadsheet session is required for sorting.");
+        session.Sort.ClearAutoFilterSort(ResolveCurrentTarget(session, menu));
+        CloseAndRefresh();
+    }
+
+    private static SpreadsheetAutoFilterTarget ResolveCurrentTarget(
+        SpreadsheetSession session,
+        SpreadsheetTableFilterMenu menu)
+    {
+        if (!session.ActiveWorksheet.TryGetTable(menu.TableId, out var table) ||
+            table is null ||
+            !table.TryGetColumn(menu.ColumnId, out _))
+        {
+            throw new InvalidOperationException(
+                "The Table filter target no longer exists after a structural edit.");
+        }
+        var columnOffset = table.GetColumnIndex(menu.ColumnId);
+        var header = new CellAddress(
+            table.Range.Top,
+            table.Range.Left + columnOffset);
+        if (!session.TryResolveAutoFilterTarget(header, out var target))
+        {
+            throw new InvalidOperationException(
+                "The Table filter target could not be resolved after a structural edit.");
+        }
+        return target;
     }
 
     private void OnPopupPreviewKeyDown(
@@ -456,7 +547,7 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
 
         if ((modifiers & ModifierKeys.Control) != 0 &&
             key == Key.A &&
-            !searchFocused)
+            valueFocused)
         {
             navigator.Handle(
                 (modifiers & ModifierKeys.Shift) != 0
@@ -735,35 +826,13 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
                     2d,
                     2d);
 
-                var centerX = bounds.Left + (bounds.Width / 2d);
-                var centerY = bounds.Top + (bounds.Height / 2d) + 1d;
-                var glyph = new StreamGeometry();
-                using (var context = glyph.Open())
-                {
-                    var pointsUp = button.IsSorted && button.SortDescending != true;
-                    context.BeginFigure(
-                        pointsUp
-                            ? new Point(centerX, centerY - 3d)
-                            : new Point(centerX - 3.5d, centerY - 2d),
-                        isFilled: true,
-                        isClosed: true);
-                    context.LineTo(
-                        pointsUp
-                            ? new Point(centerX + 3.5d, centerY + 2.5d)
-                            : new Point(centerX + 3.5d, centerY - 2d),
-                        isStroked: true,
-                        isSmoothJoin: false);
-                    context.LineTo(
-                        pointsUp
-                            ? new Point(centerX - 3.5d, centerY + 2.5d)
-                            : new Point(centerX, centerY + 2.5d),
-                        isStroked: true,
-                        isSmoothJoin: false);
-                }
-                drawingContext.DrawGeometry(
-                    new SolidColorBrush(ToColor(theme.TableFilterButtonGlyph)),
-                    pen: null,
-                    glyph);
+                WpfFilterHeaderGlyphRenderer.Draw(
+                    drawingContext,
+                    bounds,
+                    button.HeaderState,
+                    button.SortDescending,
+                    new SolidColorBrush(ToColor(
+                        theme.TableFilterButtonGlyph)));
             }
         }
     }

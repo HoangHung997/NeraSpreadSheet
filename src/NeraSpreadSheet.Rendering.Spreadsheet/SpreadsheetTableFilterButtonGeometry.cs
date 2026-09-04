@@ -13,6 +13,32 @@ public readonly record struct SpreadsheetTableFilterButtonHit(
     bool IsSorted = false,
     bool? SortDescending = null)
 {
+    /// <summary>Creates a hit result using the pre-FILTER-007 state shape.</summary>
+    public SpreadsheetTableFilterButtonHit(
+        Guid tableId,
+        Guid columnId,
+        CellAddress headerCell,
+        RectD bounds,
+        bool isFiltered)
+        : this(tableId, columnId, headerCell, bounds, isFiltered, false, null)
+    {
+    }
+
+    /// <summary>Deconstructs the hit result using the pre-FILTER-007 state shape.</summary>
+    public void Deconstruct(
+        out Guid tableId,
+        out Guid columnId,
+        out CellAddress headerCell,
+        out RectD bounds,
+        out bool isFiltered)
+    {
+        tableId = TableId;
+        columnId = ColumnId;
+        headerCell = HeaderCell;
+        bounds = Bounds;
+        isFiltered = IsFiltered;
+    }
+
     public SpreadsheetFilterHeaderState HeaderState =>
         IsFiltered
             ? IsSorted ? SpreadsheetFilterHeaderState.FilteredAndSorted : SpreadsheetFilterHeaderState.Filtered

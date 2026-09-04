@@ -128,6 +128,32 @@ public sealed class DesktopTableFilterKeyboardFocusSmokeTests
                 PumpFor(TimeSpan.FromMilliseconds(100d));
                 Assert.IsFalse(presenter.IsOpen);
                 Assert.IsTrue(focusTarget.IsKeyboardFocused);
+
+                Assert.IsTrue(presenter.TryOpenForActiveCell());
+                PumpFor(TimeSpan.FromMilliseconds(100d));
+                var popup = GetPrivateField<System.Windows.Controls.Primitives.Popup>(
+                    presenter,
+                    "_popup");
+                var commandButtons = EnumerateWpfElements(popup.Child)
+                    .OfType<WpfButton>()
+                    .ToArray();
+                var automationIds = commandButtons
+                    .Select(WpfAutomationProperties.GetAutomationId)
+                    .ToArray();
+                CollectionAssert.Contains(automationIds, "NeraTableFilterSortAscending");
+                CollectionAssert.Contains(automationIds, "NeraTableFilterSortDescending");
+                CollectionAssert.Contains(automationIds, "NeraTableFilterReapply");
+                CollectionAssert.Contains(automationIds, "NeraTableFilterClearSort");
+                var descending = commandButtons
+                    .Single(button => WpfAutomationProperties.GetAutomationId(button) ==
+                        "NeraTableFilterSortDescending");
+                descending.RaiseEvent(new System.Windows.RoutedEventArgs(
+                    WpfButton.ClickEvent));
+                PumpFor(TimeSpan.FromMilliseconds(80d));
+                Assert.IsFalse(presenter.IsOpen);
+                Assert.AreEqual(
+                    "Pending",
+                    workbook.Worksheets[0].GetValue(new CellAddress(1, 0)));
             }
             finally
             {
@@ -214,6 +240,31 @@ public sealed class DesktopTableFilterKeyboardFocusSmokeTests
             Assert.IsTrue(filterButtons.All(static button =>
                 !string.IsNullOrWhiteSpace(button.AccessibleName)));
 
+            Assert.IsTrue(presenter.TryOpenForActiveCell());
+            WinFormsApplication.DoEvents();
+            var dropDown = GetPrivateField<System.Windows.Forms.ToolStripDropDown>(
+                presenter,
+                "_dropDown");
+            var panel = ((System.Windows.Forms.ToolStripControlHost)dropDown.Items[0]).Control;
+            var commandButtons = EnumerateWinFormsControls(panel)
+                .OfType<WinFormsButton>()
+                .ToArray();
+            var accessibleNames = commandButtons
+                .Select(static button => button.AccessibleName)
+                .ToArray();
+            CollectionAssert.Contains(accessibleNames, "Sắp xếp tăng dần");
+            CollectionAssert.Contains(accessibleNames, "Sắp xếp giảm dần");
+            CollectionAssert.Contains(accessibleNames, "Áp dụng lại");
+            CollectionAssert.Contains(accessibleNames, "Xóa SX");
+            var descending = commandButtons
+                .Single(static button => button.AccessibleName == "Sắp xếp giảm dần");
+            descending.PerformClick();
+            WinFormsApplication.DoEvents();
+            Assert.IsFalse(presenter.IsOpen);
+            Assert.AreEqual(
+                "Pending",
+                workbook.Worksheets[0].GetValue(new CellAddress(1, 0)));
+
             form.Close();
             WinFormsApplication.DoEvents();
         });
@@ -264,6 +315,33 @@ public sealed class DesktopTableFilterKeyboardFocusSmokeTests
         method.Invoke(target, [args]);
         Assert.IsTrue(args.Handled);
         Assert.IsTrue(args.SuppressKeyPress);
+    }
+
+    private static IEnumerable<System.Windows.DependencyObject> EnumerateWpfElements(
+        System.Windows.DependencyObject root)
+    {
+        yield return root;
+        foreach (var child in System.Windows.LogicalTreeHelper.GetChildren(root)
+                     .OfType<System.Windows.DependencyObject>())
+        {
+            foreach (var descendant in EnumerateWpfElements(child))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private static IEnumerable<WinFormsBaseControl> EnumerateWinFormsControls(
+        WinFormsBaseControl root)
+    {
+        yield return root;
+        foreach (WinFormsBaseControl child in root.Controls)
+        {
+            foreach (var descendant in EnumerateWinFormsControls(child))
+            {
+                yield return descendant;
+            }
+        }
     }
 
     private static Workbook CreateWorkbook()

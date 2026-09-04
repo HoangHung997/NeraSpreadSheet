@@ -29,6 +29,9 @@ not add a competing workbook/filter model and does not modify Ribbon code.
 - Sorting is bounded by `SpreadsheetSortController.DefaultMaximumMaterializedCells`.
   Rejected, unsupported and over-budget requests do not mutate cells, metadata
   or history.
+- Any selection or AutoFilter data range that intersects a dynamic-array spill,
+  including only its root or only a child, is rejected before materialization.
+  Spill ownership, cells, sort metadata and Undo/Redo history remain unchanged.
 - Left-to-right sort remains preservation-only. New construction and execution
   reject it explicitly and atomically because a correct implementation requires
   column identity/formula semantics that are not yet present; it is never
@@ -48,13 +51,29 @@ sort is rejected without partial mutation.
 Every shared filter target and header hit exposes one of four states:
 `None`, `Filtered`, `Sorted`, or `FilteredAndSorted`. Sorted state belongs only
 to columns present in the ordered sort keys. Native buttons use a distinct
-glyph plus a non-color accessible description.
+glyph plus a non-color accessible description. WPF uses separate unsorted
+chevron, filtered funnel, ascending arrow and descending arrow shapes; a
+filtered-and-sorted header also carries a visible badge, so state is never
+encoded by color alone.
 
 The shared presenter publishes the current result count and an announcement
 containing owner, column, header state and result count. WPF, WinForms and MAUI
 bind that text to their native accessibility properties. Native surfaces keep
 the existing bounded page of controls and support Alt+Down, arrows, Home/End,
 PageUp/PageDown, Space, Enter, Escape and guarded focus restoration.
+Navigation keys are claimed only while search-to-list transfer or a filter
+value/date navigation surface owns focus. Text/custom editors, pickers and
+command buttons retain their native Home/End/Enter/Page key behavior.
+
+The pre-FILTER-007 public constructors and `Deconstruct` overloads of the paged
+snapshot and all three header-hit records remain available for source and
+binary compatibility. Result counts and accessibility announcements refresh
+after Apply, Clear, sort, reapply and clear-sort mutations.
+
+The MAUI binding cancels its lifetime token, drains the serialized in-flight
+operation, and only then disposes its semaphore and presenter. Synchronous
+dispose starts that safe drain without blocking the UI thread; asynchronous
+dispose waits for completion.
 
 ## Validation and limits
 

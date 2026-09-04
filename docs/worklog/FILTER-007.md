@@ -85,3 +85,35 @@ Implementation complete.
   the final handoff.
 - Next step: integrate both commits and require the exact-head CI matrix to be
   green before merge.
+
+## Independent review remediation
+
+The post-implementation review found and closed the remaining integration
+blockers before cherry-pick:
+
+- selection and AutoFilter sorts now reject dynamic-array spill roots and
+  children atomically, with spill/Undo regression coverage;
+- WPF and MAUI paged keyboard routing no longer captures editing, picker or
+  command-button keys outside the value navigation surface;
+- the pre-FILTER-007 constructors and `Deconstruct` shapes of the public paged
+  snapshot and three header-hit records were restored and compile/reflection
+  tested;
+- the production WPF, WinForms and MAUI `NeraSpreadsheetTableHost` surfaces now
+  expose ascending, descending, reapply and clear-sort actions;
+- result counts and announcements refresh after filter and sort mutations;
+- WPF draws direction-specific arrows, a filtered funnel and a combined-state
+  badge rather than relying on active color;
+- MAUI binding disposal now cancels and drains an in-flight dispatcher operation
+  before disposing its semaphore, with a deterministic race test;
+- the loaded MAUI Windows smoke now renders both the production Table host and
+  paged rich host as visible surfaces; the hidden 2x2, 1%-opacity host was
+  removed, and the production host executes the runtime sort check.
+
+Focused remediation evidence: Editing 19/19, rendering geometry 5/5, and
+WPF/WinForms loaded production and paged focus 3/3 passed. Full relevant runs
+passed Editing 249/249, rendering spreadsheet 124/124 and MAUI 39/39. Full
+Windows rendering remained 65/66 with only the documented environment-only
+`Window.Activate()` split-scrollbar failure; all FILTER-007 loaded tests passed.
+Architecture and packaging verification passed. Loaded MAUI Windows TableFilter
+smoke passed with 13 GPU frames and every reported
+filter/focus/history/rich/sort flag true.

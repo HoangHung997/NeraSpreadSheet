@@ -27,6 +27,7 @@ public sealed class SpreadsheetSortController
             var range = _session.Selection.Ranges[0];
             return range.RowCount > 1 &&
                 !_session.ActiveWorksheet.MergedCells.Intersects(range) &&
+                !IntersectsFormulaSpill(range) &&
                 (long)range.RowCount * range.ColumnCount <= _maximumMaterializedCells;
         }
     }
@@ -52,6 +53,7 @@ public sealed class SpreadsheetSortController
         {
             throw new ArgumentOutOfRangeException(nameof(keyColumnOffset));
         }
+        RejectFormulaSpillIntersection(range);
         if (range.RowCount <= (hasHeader ? 2 : 1))
         {
             return;
@@ -65,7 +67,6 @@ public sealed class SpreadsheetSortController
         {
             throw new InvalidOperationException("Sorting a range that intersects merged cells is not supported.");
         }
-
         var firstDataRow = range.Top + (hasHeader ? 1 : 0);
         var rows = new List<SortRow>();
         for (var row = firstDataRow; row <= range.Bottom; row++)
@@ -250,6 +251,7 @@ public sealed class SpreadsheetSortController
             throw new InvalidOperationException(
                 "Sorting an AutoFilter range that intersects merged cells is not supported.");
         }
+        RejectFormulaSpillIntersection(dataRange);
 
         var rows = MaterializeRows(dataRange);
         var sorted = rows.ToArray();
@@ -278,6 +280,19 @@ public sealed class SpreadsheetSortController
             worksheetFilterAfter,
             description));
         return true;
+    }
+
+    private bool IntersectsFormulaSpill(CellRange range) =>
+        _session.ActiveWorksheet.GetFormulaSpills()
+            .Any(spill => spill.Range.Intersects(range));
+
+    private void RejectFormulaSpillIntersection(CellRange range)
+    {
+        if (IntersectsFormulaSpill(range))
+        {
+            throw new InvalidOperationException(
+                "Sorting a range that intersects a dynamic-array spill is not supported.");
+        }
     }
 
     private List<SortRow> MaterializeRows(CellRange range)
