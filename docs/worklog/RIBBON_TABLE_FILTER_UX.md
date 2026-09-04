@@ -15,10 +15,10 @@ Task owners write their own `docs/worklog/<CHECKPOINT>.md` handoff.
 
 | Order | Checkpoint | Lane | State | Owner | Branch | Dependency | Planned window |
 | ---: | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `RIBBON-007` | A | `CI` | Codex task `RIBBON-007 Responsive Ribbon` | `feature/ribbon-007-responsive-layout` | baseline | integrated 04/09; exact-head CI pending |
-| 2 | `FILTER-005` | B | `CI` | Codex task `FILTER-005 Rich Filter Semantics` | `feature/filter-005-rich-semantics` | baseline | integrated 04/09; exact-head CI pending |
-| 3 | `RIBBON-008` | A | `BACKLOG` | Unclaimed | `feature/ribbon-008-item-model` | `RIBBON-007` | 10–16/09 |
-| 4 | `FILTER-006` | B | `BACKLOG` | Unclaimed | `feature/filter-006-native-ux` | `FILTER-005`; integration waits for `RIBBON-008` | 14–18/09 |
+| 1 | `RIBBON-007` | A | `DONE` | Codex task `RIBBON-007 Responsive Ribbon` | `feature/ribbon-007-responsive-layout` | baseline | integrated/green 04/09 |
+| 2 | `FILTER-005` | B | `DONE` | Codex task `FILTER-005 Rich Filter Semantics` | `feature/filter-005-rich-semantics` | baseline | integrated/green 04/09 |
+| 3 | `RIBBON-008` | A | `ACTIVE` | Codex task `RIBBON-008 Full Item Model` (`client-new-thread:7c4e32a8-eb91-404b-9ea9-74acd75ef24f`) | `feature/ribbon-008-item-model` | `RIBBON-007` | started early 04/09; cap 16/09 |
+| 4 | `FILTER-006` | B | `ACTIVE` | Codex task `FILTER-006 Native Rich Filter UX` (`client-new-thread:6b8ccb3d-d6ac-4034-b044-ce5135978940`) | `feature/filter-006-native-ux` | `FILTER-005`; Ribbon integration waits for `RIBBON-008` | started early 04/09; cap 18/09 |
 | 5 | `RIBBON-009` | A | `BACKLOG` | Unclaimed | `feature/ribbon-009-contextual-qat` | `RIBBON-008` | 17–22/09 |
 | 6 | `FILTER-007` | B | `BACKLOG` | Unclaimed | `feature/filter-007-sort-accessibility` | `FILTER-006` | 21–23/09 |
 | 7 | `RIBBON-010` | A | `BACKLOG` | Unclaimed | `feature/ribbon-010-customization` | `RIBBON-009` | 23–29/09 |
@@ -54,6 +54,8 @@ waits.
 | --- | --- | --- | --- | --- |
 | Baseline/iconography | `2b933fd8b04042c0c52854dd73651161e9ae9322` | `34a81c5d45c2b28397c1688ae665cce0d0e8dfe7` | full #1302; iOS #123; Q003C #120 | Green |
 | Program schedule | `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` | `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` | full #1303; iOS #124; Q003C #121 | Green |
+| `RIBBON-007` | `0878f0f3e57783215431662894a504cbe18eefef` | `05c6974fa907f5022f28c85f13f06dbb35288556` | full #1307; iOS #128; Q003C #125 | Green |
+| `FILTER-005` | `e167c1e97e1189e903fd1584937246028ddbcab1` | `05c6974fa907f5022f28c85f13f06dbb35288556` | full #1307; iOS #128; Q003C #125 | Green |
 
 Append one row only after exact-head CI completes. Never mark a checkpoint
 `DONE` using a green run from a parent commit.
@@ -64,3 +66,6 @@ Append one row only after exact-head CI completes. Never mark a checkpoint
   `21d496cad0d54506b0015d62e4ae80de57c34e6a`, three days before the calendar
   start. A successor starts immediately after its predecessor is integrated and
   green; calendar dates are not idle-time barriers.
+- 04/09/2026: both first checkpoints were integrated and exact-head green at
+  `05c6974fa907f5022f28c85f13f06dbb35288556`; `RIBBON-008` and `FILTER-006`
+  were immediately dispatched into two new isolated worktrees from that SHA.

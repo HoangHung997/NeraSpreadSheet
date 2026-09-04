@@ -6,7 +6,8 @@
 - Integration baseline: `21d496cad0d54506b0015d62e4ae80de57c34e6a`
 - Implementation commit: `e167c1e97e1189e903fd1584937246028ddbcab1`
 - Pull request: not created; branch handoff only
-- Exact-head CI: pending integration owner/GitHub Actions
+- Integrated exact-head CI: `05c6974fa907f5022f28c85f13f06dbb35288556`;
+  full #1307, iOS #128 and Q003C/OpenXML #125 passed
 
 ## Completed
 
@@ -83,9 +84,8 @@ projection regression gate for this host-neutral checkpoint.
 - Until Core owns conditional-formatting icon-set rules, icon filtering uses a
   documented deterministic equal-bucket numeric fallback inferred from the
   3/4/5-icon set. Foreign threshold rules remain preservation-only.
-- Exact-head GitHub Actions are pending after integration; do not mark the
-  checkpoint DONE until full CI, iOS and Q003C/OpenXML gates are green on the
-  integrated HEAD.
+- Integrated exact-head full CI, iOS and Q003C/OpenXML gates are green; the
+  checkpoint is DONE for its defined scope.
 
 ## Rollback
 
@@ -95,6 +95,5 @@ No package or data migration is required.
 
 ## One next step
 
-Integration owner should fetch this branch, cherry-pick the implementation and
-worklog commits onto the unchanged integration head, then push that exact HEAD
-and wait for full CI, iOS and Q003C/OpenXML gates before promoting FILTER-005.
+Continue with FILTER-006 native rich-filter UX in its isolated worktree. Ribbon
+item integration remains gated on the independent RIBBON-008 handoff.

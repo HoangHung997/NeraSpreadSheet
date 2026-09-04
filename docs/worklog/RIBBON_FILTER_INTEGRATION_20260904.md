@@ -53,8 +53,9 @@ either checkpoint:
 - Native rich filter popup/category UX remains FILTER-006.
 - Left-to-right sort execution/import remains FILTER-007; preserved workbooks
   retain its producer XML when preservation mode is enabled.
-- Exact-head GitHub full CI, iOS and Q003C/OpenXML gates remain required before
-  marking either checkpoint `DONE`.
+- Exact-head `05c6974fa907f5022f28c85f13f06dbb35288556` passed full CI run
+  `33883244367` / #1307, iOS run `33883244356` / #128 and Q003C/OpenXML run
+  `33883244366` / #125. Both checkpoints are `DONE` for their defined scope.
 
 ## Rollback
 

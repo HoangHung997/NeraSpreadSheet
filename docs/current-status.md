@@ -4,7 +4,7 @@
 
 The fixed weighted roadmap rubric in [`project-progress.md`](project-progress.md) currently evaluates to **83.98%**, reported as **84%**. This is an implementation-roadmap score, not a claim that NeraSpreadSheet implements 84% of every Microsoft Excel feature and not a production-readiness percentage.
 
-## TABLE/FILTER/RIBBON/UX — INTEGRATING
+## TABLE/FILTER/RIBBON/UX — ACTIVE
 
 The remaining Table, Filter, Ribbon and UX work now has an executable two-lane
 schedule in [`ribbon-table-filter-ux-delivery-plan.md`](ribbon-table-filter-ux-delivery-plan.md)
@@ -17,9 +17,10 @@ documents the sequential fallback through **20 November 2026**. `RIBBON-007`
 and `FILTER-005` were completed in isolated worktrees and integrated with
 cross-lane hardening on 04 September 2026. Local Core solution is **1296/1296**,
 OpenXML **93/93**, MAUI presenter **34/34**, focused desktop Ribbon **3/3**, and
-the loaded MAUI Windows Ribbon smoke reports success. Exact-head CI is now the
-remaining promotion gate; successors start immediately after it turns green
-rather than waiting for the calendar date. Schedule checkpoint
+the loaded MAUI Windows Ribbon smoke reports success. Integrated exact head
+`05c6974fa907f5022f28c85f13f06dbb35288556` passed full CI #1307, iOS #128
+and Q003C/OpenXML #125. `RIBBON-008` and `FILTER-006` were immediately opened
+in new isolated worktrees rather than waiting for the calendar date. Schedule checkpoint
 `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` passed full CI #1303, iOS gate
 #124 and Q003C/OpenXML gate #121.
 

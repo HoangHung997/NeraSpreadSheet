@@ -31,7 +31,9 @@
 - Máy cục bộ thiếu SDK repo-ghim `10.0.302`; validation cục bộ chạy bằng SDK
   `10.0.201` từ ngoài worktree mà không sửa `global.json`. Android API 36 được
   cài vào SDK tạm cấp người dùng vì SDK hệ thống không cho phép ghi.
-- Exact-head GitHub Actions: pending sau khi push branch.
+- Integrated exact head `05c6974fa907f5022f28c85f13f06dbb35288556`
+  passed full CI run `33883244367` / #1307, iOS run `33883244356` / #128 and
+  Q003C/OpenXML run `33883244366` / #125.
 
 ## Remaining limit
 

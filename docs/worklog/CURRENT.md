@@ -4,9 +4,10 @@
 - Local branch: `feature/ribbon-table-filter-ux-plan`; integration branch:
   `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
-- Latest exact-head CI checkpoint:
-  `f9340c1bf3c59e2c85336c961cf017d2c9ef8858`; full CI #1303, iOS gate #124
-  and Q003C/OpenXML gate #121 passed.
+- Latest implementation exact-head CI checkpoint:
+  `05c6974fa907f5022f28c85f13f06dbb35288556`; full CI run `33883244367` /
+  #1307, iOS run `33883244356` / #128 and Q003C/OpenXML run `33883244366` /
+  #125 passed.
 - Iconography implementation commit:
   `2b933fd8b04042c0c52854dd73651161e9ae9322`; implementation/docs head
   `661504994f2b411c5f7d5a7c88fe836176335ba5` passed all exact-head gates.
@@ -96,7 +97,7 @@
   external Win11 demo consumes the new APIs without forcing a full recalculate
   after each edit.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
-- `RTFUX-2026`: **INTEGRATING**. The complete Table/Filter/Ribbon/UX delivery
+- `RTFUX-2026`: **ACTIVE**. The complete Table/Filter/Ribbon/UX delivery
   sequence and two-lane ownership protocol are recorded in
   `docs/ribbon-table-filter-ux-delivery-plan.md` and
   `docs/worklog/RIBBON_TABLE_FILTER_UX.md`. With two independent lanes the
@@ -106,7 +107,10 @@
   focus/selection/overflow and rich-filter wildcard/month/dxf/sort semantics.
   Local gates are Core solution **1296/1296**, OpenXML **93/93**, MAUI
   **34/34**, focused desktop Ribbon **3/3**, and loaded MAUI Windows Ribbon
-  smoke **success**. Exact-head CI is pending before successor tasks open.
+  smoke **success**. Integrated exact head
+  `05c6974fa907f5022f28c85f13f06dbb35288556` passed full CI #1307, iOS #128
+  and Q003C/OpenXML #125. `RIBBON-008 Full Item Model` and `FILTER-006 Native
+  Rich Filter UX` are now active in two isolated worktrees from that exact SHA.
   Schedule commit
   `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` passed full CI #1303, iOS #124
   and Q003C/OpenXML #121.
@@ -281,9 +285,9 @@ For `RIBBON-ICONOGRAPHY-006` local validation:
 
 ## Next step
 
-Push the combined `RIBBON-007` + `FILTER-005` integration head and require full
-CI, iOS and Q003C/OpenXML success at that exact SHA. Then mark both checkpoints
-DONE and immediately open `RIBBON-008` and `FILTER-006` in isolated worktrees.
+Monitor `RIBBON-008` and `FILTER-006` independently. Integrate a lane only after
+its focused gates and handoff pass, without waiting for or modifying files owned
+by the other active lane.
 
 ## Remaining limits
 
