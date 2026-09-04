@@ -12,6 +12,10 @@ public interface ISpreadsheetEditOperation : IUndoableOperation
     bool AffectsCalculation => true;
 }
 
+internal interface IIncrementalCalculationOperation
+{
+}
+
 public sealed class SetCellsOperation : ISpreadsheetEditOperation
 {
     private readonly KeyValuePair<CellAddress, CellData>[] _updates;

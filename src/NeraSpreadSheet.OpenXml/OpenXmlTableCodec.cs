@@ -25,6 +25,8 @@ internal static class OpenXmlTableCodec
     public static void ReadWorksheetTables(
         WorksheetPart worksheetPart,
         NeraWorksheet worksheet,
+        IReadOnlyList<CellStylePatch> differentialStyles,
+        bool preserveUnsupportedMarkup,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(worksheetPart);
@@ -98,7 +100,9 @@ internal static class OpenXmlTableCodec
 
             worksheet.AddTable(ReadTableDefinition(
                 tablePart,
-                relationshipId));
+                relationshipId,
+                differentialStyles,
+                preserveUnsupportedMarkup));
         }
 
         if (worksheetPart.TableDefinitionParts.Count() != references.Length)
@@ -111,6 +115,7 @@ internal static class OpenXmlTableCodec
     public static void WriteWorksheetTables(
         WorksheetPart worksheetPart,
         NeraWorksheet worksheet,
+        OpenXmlConditionalFormattingExportPlan exportPlan,
         ref uint nextTableId)
     {
         ArgumentNullException.ThrowIfNull(worksheetPart);
@@ -142,7 +147,7 @@ internal static class OpenXmlTableCodec
                 .AddNewPart<TableDefinitionPart>(relationshipId);
             SavePartXml(
                 tablePart,
-                BuildTableDocument(table, nextTableId++));
+                BuildTableDocument(table, worksheet, exportPlan, nextTableId++));
             tableParts.Append(new OpenXmlTablePartReference
             {
                 Id = relationshipId,
@@ -155,7 +160,9 @@ internal static class OpenXmlTableCodec
 
     private static SpreadsheetTable ReadTableDefinition(
         TableDefinitionPart tablePart,
-        string relationshipId)
+        string relationshipId,
+        IReadOnlyList<CellStylePatch> differentialStyles,
+        bool preserveUnsupportedMarkup)
     {
         var document = LoadPartXml(tablePart);
         var root = document.Root
@@ -280,7 +287,9 @@ internal static class OpenXmlTableCodec
             root,
             range,
             hasTotalsRow,
-            columns);
+            columns,
+            differentialStyles,
+            preserveUnsupportedMarkup);
         ValidateTableChildren(root);
         return new SpreadsheetTable(
             tableId,
@@ -313,7 +322,9 @@ internal static class OpenXmlTableCodec
         XElement tableRoot,
         CellRange tableRange,
         bool hasTotalsRow,
-        SpreadsheetTableColumn[] columns)
+        SpreadsheetTableColumn[] columns,
+        IReadOnlyList<CellStylePatch> differentialStyles,
+        bool preserveUnsupportedMarkup)
     {
         var elements = tableRoot
             .Elements(SpreadsheetNamespace + "autoFilter")
@@ -349,6 +360,7 @@ internal static class OpenXmlTableCodec
         var unsupported = autoFilter.Elements()
             .Where(element =>
                 element.Name != SpreadsheetNamespace + "filterColumn" &&
+                element.Name != SpreadsheetNamespace + "sortState" &&
                 element.Name != SpreadsheetNamespace + "extLst")
             .FirstOrDefault();
         if (unsupported is not null)
@@ -372,92 +384,56 @@ internal static class OpenXmlTableCodec
                 throw new InvalidDataException(
                     "An AutoFilter column index is invalid or duplicated.");
             }
-            filters.Add(ReadFilterColumn(
-                filterColumn,
-                columns[checked((int)columnIndex)].Id));
+            try
+            {
+                filters.Add(ReadFilterColumn(
+                    filterColumn,
+                    columns[checked((int)columnIndex)].Id,
+                    differentialStyles));
+            }
+            catch (InvalidDataException) when (preserveUnsupportedMarkup)
+            {
+                // The package envelope retains this producer-owned criterion.
+            }
         }
 
-        return filters.Count == 0
+        SpreadsheetFilterSortState? sortState;
+        try
+        {
+            sortState = OpenXmlAutoFilterCriteriaCodec.ParseSortState(
+                autoFilter,
+                expectedRange,
+                (id, cellColor) => ResolveColor(differentialStyles, id, cellColor));
+        }
+        catch (InvalidDataException) when (preserveUnsupportedMarkup)
+        {
+            sortState = null;
+        }
+        return filters.Count == 0 && sortState is null && !preserveUnsupportedMarkup
             ? null
-            : new TableAutoFilter(filters);
+            : new TableAutoFilter(filters, sortState);
     }
 
     private static TableFilterColumn ReadFilterColumn(
         XElement filterColumn,
-        Guid columnId)
+        Guid columnId,
+        IReadOnlyList<CellStylePatch> differentialStyles)
     {
-        var children = filterColumn.Elements()
-            .Where(element =>
-                element.Name != SpreadsheetNamespace + "extLst")
-            .ToArray();
-        if (children.Length != 1)
-        {
-            throw new InvalidDataException(
-                "A supported filterColumn must contain exactly one filter definition.");
-        }
-
-        if (children[0].Name == SpreadsheetNamespace + "filters")
-        {
-            var values = children[0]
-                .Elements(SpreadsheetNamespace + "filter")
-                .Select(element => ParseFilterValue(
-                    RequiredAttribute(element, "val")))
-                .ToArray();
-            var unsupported = children[0].Elements()
-                .FirstOrDefault(element =>
-                    element.Name != SpreadsheetNamespace + "filter");
-            if (unsupported is not null ||
-                values.Length > MaxFilterValuesPerColumn)
-            {
-                throw new InvalidDataException(
-                    "The table value-filter collection is unsupported or too large.");
-            }
-            var includeBlank = ReadBooleanAttribute(
-                children[0],
-                "blank",
-                false);
-            if (values.Length == 0 && !includeBlank)
-            {
-                throw new InvalidDataException(
-                    "A table value filter requires values or blank matching.");
-            }
-            CellValue[] effectiveValues =
-                values.Length == 0 && includeBlank
-                    ? [CellValue.Blank]
-                    : values;
-            return new TableFilterColumn(
-                columnId,
-                effectiveValues,
-                includeBlank);
-        }
-
-        if (children[0].Name == SpreadsheetNamespace + "customFilters")
-        {
-            var conditions = children[0]
-                .Elements(SpreadsheetNamespace + "customFilter")
-                .Select(ReadCustomFilter)
-                .ToArray();
-            if (conditions.Length is < 1 or > 2 ||
-                children[0].Elements().Any(element =>
-                    element.Name != SpreadsheetNamespace + "customFilter"))
-            {
-                throw new InvalidDataException(
-                    "A custom table filter requires one or two supported conditions.");
-            }
-            return new TableFilterColumn(
-                columnId,
-                firstCondition: conditions[0],
-                secondCondition: conditions.Length == 2
-                    ? conditions[1]
-                    : null,
-                combineWithAnd: ReadBooleanAttribute(
-                    children[0],
-                    "and",
-                    false));
-        }
-
-        throw new InvalidDataException(
-            $"Unsupported table filter type '{children[0].Name.LocalName}'.");
+        var parsed = OpenXmlAutoFilterCriteriaCodec.Parse(
+            filterColumn,
+            (id, cellColor) => ResolveColor(differentialStyles, id, cellColor));
+        return new TableFilterColumn(
+            columnId,
+            parsed.Values,
+            parsed.IncludeBlank,
+            parsed.FirstCondition,
+            parsed.SecondCondition,
+            parsed.CombineWithAnd,
+            parsed.DateGroups,
+            parsed.TopBottom,
+            parsed.DynamicFilter,
+            parsed.ColorFilter,
+            parsed.IconFilter);
     }
 
     private static TableFilterCondition ReadCustomFilter(XElement element)
@@ -483,6 +459,8 @@ internal static class OpenXmlTableCodec
 
     private static XDocument BuildTableDocument(
         SpreadsheetTable table,
+        NeraWorksheet worksheet,
+        OpenXmlConditionalFormattingExportPlan exportPlan,
         uint numericTableId)
     {
         var root = new XElement(
@@ -495,9 +473,9 @@ internal static class OpenXmlTableCodec
             new XAttribute("totalsRowCount", table.HasTotalsRow ? 1 : 0),
             new XAttribute("totalsRowShown", table.HasTotalsRow ? 1 : 0));
 
-        if (table.AutoFilter is { Columns.Count: > 0 })
+        if (table.AutoFilter is { })
         {
-            root.Add(BuildAutoFilter(table));
+            root.Add(BuildAutoFilter(table, worksheet, exportPlan));
         }
 
         var columns = new XElement(
@@ -550,7 +528,10 @@ internal static class OpenXmlTableCodec
             root);
     }
 
-    private static XElement BuildAutoFilter(SpreadsheetTable table)
+    private static XElement BuildAutoFilter(
+        SpreadsheetTable table,
+        NeraWorksheet worksheet,
+        OpenXmlConditionalFormattingExportPlan exportPlan)
     {
         var bottom = table.Range.Bottom -
                      (table.HasTotalsRow ? 1 : 0);
@@ -567,50 +548,41 @@ internal static class OpenXmlTableCodec
             var filterColumn = new XElement(
                 SpreadsheetNamespace + "filterColumn",
                 new XAttribute("colId", columnIndex));
-            var includeBlank = filter.IncludeBlank ||
-                               filter.Values.Any(static value =>
-                                   value.IsBlank);
-            if (filter.Values.Count > 0 || includeBlank)
-            {
-                var values = new XElement(
-                    SpreadsheetNamespace + "filters");
-                if (includeBlank)
-                {
-                    values.SetAttributeValue("blank", 1);
-                }
-                foreach (var value in filter.Values)
-                {
-                    if (!value.IsBlank)
-                    {
-                        values.Add(new XElement(
-                            SpreadsheetNamespace + "filter",
-                            new XAttribute(
-                                "val",
-                                FormatFilterValue(value))));
-                    }
-                }
-                filterColumn.Add(values);
-            }
-            else
-            {
-                var custom = new XElement(
-                    SpreadsheetNamespace + "customFilters");
-                if (filter.SecondCondition is not null &&
-                    filter.CombineWithAnd)
-                {
-                    custom.SetAttributeValue("and", 1);
-                }
-                custom.Add(BuildCustomFilter(filter.FirstCondition!));
-                if (filter.SecondCondition is not null)
-                {
-                    custom.Add(BuildCustomFilter(
-                        filter.SecondCondition));
-                }
-                filterColumn.Add(custom);
-            }
+            filterColumn.Add(OpenXmlAutoFilterCriteriaCodec.Build(
+                filter,
+                color => exportPlan.GetColorStyleId(worksheet, color)));
             element.Add(filterColumn);
         }
+        var dataRange = table.DataRange ?? new CellRange(
+            new CellAddress(table.Range.Top, table.Range.Left),
+            new CellAddress(bottom, table.Range.Right));
+        var sortState = OpenXmlAutoFilterCriteriaCodec.BuildSortState(
+            table.AutoFilter.SortState,
+            dataRange,
+            color => exportPlan.GetColorStyleId(worksheet, color));
+        if (sortState is not null) element.Add(sortState);
         return element;
+    }
+
+    private static SpreadsheetColorFilter ResolveColor(
+        IReadOnlyList<CellStylePatch> differentialStyles,
+        uint id,
+        bool cellColor)
+    {
+        if (id >= differentialStyles.Count)
+        {
+            throw new InvalidDataException("An AutoFilter color references an unavailable differential style.");
+        }
+        var patch = differentialStyles[checked((int)id)];
+        if (cellColor && patch.Fill is { } fill)
+        {
+            return new SpreadsheetColorFilter(SpreadsheetFilterColorKind.Fill, fill.Color);
+        }
+        if (!cellColor && patch.FontColor is { } fontColor)
+        {
+            return new SpreadsheetColorFilter(SpreadsheetFilterColorKind.Font, fontColor);
+        }
+        throw new InvalidDataException("An AutoFilter differential style does not define the requested color.");
     }
 
     private static XElement BuildCustomFilter(

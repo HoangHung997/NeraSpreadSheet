@@ -139,7 +139,8 @@ Before this milestone is promoted, the exact head must pass:
 
 - Loaded runtime automation for every new WPF/WinForms/MAUI paged control path.
 - Incremental background publication while a distinct-value catalog is still being built.
-- First-class XLSX `top10`, dynamic/date-group, color/icon filters and `sortState`.
+- Native menu categories/editors for the FILTER-005 date-group, Top/Bottom,
+  dynamic, color/icon and sort-state model (scheduled in FILTER-006/FILTER-007).
 - Complete Table design/resize/style manager UI.
 - Full mobile IME/virtual-keyboard lifecycle.
 - Screen-reader, high-contrast, localization and theme certification.

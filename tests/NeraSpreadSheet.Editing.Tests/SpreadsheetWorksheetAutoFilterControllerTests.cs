@@ -78,6 +78,38 @@ public sealed class SpreadsheetWorksheetAutoFilterControllerTests
         Assert.AreEqual(undoCount, session.History.UndoCount);
     }
 
+    [TestMethod]
+    public void RichFilterAndSortStateUseSingleProductionHistoryEntries()
+    {
+        var workbook = CreateWorkbook();
+        var worksheet = workbook.Worksheets[0];
+        var session = new SpreadsheetSession(workbook);
+        session.WorksheetFilter.SetRange(new CellRange(
+            new CellAddress(0, 0),
+            new CellAddress(3, 1)));
+        var before = session.History.UndoCount;
+
+        session.WorksheetFilter.SetColumnFilter(
+            1,
+            new WorksheetAutoFilterColumn(
+                0,
+                topBottom: new SpreadsheetTopBottomFilter(top: true, percent: false, value: 1)));
+
+        Assert.AreEqual(before + 1, session.History.UndoCount);
+        Assert.AreEqual(1d, worksheet.AutoFilter!.Columns.Single().TopBottom!.Value);
+        Assert.IsTrue(session.Undo());
+        Assert.AreEqual(0, worksheet.AutoFilter!.Columns.Count);
+        Assert.IsTrue(session.Redo());
+
+        session.WorksheetFilter.SetSortState(new SpreadsheetFilterSortState([
+            new SpreadsheetFilterSortCondition(1, descending: true),
+        ]));
+        Assert.AreEqual(before + 2, session.History.UndoCount);
+        Assert.IsTrue(worksheet.AutoFilter!.SortState!.Conditions.Single().Descending);
+        Assert.IsTrue(session.Undo());
+        Assert.IsNull(worksheet.AutoFilter!.SortState);
+    }
+
     private static Workbook CreateWorkbook()
     {
         var workbook = new Workbook();

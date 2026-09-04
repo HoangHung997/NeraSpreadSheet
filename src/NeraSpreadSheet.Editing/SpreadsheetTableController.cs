@@ -159,14 +159,43 @@ public sealed class SpreadsheetTableController
         TableAutoFilter? autoFilter)
     {
         var table = GetTable(tableId);
-        Execute(new SetTableAutoFilterOperation(
+        var operation = new SetTableAutoFilterOperation(
             _session.ActiveWorksheet,
             table,
-            autoFilter));
+            autoFilter);
+        _session.History.Execute(operation);
+        _session.Calculation.RecalculateAffected(
+            _session.Workbook,
+            operation.Worksheet,
+            operation.AffectedRange);
     }
 
     public void ClearAutoFilter(Guid tableId) =>
         SetAutoFilter(tableId, null);
+
+    /// <summary>Replaces one rich filter criterion while preserving all other Table columns.</summary>
+    public void SetColumnFilter(Guid tableId, TableFilterColumn filterColumn)
+    {
+        ArgumentNullException.ThrowIfNull(filterColumn);
+        var table = GetTable(tableId);
+        if (!table.Columns.Any(column => column.Id == filterColumn.ColumnId))
+        {
+            throw new ArgumentException("The filter column does not belong to the Table.", nameof(filterColumn));
+        }
+        var columns = table.AutoFilter?.Columns
+            .Where(column => column.ColumnId != filterColumn.ColumnId)
+            .Select(static column => column.Copy())
+            .Append(filterColumn.Copy())
+            .ToArray() ?? [filterColumn.Copy()];
+        SetAutoFilter(tableId, new TableAutoFilter(columns, table.AutoFilter?.SortState));
+    }
+
+    /// <summary>Replaces Table AutoFilter sort metadata in one Undo/Redo operation.</summary>
+    public void SetSortState(Guid tableId, SpreadsheetFilterSortState? sortState)
+    {
+        var table = GetTable(tableId);
+        SetAutoFilter(tableId, new TableAutoFilter(table.AutoFilter?.Columns ?? [], sortState));
+    }
 
     private SpreadsheetTable GetTable(Guid tableId)
     {
@@ -506,7 +535,7 @@ public sealed class SpreadsheetTableController
     }
 
     private sealed class SetTableAutoFilterOperation
-        : TableOperationBase
+        : TableOperationBase, IIncrementalCalculationOperation
     {
         private readonly Guid _tableId;
         private readonly TableAutoFilter? _autoFilter;

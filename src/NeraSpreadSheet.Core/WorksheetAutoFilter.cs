@@ -10,7 +10,12 @@ public sealed class WorksheetAutoFilterColumn : IEquatable<WorksheetAutoFilterCo
         bool includeBlank = false,
         TableFilterCondition? firstCondition = null,
         TableFilterCondition? secondCondition = null,
-        bool combineWithAnd = true)
+        bool combineWithAnd = true,
+        IEnumerable<SpreadsheetFilterDateGroup>? dateGroups = null,
+        SpreadsheetTopBottomFilter? topBottom = null,
+        SpreadsheetDynamicFilter? dynamicFilter = null,
+        SpreadsheetColorFilter? colorFilter = null,
+        SpreadsheetIconFilter? iconFilter = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(columnOffset);
         ColumnOffset = columnOffset;
@@ -20,7 +25,12 @@ public sealed class WorksheetAutoFilterColumn : IEquatable<WorksheetAutoFilterCo
             includeBlank,
             firstCondition,
             secondCondition,
-            combineWithAnd);
+            combineWithAnd,
+            dateGroups,
+            topBottom,
+            dynamicFilter,
+            colorFilter,
+            iconFilter);
     }
 
     public int ColumnOffset { get; }
@@ -37,6 +47,18 @@ public sealed class WorksheetAutoFilterColumn : IEquatable<WorksheetAutoFilterCo
 
     public bool CombineWithAnd => _criteria.CombineWithAnd;
 
+    public IReadOnlyList<SpreadsheetFilterDateGroup> DateGroups => _criteria.DateGroups;
+
+    public SpreadsheetTopBottomFilter? TopBottom => _criteria.TopBottom;
+
+    public SpreadsheetDynamicFilter? DynamicFilter => _criteria.DynamicFilter;
+
+    public SpreadsheetColorFilter? ColorFilter => _criteria.ColorFilter;
+
+    public SpreadsheetIconFilter? IconFilter => _criteria.IconFilter;
+
+    internal TableFilterColumn Criteria => _criteria;
+
     public bool Matches(CellValue value) =>
         _criteria.Matches(value);
 
@@ -46,7 +68,12 @@ public sealed class WorksheetAutoFilterColumn : IEquatable<WorksheetAutoFilterCo
         IncludeBlank,
         FirstCondition,
         SecondCondition,
-        CombineWithAnd);
+        CombineWithAnd,
+        DateGroups,
+        TopBottom,
+        DynamicFilter,
+        ColorFilter,
+        IconFilter);
 
     public bool Equals(WorksheetAutoFilterColumn? other) =>
         other is not null &&
@@ -55,6 +82,11 @@ public sealed class WorksheetAutoFilterColumn : IEquatable<WorksheetAutoFilterCo
         CombineWithAnd == other.CombineWithAnd &&
         Equals(FirstCondition, other.FirstCondition) &&
         Equals(SecondCondition, other.SecondCondition) &&
+        Equals(TopBottom, other.TopBottom) &&
+        Equals(DynamicFilter, other.DynamicFilter) &&
+        Equals(ColorFilter, other.ColorFilter) &&
+        Equals(IconFilter, other.IconFilter) &&
+        DateGroups.SequenceEqual(other.DateGroups) &&
         Values.SequenceEqual(other.Values);
 
     public override bool Equals(object? obj) =>
@@ -68,6 +100,14 @@ public sealed class WorksheetAutoFilterColumn : IEquatable<WorksheetAutoFilterCo
         hash.Add(CombineWithAnd);
         hash.Add(FirstCondition);
         hash.Add(SecondCondition);
+        hash.Add(TopBottom);
+        hash.Add(DynamicFilter);
+        hash.Add(ColorFilter);
+        hash.Add(IconFilter);
+        foreach (var group in DateGroups)
+        {
+            hash.Add(group);
+        }
         foreach (var value in Values)
         {
             hash.Add(value);
@@ -97,10 +137,12 @@ public sealed class WorksheetAutoFilter : IEquatable<WorksheetAutoFilter>
     public WorksheetAutoFilter(
         CellRange range,
         IEnumerable<WorksheetAutoFilterColumn>? columns = null,
-        bool hasHeaderRow = true)
+        bool hasHeaderRow = true,
+        SpreadsheetFilterSortState? sortState = null)
     {
         Range = range;
         HasHeaderRow = hasHeaderRow;
+        SortState = sortState?.Copy();
         _columns = columns?
             .Select(static column =>
                 (column ?? throw new ArgumentException(
@@ -123,6 +165,10 @@ public sealed class WorksheetAutoFilter : IEquatable<WorksheetAutoFilter>
                 "A worksheet filter column must be inside the filter range.",
                 nameof(columns));
         }
+        if (SortState?.Conditions.Any(condition => condition.ColumnOffset >= range.ColumnCount) == true)
+        {
+            throw new ArgumentException("A worksheet sort condition must be inside the filter range.", nameof(sortState));
+        }
     }
 
     public CellRange Range { get; }
@@ -131,6 +177,8 @@ public sealed class WorksheetAutoFilter : IEquatable<WorksheetAutoFilter>
 
     public IReadOnlyList<WorksheetAutoFilterColumn> Columns =>
         _columns;
+
+    public SpreadsheetFilterSortState? SortState { get; }
 
     public CellRange? DataRange
     {
@@ -160,10 +208,11 @@ public sealed class WorksheetAutoFilter : IEquatable<WorksheetAutoFilter>
 
         foreach (var column in _columns)
         {
-            var value = worksheet.GetCell(new CellAddress(
-                rowIndex,
-                Range.Left + column.ColumnOffset)).Value;
-            if (!column.Matches(value))
+            if (!worksheet.MatchesFilter(
+                    dataRange,
+                    Range.Left + column.ColumnOffset,
+                    column.Criteria,
+                    rowIndex))
             {
                 return false;
             }
@@ -175,14 +224,20 @@ public sealed class WorksheetAutoFilter : IEquatable<WorksheetAutoFilter>
     public WorksheetAutoFilter Copy() => new(
         Range,
         _columns,
-        HasHeaderRow);
+        HasHeaderRow,
+        SortState);
 
     public WorksheetAutoFilter WithColumns(
         IEnumerable<WorksheetAutoFilterColumn> columns) =>
         new(
             Range,
             columns,
-            HasHeaderRow);
+            HasHeaderRow,
+            SortState);
+
+    /// <summary>Returns a copy with replacement sort metadata.</summary>
+    public WorksheetAutoFilter WithSortState(SpreadsheetFilterSortState? sortState) =>
+        new(Range, _columns, HasHeaderRow, sortState);
 
     public CellRange ExpandSignalRange(CellRange source) =>
         Range.Intersects(source)
@@ -193,6 +248,7 @@ public sealed class WorksheetAutoFilter : IEquatable<WorksheetAutoFilter>
         other is not null &&
         Range == other.Range &&
         HasHeaderRow == other.HasHeaderRow &&
+        Equals(SortState, other.SortState) &&
         _columns.SequenceEqual(other._columns);
 
     public override bool Equals(object? obj) =>
@@ -203,6 +259,7 @@ public sealed class WorksheetAutoFilter : IEquatable<WorksheetAutoFilter>
         var hash = new HashCode();
         hash.Add(Range);
         hash.Add(HasHeaderRow);
+        hash.Add(SortState);
         foreach (var column in _columns)
         {
             hash.Add(column);
@@ -223,7 +280,8 @@ public sealed class WorksheetAutoFilter : IEquatable<WorksheetAutoFilter>
             return new WorksheetAutoFilter(
                 mappedRange,
                 _columns,
-                HasHeaderRow);
+                HasHeaderRow,
+                SortState);
         }
 
         var mappedColumns =
@@ -255,13 +313,19 @@ public sealed class WorksheetAutoFilter : IEquatable<WorksheetAutoFilter>
                 column.IncludeBlank,
                 column.FirstCondition,
                 column.SecondCondition,
-                column.CombineWithAnd));
+                column.CombineWithAnd,
+                column.DateGroups,
+                column.TopBottom,
+                column.DynamicFilter,
+                column.ColorFilter,
+                column.IconFilter));
         }
 
         return new WorksheetAutoFilter(
             mappedRange,
             mappedColumns,
-            HasHeaderRow);
+            HasHeaderRow,
+            MapSortState(change, mappedRange));
     }
 
     internal WorksheetAutoFilter CreateAxisMoveFilter(
@@ -278,7 +342,8 @@ public sealed class WorksheetAutoFilter : IEquatable<WorksheetAutoFilter>
             return new WorksheetAutoFilter(
                 mappedRange,
                 _columns,
-                HasHeaderRow);
+                HasHeaderRow,
+                SortState);
         }
 
         var mappedColumns =
@@ -303,13 +368,67 @@ public sealed class WorksheetAutoFilter : IEquatable<WorksheetAutoFilter>
                 column.IncludeBlank,
                 column.FirstCondition,
                 column.SecondCondition,
-                column.CombineWithAnd));
+                column.CombineWithAnd,
+                column.DateGroups,
+                column.TopBottom,
+                column.DynamicFilter,
+                column.ColorFilter,
+                column.IconFilter));
         }
 
         return new WorksheetAutoFilter(
             mappedRange,
             mappedColumns,
-            HasHeaderRow);
+            HasHeaderRow,
+            MapSortState(move, mappedRange));
+    }
+
+    private SpreadsheetFilterSortState? MapSortState(
+        WorksheetStructuralChange change,
+        CellRange mappedRange)
+    {
+        if (SortState is null || change.Axis == WorksheetAxis.Row)
+        {
+            return SortState;
+        }
+        var mapped = SortState.Conditions.Select(condition =>
+        {
+            var address = new CellAddress(Range.Top, Range.Left + condition.ColumnOffset);
+            return change.TryMapAddress(address, out var target)
+                ? new SpreadsheetFilterSortCondition(
+                    target.ColumnIndex - mappedRange.Left,
+                    condition.Descending,
+                    condition.SortBy,
+                    condition.CustomList,
+                    condition.Color,
+                    condition.Icon)
+                : null;
+        }).Where(static item => item is not null).Select(static item => item!).ToArray();
+        return mapped.Length == 0 ? null : new SpreadsheetFilterSortState(mapped, SortState.CaseSensitive, SortState.SortLeftToRight);
+    }
+
+    private SpreadsheetFilterSortState? MapSortState(
+        WorksheetAxisMove move,
+        CellRange mappedRange)
+    {
+        if (SortState is null || move.Axis == WorksheetAxis.Row)
+        {
+            return SortState;
+        }
+        return new SpreadsheetFilterSortState(
+            SortState.Conditions.Select(condition =>
+            {
+                var target = move.MapAddress(new CellAddress(Range.Top, Range.Left + condition.ColumnOffset));
+                return new SpreadsheetFilterSortCondition(
+                    target.ColumnIndex - mappedRange.Left,
+                    condition.Descending,
+                    condition.SortBy,
+                    condition.CustomList,
+                    condition.Color,
+                    condition.Icon);
+            }),
+            SortState.CaseSensitive,
+            SortState.SortLeftToRight);
     }
 
     private void ValidateHeaderDeletion(

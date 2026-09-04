@@ -85,6 +85,36 @@ public sealed class SpreadsheetWorksheetAutoFilterController
             "Apply worksheet custom filter");
     }
 
+    /// <summary>Replaces one worksheet filter column with any supported rich criterion.</summary>
+    public void SetColumnFilter(
+        int worksheetColumnIndex,
+        WorksheetAutoFilterColumn filterColumn)
+    {
+        ArgumentNullException.ThrowIfNull(filterColumn);
+        var current = RequireCurrent();
+        var offset = GetColumnOffset(current, worksheetColumnIndex);
+        var replacement = new WorksheetAutoFilterColumn(
+            offset,
+            filterColumn.Values,
+            filterColumn.IncludeBlank,
+            filterColumn.FirstCondition,
+            filterColumn.SecondCondition,
+            filterColumn.CombineWithAnd,
+            filterColumn.DateGroups,
+            filterColumn.TopBottom,
+            filterColumn.DynamicFilter,
+            filterColumn.ColorFilter,
+            filterColumn.IconFilter);
+        ReplaceColumn(current, replacement, "Apply worksheet rich filter");
+    }
+
+    /// <summary>Replaces worksheet AutoFilter sort metadata in one Undo/Redo operation.</summary>
+    public void SetSortState(SpreadsheetFilterSortState? sortState)
+    {
+        var current = RequireCurrent();
+        SetAutoFilter(current.WithSortState(sortState), "Set worksheet filter sort state");
+    }
+
     public void ClearColumnFilter(int worksheetColumnIndex)
     {
         var current = RequireCurrent();
@@ -162,7 +192,8 @@ public sealed class SpreadsheetWorksheetAutoFilterController
 }
 
 internal sealed class SetWorksheetAutoFilterOperation :
-    ISpreadsheetEditOperation
+    ISpreadsheetEditOperation,
+    IIncrementalCalculationOperation
 {
     private readonly WorksheetAutoFilter? _before;
     private readonly WorksheetAutoFilter? _after;
@@ -189,8 +220,6 @@ internal sealed class SetWorksheetAutoFilterOperation :
     public Worksheet Worksheet { get; }
 
     public CellRange AffectedRange { get; }
-
-    public bool AffectsCalculation => false;
 
     public void Execute() =>
         Worksheet.SetAutoFilter(_after);

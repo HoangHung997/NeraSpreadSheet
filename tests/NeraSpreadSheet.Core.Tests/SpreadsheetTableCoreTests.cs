@@ -143,7 +143,40 @@ public sealed class SpreadsheetTableCoreTests
                 "Sales",
                 new CellRange(
                     new CellAddress(0, 0),
-                    new CellAddress(3, 2)))));
+                new CellAddress(3, 2)))));
+    }
+
+    [TestMethod]
+    public void StructuralColumnChangesRemapTableSortStateWithoutChangingColumnIdentity()
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        var table = CreateTable(
+            "Sales",
+            new CellRange(new CellAddress(0, 0), new CellAddress(3, 2)));
+        var sortedColumnId = table.Columns[2].Id;
+        worksheet.AddTable(table.WithAutoFilter(new TableAutoFilter(
+            [],
+            new SpreadsheetFilterSortState([new SpreadsheetFilterSortCondition(2)]))));
+
+        worksheet.ApplyStructuralChange(new WorksheetStructuralChange(
+            WorksheetAxis.Column,
+            WorksheetStructuralChangeKind.Insert,
+            index: 1,
+            count: 1));
+
+        var inserted = worksheet.Tables.Single();
+        Assert.AreEqual(3, inserted.AutoFilter!.SortState!.Conditions.Single().ColumnOffset);
+        Assert.AreEqual(sortedColumnId, inserted.Columns[3].Id);
+
+        worksheet.ApplyStructuralChange(new WorksheetStructuralChange(
+            WorksheetAxis.Column,
+            WorksheetStructuralChangeKind.Delete,
+            index: 1,
+            count: 1));
+        var restored = worksheet.Tables.Single();
+        Assert.AreEqual(2, restored.AutoFilter!.SortState!.Conditions.Single().ColumnOffset);
+        Assert.AreEqual(sortedColumnId, restored.Columns[2].Id);
     }
 
     private static SpreadsheetTable CreateTable(

@@ -46,6 +46,7 @@ public sealed record TableFilterCondition(
 public sealed class TableFilterColumn
 {
     private readonly CellValue[] _values;
+    private readonly SpreadsheetFilterDateGroup[] _dateGroups;
 
     public TableFilterColumn(
         Guid columnId,
@@ -53,7 +54,12 @@ public sealed class TableFilterColumn
         bool includeBlank = false,
         TableFilterCondition? firstCondition = null,
         TableFilterCondition? secondCondition = null,
-        bool combineWithAnd = true)
+        bool combineWithAnd = true,
+        IEnumerable<SpreadsheetFilterDateGroup>? dateGroups = null,
+        SpreadsheetTopBottomFilter? topBottom = null,
+        SpreadsheetDynamicFilter? dynamicFilter = null,
+        SpreadsheetColorFilter? colorFilter = null,
+        SpreadsheetIconFilter? iconFilter = null)
     {
         if (columnId == Guid.Empty)
         {
@@ -64,21 +70,32 @@ public sealed class TableFilterColumn
 
         ColumnId = columnId;
         _values = values?.Distinct().ToArray() ?? [];
+        _dateGroups = dateGroups?.Distinct().ToArray() ?? [];
         IncludeBlank = includeBlank;
         FirstCondition = firstCondition;
         SecondCondition = secondCondition;
         CombineWithAnd = combineWithAnd;
-        if (_values.Length == 0 && firstCondition is null)
+        TopBottom = topBottom;
+        DynamicFilter = dynamicFilter;
+        ColorFilter = colorFilter;
+        IconFilter = iconFilter;
+        var definitionCount = (_values.Length > 0 || includeBlank || _dateGroups.Length > 0 ? 1 : 0) +
+                              (firstCondition is not null ? 1 : 0) +
+                              (topBottom is not null ? 1 : 0) +
+                              (dynamicFilter is not null ? 1 : 0) +
+                              (colorFilter is not null ? 1 : 0) +
+                              (iconFilter is not null ? 1 : 0);
+        if (definitionCount == 0)
         {
             throw new ArgumentException(
-                "A table filter requires values or a custom condition.",
+                "A table filter requires one filter definition.",
                 nameof(values));
         }
-        if (_values.Length > 0 && firstCondition is not null)
+        if (definitionCount > 1)
         {
             throw new ArgumentException(
-                "Value filters and custom conditions cannot be combined in one filter column.",
-                nameof(firstCondition));
+                "A filter column cannot combine different filter definition kinds.",
+                nameof(values));
         }
         if (secondCondition is not null && firstCondition is null)
         {
@@ -100,9 +117,26 @@ public sealed class TableFilterColumn
 
     public bool CombineWithAnd { get; }
 
-    public bool Matches(CellValue value)
+    /// <summary>Gets date-group selections combined with value selections by OR.</summary>
+    public IReadOnlyList<SpreadsheetFilterDateGroup> DateGroups => _dateGroups;
+
+    /// <summary>Gets the Top/Bottom criterion, when present.</summary>
+    public SpreadsheetTopBottomFilter? TopBottom { get; }
+
+    /// <summary>Gets the dynamic date or average criterion, when present.</summary>
+    public SpreadsheetDynamicFilter? DynamicFilter { get; }
+
+    /// <summary>Gets the resolved cell color criterion, when present.</summary>
+    public SpreadsheetColorFilter? ColorFilter { get; }
+
+    /// <summary>Gets the icon-set criterion, when present.</summary>
+    public SpreadsheetIconFilter? IconFilter { get; }
+
+    public bool Matches(CellValue value) => Matches(value, ExcelDateSystem.Date1900);
+
+    internal bool Matches(CellValue value, ExcelDateSystem dateSystem)
     {
-        if (_values.Length > 0)
+        if (_values.Length > 0 || _dateGroups.Length > 0)
         {
             if (value.IsBlank)
             {
@@ -110,8 +144,17 @@ public sealed class TableFilterColumn
                        _values.Any(static candidate => candidate.IsBlank);
             }
 
-            return _values.Any(candidate =>
-                TableValueComparer.Compare(candidate, value) == 0);
+            if (_values.Any(candidate =>
+                    TableValueComparer.Compare(candidate, value) == 0))
+            {
+                return true;
+            }
+
+            return SpreadsheetFilterDate.TryGetDate(
+                       value,
+                       dateSystem,
+                       out var date) &&
+                   _dateGroups.Any(group => group.Matches(date));
         }
 
         if (value.IsBlank && IncludeBlank)
@@ -119,14 +162,23 @@ public sealed class TableFilterColumn
             return true;
         }
 
+        if (DynamicFilter is not null)
+        {
+            return SpreadsheetFilterEvaluator.MatchesDynamic(
+                value,
+                DynamicFilter,
+                dateSystem,
+                aggregateAverage: null);
+        }
+
         var first = FirstCondition is not null &&
-                    MatchesCondition(value, FirstCondition);
+                    MatchesCondition(value, FirstCondition, dateSystem);
         if (SecondCondition is null)
         {
             return first;
         }
 
-        var second = MatchesCondition(value, SecondCondition);
+        var second = MatchesCondition(value, SecondCondition, dateSystem);
         return CombineWithAnd
             ? first && second
             : first || second;
@@ -138,19 +190,26 @@ public sealed class TableFilterColumn
         IncludeBlank,
         FirstCondition,
         SecondCondition,
-        CombineWithAnd);
+        CombineWithAnd,
+        _dateGroups,
+        TopBottom,
+        DynamicFilter,
+        ColorFilter,
+        IconFilter);
 
     private static bool MatchesCondition(
         CellValue value,
-        TableFilterCondition condition) =>
-        SpreadsheetFilterPredicate.Matches(value, condition);
+        TableFilterCondition condition,
+        ExcelDateSystem dateSystem) =>
+        SpreadsheetFilterPredicate.Matches(value, condition, dateSystem);
 }
 
 internal static class SpreadsheetFilterPredicate
 {
     public static bool Matches(
         CellValue value,
-        TableFilterCondition condition)
+        TableFilterCondition condition,
+        ExcelDateSystem dateSystem = ExcelDateSystem.Date1900)
     {
         ArgumentNullException.ThrowIfNull(condition);
         if (condition.Operator == TableFilterComparisonOperator.IsBlank)
@@ -210,8 +269,8 @@ internal static class SpreadsheetFilterPredicate
             TableFilterComparisonOperator.LastYear or
             TableFilterComparisonOperator.NextYear)
         {
-            return TryGetDate(value, out var candidate) &&
-                   TryGetDate(condition.Value, out var reference) &&
+            return TryGetDate(value, dateSystem, out var candidate) &&
+                   TryGetDate(condition.Value, dateSystem, out var reference) &&
                    MatchesDate(
                        candidate.Date,
                        reference.Date,
@@ -240,6 +299,7 @@ internal static class SpreadsheetFilterPredicate
 
     private static bool TryGetDate(
         CellValue value,
+        ExcelDateSystem dateSystem,
         out DateTime date)
     {
         switch (value.Kind)
@@ -250,8 +310,9 @@ internal static class SpreadsheetFilterPredicate
             case CellValueKind.Number:
                 try
                 {
-                    date = DateTime.FromOADate(
-                        (double)value.RawValue!);
+                    date = dateSystem == ExcelDateSystem.Date1904
+                        ? new DateTime(1904, 1, 1).AddDays((double)value.RawValue!)
+                        : DateTime.FromOADate((double)value.RawValue!);
                     return true;
                 }
                 catch (ArgumentException)
@@ -352,7 +413,9 @@ public sealed class TableAutoFilter
 {
     private readonly TableFilterColumn[] _columns;
 
-    public TableAutoFilter(IEnumerable<TableFilterColumn> columns)
+    public TableAutoFilter(
+        IEnumerable<TableFilterColumn> columns,
+        SpreadsheetFilterSortState? sortState = null)
     {
         ArgumentNullException.ThrowIfNull(columns);
         _columns = columns
@@ -369,16 +432,24 @@ public sealed class TableAutoFilter
                 "A table filter cannot contain duplicate column identifiers.",
                 nameof(columns));
         }
+        SortState = sortState?.Copy();
     }
 
     public IReadOnlyList<TableFilterColumn> Columns => _columns;
 
-    public TableAutoFilter Copy() => new(_columns);
+    /// <summary>Gets the optional sort metadata for the Table data range.</summary>
+    public SpreadsheetFilterSortState? SortState { get; }
+
+    public TableAutoFilter Copy() => new(_columns, SortState);
+
+    /// <summary>Returns a copy with replacement sort metadata.</summary>
+    public TableAutoFilter WithSortState(SpreadsheetFilterSortState? sortState) =>
+        new(_columns, sortState);
 
     public TableAutoFilter WithoutColumns(
         IReadOnlySet<Guid> removedColumnIds) =>
         new(_columns.Where(column =>
-            !removedColumnIds.Contains(column.ColumnId)));
+            !removedColumnIds.Contains(column.ColumnId)), SortState);
 }
 
 public sealed class SpreadsheetTableColumn
@@ -596,6 +667,13 @@ public sealed class SpreadsheetTable
             {
                 throw new ArgumentException(
                     "The table filter references an unknown table column.",
+                    nameof(autoFilter));
+            }
+            if (autoFilter.SortState?.Conditions.Any(condition =>
+                    condition.ColumnOffset >= range.ColumnCount) == true)
+            {
+                throw new ArgumentException(
+                    "A table sort condition must be inside the table range.",
                     nameof(autoFilter));
             }
         }
@@ -840,10 +918,11 @@ public sealed class SpreadsheetTable
         foreach (var filter in AutoFilter.Columns)
         {
             var columnIndex = GetColumnIndex(filter.ColumnId);
-            var value = worksheet.GetCell(new CellAddress(
-                rowIndex,
-                Range.Left + columnIndex)).Value;
-            if (!filter.Matches(value))
+            if (!worksheet.MatchesFilter(
+                    dataRange,
+                    Range.Left + columnIndex,
+                    filter,
+                    rowIndex))
             {
                 return false;
             }
@@ -1118,7 +1197,10 @@ internal sealed class WorksheetTableCollection
             return rewritten.WithColumnsAndRange(
                 columns,
                 mappedRange,
-                table.AutoFilter);
+                MapTableSortForInsert(
+                    table.AutoFilter,
+                    insertionOffset,
+                    change.Count));
         }
 
         var overlapStart = Math.Max(
@@ -1163,11 +1245,52 @@ internal sealed class WorksheetTableCollection
             .Take(removeCount)
             .Select(static column => column.Id)
             .ToHashSet();
-        var filter = table.AutoFilter?.WithoutColumns(removedIds);
+        var filter = MapTableSortForDelete(
+            table.AutoFilter?.WithoutColumns(removedIds),
+            removeOffset,
+            removeCount);
         return rewritten.WithColumnsAndRange(
             retained,
             reducedRange,
             filter);
+    }
+
+    private static TableAutoFilter? MapTableSortForInsert(
+        TableAutoFilter? filter,
+        int insertionOffset,
+        int count)
+    {
+        if (filter?.SortState is not { } state) return filter;
+        var mapped = state.Conditions.Select(condition => new SpreadsheetFilterSortCondition(
+            condition.ColumnOffset >= insertionOffset ? condition.ColumnOffset + count : condition.ColumnOffset,
+            condition.Descending,
+            condition.SortBy,
+            condition.CustomList,
+            condition.Color,
+            condition.Icon));
+        return new TableAutoFilter(filter.Columns, new SpreadsheetFilterSortState(mapped, state.CaseSensitive, state.SortLeftToRight));
+    }
+
+    private static TableAutoFilter? MapTableSortForDelete(
+        TableAutoFilter? filter,
+        int removeOffset,
+        int removeCount)
+    {
+        if (filter?.SortState is not { } state) return filter;
+        var end = removeOffset + removeCount;
+        var mapped = state.Conditions
+            .Where(condition => condition.ColumnOffset < removeOffset || condition.ColumnOffset >= end)
+            .Select(condition => new SpreadsheetFilterSortCondition(
+                condition.ColumnOffset >= end ? condition.ColumnOffset - removeCount : condition.ColumnOffset,
+                condition.Descending,
+                condition.SortBy,
+                condition.CustomList,
+                condition.Color,
+                condition.Icon))
+            .ToArray();
+        return new TableAutoFilter(
+            filter.Columns,
+            mapped.Length == 0 ? null : new SpreadsheetFilterSortState(mapped, state.CaseSensitive, state.SortLeftToRight));
     }
 
     private static void ValidateProtectedRowDeletion(

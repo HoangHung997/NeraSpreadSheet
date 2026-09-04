@@ -230,10 +230,14 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             OpenXmlTableCodec.ReadWorksheetTables(
                 worksheetPart,
                 worksheet,
+                differentialStyles,
+                options.PreserveUnknownParts,
                 cancellationToken);
             OpenXmlWorksheetAutoFilterCodec.ReadWorksheetFilter(
                 worksheetPart,
                 worksheet,
+                differentialStyles,
+                options.PreserveUnknownParts,
                 cancellationToken);
         }
 
@@ -293,7 +297,8 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             worksheetPart.Worksheet.Save();
             OpenXmlWorksheetAutoFilterCodec.WriteWorksheetFilter(
                 worksheetPart,
-                worksheet);
+                worksheet,
+                conditionalFormattingPlan);
             OpenXmlConditionalFormattingCodec.WriteWorksheetRules(
                 worksheetPart,
                 worksheet,
@@ -304,6 +309,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             OpenXmlTableCodec.WriteWorksheetTables(
                 worksheetPart,
                 worksheet,
+                conditionalFormattingPlan,
                 ref tableId);
             sheets.Append(new Sheet
             {
