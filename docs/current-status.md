@@ -237,7 +237,7 @@ Exact-head GitHub evidence at commit
 - `sdk-packages` artifact: ID `9916694642`, digest
   `sha256:a2a7d18733f941a770202723f67bddb7212ee3ecff07a8e75ddacdbc6c9df306`.
 
-## EXCEL-BASIC-COMPAT-001 — LOCAL IMPLEMENTATION COMPLETE
+## EXCEL-BASIC-COMPAT-001 — DONE FOR DEFINED SCOPE
 
 The user-reported workbook compatibility and reusable formula-editing gaps now
 have a bounded SDK implementation:
@@ -260,7 +260,16 @@ have a bounded SDK implementation:
   formula-editing smoke pass.
 
 The demo-specific visible scrollbar and horizontal sheet-tab layout remain
-outside this SDK change. Exact-head GitHub Actions evidence is pending.
+outside this SDK change.
+
+Exact-head implementation evidence at commit
+`29d07537243d937e3ab83b7c03e71f2041c8d4f5`:
+
+- full CI: **#1290 / run 33830342078 — success**;
+- iOS analytics accessibility gate: **#111 / run 33830342090 — success**;
+- Q003C/OpenXML gate: **#108 / run 33830342087 — success**;
+- `sdk-packages` artifact: ID `9921465835`, digest
+  `sha256:6b9104ecaba62bdeb480033f374735e707b42389aea977c59c56aedc1fe2bcba`.
 
 ## Current boundaries
 

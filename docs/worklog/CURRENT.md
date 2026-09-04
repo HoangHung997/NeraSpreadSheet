@@ -3,8 +3,10 @@
 - Repository: `HoangHung997/NeraSpreadSheet`.
 - Branch: `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
-- Latest verified implementation merge checkpoint: `275c1b4e5e24b5c53d27546492c4e343509e127f`.
-- Verified implementation CI through the first ten `SECURITY-RECOVERY` patches: full run `33816357502` / #1286 — success; iOS gate `33816357459` / #106 — success; Q003C/OpenXML gate `33816357453` / #103 — success.
+- Latest verified implementation checkpoint: `29d07537243d937e3ab83b7c03e71f2041c8d4f5`.
+- Verified implementation CI through `EXCEL-BASIC-COMPAT-001`: full run
+  `33830342078` / #1290 — success; iOS gate `33830342090` / #111 — success;
+  Q003C/OpenXML gate `33830342087` / #108 — success.
 - Formula implementation: **DONE**, **546/546** locked catalog names; current formula suite **522/522**.
 - Q001, Q002, Q003A, Q003B: **DONE**.
 - Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
@@ -32,13 +34,14 @@
   duplicate-entry and content-type override scans, are exact-head validated;
   additional bounded trust/recovery coverage remains before
   localization/a11y completion and the final Windows 11 demo.
-- `EXCEL-BASIC-COMPAT-001`: **implemented locally as a bounded compatibility
+- `EXCEL-BASIC-COMPAT-001`: **DONE for defined scope as a bounded compatibility
   hotfix**. Excel `bgColor`-only differential fills load, unsupported preserved
   conditional-format rules remain opaque, formula completion/point mode/static
   precedent analysis are host-neutral, and WPF binds suggestions, mouse range
   insertion and colored precedent outlines. The supplied six-sheet workbook
-  passes Load -> Save -> Load without modifying the source. Exact-head CI is
-  pending.
+  passes Load -> Save -> Load without modifying the source. Full CI #1290,
+  iOS gate #111 and Q003C/OpenXML gate #108 passed at the implementation
+  checkpoint.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -123,8 +126,7 @@ For `EXCEL-BASIC-COMPAT-001` local validation on the current uncommitted tree:
 
 ## Next single step
 
-After exact-head CI validates `EXCEL-BASIC-COMPAT-001`, continue
-`SECURITY-RECOVERY` with the next bounded trust/recovery surface,
+Continue `SECURITY-RECOVERY` with the next bounded trust/recovery surface,
 preferring preserve-unknown recovery or host/session failure containment unless
 a real OpenXML fixture reveals another archive-level graph validation gap beyond
 ZIP part, duplicate entry, relationship entry and content-type override
