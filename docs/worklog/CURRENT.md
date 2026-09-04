@@ -1,14 +1,14 @@
 # Current Work Handoff
 
 - Repository: `HoangHung997/NeraSpreadSheet`.
-- Local branch: `feature/excel-format-editing-help`; integration branch:
+- Local branch: `feature/ribbon-iconography-ux`; integration branch:
   `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
-- Latest verified implementation checkpoint:
-  `944fadd9864bfeca41abf9ff8e155305fc8cd06c`.
-- Current local implementation head is based on
-  `fe3bc327e977dd60454d4cedf913a6c2e9570637`; commit and exact-head CI are
-  pending for `EXCEL-FORMAT-EDIT-HELP-005`.
+- Latest exact-head CI checkpoint:
+  `106df1ff8725757e125a4172ced6bb49e3c708f5`.
+- Current iconography implementation commit:
+  `2b933fd8b04042c0c52854dd73651161e9ae9322`; push and exact-head CI are
+  pending for `RIBBON-ICONOGRAPHY-006`.
 - Verified implementation CI through `EXCEL-BASIC-VISIBILITY-004`: full run
   `33852379077` / #1298 — success; iOS gate `33852379268` / #119 — success;
   Q003C/OpenXML gate `33852379096` / #116 — success.
@@ -18,6 +18,11 @@
 - Q003D: **DONE for standard Excel PivotTable/PivotCache package preservation scope**.
 - Core solution at the verified Q003D checkpoint: **1212/1212 passed**, build/analyzers **0 warnings / 0 errors**, OpenXML **65/65**.
 - Ribbon/Bars desktop stack through `RIBBON-KEYBOARD`: **integrated and green**.
+- `RIBBON-ICONOGRAPHY-006`: **IMPLEMENTED LOCALLY; CI PENDING**. A packable
+  host-neutral catalog supplies 272 semantic keys, 242 SVG masters and 4,840
+  PNG variants across five sizes and four themes. WPF, WinForms and MAUI
+  Ribbon/Bar presenters resolve cached default icons while preserving host
+  override precedence; 30 production commands now carry semantic icon keys.
 - `RIBBON-MAUI`: **DONE**. MAUI presenters, shortcut/customization binding and
   Windows Ribbon smoke are integrated and exact-head CI passed at
   `b806cc7ed2317b456a6171672e577ee816e4692d`.
@@ -237,6 +242,23 @@ For `EXCEL-FORMAT-EDIT-HELP-005` local validation:
   after** recalculation, no newly-created errors; source SHA-256 remained
   `FD999A5AD06FB66668C6E296D45156F32A08B86CB07A9B908CB94C10F70FF772`.
 
+For `RIBBON-ICONOGRAPHY-006` local validation:
+
+- generated catalog: **272 semantic keys**, **242 unique SVG masters** and
+  **4,840 PNG variants**;
+- Core solution: **1270/1270 passed**;
+- icon catalog: **4/4 passed**; focused loaded WPF/WinForms Ribbon:
+  **4/4 passed**; MAUI: **34/34 passed**;
+- loaded MAUI Windows Ribbon smoke: **success**, including default Ribbon and
+  Bar image-source resolution;
+- WPF, WinForms and MAUI Windows builds/analyzers: **0 warnings, 0 errors**;
+- architecture verification and SDK packaging verification: **passed**;
+- `NeraSpreadSheet.Iconography.0.1.0.nupkg` packs the assembly, XML docs,
+  README, Fluent MIT license and NOTICE;
+- light and dark contact sheets were inspected. The full Windows suite is
+  **58/59 locally** because the already documented foreground-only native
+  mouse smoke stops at `window.Activate()` before exercising SDK behavior.
+
 ## Remaining limits
 
 - Pivot refresh/calculation equivalence, user-mode destination-cell modeling,
@@ -253,5 +275,7 @@ For `EXCEL-FORMAT-EDIT-HELP-005` local validation:
 
 ## Next single step
 
-Commit and push `EXCEL-FORMAT-EDIT-HELP-005`, then require exact-head GitHub
-CI before treating the lane as complete; keep PR #1 Draft.
+Push `2b933fd8b04042c0c52854dd73651161e9ae9322` to the integration branch only
+if its remote head is still `106df1ff8725757e125a4172ced6bb49e3c708f5`,
+then require exact-head GitHub CI before treating `RIBBON-ICONOGRAPHY-006` as
+complete; keep PR #1 Draft.
