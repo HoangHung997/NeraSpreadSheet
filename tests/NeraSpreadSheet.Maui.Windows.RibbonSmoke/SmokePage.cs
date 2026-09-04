@@ -82,6 +82,9 @@ internal sealed class SmokePage : ContentPage
 
             Require(ribbon.Handler?.PlatformView is not null,
                 "The MAUI Ribbon view did not receive a native platform view.");
+            Require(ribbon.LayoutSnapshot.SelectedTabId == "view" &&
+                    ribbon.LayoutSnapshot.Tabs.Count == 1,
+                "The MAUI Ribbon did not consume the shared responsive layout snapshot.");
             Require(bar.Handler?.PlatformView is not null,
                 "The MAUI Bar presenter did not receive a native platform view.");
             Require(ribbon.CommandButtons.Count == 1,

@@ -103,6 +103,10 @@ public sealed class NeraMauiRibbonBarPresenterTests
             nameof(NeraMauiBarPresenter.TryActivateCommandAsync)));
         Assert.IsNotNull(typeof(NeraMauiRibbonView).GetMethod(
             nameof(NeraMauiRibbonView.BindShortcuts)));
+        Assert.IsNotNull(typeof(NeraMauiRibbonView).GetProperty(
+            nameof(NeraMauiRibbonView.LayoutSnapshot)));
+        Assert.IsNotNull(typeof(NeraMauiRibbonView).GetProperty(
+            nameof(NeraMauiRibbonView.LayoutScale)));
         Assert.IsNotNull(typeof(NeraMauiBarPresenter).GetMethod(
             nameof(NeraMauiBarPresenter.BindShortcuts)));
     }

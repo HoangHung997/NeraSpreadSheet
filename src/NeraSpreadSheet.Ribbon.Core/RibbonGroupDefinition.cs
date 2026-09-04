@@ -7,6 +7,26 @@ public sealed class RibbonGroupDefinition
         string caption,
         IEnumerable<RibbonItemDefinition> items,
         int order = 0)
+        : this(id, caption, items, order, collapsePriority: 0)
+    {
+    }
+
+    /// <summary>
+    /// Creates a Ribbon group with explicit ordering and responsive collapse priority.
+    /// </summary>
+    /// <param name="id">Stable group identity.</param>
+    /// <param name="caption">Localized group caption.</param>
+    /// <param name="items">Commands in the group.</param>
+    /// <param name="order">Stable order inside the containing tab.</param>
+    /// <param name="collapsePriority">
+    /// Relative importance of keeping the group expanded; lower values collapse first.
+    /// </param>
+    public RibbonGroupDefinition(
+        string id,
+        string caption,
+        IEnumerable<RibbonItemDefinition> items,
+        int order,
+        int collapsePriority)
     {
         if (string.IsNullOrWhiteSpace(id))
         {
@@ -24,6 +44,7 @@ public sealed class RibbonGroupDefinition
             .OrderBy(item => item.Order)
             .ToArray();
         Order = order;
+        CollapsePriority = collapsePriority;
 
         string[] duplicates = Items
             .GroupBy(item => item.CommandId.Value, StringComparer.OrdinalIgnoreCase)
@@ -48,4 +69,10 @@ public sealed class RibbonGroupDefinition
     /// Gets the stable sort order used within the containing tab.
     /// </summary>
     public int Order { get; }
+
+    /// <summary>
+    /// Gets the relative importance of keeping this group expanded. Groups with
+    /// lower values collapse first; ties collapse from right to left.
+    /// </summary>
+    public int CollapsePriority { get; }
 }

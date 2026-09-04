@@ -39,11 +39,13 @@ public sealed class RibbonGroupPresentation
     internal RibbonGroupPresentation(
         string id,
         string caption,
-        IReadOnlyList<RibbonItemPresentation> items)
+        IReadOnlyList<RibbonItemPresentation> items,
+        int collapsePriority)
     {
         Id = id;
         Caption = caption;
         Items = items;
+        CollapsePriority = collapsePriority;
     }
 
     public string Id { get; }
@@ -51,6 +53,11 @@ public sealed class RibbonGroupPresentation
     public string Caption { get; }
 
     public IReadOnlyList<RibbonItemPresentation> Items { get; }
+
+    /// <summary>
+    /// Gets the relative importance used by responsive group collapse.
+    /// </summary>
+    public int CollapsePriority { get; }
 }
 
 public sealed class RibbonItemPresentation
@@ -116,7 +123,11 @@ public sealed class RibbonPresentationProjector
                 Resolve(item.CommandId, context, cache),
                 item.IsLarge))
             .ToArray();
-        return new RibbonGroupPresentation(group.Id, group.Caption, items);
+        return new RibbonGroupPresentation(
+            group.Id,
+            group.Caption,
+            items,
+            group.CollapsePriority);
     }
 
     private CommandPresentation Resolve(

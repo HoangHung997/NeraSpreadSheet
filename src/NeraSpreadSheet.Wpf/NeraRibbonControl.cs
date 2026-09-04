@@ -15,11 +15,14 @@ namespace NeraSpreadSheet.Wpf;
 public sealed class NeraRibbonControl : UserControl, IDisposable
 {
     private readonly RibbonRuntimeController _runtime;
+    private readonly RibbonResponsiveLayoutEngine _layoutEngine = new();
     private readonly TabControl _tabs = new();
     private readonly List<IDisposable> _shortcutBindings = [];
     private Func<string, ImageSource?>? _iconResolver;
     private Func<NeraIconRequest, ImageSource?>? _iconRequestResolver;
     private NeraIconTheme _iconTheme = NeraIconTheme.Light;
+    private string? _selectedTabId;
+    private CommandId? _focusedCommandId;
     private bool _disposed;
 
     public NeraRibbonControl(RibbonRuntimeController runtime)
@@ -29,6 +32,8 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         AutomationProperties.SetAutomationId(this, "NeraRibbon");
         AutomationProperties.SetName(this, "Thanh Ribbon NeraSpreadSheet");
         _runtime.SnapshotChanged += OnSnapshotChanged;
+        _tabs.SelectionChanged += OnTabSelectionChanged;
+        SizeChanged += OnRibbonSizeChanged;
         Rebuild();
     }
 
@@ -94,6 +99,11 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     public event EventHandler<NeraWpfCommandActivationFailedEventArgs>? CommandActivationFailed;
 
     /// <summary>
+    /// Gets the latest host-neutral responsive layout consumed by this presenter.
+    /// </summary>
+    public RibbonLayoutSnapshot LayoutSnapshot { get; private set; } = null!;
+
+    /// <summary>
     /// Binds this ribbon's shortcuts to a window or another WPF input root.
     /// </summary>
     public IDisposable BindShortcuts(UIElement owner)
@@ -116,19 +126,35 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     public void Rebuild()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        var selectedIndex = Math.Max(0, _tabs.SelectedIndex);
+        CaptureIdentities();
+        var scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
+        var physicalWidth = ActualWidth > 0d
+            ? ActualWidth * scale
+            : double.PositiveInfinity;
+        LayoutSnapshot = _layoutEngine.Layout(
+            _runtime.Snapshot,
+            new RibbonLayoutRequest(
+                physicalWidth,
+                scale,
+                _selectedTabId,
+                _focusedCommandId));
+        _selectedTabId = LayoutSnapshot.SelectedTabId;
+        _focusedCommandId = LayoutSnapshot.FocusedCommandId;
         _tabs.Items.Clear();
-        foreach (var tab in _runtime.Snapshot.Tabs)
+        foreach (var tab in LayoutSnapshot.Tabs)
         {
-            var groups = new WrapPanel
+            var groups = new StackPanel
             {
                 Margin = new Thickness(4d),
+                Orientation = Orientation.Horizontal,
             };
-            foreach (var group in tab.Groups)
+            foreach (var group in tab.Groups.Where(static group =>
+                         group.Mode != RibbonGroupLayoutMode.Overflow))
             {
-                var items = new WrapPanel
+                var items = new StackPanel
                 {
                     Margin = new Thickness(2d),
+                    Orientation = Orientation.Horizontal,
                     VerticalAlignment = VerticalAlignment.Stretch,
                 };
                 foreach (var item in group.Items)
@@ -138,31 +164,35 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
 
                 groups.Children.Add(new GroupBox
                 {
-                    Header = group.Caption,
+                    Header = group.Presentation.Caption,
                     Content = items,
                     Margin = new Thickness(2d),
                     Padding = new Thickness(3d),
                 });
             }
+            AddOverflowMenu(groups, tab);
 
             var tabItem = new TabItem
             {
-                Header = tab.Caption,
-                Content = new ScrollViewer
-                {
-                    Content = groups,
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                },
+                Header = tab.Presentation.Caption,
+                Content = groups,
+                Tag = tab.Presentation.Id,
             };
-            AutomationProperties.SetAutomationId(tabItem, $"ribbon-tab-{tab.Id}");
-            AutomationProperties.SetName(tabItem, tab.Caption);
+            AutomationProperties.SetAutomationId(
+                tabItem,
+                $"ribbon-tab-{tab.Presentation.Id}");
+            AutomationProperties.SetName(tabItem, tab.Presentation.Caption);
             _tabs.Items.Add(tabItem);
         }
-        if (_tabs.Items.Count > 0)
+        if (_tabs.Items.Count > 0 && _selectedTabId is not null)
         {
-            _tabs.SelectedIndex = Math.Min(selectedIndex, _tabs.Items.Count - 1);
+            _tabs.SelectedItem = _tabs.Items.OfType<TabItem>().First(item =>
+                string.Equals(
+                    item.Tag as string,
+                    _selectedTabId,
+                    StringComparison.OrdinalIgnoreCase));
         }
+        RestoreFocus();
     }
 
     public void Dispose()
@@ -174,6 +204,8 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
 
         _disposed = true;
         _runtime.SnapshotChanged -= OnSnapshotChanged;
+        _tabs.SelectionChanged -= OnTabSelectionChanged;
+        SizeChanged -= OnRibbonSizeChanged;
         foreach (var binding in _shortcutBindings)
         {
             binding.Dispose();
@@ -183,9 +215,9 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private ButtonBase CreateCommandButton(RibbonItemPresentation item)
+    private ButtonBase CreateCommandButton(RibbonItemLayout item)
     {
-        var command = item.Command;
+        var command = item.Presentation.Command;
         ButtonBase button = command.IsChecked.HasValue
             ? new ToggleButton
             {
@@ -193,10 +225,11 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             }
             : new Button();
         button.CommandParameter = command.CommandId;
+        button.Tag = command.CommandId;
         button.Content = CreateCommandContent(item);
         button.IsEnabled = command.IsEnabled;
-        button.MinWidth = item.IsLarge ? 72d : 42d;
-        button.MinHeight = item.IsLarge ? 58d : 30d;
+        button.Width = Math.Max(1d, item.Width / LayoutSnapshot.Scale - 4d);
+        button.MinHeight = item.Size == RibbonItemSize.Large ? 58d : 30d;
         button.Margin = new Thickness(2d);
         button.Padding = new Thickness(6d, 3d, 6d, 3d);
         button.ToolTip = BuildToolTip(command);
@@ -212,24 +245,25 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         return button;
     }
 
-    private StackPanel CreateCommandContent(RibbonItemPresentation item)
+    private StackPanel CreateCommandContent(RibbonItemLayout item)
     {
-        var command = item.Command;
+        var command = item.Presentation.Command;
+        var isLarge = item.Size == RibbonItemSize.Large;
         var panel = new StackPanel
         {
-            Orientation = item.IsLarge ? Orientation.Vertical : Orientation.Horizontal,
+            Orientation = isLarge ? Orientation.Vertical : Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
         };
         if (command.IconKey is { Length: > 0 } iconKey &&
-            ResolveIcon(iconKey, item.IsLarge ? 32 : 16) is ImageSource source)
+            ResolveIcon(iconKey, isLarge ? 32 : 16) is ImageSource source)
         {
             panel.Children.Add(new Image
             {
                 Source = source,
-                Width = item.IsLarge ? 32d : 16d,
-                Height = item.IsLarge ? 32d : 16d,
-                Margin = item.IsLarge
+                Width = isLarge ? 32d : 16d,
+                Height = isLarge ? 32d : 16d,
+                Margin = isLarge
                     ? new Thickness(0d, 0d, 0d, 3d)
                     : new Thickness(0d, 0d, 4d, 0d),
                 Stretch = Stretch.Uniform,
@@ -237,10 +271,119 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         }
         panel.Children.Add(new TextBlock
         {
-            Text = command.Caption,
+            Text = item.Size == RibbonItemSize.Compact && command.IconKey is not null
+                ? string.Empty
+                : command.Caption,
             TextAlignment = TextAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
         });
         return panel;
+    }
+
+    private void AddOverflowMenu(StackPanel groups, RibbonTabLayout tab)
+    {
+        var overflowGroups = tab.Groups
+            .Where(static group => group.Mode == RibbonGroupLayoutMode.Overflow)
+            .ToArray();
+        if (overflowGroups.Length == 0)
+        {
+            return;
+        }
+
+        var root = new MenuItem { Header = "Thêm", Width = 56d };
+        AutomationProperties.SetAutomationId(root, "ribbon-overflow");
+        AutomationProperties.SetName(root, "Lệnh Ribbon bổ sung");
+        foreach (var group in overflowGroups)
+        {
+            var groupItem = new MenuItem { Header = group.Presentation.Caption };
+            foreach (var item in group.Items)
+            {
+                var command = item.Presentation.Command;
+                var commandItem = new MenuItem
+                {
+                    Header = command.Caption,
+                    CommandParameter = command.CommandId,
+                    Tag = command.CommandId,
+                    IsEnabled = command.IsEnabled,
+                    IsCheckable = command.IsChecked.HasValue,
+                    IsChecked = command.IsChecked ?? false,
+                    ToolTip = BuildToolTip(command),
+                };
+                AutomationProperties.SetAutomationId(
+                    commandItem,
+                    $"ribbon-command-{command.CommandId.Value}");
+                AutomationProperties.SetName(commandItem, command.Caption);
+                commandItem.Click += OnOverflowCommandClick;
+                groupItem.Items.Add(commandItem);
+            }
+            root.Items.Add(groupItem);
+        }
+        groups.Children.Add(new Menu { Items = { root } });
+    }
+
+    private void CaptureIdentities()
+    {
+        if (_tabs.SelectedItem is TabItem { Tag: string selectedId })
+        {
+            _selectedTabId = selectedId;
+        }
+        if (System.Windows.Input.Keyboard.FocusedElement is FrameworkElement
+            { Tag: CommandId focusedId })
+        {
+            _focusedCommandId = focusedId;
+        }
+    }
+
+    private void RestoreFocus()
+    {
+        if (_focusedCommandId is not { } commandId)
+        {
+            return;
+        }
+        var target = FindVisualDescendants<FrameworkElement>(_tabs)
+            .FirstOrDefault(element => element.Tag is CommandId id && id == commandId);
+        target?.Focus();
+    }
+
+    private static IEnumerable<T> FindVisualDescendants<T>(DependencyObject root)
+        where T : DependencyObject
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is T match)
+            {
+                yield return match;
+            }
+            foreach (var descendant in FindVisualDescendants<T>(child))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private async void OnOverflowCommandClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { CommandParameter: CommandId commandId })
+        {
+            await ActivateCommandAsync(commandId);
+        }
+    }
+
+    private void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_tabs.SelectedItem is TabItem { Tag: string selectedId })
+        {
+            _selectedTabId = selectedId;
+        }
+    }
+
+    private void OnRibbonSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (!_disposed && e.WidthChanged)
+        {
+            Rebuild();
+        }
     }
 
     private ImageSource? ResolveIcon(string iconKey, int pixelSize)
