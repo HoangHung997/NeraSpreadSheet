@@ -496,6 +496,7 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             return;
         }
         if (e.KeyCode == Keys.PageDown &&
+            _valuesList?.Focused == true &&
             _nextButton?.Enabled == true)
         {
             _nextButton.PerformClick();
@@ -503,6 +504,7 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             return;
         }
         if (e.KeyCode == Keys.PageUp &&
+            _valuesList?.Focused == true &&
             _previousButton?.Enabled == true)
         {
             _previousButton.PerformClick();

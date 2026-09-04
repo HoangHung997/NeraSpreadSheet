@@ -183,7 +183,7 @@ public sealed class PagedAutoFilterNativeBindingsTests
 
         await RunOnWinFormsThreadAsync(async formControl =>
         {
-            var fixture = CreateFixture();
+            var fixture = CreateFixture(101);
             formControl.Size = new System.Drawing.Size(520, 320);
             using var control = new NeraSpreadSheet.WinForms.NeraSpreadsheetControl
             {
@@ -230,7 +230,83 @@ public sealed class PagedAutoFilterNativeBindingsTests
             CollectionAssert.Contains(buttonLabels, "Áp dụng lại");
             CollectionAssert.Contains(buttonLabels, "Xóa SX");
             Assert.IsTrue(values.Items.Count <= 100);
+
+            var search = GetPrivateField<System.Windows.Forms.TextBox>(
+                presenter,
+                "_searchBox");
+            var next = GetPrivateField<System.Windows.Forms.Button>(
+                presenter,
+                "_nextButton");
+            Assert.IsTrue(next.Enabled);
+
+            foreach (var nativeControl in new System.Windows.Forms.Control[]
+                     {
+                         search,
+                         kinds,
+                         next,
+                     })
+            {
+                Assert.IsTrue(nativeControl.Focus());
+                System.Windows.Forms.Application.DoEvents();
+                var nativePageDown = new System.Windows.Forms.KeyEventArgs(
+                    System.Windows.Forms.Keys.PageDown);
+                InvokePrivate(
+                    presenter,
+                    "OnDropDownKeyDown",
+                    nativePageDown);
+                Assert.IsFalse(nativePageDown.Handled);
+                Assert.IsFalse(nativePageDown.SuppressKeyPress);
+                Assert.AreEqual(0, binding.PageOffset);
+            }
+
+            Assert.IsTrue(values.Focus());
+            System.Windows.Forms.Application.DoEvents();
+            var navigationPageDown = new System.Windows.Forms.KeyEventArgs(
+                System.Windows.Forms.Keys.PageDown);
+            InvokePrivate(
+                presenter,
+                "OnDropDownKeyDown",
+                navigationPageDown);
+            Assert.IsTrue(navigationPageDown.Handled);
+            Assert.IsTrue(navigationPageDown.SuppressKeyPress);
+            await GetPrivateField<Task>(presenter, "_operationTail");
+            Assert.AreEqual(100, binding.PageOffset);
         });
+    }
+
+    [TestMethod]
+    public void WinFormsFilterHeaderGlyphsDistinguishEveryStateWithoutColor()
+    {
+        var glyphType = typeof(NeraAutoFilterPagedDropDownPresenter).Assembly.GetType(
+            "NeraSpreadSheet.WinForms.NeraWinFormsFilterHeaderGlyphs",
+            throwOnError: true) ?? throw new AssertFailedException(
+            "The WinForms filter-header glyph provider was not found.");
+        var getGlyph = glyphType.GetMethod(
+            "Get",
+            BindingFlags.Static | BindingFlags.NonPublic) ??
+            throw new AssertFailedException(
+                "The WinForms filter-header glyph method was not found.");
+
+        string Resolve(SpreadsheetFilterHeaderState state, bool? descending) =>
+            (string)(getGlyph.Invoke(null, new object?[] { state, descending }) ??
+                throw new AssertFailedException(
+                    $"No glyph was returned for {state}."));
+
+        var glyphs = new[]
+        {
+            Resolve(SpreadsheetFilterHeaderState.None, null),
+            Resolve(SpreadsheetFilterHeaderState.Filtered, null),
+            Resolve(SpreadsheetFilterHeaderState.Sorted, false),
+            Resolve(SpreadsheetFilterHeaderState.Sorted, true),
+            Resolve(SpreadsheetFilterHeaderState.FilteredAndSorted, false),
+            Resolve(SpreadsheetFilterHeaderState.FilteredAndSorted, true),
+        };
+
+        Assert.AreEqual(glyphs.Length, glyphs.Distinct().Count());
+        Assert.AreEqual("↑", glyphs[2]);
+        Assert.AreEqual("↓", glyphs[3]);
+        Assert.AreEqual("⇈", glyphs[4]);
+        Assert.AreEqual("⇊", glyphs[5]);
     }
 
     [TestMethod]
@@ -481,14 +557,14 @@ public sealed class PagedAutoFilterNativeBindingsTests
         return completion.Task.WaitAsync(TimeSpan.FromSeconds(45d));
     }
 
-    private static Fixture CreateFixture()
+    private static Fixture CreateFixture(int valueCount = 5)
     {
         var workbook = new Workbook();
         var worksheet = workbook.Worksheets[0];
         var tableId = Guid.NewGuid();
         var columnId = Guid.NewGuid();
         worksheet.SetValue(new CellAddress(0, 0), "Value");
-        for (var index = 0; index < 5; index++)
+        for (var index = 0; index < valueCount; index++)
         {
             worksheet.SetValue(
                 new CellAddress(index + 1, 0),
@@ -499,7 +575,7 @@ public sealed class PagedAutoFilterNativeBindingsTests
             "Values",
             new CellRange(
                 new CellAddress(0, 0),
-                new CellAddress(5, 0)),
+                new CellAddress(valueCount, 0)),
             [new SpreadsheetTableColumn(columnId, "Value")]));
         var session = new SpreadsheetSession(workbook);
         session.Selection.SetActiveCell(new CellAddress(1, 0));
@@ -594,13 +670,16 @@ public sealed class PagedAutoFilterNativeBindingsTests
         }
     }
 
-    private static void InvokePrivate(object instance, string methodName) =>
+    private static void InvokePrivate(
+        object instance,
+        string methodName,
+        params object?[] arguments) =>
         (instance.GetType().GetMethod(
             methodName,
             BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new AssertFailedException(
                 $"Method '{methodName}' was not found."))
-        .Invoke(instance, null);
+        .Invoke(instance, arguments);
 
     private static bool RaiseWpfPreviewKey(
         System.Windows.UIElement target,

@@ -94,7 +94,9 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
     }
 
     private static string GetFilterButtonGlyph(SpreadsheetAutoFilterButtonHit hit) =>
-        hit.IsSorted ? hit.SortDescending == true ? "↓" : "↑" : "▼";
+        NeraWinFormsFilterHeaderGlyphs.Get(
+            hit.HeaderState,
+            hit.SortDescending);
 
     private static string GetHeaderStateText(
         SpreadsheetFilterHeaderState state,

@@ -127,4 +127,36 @@ public sealed class NeraSpreadsheetAutoFilterHostTests
         Assert.IsNotNull(typeof(NeraSpreadsheetTableHost).GetMethod(
             nameof(NeraSpreadsheetTableHost.ClearSortAsync)));
     }
+
+    [TestMethod]
+    public void HeaderGlyphsDistinguishEveryStateWithoutColor()
+    {
+        var glyphs = new[]
+        {
+            NeraMauiFilterHeaderGlyphs.Get(
+                SpreadsheetFilterHeaderState.None,
+                null),
+            NeraMauiFilterHeaderGlyphs.Get(
+                SpreadsheetFilterHeaderState.Filtered,
+                null),
+            NeraMauiFilterHeaderGlyphs.Get(
+                SpreadsheetFilterHeaderState.Sorted,
+                false),
+            NeraMauiFilterHeaderGlyphs.Get(
+                SpreadsheetFilterHeaderState.Sorted,
+                true),
+            NeraMauiFilterHeaderGlyphs.Get(
+                SpreadsheetFilterHeaderState.FilteredAndSorted,
+                false),
+            NeraMauiFilterHeaderGlyphs.Get(
+                SpreadsheetFilterHeaderState.FilteredAndSorted,
+                true),
+        };
+
+        Assert.AreEqual(glyphs.Length, glyphs.Distinct().Count());
+        Assert.AreEqual("↑", glyphs[2]);
+        Assert.AreEqual("↓", glyphs[3]);
+        Assert.AreEqual("⇈", glyphs[4]);
+        Assert.AreEqual("⇊", glyphs[5]);
+    }
 }
