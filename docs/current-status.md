@@ -20,11 +20,14 @@ OpenXML **93/93**, MAUI presenter **34/34**, focused desktop Ribbon **3/3**, and
 the loaded MAUI Windows Ribbon smoke reports success. Integrated exact head
 `05c6974fa907f5022f28c85f13f06dbb35288556` passed full CI #1307, iOS #128
 and Q003C/OpenXML #125. `RIBBON-008` and `FILTER-006` were immediately opened
-in new isolated worktrees rather than waiting for the calendar date. Both are now
-integrated locally after independent review/hardening. The combined head passes
-Core solution **1324/1324**, MAUI **36/36**, focused desktop **7/7**, and loaded
-MAUI Windows Ribbon plus Table-filter runtime smokes. Exact-head CI remains the
-promotion gate. Schedule checkpoint
+in new isolated worktrees rather than waiting for the calendar date. Both were
+independently reviewed, hardened and integrated without conflict. Combined
+local gates pass Core solution **1324/1324**, MAUI **36/36**, focused desktop
+**7/7**, and loaded MAUI Windows Ribbon plus Table-filter runtime smokes.
+Combined exact head `d595539d616cba1bb5543ab3530035f927304069`
+passed full CI #1309, iOS #130 and Q003C/OpenXML #127. Both checkpoints are
+`DONE`; `RIBBON-009` and `FILTER-007` are active in isolated worktrees from
+that exact green SHA. Schedule checkpoint
 `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` passed full CI #1303, iOS gate
 #124 and Q003C/OpenXML gate #121.
 

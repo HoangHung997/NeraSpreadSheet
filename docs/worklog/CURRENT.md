@@ -5,9 +5,9 @@
   `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
 - Latest implementation exact-head CI checkpoint:
-  `05c6974fa907f5022f28c85f13f06dbb35288556`; full CI run `33883244367` /
-  #1307, iOS run `33883244356` / #128 and Q003C/OpenXML run `33883244366` /
-  #125 passed.
+  `d595539d616cba1bb5543ab3530035f927304069`; full CI run `33894394704` /
+  #1309, iOS run `33894394844` / #130 and Q003C/OpenXML run `33894394789` /
+  #127 passed.
 - Iconography implementation commit:
   `2b933fd8b04042c0c52854dd73651161e9ae9322`; implementation/docs head
   `661504994f2b411c5f7d5a7c88fe836176335ba5` passed all exact-head gates.
@@ -112,9 +112,13 @@
   and Q003C/OpenXML #125. `RIBBON-008 Full Item Model` and `FILTER-006 Native
   Rich Filter UX` completed in two isolated worktrees from that exact SHA. The
   initial handoffs failed independent review, were hardened in their own lanes,
-  and are now integrated locally without conflict. Combined gates: Core solution
+  and were integrated without conflict. Combined gates: Core solution
   **1324/1324**, MAUI **36/36**, focused desktop **7/7**, loaded MAUI Windows
-  Ribbon and Table-filter smokes **success**. Exact-head CI is pending.
+  Ribbon and Table-filter smokes **success**. Exact combined head
+  `d595539d616cba1bb5543ab3530035f927304069` passed full CI #1309, iOS #130
+  and Q003C/OpenXML #127. Both checkpoints are `DONE`; `RIBBON-009 Contextual
+  QAT Key Tips` and `FILTER-007 Sort Reapply Accessibility` are active in two
+  isolated worktrees from that exact SHA.
   Schedule commit
   `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` passed full CI #1303, iOS #124
   and Q003C/OpenXML #121.
@@ -289,9 +293,9 @@ For `RIBBON-ICONOGRAPHY-006` local validation:
 
 ## Next step
 
-Push the combined `RIBBON-008` + `FILTER-006` integration head and require full
-CI, iOS and Q003C/OpenXML success at that exact SHA. Then mark both checkpoints
-DONE and immediately open `RIBBON-009` and `FILTER-007` in isolated worktrees.
+Monitor the isolated `RIBBON-009` and `FILTER-007` lanes. Independently review
+each pushed handoff, integrate only their disjoint approved commit sets, then
+require full CI, iOS and Q003C/OpenXML success at the resulting exact SHA.
 
 ## Remaining limits
 

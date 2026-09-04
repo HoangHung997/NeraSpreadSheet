@@ -69,16 +69,15 @@
 - The repository pins SDK `10.0.302`, unavailable on this machine; local gates
   used installed SDK `10.0.201` from a working directory outside the worktree
   without changing `global.json`.
-- Exact-head GitHub Actions: pending integration. The feature-branch push does
-  not match the checked-in `ci` push trigger (`main`/`develop` only), and the
-  public Actions API listed no run for this branch. The integration owner must
-  cherry-pick the implementation, push the resulting exact integration HEAD
-  and require full CI, iOS and Q003C/OpenXML success there.
+- Exact-head GitHub Actions passed after integration at
+  `d595539d616cba1bb5543ab3530035f927304069`: full CI `33894394704` / #1309,
+  iOS `33894394844` / #130 and Q003C/OpenXML `33894394789` / #127.
 
 ## Remaining limits
 
 - Contextual tabs, minimized/backstage state, QAT and key tips remain
-  RIBBON-009; deep customization remains RIBBON-010.
+  RIBBON-009, which is now active from the exact green integration SHA; deep
+  customization remains RIBBON-010.
 - Combo/color-picker native rows use text fallback when a host picker cannot
   render an item image; command and menu chrome resolve icons normally.
 - WPF exposes disabled combo rows natively. WinForms and MAUI picker APIs do not

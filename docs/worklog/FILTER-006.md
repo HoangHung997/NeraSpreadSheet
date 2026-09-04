@@ -1,6 +1,6 @@
 # FILTER-006 Native Rich Filter UX Worklog
 
-- Status: `READY_FOR_INTEGRATION`; exact-head GitHub gates pending integration-owner cherry-pick.
+- Status: `DONE`; integrated exact-head GitHub gates passed.
 - Owner branch: `feature/filter-006-native-ux`.
 - Exact integration base: `05c6974fa907f5022f28c85f13f06dbb35288556` (`feature/bootstrap-architecture-v0.1`).
 - Baseline evidence supplied by integration owner: full CI `#1307`, iOS `#128`, Q003C/OpenXML `#125` — green.
@@ -95,7 +95,9 @@ authoritative.
   compact; final visual polish belongs to UX-006.
 - Physical sort/reapply, sort indicators and final keyboard/screen-reader
   certification remain FILTER-007/UX-007 scope.
-- Exact-head full CI, iOS and Q003C/OpenXML gates are pending after integration.
+- Exact-head GitHub Actions passed after integration at
+  `d595539d616cba1bb5543ab3530035f927304069`: full CI `33894394704` / #1309,
+  iOS `33894394844` / #130 and Q003C/OpenXML `33894394789` / #127.
 
 ## Rollback
 
@@ -106,7 +108,6 @@ is required.
 
 ## One next step
 
-Integration owner should verify the integration head is still based on
-`05c6974fa907f5022f28c85f13f06dbb35288556`, cherry-pick the implementation
-and this worklog commit, push that exact head, and require full CI, iOS and
-Q003C/OpenXML success before marking FILTER-006 `DONE` or starting FILTER-007.
+FILTER-007 is active from exact green integration head
+`d595539d616cba1bb5543ab3530035f927304069`; review its sort/reapply,
+indicator and accessibility handoff before the next shared integration.

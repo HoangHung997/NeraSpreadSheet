@@ -17,10 +17,10 @@ Task owners write their own `docs/worklog/<CHECKPOINT>.md` handoff.
 | ---: | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `RIBBON-007` | A | `DONE` | Codex task `RIBBON-007 Responsive Ribbon` | `feature/ribbon-007-responsive-layout` | baseline | integrated/green 04/09 |
 | 2 | `FILTER-005` | B | `DONE` | Codex task `FILTER-005 Rich Filter Semantics` | `feature/filter-005-rich-semantics` | baseline | integrated/green 04/09 |
-| 3 | `RIBBON-008` | A | `CI` | Codex task `RIBBON-008 Full Item Model` (`client-new-thread:7c4e32a8-eb91-404b-9ea9-74acd75ef24f`) | `feature/ribbon-008-item-model` | `RIBBON-007` | integrated locally 04/09; exact-head CI pending |
-| 4 | `FILTER-006` | B | `CI` | Codex task `FILTER-006 Native Rich Filter UX` (`client-new-thread:6b8ccb3d-d6ac-4034-b044-ce5135978940`) | `feature/filter-006-native-ux` | `FILTER-005`; Ribbon integration waits for `RIBBON-008` | integrated locally 04/09; exact-head CI pending |
-| 5 | `RIBBON-009` | A | `BACKLOG` | Unclaimed | `feature/ribbon-009-contextual-qat` | `RIBBON-008` | 17–22/09 |
-| 6 | `FILTER-007` | B | `BACKLOG` | Unclaimed | `feature/filter-007-sort-accessibility` | `FILTER-006` | 21–23/09 |
+| 3 | `RIBBON-008` | A | `DONE` | Codex task `RIBBON-008 Full Item Model` (`client-new-thread:7c4e32a8-eb91-404b-9ea9-74acd75ef24f`) | `feature/ribbon-008-item-model` | `RIBBON-007` | integrated/green 04/09 |
+| 4 | `FILTER-006` | B | `DONE` | Codex task `FILTER-006 Native Rich Filter UX` (`client-new-thread:6b8ccb3d-d6ac-4034-b044-ce5135978940`) | `feature/filter-006-native-ux` | `FILTER-005`; Ribbon integration waits for `RIBBON-008` | integrated/green 04/09 |
+| 5 | `RIBBON-009` | A | `ACTIVE` | Codex task `RIBBON-009 Contextual QAT Key Tips` (`client-new-thread:857c5cdd-87ba-4756-8942-55fd33757ccc`) | `feature/ribbon-009-contextual-qat` | `RIBBON-008` | started early 04/09 |
+| 6 | `FILTER-007` | B | `ACTIVE` | Codex task `FILTER-007 Sort Reapply Accessibility` (`client-new-thread:15e93970-66ea-4bdc-b34d-5e143f3c7c1c`) | `feature/filter-007-sort-accessibility` | `FILTER-006` | started early 04/09 |
 | 7 | `RIBBON-010` | A | `BACKLOG` | Unclaimed | `feature/ribbon-010-customization` | `RIBBON-009` | 23–29/09 |
 | 8 | `TABLE-004` | B | `BACKLOG` | Unclaimed | `feature/table-004-style-engine` | `FILTER-007` | 24–29/09 |
 | 9 | `TABLE-005` | B | `BACKLOG` | Unclaimed | `feature/table-005-design-surface` | `TABLE-004`; integration waits for `RIBBON-009` | 30/09–06/10 |
@@ -56,6 +56,8 @@ waits.
 | Program schedule | `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` | `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` | full #1303; iOS #124; Q003C #121 | Green |
 | `RIBBON-007` | `0878f0f3e57783215431662894a504cbe18eefef` | `05c6974fa907f5022f28c85f13f06dbb35288556` | full #1307; iOS #128; Q003C #125 | Green |
 | `FILTER-005` | `e167c1e97e1189e903fd1584937246028ddbcab1` | `05c6974fa907f5022f28c85f13f06dbb35288556` | full #1307; iOS #128; Q003C #125 | Green |
+| `RIBBON-008` | `6493b34872ec4d7f8c24909ede1de5f924ae87d5` + `77bffbf82c33d0f8a21cce66876540c45324bbb5` | `d595539d616cba1bb5543ab3530035f927304069` | full #1309; iOS #130; Q003C #127 | Green |
+| `FILTER-006` | `fec8f2eec1222cfa7db9f67b40be709201285b15` + `08fc0228a390e2f5626dc2bead83f9bc2d1419e3` | `d595539d616cba1bb5543ab3530035f927304069` | full #1309; iOS #130; Q003C #127 | Green |
 
 Append one row only after exact-head CI completes. Never mark a checkpoint
 `DONE` using a green run from a parent commit.
@@ -72,3 +74,7 @@ Append one row only after exact-head CI completes. Never mark a checkpoint
 - 04/09/2026: independent review rejected both initial second-wave handoffs,
   each lane fixed its blockers and added regression/runtime coverage, then the
   two disjoint commit sets were integrated without conflict for exact-head CI.
+- 04/09/2026: the combined second-wave head
+  `d595539d616cba1bb5543ab3530035f927304069` passed full CI #1309, iOS #130
+  and Q003C/OpenXML #127. `RIBBON-009` and `FILTER-007` were immediately
+  dispatched from that exact green SHA into isolated, non-overlapping worktrees.

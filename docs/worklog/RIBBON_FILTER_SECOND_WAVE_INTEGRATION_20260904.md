@@ -45,8 +45,12 @@ uses metadata-only header geometry, and bounds/reuses native header controls.
 - Loaded MAUI Windows Table-filter smoke: **success**, including focus,
   Apply/Undo/Redo and paged rich surface.
 - Architecture verification, SDK packaging verification, `git diff --check`
-  and the secret/personal-path scan passed. Exact-head GitHub full CI, iOS and
-  Q003C/OpenXML gates remain required before promotion to `DONE`.
+  and the secret/personal-path scan passed.
+- Exact combined integration head:
+  `d595539d616cba1bb5543ab3530035f927304069`.
+- GitHub full CI `33894394704` / #1309, iOS `33894394844` / #130 and
+  Q003C/OpenXML `33894394789` / #127 all passed at that exact SHA. Both
+  checkpoints are promoted to `DONE`.
 
 ## Remaining limits
 
@@ -55,7 +59,8 @@ uses metadata-only header geometry, and bounds/reuses native header controls.
   restores the valid selection; full native picker-row parity remains a bounded
   UX follow-up.
 - Contextual tabs/QAT/key tips remain RIBBON-009. Sort/reapply/indicators and
-  complete Filter keyboard/accessibility remain FILTER-007.
+  complete Filter keyboard/accessibility remain FILTER-007. Both successors
+  are active in isolated worktrees based on the exact green integration SHA.
 
 ## Rollback
 
