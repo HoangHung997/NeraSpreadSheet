@@ -1,12 +1,14 @@
 # Current Work Handoff
 
 - Repository: `HoangHung997/NeraSpreadSheet`.
-- Branch: `feature/bootstrap-architecture-v0.1`.
+- Local branch: `fix/adaptive-navigation-scroll`; integration branch:
+  `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
-- Latest verified implementation checkpoint: `29d07537243d937e3ab83b7c03e71f2041c8d4f5`.
-- Verified implementation CI through `EXCEL-BASIC-COMPAT-001`: full run
-  `33830342078` / #1290 — success; iOS gate `33830342090` / #111 — success;
-  Q003C/OpenXML gate `33830342087` / #108 — success.
+- Latest verified implementation checkpoint:
+  `3a4b8e885b204d99354216a29dd9ead759672c8c`.
+- Verified implementation CI through `EXCEL-BASIC-NAV-002`: full run
+  `33836662403` / #1292 — success; iOS gate `33836662383` / #113 — success;
+  Q003C/OpenXML gate `33836662385` / #110 — success.
 - Formula implementation: **DONE**, **546/546** locked catalog names; current formula suite **522/522**.
 - Q001, Q002, Q003A, Q003B: **DONE**.
 - Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
@@ -42,12 +44,13 @@
   passes Load -> Save -> Load without modifying the source. Full CI #1290,
   iOS gate #111 and Q003C/OpenXML gate #108 passed at the implementation
   checkpoint.
-- `EXCEL-BASIC-NAV-002`: **LOCAL IMPLEMENTATION COMPLETE**. The viewport now
+- `EXCEL-BASIC-NAV-002`: **DONE FOR DEFINED SCOPE**. The viewport now
   offers an opt-in adaptive extent derived from used content and the active
   navigation cell. WPF/WinForms arrow, Enter and Tab navigation keep the active
   cell visible; empty navigation tails contract after returning. Viewport
   58/58, loaded desktop smoke 2/2, Core 1243/1243, build/analyzers and
-  architecture verification pass locally. Exact-head CI is pending.
+  architecture verification pass locally. Full CI #1292, iOS gate #113 and
+  Q003C/OpenXML gate #110 passed at the implementation checkpoint.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
 

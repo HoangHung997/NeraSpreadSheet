@@ -43,4 +43,5 @@
 
 ## Status
 
-Local implementation complete. Exact-head GitHub Actions evidence is pending.
+Implementation complete at `3a4b8e885b204d99354216a29dd9ead759672c8c`.
+Exact-head full CI #1292, iOS gate #113 and Q003C/OpenXML gate #110 all passed.

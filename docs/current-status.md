@@ -271,7 +271,7 @@ Exact-head implementation evidence at commit
 - `sdk-packages` artifact: ID `9921465835`, digest
   `sha256:6b9104ecaba62bdeb480033f374735e707b42389aea977c59c56aedc1fe2bcba`.
 
-## EXCEL-BASIC-NAV-002 — LOCAL IMPLEMENTATION COMPLETE
+## EXCEL-BASIC-NAV-002 — DONE FOR DEFINED SCOPE
 
 The reusable viewport and desktop-host navigation gap now has a bounded SDK
 implementation:
@@ -287,7 +287,14 @@ implementation:
   pass locally; build/analyzers and architecture verification are green.
 
 Split-pane adaptive extent and the MAUI host opt-in remain outside this bounded
-hotfix. Exact-head GitHub Actions evidence is pending.
+hotfix.
+
+Exact-head implementation evidence at commit
+`3a4b8e885b204d99354216a29dd9ead759672c8c`:
+
+- full CI: **#1292 / run 33836662403 — success**;
+- iOS analytics accessibility gate: **#113 / run 33836662383 — success**;
+- Q003C/OpenXML gate: **#110 / run 33836662385 — success**.
 
 ## Current boundaries
 
