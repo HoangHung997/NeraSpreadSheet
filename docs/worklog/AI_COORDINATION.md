@@ -102,6 +102,7 @@ Out of scope for this lane:
 | 2026-09-04 | Codex | `EXCEL-BASIC-COMPAT-002` | User-workbook recalculation regression fixed locally: 981 errors reduced to the original 28 with zero new errors; sparse whole-column VLOOKUP, path-aware lookup errors, WPF Ctrl+wheel zoom and cell-style-aware multiline editor added. Core 1246/1246, formula 524/524 and external workbook smoke pass; exact-head CI pending. |
 | 2026-09-04 | Codex | `EXCEL-BASIC-COMPAT-002` | Closed for defined scope at `d86376403e15011304974c5476fe11683347fd19`: full CI #1296, iOS gate #117 and Q003C/OpenXML gate #114 all succeeded. |
 | 2026-09-04 | Codex | `EXCEL-BASIC-VISIBILITY-004` | Local implementation complete after observing Excel row 107 -> 149 and column A -> C navigation across hidden axes; sparse SDK hide/unhide, undo/redo, OpenXML, WPF/WinForms normal and split navigation, samples and external demo are green locally. Exact-head CI pending. |
+| 2026-09-04 | Codex | `EXCEL-BASIC-VISIBILITY-004` | Closed for defined scope at `944fadd9864bfeca41abf9ff8e155305fc8cd06c`: full CI #1298, iOS gate #119 and Q003C/OpenXML gate #116 succeeded; SDK package artifact 9928856103 was produced. |
 
 ## Closed lane: PIVOT-OPENXML-STANDARD
 

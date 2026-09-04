@@ -46,4 +46,14 @@
   Neither touches axis visibility; exact-head GitHub CI remains the release
   gate.
 
-Exact-head GitHub Actions evidence must be recorded before this lane is closed.
+## GitHub evidence
+
+Implementation checkpoint: `944fadd9864bfeca41abf9ff8e155305fc8cd06c`.
+
+- Full CI: **#1298 / run 33852379077 — success**.
+- iOS analytics accessibility gate: **#119 / run 33852379268 — success**.
+- Q003C/OpenXML gate: **#116 / run 33852379096 — success**.
+- `sdk-packages` artifact: ID **9928856103**, digest
+  `sha256:8bd36a673069ecded002ae687f41ab4bb2890e570a78745b12be27f8a1e26472`.
+
+PR #1 remains Draft and unmerged.
