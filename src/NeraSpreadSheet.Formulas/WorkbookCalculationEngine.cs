@@ -297,6 +297,7 @@ public sealed class WorkbookCalculationEngine
         : IStructuredReferenceEvaluationContext,
           IFilterAwareFormulaEvaluationContext,
           IFormulaReferenceIntrospectionContext,
+          IFormulaSparseRangeContext,
           IFormulaWorkbookMetadataEvaluationContext
     {
         private readonly WorkbookCalculationEngine _owner;
@@ -393,6 +394,31 @@ public sealed class WorkbookCalculationEngine
             }
 
             formula = worksheet.GetCell(address).Formula;
+            return true;
+        }
+
+        public bool TryGetUsedRowIndexes(
+            string? worksheetName,
+            CellRange referencedRange,
+            out IReadOnlyList<int> rowIndexes)
+        {
+            if (!TryResolveWorksheet(worksheetName, out var worksheet))
+            {
+                rowIndexes = Array.Empty<int>();
+                return false;
+            }
+
+            rowIndexes = worksheet.EnumerateUsedCells()
+                .Where(pair =>
+                    pair.Key.ColumnIndex >= referencedRange.Left &&
+                    pair.Key.ColumnIndex <= referencedRange.Right &&
+                    pair.Key.RowIndex >= referencedRange.Top &&
+                    pair.Key.RowIndex <= referencedRange.Bottom)
+                .Select(static pair => pair.Key.RowIndex)
+                .Append(referencedRange.Top)
+                .Distinct()
+                .Order()
+                .ToArray();
             return true;
         }
 

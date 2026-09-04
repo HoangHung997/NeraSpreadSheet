@@ -164,6 +164,14 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
         IFormulaEvaluationContext context,
         List<FormulaDependency> dependencies)
     {
+        if (TryEvaluateWholeColumnVlookup(
+                function,
+                context,
+                dependencies,
+                out var wholeColumnLookup))
+        {
+            return wholeColumnLookup;
+        }
         if (string.Equals(function.Name, "LET", StringComparison.OrdinalIgnoreCase))
         {
             return EvaluateF019Let(function, context, dependencies);
@@ -374,6 +382,12 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
                     range.WorksheetName,
                     range.Range);
                 dependencies.Add(dependency);
+                if (range.ExtentKind != FormulaRangeExtentKind.Cells)
+                {
+                    invocationArguments.Add(FormulaFunctionArgument.Scalar(
+                        CellValue.FromError("#VALUE!")));
+                    continue;
+                }
                 var rangeValues = new List<CellValue>(
                     checked(range.Range.RowCount * range.Range.ColumnCount));
                 AppendRange(rangeValues, range, context);
@@ -561,6 +575,123 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
                 : SafeNumber(numbers.Max()),
             _ => CellValue.FromError("#VALUE!"),
         };
+    }
+
+    private bool TryEvaluateWholeColumnVlookup(
+        FunctionNode function,
+        IFormulaEvaluationContext context,
+        List<FormulaDependency> dependencies,
+        out CellValue value)
+    {
+        if (!string.Equals(
+                function.Name,
+                "VLOOKUP",
+                StringComparison.OrdinalIgnoreCase) ||
+            function.Arguments.Count is < 3 or > 4 ||
+            function.Arguments[1] is not RangeNode
+            {
+                ExtentKind: FormulaRangeExtentKind.WholeColumns,
+            } range)
+        {
+            value = default;
+            return false;
+        }
+
+        var lookupValue = EvaluateNode(
+            function.Arguments[0],
+            context,
+            dependencies);
+        if (lookupValue.Kind == CellValueKind.Error)
+        {
+            value = lookupValue;
+            return true;
+        }
+        var indexValue = EvaluateNode(
+            function.Arguments[2],
+            context,
+            dependencies);
+        if (indexValue.Kind == CellValueKind.Error)
+        {
+            value = indexValue;
+            return true;
+        }
+        if (!TryNumber(indexValue, out var indexNumber) ||
+            !double.IsFinite(indexNumber))
+        {
+            value = CellValue.FromError("#VALUE!");
+            return true;
+        }
+        var columnOffset = (int)Math.Truncate(indexNumber) - 1;
+        if (columnOffset < 0 ||
+            range.Range.Left + columnOffset > range.Range.Right)
+        {
+            value = CellValue.FromError("#REF!");
+            return true;
+        }
+
+        var approximate = true;
+        if (function.Arguments.Count == 4)
+        {
+            var approximateValue = EvaluateNode(
+                function.Arguments[3],
+                context,
+                dependencies);
+            if (approximateValue.Kind == CellValueKind.Error)
+            {
+                value = approximateValue;
+                return true;
+            }
+            if (!TryBoolean(approximateValue, out approximate))
+            {
+                value = CellValue.FromError("#VALUE!");
+                return true;
+            }
+        }
+
+        dependencies.Add(new FormulaDependency(
+            range.WorksheetName,
+            range.Range));
+        if (context is not IFormulaSparseRangeContext sparseContext ||
+            !sparseContext.TryGetUsedRowIndexes(
+                range.WorksheetName,
+                range.Range,
+                out var usedRows))
+        {
+            value = CellValue.FromError("#VALUE!");
+            return true;
+        }
+
+        var foundRow = -1;
+        foreach (var row in usedRows)
+        {
+            var candidate = context.GetCellValue(
+                range.WorksheetName,
+                new CellAddress(row, range.Range.Left));
+            if (candidate.Kind == CellValueKind.Error)
+            {
+                value = candidate;
+                return true;
+            }
+            var comparison = Compare(candidate, lookupValue);
+            if (comparison == 0)
+            {
+                foundRow = row;
+                break;
+            }
+            if (approximate && comparison <= 0)
+            {
+                foundRow = row;
+            }
+        }
+
+        value = foundRow < 0
+            ? CellValue.FromError("#N/A")
+            : context.GetCellValue(
+                range.WorksheetName,
+                new CellAddress(
+                    foundRow,
+                    range.Range.Left + columnOffset));
+        return true;
     }
 
     private static void AppendRange(

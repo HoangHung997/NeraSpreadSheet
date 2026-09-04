@@ -136,6 +136,12 @@ public sealed partial class NeraFormulaEngine
                 range.WorksheetName,
                 range.Range);
             dependencies.Add(dependency);
+            if (range.ExtentKind != FormulaRangeExtentKind.Cells)
+            {
+                argument = FormulaFunctionArgument.Scalar(
+                    CellValue.FromError("#VALUE!"));
+                return true;
+            }
             var values = new List<CellValue>(
                 checked(range.Range.RowCount * range.Range.ColumnCount));
             AppendRange(values, range, context);

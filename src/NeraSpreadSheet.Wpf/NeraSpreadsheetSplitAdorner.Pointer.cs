@@ -21,6 +21,13 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             return;
         }
 
+        if ((Keyboard.Modifiers & ModifierKeys.Control) != 0)
+        {
+            _owner.ZoomByWheel(e.Delta);
+            e.Handled = true;
+            return;
+        }
+
         var frame = EnsureFrame();
         if (frame is null)
         {

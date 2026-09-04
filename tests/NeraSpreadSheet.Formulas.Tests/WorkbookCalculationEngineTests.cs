@@ -75,6 +75,64 @@ public sealed class WorkbookCalculationEngineTests
         Assert.AreEqual(14d, sheet.GetCell(formulaAddress).Value.RawValue);
     }
 
+    [TestMethod]
+    public void RecalculateVlookupIgnoresErrorsOutsideMatchedLookupPath()
+    {
+        var workbook = new Workbook();
+        var data = workbook.Worksheets[0];
+        workbook.RenameWorksheet(data, "TTC");
+        var summary = workbook.AddWorksheet("HSHC");
+        data.SetValue(new CellAddress(2, 1), "Fields");
+        data.SetValue(new CellAddress(2, 3), "Expected");
+        data.SetValue(new CellAddress(3, 1), "Other");
+        data.SetValue(new CellAddress(3, 3), CellValue.FromError("#VALUE!"));
+        summary.SetValue(new CellAddress(5, 0), "Fields");
+        summary.SetFormula(
+            new CellAddress(5, 2),
+            "=VLOOKUP($A6,TTC!$B$3:$D$4,COLUMN(C$1),FALSE)");
+
+        var result = new WorkbookCalculationEngine().Recalculate(workbook);
+
+        Assert.AreEqual(1, result.FormulaCellCount);
+        Assert.AreEqual(0, result.ErrorCellCount);
+        Assert.AreEqual(
+            "Expected",
+            summary.GetCell(new CellAddress(5, 2)).Value.RawValue);
+    }
+
+    [TestMethod]
+    public void RecalculateVlookupSupportsBoundedWholeColumnReference()
+    {
+        var workbook = new Workbook();
+        var data = workbook.Worksheets[0];
+        workbook.RenameWorksheet(data, "DL");
+        var summary = workbook.AddWorksheet("TTC");
+        var sparseRow = SpreadsheetLimits.MaxRows - 1;
+        data.SetValue(new CellAddress(sparseRow, 1), "Vendor");
+        data.SetValue(new CellAddress(sparseRow, 2), "Expected");
+        summary.SetValue(new CellAddress(0, 2), "Vendor");
+        summary.SetFormula(
+            new CellAddress(1, 2),
+            "=VLOOKUP($C$1,DL!$B:$R,2,0)");
+        var engine = new WorkbookCalculationEngine();
+
+        var result = engine.Recalculate(workbook);
+
+        Assert.AreEqual(1, result.FormulaCellCount);
+        Assert.AreEqual(0, result.ErrorCellCount);
+        Assert.AreEqual(
+            "Expected",
+            summary.GetCell(new CellAddress(1, 2)).Value.RawValue);
+        Assert.AreEqual(
+            new CellRange(
+                new CellAddress(0, 1),
+                new CellAddress(SpreadsheetLimits.MaxRows - 1, 17)),
+            engine.DependencyGraph.GetDependencies(
+                    new FormulaCellKey("TTC", new CellAddress(1, 2)))
+                .Single(dependency => dependency.WorksheetName == "DL")
+                .Range);
+    }
+
     private static Workbook CreateStructuredReferenceWorkbook(
         out Worksheet worksheet)
     {

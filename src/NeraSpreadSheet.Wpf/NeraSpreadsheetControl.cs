@@ -47,10 +47,17 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         SpreadsheetViewportEngine.DefaultAdaptiveTrailingRowCount;
     private int _adaptiveNavigationTrailingColumnCount =
         SpreadsheetViewportEngine.DefaultAdaptiveTrailingColumnCount;
+    private readonly ScaleTransform _zoomTransform = new(1d, 1d);
+    private double _zoom = 1d;
+
+    public const double MinimumZoom = 0.25d;
+
+    public const double MaximumZoom = 4d;
 
     public NeraSpreadsheetControl()
     {
         Focusable = true;
+        LayoutTransform = _zoomTransform;
         _visuals = new VisualCollection(this);
         _gpuSurface = new WpfDirect2DGpuSurface
         {
@@ -93,6 +100,57 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
     public ScrollSnapshot ScrollSnapshot => _scrollController.Snapshot;
     public bool IsEditing => _cellEditor?.IsEditing == true;
     public FramePacingSnapshot FramePacing => _framePacing.Capture();
+
+    public event EventHandler? ZoomChanged;
+
+    /// <summary>
+    /// Gets or sets the visual spreadsheet zoom where 1.0 represents 100%.
+    /// </summary>
+    public double Zoom
+    {
+        get => _zoom;
+        set
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!double.IsFinite(value) ||
+                value < MinimumZoom ||
+                value > MaximumZoom)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(value),
+                    $"Zoom must be between {MinimumZoom} and {MaximumZoom}.");
+            }
+            if (Math.Abs(_zoom - value) <= 1e-9)
+            {
+                return;
+            }
+
+            _zoom = value;
+            _zoomTransform.ScaleX = value;
+            _zoomTransform.ScaleY = value;
+            if (!ReferenceEquals(LayoutTransform, _zoomTransform))
+            {
+                LayoutTransform = _zoomTransform;
+            }
+            ZoomChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Changes zoom in Excel-like ten percentage-point wheel steps.
+    /// </summary>
+    public void ZoomByWheel(int wheelDelta)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (wheelDelta == 0)
+        {
+            return;
+        }
+
+        var percent = (int)Math.Round(_zoom * 100d / 10d) * 10;
+        percent += Math.Sign(wheelDelta) * 10;
+        Zoom = Math.Clamp(percent / 100d, MinimumZoom, MaximumZoom);
+    }
 
     /// <summary>
     /// Gets or sets whether the scroll range follows the sparse used range and
@@ -289,6 +347,12 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         base.OnMouseWheel(e);
         if (_disposed)
         {
+            return;
+        }
+        if ((Keyboard.Modifiers & ModifierKeys.Control) != 0)
+        {
+            ZoomByWheel(e.Delta);
+            e.Handled = true;
             return;
         }
         if (_analyticsInput?.IsTransforming == true)
@@ -667,6 +731,11 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
             return;
         }
         var state = _cellEditor.BeginEdit();
+        WpfCellEditorStyle.Apply(
+            _editor,
+            _session!.ActiveWorksheet.GetEffectiveStyle(
+                state.Address,
+                _session.Workbook.Styles));
         _editor.Text = replacementText ?? state.InitialText;
         _formulaReferenceSpan = null;
         _editor.Visibility = Visibility.Visible;
@@ -1223,6 +1292,14 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         }
         if (e.Key is Key.Enter or Key.Return)
         {
+            if ((Keyboard.Modifiers & ModifierKeys.Alt) != 0)
+            {
+                var insertionStart = _editor.SelectionStart;
+                _editor.SelectedText = Environment.NewLine;
+                _editor.CaretIndex = insertionStart + Environment.NewLine.Length;
+                e.Handled = true;
+                return;
+            }
             if (CommitEditor())
             {
                 MoveActiveCell(1, 0, false);

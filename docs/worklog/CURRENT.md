@@ -9,7 +9,7 @@
 - Verified implementation CI through `EXCEL-BASIC-NAV-003`: full run
   `33841803159` / #1294 — success; iOS gate `33841803144` / #115 — success;
   Q003C/OpenXML gate `33841803148` / #112 — success.
-- Formula implementation: **DONE**, **546/546** locked catalog names; current formula suite **522/522**.
+- Formula implementation: **DONE**, **546/546** locked catalog names; current formula suite **524/524**.
 - Q001, Q002, Q003A, Q003B: **DONE**.
 - Q003C: **DONE for managed analytics/chart OpenXML persistence scope**.
 - Q003D: **DONE for standard Excel PivotTable/PivotCache package preservation scope**.
@@ -60,6 +60,14 @@
   architecture verification pass locally. The external Win11 demo build and
   packaged smoke pass with the lighter demo-only chrome. Full CI #1294, iOS
   gate #115 and Q003C/OpenXML gate #112 passed at the implementation checkpoint.
+- `EXCEL-BASIC-COMPAT-002`: **LOCAL IMPLEMENTATION COMPLETE**. Recalculation of
+  the supplied six-sheet workbook now preserves its 28 existing Excel error
+  cells and creates zero new errors, compared with 981 total/953 new errors
+  before the fix. VLOOKUP/HLOOKUP no longer propagate unrelated table-array
+  errors, whole-column VLOOKUP uses sparse used-row evaluation with full-range
+  dependencies, WPF supports Ctrl+wheel zoom from 25%-400%, and the reusable
+  editor overlay matches cell typography/alignment/wrapping with Alt+Enter line
+  breaks. Exact-head GitHub Actions evidence is pending.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -156,6 +164,21 @@ For `EXCEL-BASIC-NAV-003` local validation:
   user's source file open. The preceding navigation checkpoint already passed
   this unchanged serializer path and this lane does not modify OpenXML code.
 
+For `EXCEL-BASIC-COMPAT-002` local validation:
+
+- supplied workbook: **1273 formula cells**, cached **28 errors**, prior Nera
+  recalculation **981 errors**, fixed recalculation **28 errors / 0 new**;
+- Formulas: **524/524 passed**;
+- focused WPF editor/zoom/formula smoke: **2/2 passed**;
+- Core solution: **1246/1246 passed**;
+- build/analyzers: **0 warnings, 0 errors**;
+- architecture verification: **passed**;
+- external Win11 demo build and supplied-workbook recalculation/round-trip
+  smoke: **passed**;
+- full Windows.Rendering: **52/54 passed locally**; the same two unrelated,
+  environment-sensitive WPF automation/activation assertions documented above
+  remain red on this desktop.
+
 ## Remaining limits
 
 - Pivot refresh/calculation equivalence, user-mode destination-cell modeling,
@@ -172,8 +195,6 @@ For `EXCEL-BASIC-NAV-003` local validation:
 
 ## Next single step
 
-Continue `SECURITY-RECOVERY` with the next bounded trust/recovery surface,
-preferring preserve-unknown recovery or host/session failure containment unless
-a real OpenXML fixture reveals another archive-level graph validation gap beyond
-ZIP part, duplicate entry, relationship entry and content-type override
-scanning, without marking PR #1 ready.
+Push `EXCEL-BASIC-COMPAT-002` to the integration branch and require full CI,
+iOS and Q003C/OpenXML gates to pass on the exact final HEAD before continuing
+`SECURITY-RECOVERY`; do not mark PR #1 ready.

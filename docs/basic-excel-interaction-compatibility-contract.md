@@ -36,6 +36,12 @@ scrollbar layout.
 - `FormulaReferenceAnalyzer` extracts static references without recalculating
   the workbook. Dynamic references produced by functions such as `INDIRECT`
   still require formula evaluation.
+- Exact `VLOOKUP`/`HLOOKUP` evaluation does not fail merely because an
+  unrelated cell elsewhere in the table array contains an error. Errors in the
+  lookup key, inspected lookup path or selected result still propagate.
+- `VLOOKUP` accepts whole-column table arrays such as `DL!$B:$R`. Workbook
+  calculation enumerates sparse used-row identities while retaining the full
+  column dependency, so a far sparse row does not materialize an entire axis.
 
 ## Rendering and WPF host behavior
 
@@ -46,6 +52,12 @@ scrollbar layout.
   rotating theme color palette.
 - The WPF in-cell editor shows function suggestions and accepts mouse drag
   point mode while keeping one reusable editor overlay.
+- The WPF editor inherits the effective cell font, weight, style, color,
+  alignment and wrapping. `Alt+Enter` inserts a line break; plain `Enter`
+  commits and moves down.
+- WPF `Ctrl+mouse-wheel` changes spreadsheet zoom in ten percentage-point
+  steps between 25% and 400%. The reusable control exposes `Zoom`,
+  `ZoomChanged` and `ZoomByWheel` for host chrome such as a status indicator.
 - No native control is created per cell.
 
 ## Explicitly outside this change

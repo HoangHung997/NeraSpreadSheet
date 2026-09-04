@@ -163,6 +163,27 @@ internal sealed class FormulaParser
         }
         if (!CellAddress.TryParseA1(addressText, out var firstAddress))
         {
+            if (_current.Kind == FormulaTokenKind.Colon &&
+                TryParseColumnOnly(addressText, out var firstColumn))
+            {
+                MoveNext();
+                if (_current.Kind != FormulaTokenKind.Identifier ||
+                    !TryParseColumnOnly(_current.Text, out var secondColumn))
+                {
+                    throw new FormatException(
+                        "Expected a valid column reference after ':'.");
+                }
+
+                MoveNext();
+                return new RangeNode(
+                    worksheetName,
+                    new CellRange(
+                        new CellAddress(0, firstColumn),
+                        new CellAddress(
+                            SpreadsheetLimits.MaxRows - 1,
+                            secondColumn)),
+                    FormulaRangeExtentKind.WholeColumns);
+            }
             if (worksheetName is not null)
             {
                 throw new FormatException(
@@ -188,6 +209,23 @@ internal sealed class FormulaParser
         return new RangeNode(
             worksheetName,
             new CellRange(firstAddress, secondAddress));
+    }
+
+    private static bool TryParseColumnOnly(
+        string text,
+        out int columnIndex)
+    {
+        var candidate = text.StartsWith('$') ? text[1..] : text;
+        if (candidate.Length == 0 || candidate.Any(static value =>
+                value is < 'A' or > 'Z' and < 'a' or > 'z') ||
+            !CellAddress.TryParseA1(candidate + "1", out var address))
+        {
+            columnIndex = default;
+            return false;
+        }
+
+        columnIndex = address.ColumnIndex;
+        return true;
     }
 
     private FormulaNode ParseParenthesizedExpression()

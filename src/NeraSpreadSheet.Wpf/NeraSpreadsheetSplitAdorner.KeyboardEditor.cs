@@ -128,6 +128,11 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         }
 
         var state = _cellEditor.BeginEdit();
+        WpfCellEditorStyle.Apply(
+            _editor,
+            _session!.ActiveWorksheet.GetEffectiveStyle(
+                state.Address,
+                _session.Workbook.Styles));
         _editor.Text = replacementText ?? state.InitialText;
         _editor.Visibility = Visibility.Visible;
         UpdateEditorBounds();
@@ -270,6 +275,14 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 
         if (e.Key is Key.Enter or Key.Return)
         {
+            if ((Keyboard.Modifiers & ModifierKeys.Alt) != 0)
+            {
+                var insertionStart = _editor.SelectionStart;
+                _editor.SelectedText = Environment.NewLine;
+                _editor.CaretIndex = insertionStart + Environment.NewLine.Length;
+                e.Handled = true;
+                return;
+            }
             if (CommitEditor())
             {
                 MoveActiveCell(1, 0, false);

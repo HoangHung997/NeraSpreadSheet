@@ -10,7 +10,16 @@ internal sealed record MissingArgumentNode() : FormulaNode;
 
 internal sealed record CellNode(string? WorksheetName, CellAddress Address) : FormulaNode;
 
-internal sealed record RangeNode(string? WorksheetName, CellRange Range) : FormulaNode;
+internal sealed record RangeNode(
+    string? WorksheetName,
+    CellRange Range,
+    FormulaRangeExtentKind ExtentKind = FormulaRangeExtentKind.Cells) : FormulaNode;
+
+internal enum FormulaRangeExtentKind
+{
+    Cells = 0,
+    WholeColumns,
+}
 
 internal sealed record ReferenceUnionNode(
     IReadOnlyList<FormulaNode> Areas) : FormulaNode;

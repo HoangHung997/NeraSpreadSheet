@@ -58,6 +58,18 @@ public interface IFormulaEvaluationContext
         CellAddress address);
 }
 
+/// <summary>
+/// Provides sparse used-row identities for an unbounded formula reference
+/// while preserving the original dependency range.
+/// </summary>
+public interface IFormulaSparseRangeContext : IFormulaEvaluationContext
+{
+    bool TryGetUsedRowIndexes(
+        string? worksheetName,
+        CellRange referencedRange,
+        out IReadOnlyList<int> rowIndexes);
+}
+
 public interface IStructuredReferenceEvaluationContext
     : IFormulaEvaluationContext
 {
