@@ -110,7 +110,11 @@
   smoke **success**. Integrated exact head
   `05c6974fa907f5022f28c85f13f06dbb35288556` passed full CI #1307, iOS #128
   and Q003C/OpenXML #125. `RIBBON-008 Full Item Model` and `FILTER-006 Native
-  Rich Filter UX` are now active in two isolated worktrees from that exact SHA.
+  Rich Filter UX` completed in two isolated worktrees from that exact SHA. The
+  initial handoffs failed independent review, were hardened in their own lanes,
+  and are now integrated locally without conflict. Combined gates: Core solution
+  **1324/1324**, MAUI **36/36**, focused desktop **7/7**, loaded MAUI Windows
+  Ribbon and Table-filter smokes **success**. Exact-head CI is pending.
   Schedule commit
   `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` passed full CI #1303, iOS #124
   and Q003C/OpenXML #121.
@@ -285,9 +289,9 @@ For `RIBBON-ICONOGRAPHY-006` local validation:
 
 ## Next step
 
-Monitor `RIBBON-008` and `FILTER-006` independently. Integrate a lane only after
-its focused gates and handoff pass, without waiting for or modifying files owned
-by the other active lane.
+Push the combined `RIBBON-008` + `FILTER-006` integration head and require full
+CI, iOS and Q003C/OpenXML success at that exact SHA. Then mark both checkpoints
+DONE and immediately open `RIBBON-009` and `FILTER-007` in isolated worktrees.
 
 ## Remaining limits
 

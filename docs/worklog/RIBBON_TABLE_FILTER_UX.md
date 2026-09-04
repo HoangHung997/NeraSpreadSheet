@@ -17,8 +17,8 @@ Task owners write their own `docs/worklog/<CHECKPOINT>.md` handoff.
 | ---: | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `RIBBON-007` | A | `DONE` | Codex task `RIBBON-007 Responsive Ribbon` | `feature/ribbon-007-responsive-layout` | baseline | integrated/green 04/09 |
 | 2 | `FILTER-005` | B | `DONE` | Codex task `FILTER-005 Rich Filter Semantics` | `feature/filter-005-rich-semantics` | baseline | integrated/green 04/09 |
-| 3 | `RIBBON-008` | A | `ACTIVE` | Codex task `RIBBON-008 Full Item Model` (`client-new-thread:7c4e32a8-eb91-404b-9ea9-74acd75ef24f`) | `feature/ribbon-008-item-model` | `RIBBON-007` | started early 04/09; cap 16/09 |
-| 4 | `FILTER-006` | B | `ACTIVE` | Codex task `FILTER-006 Native Rich Filter UX` (`client-new-thread:6b8ccb3d-d6ac-4034-b044-ce5135978940`) | `feature/filter-006-native-ux` | `FILTER-005`; Ribbon integration waits for `RIBBON-008` | started early 04/09; cap 18/09 |
+| 3 | `RIBBON-008` | A | `CI` | Codex task `RIBBON-008 Full Item Model` (`client-new-thread:7c4e32a8-eb91-404b-9ea9-74acd75ef24f`) | `feature/ribbon-008-item-model` | `RIBBON-007` | integrated locally 04/09; exact-head CI pending |
+| 4 | `FILTER-006` | B | `CI` | Codex task `FILTER-006 Native Rich Filter UX` (`client-new-thread:6b8ccb3d-d6ac-4034-b044-ce5135978940`) | `feature/filter-006-native-ux` | `FILTER-005`; Ribbon integration waits for `RIBBON-008` | integrated locally 04/09; exact-head CI pending |
 | 5 | `RIBBON-009` | A | `BACKLOG` | Unclaimed | `feature/ribbon-009-contextual-qat` | `RIBBON-008` | 17–22/09 |
 | 6 | `FILTER-007` | B | `BACKLOG` | Unclaimed | `feature/filter-007-sort-accessibility` | `FILTER-006` | 21–23/09 |
 | 7 | `RIBBON-010` | A | `BACKLOG` | Unclaimed | `feature/ribbon-010-customization` | `RIBBON-009` | 23–29/09 |
@@ -69,3 +69,6 @@ Append one row only after exact-head CI completes. Never mark a checkpoint
 - 04/09/2026: both first checkpoints were integrated and exact-head green at
   `05c6974fa907f5022f28c85f13f06dbb35288556`; `RIBBON-008` and `FILTER-006`
   were immediately dispatched into two new isolated worktrees from that SHA.
+- 04/09/2026: independent review rejected both initial second-wave handoffs,
+  each lane fixed its blockers and added regression/runtime coverage, then the
+  two disjoint commit sets were integrated without conflict for exact-head CI.
