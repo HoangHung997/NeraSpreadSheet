@@ -53,7 +53,11 @@
 - The repository pins SDK `10.0.302`, unavailable on this machine; local gates
   used installed SDK `10.0.201` from a working directory outside the worktree
   without changing `global.json`.
-- Exact-head GitHub Actions: pending after branch push.
+- Exact-head GitHub Actions: pending integration. The feature-branch push does
+  not match the checked-in `ci` push trigger (`main`/`develop` only), and the
+  public Actions API listed no run for this branch. The integration owner must
+  cherry-pick the implementation, push the resulting exact integration HEAD
+  and require full CI, iOS and Q003C/OpenXML success there.
 
 ## Remaining limits
 
