@@ -71,8 +71,9 @@ public sealed class RibbonRuntimeController
         RibbonSelectionContext selectionContext,
         CommandContext context = default)
     {
+        var projection = CreateProjection(EffectiveDefinition, context, selectionContext);
         _selectionContext = selectionContext;
-        return Publish(EffectiveDefinition, context);
+        return Publish(projection);
     }
 
     /// <summary>Updates the expanded/minimized state without changing command projection.</summary>
@@ -106,9 +107,11 @@ public sealed class RibbonRuntimeController
         RibbonCustomization? customization,
         CommandContext context = default)
     {
+        var effectiveDefinition = ApplyCustomization(customization);
+        var projection = CreateProjection(effectiveDefinition, context, _selectionContext);
         Customization = customization;
-        EffectiveDefinition = ApplyCustomization(customization);
-        return Publish(EffectiveDefinition, context);
+        EffectiveDefinition = effectiveDefinition;
+        return Publish(projection);
     }
 
     /// <summary>
@@ -277,7 +280,15 @@ public sealed class RibbonRuntimeController
         RibbonDefinition definition,
         CommandContext context)
     {
-        Snapshot = Project(definition, context);
+        return Publish(CreateProjection(definition, context, _selectionContext));
+    }
+
+    private RibbonPresentationSnapshot Publish(RibbonProjection projection)
+    {
+        Snapshot = projection.Snapshot;
+        _shortcuts = projection.Shortcuts;
+        _visibleCommands = projection.VisibleCommands;
+        KeyTips = projection.KeyTips;
         SnapshotChanged?.Invoke(this, EventArgs.Empty);
         return Snapshot;
     }
@@ -286,19 +297,42 @@ public sealed class RibbonRuntimeController
         RibbonDefinition definition,
         CommandContext context)
     {
-        var snapshot = _projector.Project(definition, context, _selectionContext);
-        _shortcuts = CommandShortcutMap.Create(snapshot.Tabs
-            .SelectMany(static tab => tab.Groups)
-            .SelectMany(static group => group.Items)
-            .Select(static item => item.Command));
-        _visibleCommands = snapshot.Tabs
-            .SelectMany(static tab => tab.Groups)
-            .SelectMany(static group => group.Items)
-            .Select(static item => item.Command.CommandId)
-            .Concat(snapshot.QuickAccessToolbar.Select(static command => command.CommandId))
-            .Concat(snapshot.Backstage.Select(static command => command.CommandId))
-            .ToHashSet();
-        KeyTips = new RibbonKeyTipController(definition, snapshot);
-        return snapshot;
+        var projection = CreateProjection(definition, context, _selectionContext);
+        _shortcuts = projection.Shortcuts;
+        _visibleCommands = projection.VisibleCommands;
+        KeyTips = projection.KeyTips;
+        return projection.Snapshot;
     }
+
+    private RibbonProjection CreateProjection(
+        RibbonDefinition definition,
+        CommandContext context,
+        RibbonSelectionContext selectionContext)
+    {
+        var snapshot = _projector.Project(definition, context, selectionContext);
+        var commands = snapshot.Tabs
+            .SelectMany(static tab => tab.Groups)
+            .SelectMany(static group => group.Items)
+            .Select(static item => item.Command)
+            .Concat(snapshot.QuickAccessToolbar)
+            .Concat(snapshot.Backstage)
+            .DistinctBy(static command => command.CommandId)
+            .ToArray();
+        var shortcuts = CommandShortcutMap.Create(commands);
+        var visibleCommands = commands
+            .Select(static command => command.CommandId)
+            .ToHashSet();
+        var keyTips = new RibbonKeyTipController(definition, snapshot);
+        if (KeyTips is { } previousKeyTips)
+        {
+            keyTips.RestoreScope(previousKeyTips.Scope, previousKeyTips.ActiveTabId);
+        }
+        return new RibbonProjection(snapshot, shortcuts, visibleCommands, keyTips);
+    }
+
+    private sealed record RibbonProjection(
+        RibbonPresentationSnapshot Snapshot,
+        CommandShortcutMap Shortcuts,
+        HashSet<CommandId> VisibleCommands,
+        RibbonKeyTipController KeyTips);
 }

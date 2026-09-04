@@ -1,5 +1,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Ribbon.Core;
 
 namespace NeraSpreadSheet.Commands.Tests;
@@ -85,11 +87,11 @@ public sealed class RibbonContextualSurfaceTests
         Assert.AreEqual("table-design", contextualResult?.TabId);
 
         tips.Enter();
-        Assert.AreEqual(RibbonKeyTipScope.Backstage, tips.Process("F").Action ==
+        Assert.AreEqual(RibbonKeyTipScope.Backstage, tips.ProcessCharacter('F').Action ==
             RibbonKeyTipAction.ScopeChanged ? tips.Scope : RibbonKeyTipScope.Inactive);
         Assert.AreEqual(new CommandId("file.save"), tips.Process("S").CommandId);
         tips.Enter();
-        tips.Process("Q");
+        tips.ProcessCharacter('Q');
         Assert.AreEqual(new CommandId("home.copy"), tips.Process("1").CommandId);
 
         Assert.ThrowsExactly<InvalidOperationException>(() => new RibbonDefinition(
@@ -97,6 +99,116 @@ public sealed class RibbonContextualSurfaceTests
             [],
             [new("home.copy", "A"), new("file.save", "a")],
             []));
+    }
+
+    [TestMethod]
+    public void GeneratedKeyTipsShouldRemainBoundedAndCollisionFreeForLargeTabs()
+    {
+        var ids = Enumerable.Range(1, 100)
+            .Select(index => $"a{index}")
+            .ToArray();
+        var registry = CreateRegistry(ids);
+        var definition = new RibbonDefinition([
+            new RibbonTabDefinition("home", "Home", [
+                new RibbonGroupDefinition(
+                    "many",
+                    "Many",
+                    ids.Select(static id => new RibbonItemDefinition(id)))])]);
+        var runtime = new RibbonRuntimeController(definition, registry);
+
+        runtime.KeyTips.Enter();
+        runtime.KeyTips.Process(runtime.KeyTips.TabTips["home"]);
+        var first = runtime.KeyTips.GetCommandTips();
+        var second = runtime.KeyTips.GetCommandTips();
+
+        Assert.AreSame(first, second);
+        Assert.AreEqual(ids.Length, first.Count);
+        Assert.AreEqual(ids.Length, first.Keys.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.IsTrue(first.Keys.All(static tip => tip.Length is >= 1 and <= 4));
+        Assert.IsFalse(first.Keys.Any(left => first.Keys.Any(right =>
+            !ReferenceEquals(left, right) &&
+            !string.Equals(left, right, StringComparison.OrdinalIgnoreCase) &&
+            (left.StartsWith(right, StringComparison.OrdinalIgnoreCase) ||
+             right.StartsWith(left, StringComparison.OrdinalIgnoreCase)))));
+    }
+
+    [TestMethod]
+    public void ProjectorShouldRetainOriginalClrOverload()
+    {
+        var overload = typeof(RibbonPresentationProjector).GetMethod(
+            nameof(RibbonPresentationProjector.Project),
+            [typeof(RibbonDefinition), typeof(CommandContext)]);
+
+        Assert.IsNotNull(overload);
+    }
+
+    [TestMethod]
+    public void ShortcutMapShouldIncludeCommandsPlacedOnlyInQatOrBackstage()
+    {
+        var registry = new CommandRegistry();
+        registry.Register(
+            new CommandDescriptor("qat.only", "QAT", shortcut: "Ctrl+1"),
+            new Handler());
+        registry.Register(
+            new CommandDescriptor("file.only", "File", shortcut: "Ctrl+2"),
+            new Handler());
+        var runtime = new RibbonRuntimeController(
+            new RibbonDefinition(
+                [],
+                [],
+                [new RibbonCommandSurfaceItem("qat.only", "1")],
+                [new RibbonCommandSurfaceItem("file.only", "2")]),
+            registry);
+
+        Assert.IsTrue(runtime.TryResolveShortcut("Ctrl+1", out var qat));
+        Assert.AreEqual(new CommandId("qat.only"), qat);
+        Assert.IsTrue(runtime.TryResolveShortcut("Ctrl+2", out var backstage));
+        Assert.AreEqual(new CommandId("file.only"), backstage);
+    }
+
+    [TestMethod]
+    public void SelectionContextShouldRemainAtomicWhenProjectionFails()
+    {
+        var registry = new CommandRegistry();
+        registry.Register(
+            new CommandDescriptor("home.copy", "Copy"),
+            new ThrowingStateHandler());
+        var runtime = new RibbonRuntimeController(
+            new RibbonDefinition([
+                new RibbonTabDefinition("home", "Home", [
+                    new RibbonGroupDefinition("group", "Group", [new("home.copy")])])]),
+            registry);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => runtime.SetSelectionContext(
+            new RibbonSelectionContext(true, true),
+            new CommandContext(Parameter: "throw")));
+        Assert.AreEqual(default, runtime.SelectionContext);
+    }
+
+    [TestMethod]
+    public void RefreshShouldPreserveReachableKeyTipScope()
+    {
+        var runtime = new RibbonRuntimeController(
+            CreateDefinition(),
+            CreateRegistry("home.copy", "table.rename", "file.save"));
+        runtime.KeyTips.Enter();
+        runtime.KeyTips.Process(runtime.KeyTips.TabTips["home"]);
+
+        runtime.Refresh();
+
+        Assert.AreEqual(RibbonKeyTipScope.Tab, runtime.KeyTips.Scope);
+        Assert.AreEqual("home", runtime.KeyTips.ActiveTabId);
+    }
+
+    [TestMethod]
+    [DataRow("[]")]
+    [DataRow("true")]
+    [DataRow("42")]
+    [DataRow("\"text\"")]
+    public void ViewStateShouldWrapEveryMalformedRootAsInvalidData(string json)
+    {
+        Assert.ThrowsExactly<InvalidDataException>(() =>
+            RibbonViewStateJsonSerializer.Deserialize(json));
     }
 
     [TestMethod]
@@ -131,16 +243,21 @@ public sealed class RibbonContextualSurfaceTests
     {
         Assert.AreEqual(30, RibbonProductionCommandCatalog.CommandIds.Count);
         Assert.AreEqual(30, RibbonProductionCommandCatalog.CommandIds.Distinct().Count());
-        var registry = new CommandRegistry();
-        foreach (var commandId in RibbonProductionCommandCatalog.CommandIds)
-        {
-            registry.Register(new CommandDescriptor(commandId, commandId.Value), new Handler());
-        }
+        var session = new SpreadsheetSession(new Workbook());
 
-        RibbonCommandCatalogAudit.Validate(
-            registry,
+        RibbonCommandCatalogAudit.ValidateExact(
+            session.Commands,
             RibbonProductionCommandCatalog.CreateDefaultDefinition(),
             RibbonProductionCommandCatalog.CommandIds);
+
+        session.Commands.Register(
+            new CommandDescriptor("future.command", "Future"),
+            new Handler());
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            RibbonCommandCatalogAudit.ValidateExact(
+                session.Commands,
+                RibbonProductionCommandCatalog.CreateDefaultDefinition(),
+                RibbonProductionCommandCatalog.CommandIds));
     }
 
     private static RibbonDefinition CreateDefinition() => new(
@@ -167,6 +284,18 @@ public sealed class RibbonContextualSurfaceTests
     private sealed class Handler : ICommandHandler
     {
         public bool CanExecute(CommandContext context) => true;
+        public ValueTask ExecuteAsync(CommandContext context) => ValueTask.CompletedTask;
+    }
+
+    private sealed class ThrowingStateHandler : IStatefulCommandHandler
+    {
+        public bool CanExecute(CommandContext context) => true;
+
+        public CommandState GetState(CommandContext context) =>
+            string.Equals(context.Parameter as string, "throw", StringComparison.Ordinal)
+                ? throw new InvalidOperationException("Projection failed.")
+                : new CommandState(true);
+
         public ValueTask ExecuteAsync(CommandContext context) => ValueTask.CompletedTask;
     }
 }

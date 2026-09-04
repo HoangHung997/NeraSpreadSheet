@@ -112,8 +112,17 @@ public sealed class RibbonPresentationProjector
     /// </summary>
     public RibbonPresentationSnapshot Project(
         RibbonDefinition definition,
-        CommandContext context = default,
-        RibbonSelectionContext selectionContext = default)
+        CommandContext context = default) =>
+        Project(definition, context, default);
+
+    /// <summary>
+    /// Projects the current registry and contextual-selection state, resolving each
+    /// command at most once.
+    /// </summary>
+    public RibbonPresentationSnapshot Project(
+        RibbonDefinition definition,
+        CommandContext context,
+        RibbonSelectionContext selectionContext)
     {
         ArgumentNullException.ThrowIfNull(definition);
         var cache = new Dictionary<CommandId, CommandPresentation>();

@@ -41,4 +41,33 @@ public static class RibbonCommandCatalogAudit
                 $"Production command(s) absent from Ribbon catalog: {string.Join(", ", missingPlacements)}.",
         }.Where(static message => message is not null)));
     }
+
+    /// <summary>
+    /// Validates an exact production registry snapshot as well as Ribbon reachability.
+    /// This overload is intended for the product integration gate; hosts that register
+    /// additional application commands should continue to use <see cref="Validate"/>.
+    /// </summary>
+    public static void ValidateExact(
+        CommandRegistry registry,
+        RibbonDefinition definition,
+        IEnumerable<CommandId> productionCapabilities)
+    {
+        ArgumentNullException.ThrowIfNull(registry);
+        ArgumentNullException.ThrowIfNull(definition);
+        var expected = (productionCapabilities ??
+            throw new ArgumentNullException(nameof(productionCapabilities)))
+            .ToHashSet();
+        Validate(registry, definition, expected);
+
+        var unexpectedRegistrations = registry.RegisteredCommandIds
+            .Where(commandId => !expected.Contains(commandId))
+            .OrderBy(static commandId => commandId.Value, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (unexpectedRegistrations.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Registered production command(s) absent from the audited manifest: " +
+                $"{string.Join(", ", unexpectedRegistrations)}.");
+        }
+    }
 }
