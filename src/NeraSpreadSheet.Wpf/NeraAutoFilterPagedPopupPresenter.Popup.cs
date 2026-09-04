@@ -297,42 +297,54 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         apply.Click += (_, _) => StartOperation(ApplyAndCloseAsync);
         root.PreviewKeyDown += (_, args) =>
         {
+            var searchFocused = _searchBox?.IsKeyboardFocusWithin == true;
+            var focusedValueIndex = _valueCheckBoxes.FindIndex(
+                static item => item.IsKeyboardFocusWithin);
+            var valueFocused = focusedValueIndex >= 0;
             if (args.Key == Key.Escape)
             {
                 Close();
                 args.Handled = true;
             }
             else if (args.Key == Key.PageDown &&
+                     valueFocused &&
                      _nextButton?.IsEnabled == true)
             {
                 _nextButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 args.Handled = true;
             }
             else if (args.Key == Key.PageUp &&
+                     valueFocused &&
                      _previousButton?.IsEnabled == true)
             {
                 _previousButton.RaiseEvent(
                     new RoutedEventArgs(Button.ClickEvent));
                 args.Handled = true;
             }
-            else if (args.Key is Key.Up or Key.Down or Key.Home or Key.End &&
+            else if (((valueFocused &&
+                       args.Key is Key.Up or Key.Down or Key.Home or Key.End) ||
+                      (searchFocused && args.Key is Key.Up or Key.Down)) &&
                      _valueCheckBoxes.Count > 0)
             {
-                var current = _valueCheckBoxes.FindIndex(static item => item.IsKeyboardFocusWithin);
                 var nextIndex = args.Key switch
                 {
                     Key.Home => 0,
                     Key.End => _valueCheckBoxes.Count - 1,
-                    Key.Up => Math.Max(0, current < 0 ? 0 : current - 1),
-                    _ => Math.Min(_valueCheckBoxes.Count - 1, current + 1),
+                    Key.Up when searchFocused => _valueCheckBoxes.Count - 1,
+                    Key.Down when searchFocused => 0,
+                    Key.Up => Math.Max(0, focusedValueIndex - 1),
+                    _ => Math.Min(
+                        _valueCheckBoxes.Count - 1,
+                        focusedValueIndex + 1),
                 };
                 _valueCheckBoxes[nextIndex].Focus();
                 _valueCheckBoxes[nextIndex].BringIntoView();
                 args.Handled = true;
             }
             else if (args.Key == Key.Enter &&
-                     _valueCheckBoxes.FirstOrDefault(static item => item.IsKeyboardFocusWithin) is { } focused)
+                     valueFocused)
             {
+                var focused = _valueCheckBoxes[focusedValueIndex];
                 focused.IsChecked = focused.IsChecked != true;
                 args.Handled = true;
             }

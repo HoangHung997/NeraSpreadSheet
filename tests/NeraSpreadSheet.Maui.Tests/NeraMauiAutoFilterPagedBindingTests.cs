@@ -127,6 +127,28 @@ public sealed class NeraMauiAutoFilterPagedBindingTests
         Assert.IsTrue(filter.CombineWithAnd);
     }
 
+    [TestMethod]
+    public async Task DisposeCancelsAndDrainsAnInFlightDispatcherOperation()
+    {
+        var fixture = CreateFixture();
+        Assert.IsTrue(fixture.Session.TryResolveActiveAutoFilterTarget(out var target));
+        using var dispatcher = new QueuedDispatcher();
+        var binding = new NeraMauiAutoFilterPagedBinding(
+            new SpreadsheetAutoFilterPagedPresenter(fixture.Session, target),
+            dispatcher);
+
+        var initialize = binding.InitializeAsync();
+        await dispatcher.WaitForDispatchAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        var dispose = binding.DisposeAsync().AsTask();
+        dispatcher.RunNext();
+
+        await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () =>
+            await initialize);
+        await dispose.WaitAsync(TimeSpan.FromSeconds(5));
+        await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () =>
+            await binding.RefreshAsync());
+    }
+
     private static Fixture CreateFixture()
     {
         var workbook = new Workbook();
@@ -197,5 +219,44 @@ public sealed class NeraMauiAutoFilterPagedBindingTests
         }
 
         public void Stop() => IsRunning = false;
+    }
+
+    private sealed class QueuedDispatcher : IDispatcher, IDisposable
+    {
+        private readonly Queue<Action> _actions = new();
+        private readonly SemaphoreSlim _signal = new(0);
+
+        public bool IsDispatchRequired => true;
+
+        public bool Dispatch(Action action)
+        {
+            ArgumentNullException.ThrowIfNull(action);
+            lock (_actions)
+            {
+                _actions.Enqueue(action);
+            }
+            _signal.Release();
+            return true;
+        }
+
+        public bool DispatchDelayed(TimeSpan delay, Action action) =>
+            Dispatch(action);
+
+        public IDispatcherTimer CreateTimer() =>
+            new ImmediateDispatcherTimer();
+
+        public Task WaitForDispatchAsync() => _signal.WaitAsync();
+
+        public void RunNext()
+        {
+            Action action;
+            lock (_actions)
+            {
+                action = _actions.Dequeue();
+            }
+            action();
+        }
+
+        public void Dispose() => _signal.Dispose();
     }
 }

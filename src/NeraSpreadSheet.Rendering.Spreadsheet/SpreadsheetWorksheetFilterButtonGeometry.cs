@@ -14,6 +14,43 @@ public readonly record struct SpreadsheetWorksheetFilterButtonHit(
     bool IsSorted = false,
     bool? SortDescending = null)
 {
+    /// <summary>Creates a hit result using the pre-FILTER-007 state shape.</summary>
+    public SpreadsheetWorksheetFilterButtonHit(
+        CellRange filterRange,
+        int columnOffset,
+        int worksheetColumnIndex,
+        CellAddress headerCell,
+        RectD bounds,
+        bool isFiltered)
+        : this(
+            filterRange,
+            columnOffset,
+            worksheetColumnIndex,
+            headerCell,
+            bounds,
+            isFiltered,
+            false,
+            null)
+    {
+    }
+
+    /// <summary>Deconstructs the hit result using the pre-FILTER-007 state shape.</summary>
+    public void Deconstruct(
+        out CellRange filterRange,
+        out int columnOffset,
+        out int worksheetColumnIndex,
+        out CellAddress headerCell,
+        out RectD bounds,
+        out bool isFiltered)
+    {
+        filterRange = FilterRange;
+        columnOffset = ColumnOffset;
+        worksheetColumnIndex = WorksheetColumnIndex;
+        headerCell = HeaderCell;
+        bounds = Bounds;
+        isFiltered = IsFiltered;
+    }
+
     public SpreadsheetFilterHeaderState HeaderState =>
         IsFiltered
             ? IsSorted ? SpreadsheetFilterHeaderState.FilteredAndSorted : SpreadsheetFilterHeaderState.Filtered

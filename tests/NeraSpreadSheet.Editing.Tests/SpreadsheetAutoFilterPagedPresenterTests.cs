@@ -70,13 +70,77 @@ public sealed class SpreadsheetAutoFilterPagedPresenterTests
         await presenter.SetSelectedAsync(southIndex, selected: false);
         await presenter.ApplyValueSelectionAsync();
 
-        Assert.IsFalse(presenter.Capture().IsInitialized);
+        var applied = presenter.Capture();
+        Assert.IsFalse(applied.IsInitialized);
+        Assert.AreEqual(2, applied.ResultRowCount);
+        Assert.Contains("2 kết quả", applied.AccessibilityAnnouncement);
         var filtered = WorksheetSnapshot.Capture(worksheet);
         Assert.IsTrue(filtered.IsRowVisible(1));
         Assert.IsFalse(filtered.IsRowVisible(2));
         Assert.IsTrue(filtered.IsRowVisible(3));
+        await presenter.RefreshAsync();
+        await presenter.ClearColumnFilterAsync();
+        var cleared = presenter.Capture();
+        Assert.AreEqual(3, cleared.ResultRowCount);
+        Assert.Contains("3 kết quả", cleared.AccessibilityAnnouncement);
+        Assert.IsTrue(session.Undo());
+        Assert.IsFalse(WorksheetSnapshot.Capture(worksheet).IsRowVisible(2));
         Assert.IsTrue(session.Undo());
         Assert.IsTrue(WorksheetSnapshot.Capture(worksheet).IsRowVisible(2));
+    }
+
+    [TestMethod]
+    public void SnapshotPreservesPreFilter007ConstructorAndDeconstructShape()
+    {
+        var fixture = CreateTableFixture(1);
+        Assert.IsTrue(fixture.Session.TryResolveActiveAutoFilterTarget(out var target));
+        IReadOnlyList<SpreadsheetAutoFilterMenuKind> menuKinds = [];
+        IReadOnlyList<SpreadsheetTableFilterValueItem> values = [];
+
+        var snapshot = new SpreadsheetAutoFilterPagedPresenterSnapshot(
+            target,
+            4,
+            "find",
+            2,
+            50,
+            1,
+            true,
+            false,
+            true,
+            false,
+            menuKinds,
+            values);
+        var (_, generation, search, offset, size, total, initialized, truncated,
+            previous, next, menus, items) = snapshot;
+
+        Assert.AreEqual(4, generation);
+        Assert.AreEqual("find", search);
+        Assert.AreEqual(2, offset);
+        Assert.AreEqual(50, size);
+        Assert.AreEqual(1, total);
+        Assert.IsTrue(initialized);
+        Assert.IsFalse(truncated);
+        Assert.IsTrue(previous);
+        Assert.IsFalse(next);
+        Assert.AreSame(menuKinds, menus);
+        Assert.AreSame(values, items);
+        Assert.AreEqual(0, snapshot.ResultRowCount);
+        Assert.IsFalse(snapshot.IsResultCountTruncated);
+        Assert.IsNotNull(typeof(SpreadsheetAutoFilterPagedPresenterSnapshot)
+            .GetConstructor([
+                typeof(SpreadsheetAutoFilterTarget),
+                typeof(long),
+                typeof(string),
+                typeof(int),
+                typeof(int),
+                typeof(int),
+                typeof(bool),
+                typeof(bool),
+                typeof(bool),
+                typeof(bool),
+                typeof(IReadOnlyList<SpreadsheetAutoFilterMenuKind>),
+                typeof(IReadOnlyList<SpreadsheetTableFilterValueItem>),
+            ]));
     }
 
     [TestMethod]
@@ -138,6 +202,9 @@ public sealed class SpreadsheetAutoFilterPagedPresenterTests
         await presenter.InitializeAsync();
         Assert.AreEqual(5, presenter.Capture().ResultRowCount);
         Assert.IsTrue(await presenter.ApplyColumnSortAsync(descending: true));
+        var sorted = presenter.Capture();
+        Assert.AreEqual(5, sorted.ResultRowCount);
+        Assert.Contains("sắp xếp giảm dần", sorted.AccessibilityAnnouncement);
         Assert.AreEqual("Value4", fixture.Session.ActiveWorksheet
             .GetCell(new CellAddress(1, 1)).Value.RawValue);
         Assert.IsTrue(await presenter.ClearSortAsync());

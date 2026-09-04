@@ -51,13 +51,19 @@ internal sealed class SmokePage : ContentPage, IDisposable
         _pagedHost = new NeraSpreadsheetAutoFilterHost
         {
             Workbook = _workbook,
-            WidthRequest = 2d,
-            HeightRequest = 2d,
-            Opacity = 0.01d,
-            HorizontalOptions = LayoutOptions.Start,
-            VerticalOptions = LayoutOptions.Start,
+            HorizontalOptions = LayoutOptions.Fill,
+            VerticalOptions = LayoutOptions.Fill,
         };
-        var root = new Grid();
+        var root = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star),
+            },
+        };
+        Grid.SetColumn(_host, 0);
+        Grid.SetColumn(_pagedHost, 1);
         root.Children.Add(_host);
         root.Children.Add(_pagedHost);
         Content = root;
@@ -156,18 +162,24 @@ internal sealed class SmokePage : ContentPage, IDisposable
             await DispatchAsync(ValidateClosedFocusState)
                 .ConfigureAwait(false);
 
-            await DispatchAsync(OpenPagedRichSurface)
-                .ConfigureAwait(false);
-            Require(await _pagedHost.ApplyColumnSortAsync(
-                    descending: true,
-                    cancellationToken: timeout.Token).ConfigureAwait(false),
-                "The loaded paged host did not execute descending sort.");
+            var productionSortChanged = false;
+            await DispatchAsync(() =>
+            {
+                ReopenFilter();
+                productionSortChanged = _host.ApplyColumnSortAsync(
+                        descending: true,
+                        cancellationToken: timeout.Token)
+                    .GetAwaiter()
+                    .GetResult();
+            }).ConfigureAwait(false);
+            Require(productionSortChanged,
+                "The loaded production Table host did not execute descending sort.");
             await Task.Delay(100, timeout.Token).ConfigureAwait(false);
-            Require(!_pagedHost.IsFilterSheetOpen,
-                "The paged filter sheet remained open after sorting.");
+            Require(!_host.IsFilterSheetOpen,
+                "The production Table filter sheet remained open after sorting.");
             Require(_worksheet.Tables.Single().AutoFilter?.SortState?
                     .Conditions.Single().Descending == true,
-                "The loaded paged sort did not publish descending header state.");
+                "The loaded production sort did not publish descending header state.");
             _pagedSortVerified = true;
 
             _focusTransitionsVerified = true;

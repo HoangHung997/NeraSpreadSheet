@@ -333,7 +333,7 @@ public sealed partial class NeraSpreadsheetTableHost
         var valueFocused = IsValueListFocused();
         if (controlPressed &&
             e.Key == VirtualKey.A &&
-            !searchFocused)
+            valueFocused)
         {
             HandleFilterNavigation(
                 shiftPressed

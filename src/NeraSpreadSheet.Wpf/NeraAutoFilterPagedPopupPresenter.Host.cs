@@ -156,36 +156,13 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
                     2d,
                     2d);
 
-                var centerX = bounds.Left + (bounds.Width / 2d);
-                var centerY = bounds.Top + (bounds.Height / 2d) + 1d;
-                var glyph = new StreamGeometry();
-                using (var context = glyph.Open())
-                {
-                    var pointsUp = button.IsSorted && button.SortDescending != true;
-                    context.BeginFigure(
-                        pointsUp
-                            ? new Point(centerX, centerY - 3d)
-                            : new Point(centerX - 3.5d, centerY - 2d),
-                        isFilled: true,
-                        isClosed: true);
-                    context.LineTo(
-                        pointsUp
-                            ? new Point(centerX + 3.5d, centerY + 2.5d)
-                            : new Point(centerX + 3.5d, centerY - 2d),
-                        isStroked: true,
-                        isSmoothJoin: false);
-                    context.LineTo(
-                        pointsUp
-                            ? new Point(centerX - 3.5d, centerY + 2.5d)
-                            : new Point(centerX, centerY + 2.5d),
-                        isStroked: true,
-                        isSmoothJoin: false);
-                }
-                drawingContext.DrawGeometry(
+                WpfFilterHeaderGlyphRenderer.Draw(
+                    drawingContext,
+                    bounds,
+                    button.HeaderState,
+                    button.SortDescending,
                     new SolidColorBrush(ToColor(
-                        theme.TableFilterButtonGlyph)),
-                    pen: null,
-                    glyph);
+                        theme.TableFilterButtonGlyph)));
             }
         }
     }

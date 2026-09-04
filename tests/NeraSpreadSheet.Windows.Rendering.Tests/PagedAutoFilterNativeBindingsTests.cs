@@ -147,6 +147,9 @@ public sealed class PagedAutoFilterNativeBindingsTests
                 var criterion = GetPrivateField<System.Windows.Controls.TextBox>(
                     presenter,
                     "_criterionInput");
+                var search = GetPrivateField<System.Windows.Controls.TextBox>(
+                    presenter,
+                    "_searchBox");
                 Assert.IsTrue(kinds.Items.Count >= 2);
                 Assert.AreEqual(
                     "NeraAutoFilterPagedCriterion",
@@ -162,6 +165,14 @@ public sealed class PagedAutoFilterNativeBindingsTests
                 CollectionAssert.Contains(automationIds, "NeraAutoFilterReapply");
                 CollectionAssert.Contains(automationIds, "NeraAutoFilterClearSort");
                 Assert.IsTrue(values.Count <= 100);
+
+                Assert.IsTrue(search.Focus());
+                Assert.IsFalse(RaiseWpfPreviewKey(popup.Child, System.Windows.Input.Key.Home));
+                Assert.IsTrue(RaiseWpfPreviewKey(popup.Child, System.Windows.Input.Key.Down));
+                Assert.IsTrue(values[0].IsKeyboardFocusWithin);
+                Assert.IsTrue(kinds.Focus());
+                Assert.IsFalse(RaiseWpfPreviewKey(popup.Child, System.Windows.Input.Key.Enter));
+                Assert.IsFalse(RaiseWpfPreviewKey(popup.Child, System.Windows.Input.Key.PageDown));
             }
             finally
             {
@@ -590,6 +601,25 @@ public sealed class PagedAutoFilterNativeBindingsTests
             ?? throw new AssertFailedException(
                 $"Method '{methodName}' was not found."))
         .Invoke(instance, null);
+
+    private static bool RaiseWpfPreviewKey(
+        System.Windows.UIElement target,
+        System.Windows.Input.Key key)
+    {
+        var source = System.Windows.PresentationSource.FromVisual(target) ??
+            throw new AssertFailedException(
+                "The WPF AutoFilter popup did not have a presentation source.");
+        var args = new System.Windows.Input.KeyEventArgs(
+            System.Windows.Input.Keyboard.PrimaryDevice,
+            source,
+            Environment.TickCount,
+            key)
+        {
+            RoutedEvent = System.Windows.Input.Keyboard.PreviewKeyDownEvent,
+        };
+        target.RaiseEvent(args);
+        return args.Handled;
+    }
 
     private sealed record Fixture(
         SpreadsheetSession Session,

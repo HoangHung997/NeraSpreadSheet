@@ -23,6 +23,55 @@ public readonly record struct SpreadsheetAutoFilterButtonHit(
     bool IsSorted = false,
     bool? SortDescending = null)
 {
+    /// <summary>Creates a hit result using the pre-FILTER-007 state shape.</summary>
+    public SpreadsheetAutoFilterButtonHit(
+        SpreadsheetAutoFilterButtonOwnerKind ownerKind,
+        Guid? tableId,
+        Guid? tableColumnId,
+        CellRange filterRange,
+        int columnOffset,
+        int worksheetColumnIndex,
+        CellAddress headerCell,
+        RectD bounds,
+        bool isFiltered)
+        : this(
+            ownerKind,
+            tableId,
+            tableColumnId,
+            filterRange,
+            columnOffset,
+            worksheetColumnIndex,
+            headerCell,
+            bounds,
+            isFiltered,
+            false,
+            null)
+    {
+    }
+
+    /// <summary>Deconstructs the hit result using the pre-FILTER-007 state shape.</summary>
+    public void Deconstruct(
+        out SpreadsheetAutoFilterButtonOwnerKind ownerKind,
+        out Guid? tableId,
+        out Guid? tableColumnId,
+        out CellRange filterRange,
+        out int columnOffset,
+        out int worksheetColumnIndex,
+        out CellAddress headerCell,
+        out RectD bounds,
+        out bool isFiltered)
+    {
+        ownerKind = OwnerKind;
+        tableId = TableId;
+        tableColumnId = TableColumnId;
+        filterRange = FilterRange;
+        columnOffset = ColumnOffset;
+        worksheetColumnIndex = WorksheetColumnIndex;
+        headerCell = HeaderCell;
+        bounds = Bounds;
+        isFiltered = IsFiltered;
+    }
+
     public SpreadsheetFilterHeaderState HeaderState =>
         IsFiltered
             ? IsSorted ? SpreadsheetFilterHeaderState.FilteredAndSorted : SpreadsheetFilterHeaderState.Filtered

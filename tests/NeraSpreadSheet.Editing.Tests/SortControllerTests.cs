@@ -84,6 +84,68 @@ public sealed class SortControllerTests
     }
 
     [TestMethod]
+    public void SelectionSortRejectsSpillRootAndChildWithoutChangingHistory()
+    {
+        var workbook = new Workbook();
+        var sheet = workbook.Worksheets[0];
+        var session = new SpreadsheetSession(workbook);
+        var owner = new CellAddress(1, 0);
+        session.SetFormula(owner, "=SEQUENCE(2)");
+        var historyBefore = session.History.UndoCount;
+
+        var rootRange = new CellRange(new CellAddress(0, 0), owner);
+        session.Selection.Select(rootRange);
+        Assert.IsFalse(session.Sort.CanSortPrimarySelection);
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            session.Sort.Sort(rootRange, 0, ascending: true));
+
+        var childRange = new CellRange(
+            new CellAddress(2, 0),
+            new CellAddress(3, 0));
+        session.Selection.Select(childRange);
+        Assert.IsFalse(session.Sort.CanSortPrimarySelection);
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            session.Sort.Sort(childRange, 0, ascending: true));
+
+        Assert.AreEqual(historyBefore, session.History.UndoCount);
+        Assert.AreEqual("=SEQUENCE(2)", sheet.GetCell(owner).Formula);
+        Assert.AreEqual(2d, sheet.GetValue(new CellAddress(2, 0)));
+        Assert.IsTrue(session.Undo());
+        Assert.AreEqual(0, sheet.GetFormulaSpillCount());
+        Assert.IsNull(sheet.GetValue(owner));
+    }
+
+    [TestMethod]
+    public void WorksheetAutoFilterSortRejectsSpillAtomically()
+    {
+        var workbook = new Workbook();
+        var sheet = workbook.Worksheets[0];
+        sheet.SetValue(default, "Value");
+        var session = new SpreadsheetSession(workbook);
+        var owner = new CellAddress(1, 0);
+        session.SetFormula(owner, "=SEQUENCE(2)");
+        sheet.SetAutoFilter(new WorksheetAutoFilter(
+            new CellRange(default, new CellAddress(3, 0))));
+        var filterBefore = sheet.AutoFilter;
+        var cellsBefore = WorksheetSnapshot.Capture(sheet);
+        var historyBefore = session.History.UndoCount;
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            session.Sort.SortWorksheet(new SpreadsheetFilterSortState([
+                new SpreadsheetFilterSortCondition(0),
+            ])));
+
+        Assert.AreEqual(historyBefore, session.History.UndoCount);
+        Assert.AreEqual(filterBefore, sheet.AutoFilter);
+        Assert.AreEqual(cellsBefore.GetCell(owner), sheet.GetCell(owner));
+        Assert.AreEqual(
+            cellsBefore.GetCell(new CellAddress(2, 0)),
+            sheet.GetCell(new CellAddress(2, 0)));
+        Assert.IsTrue(session.Undo());
+        Assert.AreEqual(0, sheet.GetFormulaSpillCount());
+    }
+
+    [TestMethod]
     public void TableSortUsesOrderedKeysCustomOrderAndOneUndoTransaction()
     {
         var workbook = new Workbook();

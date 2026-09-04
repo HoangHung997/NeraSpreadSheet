@@ -3,6 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Reflection;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
+using Windows.System;
 
 namespace NeraSpreadSheet.Maui.Tests;
 
@@ -73,5 +74,57 @@ public sealed class NeraSpreadsheetAutoFilterHostTests
         Assert.AreEqual(
             SpreadsheetAutoFilterOwnerKind.Worksheet,
             worksheetTarget.OwnerKind);
+    }
+
+    [TestMethod]
+    public void WindowsKeyboardRoutingLeavesEditorPickerAndButtonKeysUnclaimed()
+    {
+        Assert.IsFalse(NeraSpreadsheetAutoFilterHost.ShouldHandlePlatformFilterKey(
+            VirtualKey.Home,
+            searchFocused: true,
+            valuesFocused: false,
+            dateValuesFocused: false));
+        Assert.IsFalse(NeraSpreadsheetAutoFilterHost.ShouldHandlePlatformFilterKey(
+            VirtualKey.Enter,
+            searchFocused: false,
+            valuesFocused: false,
+            dateValuesFocused: false));
+        Assert.IsFalse(NeraSpreadsheetAutoFilterHost.ShouldHandlePlatformFilterKey(
+            VirtualKey.PageDown,
+            searchFocused: false,
+            valuesFocused: false,
+            dateValuesFocused: false));
+
+        Assert.IsTrue(NeraSpreadsheetAutoFilterHost.ShouldHandlePlatformFilterKey(
+            VirtualKey.Down,
+            searchFocused: true,
+            valuesFocused: false,
+            dateValuesFocused: false));
+        Assert.IsTrue(NeraSpreadsheetAutoFilterHost.ShouldHandlePlatformFilterKey(
+            VirtualKey.End,
+            searchFocused: false,
+            valuesFocused: true,
+            dateValuesFocused: false));
+        Assert.IsTrue(NeraSpreadsheetAutoFilterHost.ShouldHandlePlatformFilterKey(
+            VirtualKey.PageUp,
+            searchFocused: false,
+            valuesFocused: false,
+            dateValuesFocused: true));
+        Assert.IsTrue(NeraSpreadsheetAutoFilterHost.ShouldHandlePlatformFilterKey(
+            VirtualKey.Escape,
+            searchFocused: false,
+            valuesFocused: false,
+            dateValuesFocused: false));
+    }
+
+    [TestMethod]
+    public void ProductionTableHostExposesSortActions()
+    {
+        Assert.IsNotNull(typeof(NeraSpreadsheetTableHost).GetMethod(
+            nameof(NeraSpreadsheetTableHost.ApplyColumnSortAsync)));
+        Assert.IsNotNull(typeof(NeraSpreadsheetTableHost).GetMethod(
+            nameof(NeraSpreadsheetTableHost.ReapplyAsync)));
+        Assert.IsNotNull(typeof(NeraSpreadsheetTableHost).GetMethod(
+            nameof(NeraSpreadsheetTableHost.ClearSortAsync)));
     }
 }

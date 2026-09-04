@@ -144,6 +144,39 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
     public void CloseFilterSheet() =>
         CloseFilterSheetCore(restoreFocus: true);
 
+    /// <summary>Sorts the open Table filter column and closes the sheet.</summary>
+    public Task<bool> ApplyColumnSortAsync(
+        bool descending,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(SortAndClose(descending));
+    }
+
+    /// <summary>Reapplies the current Table sort after resolving stable identities.</summary>
+    public Task<bool> ReapplyAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var session = RequireSessionForSort();
+        var target = ResolveCurrentTarget(session);
+        var changed = session.Sort.ReapplyAutoFilter(target);
+        CloseFilterSheetCore(restoreFocus: true);
+        RefreshAfterFilterMutation();
+        return Task.FromResult(changed);
+    }
+
+    /// <summary>Clears sort metadata while preserving the current physical row order.</summary>
+    public Task<bool> ClearSortAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var session = RequireSessionForSort();
+        var target = ResolveCurrentTarget(session);
+        var changed = session.Sort.ClearAutoFilterSort(target);
+        CloseFilterSheetCore(restoreFocus: true);
+        RefreshAfterFilterMutation();
+        return Task.FromResult(changed);
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -525,6 +558,33 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
             SemanticHeadingLevel.Level2);
         panel.Children.Add(title);
 
+        var sortCommands = new HorizontalStackLayout
+        {
+            AutomationId = "NeraTableFilterSortCommands",
+            Spacing = 6d,
+        };
+        var sortAscending = CreateSheetButton(
+            "Sắp ↑",
+            "NeraTableFilterSortAscending",
+            "Sắp xếp Table tăng dần theo cột này");
+        var sortDescending = CreateSheetButton(
+            "Sắp ↓",
+            "NeraTableFilterSortDescending",
+            "Sắp xếp Table giảm dần theo cột này");
+        var reapply = CreateSheetButton(
+            "Áp dụng lại",
+            "NeraTableFilterReapply",
+            "Áp dụng lại thứ tự sắp xếp hiện tại");
+        var clearSort = CreateSheetButton(
+            "Xóa SX",
+            "NeraTableFilterClearSort",
+            "Xóa trạng thái sắp xếp nhưng giữ nguyên thứ tự hàng hiện tại");
+        sortCommands.Children.Add(sortAscending);
+        sortCommands.Children.Add(sortDescending);
+        sortCommands.Children.Add(reapply);
+        sortCommands.Children.Add(clearSort);
+        panel.Children.Add(sortCommands);
+
         var search = new Entry
         {
             AutomationId = "NeraTableFilterSearch",
@@ -630,6 +690,10 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
                 SpreadsheetTableFilterNavigationCommand.ClearVisibleSelection);
             RebuildSheetItems(focusActiveValue: false);
         };
+        sortAscending.Clicked += (_, _) => SortAndClose(descending: false);
+        sortDescending.Clicked += (_, _) => SortAndClose(descending: true);
+        reapply.Clicked += (_, _) => ReapplyAsync();
+        clearSort.Clicked += (_, _) => ClearSortAsync();
         clear.Clicked += (_, _) =>
             ClearCurrentFilterAndClose();
         cancel.Clicked += (_, _) => CloseFilterSheet();
@@ -637,6 +701,56 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
             ApplyCurrentFilterAndClose();
 
         return (overlay, panel, search, status, items, apply);
+    }
+
+    private bool SortAndClose(bool descending)
+    {
+        var session = RequireSessionForSort();
+        var target = ResolveCurrentTarget(session);
+        var changed = session.Sort.SortAutoFilter(
+            target,
+            new SpreadsheetFilterSortState([
+                new SpreadsheetFilterSortCondition(
+                    target.ColumnOffset,
+                    descending),
+            ]));
+        CloseFilterSheetCore(restoreFocus: true);
+        RefreshAfterFilterMutation();
+        return changed;
+    }
+
+    private SpreadsheetSession RequireSessionForSort()
+    {
+        if (_session is null || _menu is null)
+        {
+            throw new InvalidOperationException(
+                "Open a Table filter sheet before changing sort state.");
+        }
+        return _session;
+    }
+
+    private SpreadsheetAutoFilterTarget ResolveCurrentTarget(
+        SpreadsheetSession session)
+    {
+        var menu = _menu ?? throw new InvalidOperationException(
+            "Open a Table filter sheet before changing sort state.");
+        if (!session.ActiveWorksheet.TryGetTable(menu.TableId, out var table) ||
+            table is null ||
+            !table.TryGetColumn(menu.ColumnId, out _))
+        {
+            throw new InvalidOperationException(
+                "The Table filter target no longer exists after a structural edit.");
+        }
+        var columnOffset = table.GetColumnIndex(menu.ColumnId);
+        var header = new CellAddress(
+            table.Range.Top,
+            table.Range.Left + columnOffset);
+        if (!session.TryResolveAutoFilterTarget(header, out var target))
+        {
+            throw new InvalidOperationException(
+                "The Table filter target could not be resolved after a structural edit.");
+        }
+        return target;
     }
 
     private static Button CreateSheetButton(
