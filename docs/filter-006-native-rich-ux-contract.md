@@ -19,32 +19,44 @@ fill-color, font-color, icon, custom-condition, Top/Bottom and dynamic filter
 sections. Text, number and date sections reflect the retained bounded distinct
 catalog; visual/custom sections remain available because they do not require a
 second source scan. Native hosts show the same section projection with default
-Vietnamese labels.
+Vietnamese labels. Date projection recognizes both native date values and Excel
+serial dates by using the workbook 1900/1904 date system and the effective cell
+or axis number format. Dynamic Above/Below Average is available for numeric
+columns as well as the supported date-relative criteria.
 
 `SpreadsheetAutoFilterRichCriterion` carries exactly one FILTER-005 criterion:
 date groups, Top/Bottom, dynamic/average, resolved color, or icon. Construction
 rejects empty or ambiguous requests. Text/number/custom comparisons continue
-through the existing `ApplyCustomFilterAsync` path. Every successful Apply or
-Clear invalidates its session and creates exactly one production history entry;
-canceled, rejected, stale, and no-op requests create none.
+through the existing `ApplyCustomFilterAsync` path, including two conditions
+joined with AND or OR. Every successful Apply or Clear invalidates its session
+and creates exactly one production history entry; canceled, rejected, stale,
+and no-op requests create none. A distinct-value catalog that reaches its
+10,000-item retention limit is explicitly marked incomplete: native Apply is
+disabled and the controller rejects an attempted value-subset Apply atomically.
 
 ## Lazy date tree
 
-Year, month, and day nodes are requested using
+Year, month, day, hour, minute and second nodes are requested using
 `SpreadsheetAutoFilterDateParent`. A request returns one bounded
 `SpreadsheetAutoFilterDatePage` and never creates native controls for unloaded
 nodes. Projection reads the already bounded distinct-value catalog (maximum
 10,000 retained values) rather than materializing or rescanning the complete
 worksheet axis. Counts are aggregated lazily for only the requested tree level.
+WPF, WinForms and MAUI render these pages as an actual drillable native tree,
+retain multiple selected date groups, and bind each callback to the active
+presentation identity.
 
 ## Generation and lifecycle
 
 Every page, date-tree request, selection, Apply, and Clear carries the active
 session generation. A stale generation is rejected before mutation. Search and
-open/close operations use cancellation, and each native async callback captures
-the binding identity that started it. Completion from an older popup/dropdown/
-sheet cannot publish status, rebuild values, close, or mutate a newly opened
-surface.
+open/close operations use request-owned cancellation tokens, and bounded scans
+observe cancellation periodically. Each native async callback captures the
+binding identity that started it. Completion from an older popup/dropdown/sheet
+cannot publish status, rebuild values, close, or mutate a newly opened surface.
+Native checkbox and Apply operations are serialized, so a rapid toggle followed
+by Apply cannot lose the last selection. Asynchronous disposal cancels and
+drains outstanding operations before releasing session resources.
 
 Cancel closes and disposes the pending presenter without applying its selection
 copy. Focus restoration remains platform-owned and delayed callbacks must first
@@ -60,8 +72,13 @@ checkboxes, WinForms binds one page to a `CheckedListBox`, and MAUI uses a
 virtualizing `CollectionView` for one page. No implementation creates one
 native control per source value.
 
-The locked stress fixture contains 100,000 data rows and 10,000 distinct values
-and must still publish only a 100-item native page.
+The locked stress fixtures include more than 100,000 data rows and more than
+10,000 distinct values, including a unique value after the scan boundary. They
+must still publish only a 100-item native page and must never silently apply a
+truncated subset. Header-button geometry consumes Table/worksheet-filter
+metadata directly; paint, pointer and scroll paths must not capture a whole
+worksheet snapshot. WinForms and MAUI keep only visible plus overscan header
+controls and remove/reuse controls that leave that window.
 
 ## Required validation
 
