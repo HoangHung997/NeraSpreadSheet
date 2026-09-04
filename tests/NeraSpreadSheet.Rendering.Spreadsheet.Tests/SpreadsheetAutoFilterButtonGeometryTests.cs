@@ -105,6 +105,35 @@ public sealed class SpreadsheetAutoFilterButtonGeometryTests
             out _));
     }
 
+    [TestMethod]
+    public void MetadataOverloadMatchesSnapshotWithoutCapturingCellPayload()
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        var table = new SpreadsheetTable(
+            Guid.NewGuid(),
+            "Sales",
+            new CellRange(new CellAddress(0, 0), new CellAddress(3, 1)),
+            [
+                new SpreadsheetTableColumn(Guid.NewGuid(), "Status"),
+                new SpreadsheetTableColumn(Guid.NewGuid(), "Amount"),
+            ]);
+        worksheet.AddTable(table);
+        worksheet.SetAutoFilter(new WorksheetAutoFilter(
+            new CellRange(new CellAddress(0, 3), new CellAddress(3, 4))));
+        var layout = CreateLayout();
+
+        var fromSnapshot = SpreadsheetAutoFilterButtonGeometry.GetVisibleButtons(
+            WorksheetSnapshot.Capture(worksheet),
+            layout);
+        var fromMetadata = SpreadsheetAutoFilterButtonGeometry.GetVisibleButtons(
+            worksheet.Tables,
+            worksheet.AutoFilter,
+            layout);
+
+        CollectionAssert.AreEqual(fromSnapshot.ToArray(), fromMetadata.ToArray());
+    }
+
     private static ViewportLayout CreateLayout() =>
         new(
             0d,

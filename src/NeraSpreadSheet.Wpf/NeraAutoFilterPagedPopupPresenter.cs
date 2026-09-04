@@ -21,13 +21,15 @@ namespace NeraSpreadSheet.Wpf;
 public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
 {
     private const double PopupWidth = 340d;
-    private const double PopupMaximumHeight = 470d;
+    private const double PopupMaximumHeight = 540d;
     private const int PageSize = 100;
     private static readonly TimeSpan SearchDelay =
         TimeSpan.FromMilliseconds(150d);
 
     private readonly NeraSpreadsheetControl _control;
     private readonly List<CheckBox> _valueCheckBoxes = [];
+    private readonly object _operationStateGate = new();
+    private readonly HashSet<CancellationTokenSource> _operationCancellations = [];
     private SpreadsheetSession? _viewportSession;
     private SpreadsheetViewportEngine? _viewport;
     private FilterButtonAdorner? _adorner;
@@ -35,15 +37,25 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
     private TextBox? _searchBox;
     private ComboBox? _menuKindBox;
     private TextBox? _criterionInput;
+    private TextBox? _secondCriterionInput;
+    private ComboBox? _conditionJoinBox;
+    private UIElement? _customConditionPanel;
+    private WrapPanel? _selectionCommands;
+    private Button? _dateBackButton;
     private TextBlock? _status;
     private StackPanel? _itemsPanel;
+    private ScrollViewer? _itemsScroller;
     private Button? _previousButton;
     private Button? _nextButton;
     private Button? _applyButton;
     private NeraWpfAutoFilterPagedBinding? _binding;
-    private CancellationTokenSource? _operationCancellation;
+    private Task _operationTail = Task.CompletedTask;
     private CancellationTokenSource? _searchCancellation;
+    private SpreadsheetAutoFilterDateParent _dateParent = new(null, null);
+    private SpreadsheetAutoFilterDatePage? _datePage;
+    private readonly HashSet<SpreadsheetFilterDateGroup> _selectedDateGroups = [];
     private IInputElement? _focusBeforeOpen;
+    private bool _rebuilding;
     private bool _disposed;
 
     public NeraAutoFilterPagedPopupPresenter(
@@ -195,7 +207,8 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
             overscan: 0d,
             _control.RenderTheme);
         return SpreadsheetAutoFilterButtonGeometry.GetVisibleButtons(
-                WorksheetSnapshot.Capture(session.ActiveWorksheet),
+                session.ActiveWorksheet.Tables,
+                session.ActiveWorksheet.AutoFilter,
                 frame.Layout,
                 _control.RenderTheme)
             .Select(button => button with

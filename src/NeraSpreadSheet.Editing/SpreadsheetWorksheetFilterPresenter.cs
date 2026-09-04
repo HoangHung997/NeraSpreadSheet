@@ -32,6 +32,7 @@ public sealed class SpreadsheetWorksheetFilterMenu
 
     private readonly SpreadsheetWorksheetFilterPresenterController _owner;
     private readonly Dictionary<CellValue, int> _counts;
+    private readonly Dictionary<DateTime, int> _dateCounts;
     private readonly HashSet<CellValue> _selected;
     private string _searchText = string.Empty;
 
@@ -41,6 +42,7 @@ public sealed class SpreadsheetWorksheetFilterMenu
         int columnOffset,
         string columnName,
         Dictionary<CellValue, int> counts,
+        Dictionary<DateTime, int> dateCounts,
         WorksheetAutoFilterColumn? currentFilter,
         int sourceRowCount,
         int scannedRowCount,
@@ -51,6 +53,8 @@ public sealed class SpreadsheetWorksheetFilterMenu
         ArgumentNullException.ThrowIfNull(autoFilter);
         ArgumentException.ThrowIfNullOrWhiteSpace(columnName);
         _counts = counts ?? throw new ArgumentNullException(nameof(counts));
+        _dateCounts = dateCounts ??
+            throw new ArgumentNullException(nameof(dateCounts));
         ArgumentOutOfRangeException.ThrowIfNegative(columnOffset);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(
             columnOffset,
@@ -112,7 +116,7 @@ public sealed class SpreadsheetWorksheetFilterMenu
 
     public string SearchText => _searchText;
 
-    public bool CanApplyValueSelection => _selected.Count > 0;
+    public bool CanApplyValueSelection => _selected.Count > 0 && !IsTruncated;
 
     public event EventHandler? Changed;
 
@@ -152,7 +156,9 @@ public sealed class SpreadsheetWorksheetFilterMenu
             offset > 0,
             checked(offset + page.Length) < visible.Count,
             IsTruncated,
-            SpreadsheetAutoFilterRichProjection.GetMenuKinds(_counts.Keys),
+            SpreadsheetAutoFilterRichProjection.GetMenuKinds(
+                _counts.Keys,
+                _dateCounts),
             page);
     }
 
@@ -163,7 +169,7 @@ public sealed class SpreadsheetWorksheetFilterMenu
         int pageSize,
         CancellationToken cancellationToken = default) =>
         SpreadsheetAutoFilterRichProjection.CaptureDatePage(
-            _counts,
+            _dateCounts,
             generation,
             parent,
             offset,
@@ -203,10 +209,11 @@ public sealed class SpreadsheetWorksheetFilterMenu
         }
     }
 
-    public void SelectAllVisible()
+    public void SelectAllVisible(
+        CancellationToken cancellationToken = default)
     {
         var changed = false;
-        foreach (var item in GetVisibleValues(CancellationToken.None))
+        foreach (var item in GetVisibleValues(cancellationToken))
         {
             changed |= _selected.Add(item.Value);
         }
@@ -216,10 +223,11 @@ public sealed class SpreadsheetWorksheetFilterMenu
         }
     }
 
-    public void ClearVisibleSelection()
+    public void ClearVisibleSelection(
+        CancellationToken cancellationToken = default)
     {
         var changed = false;
-        foreach (var item in GetVisibleValues(CancellationToken.None))
+        foreach (var item in GetVisibleValues(cancellationToken))
         {
             changed |= _selected.Remove(item.Value);
         }
@@ -341,8 +349,10 @@ public sealed class SpreadsheetWorksheetFilterPresenterController
     public SpreadsheetWorksheetFilterMenu OpenFilterMenu(
         int worksheetColumnIndex,
         int maximumRows = DefaultMaximumRows,
-        int maximumDistinctValues = DefaultMaximumDistinctValues)
+        int maximumDistinctValues = DefaultMaximumDistinctValues,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentOutOfRangeException.ThrowIfNegative(worksheetColumnIndex);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumRows);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(
@@ -361,6 +371,7 @@ public sealed class SpreadsheetWorksheetFilterPresenterController
         }
 
         var counts = new Dictionary<CellValue, int>();
+        var dateCounts = new Dictionary<DateTime, int>();
         var sourceRowCount = filter.DataRange?.RowCount ?? 0;
         var scannedRowCount = 0;
         var distinctTruncated = false;
@@ -373,10 +384,16 @@ public sealed class SpreadsheetWorksheetFilterPresenterController
                 maximumRows);
             for (var offset = 0; offset < rowLimit; offset++)
             {
-                var value = snapshot.GetCell(new CellAddress(
+                if ((offset & 255) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+                var address = new CellAddress(
                     checked(dataRange.Top + offset),
-                    worksheetColumnIndex)).Value;
+                    worksheetColumnIndex);
+                var value = snapshot.GetCell(address).Value;
                 scannedRowCount++;
+                var retained = true;
                 if (counts.TryGetValue(value, out var count))
                 {
                     counts[value] = checked(count + 1);
@@ -388,8 +405,26 @@ public sealed class SpreadsheetWorksheetFilterPresenterController
                 else
                 {
                     distinctTruncated = true;
+                    retained = false;
+                }
+                if (retained &&
+                    value.Kind is CellValueKind.DateTime or
+                        CellValueKind.Number &&
+                    SpreadsheetAutoFilterDateProjection.TryGetDate(
+                        value,
+                        snapshot.GetEffectiveStyle(address)
+                            .NumberFormat.FormatCode,
+                        snapshot.DateSystem,
+                        out var date))
+                {
+                    dateCounts[date] = dateCounts.TryGetValue(
+                        date,
+                        out var dateCount)
+                        ? checked(dateCount + 1)
+                        : 1;
                 }
             }
+            cancellationToken.ThrowIfCancellationRequested();
         }
 
         var currentFilter = filter.Columns
@@ -411,6 +446,7 @@ public sealed class SpreadsheetWorksheetFilterPresenterController
             columnOffset,
             columnName,
             counts,
+            dateCounts,
             currentFilter,
             sourceRowCount,
             scannedRowCount,
@@ -423,6 +459,11 @@ public sealed class SpreadsheetWorksheetFilterPresenterController
     {
         ArgumentNullException.ThrowIfNull(menu);
         EnsureMenuBelongsToCurrentFilter(menu);
+        if (menu.IsTruncated)
+        {
+            throw new InvalidOperationException(
+                "The complete value catalog is unavailable; applying retained values would silently exclude values outside the bounded scan.");
+        }
         var selected = menu.GetSelectedValues();
         if (selected.Length == 0)
         {

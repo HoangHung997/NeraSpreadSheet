@@ -19,6 +19,20 @@ public static class SpreadsheetTableFilterButtonGeometry
         SpreadsheetRenderTheme? theme = null)
     {
         ArgumentNullException.ThrowIfNull(worksheet);
+        return GetVisibleButtons(worksheet.Tables, layout, theme);
+    }
+
+    /// <summary>
+    /// Computes visible Table filter buttons from Table metadata only. Native
+    /// hosts use this overload so paint and pointer input never clone all used
+    /// worksheet cells merely to position header chrome.
+    /// </summary>
+    public static IReadOnlyList<SpreadsheetTableFilterButtonHit> GetVisibleButtons(
+        IReadOnlyList<SpreadsheetTable> tables,
+        ViewportLayout layout,
+        SpreadsheetRenderTheme? theme = null)
+    {
+        ArgumentNullException.ThrowIfNull(tables);
         ArgumentNullException.ThrowIfNull(layout);
         theme ??= new SpreadsheetRenderTheme();
         if (!theme.ShowTableFilterButtons)
@@ -43,7 +57,7 @@ public static class SpreadsheetTableFilterButtonGeometry
             layout.ViewportSize.Height);
         var result = new List<SpreadsheetTableFilterButtonHit>();
 
-        foreach (var table in worksheet.Tables)
+        foreach (var table in tables)
         {
             if (!table.HasHeaders ||
                 !rowSlots.TryGetValue(table.Range.Top, out var row))

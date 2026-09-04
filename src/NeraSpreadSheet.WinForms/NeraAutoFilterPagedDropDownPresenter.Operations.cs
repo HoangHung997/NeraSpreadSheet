@@ -1,4 +1,5 @@
 using System.Windows.Forms;
+using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 
 namespace NeraSpreadSheet.WinForms;
@@ -47,19 +48,43 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
     private void StartOperation(Func<CancellationToken, Task> operation)
     {
         ArgumentNullException.ThrowIfNull(operation);
-        _operationCancellation?.Cancel();
         var cancellation = new CancellationTokenSource();
-        _operationCancellation = cancellation;
-        _ = RunOperationAsync(operation, cancellation, _binding);
+        var binding = _binding;
+        lock (_operationStateGate)
+        {
+            _operationCancellations.Add(cancellation);
+            var predecessor = _operationTail;
+            _operationTail = RunOperationAsync(
+                predecessor,
+                operation,
+                cancellation,
+                binding);
+        }
     }
 
     private async Task RunOperationAsync(
+        Task predecessor,
         Func<CancellationToken, Task> operation,
         CancellationTokenSource cancellation,
         NeraWinFormsAutoFilterPagedBinding? binding)
     {
         try
         {
+            try
+            {
+                await predecessor;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            cancellation.Token.ThrowIfCancellationRequested();
+            if (binding is null || !ReferenceEquals(_binding, binding))
+            {
+                return;
+            }
             await operation(cancellation.Token);
         }
         catch (OperationCanceledException)
@@ -74,9 +99,9 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         }
         finally
         {
-            if (ReferenceEquals(_operationCancellation, cancellation))
+            lock (_operationStateGate)
             {
-                _operationCancellation = null;
+                _operationCancellations.Remove(cancellation);
             }
             cancellation.Dispose();
         }
@@ -97,25 +122,164 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         NeraWinFormsAutoFilterPagedBinding binding,
         CancellationToken token)
     {
-        var selectedIndex = _menuKindBox?.SelectedIndex ?? 0;
-        var kind = selectedIndex >= 0 && selectedIndex < binding.MenuKinds.Count
-            ? binding.MenuKinds[selectedIndex]
-            : SpreadsheetAutoFilterMenuKind.Values;
+        var kind = GetSelectedMenuKind(binding);
         if (kind == SpreadsheetAutoFilterMenuKind.Values)
         {
             await binding.ApplyValueSelectionAsync(token);
             return;
         }
+        if (kind == SpreadsheetAutoFilterMenuKind.Date &&
+            _selectedDateGroups.Count > 0)
+        {
+            await binding.ApplyRichFilterAsync(
+                new SpreadsheetAutoFilterRichCriterion(
+                    dateGroups: _selectedDateGroups),
+                token);
+            return;
+        }
         var parsed = SpreadsheetAutoFilterCriterionParser.Parse(kind, _criterionInput?.Text);
         if (parsed.CustomCondition is { } custom)
         {
-            await binding.ApplyCustomFilterAsync(custom, cancellationToken: token);
+            var second = string.IsNullOrWhiteSpace(_secondCriterionInput?.Text)
+                ? null
+                : SpreadsheetAutoFilterCriterionParser.ParseCustomCondition(
+                    _secondCriterionInput.Text);
+            await binding.ApplyCustomFilterAsync(
+                custom,
+                second,
+                _conditionJoinBox?.SelectedIndex != 1,
+                token);
         }
         else
         {
             await binding.ApplyRichFilterAsync(parsed.RichCriterion!, token);
         }
     }
+
+    private SpreadsheetAutoFilterMenuKind GetSelectedMenuKind(
+        NeraWinFormsAutoFilterPagedBinding binding)
+    {
+        var selectedIndex = _menuKindBox?.SelectedIndex ?? 0;
+        return selectedIndex >= 0 && selectedIndex < binding.MenuKinds.Count
+            ? binding.MenuKinds[selectedIndex]
+            : SpreadsheetAutoFilterMenuKind.Values;
+    }
+
+    private async Task RefreshSelectedModeAsync(CancellationToken token)
+    {
+        var binding = _binding;
+        if (binding is null)
+        {
+            return;
+        }
+        if (GetSelectedMenuKind(binding) == SpreadsheetAutoFilterMenuKind.Date)
+        {
+            _dateParent = new SpreadsheetAutoFilterDateParent(null, null);
+            _datePage = await binding.GetDatePageAsync(
+                _dateParent,
+                0,
+                PageSize,
+                token);
+        }
+        if (ReferenceEquals(_binding, binding))
+        {
+            RebuildPage();
+        }
+    }
+
+    private async Task MovePageAsync(bool next, CancellationToken token)
+    {
+        var binding = _binding;
+        if (binding is null)
+        {
+            return;
+        }
+        if (GetSelectedMenuKind(binding) == SpreadsheetAutoFilterMenuKind.Date)
+        {
+            var offset = Math.Max(
+                0,
+                (_datePage?.Offset ?? 0) + (next ? PageSize : -PageSize));
+            _datePage = await binding.GetDatePageAsync(
+                _dateParent,
+                offset,
+                PageSize,
+                token);
+        }
+        else
+        {
+            _ = next
+                ? await binding.MoveNextPageAsync(token)
+                : await binding.MovePreviousPageAsync(token);
+        }
+        if (ReferenceEquals(_binding, binding))
+        {
+            RebuildPage();
+        }
+    }
+
+    private async Task NavigateDateIntoAsync(
+        SpreadsheetAutoFilterDateNode node,
+        CancellationToken token)
+    {
+        var parent = node.Level == SpreadsheetAutoFilterDateNodeLevel.Year
+            ? new SpreadsheetAutoFilterDateParent(node.Year, null)
+            : new SpreadsheetAutoFilterDateParent(node.Year, node.Month);
+        await LoadDatePageAsync(parent, 0, token);
+    }
+
+    private Task NavigateDateBackAsync(CancellationToken token)
+    {
+        var parent = _dateParent.Month is not null
+            ? new SpreadsheetAutoFilterDateParent(_dateParent.Year, null)
+            : new SpreadsheetAutoFilterDateParent(null, null);
+        return LoadDatePageAsync(parent, 0, token);
+    }
+
+    private async Task LoadDatePageAsync(
+        SpreadsheetAutoFilterDateParent parent,
+        int offset,
+        CancellationToken token)
+    {
+        var binding = _binding;
+        if (binding is null)
+        {
+            return;
+        }
+        var page = await binding.GetDatePageAsync(parent, offset, PageSize, token);
+        if (!ReferenceEquals(_binding, binding))
+        {
+            return;
+        }
+        _dateParent = parent;
+        _datePage = page;
+        RebuildPage();
+    }
+
+    private static SpreadsheetFilterDateGroup ToDateGroup(
+        SpreadsheetAutoFilterDateNode node) => node.Level switch
+        {
+            SpreadsheetAutoFilterDateNodeLevel.Year => new(
+                node.Year,
+                SpreadsheetFilterDateGrouping.Year),
+            SpreadsheetAutoFilterDateNodeLevel.Month => new(
+                node.Year,
+                SpreadsheetFilterDateGrouping.Month,
+                node.Month),
+            _ => new SpreadsheetFilterDateGroup(
+                node.Year,
+                SpreadsheetFilterDateGrouping.Day,
+                node.Month,
+                node.Day),
+        };
+
+    private static string DisplayDateNode(
+        SpreadsheetAutoFilterDateNode node) => node.Level switch
+        {
+            SpreadsheetAutoFilterDateNodeLevel.Year => $"Năm {node.Year}",
+            SpreadsheetAutoFilterDateNodeLevel.Month =>
+                $"Tháng {node.Month}/{node.Year}",
+            _ => $"Ngày {node.Day}/{node.Month}/{node.Year}",
+        };
 
     private async Task ClearAndCloseAsync(CancellationToken token)
     {
@@ -130,8 +294,16 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
 
     private void CancelOperations()
     {
-        _operationCancellation?.Cancel();
-        _operationCancellation = null;
+        CancellationTokenSource[] operations;
+        lock (_operationStateGate)
+        {
+            operations = [.. _operationCancellations];
+            _operationTail = Task.CompletedTask;
+        }
+        foreach (var operation in operations)
+        {
+            operation.Cancel();
+        }
         _searchCancellation?.Cancel();
         _searchCancellation = null;
     }

@@ -291,19 +291,53 @@ public sealed class SpreadsheetAutoFilterPagedView :
         bool selected,
         CancellationToken cancellationToken = default)
     {
-        var item = await GetItemAsync(
-            index,
-            cancellationToken).ConfigureAwait(false);
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
         await _operationGate.WaitAsync(cancellationToken)
             .ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
             long generation;
+            string searchText;
+            SpreadsheetTableFilterValueItem item;
+            var itemIsLoaded = false;
             lock (_stateGate)
             {
                 EnsureInitializedUnsafe();
+                if (index >= _totalItemCount)
+                {
+                    throw new ArgumentOutOfRangeException(
+                        nameof(index),
+                        index,
+                        "The item index is outside the filtered value list.");
+                }
                 generation = _generation;
+                searchText = _searchText;
+                itemIsLoaded = TryGetItemUnsafe(index, out item);
+            }
+            if (!itemIsLoaded)
+            {
+                var pageOffset = (index / _pageSize) * _pageSize;
+                var page = await _session.GetPageAsync(
+                    searchText,
+                    pageOffset,
+                    _pageSize,
+                    cancellationToken).ConfigureAwait(false);
+                EnsureGeneration(generation, page.Generation);
+                var pageIndex = index - page.Offset;
+                if (pageIndex < 0 || pageIndex >= page.Values.Count)
+                {
+                    throw new InvalidOperationException(
+                        "The filter page did not contain the requested item.");
+                }
+                item = page.Values[pageIndex];
+                lock (_stateGate)
+                {
+                    _pages[page.Offset] = page;
+                    _totalItemCount = page.TotalVisibleValueCount;
+                    _isSourceTruncated = page.IsSourceTruncated;
+                    _menuKinds = page.MenuKinds;
+                }
             }
             await _session.SetSelectedAsync(
                 generation,
@@ -427,7 +461,6 @@ public sealed class SpreadsheetAutoFilterPagedView :
         }
         _session.Invalidated -= OnSessionInvalidated;
         _session.Dispose();
-        _operationGate.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -445,7 +478,8 @@ public sealed class SpreadsheetAutoFilterPagedView :
         }
         _session.Invalidated -= OnSessionInvalidated;
         await _session.DisposeAsync().ConfigureAwait(false);
-        _operationGate.Dispose();
+        await _operationGate.WaitAsync().ConfigureAwait(false);
+        _operationGate.Release();
         GC.SuppressFinalize(this);
     }
 

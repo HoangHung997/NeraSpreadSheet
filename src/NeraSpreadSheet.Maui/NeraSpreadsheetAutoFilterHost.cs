@@ -30,13 +30,20 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
 
     private readonly AbsoluteLayout _buttonLayer;
     private readonly Dictionary<FilterButtonKey, Button> _buttons = [];
+    private readonly object _operationStateGate = new();
+    private readonly HashSet<CancellationTokenSource> _operationCancellations = [];
     private readonly Grid _sheetOverlay;
     private readonly VerticalStackLayout _sheetPanel;
     private readonly Entry _search;
     private readonly Picker _menuKindPicker;
     private readonly Entry _criterionInput;
+    private readonly Entry _secondCriterionInput;
+    private readonly Picker _conditionJoinPicker;
+    private readonly HorizontalStackLayout _selectionCommands;
+    private readonly Button _dateBackButton;
     private readonly Label _status;
     private readonly CollectionView _values;
+    private readonly CollectionView _dateValues;
     private readonly Button _previousButton;
     private readonly Button _nextButton;
     private readonly Button _applyButton;
@@ -45,9 +52,13 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
     private SpreadsheetViewportEngine? _viewport;
     private Worksheet? _subscribedWorksheet;
     private NeraMauiAutoFilterPagedBinding? _binding;
-    private CancellationTokenSource? _operationCancellation;
+    private Task _operationTail = Task.CompletedTask;
     private CancellationTokenSource? _searchCancellation;
+    private SpreadsheetAutoFilterDateParent _dateParent = new(null, null);
+    private SpreadsheetAutoFilterDatePage? _datePage;
+    private readonly HashSet<SpreadsheetFilterDateGroup> _selectedDateGroups = [];
     private VisualElement? _focusBeforeOpen;
+    private bool _rebuilding;
     private bool _disposed;
 
     public NeraSpreadsheetAutoFilterHost()
@@ -67,8 +78,13 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
         _search = sheet.Search;
         _menuKindPicker = sheet.MenuKindPicker;
         _criterionInput = sheet.CriterionInput;
+        _secondCriterionInput = sheet.SecondCriterionInput;
+        _conditionJoinPicker = sheet.ConditionJoinPicker;
+        _selectionCommands = sheet.SelectionCommands;
+        _dateBackButton = sheet.DateBack;
         _status = sheet.Status;
         _values = sheet.Values;
+        _dateValues = sheet.DateValues;
         _previousButton = sheet.Previous;
         _nextButton = sheet.Next;
         _applyButton = sheet.Apply;
@@ -160,9 +176,13 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
         CancelOperations();
         DisposeBinding();
         _values.ItemsSource = null;
+        _dateValues.ItemsSource = null;
         _sheetOverlay.IsVisible = false;
         _search.Text = string.Empty;
         _criterionInput.Text = string.Empty;
+        _secondCriterionInput.Text = string.Empty;
+        _datePage = null;
+        _selectedDateGroups.Clear();
         _search.Unfocus();
         RestoreFocus();
         OnSheetClosedPlatform();
@@ -292,7 +312,8 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
             overscan: 0d,
             Spreadsheet.RenderTheme);
         var hits = SpreadsheetAutoFilterButtonGeometry.GetVisibleButtons(
-            WorksheetSnapshot.Capture(_session.ActiveWorksheet),
+            _session.ActiveWorksheet.Tables,
+            _session.ActiveWorksheet.AutoFilter,
             frame.Layout,
             Spreadsheet.RenderTheme);
         var visible = new HashSet<FilterButtonKey>();
@@ -330,12 +351,14 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
             button.IsVisible = true;
         }
 
-        foreach (var (key, button) in _buttons)
+        foreach (var key in _buttons.Keys
+                     .Where(key => !visible.Contains(key))
+                     .ToArray())
         {
-            if (!visible.Contains(key))
-            {
-                button.IsVisible = false;
-            }
+            var button = _buttons[key];
+            button.Clicked -= OnFilterButtonClicked;
+            _buttonLayer.Children.Remove(button);
+            _buttons.Remove(key);
         }
     }
 
@@ -397,6 +420,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
         StartOperation(async token =>
         {
             await binding.InitializeAsync(token);
+            if (!ReferenceEquals(_binding, binding)) return;
             UpdateSheetState();
             FocusSearch();
             OnSheetOpenedPlatform();
@@ -423,10 +447,12 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
 
     private void HideAllButtons()
     {
-        foreach (var button in _buttons.Values)
+        foreach (var button in _buttons.Values.ToArray())
         {
-            button.IsVisible = false;
+            button.Clicked -= OnFilterButtonClicked;
+            _buttonLayer.Children.Remove(button);
         }
+        _buttons.Clear();
     }
 
     private void OnActiveWorksheetChanged(object? sender, EventArgs e)

@@ -92,6 +92,35 @@ public sealed class SpreadsheetAutoFilterPagedPresenterTests
             await presenter.MoveNextPageAsync());
     }
 
+    [TestMethod]
+    public async Task RapidSelectionChangesCompleteBeforeQueuedApply()
+    {
+        var fixture = CreateTableFixture(5);
+        Assert.IsTrue(fixture.Session.TryResolveActiveAutoFilterTarget(
+            out var target));
+        await using var presenter = new SpreadsheetAutoFilterPagedPresenter(
+            fixture.Session,
+            target,
+            pageSize: 5);
+        await presenter.InitializeAsync();
+
+        var firstToggle = presenter.SetSelectedAsync(0, selected: false);
+        var secondToggle = presenter.SetSelectedAsync(1, selected: false);
+        var apply = presenter.ApplyValueSelectionAsync();
+        await Task.WhenAll(firstToggle, secondToggle, apply);
+
+        var values = fixture.Session.ActiveWorksheet.Tables.Single()
+            .AutoFilter!.Columns.Single().Values;
+        CollectionAssert.DoesNotContain(
+            values.ToArray(),
+            CellValue.FromText("Value0"));
+        CollectionAssert.DoesNotContain(
+            values.ToArray(),
+            CellValue.FromText("Value1"));
+        Assert.AreEqual(3, values.Count);
+        Assert.AreEqual(1, fixture.Session.History.UndoCount);
+    }
+
     private static Fixture CreateTableFixture(int valueCount)
     {
         var workbook = new Workbook();

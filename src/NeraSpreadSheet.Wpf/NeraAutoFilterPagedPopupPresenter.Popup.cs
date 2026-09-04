@@ -76,6 +76,43 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         DockPanel.SetDock(criterionInput, Dock.Top);
         panel.Children.Add(criterionInput);
 
+        var customConditionPanel = new Grid
+        {
+            Margin = new Thickness(0d, 0d, 0d, 8d),
+            Visibility = Visibility.Collapsed,
+        };
+        _customConditionPanel = customConditionPanel;
+        customConditionPanel.ColumnDefinitions.Add(
+            new ColumnDefinition { Width = new GridLength(84d) });
+        customConditionPanel.ColumnDefinitions.Add(
+            new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
+        var conditionJoin = new ComboBox
+        {
+            ItemsSource = new[] { "Và", "Hoặc" },
+            SelectedIndex = 0,
+            Margin = new Thickness(0d, 0d, 6d, 0d),
+            ToolTip = "Kết hợp hai điều kiện bằng AND hoặc OR",
+        };
+        AutomationProperties.SetAutomationId(
+            conditionJoin,
+            "NeraAutoFilterPagedConditionJoin");
+        AutomationProperties.SetName(conditionJoin, "Cách kết hợp điều kiện");
+        _conditionJoinBox = conditionJoin;
+        var secondCriterion = new TextBox
+        {
+            ToolTip = "Điều kiện thứ hai, ví dụ LessThan:100",
+        };
+        AutomationProperties.SetAutomationId(
+            secondCriterion,
+            "NeraAutoFilterPagedSecondCriterion");
+        AutomationProperties.SetName(secondCriterion, "Điều kiện lọc thứ hai");
+        _secondCriterionInput = secondCriterion;
+        Grid.SetColumn(secondCriterion, 1);
+        customConditionPanel.Children.Add(conditionJoin);
+        customConditionPanel.Children.Add(secondCriterion);
+        DockPanel.SetDock(customConditionPanel, Dock.Top);
+        panel.Children.Add(customConditionPanel);
+
         var search = new TextBox
         {
             Margin = new Thickness(0d, 0d, 0d, 8d),
@@ -95,6 +132,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         {
             Margin = new Thickness(0d, 0d, 0d, 8d),
         };
+        _selectionCommands = selectionCommands;
         var selectAll = CreateCommandButton(
             "Chọn tất cả kết quả",
             "NeraAutoFilterPagedSelectAll");
@@ -105,6 +143,16 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         selectionCommands.Children.Add(selectNone);
         DockPanel.SetDock(selectionCommands, Dock.Top);
         panel.Children.Add(selectionCommands);
+
+        var dateBack = CreateCommandButton(
+            "◀ Lùi một cấp ngày",
+            "NeraAutoFilterPagedDateBack");
+        dateBack.HorizontalAlignment = HorizontalAlignment.Left;
+        dateBack.Margin = new Thickness(0d, 0d, 0d, 8d);
+        dateBack.Visibility = Visibility.Collapsed;
+        _dateBackButton = dateBack;
+        DockPanel.SetDock(dateBack, Dock.Top);
+        panel.Children.Add(dateBack);
 
         var status = new TextBlock
         {
@@ -128,6 +176,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             MaxHeight = 270d,
             CanContentScroll = true,
         };
+        _itemsScroller = scroller;
         AutomationProperties.SetAutomationId(
             scroller,
             "NeraAutoFilterPagedValues");
@@ -176,6 +225,13 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         panel.Children.Add(footer);
 
         search.TextChanged += (_, _) => ScheduleSearch(search.Text);
+        menuKind.SelectionChanged += (_, _) =>
+        {
+            if (!_rebuilding)
+            {
+                StartOperation(RefreshSelectedModeAsync);
+            }
+        };
         search.PreviewKeyDown += (_, args) =>
         {
             if (args.Key == Key.Escape)
@@ -191,36 +247,27 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         };
         selectAll.Click += (_, _) => StartOperation(async token =>
         {
-            if (_binding is not null)
+            var binding = _binding;
+            if (binding is not null)
             {
-                await _binding.SelectAllVisibleAsync(token);
-                RebuildPage();
+                await binding.SelectAllVisibleAsync(token);
+                if (ReferenceEquals(_binding, binding)) RebuildPage();
             }
         });
         selectNone.Click += (_, _) => StartOperation(async token =>
         {
-            if (_binding is not null)
+            var binding = _binding;
+            if (binding is not null)
             {
-                await _binding.ClearVisibleSelectionAsync(token);
-                RebuildPage();
+                await binding.ClearVisibleSelectionAsync(token);
+                if (ReferenceEquals(_binding, binding)) RebuildPage();
             }
         });
-        previous.Click += (_, _) => StartOperation(async token =>
-        {
-            if (_binding is not null &&
-                await _binding.MovePreviousPageAsync(token))
-            {
-                RebuildPage();
-            }
-        });
-        next.Click += (_, _) => StartOperation(async token =>
-        {
-            if (_binding is not null &&
-                await _binding.MoveNextPageAsync(token))
-            {
-                RebuildPage();
-            }
-        });
+        previous.Click += (_, _) => StartOperation(token =>
+            MovePageAsync(next: false, token));
+        next.Click += (_, _) => StartOperation(token =>
+            MovePageAsync(next: true, token));
+        dateBack.Click += (_, _) => StartOperation(NavigateDateBackAsync);
         clear.Click += (_, _) => StartOperation(ClearAndCloseAsync);
         cancel.Click += (_, _) => Close();
         apply.Click += (_, _) => StartOperation(ApplyAndCloseAsync);
@@ -257,11 +304,13 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         }
         StartOperation(async token =>
         {
-            if (_binding is null)
+            var binding = _binding;
+            if (binding is null)
             {
                 return;
             }
-            await _binding.InitializeAsync(token);
+            await binding.InitializeAsync(token);
+            if (!ReferenceEquals(_binding, binding)) return;
             RebuildPage();
             FocusSearchBox(popup);
         });
@@ -283,12 +332,20 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             _searchBox = null;
             _menuKindBox = null;
             _criterionInput = null;
+            _secondCriterionInput = null;
+            _conditionJoinBox = null;
+            _customConditionPanel = null;
+            _selectionCommands = null;
+            _dateBackButton = null;
             _status = null;
             _itemsPanel = null;
+            _itemsScroller = null;
             _previousButton = null;
             _nextButton = null;
             _applyButton = null;
             _valueCheckBoxes.Clear();
+            _datePage = null;
+            _selectedDateGroups.Clear();
         }
         RestoreFocus(_focusBeforeOpen);
         _focusBeforeOpen = null;
@@ -304,6 +361,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         }
 
         _valueCheckBoxes.Clear();
+        _rebuilding = true;
         if (_menuKindBox is not null)
         {
             var selectedIndex = _menuKindBox.SelectedIndex;
@@ -314,7 +372,63 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
                 ? -1
                 : Math.Clamp(selectedIndex, 0, _binding.MenuKinds.Count - 1);
         }
+        _rebuilding = false;
+        var kind = GetSelectedMenuKind(_binding);
+        var isValues = kind == SpreadsheetAutoFilterMenuKind.Values;
+        var isDate = kind == SpreadsheetAutoFilterMenuKind.Date;
+        var isCustom = kind == SpreadsheetAutoFilterMenuKind.Custom;
+        if (_criterionInput is not null)
+        {
+            _criterionInput.Visibility = isValues || isDate
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+        }
+        if (_customConditionPanel is not null)
+        {
+            _customConditionPanel.Visibility = isCustom
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+        if (_searchBox is not null)
+        {
+            _searchBox.Visibility = isValues
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+        if (_selectionCommands is not null)
+        {
+            _selectionCommands.Visibility = isValues
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+        if (_dateBackButton is not null)
+        {
+            _dateBackButton.Visibility = isDate && _dateParent.Year is not null
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+        if (_itemsScroller is not null)
+        {
+            _itemsScroller.Visibility = isValues || isDate
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
         _itemsPanel.Children.Clear();
+        if (isDate)
+        {
+            RebuildDatePage();
+            return;
+        }
+        if (!isValues)
+        {
+            _status.Text = isCustom
+                ? "Nhập một hoặc hai điều kiện rồi chọn cách kết hợp."
+                : "Nhập điều kiện lọc rồi chọn Áp dụng.";
+            _previousButton!.Visibility = Visibility.Collapsed;
+            _nextButton!.Visibility = Visibility.Collapsed;
+            _applyButton!.IsEnabled = !_binding.IsBusy;
+            return;
+        }
         for (var index = 0; index < _binding.Items.Count; index++)
         {
             var pageIndex = index;
@@ -344,12 +458,72 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             _binding.TotalItemCount,
             _binding.PageOffset + _binding.Items.Count);
         _status.Text = _binding.IsSourceTruncated
-            ? $"{first:N0}–{last:N0}/{_binding.TotalItemCount:N0}; nguồn đã bị giới hạn."
+            ? $"{first:N0}–{last:N0}/{_binding.TotalItemCount:N0}; nguồn bị giới hạn, không thể áp dụng chọn giá trị."
             : $"{first:N0}–{last:N0}/{_binding.TotalItemCount:N0} giá trị.";
-        _previousButton!.IsEnabled =
-            _binding.HasPreviousPage && !_binding.IsBusy;
-        _nextButton!.IsEnabled =
-            _binding.HasNextPage && !_binding.IsBusy;
-        _applyButton!.IsEnabled = !_binding.IsBusy;
+        _previousButton!.Visibility = isValues
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        _nextButton!.Visibility = isValues
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        _previousButton.IsEnabled = _binding.HasPreviousPage && !_binding.IsBusy;
+        _nextButton.IsEnabled = _binding.HasNextPage && !_binding.IsBusy;
+        _applyButton!.IsEnabled =
+            !_binding.IsBusy && (!isValues || !_binding.IsSourceTruncated);
+    }
+
+    private void RebuildDatePage()
+    {
+        if (_itemsPanel is null || _status is null || _binding is null)
+        {
+            return;
+        }
+        foreach (var node in _datePage?.Nodes ?? [])
+        {
+            var group = ToDateGroup(node);
+            var row = new Grid { Margin = new Thickness(2d) };
+            row.ColumnDefinitions.Add(
+                new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(
+                new ColumnDefinition { Width = GridLength.Auto });
+            var checkBox = new CheckBox
+            {
+                Content = $"{DisplayDateNode(node)}  ({node.Count:N0})",
+                IsChecked = _selectedDateGroups.Contains(group),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            AutomationProperties.SetName(
+                checkBox,
+                $"{DisplayDateNode(node)}; {node.Count:N0} dòng");
+            checkBox.Checked += (_, _) => _selectedDateGroups.Add(group);
+            checkBox.Unchecked += (_, _) => _selectedDateGroups.Remove(group);
+            row.Children.Add(checkBox);
+            if (node.HasChildren)
+            {
+                var drill = CreateCommandButton(
+                    "Mở ▶",
+                    $"NeraAutoFilterDateDrill{node.Year}{node.Month}");
+                drill.MinWidth = 58d;
+                drill.Click += (_, _) => StartOperation(token =>
+                    NavigateDateIntoAsync(node, token));
+                Grid.SetColumn(drill, 1);
+                row.Children.Add(drill);
+            }
+            _itemsPanel.Children.Add(row);
+        }
+
+        var first = _datePage is null || _datePage.TotalNodeCount == 0
+            ? 0
+            : _datePage.Offset + 1;
+        var count = _datePage?.Nodes.Count ?? 0;
+        var last = Math.Min(_datePage?.TotalNodeCount ?? 0, first + count - 1);
+        var total = _datePage?.TotalNodeCount ?? 0;
+        _status.Text = $"{first:N0}–{last:N0}/{total:N0} nhóm ngày; " +
+            $"đã chọn {_selectedDateGroups.Count:N0}.";
+        _previousButton!.Visibility = Visibility.Visible;
+        _nextButton!.Visibility = Visibility.Visible;
+        _previousButton.IsEnabled = _datePage?.HasPreviousPage == true && !_binding.IsBusy;
+        _nextButton.IsEnabled = _datePage?.HasNextPage == true && !_binding.IsBusy;
+        _applyButton!.IsEnabled = !_binding.IsBusy && _selectedDateGroups.Count > 0;
     }
 }

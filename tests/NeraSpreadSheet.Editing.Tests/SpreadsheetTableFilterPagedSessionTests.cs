@@ -177,6 +177,49 @@ public sealed class SpreadsheetTableFilterPagedSessionTests
                 selected: false));
     }
 
+    [TestMethod]
+    [Timeout(30_000)]
+    public async Task DisposeAsyncCancelsAndDrainsRefreshInProgress()
+    {
+        var fixture = CreateLargeSparseFixture(1_000_000);
+        var session = new SpreadsheetTableFilterPagedSession(
+            fixture.Session,
+            fixture.TableId,
+            fixture.ColumnId,
+            maximumRows: 1_000_000);
+
+        var refresh = session.RefreshAsync();
+        await session.DisposeAsync();
+
+        await AssertCanceledAsync(refresh);
+        Assert.IsFalse(session.IsReady);
+    }
+
+    [TestMethod]
+    [Timeout(30_000)]
+    public async Task RapidRefreshRequestsAreSerializedAndLatestRequestWins()
+    {
+        var fixture = CreateLargeSparseFixture(200_000);
+        await using var session = new SpreadsheetTableFilterPagedSession(
+            fixture.Session,
+            fixture.TableId,
+            fixture.ColumnId,
+            maximumRows: 200_000);
+        var refreshedCount = 0;
+        session.Refreshed += (_, _) => refreshedCount++;
+
+        var first = session.RefreshAsync();
+        var second = session.RefreshAsync();
+
+        await AssertCanceledAsync(first);
+        var generation = await second;
+        var page = await session.GetPageAsync(null, 0, 10);
+        Assert.AreEqual(2L, generation);
+        Assert.AreEqual(generation, page.Generation);
+        Assert.AreEqual(1, page.Page.TotalVisibleValueCount);
+        Assert.AreEqual(1, refreshedCount);
+    }
+
     private static Fixture CreateFixture()
     {
         var workbook = new Workbook();
@@ -200,6 +243,41 @@ public sealed class SpreadsheetTableFilterPagedSessionTests
             new SpreadsheetSession(workbook),
             tableId,
             columnId);
+    }
+
+    private static Fixture CreateLargeSparseFixture(int dataRowCount)
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        var tableId = Guid.NewGuid();
+        var columnId = Guid.NewGuid();
+        worksheet.SetValue(new CellAddress(0, 0), "Value");
+        worksheet.AddTable(new SpreadsheetTable(
+            tableId,
+            "SparseValues",
+            new CellRange(
+                new CellAddress(0, 0),
+                new CellAddress(dataRowCount, 0)),
+            [new SpreadsheetTableColumn(columnId, "Value")]));
+        return new Fixture(
+            worksheet,
+            new SpreadsheetSession(workbook),
+            tableId,
+            columnId);
+    }
+
+    private static async Task AssertCanceledAsync(Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        Assert.Fail("The superseded or disposed refresh should be canceled.");
     }
 
     private sealed record Fixture(

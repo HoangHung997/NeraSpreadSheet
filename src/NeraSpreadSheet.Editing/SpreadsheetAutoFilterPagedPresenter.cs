@@ -283,7 +283,6 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
             _page = null;
         }
         _view.Dispose();
-        _operationGate.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -299,7 +298,8 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
             _page = null;
         }
         await _view.DisposeAsync().ConfigureAwait(false);
-        _operationGate.Dispose();
+        await _operationGate.WaitAsync().ConfigureAwait(false);
+        _operationGate.Release();
         GC.SuppressFinalize(this);
     }
 

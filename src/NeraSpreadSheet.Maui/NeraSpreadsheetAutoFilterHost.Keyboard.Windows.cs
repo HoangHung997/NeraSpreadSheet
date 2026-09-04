@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.System;
+using NeraSpreadSheet.Editing;
 
 namespace NeraSpreadSheet.Maui;
 
@@ -79,8 +80,10 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             {
                 Dispatcher.Dispatch(() => StartOperation(async token =>
                 {
-                    if (_binding is not null &&
-                        await _binding.MoveNextPageAsync(token))
+                    var binding = _binding;
+                    if (binding is not null &&
+                        await MovePageFromKeyboardAsync(binding, next: true, token) &&
+                        ReferenceEquals(_binding, binding))
                     {
                         UpdateSheetState();
                     }
@@ -92,8 +95,10 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             {
                 Dispatcher.Dispatch(() => StartOperation(async token =>
                 {
-                    if (_binding is not null &&
-                        await _binding.MovePreviousPageAsync(token))
+                    var binding = _binding;
+                    if (binding is not null &&
+                        await MovePageFromKeyboardAsync(binding, next: false, token) &&
+                        ReferenceEquals(_binding, binding))
                     {
                         UpdateSheetState();
                     }
@@ -108,6 +113,31 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             Dispatcher.Dispatch(() => TryOpenForActiveCell());
             e.Handled = true;
         }
+    }
+
+    private async Task<bool> MovePageFromKeyboardAsync(
+        NeraMauiAutoFilterPagedBinding binding,
+        bool next,
+        CancellationToken token)
+    {
+        if (GetSelectedMenuKind(binding) == SpreadsheetAutoFilterMenuKind.Date)
+        {
+            var current = _datePage;
+            if (current is null || (next ? !current.HasNextPage : !current.HasPreviousPage))
+            {
+                return false;
+            }
+            var offset = Math.Max(0, current.Offset + (next ? PageSize : -PageSize));
+            _datePage = await binding.GetDatePageAsync(
+                _dateParent,
+                offset,
+                PageSize,
+                token);
+            return true;
+        }
+        return next
+            ? await binding.MoveNextPageAsync(token)
+            : await binding.MovePreviousPageAsync(token);
     }
 
     private async Task FocusSearchAsync(int generation)
