@@ -253,8 +253,11 @@ have a bounded SDK implementation:
   analysis APIs are available;
 - shared rendering draws visible precedent outlines, and the WPF control binds
   suggestions, mouse-drag reference insertion and formula-cell highlights;
+- formula-reference theme defaults retain stable record equality so viewport
+  display-list cache keys remain reusable across equivalent default themes;
 - OpenXML 83/83, Editing 214/214, Rendering.Spreadsheet 120/120 and Formulas
-  522/522 pass locally; the focused WPF formula-editing smoke passes.
+  522/522 pass locally; Core solution 1241/1241 and the focused WPF
+  formula-editing smoke pass.
 
 The demo-specific visible scrollbar and horizontal sheet-tab layout remain
 outside this SDK change. Exact-head GitHub Actions evidence is pending.

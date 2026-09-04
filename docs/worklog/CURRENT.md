@@ -98,10 +98,13 @@ For `EXCEL-BASIC-COMPAT-001` local validation on the current uncommitted tree:
 - Editing: **214/214 passed**;
 - Rendering.Spreadsheet: **120/120 passed**;
 - Formulas: **522/522 passed**;
+- Viewport: **56/56 passed** after retaining stable equality for the new default
+  formula-reference color palette;
+- Core solution: **1241/1241 passed**;
 - focused WPF formula editing/reference smoke: **1/1 passed**;
 - supplied workbook in-memory Load -> Save -> Load: **6/6 sheets retained**,
   source SHA-256 unchanged and **0 OpenXML schema validation errors**;
-- full Windows.Rendering: **49/51 passed locally**; two pre-existing,
+- full Windows.Rendering: **49/51 passed locally**; two unrelated,
   environment-sensitive UI/scale assertions remain red on this desktop
   (`WpfAutomationPeerExposesChartInvokeMoveAndResizePatterns` expects 10 px but
   observes 9.6 px, and a window activation smoke cannot activate). Exact-head

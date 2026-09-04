@@ -5,19 +5,23 @@ namespace NeraSpreadSheet.Rendering.Spreadsheet;
 
 public sealed record SpreadsheetRenderTheme
 {
+    private static readonly IReadOnlyList<ColorRgba>
+        DefaultFormulaReferenceColors = Array.AsReadOnly<ColorRgba>(
+        [
+            new(33, 115, 201),
+            new(196, 62, 62),
+            new(139, 74, 168),
+            new(210, 124, 31),
+            new(27, 140, 122),
+        ]);
+
     public ColorRgba Background { get; init; } = ColorRgba.White;
     public ColorRgba GridLine { get; init; } = ColorRgba.GridLine;
     public ColorRgba Text { get; init; } = ColorRgba.Black;
     public ColorRgba Selection { get; init; } = ColorRgba.Selection;
     public ColorRgba ActiveCell { get; init; } = new(16, 92, 52);
     public IReadOnlyList<ColorRgba> FormulaReferenceColors { get; init; } =
-    [
-        new(33, 115, 201),
-        new(196, 62, 62),
-        new(139, 74, 168),
-        new(210, 124, 31),
-        new(27, 140, 122),
-    ];
+        DefaultFormulaReferenceColors;
     public ColorRgba InvalidCell { get; init; } = new(196, 32, 32);
     public ColorRgba FreezePaneLine { get; init; } = new(128, 128, 128);
     public ColorRgba SplitPaneSeparator { get; init; } = new(176, 176, 176);
