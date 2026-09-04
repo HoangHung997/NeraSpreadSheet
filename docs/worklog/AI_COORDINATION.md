@@ -34,7 +34,9 @@ before moving to another lane.
 
 User-reported compatibility interrupts may be handled as bounded hotfix lanes
 without transferring ownership of the active roadmap lane. `EXCEL-BASIC-COMPAT-001`
-is such a lane; it does not claim demo scrollbar or sheet-tab work.
+and `EXCEL-BASIC-NAV-002` are such lanes. The latter owns the reusable adaptive
+navigation extent and desktop keyboard-follow behavior, while demo-only chrome
+remains outside the repository.
 
 ## Closed lane: RIBBON-MAUI
 
@@ -75,6 +77,7 @@ Out of scope for this lane:
 | 2026-09-04 | Codex | `PACKAGING-SDK` | Claimed after Drawing/Media compatibility lane; scope is package/versioning/API compatibility validation before security/recovery and Win11 demo lanes. |
 | 2026-09-04 | Codex | `PACKAGING-SDK` | Local implementation complete: common package URL/readme/tags, explicit SDK `PackageId`s, packaging verifier, CI pack step and SDK package artifact upload. Local Release Core 1216/1216, architecture and packaging verifiers passed, and 17 SDK packages include `README.md`. |
 | 2026-09-04 | Codex | `PACKAGING-SDK` | Closed at `47591a8ac223f0ee5141e92bb31fca304fbe0a50`: exact-head CI #1239, iOS gate #42 and Q003C/OpenXML gate #39 all succeeded; `sdk-packages` artifact ID `9906198247` uploaded with digest `sha256:3d697797e79866e1420bd58702d574eb1469cd26856cdd57a3cfe80b8d77bd06`. |
+| 2026-09-04 | Codex | `EXCEL-BASIC-NAV-002` | Bounded compatibility hotfix locally complete: adaptive used/navigation extent, WPF/WinForms keyboard-follow scrolling, Viewport 58/58, loaded desktop smoke 2/2, Core 1243/1243 and architecture pass. Exact-head CI pending. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | Claimed after PACKAGING-SDK exact-head evidence; scope is trust/isolation/recovery hardening before broader localization/a11y and Win11 demo lanes. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | First hardening patch prepared: external formula provider exceptions are contained and mapped to `#N/A`, with scalar and dynamic-array provider boundary tests. Local SDK 10.0.302 is unavailable in this workspace session, so validation is deferred to GitHub CI. |
 | 2026-09-04 | Codex | `SECURITY-RECOVERY` | First two hardening patches exact-head validated at `dd0134a43f3888b78b64106e45210acf9231d83a`: full CI #1248, iOS gate #51 and Q003C/OpenXML gate #48 all succeeded. Document save failure recovery is covered and SDK packages artifact `9907540966` was uploaded. |

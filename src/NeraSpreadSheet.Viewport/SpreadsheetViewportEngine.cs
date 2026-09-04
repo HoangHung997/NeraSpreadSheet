@@ -23,6 +23,10 @@ public sealed class SpreadsheetViewportEngine
     private long _snapshotWorksheetVersion = -1;
     private long _snapshotDimensionsVersion = -1;
     private long _cacheClock;
+    private Worksheet? _navigationExtentWorksheet;
+    private long _navigationExtentWorksheetVersion = -1;
+    private long _navigationExtentDimensionsVersion = -1;
+    private CellAddress _navigationUsedBottomRight;
 
     public SpreadsheetViewportEngine(
         SpreadsheetSession session,
@@ -156,6 +160,40 @@ public sealed class SpreadsheetViewportEngine
         return new SizeD(_columns!.TotalExtent, _rows!.TotalExtent);
     }
 
+    /// <summary>
+    /// Gets a compact scroll extent containing the sparse used range, the
+    /// current navigation cell and at least the visible viewport. Physical
+    /// worksheet limits are not changed.
+    /// </summary>
+    public SizeD GetAdaptiveNavigationExtent(
+        CellAddress navigationCell,
+        SizeD minimumViewportExtent)
+    {
+        if (!double.IsFinite(minimumViewportExtent.Width) ||
+            minimumViewportExtent.Width < 0d ||
+            !double.IsFinite(minimumViewportExtent.Height) ||
+            minimumViewportExtent.Height < 0d)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minimumViewportExtent),
+                "Viewport extents must be finite and non-negative.");
+        }
+
+        EnsureMetrics();
+        var used = GetNavigationUsedBottomRight();
+        var lastRow = Math.Max(used.RowIndex, navigationCell.RowIndex);
+        var lastColumn = Math.Max(
+            used.ColumnIndex,
+            navigationCell.ColumnIndex);
+        return new SizeD(
+            Math.Max(
+                minimumViewportExtent.Width,
+                _columns!.GetOffset(lastColumn + 1)),
+            Math.Max(
+                minimumViewportExtent.Height,
+                _rows!.GetOffset(lastRow + 1)));
+    }
+
     public void InvalidateMetrics()
     {
         _metricsWorksheet = null;
@@ -173,6 +211,49 @@ public sealed class SpreadsheetViewportEngine
         _snapshotWorksheetVersion = -1;
         _snapshotDimensionsVersion = -1;
         ClearDisplayListCache();
+    }
+
+    private CellAddress GetNavigationUsedBottomRight()
+    {
+        var worksheet = _session.ActiveWorksheet;
+        if (ReferenceEquals(_navigationExtentWorksheet, worksheet) &&
+            _navigationExtentWorksheetVersion == worksheet.Version &&
+            _navigationExtentDimensionsVersion == worksheet.Dimensions.Version)
+        {
+            return _navigationUsedBottomRight;
+        }
+
+        var bottom = 0;
+        var right = 0;
+        foreach (var (address, _) in worksheet.EnumerateUsedCells())
+        {
+            bottom = Math.Max(bottom, address.RowIndex);
+            right = Math.Max(right, address.ColumnIndex);
+        }
+        foreach (var range in worksheet.MergedCells.Ranges)
+        {
+            bottom = Math.Max(bottom, range.Bottom);
+            right = Math.Max(right, range.Right);
+        }
+        foreach (var table in worksheet.Tables)
+        {
+            bottom = Math.Max(bottom, table.Range.Bottom);
+            right = Math.Max(right, table.Range.Right);
+        }
+        foreach (var rowIndex in worksheet.Dimensions.GetRowOverrides().Keys)
+        {
+            bottom = Math.Max(bottom, rowIndex);
+        }
+        foreach (var columnIndex in worksheet.Dimensions.GetColumnOverrides().Keys)
+        {
+            right = Math.Max(right, columnIndex);
+        }
+
+        _navigationExtentWorksheet = worksheet;
+        _navigationExtentWorksheetVersion = worksheet.Version;
+        _navigationExtentDimensionsVersion = worksheet.Dimensions.Version;
+        _navigationUsedBottomRight = new CellAddress(bottom, right);
+        return _navigationUsedBottomRight;
     }
 
     public void ClearDisplayListCache() => _displayListCache.Clear();

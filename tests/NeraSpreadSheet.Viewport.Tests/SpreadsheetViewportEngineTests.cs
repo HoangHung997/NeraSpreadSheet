@@ -1,6 +1,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
+using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Rendering;
 
 namespace NeraSpreadSheet.Viewport.Tests;
@@ -51,6 +52,61 @@ public sealed class SpreadsheetViewportEngineTests
         var after = engine.GetContentExtent();
 
         Assert.AreEqual(before.Width + 25d, after.Width, 1e-9);
+    }
+
+    [TestMethod]
+    public void AdaptiveNavigationExtentExpandsForActiveCellAndContractsOnReturn()
+    {
+        var workbook = new Workbook();
+        var engine = new SpreadsheetViewportEngine(
+            new SpreadsheetSession(workbook));
+        var viewport = new SizeD(320d, 180d);
+
+        var initial = engine.GetAdaptiveNavigationExtent(
+            new CellAddress(0, 0),
+            viewport);
+        var expanded = engine.GetAdaptiveNavigationExtent(
+            new CellAddress(50, 20),
+            viewport);
+        var returned = engine.GetAdaptiveNavigationExtent(
+            new CellAddress(0, 0),
+            viewport);
+        workbook.Worksheets[0].SetValue(new CellAddress(50, 20), "kept");
+        var retainedByData = engine.GetAdaptiveNavigationExtent(
+            new CellAddress(0, 0),
+            viewport);
+        workbook.Worksheets[0].SetValue(new CellAddress(50, 20), null);
+        var contractedAfterClear = engine.GetAdaptiveNavigationExtent(
+            new CellAddress(0, 0),
+            viewport);
+
+        Assert.AreEqual(viewport, initial);
+        Assert.AreEqual(21d * 80d, expanded.Width, 1e-9);
+        Assert.AreEqual(51d * 20d, expanded.Height, 1e-9);
+        Assert.AreEqual(viewport, returned);
+        Assert.AreEqual(expanded, retainedByData);
+        Assert.AreEqual(viewport, contractedAfterClear);
+    }
+
+    [TestMethod]
+    public void AdaptiveNavigationExtentIncludesSparseWorksheetArtifacts()
+    {
+        var workbook = new Workbook();
+        var sheet = workbook.Worksheets[0];
+        sheet.SetValue(new CellAddress(9, 5), "used");
+        sheet.MergeCells(new CellRange(
+            new CellAddress(11, 1),
+            new CellAddress(12, 7)));
+        sheet.Dimensions.SetColumnWidth(10, 120d);
+        var engine = new SpreadsheetViewportEngine(
+            new SpreadsheetSession(workbook));
+
+        var extent = engine.GetAdaptiveNavigationExtent(
+            new CellAddress(0, 0),
+            new SizeD(100d, 100d));
+
+        Assert.AreEqual(920d, extent.Width, 1e-9);
+        Assert.AreEqual(260d, extent.Height, 1e-9);
     }
 
     [TestMethod]

@@ -42,6 +42,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
     private bool _disposed;
     private Rect _editorBounds = Rect.Empty;
     private WpfRenderingBackend _renderingBackend;
+    private bool _useAdaptiveNavigationExtent;
 
     public NeraSpreadsheetControl()
     {
@@ -88,6 +89,27 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
     public ScrollSnapshot ScrollSnapshot => _scrollController.Snapshot;
     public bool IsEditing => _cellEditor?.IsEditing == true;
     public FramePacingSnapshot FramePacing => _framePacing.Capture();
+
+    /// <summary>
+    /// Gets or sets whether the scroll range follows the sparse used range and
+    /// active cell instead of exposing the full physical worksheet extent.
+    /// </summary>
+    public bool UseAdaptiveNavigationExtent
+    {
+        get => _useAdaptiveNavigationExtent;
+        set
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_useAdaptiveNavigationExtent == value)
+            {
+                return;
+            }
+            _useAdaptiveNavigationExtent = value;
+            UpdateContentExtent();
+            ClampScrollToContentBounds();
+            InvalidateVisual();
+        }
+    }
 
     public WpfRenderingBackend RenderingBackend
     {
@@ -146,6 +168,8 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
     protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
     {
         _lastLayout = null;
+        UpdateContentExtent();
+        ClampScrollToContentBounds();
         base.OnRenderSizeChanged(sizeInfo);
     }
 
@@ -187,8 +211,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
             OverscanPixels,
             RenderTheme);
         _lastLayout = frame.Layout;
-        ContentWidth = frame.Layout.ContentWidth;
-        ContentHeight = frame.Layout.ContentHeight;
+        UpdateContentExtent(chrome);
         var bodyDisplayList = SpreadsheetFormulaReferenceDisplayListComposer.Compose(
             frame.DisplayList,
             frame.Layout,
@@ -649,13 +672,90 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
     public void ScrollTo(double offsetX, double offsetY, bool animated = false)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        var before = _scrollController.Snapshot;
         _scrollController.ScrollTo(offsetX, offsetY, animated);
         UpdateEditorBounds();
         InvalidateVisual();
+        if (!animated && before != _scrollController.Snapshot)
+        {
+            ScrollChanged?.Invoke(
+                this,
+                new ScrollChangedEventArgs(_scrollController.Snapshot));
+        }
         if (animated)
         {
             EnsureFrameLoop();
         }
+    }
+
+    /// <summary>
+    /// Scrolls only as far as needed to make a worksheet cell visible while
+    /// preserving continuous pixel offsets and frozen panes.
+    /// </summary>
+    public bool ScrollCellIntoView(CellAddress address)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_session is null || _viewport is null)
+        {
+            return false;
+        }
+
+        UpdateContentExtent();
+        var chrome = GetChromeMetrics();
+        var scroll = _scrollController.Snapshot;
+        if (!_viewport.TryGetCellBounds(
+                address,
+                scroll.OffsetX,
+                scroll.OffsetY,
+                out var bounds))
+        {
+            return false;
+        }
+
+        var frozen = _viewport.GetFrozenPaneExtent();
+        var nextX = scroll.OffsetX;
+        var nextY = scroll.OffsetY;
+        if (address.ColumnIndex >= _session.View.FrozenColumns)
+        {
+            var visibleLeft = Math.Clamp(frozen.Width, 0d, chrome.BodyWidth);
+            if (bounds.Left < visibleLeft)
+            {
+                nextX -= visibleLeft - bounds.Left;
+            }
+            else if (bounds.Right > chrome.BodyWidth)
+            {
+                nextX += bounds.Right - chrome.BodyWidth;
+            }
+        }
+        if (address.RowIndex >= _session.View.FrozenRows)
+        {
+            var visibleTop = Math.Clamp(frozen.Height, 0d, chrome.BodyHeight);
+            if (bounds.Top < visibleTop)
+            {
+                nextY -= visibleTop - bounds.Top;
+            }
+            else if (bounds.Bottom > chrome.BodyHeight)
+            {
+                nextY += bounds.Bottom - chrome.BodyHeight;
+            }
+        }
+
+        nextX = Math.Clamp(
+            nextX,
+            0d,
+            Math.Max(0d, ContentWidth - chrome.BodyWidth));
+        nextY = Math.Clamp(
+            nextY,
+            0d,
+            Math.Max(0d, ContentHeight - chrome.BodyHeight));
+        if (Math.Abs(nextX - scroll.OffsetX) <= 1e-9 &&
+            Math.Abs(nextY - scroll.OffsetY) <= 1e-9)
+        {
+            return false;
+        }
+
+        ScrollTo(nextX, nextY, animated: false);
+        return true;
     }
 
     public void Dispose()
@@ -915,6 +1015,11 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         {
             return;
         }
+        if (_useAdaptiveNavigationExtent)
+        {
+            UpdateContentExtent();
+            ClampScrollToContentBounds();
+        }
         UpdateEditorBounds();
         InvalidateVisual();
     }
@@ -953,10 +1058,16 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
 
     private void OnCellsChanged(object? sender, CellsChangedEventArgs e)
     {
-        if (!_disposed)
+        if (_disposed)
         {
-            InvalidateVisual();
+            return;
         }
+        if (_useAdaptiveNavigationExtent)
+        {
+            UpdateContentExtent();
+            ClampScrollToContentBounds();
+        }
+        InvalidateVisual();
     }
 
     private void OnDimensionsChanged(object? sender, DimensionChangedEventArgs e)
@@ -968,6 +1079,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         _viewport?.InvalidateMetrics();
         _lastLayout = null;
         UpdateContentExtent();
+        ClampScrollToContentBounds();
         UpdateEditorBounds();
         InvalidateVisual();
     }
@@ -980,9 +1092,47 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
             ContentHeight = 0d;
             return;
         }
-        var extent = _viewport.GetContentExtent();
+        UpdateContentExtent(GetChromeMetrics());
+    }
+
+    private void UpdateContentExtent(SpreadsheetChromeMetrics chrome)
+    {
+        if (_viewport is null)
+        {
+            ContentWidth = 0d;
+            ContentHeight = 0d;
+            return;
+        }
+        var extent = _useAdaptiveNavigationExtent && _session is not null
+            ? _viewport.GetAdaptiveNavigationExtent(
+                _session.Selection.ActiveCell,
+                new SizeD(chrome.BodyWidth, chrome.BodyHeight))
+            : _viewport.GetContentExtent();
         ContentWidth = extent.Width;
         ContentHeight = extent.Height;
+    }
+
+    private void ClampScrollToContentBounds()
+    {
+        if (_viewport is null)
+        {
+            return;
+        }
+        var chrome = GetChromeMetrics();
+        var snapshot = _scrollController.Snapshot;
+        var nextX = Math.Clamp(
+            snapshot.OffsetX,
+            0d,
+            Math.Max(0d, ContentWidth - chrome.BodyWidth));
+        var nextY = Math.Clamp(
+            snapshot.OffsetY,
+            0d,
+            Math.Max(0d, ContentHeight - chrome.BodyHeight));
+        if (Math.Abs(nextX - snapshot.OffsetX) > 1e-9 ||
+            Math.Abs(nextY - snapshot.OffsetY) > 1e-9)
+        {
+            ScrollTo(nextX, nextY, animated: false);
+        }
     }
 
     private void MoveActiveCell(int rowDelta, int columnDelta, bool extend)
@@ -1003,6 +1153,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         {
             _session.Selection.SetActiveCell(next);
         }
+        ScrollCellIntoView(next);
     }
 
     private void OnEditorKeyDown(object sender, KeyEventArgs e)

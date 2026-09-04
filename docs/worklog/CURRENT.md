@@ -42,6 +42,12 @@
   passes Load -> Save -> Load without modifying the source. Full CI #1290,
   iOS gate #111 and Q003C/OpenXML gate #108 passed at the implementation
   checkpoint.
+- `EXCEL-BASIC-NAV-002`: **LOCAL IMPLEMENTATION COMPLETE**. The viewport now
+  offers an opt-in adaptive extent derived from used content and the active
+  navigation cell. WPF/WinForms arrow, Enter and Tab navigation keep the active
+  cell visible; empty navigation tails contract after returning. Viewport
+  58/58, loaded desktop smoke 2/2, Core 1243/1243, build/analyzers and
+  architecture verification pass locally. Exact-head CI is pending.
 - Weighted implementation-roadmap score: **83.98% ≈ 84%**.
 - PR remains Draft; do not merge or mark Ready.
 
@@ -113,6 +119,16 @@ For `EXCEL-BASIC-COMPAT-001` local validation on the current uncommitted tree:
   observes 9.6 px, and a window activation smoke cannot activate). Exact-head
   GitHub CI remains the release gate.
 
+For `EXCEL-BASIC-NAV-002` local validation:
+
+- Viewport: **58/58 passed**;
+- focused loaded WPF/WinForms adaptive keyboard smoke: **2/2 passed**;
+- Core solution: **1243/1243 passed**;
+- build/analyzers: **0 warnings, 0 errors**;
+- architecture verification: **passed**;
+- external Win11 demo build, internal smoke and supplied-workbook smoke:
+  **passed**, with the source workbook unchanged.
+
 ## Remaining limits
 
 - Pivot refresh/calculation equivalence, user-mode destination-cell modeling,
@@ -123,6 +139,9 @@ For `EXCEL-BASIC-COMPAT-001` local validation on the current uncommitted tree:
   outside the first Drawing/Media preservation lane.
 - Plugin trust/isolation/recovery, broader performance/security corpora and
   final release acceptance remain incomplete.
+- Split-pane adaptive scrollbar topology, the MAUI adaptive host opt-in and
+  style-only whole-row/whole-column used-tail discovery remain outside
+  `EXCEL-BASIC-NAV-002`.
 
 ## Next single step
 

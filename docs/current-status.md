@@ -271,6 +271,24 @@ Exact-head implementation evidence at commit
 - `sdk-packages` artifact: ID `9921465835`, digest
   `sha256:6b9104ecaba62bdeb480033f374735e707b42389aea977c59c56aedc1fe2bcba`.
 
+## EXCEL-BASIC-NAV-002 — LOCAL IMPLEMENTATION COMPLETE
+
+The reusable viewport and desktop-host navigation gap now has a bounded SDK
+implementation:
+
+- the physical worksheet limits remain unchanged;
+- an opt-in adaptive extent includes used sparse cells, merges, tables,
+  dimension overrides and the active navigation cell;
+- an empty tail expands while it is active and contracts after navigation
+  returns unless workbook content still owns it;
+- WPF and WinForms arrow, Enter and Tab navigation automatically scroll the
+  active cell into view;
+- Viewport 58/58, focused loaded desktop smoke 2/2 and Core solution 1243/1243
+  pass locally; build/analyzers and architecture verification are green.
+
+Split-pane adaptive extent and the MAUI host opt-in remain outside this bounded
+hotfix. Exact-head GitHub Actions evidence is pending.
+
 ## Current boundaries
 
 PR #1 remains **Draft, open and unmerged**. Q003B, Q003C, the defined Q003D
