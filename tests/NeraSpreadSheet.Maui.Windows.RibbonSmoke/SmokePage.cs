@@ -235,7 +235,7 @@ internal sealed class SmokePage : ContentPage
             Require(focusOrigin.Focus(),
                 "The MAUI worksheet focus origin could not receive focus.");
             await Task.Delay(100).ConfigureAwait(true);
-            ribbon.EnterKeyTipMode(focusOrigin);
+            ribbon.EnterKeyTipModeWithFocusOrigin(focusOrigin);
             Require(await ribbon.ProcessKeyTipCharacterAsync('F') &&
                     ribbon.IsBackstageOpen &&
                     ((Grid)ribbon.Content).Children.OfType<VerticalStackLayout>()

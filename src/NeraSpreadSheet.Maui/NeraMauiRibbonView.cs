@@ -166,12 +166,12 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
 
     public RibbonKeyTipScope KeyTipScope => _runtime.KeyTips.Scope;
 
-    public void EnterKeyTipMode() => EnterKeyTipMode(null);
+    public void EnterKeyTipMode() => EnterKeyTipModeWithFocusOrigin(null);
 
     /// <summary>
     /// Enters Key Tips while retaining an optional host focus origin outside this view.
     /// </summary>
-    public void EnterKeyTipMode(VisualElement? focusOrigin)
+    public void EnterKeyTipModeWithFocusOrigin(VisualElement? focusOrigin)
     {
         CaptureKeyTipOrigin(focusOrigin);
         _runtime.KeyTips.Enter();
