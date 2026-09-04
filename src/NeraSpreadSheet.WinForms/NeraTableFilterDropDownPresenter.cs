@@ -125,6 +125,9 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             }
 
             button.Tag = hit;
+            button.Text = hit.IsSorted
+                ? hit.SortDescending == true ? "↓" : "↑"
+                : "▼";
             button.Bounds = ToRectangle(hit.Bounds);
             button.BackColor = ToColor(
                 hit.IsFiltered
@@ -132,7 +135,7 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
                     : _control.RenderTheme.TableFilterButtonBackground);
             button.ForeColor = ToColor(
                 _control.RenderTheme.TableFilterButtonGlyph);
-            button.AccessibleName = GetFilterButtonAccessibleName(hit);
+            button.AccessibleName = $"{GetFilterButtonAccessibleName(hit)}, {GetHeaderStateText(hit)}";
             button.AccessibleDescription =
                 "Mở menu lọc bằng Enter, Space hoặc Alt+mũi tên xuống từ ô đang chọn.";
             button.Visible = true;
@@ -170,6 +173,19 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
         button.Click += OnFilterButtonClick;
         return button;
     }
+
+    private static string GetHeaderStateText(SpreadsheetTableFilterButtonHit hit) =>
+        hit.HeaderState switch
+        {
+            SpreadsheetFilterHeaderState.Filtered => "đang lọc",
+            SpreadsheetFilterHeaderState.Sorted => hit.SortDescending == true
+                ? "đang sắp xếp giảm dần"
+                : "đang sắp xếp tăng dần",
+            SpreadsheetFilterHeaderState.FilteredAndSorted => hit.SortDescending == true
+                ? "đang lọc và sắp xếp giảm dần"
+                : "đang lọc và sắp xếp tăng dần",
+            _ => "chưa lọc hoặc sắp xếp",
+        };
 
     private SpreadsheetTableFilterButtonHit[] GetVisibleButtons()
     {

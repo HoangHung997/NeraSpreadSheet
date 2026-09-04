@@ -30,12 +30,16 @@ public sealed class NeraMauiAutoFilterPagedBindingTests
         CollectionAssert.Contains(
             binding.MenuKinds.ToArray(),
             SpreadsheetAutoFilterMenuKind.Text);
+        Assert.Contains("5 kết quả", binding.AccessibilityAnnouncement);
 
         Assert.IsTrue(await binding.MoveNextPageAsync());
         Assert.AreEqual(2, binding.Items.Count);
         Assert.AreEqual(2, binding.PageOffset);
         Assert.IsTrue(binding.HasPreviousPage);
         Assert.IsTrue(binding.HasNextPage);
+        Assert.IsTrue(await binding.ApplyColumnSortAsync(descending: true));
+        Assert.AreEqual("Value4", fixture.Session.ActiveWorksheet
+            .GetCell(new CellAddress(1, 0)).Value.RawValue);
     }
 
     [TestMethod]

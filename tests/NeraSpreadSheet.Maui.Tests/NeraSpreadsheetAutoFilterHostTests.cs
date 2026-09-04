@@ -23,6 +23,9 @@ public sealed class NeraSpreadsheetAutoFilterHostTests
         Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.CloseFilterSheet)));
         Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.GetDatePageAsync)));
         Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.ApplyRichFilterAsync)));
+        Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.ApplyColumnSortAsync)));
+        Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.ReapplyAsync)));
+        Assert.IsNotNull(type.GetMethod(nameof(NeraSpreadsheetAutoFilterHost.ClearSortAsync)));
         Assert.AreEqual(
             typeof(CollectionView),
             type.GetField("_dateValues", BindingFlags.Instance | BindingFlags.NonPublic)?.FieldType);

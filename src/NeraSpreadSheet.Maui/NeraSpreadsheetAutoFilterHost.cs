@@ -60,6 +60,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
     private VisualElement? _focusBeforeOpen;
     private bool _rebuilding;
     private bool _disposed;
+    private int _keyboardActiveIndex;
 
     public NeraSpreadsheetAutoFilterHost()
     {
@@ -141,6 +142,42 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
         return generation;
     }
 
+    /// <summary>Sorts the open filter column and closes the responsive sheet.</summary>
+    public async Task<bool> ApplyColumnSortAsync(
+        bool descending,
+        string? customList = null,
+        CancellationToken cancellationToken = default)
+    {
+        var binding = _binding ?? throw new InvalidOperationException(
+            "Open the AutoFilter sheet before sorting its column.");
+        var changed = await binding.ApplyColumnSortAsync(
+            descending,
+            customList,
+            cancellationToken);
+        CloseAfterSort(binding);
+        return changed;
+    }
+
+    /// <summary>Reapplies the open filter owner's current sort state.</summary>
+    public async Task<bool> ReapplyAsync(CancellationToken cancellationToken = default)
+    {
+        var binding = _binding ?? throw new InvalidOperationException(
+            "Open the AutoFilter sheet before reapplying its state.");
+        var changed = await binding.ReapplyAsync(cancellationToken);
+        CloseAfterSort(binding);
+        return changed;
+    }
+
+    /// <summary>Clears sort metadata for the open filter owner.</summary>
+    public async Task<bool> ClearSortAsync(CancellationToken cancellationToken = default)
+    {
+        var binding = _binding ?? throw new InvalidOperationException(
+            "Open the AutoFilter sheet before clearing its sort state.");
+        var changed = await binding.ClearSortAsync(cancellationToken);
+        CloseAfterSort(binding);
+        return changed;
+    }
+
     public bool TryOpenForActiveCell()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -183,6 +220,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
         _secondCriterionInput.Text = string.Empty;
         _datePage = null;
         _selectedDateGroups.Clear();
+        _keyboardActiveIndex = 0;
         _search.Unfocus();
         RestoreFocus();
         OnSheetClosedPlatform();
@@ -337,6 +375,9 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
                 fullBounds.Width * zoom,
                 fullBounds.Height * zoom);
             button.CommandParameter = hit;
+            button.Text = hit.IsSorted
+                ? hit.SortDescending == true ? "↓" : "↑"
+                : "▼";
             button.BackgroundColor = ToColor(
                 hit.IsFiltered
                     ? Spreadsheet.RenderTheme.TableFilterButtonActiveBackground
@@ -437,13 +478,27 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
                 hit.HeaderCell,
                 out var target) == true)
         {
-            description = $"Lọc cột {target.ColumnName} trong {target.OwnerName}";
+            description = $"Cột {target.ColumnName} trong {target.OwnerName}, {GetHeaderStateText(target.HeaderState, target.SortDescending)}";
         }
         SemanticProperties.SetDescription(button, description);
         SemanticProperties.SetHint(
             button,
             "Chạm hoặc nhấn Enter để mở danh sách giá trị phân trang.");
     }
+
+    private static string GetHeaderStateText(
+        SpreadsheetFilterHeaderState state,
+        bool? descending) => state switch
+        {
+            SpreadsheetFilterHeaderState.Filtered => "đang lọc",
+            SpreadsheetFilterHeaderState.Sorted => descending == true
+                ? "đang sắp xếp giảm dần"
+                : "đang sắp xếp tăng dần",
+            SpreadsheetFilterHeaderState.FilteredAndSorted => descending == true
+                ? "đang lọc và sắp xếp giảm dần"
+                : "đang lọc và sắp xếp tăng dần",
+            _ => "chưa lọc hoặc sắp xếp",
+        };
 
     private void HideAllButtons()
     {

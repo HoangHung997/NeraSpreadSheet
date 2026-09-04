@@ -10,7 +10,15 @@ public readonly record struct SpreadsheetWorksheetFilterButtonHit(
     int WorksheetColumnIndex,
     CellAddress HeaderCell,
     RectD Bounds,
-    bool IsFiltered);
+    bool IsFiltered,
+    bool IsSorted = false,
+    bool? SortDescending = null)
+{
+    public SpreadsheetFilterHeaderState HeaderState =>
+        IsFiltered
+            ? IsSorted ? SpreadsheetFilterHeaderState.FilteredAndSorted : SpreadsheetFilterHeaderState.Filtered
+            : IsSorted ? SpreadsheetFilterHeaderState.Sorted : SpreadsheetFilterHeaderState.None;
+}
 
 public static class SpreadsheetWorksheetFilterButtonGeometry
 {
@@ -61,6 +69,8 @@ public static class SpreadsheetWorksheetFilterButtonGeometry
         var filteredColumns = filter.Columns
             .Select(static column => column.ColumnOffset)
             .ToHashSet();
+        var sortConditions = filter.SortState?.Conditions
+            .ToDictionary(static condition => condition.ColumnOffset) ?? [];
         var viewport = new RectD(
             0d,
             0d,
@@ -118,7 +128,11 @@ public static class SpreadsheetWorksheetFilterButtonGeometry
                     filter.Range.Top,
                     worksheetColumn),
                 bounds,
-                filteredColumns.Contains(columnOffset)));
+                filteredColumns.Contains(columnOffset),
+                sortConditions.ContainsKey(columnOffset),
+                sortConditions.TryGetValue(columnOffset, out var sortCondition)
+                    ? sortCondition.Descending
+                    : null));
         }
 
         return result;

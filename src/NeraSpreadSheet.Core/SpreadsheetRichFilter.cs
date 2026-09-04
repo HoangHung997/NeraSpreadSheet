@@ -247,6 +247,15 @@ public enum SpreadsheetFilterSortBy
     Icon,
 }
 
+/// <summary>Identifies the non-color state exposed by an AutoFilter header.</summary>
+public enum SpreadsheetFilterHeaderState
+{
+    None = 0,
+    Filtered,
+    Sorted,
+    FilteredAndSorted,
+}
+
 /// <summary>Represents one sort key relative to an AutoFilter range.</summary>
 public sealed record SpreadsheetFilterSortCondition
 {

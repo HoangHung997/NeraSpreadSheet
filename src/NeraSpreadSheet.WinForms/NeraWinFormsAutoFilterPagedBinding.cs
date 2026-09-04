@@ -27,6 +27,7 @@ public sealed class NeraWinFormsAutoFilterPagedBinding :
     private bool _hasNextPage;
     private bool _isSourceTruncated;
     private IReadOnlyList<SpreadsheetAutoFilterMenuKind> _menuKinds = [];
+    private string _accessibilityAnnouncement = string.Empty;
 
     public NeraWinFormsAutoFilterPagedBinding(
         SpreadsheetAutoFilterPagedPresenter presenter,
@@ -99,6 +100,12 @@ public sealed class NeraWinFormsAutoFilterPagedBinding :
         private set => SetField(ref _menuKinds, value);
     }
 
+    public string AccessibilityAnnouncement
+    {
+        get => _accessibilityAnnouncement;
+        private set => SetField(ref _accessibilityAnnouncement, value);
+    }
+
     public Task InitializeAsync(
         CancellationToken cancellationToken = default) =>
         ExecuteAndPublishAsync(
@@ -154,6 +161,20 @@ public sealed class NeraWinFormsAutoFilterPagedBinding :
         ExecuteAndPublishAsync(
             _presenter.ClearVisibleSelectionAsync,
             cancellationToken);
+
+    public Task<bool> ApplyColumnSortAsync(
+        bool descending,
+        string? customList = null,
+        CancellationToken cancellationToken = default) =>
+        ExecuteAndPublishAsync(
+            token => _presenter.ApplyColumnSortAsync(descending, customList, token),
+            cancellationToken);
+
+    public Task<bool> ReapplyAsync(CancellationToken cancellationToken = default) =>
+        ExecuteAndPublishAsync(_presenter.ReapplyAsync, cancellationToken);
+
+    public Task<bool> ClearSortAsync(CancellationToken cancellationToken = default) =>
+        ExecuteAndPublishAsync(_presenter.ClearSortAsync, cancellationToken);
 
     public Task<long> ApplyValueSelectionAsync(
         CancellationToken cancellationToken = default) =>
@@ -284,6 +305,7 @@ public sealed class NeraWinFormsAutoFilterPagedBinding :
             HasNextPage = snapshot.HasNextPage;
             IsSourceTruncated = snapshot.IsSourceTruncated;
             MenuKinds = snapshot.MenuKinds;
+            AccessibilityAnnouncement = snapshot.AccessibilityAnnouncement;
             OnPropertyChanged(nameof(Target));
         });
     }

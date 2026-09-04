@@ -36,13 +36,15 @@ public sealed class PagedAutoFilterNativeBindingsTests
             CollectionAssert.Contains(
                 binding.MenuKinds.ToArray(),
                 SpreadsheetAutoFilterMenuKind.Text);
+            Assert.Contains("5 kết quả", binding.AccessibilityAnnouncement);
             Assert.IsTrue(await binding.MoveNextPageAsync());
             Assert.AreEqual(2, binding.Items.Count);
             Assert.AreEqual(2, binding.PageOffset);
+            Assert.IsTrue(await binding.ApplyColumnSortAsync(descending: true));
             await binding.ApplyRichFilterAsync(
                 new SpreadsheetAutoFilterRichCriterion(
                     topBottom: new SpreadsheetTopBottomFilter(true, false, 2)));
-            Assert.AreEqual(1, fixture.Session.History.UndoCount);
+            Assert.AreEqual(2, fixture.Session.History.UndoCount);
         });
     }
 
@@ -69,13 +71,15 @@ public sealed class PagedAutoFilterNativeBindingsTests
             CollectionAssert.Contains(
                 binding.MenuKinds.ToArray(),
                 SpreadsheetAutoFilterMenuKind.Text);
+            Assert.Contains("5 kết quả", binding.AccessibilityAnnouncement);
             Assert.IsTrue(await binding.MoveNextPageAsync());
             Assert.AreEqual(2, binding.Items.Count);
             Assert.AreEqual(2, binding.PageOffset);
+            Assert.IsTrue(await binding.ApplyColumnSortAsync(descending: true));
             await binding.ApplyRichFilterAsync(
                 new SpreadsheetAutoFilterRichCriterion(
                     topBottom: new SpreadsheetTopBottomFilter(true, false, 2)));
-            Assert.AreEqual(1, fixture.Session.History.UndoCount);
+            Assert.AreEqual(2, fixture.Session.History.UndoCount);
         });
     }
 
@@ -147,6 +151,16 @@ public sealed class PagedAutoFilterNativeBindingsTests
                 Assert.AreEqual(
                     "NeraAutoFilterPagedCriterion",
                     System.Windows.Automation.AutomationProperties.GetAutomationId(criterion));
+                var popup = GetPrivateField<System.Windows.Controls.Primitives.Popup>(
+                    presenter,
+                    "_popup");
+                var automationIds = EnumerateWpfElements(popup.Child)
+                    .Select(System.Windows.Automation.AutomationProperties.GetAutomationId)
+                    .ToArray();
+                CollectionAssert.Contains(automationIds, "NeraAutoFilterSortAscending");
+                CollectionAssert.Contains(automationIds, "NeraAutoFilterSortDescending");
+                CollectionAssert.Contains(automationIds, "NeraAutoFilterReapply");
+                CollectionAssert.Contains(automationIds, "NeraAutoFilterClearSort");
                 Assert.IsTrue(values.Count <= 100);
             }
             finally
@@ -192,6 +206,18 @@ public sealed class PagedAutoFilterNativeBindingsTests
                 kinds.DropDownStyle);
             Assert.IsFalse(string.IsNullOrWhiteSpace(kinds.AccessibleName));
             Assert.IsFalse(string.IsNullOrWhiteSpace(criterion.AccessibleName));
+            var dropDown = GetPrivateField<System.Windows.Forms.ToolStripDropDown>(
+                presenter,
+                "_dropDown");
+            var panel = ((System.Windows.Forms.ToolStripControlHost)dropDown.Items[0]).Control;
+            var buttonLabels = EnumerateWinFormsControls(panel)
+                .OfType<System.Windows.Forms.Button>()
+                .Select(button => button.Text)
+                .ToArray();
+            CollectionAssert.Contains(buttonLabels, "Sắp xếp ↑");
+            CollectionAssert.Contains(buttonLabels, "Sắp xếp ↓");
+            CollectionAssert.Contains(buttonLabels, "Áp dụng lại");
+            CollectionAssert.Contains(buttonLabels, "Xóa SX");
             Assert.IsTrue(values.Items.Count <= 100);
         });
     }
@@ -529,6 +555,33 @@ public sealed class PagedAutoFilterNativeBindingsTests
             BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(instance)
             ?? throw new AssertFailedException(
                 $"Field '{fieldName}' was not initialized."));
+
+    private static IEnumerable<System.Windows.DependencyObject> EnumerateWpfElements(
+        System.Windows.DependencyObject root)
+    {
+        yield return root;
+        foreach (var child in System.Windows.LogicalTreeHelper.GetChildren(root)
+                     .OfType<System.Windows.DependencyObject>())
+        {
+            foreach (var descendant in EnumerateWpfElements(child))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private static IEnumerable<System.Windows.Forms.Control> EnumerateWinFormsControls(
+        System.Windows.Forms.Control root)
+    {
+        yield return root;
+        foreach (System.Windows.Forms.Control child in root.Controls)
+        {
+            foreach (var descendant in EnumerateWinFormsControls(child))
+            {
+                yield return descendant;
+            }
+        }
+    }
 
     private static void InvokePrivate(object instance, string methodName) =>
         (instance.GetType().GetMethod(

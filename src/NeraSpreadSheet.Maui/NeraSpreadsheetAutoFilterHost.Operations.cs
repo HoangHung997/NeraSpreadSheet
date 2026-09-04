@@ -318,6 +318,49 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         });
     }
 
+    private async Task SortAndCloseAsync(
+        bool descending,
+        string? customList,
+        CancellationToken token)
+    {
+        var binding = _binding;
+        if (binding is null) return;
+        await binding.ApplyColumnSortAsync(
+            descending,
+            customList?.Contains(',', StringComparison.Ordinal) == true
+                ? customList
+                : null,
+            token);
+        CloseAfterSort(binding);
+    }
+
+    private async Task ReapplyAndCloseAsync(CancellationToken token)
+    {
+        var binding = _binding;
+        if (binding is null) return;
+        await binding.ReapplyAsync(token);
+        CloseAfterSort(binding);
+    }
+
+    private async Task ClearSortAndCloseAsync(CancellationToken token)
+    {
+        var binding = _binding;
+        if (binding is null) return;
+        await binding.ClearSortAsync(token);
+        CloseAfterSort(binding);
+    }
+
+    private void CloseAfterSort(NeraMauiAutoFilterPagedBinding binding)
+    {
+        if (!ReferenceEquals(_binding, binding)) return;
+        Dispatcher.Dispatch(() =>
+        {
+            CloseFilterSheet();
+            _viewport?.InvalidateMetrics();
+            UpdateButtons();
+        });
+    }
+
     private void CancelOperations()
     {
         CancellationTokenSource[] operations;

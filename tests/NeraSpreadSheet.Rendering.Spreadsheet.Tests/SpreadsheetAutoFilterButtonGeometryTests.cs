@@ -134,6 +134,42 @@ public sealed class SpreadsheetAutoFilterButtonGeometryTests
         CollectionAssert.AreEqual(fromSnapshot.ToArray(), fromMetadata.ToArray());
     }
 
+    [TestMethod]
+    public void HeaderButtonsExposeFilteredSortedAndCombinedStates()
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        var tableId = Guid.NewGuid();
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        worksheet.AddTable(new SpreadsheetTable(
+            tableId,
+            "Sales",
+            new CellRange(new CellAddress(0, 0), new CellAddress(3, 1)),
+            [
+                new SpreadsheetTableColumn(firstId, "Status"),
+                new SpreadsheetTableColumn(secondId, "Amount"),
+            ],
+            autoFilter: new TableAutoFilter(
+                [new TableFilterColumn(firstId, [CellValue.FromText("Open")])],
+                new SpreadsheetFilterSortState([
+                    new SpreadsheetFilterSortCondition(0, descending: true),
+                    new SpreadsheetFilterSortCondition(1),
+                ]))));
+
+        var buttons = SpreadsheetAutoFilterButtonGeometry.GetVisibleButtons(
+            worksheet.Tables,
+            worksheet.AutoFilter,
+            CreateLayout());
+
+        var combined = buttons.Single(button => button.TableColumnId == firstId);
+        Assert.AreEqual(SpreadsheetFilterHeaderState.FilteredAndSorted, combined.HeaderState);
+        Assert.IsTrue(combined.SortDescending);
+        var sorted = buttons.Single(button => button.TableColumnId == secondId);
+        Assert.AreEqual(SpreadsheetFilterHeaderState.Sorted, sorted.HeaderState);
+        Assert.IsFalse(sorted.SortDescending);
+    }
+
     private static ViewportLayout CreateLayout() =>
         new(
             0d,

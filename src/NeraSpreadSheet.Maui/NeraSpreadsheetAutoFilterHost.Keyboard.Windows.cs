@@ -1,4 +1,5 @@
 #if WINDOWS
+using Microsoft.Maui.Controls;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -104,6 +105,18 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
                     }
                 }));
                 e.Handled = true;
+                return;
+            }
+            if (e.Key is VirtualKey.Up or VirtualKey.Down or VirtualKey.Home or VirtualKey.End)
+            {
+                Dispatcher.Dispatch(() => MoveValueKeyboardFocus(e.Key));
+                e.Handled = true;
+                return;
+            }
+            if (e.Key is VirtualKey.Space or VirtualKey.Enter)
+            {
+                Dispatcher.Dispatch(ToggleKeyboardValue);
+                e.Handled = true;
             }
             return;
         }
@@ -113,6 +126,44 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             Dispatcher.Dispatch(() => TryOpenForActiveCell());
             e.Handled = true;
         }
+    }
+
+    private void MoveValueKeyboardFocus(VirtualKey key)
+    {
+        var binding = _binding;
+        if (binding is null || binding.Items.Count == 0 ||
+            GetSelectedMenuKind(binding) != SpreadsheetAutoFilterMenuKind.Values)
+        {
+            return;
+        }
+        _keyboardActiveIndex = key switch
+        {
+            VirtualKey.Home => 0,
+            VirtualKey.End => binding.Items.Count - 1,
+            VirtualKey.Up => Math.Max(0, _keyboardActiveIndex - 1),
+            _ => Math.Min(binding.Items.Count - 1, _keyboardActiveIndex + 1),
+        };
+        _values.ScrollTo(_keyboardActiveIndex, position: ScrollToPosition.MakeVisible, animate: false);
+        SemanticProperties.SetHint(
+            _values,
+            $"Mục {_keyboardActiveIndex + 1:N0}/{binding.Items.Count:N0}: {binding.Items[_keyboardActiveIndex].DisplayText}");
+    }
+
+    private void ToggleKeyboardValue()
+    {
+        var binding = _binding;
+        if (binding is null || binding.Items.Count == 0 ||
+            GetSelectedMenuKind(binding) != SpreadsheetAutoFilterMenuKind.Values)
+        {
+            return;
+        }
+        var index = Math.Clamp(_keyboardActiveIndex, 0, binding.Items.Count - 1);
+        var selected = !binding.Items[index].IsSelected;
+        StartOperation(async token =>
+        {
+            await binding.SetSelectedAsync(index, selected, token);
+            if (ReferenceEquals(_binding, binding)) UpdateSheetState();
+        });
     }
 
     private async Task<bool> MovePageFromKeyboardAsync(

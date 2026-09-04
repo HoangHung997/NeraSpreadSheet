@@ -61,6 +61,8 @@ public sealed class SpreadsheetAutoFilterPagedPresenterTests
 
         await presenter.InitializeAsync();
         var page = presenter.Capture();
+        Assert.AreEqual(3, page.ResultRowCount);
+        Assert.Contains("3 kết quả", page.AccessibilityAnnouncement);
         var southIndex = page.Values
             .Select((item, index) => (item, index))
             .Single(pair => pair.item.DisplayText == "South")
@@ -119,6 +121,55 @@ public sealed class SpreadsheetAutoFilterPagedPresenterTests
             CellValue.FromText("Value1"));
         Assert.AreEqual(3, values.Count);
         Assert.AreEqual(1, fixture.Session.History.UndoCount);
+    }
+
+    [TestMethod]
+    public async Task PresenterSortsReappliesAndAnnouncesHeaderStateAndResultCount()
+    {
+        var fixture = CreateTableFixture(5);
+        fixture.Session.WorksheetFilter.Clear();
+        Assert.IsTrue(fixture.Session.TryResolveActiveAutoFilterTarget(out var target));
+        fixture.Session.Structure.InsertColumns(0);
+        await using var presenter = new SpreadsheetAutoFilterPagedPresenter(
+            fixture.Session,
+            target,
+            pageSize: 5);
+
+        await presenter.InitializeAsync();
+        Assert.AreEqual(5, presenter.Capture().ResultRowCount);
+        Assert.IsTrue(await presenter.ApplyColumnSortAsync(descending: true));
+        Assert.AreEqual("Value4", fixture.Session.ActiveWorksheet
+            .GetCell(new CellAddress(1, 1)).Value.RawValue);
+        Assert.IsTrue(await presenter.ClearSortAsync());
+        Assert.IsFalse(await presenter.ClearSortAsync());
+
+        Assert.IsTrue(fixture.Session.TryResolveActiveAutoFilterTarget(out var sortedTarget));
+        Assert.AreEqual(SpreadsheetFilterHeaderState.None, sortedTarget.HeaderState);
+        Assert.Contains("5 kết quả", presenter.Capture().AccessibilityAnnouncement);
+    }
+
+    [TestMethod]
+    public async Task ConcurrentSortAndClearAreSerializedWithoutPartialMetadata()
+    {
+        var fixture = CreateTableFixture(250);
+        Assert.IsTrue(fixture.Session.TryResolveActiveAutoFilterTarget(out var target));
+        await using var presenter = new SpreadsheetAutoFilterPagedPresenter(
+            fixture.Session,
+            target,
+            pageSize: 25);
+        await presenter.InitializeAsync();
+
+        var sort = presenter.ApplyColumnSortAsync(descending: true);
+        var clear = presenter.ClearSortAsync();
+        await Task.WhenAll(sort, clear);
+
+        Assert.IsTrue(sort.Result);
+        Assert.IsTrue(clear.Result);
+        Assert.AreEqual(2, fixture.Session.History.UndoCount);
+        Assert.IsNull(fixture.Session.ActiveWorksheet.Tables.Single()
+            .AutoFilter!.SortState);
+        Assert.AreEqual("Value99", fixture.Session.ActiveWorksheet
+            .GetCell(new CellAddress(1, 0)).Value.RawValue);
     }
 
     private static Fixture CreateTableFixture(int valueCount)

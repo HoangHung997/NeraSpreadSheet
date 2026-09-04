@@ -33,6 +33,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private bool _filterApplied;
     private bool _undoRedoVerified;
     private bool _pagedRichSurfaceVerified;
+    private bool _pagedSortVerified;
     private bool _disposed;
     private string? _semanticDescription;
 
@@ -124,6 +125,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
             await Task.Delay(350, timeout.Token).ConfigureAwait(false);
             await DispatchAsync(ValidatePagedRichSurface)
                 .ConfigureAwait(false);
+            await DispatchAsync(_pagedHost.CloseFilterSheet)
+                .ConfigureAwait(false);
 
             await DispatchAsync(OpenFilterAndValidateHost)
                 .ConfigureAwait(false);
@@ -152,6 +155,20 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 .ConfigureAwait(false);
             await DispatchAsync(ValidateClosedFocusState)
                 .ConfigureAwait(false);
+
+            await DispatchAsync(OpenPagedRichSurface)
+                .ConfigureAwait(false);
+            Require(await _pagedHost.ApplyColumnSortAsync(
+                    descending: true,
+                    cancellationToken: timeout.Token).ConfigureAwait(false),
+                "The loaded paged host did not execute descending sort.");
+            await Task.Delay(100, timeout.Token).ConfigureAwait(false);
+            Require(!_pagedHost.IsFilterSheetOpen,
+                "The paged filter sheet remained open after sorting.");
+            Require(_worksheet.Tables.Single().AutoFilter?.SortState?
+                    .Conditions.Single().Descending == true,
+                "The loaded paged sort did not publish descending header state.");
+            _pagedSortVerified = true;
 
             _focusTransitionsVerified = true;
             CompleteSuccessfully();
@@ -214,7 +231,6 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Require(criterion.Handler?.PlatformView is not null &&
                 criterion.AutomationId == "NeraAutoFilterPagedCriterion",
             "The loaded rich criterion editor was not available.");
-        _pagedHost.CloseFilterSheet();
         _pagedRichSurfaceVerified = true;
     }
 
@@ -446,6 +462,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             filterApplied = _filterApplied,
             undoRedoVerified = _undoRedoVerified,
             pagedRichSurfaceVerified = _pagedRichSurfaceVerified,
+            pagedSortVerified = _pagedSortVerified,
             semanticDescription = _semanticDescription,
             cachedTypefaces = _host.Spreadsheet.CachedTypefaceCount,
             contextGeneration =

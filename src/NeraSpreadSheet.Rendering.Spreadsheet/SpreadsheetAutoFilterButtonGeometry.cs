@@ -19,7 +19,15 @@ public readonly record struct SpreadsheetAutoFilterButtonHit(
     int WorksheetColumnIndex,
     CellAddress HeaderCell,
     RectD Bounds,
-    bool IsFiltered);
+    bool IsFiltered,
+    bool IsSorted = false,
+    bool? SortDescending = null)
+{
+    public SpreadsheetFilterHeaderState HeaderState =>
+        IsFiltered
+            ? IsSorted ? SpreadsheetFilterHeaderState.FilteredAndSorted : SpreadsheetFilterHeaderState.Filtered
+            : IsSorted ? SpreadsheetFilterHeaderState.Sorted : SpreadsheetFilterHeaderState.None;
+}
 
 /// <summary>
 /// Produces one shared filter-button stream for Table and direct worksheet
@@ -83,7 +91,9 @@ public static class SpreadsheetAutoFilterButtonGeometry
                 button.HeaderCell.ColumnIndex,
                 button.HeaderCell,
                 button.Bounds,
-                button.IsFiltered));
+                button.IsFiltered,
+                button.IsSorted,
+                button.SortDescending));
         }
         result.AddRange(worksheetButtons.Select(static button =>
             new SpreadsheetAutoFilterButtonHit(
@@ -95,7 +105,9 @@ public static class SpreadsheetAutoFilterButtonGeometry
                 button.WorksheetColumnIndex,
                 button.HeaderCell,
                 button.Bounds,
-                button.IsFiltered)));
+                button.IsFiltered,
+                button.IsSorted,
+                button.SortDescending)));
         return result;
     }
 

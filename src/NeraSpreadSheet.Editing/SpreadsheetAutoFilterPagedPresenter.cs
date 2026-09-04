@@ -11,10 +11,35 @@ public sealed record SpreadsheetAutoFilterPagedPresenterSnapshot(
     int TotalItemCount,
     bool IsInitialized,
     bool IsSourceTruncated,
+    int ResultRowCount,
+    bool IsResultCountTruncated,
     bool HasPreviousPage,
     bool HasNextPage,
     IReadOnlyList<SpreadsheetAutoFilterMenuKind> MenuKinds,
-    IReadOnlyList<SpreadsheetTableFilterValueItem> Values);
+    IReadOnlyList<SpreadsheetTableFilterValueItem> Values)
+{
+    public string AccessibilityAnnouncement
+    {
+        get
+        {
+            var state = Target.HeaderState switch
+            {
+                SpreadsheetFilterHeaderState.Filtered => "đang lọc",
+                SpreadsheetFilterHeaderState.Sorted => Target.SortDescending == true
+                    ? "đang sắp xếp giảm dần"
+                    : "đang sắp xếp tăng dần",
+                SpreadsheetFilterHeaderState.FilteredAndSorted => Target.SortDescending == true
+                    ? "đang lọc và sắp xếp giảm dần"
+                    : "đang lọc và sắp xếp tăng dần",
+                _ => "chưa lọc hoặc sắp xếp",
+            };
+            var count = IsResultCountTruncated
+                ? $"ít nhất {ResultRowCount:N0} kết quả"
+                : $"{ResultRowCount:N0} kết quả";
+            return $"Cột {Target.ColumnName} trong {Target.OwnerName}, {state}, {count}.";
+        }
+    }
+}
 
 /// <summary>
 /// UI-neutral current-page coordinator shared by WPF, WinForms and MAUI.
@@ -27,6 +52,9 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
 {
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private readonly SpreadsheetAutoFilterPagedView _view;
+    private readonly SpreadsheetSortController? _sortController;
+    private readonly SpreadsheetSession? _session;
+    private readonly int _maximumRows;
     private readonly object _stateGate = new();
 
     private SpreadsheetAutoFilterPagedPage? _page;
@@ -49,12 +77,16 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
                     maximumDistinctValues),
                 pageSize))
     {
+        _sortController = session.Sort;
+        _session = session;
+        _maximumRows = maximumRows;
     }
 
     public SpreadsheetAutoFilterPagedPresenter(
         SpreadsheetAutoFilterPagedView view)
     {
         _view = view ?? throw new ArgumentNullException(nameof(view));
+        _maximumRows = SpreadsheetTablePresenterController.DefaultMaximumRows;
     }
 
     public event EventHandler? Changed;
@@ -83,9 +115,12 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
             var page = await _view.GetPageAsync(
                 0,
                 cancellationToken).ConfigureAwait(false);
+            var resultCount = await CountVisibleRowsAsync(cancellationToken)
+                .ConfigureAwait(false);
             lock (_stateGate)
             {
                 _page = page;
+                (_resultRowCount, _isResultCountTruncated) = resultCount;
             }
         }
         finally
@@ -109,9 +144,12 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
             var page = await _view.GetPageAsync(
                 0,
                 cancellationToken).ConfigureAwait(false);
+            var resultCount = await CountVisibleRowsAsync(cancellationToken)
+                .ConfigureAwait(false);
             lock (_stateGate)
             {
                 _page = page;
+                (_resultRowCount, _isResultCountTruncated) = resultCount;
             }
         }
         finally
@@ -271,6 +309,59 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Physically sorts the current AutoFilter owner using one or more ordered keys.</summary>
+    public Task<bool> ApplySortAsync(
+        SpreadsheetFilterSortState sortState,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sortState);
+        return ExecuteSortMutationAsync(
+            controller => controller.SortAutoFilter(
+                ResolveCurrentTarget(),
+                sortState),
+            cancellationToken);
+    }
+
+    /// <summary>Sorts the target column in ascending or descending order.</summary>
+    public Task<bool> ApplyColumnSortAsync(
+        bool descending,
+        string? customList = null,
+        CancellationToken cancellationToken = default) =>
+        ApplyColumnSortCoreAsync(descending, customList, cancellationToken);
+
+    /// <summary>Reapplies the current owner sort after resolving its latest structural identity.</summary>
+    public Task<bool> ReapplyAsync(
+        CancellationToken cancellationToken = default) =>
+        ExecuteSortMutationAsync(
+            controller => controller.ReapplyAutoFilter(ResolveCurrentTarget()),
+            cancellationToken);
+
+    /// <summary>Clears sort metadata without attempting to reverse the physical row order.</summary>
+    public Task<bool> ClearSortAsync(
+        CancellationToken cancellationToken = default) =>
+        ExecuteSortMutationAsync(
+            controller => controller.ClearAutoFilterSort(ResolveCurrentTarget()),
+            cancellationToken);
+
+    private Task<bool> ApplyColumnSortCoreAsync(
+        bool descending,
+        string? customList,
+        CancellationToken cancellationToken) =>
+        ExecuteSortMutationAsync(
+            controller =>
+            {
+                var currentTarget = ResolveCurrentTarget();
+                return controller.SortAutoFilter(
+                    currentTarget,
+                    new SpreadsheetFilterSortState([
+                        new SpreadsheetFilterSortCondition(
+                            currentTarget.ColumnOffset,
+                            descending,
+                            customList: customList),
+                    ]));
+            },
+            cancellationToken);
+
     public void Dispose()
     {
         lock (_stateGate)
@@ -422,14 +513,45 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
         return generation;
     }
 
+    private async Task<bool> ExecuteSortMutationAsync(
+        Func<SpreadsheetSortController, bool> mutation,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(mutation);
+        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        bool changed;
+        try
+        {
+            ThrowIfDisposed();
+            cancellationToken.ThrowIfCancellationRequested();
+            var controller = _sortController ?? throw new InvalidOperationException(
+                "This presenter was created from a detached paged view and cannot mutate sort state.");
+            changed = mutation(controller);
+            lock (_stateGate)
+            {
+                _page = null;
+            }
+        }
+        finally
+        {
+            _operationGate.Release();
+        }
+        if (changed)
+        {
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+        return changed;
+    }
+
     private SpreadsheetAutoFilterPagedPresenterSnapshot
         CreateSnapshotUnsafe()
     {
+        var currentTarget = ResolveCurrentTarget();
         if (_page is null)
         {
             var viewSnapshot = _view.Capture();
             return new SpreadsheetAutoFilterPagedPresenterSnapshot(
-                Target,
+                currentTarget,
                 viewSnapshot.Generation,
                 viewSnapshot.SearchText,
                 0,
@@ -437,6 +559,8 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
                 viewSnapshot.TotalItemCount,
                 false,
                 viewSnapshot.IsSourceTruncated,
+                _resultRowCount,
+                _isResultCountTruncated,
                 false,
                 false,
                 viewSnapshot.MenuKinds,
@@ -444,7 +568,7 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
         }
 
         return new SpreadsheetAutoFilterPagedPresenterSnapshot(
-            Target,
+            currentTarget,
             _page.Generation,
             _page.SearchText,
             _page.Offset,
@@ -452,10 +576,47 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
             _page.TotalVisibleValueCount,
             true,
             _page.IsSourceTruncated,
+            _resultRowCount,
+            _isResultCountTruncated,
             _page.HasPreviousPage,
             _page.HasNextPage,
             _page.MenuKinds,
             _page.Values);
+    }
+
+    private SpreadsheetAutoFilterTarget ResolveCurrentTarget()
+    {
+        if (_session is null)
+        {
+            return Target;
+        }
+        if (Target.OwnerKind == SpreadsheetAutoFilterOwnerKind.Table &&
+            Target.TableId is Guid tableId &&
+            Target.TableColumnId is Guid columnId &&
+            _session.ActiveWorksheet.TryGetTable(tableId, out var table) &&
+            table is not null &&
+            table.TryGetColumn(columnId, out _))
+        {
+            var columnOffset = table.GetColumnIndex(columnId);
+            var address = new CellAddress(
+                table.Range.Top,
+                table.Range.Left + columnOffset);
+            if (_session.TryResolveAutoFilterTarget(address, out var refreshed))
+            {
+                return refreshed;
+            }
+        }
+        if (Target.OwnerKind == SpreadsheetAutoFilterOwnerKind.Worksheet &&
+            _session.ActiveWorksheet.AutoFilter is { } filter)
+        {
+            var offset = Math.Min(Target.ColumnOffset, filter.Range.ColumnCount - 1);
+            var address = new CellAddress(filter.Range.Top, filter.Range.Left + offset);
+            if (_session.TryResolveAutoFilterTarget(address, out var refreshed))
+            {
+                return refreshed;
+            }
+        }
+        return Target;
     }
 
     private SpreadsheetAutoFilterPagedPage RequirePageUnsafe() =>
@@ -473,5 +634,43 @@ public sealed class SpreadsheetAutoFilterPagedPresenter :
     private void EnsureNotDisposedUnsafe()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+    }
+
+    private int _resultRowCount;
+    private bool _isResultCountTruncated;
+
+    private Task<(int Count, bool Truncated)> CountVisibleRowsAsync(
+        CancellationToken cancellationToken)
+    {
+        if (_session is null)
+        {
+            return Task.FromResult((0, false));
+        }
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var worksheet = _session.ActiveWorksheet;
+            CellRange? dataRange = Target.OwnerKind switch
+            {
+                SpreadsheetAutoFilterOwnerKind.Table when
+                    Target.TableId is Guid tableId &&
+                    worksheet.TryGetTable(tableId, out var table) => table?.DataRange,
+                SpreadsheetAutoFilterOwnerKind.Worksheet => worksheet.AutoFilter?.DataRange,
+                _ => null,
+            };
+            if (dataRange is not { } range)
+            {
+                return (0, false);
+            }
+            var snapshot = WorksheetSnapshot.Capture(worksheet);
+            var limit = Math.Min(range.RowCount, _maximumRows);
+            var visible = 0;
+            for (var offset = 0; offset < limit; offset++)
+            {
+                if ((offset & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
+                if (snapshot.IsRowVisible(range.Top + offset)) visible++;
+            }
+            return (visible, range.RowCount > limit);
+        }, cancellationToken);
     }
 }

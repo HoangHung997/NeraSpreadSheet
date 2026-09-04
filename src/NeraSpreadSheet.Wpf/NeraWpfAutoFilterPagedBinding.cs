@@ -28,6 +28,7 @@ public sealed class NeraWpfAutoFilterPagedBinding :
     private bool _hasNextPage;
     private bool _isSourceTruncated;
     private IReadOnlyList<SpreadsheetAutoFilterMenuKind> _menuKinds = [];
+    private string _accessibilityAnnouncement = string.Empty;
 
     public NeraWpfAutoFilterPagedBinding(
         SpreadsheetAutoFilterPagedPresenter presenter,
@@ -102,6 +103,12 @@ public sealed class NeraWpfAutoFilterPagedBinding :
         private set => SetField(ref _menuKinds, value);
     }
 
+    public string AccessibilityAnnouncement
+    {
+        get => _accessibilityAnnouncement;
+        private set => SetField(ref _accessibilityAnnouncement, value);
+    }
+
     public async Task InitializeAsync(
         CancellationToken cancellationToken = default)
     {
@@ -173,6 +180,20 @@ public sealed class NeraWpfAutoFilterPagedBinding :
             _presenter.ClearVisibleSelectionAsync,
             cancellationToken).ConfigureAwait(false);
     }
+
+    public Task<bool> ApplyColumnSortAsync(
+        bool descending,
+        string? customList = null,
+        CancellationToken cancellationToken = default) =>
+        ExecuteAndPublishAsync(
+            token => _presenter.ApplyColumnSortAsync(descending, customList, token),
+            cancellationToken);
+
+    public Task<bool> ReapplyAsync(CancellationToken cancellationToken = default) =>
+        ExecuteAndPublishAsync(_presenter.ReapplyAsync, cancellationToken);
+
+    public Task<bool> ClearSortAsync(CancellationToken cancellationToken = default) =>
+        ExecuteAndPublishAsync(_presenter.ClearSortAsync, cancellationToken);
 
     public async Task<long> ApplyValueSelectionAsync(
         CancellationToken cancellationToken = default)
@@ -298,6 +319,7 @@ public sealed class NeraWpfAutoFilterPagedBinding :
             HasNextPage = snapshot.HasNextPage;
             IsSourceTruncated = snapshot.IsSourceTruncated;
             MenuKinds = snapshot.MenuKinds;
+            AccessibilityAnnouncement = snapshot.AccessibilityAnnouncement;
             OnPropertyChanged(nameof(Target));
         });
     }
