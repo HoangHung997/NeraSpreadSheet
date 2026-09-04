@@ -6,6 +6,11 @@ public sealed class CommandRegistry
 
     public int Count => _entries.Count;
 
+    /// <summary>
+    /// Gets a point-in-time snapshot of every registered command identity.
+    /// </summary>
+    public IReadOnlyCollection<CommandId> RegisteredCommandIds => _entries.Keys.ToArray();
+
     public void Register(CommandDescriptor descriptor, ICommandHandler handler)
     {
         ArgumentNullException.ThrowIfNull(descriptor);

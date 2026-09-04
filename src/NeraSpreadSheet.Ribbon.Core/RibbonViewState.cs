@@ -35,6 +35,10 @@ public static class RibbonViewStateJsonSerializer
         try
         {
             using var document = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 8 });
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                throw new InvalidDataException("Ribbon view-state JSON root must be an object.");
+            }
             string[] duplicates = document.RootElement.EnumerateObject()
                 .GroupBy(static property => property.Name, StringComparer.Ordinal)
                 .Where(static group => group.Count() > 1)
