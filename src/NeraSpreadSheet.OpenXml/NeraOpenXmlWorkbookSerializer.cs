@@ -160,6 +160,8 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 ? ExcelDateSystem.Date1904
                 : ExcelDateSystem.Date1900,
         };
+        OpenXmlWorkbookThemeCodec.Read(workbookPart, workbook);
+        OpenXmlTableStyleCodec.Read(workbookPart, workbook);
         var exactStyleState = NeraOpenXmlStyleStateCodec.Read(workbookPart);
         if (exactStyleState is not null)
         {
@@ -174,7 +176,8 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         var differentialStyles =
             OpenXmlConditionalFormattingCodec.ReadDifferentialStyles(
                 workbookPart,
-                options.PreserveUnknownParts);
+                options.PreserveUnknownParts,
+                workbook.Theme);
         var sharedStrings =
             workbookPart.SharedStringTablePart?.SharedStringTable;
 
@@ -281,6 +284,8 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
             OpenXmlConditionalFormattingCodec.WriteDifferentialStyles(
                 workbookPart,
                 workbook);
+        OpenXmlWorkbookThemeCodec.Write(workbookPart, workbook.Theme);
+        OpenXmlTableStyleCodec.Write(workbookPart, workbook);
         uint sheetId = 1;
         uint tableId = 1;
 

@@ -9,6 +9,7 @@ public sealed class Workbook
         SearchValues.Create("[]:*?/\\");
     private readonly List<Worksheet> _worksheets = [];
     private ExcelDateSystem _dateSystem;
+    private WorkbookTheme _theme = WorkbookTheme.Office;
 
     public Workbook()
         : this(createDefaultWorksheet: true)
@@ -17,6 +18,7 @@ public sealed class Workbook
 
     public Workbook(bool createDefaultWorksheet)
     {
+        TableStyles = new TableStyleCatalog(NotifyAppearanceChanged);
         if (createDefaultWorksheet)
         {
             _worksheets.Add(new Worksheet("Sheet1", this));
@@ -29,6 +31,23 @@ public sealed class Workbook
         _worksheets.SelectMany(static worksheet => worksheet.Tables);
 
     public CellStyleCatalog Styles { get; } = new();
+
+    public TableStyleCatalog TableStyles { get; }
+
+    public WorkbookTheme Theme
+    {
+        get => _theme;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            if (_theme == value)
+            {
+                return;
+            }
+            _theme = value;
+            NotifyAppearanceChanged();
+        }
+    }
 
     public ExcelDateSystem DateSystem
     {
@@ -179,6 +198,15 @@ public sealed class Workbook
     }
 
     internal void NotifyTableCollectionChanged() => Version++;
+
+    private void NotifyAppearanceChanged()
+    {
+        Version++;
+        foreach (var worksheet in _worksheets)
+        {
+            worksheet.InvalidateWorkbookAppearance();
+        }
+    }
 
     private string GenerateUniqueName(string prefix)
     {

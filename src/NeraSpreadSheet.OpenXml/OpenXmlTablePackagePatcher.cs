@@ -82,6 +82,7 @@ internal static class OpenXmlTablePackagePatcher
             var generatedWorkbookPart = generatedDocument.WorkbookPart
                 ?? throw new InvalidDataException(
                     "The generated package is missing its workbook part.");
+            PatchTheme(outputWorkbookPart, generatedWorkbookPart);
             var differentialStyleMap =
                 OpenXmlDifferentialStyleRemapper.MergeGeneratedStyles(
                     outputWorkbookPart,
@@ -110,6 +111,39 @@ internal static class OpenXmlTablePackagePatcher
         }
 
         return preservedStream.ToArray();
+    }
+
+    private static void PatchTheme(
+        WorkbookPart outputWorkbookPart,
+        WorkbookPart generatedWorkbookPart)
+    {
+        var generatedTheme = generatedWorkbookPart.ThemePart;
+        if (generatedTheme is null)
+        {
+            return;
+        }
+        var outputTheme = outputWorkbookPart.ThemePart;
+        if (outputTheme is not null && string.Equals(
+                GetThemeColorSchemeSignature(outputTheme),
+                GetThemeColorSchemeSignature(generatedTheme),
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+        outputTheme ??= outputWorkbookPart.AddNewPart<ThemePart>();
+        CopyPartContent(generatedTheme, outputTheme);
+    }
+
+    private static string GetThemeColorSchemeSignature(ThemePart part)
+    {
+        var document = LoadPartXml(part);
+        var root = document.Root;
+        XNamespace drawingNamespace =
+            "http://schemas.openxmlformats.org/drawingml/2006/main";
+        return root?
+            .Element(drawingNamespace + "themeElements")?
+            .Element(drawingNamespace + "clrScheme")?
+            .ToString(SaveOptions.DisableFormatting) ?? string.Empty;
     }
 
     private static WorksheetPart[] GetWorksheetParts(

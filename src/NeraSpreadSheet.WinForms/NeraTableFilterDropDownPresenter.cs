@@ -115,6 +115,19 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
         var visibleKeys = new HashSet<(Guid, Guid)>();
         foreach (var hit in hits)
         {
+            var session = _control.Session;
+            var table = session?.ActiveWorksheet.Tables.FirstOrDefault(candidate =>
+                candidate.Id == hit.TableId);
+            var visual = session is null || table is null
+                ? new SpreadsheetTableFilterButtonVisual(
+                    _control.RenderTheme.TableFilterButtonBackground,
+                    _control.RenderTheme.TableFilterButtonActiveBackground,
+                    _control.RenderTheme.TableFilterButtonBorder,
+                    _control.RenderTheme.TableFilterButtonGlyph)
+                : SpreadsheetTableStyleVisuals.ResolveFilterButton(
+                    session.Workbook,
+                    table,
+                    _control.RenderTheme);
             var key = (hit.TableId, hit.ColumnId);
             visibleKeys.Add(key);
             if (!_buttons.TryGetValue(key, out var button))
@@ -131,10 +144,11 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             button.Bounds = ToRectangle(hit.Bounds);
             button.BackColor = ToColor(
                 hit.IsFiltered
-                    ? _control.RenderTheme.TableFilterButtonActiveBackground
-                    : _control.RenderTheme.TableFilterButtonBackground);
+                    ? visual.ActiveBackground
+                    : visual.Background);
             button.ForeColor = ToColor(
-                _control.RenderTheme.TableFilterButtonGlyph);
+                visual.Glyph);
+            button.FlatAppearance.BorderColor = ToColor(visual.Border);
             button.AccessibleName = $"{GetFilterButtonAccessibleName(hit)}, {GetHeaderStateText(hit)}";
             button.AccessibleDescription =
                 "Mở menu lọc bằng Enter, Space hoặc Alt+mũi tên xuống từ ô đang chọn.";

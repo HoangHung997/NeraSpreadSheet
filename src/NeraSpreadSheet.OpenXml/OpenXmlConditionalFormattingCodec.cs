@@ -79,7 +79,8 @@ internal static class OpenXmlConditionalFormattingCodec
 
     public static IReadOnlyList<CellStylePatch> ReadDifferentialStyles(
         WorkbookPart workbookPart,
-        bool preserveUnsupportedMarkup = false)
+        bool preserveUnsupportedMarkup = false,
+        WorkbookTheme? theme = null)
     {
         ArgumentNullException.ThrowIfNull(workbookPart);
         var stylesPart = workbookPart.WorkbookStylesPart;
@@ -131,7 +132,9 @@ internal static class OpenXmlConditionalFormattingCodec
         {
             try
             {
-                result[index] = ReadDifferentialStyle(elements[index]);
+                result[index] = ReadDifferentialStyle(
+                    elements[index],
+                    theme ?? WorkbookTheme.Office);
             }
             catch (InvalidDataException) when (preserveUnsupportedMarkup)
             {
@@ -525,7 +528,9 @@ internal static class OpenXmlConditionalFormattingCodec
             stopIfTrue);
     }
 
-    private static CellStylePatch ReadDifferentialStyle(XElement element)
+    private static CellStylePatch ReadDifferentialStyle(
+        XElement element,
+        WorkbookTheme theme)
     {
         foreach (var child in element.Elements())
         {
@@ -569,13 +574,13 @@ internal static class OpenXmlConditionalFormattingCodec
                 : ReadOptionalUnderline(font),
             FontColor = font is null
                 ? null
-                : ReadOptionalColor(font, "color"),
+                : ReadOptionalColor(font, "color", theme),
             Fill = fill is null
                 ? null
-                : ReadFill(fill),
+                : ReadFill(fill, theme),
             Border = border is null
                 ? null
-                : ReadBorder(border),
+                : ReadBorder(border, theme),
             HorizontalAlignment = alignment is null
                 ? null
                 : ReadHorizontalAlignment(alignment),
@@ -808,7 +813,9 @@ internal static class OpenXmlConditionalFormattingCodec
             SpreadsheetNamespace + localName,
             new XAttribute("rgb", ToArgb(color)));
 
-    private static CellFillStyle ReadFill(XElement fill)
+    private static CellFillStyle ReadFill(
+        XElement fill,
+        WorkbookTheme theme)
     {
         var pattern = GetSingleChild(fill, "patternFill")
             ?? throw new InvalidDataException(
@@ -820,15 +827,15 @@ internal static class OpenXmlConditionalFormattingCodec
             "solid" => new CellFillStyle
             {
                 IsVisible = true,
-                Color = ReadExcelDifferentialFillColor(pattern),
+                Color = ReadExcelDifferentialFillColor(pattern, theme),
             },
             null or "" when
-                ReadOptionalColor(pattern, "fgColor") is not null ||
-                ReadOptionalColor(pattern, "bgColor") is not null =>
+                ReadOptionalColor(pattern, "fgColor", theme) is not null ||
+                ReadOptionalColor(pattern, "bgColor", theme) is not null =>
                 new CellFillStyle
                 {
                     IsVisible = true,
-                    Color = ReadExcelDifferentialFillColor(pattern),
+                    Color = ReadExcelDifferentialFillColor(pattern, theme),
                 },
             null or "" => new CellFillStyle(),
             _ => throw new InvalidDataException(
@@ -837,13 +844,16 @@ internal static class OpenXmlConditionalFormattingCodec
     }
 
     private static ColorRgba ReadExcelDifferentialFillColor(
-        XElement pattern) =>
-        ReadOptionalColor(pattern, "fgColor") ??
-        ReadOptionalColor(pattern, "bgColor") ??
+        XElement pattern,
+        WorkbookTheme theme) =>
+        ReadOptionalColor(pattern, "fgColor", theme) ??
+        ReadOptionalColor(pattern, "bgColor", theme) ??
         throw new InvalidDataException(
             "Differential solid fill is missing an fgColor or bgColor color.");
 
-    private static CellBorderStyle ReadBorder(XElement border)
+    private static CellBorderStyle ReadBorder(
+        XElement border,
+        WorkbookTheme theme)
     {
         foreach (var child in border.Elements())
         {
@@ -863,14 +873,16 @@ internal static class OpenXmlConditionalFormattingCodec
 
         return new CellBorderStyle
         {
-            Left = ReadBorderSide(GetSingleChild(border, "left")),
-            Right = ReadBorderSide(GetSingleChild(border, "right")),
-            Top = ReadBorderSide(GetSingleChild(border, "top")),
-            Bottom = ReadBorderSide(GetSingleChild(border, "bottom")),
+            Left = ReadBorderSide(GetSingleChild(border, "left"), theme),
+            Right = ReadBorderSide(GetSingleChild(border, "right"), theme),
+            Top = ReadBorderSide(GetSingleChild(border, "top"), theme),
+            Bottom = ReadBorderSide(GetSingleChild(border, "bottom"), theme),
         };
     }
 
-    private static CellBorderSide ReadBorderSide(XElement? element)
+    private static CellBorderSide ReadBorderSide(
+        XElement? element,
+        WorkbookTheme theme)
     {
         var styleText = (string?)element?.Attribute("style");
         if (string.IsNullOrWhiteSpace(styleText))
@@ -891,7 +903,7 @@ internal static class OpenXmlConditionalFormattingCodec
             },
             Color = element is null
                 ? ColorRgba.Black
-                : ReadOptionalColor(element, "color")
+                : ReadOptionalColor(element, "color", theme)
                     ?? ColorRgba.Black,
         };
     }
@@ -1007,24 +1019,66 @@ internal static class OpenXmlConditionalFormattingCodec
 
     private static ColorRgba? ReadOptionalColor(
         XElement parent,
-        string localName)
+        string localName,
+        WorkbookTheme theme)
     {
         var element = GetSingleChild(parent, localName);
         return element is null
             ? null
-            : ReadRgbColor(element);
+            : ReadColor(element, theme);
     }
 
     private static ColorRgba ReadRequiredColor(
         XElement parent,
-        string localName) =>
-        ReadOptionalColor(parent, localName)
+        string localName,
+        WorkbookTheme theme) =>
+        ReadOptionalColor(parent, localName, theme)
         ?? throw new InvalidDataException(
             $"Differential style is missing required {localName} color.");
 
-    private static ColorRgba ReadRgbColor(XElement color)
+    private static ColorRgba ReadColor(
+        XElement color,
+        WorkbookTheme theme)
     {
         var rgb = (string?)color.Attribute("rgb");
+        if (rgb is null && uint.TryParse(
+                (string?)color.Attribute("theme"),
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out var themeIndex) &&
+            themeIndex <= 11U)
+        {
+            var themeColor = themeIndex switch
+            {
+                0U => WorkbookThemeColor.Light1,
+                1U => WorkbookThemeColor.Dark1,
+                2U => WorkbookThemeColor.Light2,
+                3U => WorkbookThemeColor.Dark2,
+                4U => WorkbookThemeColor.Accent1,
+                5U => WorkbookThemeColor.Accent2,
+                6U => WorkbookThemeColor.Accent3,
+                7U => WorkbookThemeColor.Accent4,
+                8U => WorkbookThemeColor.Accent5,
+                9U => WorkbookThemeColor.Accent6,
+                10U => WorkbookThemeColor.Hyperlink,
+                _ => WorkbookThemeColor.FollowedHyperlink,
+            };
+            var tintText = (string?)color.Attribute("tint");
+            var tint = 0d;
+            if (tintText is not null &&
+                (!double.TryParse(
+                    tintText,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out tint) ||
+                 !double.IsFinite(tint) ||
+                 tint is < -1d or > 1d))
+            {
+                throw new InvalidDataException(
+                    $"Differential theme tint '{tintText}' is invalid.");
+            }
+            return TableStyleColor.FromTheme(themeColor, tint).Resolve(theme);
+        }
         if (string.IsNullOrWhiteSpace(rgb))
         {
             throw new InvalidDataException(

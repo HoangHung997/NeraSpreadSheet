@@ -57,8 +57,97 @@ internal static class OpenXmlDifferentialStyleRemapper
         {
             outputContainer.SetAttributeValue("count", outputDxfs.Count);
         }
+        MergeGeneratedTableStyles(
+            outputRoot,
+            generatedRoot,
+            mapping);
         Save(outputPart, output);
         return mapping;
+    }
+
+    private static void MergeGeneratedTableStyles(
+        XElement outputRoot,
+        XElement generatedRoot,
+        Dictionary<uint, uint> mapping)
+    {
+        var generatedStyles = generatedRoot
+            .Element(SpreadsheetNamespace + "tableStyles")?
+            .Elements(SpreadsheetNamespace + "tableStyle")
+            .Select(static style => new XElement(style))
+            .ToArray() ?? [];
+        if (generatedStyles.Length == 0)
+        {
+            return;
+        }
+
+        var outputContainer = outputRoot.Element(
+            SpreadsheetNamespace + "tableStyles");
+        if (outputContainer is null)
+        {
+            outputContainer = new XElement(
+                SpreadsheetNamespace + "tableStyles",
+                new XAttribute("count", 0),
+                new XAttribute("defaultTableStyle", "TableStyleMedium2"),
+                new XAttribute("defaultPivotStyle", "PivotStyleLight16"));
+            var following = outputRoot.Elements().FirstOrDefault(element =>
+                element.Name == SpreadsheetNamespace + "colors" ||
+                element.Name == SpreadsheetNamespace + "extLst");
+            if (following is null)
+            {
+                outputRoot.Add(outputContainer);
+            }
+            else
+            {
+                following.AddBeforeSelf(outputContainer);
+            }
+        }
+
+        foreach (var generatedStyle in generatedStyles)
+        {
+            foreach (var element in generatedStyle.Elements(
+                         SpreadsheetNamespace + "tableStyleElement"))
+            {
+                var attribute = element.Attribute("dxfId")
+                    ?? throw new InvalidDataException(
+                        "A generated Table style element is missing dxfId.");
+                if (!uint.TryParse(
+                        attribute.Value,
+                        NumberStyles.None,
+                        CultureInfo.InvariantCulture,
+                        out var generatedId) ||
+                    !mapping.TryGetValue(generatedId, out var outputId))
+                {
+                    throw new InvalidDataException(
+                        "A generated Table style references an unavailable differential style.");
+                }
+                attribute.Value = outputId.ToString(CultureInfo.InvariantCulture);
+            }
+
+            var name = (string?)generatedStyle.Attribute("name")
+                ?? throw new InvalidDataException(
+                    "A generated Table style is missing its name.");
+            var existing = outputContainer
+                .Elements(SpreadsheetNamespace + "tableStyle")
+                .FirstOrDefault(style => string.Equals(
+                    (string?)style.Attribute("name"),
+                    name,
+                    StringComparison.OrdinalIgnoreCase));
+            if (existing is null)
+            {
+                outputContainer.Add(generatedStyle);
+            }
+            else if (!string.Equals(
+                         CreateSignature(existing),
+                         CreateSignature(generatedStyle),
+                         StringComparison.Ordinal))
+            {
+                existing.ReplaceWith(generatedStyle);
+            }
+        }
+        outputContainer.SetAttributeValue(
+            "count",
+            outputContainer.Elements(
+                SpreadsheetNamespace + "tableStyle").Count());
     }
 
     public static void RewriteFilterReferences(
