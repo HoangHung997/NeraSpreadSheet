@@ -245,6 +245,25 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
     /// <summary>Focuses the split native editor while retaining its draft and selection.</summary>
     public bool FocusEditor() => GetAdorner().FocusEditor();
 
+    /// <summary>
+    /// Reveals a cell in the active pane using its existing continuous scroll state.
+    /// Frozen axes and other panes stay unchanged. Oversized cells reveal their leading
+    /// edge. Returns false when no scrolling is needed or no visible pane/cell exists.
+    /// Automatic visibility does not add a workbook or split-view history entry.
+    /// </summary>
+    public bool ScrollCellIntoView(CellAddress address) => GetAdorner().ScrollCellIntoView(address);
+
+    internal IReadOnlyList<FormulaFunctionSuggestion> CurrentFormulaSuggestions =>
+        GetAdorner().CurrentFormulaSuggestions;
+
+    internal IReadOnlyList<FormulaStructuredReferenceSuggestion> CurrentStructuredReferenceSuggestions =>
+        GetAdorner().CurrentStructuredReferenceSuggestions;
+
+    internal FormulaFunctionHelpContext? CurrentFormulaHelp => GetAdorner().CurrentFormulaHelp;
+
+    internal IReadOnlyList<SpreadsheetFormulaReferenceHighlight> CurrentFormulaReferenceHighlights =>
+        GetAdorner().GetFormulaReferenceHighlights();
+
     internal void NotifyOwnerStateChanged() => GetAdorner().NotifyOwnerStateChanged();
 
     internal bool BeginViewHistory(

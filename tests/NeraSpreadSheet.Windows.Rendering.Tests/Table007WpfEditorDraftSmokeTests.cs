@@ -154,6 +154,41 @@ public sealed class Table007WpfEditorDraftSmokeTests
         });
     }
 
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    [Timeout(60_000)]
+    public void DraftRoundTripShouldRetainBackwardSelectedTextWhileExposingCaretNormalization(bool useSplit)
+    {
+        RunLoaded(useSplit, (control, _, editor, formulaBar, session) =>
+        {
+            control.BeginEdit("abcdef");
+            editor.CaretIndex = 4;
+            EditingCommands.SelectLeftByCharacter.Execute(null, editor);
+            EditingCommands.SelectLeftByCharacter.Execute(null, editor);
+            var backward = control.CurrentEditorDraft!;
+            Assert.AreEqual(2, backward.SelectionStart);
+            Assert.AreEqual(2, backward.SelectionLength);
+            Assert.AreEqual(2, backward.CaretIndex);
+            var canonical = session.Editor.State;
+            Assert.IsTrue(formulaBar.Focus());
+            Assert.IsTrue(control.UpdateEditorDraft(backward.Text, backward.SelectionStart, backward.SelectionLength));
+            var restored = control.CurrentEditorDraft!;
+            Assert.AreEqual(backward.Text, restored.Text);
+            Assert.AreEqual(backward.SelectionStart, restored.SelectionStart);
+            Assert.AreEqual(backward.SelectionLength, restored.SelectionLength);
+            // The current three-argument bridge describes a range, not its direction.
+            // Record this limitation explicitly before adding a separate caret contract.
+            Assert.AreEqual(4, restored.CaretIndex);
+            Assert.AreSame(formulaBar, Keyboard.FocusedElement);
+            Assert.AreSame(canonical, session.Editor.State);
+            Assert.AreEqual(0, session.History.UndoCount);
+            Assert.IsTrue(control.FocusEditor());
+            Assert.AreEqual(restored, control.CurrentEditorDraft);
+            Assert.IsTrue(control.CancelEditor());
+        });
+    }
+
     private static void RunLoaded(bool useSplit,
         Action<NeraSpreadsheetControl, NeraSpreadsheetSplitController?, TextBox, TextBox, SpreadsheetSession> action)
     {

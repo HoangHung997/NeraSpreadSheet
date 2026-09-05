@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Formulas;
@@ -20,24 +21,55 @@ internal sealed partial class NeraSpreadsheetSplitAdorner
         MaxHeight = 220d,
         MinWidth = 180d,
     };
+    private readonly TextBlock _formulaHelpText = new()
+    {
+        MaxWidth = 460d,
+        Margin = new Thickness(8d, 6d, 8d, 8d),
+        TextWrapping = TextWrapping.Wrap,
+        Foreground = Brushes.Black,
+    };
     private Popup? _formulaSuggestionPopup;
+    private IReadOnlyList<FormulaFunctionSuggestion> _formulaSuggestions = [];
+    private IReadOnlyList<FormulaStructuredReferenceSuggestion> _structuredReferenceSuggestions = [];
+    private FormulaFunctionHelpContext? _formulaHelpContext;
     private FormulaTextSpan? _formulaReferenceSpan;
     private CellAddress? _formulaReferenceAnchor;
     private CellRange? _provisionalReferenceRange;
     private bool _updatingFormulaText;
 
+    internal IReadOnlyList<FormulaFunctionSuggestion> CurrentFormulaSuggestions =>
+        CurrentEditorDraft is null ? [] : _formulaSuggestions;
+
+    internal IReadOnlyList<FormulaStructuredReferenceSuggestion> CurrentStructuredReferenceSuggestions =>
+        CurrentEditorDraft is null ? [] : _structuredReferenceSuggestions;
+
+    internal FormulaFunctionHelpContext? CurrentFormulaHelp =>
+        CurrentEditorDraft is null ? null : _formulaHelpContext;
+
     private void InitializeFormulaEditingUi()
     {
+        var content = new StackPanel();
+        content.Children.Add(_formulaSuggestionList);
+        content.Children.Add(_formulaHelpText);
         _formulaSuggestionPopup = new Popup
         {
             PlacementTarget = _editor, Placement = PlacementMode.Bottom,
-            StaysOpen = true, Child = _formulaSuggestionList,
+            StaysOpen = true,
+            AllowsTransparency = true,
+            Child = new Border
+            {
+                Background = Brushes.White,
+                BorderBrush = Brushes.Gray,
+                BorderThickness = new Thickness(1d),
+                Child = content,
+            },
         };
         _editor.TextChanged += OnFormulaTextChanged;
         _editor.SelectionChanged += OnFormulaSelectionChanged;
         _editor.TextChanged += OnNativeEditorDraftChanged;
         _editor.SelectionChanged += OnNativeEditorDraftChanged;
         _formulaSuggestionList.PreviewMouseDown += OnFormulaSuggestionMouseDown;
+        _formulaSuggestionList.SelectionChanged += OnFormulaSuggestionSelectionChanged;
     }
 
     private void DisposeFormulaEditingUi()
@@ -48,6 +80,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner
         _editor.TextChanged -= OnNativeEditorDraftChanged;
         _editor.SelectionChanged -= OnNativeEditorDraftChanged;
         _formulaSuggestionList.PreviewMouseDown -= OnFormulaSuggestionMouseDown;
+        _formulaSuggestionList.SelectionChanged -= OnFormulaSuggestionSelectionChanged;
         if (_formulaSuggestionPopup is { } popup) popup.Child = null;
         _formulaSuggestionPopup = null;
     }
@@ -59,7 +92,16 @@ internal sealed partial class NeraSpreadsheetSplitAdorner
         _formulaReferenceAnchor = null;
         if (releaseCapture) ReleaseMouseCapture();
         _provisionalReferenceRange = null;
+        HideFormulaSuggestions();
+    }
+
+    private void HideFormulaSuggestions()
+    {
+        _formulaSuggestions = [];
+        _structuredReferenceSuggestions = [];
+        _formulaHelpContext = null;
         _formulaSuggestionList.ItemsSource = null;
+        _formulaHelpText.Text = string.Empty;
         if (_formulaSuggestionPopup is { } popup) popup.IsOpen = false;
     }
 
@@ -85,17 +127,48 @@ internal sealed partial class NeraSpreadsheetSplitAdorner
 
     private void UpdateFormulaSuggestions()
     {
-        if (_session is null || _cellEditor?.State is not { } state || _editor.SelectionLength != 0)
+        if (CurrentEditorDraft is null || _session is null || _cellEditor?.State is not { } state || _editor.SelectionLength != 0)
         {
-            ResetFormulaEditingUi();
+            HideFormulaSuggestions();
             return;
         }
-        _formulaSuggestionList.ItemsSource = SpreadsheetFormulaEditingAssistant.GetStructuredReferenceSuggestions(
-            _editor.Text, _editor.CaretIndex, _session.Workbook, _session.ActiveWorksheet, state.Address)
-            .Cast<object>().Concat(_session.FormulaEditing.GetSuggestions(_editor.Text, _editor.CaretIndex)).ToArray();
-        if (_formulaSuggestionList.Items.Count > 0) _formulaSuggestionList.SelectedIndex = 0;
+        _structuredReferenceSuggestions = SpreadsheetFormulaEditingAssistant.GetStructuredReferenceSuggestions(
+            _editor.Text, _editor.CaretIndex, _session.Workbook, _session.ActiveWorksheet, state.Address);
+        _formulaSuggestions = _session.FormulaEditing.GetSuggestions(_editor.Text, _editor.CaretIndex);
+        _formulaHelpContext = _session.FormulaEditing.GetFunctionHelp(_editor.Text, _editor.CaretIndex);
+        _formulaSuggestionList.ItemsSource = _structuredReferenceSuggestions.Cast<object>().Concat(_formulaSuggestions).ToArray();
+        var count = _formulaSuggestionList.Items.Count;
+        _formulaSuggestionList.Visibility = count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        _formulaSuggestionList.SelectedIndex = count == 0 ? -1 : 0;
+        UpdateFormulaHelpText();
         if (_formulaSuggestionPopup is { } popup)
-            popup.IsOpen = IsLoaded && _editor.Visibility == Visibility.Visible && _formulaSuggestionList.Items.Count > 0;
+            popup.IsOpen = IsLoaded && _editor.Visibility == Visibility.Visible && (count > 0 || _formulaHelpContext is not null);
+    }
+
+    private void OnFormulaSuggestionSelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateFormulaHelpText();
+
+    private void UpdateFormulaHelpText()
+    {
+        if (_formulaSuggestionList.SelectedItem is FormulaStructuredReferenceSuggestion structured)
+        {
+            _formulaHelpText.Text = structured.DisplayText;
+        }
+        else if (_formulaSuggestionList.SelectedItem is FormulaFunctionSuggestion suggestion)
+        {
+            _formulaHelpText.Text = $"{suggestion.Signature}\n{suggestion.Description}";
+        }
+        else if (_formulaHelpContext is { } context)
+        {
+            var argument = context.ActiveArgument;
+            _formulaHelpText.Text = argument is null
+                ? $"{context.Function.Signature}\n{context.Function.Description}"
+                : $"{context.Function.Signature}\n{context.Function.Description}\n" +
+                  $"Đối số {context.ActiveArgumentIndex + 1}: {argument.Name} — {argument.Description}";
+        }
+        else
+        {
+            _formulaHelpText.Text = string.Empty;
+        }
     }
 
     private bool TryHandleFormulaSuggestionKey(KeyEventArgs e)
@@ -191,18 +264,36 @@ internal sealed partial class NeraSpreadsheetSplitAdorner
         return true;
     }
 
-    private DisplayList ComposeFormulaHighlights(SpreadsheetSplitViewportFrame frame)
+    internal IReadOnlyList<SpreadsheetFormulaReferenceHighlight> GetFormulaReferenceHighlights()
     {
-        if (!_owner.ShowFormulaReferenceHighlights || _session is null || _cellEditor?.State is not { } state || !_editor.Text.StartsWith('=') ||
-            _owner.RenderTheme.FormulaReferenceColors.Count == 0) return frame.DisplayList;
-        if (!FormulaReferenceAnalyzer.TryGetReferences(_editor.Text, _session.Workbook, _session.ActiveWorksheet,
-                state.Address, out var references) && _provisionalReferenceRange is { } range)
-            references = [new FormulaDependency(_session.ActiveWorksheet.Name, range)];
-        var highlights = references.Where(reference => reference.WorksheetName is null ||
-            string.Equals(reference.WorksheetName, _session.ActiveWorksheet.Name, StringComparison.OrdinalIgnoreCase))
+        if (!_owner.ShowFormulaReferenceHighlights || _session is null || !ReferenceEquals(_session, _owner.Session) ||
+            (IsEditing && !_hasEditorDraft) || _owner.RenderTheme.FormulaReferenceColors.Count == 0) return [];
+        var address = _cellEditor?.State?.Address ?? _session.Selection.ActiveCell;
+        var formula = IsEditing ? _editor.Text : _session.ActiveWorksheet.GetCell(address).Formula;
+        if (formula is null || !formula.StartsWith('=')) return [];
+        IReadOnlyList<FormulaDependency> references;
+        if (IsEditing)
+        {
+            if (!FormulaReferenceAnalyzer.TryGetReferences(formula, _session.Workbook, _session.ActiveWorksheet,
+                    address, out references) && _provisionalReferenceRange is { } range)
+                references = [new FormulaDependency(_session.ActiveWorksheet.Name, range)];
+        }
+        else
+        {
+            references = _session.Calculation.DependencyGraph.GetDependencies(new FormulaCellKey(_session.ActiveWorksheet.Name, address));
+            if (references.Count == 0)
+                FormulaReferenceAnalyzer.TryGetReferences(formula, _session.Workbook, _session.ActiveWorksheet, address, out references);
+        }
+        return references.Where(reference => reference.WorksheetName is null ||
+                string.Equals(reference.WorksheetName, _session.ActiveWorksheet.Name, StringComparison.OrdinalIgnoreCase))
             .Select((reference, index) => new SpreadsheetFormulaReferenceHighlight(reference.Range,
                 _owner.RenderTheme.FormulaReferenceColors[index % _owner.RenderTheme.FormulaReferenceColors.Count])).ToArray();
-        if (highlights.Length == 0) return frame.DisplayList;
+    }
+
+    private DisplayList ComposeFormulaHighlights(SpreadsheetSplitViewportFrame frame)
+    {
+        var highlights = GetFormulaReferenceHighlights();
+        if (highlights.Count == 0) return frame.DisplayList;
         var builder = new DisplayListBuilder();
         builder.Append(frame.DisplayList);
         var empty = new DisplayListBuilder().Build();

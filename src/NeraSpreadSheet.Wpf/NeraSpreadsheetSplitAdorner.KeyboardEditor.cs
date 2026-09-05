@@ -283,6 +283,56 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         {
             _session.Selection.SetActiveCell(next);
         }
+        ScrollCellIntoView(next);
+    }
+
+    internal bool ScrollCellIntoView(CellAddress address)
+    {
+        SynchronizeSession();
+        if ((_lastFrame ?? EnsureFrame()) is not { } frame || _engine is null || _session is null ||
+            !frame.TryGetPane(frame.ActivePane, out var pane) ||
+            !_engine.TryGetCellBounds(frame.ActivePane, address, out var bounds))
+        {
+            return false;
+        }
+
+        var anchor = _session.ActiveWorksheet.ResolveMergedAnchor(address);
+        var viewport = pane.Pane.Bounds;
+        var layout = pane.ViewportFrame.Layout;
+        var scroll = _engine.GetPaneScroll(frame.ActivePane);
+        var nextX = scroll.X;
+        var nextY = scroll.Y;
+        if (anchor.ColumnIndex >= _session.View.FrozenColumns)
+        {
+            nextX += GetVisibilityDelta(bounds.Left, bounds.Right,
+                viewport.Left + Math.Clamp(layout.FrozenWidth, 0d, viewport.Width), viewport.Right);
+        }
+        if (anchor.RowIndex >= _session.View.FrozenRows)
+        {
+            nextY += GetVisibilityDelta(bounds.Top, bounds.Bottom,
+                viewport.Top + Math.Clamp(layout.FrozenHeight, 0d, viewport.Height), viewport.Bottom);
+        }
+
+        var extent = _engine.GetContentExtent();
+        nextX = Math.Clamp(nextX, 0d, Math.Max(0d, extent.Width - viewport.Width));
+        nextY = Math.Clamp(nextY, 0d, Math.Max(0d, extent.Height - viewport.Height));
+        if (Math.Abs(nextX - scroll.X) <= 1e-9 && Math.Abs(nextY - scroll.Y) <= 1e-9)
+        {
+            return false;
+        }
+
+        // Visibility follows selection; it is not a separate user view-history command.
+        ScrollPaneTo(frame.ActivePane, nextX, nextY, animated: false);
+        return true;
+    }
+
+    private static double GetVisibilityDelta(double start, double end, double visibleStart, double visibleEnd)
+    {
+        if (visibleEnd <= visibleStart) return 0d;
+        // A cell larger than the scrollable pane cannot fit. Keep its leading edge
+        // visible consistently instead of alternating between opposite edges.
+        if (start < visibleStart || end - start > visibleEnd - visibleStart) return start - visibleStart;
+        return end > visibleEnd ? end - visibleEnd : 0d;
     }
 
     private void OnEditorKeyDown(object sender, KeyEventArgs e)
