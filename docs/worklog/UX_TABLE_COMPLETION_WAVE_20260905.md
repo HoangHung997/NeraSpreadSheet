@@ -1,5 +1,46 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## A tiếp tục SDK split editor routing từ7a378ca1 — grant hiện hành
+
+Root7a desktop job101365914847 đã SUCCESS, cùng Core/Q/packages33988335138
+và demo33988360802. iOS transport còn pending, không phải all-platform accepted
+baseline. Để desktop và native transport độc lập tiếp tục song song, thay điều
+kiện chờ đủ năm gate trước khi BẮT ĐẦU ở các mục cũ; cổng HOÀN THÀNH final
+source và combined vẫn phải đủ xanh, không có ngoại lệ acceptance.
+
+A tái dùng task/worktree/model hiện hữu, nhánh mới
+`feature/release-009-split-editor-routing` từ exact
+`7a378ca133a517820a3e9425423e841513e8d07d`; giữ navigation branchbed515b7.
+Writer duy nhất cho năm WPF files: NeraSpreadsheetControl.cs,
+NeraSpreadsheetControl.FormulaEditing.cs, NeraSpreadsheetSplitController.cs,
+NeraSpreadsheetSplitAdorner.KeyboardEditor.cs và
+NeraSpreadsheetSplitAdorner.FormulaEditing.cs.
+Tests: Table007WpfEditorDraftSmokeTests.cs, Table007SplitEditorSmokeTests.cs
+và mới Release009SplitEditorRoutingSmokeTests.cs nếu cần. Không ghi đè root
+full-cell measure/opt-out/queued-native-scroll regressions. Private docs:
+docs/release-009-split-editor-routing-contract.md và
+docs/worklog/RELEASE-009-SPLIT-EDITOR.md. Không sửa file khác khi chưa xin grant.
+
+Scope: owner ScrollCellIntoView và native Enter/Tab dùng đúng active pane qua
+existing controller/frame/metrics, giữ fractional offsets và panes khác,
+hidden/merge/freeze/history. Route current formula metadata/highlights/help
+đến actual split UI, render nested argument help bằng assistant hiện hữu;
+giữ stable Table IDs, draft/caret, opt-out và cleanup. Không thêm model hoặc
+quét workbook. Test hướng selection ngược trước đề xuất mở API mới.
+Sample formula bar, Commands, resources và paged filter KHÔNG thuộc grant này.
+Root giữ các file đó cùng shared docs/CI; B không lấy lại B21desktop đã nhận.
+
+B được thêm một partition diagnostic sau khi class-exclusion không cô lập lỗi:
+checkout riêng cùng candidate, thay DUY NHẤT Mac SmokePage.cs bằng exact base
+2e848 blob28bd663814d338a7a9564b852e6f4c5eb31dd664, beforeblob phải đúng
+89bc459fa5c86b523e96bcd22f19a496e2151df6. Patch SHA256
+bf026f39611378559bb8b2a4d0dfb1096891a44e639d4a79c19e43f8fb28a83b.
+Giữ candidate SDK/renderer/handler registration, record generated reachability;
+baseline/candidate gốc chạy trước và giữ FAIL. Variant cố ý chỉ kiểm analytics
+baseline, không chạy editor nên không thể nghiệm thu TABLE007. Không đổi
+timeouts/attempts, flags/linking/signing hoặc thêm biến thể khác. B ghi evidence
+trong owned worklog; đây không phải production fix.
+
 ## Checkpoint tích hợp desktop — 06/09
 
 A đã release toàn bộ navigation tại `bed515b7`, source năm workflow xanh;

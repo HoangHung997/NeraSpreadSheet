@@ -32,7 +32,7 @@ object, success status and integer frameCount >= 2 are mandatory for the legacy
 analytics probes (creation frame followed by native accessibility validation).
 The isolated package consumer still requires >= 3 completed frames and all its
 additional runtime postconditions; transport does not replace that validator. Missing
-marker returns pending, never success. Malformed/duplicate fields, mixed
+marker returns pending, never success. Malformed independent markers/duplicate fields, mixed
 success/failure, conflicting success payloads and missing frames fail closed.
 Identical console/unified-log duplicates are allowed. Evidence output uses
 create-new semantics and is not overwritten by a later attempt.
@@ -51,7 +51,7 @@ fresh nonce and all public-consumer runtime postconditions. C's MAUI package
 matrix remains native OPEN until that wrapper is wired and all targets run.
 The old analytics apps do not retroactively claim nonce-based provenance.
 
-Fifteen in-memory parser regressions cover raw/prefixed/duplicate/missing/malformed/
+Twenty in-memory parser regressions cover raw/prefixed/duplicate/missing/malformed/
 conflicting/failure/frame/duplicate-field cases. Syntax checks are not native
 proof: the existing full Android and separate iOS runtime jobs must pass at
 the exact extraction HEAD. SDK/render/input code is unchanged by this slice,
@@ -77,3 +77,17 @@ it does not discard a broken unified result just because console reports success
 Synthetic tests cover escaped/multiline/long messages, unrelated metadata,
 mixed failure and malformed structured transport. Native CI must verify that
 the actual platform delivers complete messages in this format.
+
+At7a iOS job101365914743, structured unified eventMessage itself is truncated
+(990 characters, decoder offset990). A formatting change cannot restore bytes
+already cut by the log transport. Reconciliation is therefore narrowly defined:
+the console must contain a complete, strictly validated success payload; the
+unified fragment must contain complete root status/frameCount values matching
+that result and be an exact strict text prefix of its full console payload.
+Only then is that duplicate represented by the already-verified full payload.
+Unknown truncated headers, missing full console evidence, a differing nonce,
+corruption, failure or contradictory complete result remain failures. A
+complete unified result may still supply evidence when the console has none.
+No truncated marker can independently establish success; package provenance
+checks remain unchanged. This capability has synthetic positive/negative tests
+but still requires exact-head iOS runtime proof.

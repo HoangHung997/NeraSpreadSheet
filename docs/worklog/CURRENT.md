@@ -1,5 +1,44 @@
 # Current Work Handoff
 
+## Native iOS transport correction — đang chờ chạy thật
+
+7a iOS job101365914743 FAIL vì structured eventMessage cũng bị cắt ở990chars
+(decodeoffset990); Windows/Core/Android/Q/packages/demo đã PASS. Root giữ
+source SDK và app assertions, chỉ reconcile truncated unified duplicate khi
+có JSON console đầy đủ đã validate, fragment có complete root success/frame
+header khớp và exact textual prefix. Không full console/khác nonce/failure/
+corrupt/unknown header vẫn FAIL. Local20 regressions PASS; iOS actual runtime
+mới chưa chạy, không release iOS cho C. [Contract](../native-smoke-transport-contract.md).
+
+Ownership A năm WPFfiles và B one-page partition đã ghi wave; C Android helper
+import-only dfd31be98 phải skip khi nhận C để giữ root parser mới. Những grant
+này thay các mục read-only cũ bên dưới; không tạo thêm task hoặc desktop lease.
+Bước tiếp theo duy nhất: xác minh new exact-source iOS/full CI; chỉ khi native
+transport đạt mới release cho C và dispatch published demo ở HEAD nghiệm thu
+cuối nếu path filter chưa chạy. Không lấy7a demo thay new HEAD.
+
+## Dispatch tiếp — SDK split visibility/metadata và native partition
+
+Root implementation `7a378ca133a517820a3e9425423e841513e8d07d` đã push.
+Windows101365914847/Core/Q33988337728/packages33988335138/demo33988360802
+SUCCESS; full33988337714/iOS33988337702 chưa complete tại dispatch. Native
+scroll timing regression đã qua trên Windows. Không lấy những gate này thay
+whole source/final combined acceptance, iOS structured-log đang xác minh.
+
+A được grant năm WPF files + routing tests/docs riêng theo wave để tiếp tục
+active-pane visibility khi Enter/Tab và formula metadata/help. Base exact7a,
+nhánh feature/release-009-split-editor-routing, không sample/Commands/filter.
+Cho bắt đầu desktop độc lập khi iOS transport còn pending; final CI không nới.
+B làm one baseline-page partition (exact patch/hash trong wave), không private
+ObjC flags, giữ original runtime FAIL và không gọi variant thiếu editor là PASS.
+C nhận ba shared Android source223 blobs ở import-only dfd31be98; khi root
+tích hợp C phải SKIP commit/files đó để không ghi đè parser mới. C wire actual
+Android package runtime và tiếp tục Mac app inventory; all-platform nativeOPEN.
+
+Root giữ shared docs/CI/parser và chưa ghi đè các file đã grant cho A/B/C.
+Bước tiếp theo duy nhất: verify iOS structured transport/full7a, release đúng
+launcher đã xanh cho C; review A desktop prerequisite sau source handoff.
+
 ## Bổ sung sau combined223 — giữ runtime gates và tiếp tục Android consumer
 
 `22338c79568af9106d9c6fda660180f1203940cd`: Core/Q33987765564,
