@@ -16,7 +16,6 @@ public sealed partial class NeraSpreadsheetEditorHost : Grid, IDisposable
 {
     private readonly AbsoluteLayout _overlay = new() { InputTransparent = true, CascadeInputTransparent = false };
     private readonly Editor _editor = new NeraCellEditor { IsVisible = false, AutoSize = EditorAutoSizeOption.Disabled };
-    private readonly RectangleGeometry _editorClip = new();
     private readonly VerticalStackLayout _suggestions = new() { IsVisible = false, Spacing = 0 };
     private readonly ScrollView _suggestionScroll = new() { IsVisible = false };
     private readonly TapGestureRecognizer _editGesture = new() { NumberOfTapsRequired = 2 };
@@ -221,8 +220,8 @@ public sealed partial class NeraSpreadsheetEditorHost : Grid, IDisposable
         }
         AbsoluteLayout.SetLayoutBounds(_editor, new Rect(raw.X, raw.Y, raw.Width, raw.Height));
         var clipRect = new Rect(clip.X - raw.X, clip.Y - raw.Y, clip.Width, clip.Height);
-        if (_editorClip.Rect != clipRect) _editorClip.Rect = clipRect;
-        if (!ReferenceEquals(_editor.Clip, _editorClip)) _editor.Clip = _editorClip;
+        if (_editor.Clip is not RectangleGeometry currentClip || currentClip.Rect != clipRect)
+            _editor.Clip = new RectangleGeometry { Rect = clipRect };
         _editor.IsVisible = true;
         _actions.IsVisible = true;
         _suggestions.IsVisible = _candidates.Count > 0;

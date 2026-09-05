@@ -2,7 +2,7 @@
 
 - Branch: `feature/table-007-editor-corpus`; PR lane chưa tạo.
 - Base clean đã xác minh: `2e8482c25a44797a479b276ae26f472811a0a81e`.
-- Implementation checkpoint đã push: `cf680688741addd7675ae1a4320c07125df0a5e4`;
+- Implementation checkpoint đã push: `ee6750787a63846fe38972e4ae8094c4fe6b773b`;
   đang sửa native CI, chưa release/exact-final-head green.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
@@ -68,7 +68,8 @@
 - CI `3e9239ab3282a45bd6c52fb9fb62a8c240857458`: full `33978509220`,
   iOS `33978510465`, Q003C `33978511735`. iOS đã PASS sau real-layout wait;
   Core/Windows desktop/Android PASS. Mac trace xác định Enter/commit/undo/reopen
-  đều qua, signal 11 ngay tại SetMarkedText trước khi API trả về. Thêm plain
+  đều qua, signal 11 trước mốc sau SetMarkedText; chưa chứng minh API đó là
+  nguyên nhân vì có await/native setup trước lời gọi. Thêm plain
   UIKit baseline probe tạm (không MAUI handler/workbook callback) để phân biệt
   lỗi native API với editor; vẫn giữ probe trên reused editor, không dùng baseline
   thay acceptance. Native first-responder/selection được validate trước gọi.
@@ -80,10 +81,27 @@
   thread frames đã lọc UUID/path, bỏ raw report dump. Không đổi cleanup scope,
   launch/runtime timeout, success criteria hoặc exit status. Bash syntax và
   synthetic Python audit PID/name/privacy/two-part IPS parsing đã PASS.
+- CI exact `ee675078`: full `33979429092` FAIL Mac và MAUI Windows; iOS
+  `33979430234`, Q003C `33979431250`, Core/desktop/Android PASS. Mac chưa tới
+  baseline-before-marked; không có matching current-process IPS sau bounded10s.
+  Bổ sung mốc sau await, constructor/text/attach/focus/selection của plain UIKit
+  để xác định native operation; baseline không thay probe editor hay gate cũ.
+- MAUI Windows vẫn0xc0000409 trước result cả hai attempts tại ee; không gọi đó
+  là startup noise. Product delta Windows từ35 chỉ clip geometry reuse/mutation:
+  followup gán RectangleGeometry mới chỉ khi Rect đổi, dùng native property-map
+  path của35 đãPASS, vẫn tránh per-frame allocation khi geometry không đổi.
+  Windows page/helper thêm stage trace gắn đúng result path, không ghi draft/
+  đường dẫn/thông tin máy. Root đã transfer riêng Windows runner: failure reader
+  chỉ đọc8KiB/64labels đầu đúng resultPath của attempt, whitelist literal stages,
+  không thay retry/timeout/result/frame gates/cleanup. PowerShell syntax và
+  synthetic stage allowlist/privacy audit PASS.
+- Followup architecture verification và diff whitespace PASS. Không heavy build/
+  loaded local vì disk/desktop lease; compilation/native regression phải qua CI.
 - Gaps: T1/T2 còn native CI và Apple hardware-key evidence; T3 corpus đã có,
   final regression/exact-head CI đang chờ. CI actual SDK phải đọc log (global
   requested .302 + latestFeature có thể chọn .400), không suy ra từ config.
 - Rollback: revert các commit lane sau base; không migration/package mới.
 - File/desktop release: source còn active; desktop không giữ lease.
-- Bước tiếp theo: push followup checkpoint cho root dispatch ba native workflows,
+- Bước tiếp theo: push followup checkpoint rồi tự dispatch ba existing workflows
+  theo quyền root đã cấp (verify remote HEAD/duplicates; auth chỉ trong memory),
   đọc raw failure/artifact và hoàn thiện overlay trên SHA cuối bao gồm tài liệu.

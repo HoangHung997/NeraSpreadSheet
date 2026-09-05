@@ -74,6 +74,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     public SmokePage()
     {
+        Table007EditorSmoke.Trace("smoke-page-constructor");
         Title = "NeraSpreadSheet MAUI repeated runtime stress";
         Content = _host;
         Loaded += OnLoaded;
@@ -81,11 +82,15 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     private void OnLoaded(object? sender, EventArgs e)
     {
+        Table007EditorSmoke.Trace("smoke-page-loaded");
         Loaded -= OnLoaded;
         _ = MonitorTimeoutAsync();
         _view = CreateView();
+        Table007EditorSmoke.Trace("smoke-view-created");
         _editorHost = new NeraSpreadsheetEditorHost(_view);
+        Table007EditorSmoke.Trace("smoke-editor-host-created");
         _host.Children.Add(_editorHost);
+        Table007EditorSmoke.Trace("smoke-editor-host-attached");
     }
 
     private NeraSpreadsheetView CreateView()
@@ -121,6 +126,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
         try
         {
             _frameCount++;
+            if (_frameCount == 1) Table007EditorSmoke.Trace("smoke-first-frame");
             ValidateFrame(view, e);
             switch (_stage)
             {
@@ -225,6 +231,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 {
                     await Table007EditorSmoke.RunAsync(_editorHost!);
                     _editorSmokePassed = true;
+                    Table007EditorSmoke.Trace("smoke-editor-verified");
                 }
                 ApplyPinch(view);
                 ApplyPanTo(view, ExpectedOffsetX, ExpectedOffsetY);

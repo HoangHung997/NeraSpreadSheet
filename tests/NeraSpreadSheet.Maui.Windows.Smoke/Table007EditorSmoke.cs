@@ -13,6 +13,7 @@ internal static class Table007EditorSmoke
 {
     internal static async Task RunAsync(NeraSpreadsheetEditorHost host)
     {
+        Trace("table-editor-enter");
         var view = host.Spreadsheet;
         var session = view.Session ?? throw new InvalidOperationException("The editor has no canonical session.");
         var sheet = session.ActiveWorksheet;
@@ -23,19 +24,23 @@ internal static class Table007EditorSmoke
         for (var row = 1; row <= 3; row++) sheet.SetValue(new CellAddress(row, 1), row * 10d);
         session.Selection.SetActiveCell(new CellAddress(6, 0));
         Require(host.BeginEdit("=SUM(EditorSales[Am"), "The loaded editor did not open.");
+        Trace("table-editor-opened");
         var editor = (Editor)typeof(NeraSpreadsheetEditorHost).GetField("_editor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(host)!;
         Require(editor.Handler?.PlatformView is NativeTextBox, "The overlay did not resolve a native multiline TextBox.");
         var native = (NativeTextBox)editor.Handler!.PlatformView!;
         Require(session.Editor.State is not null, "The shared session editor did not begin.");
         Require(host.CurrentStructuredReferenceSuggestions.Count == 1, "The Table completion popup is missing.");
         Require(host.AcceptStructuredReferenceSuggestion(0), "The Table candidate was not accepted.");
+        Trace("table-editor-candidate-accepted");
         Require(host.CurrentEditText == "=SUM(EditorSales[[#Data],[Amount]]", "The structured reference differs.");
         Require(session.History.UndoCount == 0, "Completion changed workbook history.");
         native.Text += ")";
         await PressNativeAsync(host, native, 0x0D);
+        Trace("table-editor-enter-returned");
         Require(!session.Editor.IsEditing, "Native Enter did not commit the editor.");
         Require(Equals(sheet.GetValue(new CellAddress(6, 0)), 60d), "The committed Table formula value differs.");
         Require(session.History.UndoCount == 1 && session.Undo() && session.Redo(), "The editor commit did not use session history.");
+        Trace("table-editor-history-returned");
         session.Selection.SetActiveCell(new CellAddress(6, 0));
         Require(host.BeginEdit("=EditorSales[Am"), "The reused editor did not reopen.");
         var count = session.History.UndoCount;
@@ -43,8 +48,10 @@ internal static class Table007EditorSmoke
         host.AcceptStructuredReferenceSuggestion(0);
         Require(host.CurrentEditText == "=EditorSales[Am", "A stale caret changed the draft.");
         Require(host.CancelEditor() && session.History.UndoCount == count, "Cancel changed history.");
+        Trace("table-editor-stale-caret-cancel-returned");
         Require(host.BeginEdit("first"), "The reused editor did not reopen for a multiline draft.");
         await PressNativeAsync(host, native, 0x0D, alt: true);
+        Trace("table-editor-alt-enter-returned");
         Require(host.CurrentEditText?.ReplaceLineEndings("\n") == "first\n" && session.Editor.IsEditing,
             $"Native Alt+Enter differs: editing={session.Editor.IsEditing}, draft={System.Text.Json.JsonSerializer.Serialize(host.CurrentEditText)}.");
         Require(ReferenceEquals(native, editor.Handler?.PlatformView), "Editing created another native overlay.");
@@ -56,9 +63,12 @@ internal static class Table007EditorSmoke
         try
         {
             sheet.Dimensions.SetColumnWidth(0, view.Width * 2d);
+            Trace("table-editor-column-resized");
             view.ZoomTo(priorZoom * 1.25d, 0, 0);
+            Trace("table-editor-zoomed");
             view.ScrollTo(0, 0);
             await Task.Delay(100);
+            Trace("table-editor-geometry-settled");
             Require(view.TryGetEditorBounds(new CellAddress(6, 0), out var raw, out var visible),
                 "The edited cell lost geometry after zoom.");
             Require(raw.Width > visible.Width && Math.Abs(editor.Width - raw.Width) < 2d,
@@ -77,11 +87,20 @@ internal static class Table007EditorSmoke
             view.ScrollTo(priorScroll.OffsetX, priorScroll.OffsetY);
         }
         await PressNativeAsync(host, native, 0x1B);
+        Trace("table-editor-escape-returned");
         Require(!session.Editor.IsEditing, "Native Escape did not cancel the multiline draft.");
         host.SetEnglishResources(true);
         Require((string)host.Resources["CellEditor.Commit"] == "Commit", "Shell-local editor resources were not applied.");
         host.SetEnglishResources(false);
         sheet.RemoveTable(table.Id);
+        Trace("table-editor-complete");
+    }
+
+    internal static void Trace(string stage)
+    {
+        var resultPath = Environment.GetEnvironmentVariable("NERA_MAUI_SMOKE_RESULT");
+        if (!string.IsNullOrWhiteSpace(resultPath))
+            File.AppendAllText(resultPath + ".trace", stage + Environment.NewLine);
     }
 
     private static async Task PressNativeAsync(NeraSpreadsheetEditorHost host, NativeTextBox editor, byte key, bool alt = false)

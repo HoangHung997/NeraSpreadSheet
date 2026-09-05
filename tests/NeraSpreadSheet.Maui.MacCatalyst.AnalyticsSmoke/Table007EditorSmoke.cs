@@ -47,6 +47,7 @@ internal static class Table007EditorSmoke
             Require(host.BeginEdit("first"), "The same overlay did not reopen.");
             SmokeTrace.Append("table-editor-reopened");
             await Task.Delay(60);
+            SmokeTrace.Append("table-editor-reopened-delay-returned");
             Require(ReferenceEquals(native, editor.Handler?.PlatformView), "The native overlay was recreated.");
             await VerifyPlainUIKitMarkedTextAsync(native);
             Require(native.BecomeFirstResponder(), "The reused editor did not regain native first responder.");
@@ -84,15 +85,24 @@ internal static class Table007EditorSmoke
     {
         // Diagnostic control only: no MAUI handler or spreadsheet callbacks. It is
         // removed before the production overlay probe and cannot satisfy that gate.
+        SmokeTrace.Append("table-editor-uikit-baseline-enter");
         var parent = editor.Superview ?? throw new InvalidOperationException("The editor has no native parent.");
-        using var baseline = new UITextView(editor.Frame) { Text = "first" };
+        SmokeTrace.Append("table-editor-uikit-baseline-parent-ready");
+        using var baseline = new UITextView(editor.Frame);
+        SmokeTrace.Append("table-editor-uikit-baseline-created");
+        baseline.Text = "first";
+        SmokeTrace.Append("table-editor-uikit-baseline-text-set");
         parent.AddSubview(baseline);
+        SmokeTrace.Append("table-editor-uikit-baseline-attached");
         try
         {
             Require(baseline.BecomeFirstResponder(), "Plain UIKit baseline did not become first responder.");
+            SmokeTrace.Append("table-editor-uikit-baseline-focused");
             await Task.Delay(60);
+            SmokeTrace.Append("table-editor-uikit-baseline-delay-returned");
             Require(baseline.IsFirstResponder && baseline.Window is not null, "Plain UIKit baseline is not attached and focused.");
             baseline.SelectedRange = new NSRange(5, 0);
+            SmokeTrace.Append("table-editor-uikit-baseline-selection-set");
             SmokeTrace.Append($"table-editor-uikit-baseline-before-marked:selection={baseline.SelectedRange},undoGroups={baseline.UndoManager?.GroupingLevel}");
             baseline.SetMarkedText("語", new NSRange(1, 0));
             SmokeTrace.Append("table-editor-uikit-baseline-marked-returned");
