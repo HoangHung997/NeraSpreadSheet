@@ -25,7 +25,8 @@ internal static class Program
         VerifyWpf();
         VerifyWinForms();
         var assemblies = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(assembly => assembly.GetName().Name!.StartsWith("NeraSpreadSheet.", StringComparison.Ordinal))
+            .Where(assembly => assembly != typeof(Program).Assembly &&
+                assembly.GetName().Name!.StartsWith("NeraSpreadSheet.", StringComparison.Ordinal))
             .OrderBy(assembly => assembly.GetName().Name, StringComparer.Ordinal)
             .Select(assembly => new
             {
@@ -35,8 +36,12 @@ internal static class Program
         Require(assemblies.Any(assembly => assembly.name == "NeraSpreadSheet.Wpf") &&
             assemblies.Any(assembly => assembly.name == "NeraSpreadSheet.WinForms") &&
             assemblies.Any(assembly => assembly.name == "NeraSpreadSheet.OpenXml"), "Required packaged hosts were not loaded.");
-        Require(assemblies.All(assembly => assembly.version?.StartsWith(args[0] + "+", StringComparison.Ordinal) == true &&
-            assembly.version.Contains(args[1], StringComparison.Ordinal)), "Loaded SDK assembly does not match the packed version/source.");
+        foreach (var assembly in assemblies)
+        {
+            Require(assembly.version?.StartsWith(args[0] + "+", StringComparison.Ordinal) == true &&
+                assembly.version.Contains(args[1], StringComparison.Ordinal),
+                $"Loaded SDK assembly does not match the packed version/source: {assembly.name} ({assembly.version}).");
+        }
         File.WriteAllText(args[2], JsonSerializer.Serialize(new
         {
             schema = "release009-windows-consumer-v1", sourceSha = args[1], packageVersion = args[0],
@@ -71,15 +76,43 @@ internal static class Program
     private static void VerifyEdit(SpreadsheetSession session)
     {
         var target = new CellAddress(0, 4);
+        var before = session.ActiveWorksheet.GetCell(target);
+        var history = session.History.UndoCount;
         session.Editor.BeginEdit(target);
         Require(session.Editor.Commit("=1+1") && !session.Editor.IsEditing, "Formula commit did not finish.");
         Require(session.ActiveWorksheet.GetCell(target).Value == CellValue.FromObject(2d), "Packaged formula engine did not calculate.");
         Require(session.Undo(), "Packaged Undo failed.");
+        Require(session.ActiveWorksheet.GetCell(target) == before && session.History.UndoCount == history,
+            "Undo did not restore the pre-edit cell and history.");
         session.Editor.BeginEdit(target);
         Require(session.Editor.Commit("Dòng một\nDòng hai"), "Multiline literal commit failed.");
         Require(session.ActiveWorksheet.GetCell(target).Value.ToString() == "Dòng một\nDòng hai", "Multiline literal changed.");
+        var committed = session.ActiveWorksheet.GetCell(target);
+        history = session.History.UndoCount;
         session.Editor.BeginEdit(target);
         Require(session.Editor.Cancel(), "Packaged Cancel failed.");
+        Require(!session.Editor.IsEditing && session.ActiveWorksheet.GetCell(target) == committed && session.History.UndoCount == history,
+            "Cancel changed committed content/history or left editing active.");
+        session.Selection.SetActiveCell(new CellAddress(1, 0));
+    }
+
+    private static void VerifyNativeDraft(SpreadsheetSession session, Action<string> begin, Func<bool> commit, Func<bool> cancel, Action pump)
+    {
+        var target = new CellAddress(1, 4);
+        session.Selection.SetActiveCell(target);
+        var before = session.ActiveWorksheet.GetCell(target);
+        var history = session.History.UndoCount;
+        begin("=2+3");
+        pump();
+        Require(session.Editor.IsEditing && commit() && !session.Editor.IsEditing, "Native overlay commit failed.");
+        Require(session.ActiveWorksheet.GetCell(target).Value == CellValue.FromObject(5d), "Native draft did not reach calculation.");
+        Require(session.Undo() && session.ActiveWorksheet.GetCell(target) == before && session.History.UndoCount == history,
+            "Native overlay Undo did not restore cell/history.");
+        begin("Bản nháp không được lưu");
+        pump();
+        Require(session.Editor.IsEditing && cancel(), "Native changed-draft Cancel failed.");
+        Require(!session.Editor.IsEditing && session.ActiveWorksheet.GetCell(target) == before && session.History.UndoCount == history,
+            "Native Cancel committed a changed draft or altered history.");
         session.Selection.SetActiveCell(new CellAddress(1, 0));
     }
 
@@ -100,15 +133,20 @@ internal static class Program
         try
         {
             window.Show();
-            PumpUntil(() => grid.IsLoaded && grid.ActualWidth > 0 && ribbon.LayoutSnapshot is not null, PumpWpf);
+            PumpUntil(() => grid.IsLoaded && grid.ActualWidth > 0 && HasCurrentWpfLayout(ribbon), PumpWpf);
             VerifyEdit(session);
+            VerifyNativeDraft(session, grid.BeginEdit, grid.CommitEditor, grid.CancelEditor, PumpWpf);
             PumpWpf();
             Require(filter.TryOpenForActiveCell(), "Packaged WPF Table filter did not open.");
-            PumpUntil(() => filter.IsOpen, PumpWpf);
+            var binding = ReadBinding<Wpf.NeraWpfAutoFilterPagedBinding>(filter);
+            PumpUntil(() => filter.IsOpen && !binding.IsBusy && binding.TotalItemCount == 50 && HasExpectedItems(binding.Items), PumpWpf);
             filter.Close();
+            Require(!filter.IsOpen, "WPF Table filter did not close.");
+            var previousWidth = grid.ActualWidth;
+            var previousLayoutWidth = ribbon.LayoutSnapshot.AvailableWidth;
             window.Width = 820;
-            PumpWpf();
-            Require(grid.ActualWidth > 0 && ribbon.LayoutSnapshot is not null, "WPF narrow layout failed.");
+            PumpUntil(() => Math.Abs(window.ActualWidth - 820d) < 1d && grid.ActualWidth < previousWidth - 100d &&
+                ribbon.LayoutSnapshot.AvailableWidth < previousLayoutWidth && HasCurrentWpfLayout(ribbon), PumpWpf);
         }
         finally { window.Close(); PumpWpf(); }
     }
@@ -126,15 +164,20 @@ internal static class Program
         form.Controls.Add(grid);
         form.Controls.Add(ribbon);
         form.Show();
-        PumpUntil(() => grid.IsHandleCreated && grid.ClientSize.Width > 0 && ribbon.LayoutSnapshot is not null, Forms.Application.DoEvents);
+        PumpUntil(() => grid.IsHandleCreated && grid.ClientSize.Width > 0 && HasCurrentWinFormsLayout(ribbon), Forms.Application.DoEvents);
         VerifyEdit(session);
+        VerifyNativeDraft(session, grid.BeginEdit, grid.CommitEditor, grid.CancelEditor, Forms.Application.DoEvents);
         Forms.Application.DoEvents();
         Require(filter.TryOpenForActiveCell(), "Packaged WinForms Table filter did not open.");
-        PumpUntil(() => filter.IsOpen, Forms.Application.DoEvents);
+        var binding = ReadBinding<Win.NeraWinFormsAutoFilterPagedBinding>(filter);
+        PumpUntil(() => filter.IsOpen && !binding.IsBusy && binding.TotalItemCount == 50 && HasExpectedItems(binding.Items), Forms.Application.DoEvents);
         filter.Close();
+        Require(!filter.IsOpen, "WinForms Table filter did not close.");
+        var previousWidth = grid.ClientSize.Width;
+        var previousLayoutWidth = ribbon.LayoutSnapshot.AvailableWidth;
         form.ClientSize = new System.Drawing.Size(820, 700);
-        Forms.Application.DoEvents();
-        Require(grid.ClientSize.Width > 0 && ribbon.LayoutSnapshot is not null, "WinForms narrow layout failed.");
+        PumpUntil(() => form.ClientSize.Width == 820 && grid.ClientSize.Width < previousWidth - 100 &&
+            ribbon.LayoutSnapshot.AvailableWidth < previousLayoutWidth && HasCurrentWinFormsLayout(ribbon), Forms.Application.DoEvents);
         form.Close();
         Forms.Application.DoEvents();
     }
@@ -155,6 +198,25 @@ internal static class Program
 
     private static void PumpWpf() => System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(
         System.Windows.Threading.DispatcherPriority.ApplicationIdle, static () => { });
+
+    private static bool HasCurrentWpfLayout(Wpf.NeraRibbonControl ribbon) => ribbon.ActualWidth > 0 &&
+        Math.Abs(ribbon.LayoutSnapshot.AvailableWidth - ribbon.ActualWidth * System.Windows.Media.VisualTreeHelper.GetDpi(ribbon).DpiScaleX) < 1d;
+
+    private static bool HasCurrentWinFormsLayout(Win.NeraRibbonControl ribbon) => ribbon.ClientSize.Width > 0 &&
+        Math.Abs(ribbon.LayoutSnapshot.AvailableWidth - Math.Max(0d, ribbon.ClientSize.Width - 8d * ribbon.DeviceDpi / 96d)) < 1d;
+
+    private static bool HasExpectedItems(IEnumerable<SpreadsheetTableFilterValueItem> items)
+    {
+        var values = items.ToArray();
+        return values.Length == 50 && values.All(item => item.IsSelected) &&
+            values.Select(item => item.DisplayText).ToHashSet(StringComparer.Ordinal)
+                .SetEquals(Enumerable.Range(1, 50).Select(row => $"Item {row}"));
+    }
+
+    // Fail closed if the actual popup binding changes; never initialize a substitute view.
+    private static T ReadBinding<T>(object presenter) where T : class =>
+        presenter.GetType().GetField("_binding", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(presenter) as T
+        ?? throw new InvalidOperationException("The actual packaged popup paging binding was not found.");
 
     private static void PumpUntil(Func<bool> complete, Action pump)
     {

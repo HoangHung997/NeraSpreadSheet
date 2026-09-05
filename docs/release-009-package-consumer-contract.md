@@ -14,6 +14,12 @@ CI của lane UX; dùng workflow riêng và public SDK API hiện hữu.
 - Build nullable/analyzers/warnings-as-errors. Loaded default WPF/WinForms host
   có grid, Ribbon/Table binding, filter open/close, resize và editor controller
   commit/cancel/Undo; synthetic XLSX Table/literal roundtrip. Không sửa file thật.
+- Gate phải đợi actual popup binding xuất bản đủ 50 synthetic values và hết busy,
+  không chỉ nhìn IsOpen. Probe `_binding` fail closed, không khởi tạo view thay
+  thế. Resize phải có actual width giảm và snapshot khớp kích thước mới; Undo/
+  Cancel kiểm cell/history, native changed draft không được commit khi Cancel.
+- Chỉ loại consumer assembly theo exact identity khỏi SDK provenance set;
+  giữ kiểm version/SHA cho tất cả loaded SDK assemblies, kể cả satellites.
 - Đây là package integration smoke, không thay native OS-keyboard/GPU/performance
   hoặc walkthrough visual gates. MAUI chưa nằm trong package matrix này; R3
   toàn bộ nền tảng vẫn OPEN tới khi có multi-target package/consumer evidence.

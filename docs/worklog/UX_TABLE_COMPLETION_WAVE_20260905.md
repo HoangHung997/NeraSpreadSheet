@@ -96,6 +96,12 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
   snapshot khi active Table filters; không hứa snapshot-free cho filtered sheet.
   Giữ visibility/freeze/merge/fractional geometry và snapshot reuse, test với
   Compose.Layout; MAUI fallback theo real host size/zoom không giả GPU thành công.
+- Chuyển B writer duy nhất `scripts/run-maui-maccatalyst-smoke.sh` chỉ cho
+  diagnostic sau failure: chờ tối đa 10 giây cho crash report của process/run
+  vừa exit, in sanitized exception/termination/thread frames để khoanh lỗi.
+  Giữ success criteria, launch/runtime timeout và exit status; không retry để
+  được xanh. Không in/upload raw report có Machine ID, đường dẫn người dùng,
+  UUID thiết bị hoặc environment. Không đổi cleanup/phạm vi filesystem hiện có.
 
 ### Quyền sửa C
 

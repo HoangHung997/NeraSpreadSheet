@@ -74,6 +74,13 @@ chưa nghiệm thu. [Contract](../release-009-package-consumer-contract.md).
 R3 không được đóng bằng số packages hoặc source ProjectReference tests; MAUI
 package matrix và final combined-source consumer còn OPEN.
 
+Source gate đầu `94869dce` / run `33978469048`: SDK/consumer build 0 errors,
+synthetic roundtrip và loaded WPF/WinForms smoke chạy xong; fail ở assembly
+provenance vì prefix filter nhận cả consumer assembly. C review tìm đúng lỗi;
+artifact `9973045882` đã root verify ZIP SHA và thấy mọi SDK DLL đúng version/
+source. Sửa loại trừ duy nhất assembly consumer theo identity, giữ SDK/satellite
+provenance và thêm diagnostic từng assembly. Cần CI trên source sửa, chưa PASS.
+
 ### Bước tiếp theo duy nhất
 
 Sau khi A release source/sample ownership, coordinator tích hợp và bổ sung

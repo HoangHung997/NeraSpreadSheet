@@ -42,6 +42,27 @@
   exact-head CI while A/B finish their native-source corrections, then receive
   released final sources sequentially; do not merge PR or publish a public feed.
 
+### RELEASE-009 first CI and review follow-up
+
+Root checkpoint `94869dceeed3bfdcbd2203011d23af59bdb8df11` pushed. Exact runs:
+full `33978472817`, iOS `33978472657`, Q003C `33978472766`, package consumer
+`33978469048`. Package build/restore and loaded WPF/WinForms/XLSX checks passed;
+provenance gate failed because its prefix filter included the consumer assembly
+itself, whose default assembly name also starts NeraSpreadSheet. C independently
+identified this; all SDK DLLs in verified artifact `9973045882` contain the
+correct prerelease/SHA. Exclude only the exact consumer assembly identity, keep
+all SDK/satellite checks and add per-assembly failure diagnostics. New source
+needs new CI, not a blind rerun. Artifact ZIP digest
+`bd3d0bd1a857cd35cd25b61f60e09482b4e89bffe9036144be0bf7ddd3f676f3`.
+Integrated analyzer self-test passed locally. B `3e9239ab` exact runs verified:
+full `33978509220`, iOS `33978510465`, Q003C `33978511735`; B continues Mac
+native IME-probe failure investigation. A is hardening native Picker captures.
+C read-only review also found weak filter-open/resize/Undo/Cancel assertions;
+root strengthened actual first-page, current-width and cell/history postconditions
+including changed native drafts before rerunning package acceptance. B now owns
+the bounded crash-report diagnostics in run-maui-maccatalyst-smoke.sh per wave;
+root must not edit that file before B releases it.
+
 ## Earlier dispatch — UX-007 / TABLE-007 / PERF-008-HARNESS
 
 - Người dùng yêu cầu mở worktree tiếp tục hoàn thiện Table/Filter/Ribbon/UX.
