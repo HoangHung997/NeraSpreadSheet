@@ -126,6 +126,10 @@ jobs:
             exit 1
           fi
           bash ./scripts/run-maui-maccatalyst-smoke.sh "$APP" "$RESULT"
+      - name: Inspect generated Apple registrar metadata without rebuilding
+        if: ${{ !cancelled() && steps.baseline_build.outcome == 'success' && steps.candidate_build.outcome == 'success' }}
+        shell: bash
+        run: python3 ./scripts/inspect-table007-apple-registrar.py
       - name: Record paired Mac Catalyst outcomes
         if: always()
         shell: bash

@@ -265,6 +265,24 @@
   xác minh candidates/text/cells/history. Local incremental desktop test build
   SDK10.0.302 PASS0warnings/errors (initial test alias collision đã sửa); chưa
   chạy local runtime vì lease A. Architecture/diff PASS; native CI còn chờ.
+- Partial desktop release source `9bf24af9a44ce25da4826edb2f6039203f5416f1`:
+  full `33985950156`, Windows job101359345450 SUCCESS, desktop121/1210skip,
+  build0/0/GPU runtime/capture PASS; Core và Android full SUCCESS. Narrow
+  `33985947947` Windows job101359337293 baseline/candidate PASS, candidate
+  table007Editor=true/58frames gồm canonical-cancel cleanup. Mac vẫn FAIL.
+  Release21 desktop/shared-assistant/test paths theo manifest/patch riêng
+  `artifacts/table-007-desktop-bridge-9bf24af9`; base root782890b6, patchSHA256
+  `eb48e632d1eab79b3d49c5d0f43869584414ba4ef34fc30e446829c78f7441e7`.
+  Không chứa source ngoài lane, MAUI/Viewport/corpus/docs hoặc lặp49/64 hunks.
+  Đóng writer21paths; root review/integration gates vẫn riêng. WholeB HOLD.
+- Root cấp bounded read-only generated registrar audit trong paired Mac job:
+  đọc own baseline/candidate build outputs, class/base/selector declarations,
+  relative file hashes, SDK/workload và evaluated properties. Chỉ generated
+  response flags mới là effective mode evidence; missing metadata/linker roots
+  phải ghi unavailable. Không rebuild/install/debugger/production flags/variant.
+  JSON output<=32KiB, không raw file/binlog/path/UUID upload. Synthetic parser
+  audit signatures/type allowlist/privacy/flags/output bound PASS; architecture
+  và whitespace PASS. Hosted metadata collection còn đợi lượt mới.
 - Bước tiếp theo: đọc bounded registration-variant outcome/stages tại exact
   source, đồng thời triển khai WPF draft API và split/MAUI cleanup đã được cấp;
   không release whole lane trước full/iOS/Q003C/diagnostic final green.
