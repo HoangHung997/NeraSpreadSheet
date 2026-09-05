@@ -4,8 +4,9 @@
 - Base clean đã xác minh: `2e8482c25a44797a479b276ae26f472811a0a81e`.
 - Product checkpoint đã push: `9bf24af9a44ce25da4826edb2f6039203f5416f1`;
   desktop21-path slice đã partial release, wholeB vẫn HOLD. Diagnostic checkpoint
-  `c187fe808e65b0f4352cc8789d4f5d26220b2f56` có generated audit và completed
-  class-exclusion evidence; native gates đỏ. One-off variant đang được đóng.
+  `7fa83d27813c9620f6394dc7c099b88c71281c2d` có completed baseline-page partition:
+  variant analytics PASS, original native gates đỏ. One-off variant đã đóng;
+  historical commit giữ exact patch và evidence. Không có active variant mới.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
 - Root cho phép riêng workflow `table-007-libreoffice.yml` và producer script;
@@ -375,6 +376,30 @@
 - Windows c187 job101363710716 đã đọc lại: cả2attempts qua editor assertions tới
   first after-surface-reinsert; không recreated-frame-enter/native-unhandled
   marker, có focus-none. Intermittent reattach failure vẫn OPEN.
-- Bước tiếp theo duy nhất: chạy narrow native CI cho approved baseline-page
-  partition, đọc generated metadata và runtime outcomes; giữ21 desktop paths
-  frozen và wholeB HOLD, không tự mở thêm variant hoặc bật runtime flags.
+- Baseline-page7fa83d27 narrow33988816930 DONE: Mac101367217303 baselinePASS,
+  original candidateFAIL trước Action/host entry; variant patch/build/audit/run
+  PASS. Baseline và variant đều10frames/2native elements/chart+pivot activation
+  verified. Không tính C# marker trong printed removal diff là runtime entry.
+  Windows101367217496 baselinePASS/candidateFAIL cả2attempts sau first reinsert,
+  không recreated-frame/XAMLexception. Original failed native gates vẫn giữ FAIL.
+- Candidate/variant generated registrar.h byte-identical
+  f514f42d81b51c37c699e327153275b3665d8226e19a64e8700d9e1a377413ba;
+  native CellTextView vẫn hiện diện với2selectors, shared MauiTextView19selectors.
+  Targeted implementation hashes4182b68c/879814ad và class-map indices/tokens/flags
+  đều giống. Hai registrar.mm cùng1054529bytes nhưng full hashes khác; không
+  tuyên bố toàn generated metadata giống. SDK/evaluatedprops/packages giữ như
+  paired audit trước. Kết quả thu hẹp page startup/reachability cluster, chưa
+  chứng minh một dòng lỗi hoặc native editor acceptance. Đóng completed one-off.
+- Đề xuất read-only intermediate tiếp (chưa cấp/chạy): từ baseline page vừaPASS
+  chỉ chuyển existing analytics method sang async và thêm original awaited
+  Dispatcher Action với constant entry marker trước analytics, không editor
+  references/fd2 hook. Cùng original product/handler/source frozen trước89bc459f,
+  expected intermediate blob0ff170b2483d5137b7e8518fdbb3e2d59d2f42c5.
+  Review-only artifacts/table-007-baseline-dispatch-partition-proposal.*,
+  patchSHA6996d3c42d01f96423698ece2b03c4f9ae123c188036eb41b190357698eb01e5,
+  git apply --check PASS. NếuFAIL: async dispatch/control-flow/reachability đủ
+  tái hiện mà không editor phase; nếuPASS: editor-related roots/body vẫn OPEN.
+  Cả hai không thay editor acceptance; chỉ chạy khi root cấp đúng patch mới.
+- Bước tiếp theo duy nhất: nhận quyết định root về prepared dispatcher-only
+  baseline-page partition; giữ21 desktop paths frozen và wholeB HOLD, không
+  tự mở thêm variant hoặc bật runtime flags.
