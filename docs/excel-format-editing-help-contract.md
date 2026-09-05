@@ -23,7 +23,7 @@
   wrapped lines outside the visible portion of a tall cell.
 - Plain Enter commits immediately and moves down. Alt+Enter inserts one line
   break. Escape cancels and Tab commits then moves horizontally.
-- WPF cancellation also tears down the native draft and completion popup when
+- WPF and WinForms cancellation also tears down the native draft and completion UI when
   the session already canceled its editor state (for example during worksheet
   activation). Repeated cancellation returns false without moving the new sheet's
   selection, stealing focus or mutating cell/history state.

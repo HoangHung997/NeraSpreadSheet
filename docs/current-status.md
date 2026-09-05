@@ -1,5 +1,19 @@
 # NeraSpreadSheet current implementation status
 
+## CẬP NHẬT 06/09/2026 — UX-007 ĐÃ GHÉP, DESKTOP LIFECYCLE ĐÃ NHẬN
+
+Root đã ghép7commits A final24d130c6 (source đủ7jobs xanh, native13ảnh đã
+review) và nhận riêng WPF49/WinForms64 cancellation source/test slices đã
+release. Giữ một Ribbon/customization/session model, scoped native HC resources,
+exactly-once shortcuts và native cleanup khi đổi sheet. B MAUI/editor/corpus
+vẫn đang điều tra; chưa ghép hoặc báo100%. [Integration record](worklog/UX_007_INTEGRATION_20260906.md).
+
+Root checkpoint7b6e2297 trước đợt ghép này đã xanh cả5workflows gồm experimental
+Win11 x64 published demo và isolated Windows PackageReference consumer. Mã kết
+hợp mới phải qua CI đúngHEAD riêng. R2 formula bar/worksheet scrollbars/split
+shell, MAUI packages, full combined perf và actual hardware acceptance còn OPEN;
+chi tiết vận hành mới nhất ở [CURRENT](worklog/CURRENT.md).
+
 ## CẬP NHẬT 06/09/2026 — HARNESS ĐÃ GHÉP, WINDOWS NUGET CONSUMER ĐÃ PASS
 
 Root đã ghép source PERF-008 `fe015864` (bốn workflow exact-source xanh),

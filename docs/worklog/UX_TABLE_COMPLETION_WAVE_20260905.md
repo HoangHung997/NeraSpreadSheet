@@ -23,7 +23,7 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
 
 | Lane | Công việc | Trạng thái |
 | --- | --- | --- |
-| A — UX-007 | Keyboard, focus, accessibility; hoàn thiện localization/chrome/customization còn thiếu của UX-006 | ACTIVE |
+| A — UX-007 | Keyboard, focus, accessibility; hoàn thiện localization/chrome/customization còn thiếu của UX-006 | SOURCE RELEASED / INTEGRATED; hardware/combined OPEN |
 | B — TABLE-007 | Shared structured-formula editor cho split/MAUI; corpus do LibreOffice thật tạo | ACTIVE |
 | C — PERF-008-HARNESS | Harness, stress tests, paired baseline trên CI runner riêng | SOURCE RELEASED / INTEGRATED; P3 OPEN |
 
@@ -133,6 +133,15 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
   assertions, không continue-on-error hoặc success fallback. Candidate vẫn chạy
   để thu evidence nếu baseline fail, nhưng job failure được giữ; baseline không
   thay candidate acceptance hoặc final full/iOS/Q003C gates.
+- Cho B probe Mac stderr của chính synthetic smoke process bằng dup2(fd2)
+  trong owned SmokePage trước native attachment. Chỉ file temp riêng current
+  process/run trong app sandbox, không truncate file của lượt/instance khác.
+  Runner chỉ đọc failure-only tối đa64KiB, xuất tối đa64 symbolized method
+  frames qua whitelist và bỏ paths/UUID/addresses/registers/locals/values;
+  không upload raw stderr, dump hoặc artifacts chứa dữ liệu native chưa lọc.
+  Cleanup chỉ exact current-run file đã xác minh. Giữ Console/result criteria,
+  timeout/attempts; không debugger attach, OS/signing/security hoặc scheduler
+  changes. Redirect chỉ để thu evidence, không thay success gate hay kết luận fix.
 
 ### Quyền sửa C
 
@@ -237,6 +246,18 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
   isolated PackageReference consumer/loaded host proof; R3 vẫn OPEN.
 
 ## Single writer và tích hợp
+
+- A final24d130c6 đã release toàn bộ production/tests/docs/ci.yml; root nhận
+  bảy commits sạch đến79fb8aa9 và verify mọi A-owned path byte-equivalent.
+  Exact source full33983346342/iOS33983348485/Q003C33983350512 xanh7jobs.
+  Root review final images và delta resource/keyboard/customization, không
+  thay bằng CI parent. A không còn writer/desktop lease; root giữ ci.yml.
+- B đã release thêm riêng WinForms delta64c04f5f: NeraSpreadsheetControl.cs
+  và Table007WinFormsEditorLifecycleSmokeTests.cs, Windows job101352853547 /
+  run33983522435 PASS111/111,0skip. Root kiểm parent blob khớp, nhận đúng hai
+  source/test paths bằng apply_patch, không lấy B docs. Như WPF49, không nhập
+  trùng source/test64 khi nhận whole B; docs delta64 chưa tích hợp. Native B
+  source còn HOLD, không coi partial releases là whole source-green.
 
 - B đã release riêng delta hai file WPF tại
   `49e1debeaa6187c91546d23c6ac63f96d9c10c60`: NeraSpreadsheetControl.cs và

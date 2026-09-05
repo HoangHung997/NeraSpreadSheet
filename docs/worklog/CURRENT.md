@@ -1,5 +1,42 @@
 # Current Work Handoff
 
+## Mới nhất — UX-007 đã ghép; WPF/WinForms cancellation slices đã nhận
+
+- Branch feature/bootstrap-architecture-v0.1, PR #1 Draft/open/unmerged.
+  Root ghép7commits A final24d130c6 thành1662d0b9..79fb8aa9, không conflict;
+  mọi A-owned path byte-equivalent, A đã release toàn bộ kể cảci.yml/desktop.
+  Root verify source7jobs xanh và final9+4ảnh theo
+  [integration record](UX_007_INTEGRATION_20260906.md).
+- Root7b6e2297 đã xanh đủ5workflows: full33983410443, iOS33983410457,
+  Q003C33983410421, packages33983406801, demo33983406785. Không lấy những run
+  này làm final proof cho checkpoint A+WinForms theo sau.
+- WPFslice49 đã ở7b; WinFormsslice64c04f5f mới nhận đúng2source/testpaths,
+  exact Windows job101352853547/run33983522435 PASS111/111,0skip. Root review/
+  verify blobs; không nhận Bdocs/MAUI đang fail. Khi ghép whole B tránh nhập
+  trùng source/test49/64, nhưng các Bdocs delta của2commit chưa nhận.
+- B còn active native/editor/corpus, có bounded own-process stderr probe theo
+  wave; source/table MAUI chưa được nghiệm thu. C released harness; P3 chờ
+  combined fullB. A source released, hardware/AppleAndroid shell gates OPEN.
+- Local architecture/packaging/diff PASS; không native/heavy local build hoặc
+  xóa dữ liệu. New root CI/consumer và demo cần exact HEAD; demo phải manual
+  dispatch nếu chỉ SDK paths thay đổi, không dùng artifact cũ thay thế.
+- Single next step: push/verify5gates của checkpoint kết hợp này, rồi tiếp tục
+  R2 formula-bar/scrollbar/split shell, R3 MAUI packages và B diagnostics theo
+  ownership. Chưa đóng toàn bộ Table/Filter/Ribbon/UX hoặc báo100%.
+
+### Native diagnostic grant sau checkpoint 7b6e2297
+
+Paired run33983361424: Mac baseline2e8482c2 PASS, candidate FAIL cùng job/SDK/
+workload/current runner, trước editor host; 8 balanced depth1 draws, không
+dispose/IPS. Windows baseline PASS sau existing retry vì pre-marker0xc0000409,
+candidate PASS first attempt; chưa coi intermittent Windows fatal là fixed.
+Root cho bounded Mac own-process stderr capture theo wave để lấy native frames,
+không thay renderer hoặc nới gates. B WinForms64c04f5f còn HOLD, đang native
+run33983522435. A final24d130c6 còn chờ exact final CI/release.
+Root7b iOS33983410457/Q003C33983410421/packages33983406801/demo33983406785
+đã PASS; full33983410443 tại checkpoint còn chạy. Grants/docs mới cần đưa vào
+commit tiếp theo khi tích hợp slice/lane đã release, không ghi đè source khác.
+
 ## Nhận partial WPF lifecycle và xác minh experimental demo
 
 - Root branch feature/bootstrap-architecture-v0.1, PR #1 Draft/open/unmerged.
