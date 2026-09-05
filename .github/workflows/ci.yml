@@ -114,6 +114,14 @@ jobs:
         shell: pwsh
         run: ./scripts/run-maui-windows-smoke.ps1 -ExecutablePath "artifacts/maui-windows-ribbon-smoke/NeraSpreadSheet.Maui.Windows.RibbonSmoke.exe"
 
+      - name: Upload loaded MAUI Ribbon customization captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maui-windows-ribbon-ux007
+          path: artifacts/maui-windows-ribbon-smoke/ux007-*.png
+          if-no-files-found: error
+
       - name: Publish loaded MAUI Windows Table filter smoke
         run: dotnet publish tests/NeraSpreadSheet.Maui.Windows.TableFilterSmoke/NeraSpreadSheet.Maui.Windows.TableFilterSmoke.csproj -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --self-contained false -p:NeraMauiTargetFrameworks=net10.0-windows10.0.19041.0 -o artifacts/maui-windows-table-filter-smoke
 

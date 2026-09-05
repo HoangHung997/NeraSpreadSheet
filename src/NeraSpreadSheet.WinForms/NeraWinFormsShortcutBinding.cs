@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Windows.Forms;
 using NeraSpreadSheet.Commands;
 
@@ -10,6 +11,7 @@ internal delegate bool ShortcutResolver(string shortcut, out CommandId commandId
 internal sealed class NeraWinFormsShortcutBinding : IDisposable
 {
     private static readonly KeysConverter KeysConverter = new();
+    private static readonly ConditionalWeakTable<Form, KeyPreviewLease> KeyPreviewLeases = new();
     private readonly Control _owner;
     private readonly ShortcutResolver _resolver;
     private readonly Func<CommandId, ValueTask<bool>> _activate;
@@ -17,8 +19,9 @@ internal sealed class NeraWinFormsShortcutBinding : IDisposable
     private readonly Func<bool> _areKeyTipsActive;
     private readonly Func<char, ValueTask<bool>> _processKeyTipCharacter;
     private readonly Action _escapeKeyTips;
+    private readonly bool _supportsKeyTips = true;
     private readonly Form? _form;
-    private readonly bool _originalKeyPreview;
+    private readonly KeyPreviewLease? _keyPreviewLease;
     private bool _disposed;
 
     public NeraWinFormsShortcutBinding(
@@ -34,6 +37,7 @@ internal sealed class NeraWinFormsShortcutBinding : IDisposable
             static _ => ValueTask.FromResult(false),
             static () => { })
     {
+        _supportsKeyTips = false;
     }
 
     private static Func<CommandId, ValueTask<bool>> WrapActivation(
@@ -67,7 +71,8 @@ internal sealed class NeraWinFormsShortcutBinding : IDisposable
         _form = owner as Form;
         if (_form is not null)
         {
-            _originalKeyPreview = _form.KeyPreview;
+            _keyPreviewLease = KeyPreviewLeases.GetValue(_form, static form => new KeyPreviewLease(form.KeyPreview));
+            _keyPreviewLease.Count++;
             _form.KeyPreview = true;
         }
         _owner.KeyDown += OnKeyDown;
@@ -81,9 +86,10 @@ internal sealed class NeraWinFormsShortcutBinding : IDisposable
         }
         _disposed = true;
         _owner.KeyDown -= OnKeyDown;
-        if (_form is not null && !_form.IsDisposed)
+        if (_form is not null && _keyPreviewLease is not null && --_keyPreviewLease.Count == 0)
         {
-            _form.KeyPreview = _originalKeyPreview;
+            if (!_form.IsDisposed) _form.KeyPreview = _keyPreviewLease.OriginalValue;
+            KeyPreviewLeases.Remove(_form);
         }
     }
 
@@ -113,7 +119,8 @@ internal sealed class NeraWinFormsShortcutBinding : IDisposable
 
     private async void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.KeyCode == Keys.Menu)
+        if (_disposed || e.Handled || e.SuppressKeyPress) return;
+        if (_supportsKeyTips && e.KeyCode == Keys.Menu && !e.Control)
         {
             _enterKeyTips();
             MarkHandled(e);
@@ -169,5 +176,11 @@ internal sealed class NeraWinFormsShortcutBinding : IDisposable
     {
         e.Handled = true;
         e.SuppressKeyPress = true;
+    }
+
+    private sealed class KeyPreviewLease(bool originalValue)
+    {
+        internal bool OriginalValue { get; } = originalValue;
+        internal int Count { get; set; }
     }
 }

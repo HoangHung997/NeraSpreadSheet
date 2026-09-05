@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -111,7 +111,7 @@
   <data name="Cut" xml:space="preserve">
     <value>Cắt</value>
   </data>
-  <data name="Các lệnh được nhóm theo tab nguồn.&#10;Chọn một mục bên phải để đổi hiển thị hoặc kích thước." xml:space="preserve">
+  <data name="Các lệnh được nhóm theo tab nguồn.&#xA;Chọn một mục bên phải để đổi hiển thị hoặc kích thước." xml:space="preserve">
     <value>Các lệnh được nhóm theo tab nguồn.
 Chọn một mục bên phải để đổi hiển thị hoặc kích thước.</value>
   </data>
@@ -1335,5 +1335,59 @@ Chọn một mục bên phải để đổi hiển thị hoặc kích thước.<
   </data>
   <data name=" · Đã khóa bởi ứng dụng" xml:space="preserve">
     <value> · Đã khóa bởi ứng dụng</value>
+  </data>
+  <data name="Tên hiển thị" xml:space="preserve">
+    <value>Tên hiển thị</value>
+  </data>
+  <data name="Đổi tên" xml:space="preserve">
+    <value>Đổi tên</value>
+  </data>
+  <data name="Xóa mục" xml:space="preserve">
+    <value>Xóa mục</value>
+  </data>
+  <data name="Thêm tab" xml:space="preserve">
+    <value>Thêm tab</value>
+  </data>
+  <data name="Thêm nhóm" xml:space="preserve">
+    <value>Thêm nhóm</value>
+  </data>
+  <data name="Nhóm đích" xml:space="preserve">
+    <value>Nhóm đích</value>
+  </data>
+  <data name="Thêm lệnh vào nhóm" xml:space="preserve">
+    <value>Thêm lệnh vào nhóm</value>
+  </data>
+  <data name="Chuyển lệnh sang nhóm" xml:space="preserve">
+    <value>Chuyển lệnh sang nhóm</value>
+  </data>
+  <data name="Thanh truy nhập nhanh" xml:space="preserve">
+    <value>Thanh truy nhập nhanh</value>
+  </data>
+  <data name="Lệnh truy nhập nhanh" xml:space="preserve">
+    <value>Lệnh truy nhập nhanh</value>
+  </data>
+  <data name="Thêm vào truy nhập nhanh" xml:space="preserve">
+    <value>Thêm vào truy nhập nhanh</value>
+  </data>
+  <data name="Bỏ khỏi truy nhập nhanh" xml:space="preserve">
+    <value>Bỏ khỏi truy nhập nhanh</value>
+  </data>
+  <data name="Xuất cấu hình" xml:space="preserve">
+    <value>Xuất cấu hình</value>
+  </data>
+  <data name="Nhập cấu hình" xml:space="preserve">
+    <value>Nhập cấu hình</value>
+  </data>
+  <data name="Nạp cấu hình" xml:space="preserve">
+    <value>Nạp cấu hình</value>
+  </data>
+  <data name="Cấu hình Ribbon JSON" xml:space="preserve">
+    <value>Cấu hình Ribbon JSON</value>
+  </data>
+  <data name="Đã áp dụng cấu hình Ribbon." xml:space="preserve">
+    <value>Đã áp dụng cấu hình Ribbon.</value>
+  </data>
+  <data name="Không thể thay đổi cấu hình. Kiểm tra lựa chọn, tên và quyền tùy biến." xml:space="preserve">
+    <value>Không thể thay đổi cấu hình. Kiểm tra lựa chọn, tên và quyền tùy biến.</value>
   </data>
 </root>

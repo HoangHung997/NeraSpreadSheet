@@ -16,6 +16,7 @@ internal sealed class NeraWpfShortcutBinding : IDisposable
     private readonly Func<bool> _areKeyTipsActive;
     private readonly Func<char, ValueTask<bool>> _processKeyTipCharacter;
     private readonly Action _escapeKeyTips;
+    private readonly bool _supportsKeyTips = true;
     private bool _disposed;
 
     public NeraWpfShortcutBinding(
@@ -31,6 +32,7 @@ internal sealed class NeraWpfShortcutBinding : IDisposable
             static _ => ValueTask.FromResult(false),
             static () => { })
     {
+        _supportsKeyTips = false;
     }
 
     private static Func<CommandId, ValueTask<bool>> WrapActivation(
@@ -76,8 +78,10 @@ internal sealed class NeraWpfShortcutBinding : IDisposable
 
     private async void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (_disposed || e.Handled) return;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (key is Key.LeftAlt or Key.RightAlt)
+        if (_supportsKeyTips && key is Key.LeftAlt or Key.RightAlt &&
+            (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Windows)) == ModifierKeys.None)
         {
             _enterKeyTips();
             e.Handled = true;

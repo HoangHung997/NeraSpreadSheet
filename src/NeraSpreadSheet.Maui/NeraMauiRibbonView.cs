@@ -928,6 +928,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             BackgroundColor = Palette.Surface,
         };
         NeraMauiRibbonChrome.RemoveNativeMinimums(picker);
+        NeraMauiRibbonChrome.ConfigureFilter(picker, Palette);
         SemanticProperties.SetDescription(picker, item.Presentation.AutomationName);
         SemanticProperties.SetHint(picker, BuildToolTip(command));
         EventHandler? selectionChanged = null;

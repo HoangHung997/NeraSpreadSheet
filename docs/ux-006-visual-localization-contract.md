@@ -19,8 +19,9 @@ chứng minh WinUI Filter chrome, không chứng minh Skia body hay DPI vật l�
 tiếng Việt. `Default` cố định `vi-VN`, không phụ thuộc ngôn ngữ của máy nhúng.
 Host tạo một instance bằng CultureInfo và callback resource override; callback
 trả null để tiếp tục fallback framework. Culture không có resource về neutral;
-key không tồn tại trả nguyên key. Catalog `en` là tập override ban đầu, không
-được gọi là bản dịch tiếng Anh đầy đủ. Keys là chuỗi nguồn có nghĩa, bao gồm
+key không tồn tại trả nguyên key. UX-007 hoàn thiện catalog `en` cho toàn bộ
+461 keys neutral hiện hành; regression đọc trực tiếp resource set `en` không
+fallback để kiểm tra coverage và giữ nguyên placeholder/format. Keys là chuỗi nguồn có nghĩa, bao gồm
 format message; dữ liệu truyền vào placeholder không bị dịch.
 
 ## Quyền của host và state
@@ -99,9 +100,11 @@ culture/history leak. Capture vi-VN/light và en-GB/high-contrast dark của c�
 host giữ nguyên original native frame/filter/Undo/Redo gates.
 
 Chưa tuyên bố whole UX-006 DONE. Raster export/logical geometry không thay thế
-physical multi-monitor DPI, touch-device acceptance hoặc screen reader. MAUI
-customization vẫn là binding cho host xây shell, không giả có native dialog
-hoàn chỉnh. CI/head cuối và ảnh đã inspect được ghi trong worklog lane.
+physical multi-monitor DPI, touch-device acceptance hoặc screen reader. UX-007
+bổ sung `NeraMauiRibbonCustomizationView` dùng binding hiện hữu, cùng captures
+native full/narrow và Picker đang mở trong bốn palette. Xem
+[contract UX-007](ux-007-keyboard-accessibility-contract.md). CI/head cuối và ảnh
+đã inspect được ghi trong worklog của từng lane; build Apple không thay runtime smoke.
 
 Rollback: revert các commit UX-006 sau baseline. Không migration workbook,
 resource application hoặc customization profile.
