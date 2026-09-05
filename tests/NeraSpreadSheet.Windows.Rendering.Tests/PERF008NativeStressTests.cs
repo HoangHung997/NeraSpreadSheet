@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Text.Json;
@@ -17,6 +18,7 @@ namespace NeraSpreadSheet.Windows.Rendering.Tests;
 [DoNotParallelize]
 public sealed class PERF008NativeStressTests
 {
+    private static readonly int[] Widths = [1536, 1280, 1024, 820];
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
@@ -38,6 +40,7 @@ public sealed class PERF008NativeStressTests
                 PumpWpf();
                 var subscriptions = CountSubscriptions(runtime);
                 var gridSubscriptions = CountSubscriptions(grid);
+                var tableSubscriptions = CountSubscriptions(session.TableDesign);
                 for (var cycle = 0; cycle < 12; cycle++)
                 {
                     using (var ribbon = new Wpf.NeraRibbonControl(runtime))
@@ -47,7 +50,7 @@ public sealed class PERF008NativeStressTests
                     {
                         System.Windows.Controls.DockPanel.SetDock(ribbon, System.Windows.Controls.Dock.Top);
                         root.Children.Insert(0, ribbon);
-                        window.Width = new[] { 1536d, 1280d, 1024d, 820d }[cycle % 4];
+                        window.Width = Widths[cycle % 4];
                         ribbon.IconTheme = (NeraIconTheme)(cycle % 4);
                         filter.IconTheme = ribbon.IconTheme;
                         runtime.SetCustomization(new RibbonCustomization([new RibbonTabCustomization(runtime.Definition.Tabs[0].Id, caption: "Tùy biến PERF008")]));
@@ -89,6 +92,7 @@ public sealed class PERF008NativeStressTests
                     PumpWpf();
                     Assert.AreEqual(subscriptions, CountSubscriptions(runtime), "Disposed WPF Ribbon retained runtime subscriptions.");
                     Assert.AreEqual(gridSubscriptions, CountSubscriptions(grid), "Disposed WPF filter retained grid subscriptions.");
+                    Assert.AreEqual(tableSubscriptions, CountSubscriptions(session.TableDesign), "Disposed WPF Table binding retained subscriptions.");
                     if (cycle % 3 == 2) evidence.Add(Memory(cycle + 1, subscriptions, gridSubscriptions));
                 }
             }
@@ -113,6 +117,7 @@ public sealed class PERF008NativeStressTests
             Forms.Application.DoEvents();
             var subscriptions = CountSubscriptions(runtime);
             var gridSubscriptions = CountSubscriptions(grid);
+            var tableSubscriptions = CountSubscriptions(session.TableDesign);
             for (var cycle = 0; cycle < 12; cycle++)
             {
                 using (var ribbon = new Win.NeraRibbonControl(runtime) { Dock = Forms.DockStyle.Top, Height = 180 })
@@ -121,7 +126,7 @@ public sealed class PERF008NativeStressTests
                 using (ribbon.BindShortcuts(form))
                 {
                     form.Controls.Add(ribbon);
-                    form.ClientSize = new System.Drawing.Size(new[] { 1536, 1280, 1024, 820 }[cycle % 4], 800);
+                    form.ClientSize = new System.Drawing.Size(Widths[cycle % 4], 800);
                     ribbon.IconTheme = (NeraIconTheme)(cycle % 4);
                     filter.IconTheme = ribbon.IconTheme;
                     runtime.SetCustomization(new RibbonCustomization([new RibbonTabCustomization(runtime.Definition.Tabs[0].Id, caption: "Tùy biến PERF008")]));
@@ -162,6 +167,7 @@ public sealed class PERF008NativeStressTests
                 Forms.Application.DoEvents();
                 Assert.AreEqual(subscriptions, CountSubscriptions(runtime), "Disposed WinForms Ribbon retained runtime subscriptions.");
                 Assert.AreEqual(gridSubscriptions, CountSubscriptions(grid), "Disposed WinForms filter retained grid subscriptions.");
+                Assert.AreEqual(tableSubscriptions, CountSubscriptions(session.TableDesign), "Disposed WinForms Table binding retained subscriptions.");
                 if (cycle % 3 == 2) evidence.Add(Memory(cycle + 1, subscriptions, gridSubscriptions));
             }
             form.Close();

@@ -46,9 +46,10 @@ internal static class PERF008Harness
             var table = session.ActiveWorksheet.Tables.Single();
             var input = new { unrelated, rows = 10, columns = new[] { "Item", "Amount" }, formula = "=Sales[Am" };
             measurements.Add(Measure($"table.toggleUndo.{unrelated}", 64, 8,
-                benchmark.FilterButtonToggleAndUndo, input, new { table.Name, table.Range,
+                benchmark.FilterButtonToggleAndUndo, input, new { table.Name, table.Range, table.ShowFilterButtons,
                     columns = table.Columns.Select(column => column.Name).ToArray(), session.History.UndoCount }));
             Require(session.History.UndoCount == 0, "Measured Table toggle/undo did not restore history.");
+            Require(session.ActiveWorksheet.Tables.Single().ShowFilterButtons, "Measured Table toggle/undo did not restore filter buttons.");
             var suggestions = benchmark.ColumnCompletion();
             Require(suggestions > 0, "The Table completion fixture no longer returns suggestions.");
             measurements.Add(Measure($"table.completion.{unrelated}", 256, 32,
