@@ -3,11 +3,29 @@
 Repository: `HoangHung997/NeraSpreadSheet`
 Branch: `feature/bootstrap-architecture-v0.1`
 PR: #1 Draft, open, unmerged
-Current roadmap score: `83.98% ~= 84%`
+Historical roadmap score: `83.98% ~= 84%` (không phải phép đo mới của wave hiện tại)
 
 This file is the shared coordination ledger for Codex/ChatGPT work. Agents must
-claim one lane at a time, keep scope boundaries explicit, and update this file
-before moving to another lane.
+claim one lane at a time and keep scope boundaries explicit. Trong wave hiện tại,
+chỉ root coordinator được ghi file này và CURRENT/current-status/delivery-plan;
+các lane báo cáo vào worklog riêng, root cập nhật ledger tuần tự.
+
+## Current wave — tiếp tục đến hoàn thiện Table/Filter/Ribbon/UX
+
+Baseline `2e8482c25a44797a479b276ae26f472811a0a81e` đã xanh full `33966917191`,
+iOS `33966917101`, Q003C `33966917091`, đủ bảy job đúng SHA.
+Ba worktree `gpt-6-astra / xhigh` đã dispatch; không writer chung và không dùng
+source-green thay combined-green. Chỉ lane A giữ desktop lease; root tích hợp.
+
+| Lane | Phạm vi | Trạng thái |
+| --- | --- | --- |
+| UX-007 / A | Keyboard, focus, a11y, resources, native customization/chrome | ACTIVE |
+| TABLE-007 / B | Split/MAUI editor, structured assistance, actual LibreOffice corpus | ACTIVE |
+| PERF-008-HARNESS / C | Independent runner benchmark/stress; final combined rerun sau A+B | ACTIVE |
+
+Ownership exact groups, checklist U1–R4 và tiếp tục demo/consumer acceptance:
+[wave hoàn thiện](UX_TABLE_COMPLETION_WAVE_20260905.md). Không báo 100% khi còn
+gate OPEN. Không merge PR #1 hoặc public NuGet publish trong đợt này.
 
 ## Operating rules
 
@@ -15,11 +33,11 @@ before moving to another lane.
 - Do not reopen the formula catalog without concrete compatibility evidence.
 - Do not treat Q003D as standard pivot creation/import; it is preservation only.
 - Do not create native controls per cell.
-- Update `docs/worklog/CURRENT.md` and the relevant lane worklog before handoff.
+- Lane cập nhật worklog riêng trước handoff; root là writer duy nhất cập nhật CURRENT.
 - Each lane closes only after local tests plus exact-head CI evidence where
   available.
 
-## Lane queue
+## Historical project lane queue
 
 | Order | Lane | Owner | Status | Exit evidence |
 |---:|---|---|---|---|

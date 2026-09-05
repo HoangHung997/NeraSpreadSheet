@@ -1,6 +1,30 @@
 # Current Work Handoff
 
-## Current integration — native Table + UX-006
+## Current wave — UX-007 / TABLE-007 / PERF-008-HARNESS
+
+- Người dùng yêu cầu mở worktree tiếp tục hoàn thiện Table/Filter/Ribbon/UX.
+  Ba task đã active và xác minh đúng base/model `gpt-6-astra / xhigh`;
+  mapping task/branch ở wave. Không tự mở rộng sang parity toàn Excel.
+- Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+  Baseline **`2e8482c25a44797a479b276ae26f472811a0a81e`** đã nghiệm thu:
+  full `33966917191`, iOS `33966917101`, Q003C `33966917091`, đủ bảy job
+  success đúng SHA. Core 1505/1505, Windows 105/105, MAUI 44/44, không skip.
+  Final artifacts có 226 Ribbon PNG/128 layouts, 4 MAUI PNG, 18 nupkg.
+  [Handoff đã xác minh](https://github.com/HoangHung997/NeraSpreadSheet/pull/1#issuecomment-5551912649).
+- A sở hữu Ribbon/Filter presentation, keyboard/a11y/localization/customization;
+  B sở hữu formula editor/split/MAUI overlay và LibreOffice corpus; C sở hữu
+  performance harness/workflow riêng, không sửa production trong wave này.
+- **Chỉ A được dùng desktop local** cho synthetic UI tests. B/C dùng headless/CI
+  hoặc xin chuyển lease. Root giữ shared docs/existing workflows/project files
+  và tích hợp; lane chỉ ghi worklog riêng, không concurrent-write cùng MD.
+- Contract/ownership/checklist/chuỗi tiếp tục:
+  [UX_TABLE_COMPLETION_WAVE_20260905.md](UX_TABLE_COMPLETION_WAVE_20260905.md).
+  Whole acceptance còn OPEN: U1–U5, T1–T3, P1–P3, R1–R4; không báo 100%
+  khi còn native/hardware/performance/release gate chưa chứng minh.
+- Bước tiếp theo duy nhất: push coordination checkpoint và nhận checkpoint
+  từng lane để review/tích hợp tuần tự; không merge PR hoặc publish feed công khai.
+
+## Historical integration — native Table + UX-006, before final CI
 
 - Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
   A baseline final **`ca69da45a04301bc63286c168f887488d681a00e`** đã xanh full

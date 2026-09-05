@@ -1,6 +1,17 @@
 # Kế hoạch hoàn thiện Table, Filter, Ribbon và UX
 
-Cập nhật hiện hành 05/09/2026: A final `ca69da45` đã integrated-green; B final
+Cập nhật hiện hành 05/09/2026: combined final `2e8482c2` đã nghiệm thu đủ bảy
+job đúng SHA (full `33966917191`, iOS `33966917101`, Q003C `33966917091`).
+Người dùng yêu cầu tiếp tục đến hoàn thiện phạm vi này. Đã dispatch ba worktree
+UX-007, TABLE-007 và PERF-008-HARNESS, cùng `gpt-6-astra / xhigh`.
+Root giữ integration/shared docs; chỉ UX-007 giữ desktop lease; performance
+lane dùng runner riêng và phải rerun sau khi ghép UX/Table. Checklist U1–R4,
+file ownership và chuỗi demo/NuGet acceptance nằm trong
+[wave hoàn thiện](worklog/UX_TABLE_COMPLETION_WAVE_20260905.md).
+Quy định chưa mở wave dưới đây là lịch sử, đã superseded bởi nghiệm thu và
+yêu cầu mới; không supersede các architecture/native/exact-head CI gates.
+
+Cập nhật lịch sử 05/09/2026 trước final gate: A final `ca69da45` đã integrated-green; B final
 `292a48d1` đã source-green đủ ba workflow/bảy job và release toàn bộ files/desktop.
 Đã ghép bốn commits B với native Table thành `0e770e52`. Resources/chrome/contrast
 và WPF idle fixes có source regression/capture evidence; combined final gates

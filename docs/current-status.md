@@ -1,6 +1,25 @@
 # NeraSpreadSheet current implementation status
 
-## NATIVE TABLE + UX-006 — ĐÃ GHÉP HAI SOURCE; CHỜ COMBINED FINAL GATE
+## HIỆN HÀNH — BASELINE ĐÃ XANH; MỞ BA LANE HOÀN THIỆN
+
+Final combined **`2e8482c25a44797a479b276ae26f472811a0a81e`** đã xanh đủ
+ba workflow/bảy job: full `33966917191`, iOS `33966917101`, Q003C `33966917091`.
+Core **1505/1505**, Windows **105/105**, MAUI **44/44**, không skip; desktop
+build 0 warnings/errors. Final artifacts gồm 226 Ribbon PNG/128 layouts,
+4 MAUI PNG và 18 nupkg. [Handoff và evidence](https://github.com/HoangHung997/NeraSpreadSheet/pull/1#issuecomment-5551912649).
+
+Theo yêu cầu mới của người dùng, tiếp tục ba worktree `gpt-6-astra / xhigh`:
+UX-007 (presentation/keyboard/a11y), TABLE-007 (split/MAUI editor + LibreOffice),
+PERF-008-HARNESS (isolated benchmark/stress). Root điều phối và giữ các file
+trạng thái chung; chỉ UX lane giữ desktop lease. Ba task đã active đúng base/model,
+chưa có implementation mới được nghiệm thu. Xem
+[ownership và checklist 100% phạm vi Table/Filter/Ribbon/UX](worklog/UX_TABLE_COMPLETION_WAVE_20260905.md).
+
+Các acceptance còn mở vẫn được tính là chưa hoàn tất, đặc biệt actual physical
+DPI/touch/screen reader, editor/corpus, controlled performance, demo/consumer
+acceptance. Không suy ra tỷ lệ hoàn thành toàn SDK từ số task đã giao.
+
+## LỊCH SỬ — NATIVE TABLE + UX-006, TRƯỚC FINAL GATE
 
 A đã integrated-green tại `ca69da45`, đủ bảy job: full `33964496297`, iOS
 `33964496300`, Q003C `33964496314`. B final `292a48d1` xanh đủ bảy job ở
