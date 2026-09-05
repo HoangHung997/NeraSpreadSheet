@@ -95,12 +95,23 @@ internal sealed partial class SmokePage
                 var index = native.SelectedIndex;
                 native.Focus(Microsoft.UI.Xaml.FocusState.Keyboard);
                 native.IsDropDownOpen = true;
-                await Task.Delay(120).ConfigureAwait(true);
+                await Task.Delay(500).ConfigureAwait(true);
                 Require(native.IsDropDownOpen && native.SelectedIndex == index, "Opening Picker changed selection.");
+                var containers = Enumerable.Range(0, native.Items.Count)
+                    .Select(item => native.ContainerFromIndex(item) as Microsoft.UI.Xaml.Controls.ComboBoxItem).ToArray();
+                Require(containers.Length == shell.Binding.Entries.Count && containers.All(static item =>
+                    item is { IsLoaded: true, ActualWidth: > 0d, ActualHeight: > 0d }),
+                    "The synthetic target Picker must realize every entry before capture.");
+                // A caption tooltip can also be open. Select by the actual item containers,
+                // not popup enumeration order, which can capture only that tooltip.
                 var popup = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetOpenPopupsForXamlRoot(native.XamlRoot)
-                    .LastOrDefault(static candidate => candidate.IsOpen && candidate.Child is not null);
+                    .SingleOrDefault(candidate => candidate.IsOpen && candidate.Child is not null &&
+                        containers.All(item => ContainsNativeCustomizationVisual(candidate.Child, item!)));
                 Require(popup?.Child is Microsoft.UI.Xaml.FrameworkElement, "Open Picker has no native popup visual.");
-                await CaptureNativeCustomizationAsync((Microsoft.UI.Xaml.FrameworkElement)popup!.Child!, $"ux007-picker-{theme}.png").ConfigureAwait(true);
+                var popupVisual = (Microsoft.UI.Xaml.FrameworkElement)popup!.Child!;
+                var popupPixels = NativePopupCapture.Capture(popupVisual, WinRT.Interop.WindowNative.GetWindowHandle(Window.Handler!.PlatformView!));
+                await SaveCustomizationPixelsAsync(popupPixels.Pixels, popupPixels.Width, popupPixels.Height, $"ux007-picker-{theme}.png").ConfigureAwait(true);
+                foreach (var item in containers) VerifyCapturedCustomizationText(popupVisual, item!, popupPixels.Pixels, popupPixels.Width, popupPixels.Height);
                 native.IsDropDownOpen = false;
                 Require(native.SelectedIndex == index && shell.ExportJson() == applied, "Picker open/close changed profile.");
             }
@@ -135,6 +146,15 @@ internal sealed partial class SmokePage
     private static Task CaptureCustomizationAsync(VisualElement view, string fileName) =>
         CaptureNativeCustomizationAsync((Microsoft.UI.Xaml.FrameworkElement)view.Handler!.PlatformView!, fileName);
 
+    private static bool ContainsNativeCustomizationVisual(Microsoft.UI.Xaml.DependencyObject root,
+        Microsoft.UI.Xaml.DependencyObject target)
+    {
+        if (ReferenceEquals(root, target)) return true;
+        for (var index = 0; index < Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root); index++)
+            if (ContainsNativeCustomizationVisual(Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, index), target)) return true;
+        return false;
+    }
+
     private static async Task CaptureNativeCustomizationAsync(Microsoft.UI.Xaml.FrameworkElement native, string fileName)
     {
         Require(native.IsLoaded && native.ActualWidth > 0 && native.ActualHeight > 0, "Capture target has no loaded bounds.");
@@ -144,12 +164,48 @@ internal sealed partial class SmokePage
         var buffer = await bitmap.GetPixelsAsync();
         var pixels = new byte[buffer.Length];
         using (var reader = global::Windows.Storage.Streams.DataReader.FromBuffer(buffer)) reader.ReadBytes(pixels);
+        await SaveCustomizationPixelsAsync(pixels, bitmap.PixelWidth, bitmap.PixelHeight, fileName).ConfigureAwait(true);
+    }
+
+    private static async Task SaveCustomizationPixelsAsync(byte[] pixels, int width, int height, string fileName)
+    {
         var directory = await global::Windows.Storage.StorageFolder.GetFolderFromPathAsync(AppContext.BaseDirectory);
         var file = await directory.CreateFileAsync(fileName, global::Windows.Storage.CreationCollisionOption.ReplaceExisting);
         using var stream = await file.OpenAsync(global::Windows.Storage.FileAccessMode.ReadWrite);
         var encoder = await global::Windows.Graphics.Imaging.BitmapEncoder.CreateAsync(global::Windows.Graphics.Imaging.BitmapEncoder.PngEncoderId, stream);
         encoder.SetPixelData(global::Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, global::Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied,
-            (uint)bitmap.PixelWidth, (uint)bitmap.PixelHeight, 96d, 96d, pixels);
+            (uint)width, (uint)height, 96d, 96d, pixels);
         await encoder.FlushAsync();
+    }
+
+    private static void VerifyCapturedCustomizationText(Microsoft.UI.Xaml.FrameworkElement root,
+        Microsoft.UI.Xaml.DependencyObject item, byte[] pixels, int width, int height)
+    {
+        var text = FindNativeCustomizationText(item);
+        Require(text is { ActualWidth: > 0d, ActualHeight: > 0d } &&
+            text.Foreground is Microsoft.UI.Xaml.Media.SolidColorBrush, "A realized Picker item has no measurable caption brush.");
+        var color = ((Microsoft.UI.Xaml.Media.SolidColorBrush)text!.Foreground).Color;
+        var bounds = text.TransformToVisual(root).TransformBounds(new global::Windows.Foundation.Rect(0d, 0d, text.ActualWidth, text.ActualHeight));
+        var scaleX = width / root.ActualWidth;
+        var scaleY = height / root.ActualHeight;
+        var matches = 0;
+        for (var y = Math.Clamp((int)Math.Ceiling(bounds.Top * scaleY), 0, height);
+            y < Math.Clamp((int)Math.Floor(bounds.Bottom * scaleY), 0, height); y++)
+        for (var x = Math.Clamp((int)Math.Ceiling(bounds.Left * scaleX), 0, width);
+            x < Math.Clamp((int)Math.Floor(bounds.Right * scaleX), 0, width); x++)
+        {
+            var offset = ((y * width) + x) * 4;
+            if (pixels[offset + 3] > 200 && Math.Abs(pixels[offset] - color.B) < 35 &&
+                Math.Abs(pixels[offset + 1] - color.G) < 35 && Math.Abs(pixels[offset + 2] - color.R) < 35) matches++;
+        }
+        Require(matches >= 8, $"The open Picker capture omitted caption pixels for '{text.Text}': matches={matches}, bounds={bounds}, root={root.ActualWidth}x{root.ActualHeight}, bitmap={width}x{height}, color={color}.");
+    }
+
+    private static Microsoft.UI.Xaml.Controls.TextBlock? FindNativeCustomizationText(Microsoft.UI.Xaml.DependencyObject root)
+    {
+        if (root is Microsoft.UI.Xaml.Controls.TextBlock { Text.Length: > 0 } text) return text;
+        for (var index = 0; index < Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root); index++)
+            if (FindNativeCustomizationText(Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, index)) is { } found) return found;
+        return null;
     }
 }

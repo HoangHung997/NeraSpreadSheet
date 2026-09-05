@@ -62,7 +62,13 @@ resource completeness/format, native dialog names, MAUI shell add/remove/QAT
 reorder/JSON, full/narrow native bounds và draft/caret qua bốn palette. Loaded
 Windows Ribbon smoke phải tạo đủ chín PNG không rỗng: bốn shell, bốn native Picker
 đang mở, một narrow shell. CI upload `maui-windows-ribbon-ux007` báo lỗi nếu thiếu;
-ảnh Picker lấy popup visual đang mở, không thay bằng ảnh closed control.
+ảnh Picker lấy pixel của popup đang mở, không thay bằng ảnh closed control.
+`RenderTargetBitmap` chỉ dùng cho năm ảnh shell: API này không hỗ trợ Popup
+sub-window theo [Microsoft](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.media.imaging.rendertargetbitmap?view=windows-app-sdk-1.8).
+Smoke chọn popup chứa toàn bộ native item containers của đúng Picker; chụp
+rectangle theo native transform/DPI, kiểm tra ownership của smoke process trước
+đọc pixels và kiểm tra caption pixels của mỗi row. Capture bị che hoặc thiếu
+caption phải fail. Helper chỉ trong test Windows, không thêm package/production API.
 
 U2 actual screen reader và U5 physical multi-monitor DPI/real touch vẫn OPEN.
 UIA peers, synthetic input và raster-scale exports không thay các bằng chứng này.
