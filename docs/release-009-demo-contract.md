@@ -1,10 +1,15 @@
 # RELEASE-009 — Artifact demo Windows độc lập
 
-Workflow dispatch riêng `release-009-demo.yml` publish sample WPF hiện hữu với
+Workflow riêng `release-009-demo.yml` publish sample WPF hiện hữu với
 `win-x64`, self-contained, không trimming/single-file. Chỉ property
 `NeraRibbonDemo=true` thêm runtime switch để double-click exe vào thẳng Ribbon;
 regular sample build không đổi chế độ mặc định. Không tạo workbook, Ribbon
 model hoặc renderer thứ hai, không thêm package mới.
+
+Push filter chỉ integration branch khi demo workflow/script/sample/README đổi,
+giúp đăng ký workflow mới ngoài default branch; các lượt sau có workflow_dispatch.
+Không lấy artifact cha thay exact final combined source: coordinator dispatch
+lại ở HEAD nghiệm thu cuối ngay cả khi thay đổi SDK không trúng push path filter.
 
 Script từ chối local native run (chỉ `-PlanOnly`), source bẩn, SHA khác workflow
 hoặc thư mục output tồn tại. Kiểm PE AMD64, runtime files/config và mọi SDK DLL

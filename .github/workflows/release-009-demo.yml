@@ -1,6 +1,13 @@
 name: RELEASE-009 experimental Win11 x64 Ribbon demo
 
 on:
+  push:
+    branches: ['feature/bootstrap-architecture-v0.1']
+    paths:
+      - '.github/workflows/release-009-demo.yml'
+      - 'scripts/run-release-009-demo.ps1'
+      - 'samples/NeraSpreadSheet.Wpf.Sample/**'
+      - 'docs/demo/**'
   workflow_dispatch:
 
 permissions:

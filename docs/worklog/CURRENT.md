@@ -10,12 +10,16 @@ virtualization. Controller cancel test không thay native overlay proof: B đã
 nhận exposure CancelEditor trả sớm sau Session.ActivateWorksheet và làm native
 regression/fix; root không sửa SDK B sở hữu.
 
-Root thêm dispatch-only RELEASE-009 demo: publish self-contained win-x64 từ
+Root thêm RELEASE-009 demo: publish self-contained win-x64 từ
 sample hiện hữu, runtime switch chỉ bật trong demo để double-click mở Ribbon;
 chạy chính published exe với existing full capture matrix, source/version/PE
 checks và artifact có hash/README giới hạn. Local plan/parser/architecture/
 package metadata PASS, chưa chạy native/publish local. Build/capture CI mới còn
 pending; không phát hành public, không đóng R2 hoặc whole Table/Filter/Ribbon.
+`412ecb0a` chưa đăng ký được dispatch-only workflow mới ngoài default branch;
+root thêm bounded push path filter cho demo/sample để bootstrap registration,
+giữ manual dispatch bắt buộc ở final combined. C review source không còn blocker;
+regex/separator đã kiểm bằng PowerShell AST, không nhầm JSON output escaping.
 
 Next: kiểm CI ở source sửa tabs, dispatch demo gate exact HEAD và nhận final
 A/B đã review/source-green/release trước khi tích hợp tuần tự.

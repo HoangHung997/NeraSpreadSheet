@@ -91,7 +91,7 @@ branch để không bỏ final docs/source revision sau ghép.
 
 ### Bước tiếp theo duy nhất
 
-Root bổ sung workflow dispatch-only `release-009-demo.yml` và
+Root bổ sung workflow `release-009-demo.yml` (bounded push + dispatch) và
 `run-release-009-demo.ps1`: self-contained win-x64 apphost mặc định vào Ribbon,
 exact source/version/PE/runtime checks, chạy existing complete capture matrix
 bằng published exe. Experimental artifact chỉ upload khi success, không public
