@@ -11,6 +11,7 @@ internal static class Table007EditorSmoke
 {
     internal static async Task RunAsync(NeraSpreadsheetEditorHost host)
     {
+        await WaitForLayoutAsync(host);
         var session = host.Spreadsheet.Session ?? throw new InvalidOperationException("The editor has no session.");
         var sheet = session.ActiveWorksheet;
         var selection = session.Selection.Capture();
@@ -58,5 +59,27 @@ internal static class Table007EditorSmoke
     private static void Require(bool condition, string message)
     {
         if (!condition) throw new InvalidOperationException(message);
+    }
+
+    private static async Task WaitForLayoutAsync(NeraSpreadsheetEditorHost host)
+    {
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void CheckLayout(object? sender, EventArgs e)
+        {
+            if (host.Width > 0 && host.Height > 0 && host.Spreadsheet.Width > 0 && host.Spreadsheet.Height > 0)
+                ready.TrySetResult();
+        }
+        host.SizeChanged += CheckLayout;
+        host.Spreadsheet.SizeChanged += CheckLayout;
+        try
+        {
+            CheckLayout(null, EventArgs.Empty);
+            await ready.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            host.SizeChanged -= CheckLayout;
+            host.Spreadsheet.SizeChanged -= CheckLayout;
+        }
     }
 }

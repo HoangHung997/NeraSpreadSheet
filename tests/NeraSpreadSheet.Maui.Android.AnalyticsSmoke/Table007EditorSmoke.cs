@@ -67,4 +67,3 @@ internal static class Table007EditorSmoke
         if (!condition) throw new InvalidOperationException(message);
     }
 }
-

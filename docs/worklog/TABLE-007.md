@@ -54,6 +54,17 @@
   dispose. Windows loaded smoke kiểm tra full raw width/clip/font khi zoom rồi
   restore dimensions/scroll/zoom. Apple smoke nhập ký tự qua native InsertText
   để đi qua native text notifications. Chưa gọi các runtime bổ sung là PASS.
+- CI source `35cedeaad7dd045b40b474a04b00df3ef6c38f5a`: full `33977571678`,
+  iOS `33977573066`, Q003C `33977574262`. Q003C/Core/Windows hosts/MAUI Windows/
+  Android PASS. Desktop 107/107, MAUI headless 44/44, Core 1532/1532; native
+  Windows OS Enter/AltEnter/Escape, full-width clip/zoom và Android native keys
+  ghi table007Editor=true. CI actual SDK 10.0.400 theo logs.
+- Apple còn FAIL: iOS BeginEdit quá sớm khi view size=-1; Mac process signal 11
+  trong editor phase sau GPU draw-core-success, chưa có managed failure/result.
+  Followup iOS chờ SizeChanged thật (bounded 5s trong timeout cũ); Mac thêm các
+  mốc native input/marked-text/cleanup. Host dùng một RectangleGeometry và chỉ
+  cập nhật khi rect đổi, tránh invalidation vô điều kiện mỗi frame; chưa kết
+  luận đó là nguyên nhân crash trước runtime mới. Không đổi native gate/timeout.
 - Gaps: T1/T2 còn native CI và Apple hardware-key evidence; T3 corpus đã có,
   final regression/exact-head CI đang chờ. CI actual SDK phải đọc log (global
   requested .302 + latestFeature có thể chọn .400), không suy ra từ config.
