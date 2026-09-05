@@ -102,6 +102,11 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
   Giữ success criteria, launch/runtime timeout và exit status; không retry để
   được xanh. Không in/upload raw report có Machine ID, đường dẫn người dùng,
   UUID thiết bị hoặc environment. Không đổi cleanup/phạm vi filesystem hiện có.
+- Chuyển B writer duy nhất `scripts/run-maui-windows-smoke.ps1` chỉ để đọc
+  bounded stage sidecar của đúng resultPath/attempt khi process thất bại,
+  whitelist stage labels, không workbook values/paths/environment. Giữ retry
+  count/criteria, timeout, frame/success gates và cleanup cũ; trace không được
+  thay result JSON hoặc biến failure thành success. Không retry đến khi xanh.
 
 ### Quyền sửa C
 

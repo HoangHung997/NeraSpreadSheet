@@ -37,6 +37,19 @@
   release và review/tích hợp tuần tự; sau đó giao C đo P3 trên exact combined SHA.
   Full-shell demo OpenWorkbook/sheet tabs còn trong RELEASE-009 audit, chưa sửa.
 
+### Điều phối sau handoff checkpoint a3beeda6
+
+- Source `4534e231` nay đã SUCCESS toàn bộ bốn workflows, gồm full
+  `33979255201` đủ năm jobs. Handoff/docs `a3beeda6` đang full `33979854612`,
+  iOS `33979854573`, Q003C `33979854613`, package `33979850811`, đúng SHA.
+- A đã tự dispatch exact `8f5e988235a1e541ed5c87c7e24cfcd2501625ac`:
+  full `33979834485`, iOS `33979836270`, Q003C `33979838600`; producer/docs
+  delta, production/ci.yml byte-equivalent `1c855249`. Chưa final release.
+- B `ee675078`: Mac/Windows còn FAIL; iOS/Q003C đã PASS. B được chuyển thêm
+  run-maui-windows-smoke.ps1 để đọc bounded failure stage sidecar của đúng
+  attempt theo wave, không đổi gates/retry/cleanup. Root không sửa runner này.
+  B tiếp tục owned fixes/diagnostics và tự dispatch checkpoint mới.
+
 ## Current checkpoint — PERF-008 integrated; UX/Table native fixes; R3 Windows gate
 
 - Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
