@@ -2,7 +2,7 @@
 
 - Branch: `feature/table-007-editor-corpus`; PR lane chưa tạo.
 - Base clean đã xác minh: `2e8482c25a44797a479b276ae26f472811a0a81e`.
-- Implementation checkpoint đã push: `24395c7aed64cb21df7352d33cb26db3d3eaacd0`;
+- Implementation checkpoint đã push: `9c584bb36c840b447c3095db9095b468588c6ccb`;
   đang sửa native CI, chưa release/exact-final-head green.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
@@ -151,6 +151,20 @@
   Architecture/diff/PowerShell parser PASS; extracted formatter compile và
   synthetic message/path/UUID exclusion + inner type retention audit PASS.
   Compilation/native runtime còn phụ thuộc next diagnostic CI.
+- Diagnostic9c `33982202648`: Mac FAIL trước wrapper creation; tất cả7 draw
+  enter/exit depth1 cân bằng, main=True/disposed=False, không disconnect/dispose
+  (30 lifecycle records, dưới cap96). Chưa có evidence nested draw cho fatal này.
+  Windows FAIL functional assertion committed Table formula value, chưa tới
+  recreation nên không dùng lượt này để kết luận native XAML crash đã hết.
+- Root và C phát hiện WPF lifecycle bug độc lập: Session.ActivateWorksheet hủy
+  Editor trước ActiveWorksheetChanged, CancelEditor cũ early-return để native
+  overlay/popup còn tồn tại. Fix luôn cleanup UI, chỉ Focus khi thực sự cancel;
+  state-null không chọn ô cũ/không mutate history/cells trong sheet mới.
+  Table007EditorLifecycleSmokeTests có2 loaded STA cases với actual changed
+  native draft/popup; kiểm tra direct activation cleanup trước caller cleanup
+  và external canonical cancel + moved selection. Incremental desktop test
+  project build SDK10.0.302 PASS 0warnings/errors (24s); native runtime chờ CI,
+  không chạy local do lease A. Root giữ sample tab-click regression riêng.
 - Gaps: T1/T2 còn native CI và Apple hardware-key evidence; T3 corpus đã có,
   final regression/exact-head CI đang chờ. CI actual SDK phải đọc log (global
   requested .302 + latestFeature có thể chọn .400), không suy ra từ config.
