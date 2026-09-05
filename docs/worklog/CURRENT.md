@@ -1,5 +1,34 @@
 # Current Work Handoff
 
+## Mới nhất — nhận split editor routing, chuẩn bị full-result iOS consumer
+
+Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+Implementation A đã nhận tới `37a55b05e3af25809d412b67debb0d9e3581f929`:
+11paths exactsourceeea6, 5sourcegates xanh, Core1515/native146/0skip và3FINAL
+ảnh root đã xem. SKIP257611 import-only; source map trong desktop integration
+record. Root trước đó `76d1e68cb6aa065fdf2651c3df440801b061750f` đã xanh đủ
+6gates: full33989976442/iOS33989976455/Q33989976539/packages33989973192/
+demo33990045509/MAUI33989973365 (11jobs). Không dùng76 thay new combined CI.
+
+Root bổ sung opt-in app-file-v1 iOS transport, default legacy không đổi;
+32 bounded parser/CLI/filesystem regressions PASS. Native opt-in chưa được
+kiểm chứng: C686 iOS job101370724447 FAIL malformed987/offset976; stream
+console/unified cụ thể UNKNOWN. File/compact-envelope protocol giữ toàn bộ
+cohort/assembly/postconditions, nonce/hash và fail-closed; xem native contract.
+C được grant actual Emit/linked console fixture + wrapper/workflow/own docs,
+nhận shared immutable checkpoint trong import-only để chạy experiment. Không
+đợi source native PASS trước khi viết experiment (tránh vòng chờ); acceptance
+vẫn phải actual CI. C686 chưa nhận vào root; whole B/P3 vẫn OPEN.
+
+A đã mở `feature/release-009-formula-bar` từ exact37a55b05; writer sample bar,
+bounded4commands/help, captures/tests/resources/own docs theo wave. Không SDK/
+filter changes nếu chưa có grant. B chỉ chạy CompletedTask page partition1ff4f358,
+narrow33991085641, patchf184f03f; original runtime và assertions giữ nguyên.
+
+Bước tiếp theo duy nhất: push HEAD chứa optional transport và split integration,
+gửi immutable3blobs cho C rồi chạy/verify6combined workflows cùng C actual
+opt-in iOS; tiếp tục A/B theo grant. Không merge PR hoặc báo scope100%.
+
 ## Mới nhất — nhận canonical MAUI packages, tiếp tục ba nhánh
 
 Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.

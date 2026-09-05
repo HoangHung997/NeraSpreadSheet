@@ -1,5 +1,53 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## Grant tiếp sau nhận A finaleea6 — sample bar / full result protocol
+
+A released11paths đã nhận root8eb622b5..37a55b05, skip257611. A tái dùng worktree
+và model hiện hữu, branch feature/release-009-formula-bar từ exact
+37a55b05e3af25809d412b67debb0d9e3581f929. Có thể bắt đầu sample độc lập trên
+SDK source đã native-verify; không bỏ final combined/source gates. Scope writer:
+
+- Sample RibbonPreviewWindow.cs, mới RibbonPreviewWindow.FormulaBar.cs;
+  Commands.cs CHỈ4Formula action registrations/ShowFormulaHelp; Capture.cs CHỈ
+  bounded bar captures, không bỏ existing assertions.
+- Mới Windows.Rendering.Tests/Release009FormulaBarSmokeTests.cs;
+  Release009RibbonCommandSmokeTests.cs chỉ4formula/help behaviors và
+  RibbonLoadedWorkbookSmokeTests.cs chỉ formula presentation assertions nếu cần.
+- Commands/PresentationStrings.resx và .en.resx chỉ thêm localized bar labels;
+  giữ toàn bộ existing keys.
+- docs/release-009-formula-bar-contract.md, worklog/RELEASE-009-FORMULA-BAR.md;
+  docs/demo/COMMANDS-WIN11-VI.md chỉ các mục bar/4formula/help.
+
+Bar dùng CurrentEditorDraft/EditorDraftChanged/UpdateEditorDraft/FocusEditor;
+Enter commitonce, AltEnter newline, Esc cancel, giữ anchor/validation/range/
+focus, không queued refresh clobber/resurrectdraft. Text shortcuts không thành
+workbook shortcut; giữ keytips. Bốn nút cập nhật existing draft thay restart;
+help theo actual draft/caret. Không production reflection/replayed native keys,
+new editor model, SDK/filter/navigation/shareddocs/CI writes. Tab/F2 có thể
+chuyển focus về native editor; direct bar completion cần SDK hook thì xin grant
+riêng, không giả đã có. Tests both standalone/split và final5gates/ảnh bắt buộc.
+
+B a3 dispatch-only variant FAIL trước callback dù không editor; Windows lần
+này PASS59frames/3recreation nhưng previous intermittent fail vẫn là risk.
+Đóng a3; grant đúng một CompletedTask partition before89bc459f →
+afterc8a2bfc0417cf1fdfc4ff1064c7a9575c6b15d56, patch SHA256
+f184f03f6a70dd7e61e10598b982ad3910bbc3c4eb849e48b5ad61f6b6bb6b69.
+Giữ async helper/caller, thay Dispatcher bằng awaitTask.CompletedTask/marker,
+bỏ unused using mechanical. Source1ff4f358/narrow33991085641; original gates
+giữ nguyên, không editor acceptance hoặc thêm retry/linking/private flags.
+
+C686 iOS consumer FAIL malformed987/offset976; stream cụ thể UNKNOWN.
+Root giữ launcher/parser/context/path-generation/32tests/sharedcontract;
+C được writer PackageProvenance.cs opt-in app-file-v1, wrapper fifthflag và
+linked actual-emitter console fixture dưới eng/release-009-maui, workflow
+fixtures exactSDK10.0.302 hosted-only/khôngpackage mới, ADR/contract/worklog riêng.
+Spec là native-result-file-v1/env3names/exact5envelopekeys trong shared contract.
+Default long marker và fullcohortpostconditions không giảm. C có thể viết own
+experiment trước native shared proof, chỉ import shared checkpoint nguyên
+trạng khi root gửi; import-only phải SKIP lúc root nhận. File-only success,
+overwrite, stale nonce hoặc partial JSON không được nhận. Actual iOS/native
+opt-in và full final6gates vẫn OPEN, không có circular wait hoặc acceptance waiver.
+
 ## Grant bổ sung sau f344 actual native PASS / nhận C8b
 
 Root f344 full33988991344 và iOS33988991332 SUCCESS. A/C được import đúng

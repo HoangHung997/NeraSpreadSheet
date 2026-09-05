@@ -1,12 +1,18 @@
 """Read bounded synthetic native smoke markers without printing raw app logs."""
 
 import argparse
+import hashlib
 import json
+import os
 from pathlib import Path
+import re
+import stat
 import sys
 
 
 MAX_LOG_BYTES = 2 * 1024 * 1024
+FILE_PROTOCOL = "native-result-file-v1"
+FILE_CONTEXT_PROTOCOL = "native-result-file-context-v1"
 
 
 class NativeResultError(ValueError):
@@ -184,6 +190,68 @@ def read_result(paths, prefix, minimum_frames=2, json_paths=()):
     return parse_result("\n".join(texts), prefix, minimum_frames)
 
 
+def decode_file_json(data):
+    """Decode one complete UTF-8 document with the shared strict JSON hooks."""
+    try:
+        return json.loads(data.decode("utf-8"), object_pairs_hook=unique_object,
+                          parse_constant=reject_nonfinite)
+    except (UnicodeError, json.JSONDecodeError) as error:
+        raise NativeResultError("malformed-result-file") from error
+
+
+def read_private_bytes(path, limit):
+    """Read bounded regular evidence, never a link or a special file."""
+    source = Path(path)
+    if source.parent.resolve(strict=True) != source.parent.absolute():
+        raise NativeResultError("noncanonical-evidence-parent")
+    if not stat.S_ISREG(source.lstat().st_mode):
+        raise NativeResultError("nonregular-evidence-file")
+    descriptor = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0))
+    with os.fdopen(descriptor, "rb") as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size > limit:
+            raise NativeResultError("oversized-or-nonregular-evidence")
+        data = stream.read(limit + 1)
+    if len(data) > limit:
+        raise NativeResultError("oversized-evidence")
+    return data
+
+
+def verify_file_result(envelope, data, transport_nonce, minimum_frames=2):
+    """Bind a fresh compact log marker to the complete app-written result."""
+    if type(minimum_frames) is not int or minimum_frames < 2:
+        raise NativeResultError("invalid-frame-policy")
+    keys = {"schema", "status", "frameCount", "transportNonce", "sha256"}
+    if not isinstance(envelope, dict) or set(envelope) != keys or envelope["schema"] != FILE_PROTOCOL:
+        raise NativeResultError("invalid-file-envelope")
+    if (not isinstance(transport_nonce, str) or re.fullmatch(r"[a-f0-9]{32}", transport_nonce) is None
+            or envelope["transportNonce"] != transport_nonce):
+        raise NativeResultError("file-transport-nonce-mismatch")
+    if (not isinstance(data, bytes) or not data or len(data) > MAX_LOG_BYTES
+            or not isinstance(envelope["sha256"], str)
+            or re.fullmatch(r"[a-f0-9]{64}", envelope["sha256"]) is None
+            or hashlib.sha256(data).hexdigest() != envelope["sha256"]):
+        raise NativeResultError("result-file-size-or-hash-mismatch")
+    result = decode_file_json(data)
+    if not isinstance(result, dict) or result.get("status") != "success" or envelope["status"] != "success":
+        raise NativeResultError("file-failure-or-unknown-status")
+    frames = result.get("frameCount")
+    if (type(frames) is not int or frames < minimum_frames or
+            type(envelope["frameCount"]) is not int or frames != envelope["frameCount"]):
+        raise NativeResultError("file-frame-evidence-mismatch")
+    return result
+
+
+def resolve_file_result(envelope, context_path, minimum_frames=2):
+    context = decode_file_json(read_private_bytes(context_path, 4096))
+    if (not isinstance(context, dict) or set(context) != {"schema", "path", "transportNonce"}
+            or context["schema"] != FILE_CONTEXT_PROTOCOL or not isinstance(context["path"], str)
+            or not Path(context["path"]).is_absolute()):
+        raise NativeResultError("invalid-file-context")
+    data = read_private_bytes(context["path"], MAX_LOG_BYTES)
+    return verify_file_result(envelope, data, context["transportNonce"], minimum_frames)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--log", action="append", required=True)
@@ -191,11 +259,14 @@ def main():
     parser.add_argument("--prefix", default="")
     parser.add_argument("--output", required=True)
     parser.add_argument("--minimum-frames", type=int, default=2)
+    parser.add_argument("--file-context", help="Private launcher-created context for opt-in app-file evidence")
     args = parser.parse_args()
     try:
         result = read_result(args.log, args.prefix, args.minimum_frames, args.json_log)
         if result is None:
             return 2  # Pending, not a successful result or a retry of the app.
+        if args.file_context:
+            result = resolve_file_result(result, args.file_context, args.minimum_frames)
         output = Path(args.output)
         if output.exists():
             raise NativeResultError("existing-result-evidence")

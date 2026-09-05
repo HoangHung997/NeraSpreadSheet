@@ -1,5 +1,35 @@
 # RELEASE-009 — Tích hợp desktop navigation và editor
 
+## Nhận tiếp split routing — source eea6ba6f
+
+Root nhận 11 final paths từ `eea6ba6f84cd39f58eae3002464ff60b9d27febb`:
+7 WPF SDK files, 2 native test files và contract/worklog riêng. Mapping:
+7950acb9→8eb622b5, 47faa24c→4e9e178a, 8d957bb1→a804a60d,
+b94d2a2e→30318e2a, eea6ba6f→37a55b05. Root independently kiểm đủ năm exact
+source workflows SUCCESS: full33990008526/iOS33990009597/Q33990010587/
+packages33990011745/demo33990013081. Final Windows101370447574: Core1515,
+native146,0skip,build0warnings/errors. Root kiểm 11 final blobs trùng source;
+SKIP import-only257611ed, không đổi shared transport hoặc root full-cell/
+queued-scroll/highlight-opt-out regression file.
+
+Đã đọc thêm visibility/metadata/help/selection source và tests. Root xem đủ3
+FINAL PNG của artifact9976412859 (237PNG; source-verified ZIP SHA256
+`d589af4cc9333edb3e17b928d3734b96671f7e7e6a3f27fed36f5d8fe5c40c5e`):
+IF argument3 rõ, actual split editor đúng pane, committed42/next cell không
+bị integrated scrollbar che. Không lấy ảnh/thành công source thay combined CI.
+
+Owner visibility và native Enter/Tab dùng existing split frame/metrics,
+ScrollPaneTo, giữ fractions/other panes/freeze/hidden/merged/history. Metadata,
+reference projection và nested argument help trỏ actual split UI; formatter
+dùng chung. Identical native draft echo không Select lại, giữ backward direction;
+range đổi vẫn áp dụng. Public caret/range không hứa arbitrary cross-control
+moving-edge transfer; worksheet extent vẫn clamp, không thêm tail.
+
+A được giao sample formula bar từ root37a55b05 trong branch riêng; chưa nhận
+sample bar hoặc split paged-filter ở checkpoint này. Root giữ SDK paths đã nhận.
+Rollback riêng5source/doc commits, không revert shared transport. Combined CI
+và published demo phải chạy ở HEAD cuối sau cập nhật status/transport optional.
+
 ## Nguồn bàn giao
 
 Root nhận đúng 21 source/test paths B tại

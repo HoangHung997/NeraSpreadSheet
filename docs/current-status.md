@@ -1,5 +1,16 @@
 # NeraSpreadSheet current implementation status
 
+## CẬP NHẬT 06/09 — SPLIT EDITOR ROUTING ĐÃ GHÉP; THANH CÔNG THỨC ĐANG LÀM
+
+Root76d1e68c đã xanh cả6workflows. Nhận tiếp A finaleea6 thành8eb622b5..37a55b05:
+active-pane reveal tránh scrollbars, nested argument help/metadata đúngeditor,
+identical draft echo giữ hướng selection; 5sourcegates/Core1515/native146 và
+3ảnh final đã xác minh. Bản kết hợp mới cần CI riêng. A tiếp tục samplebar;
+split paged filter, whole B/editor/corpus và final performance/hardware còn OPEN.
+C iOS package build xanh nhưng log result987 malformed, chưa nhận source686;
+root/C đang thử opt-in full-file/compactmarker giữ nguyên provenance, không
+bỏ gate. Chi tiết và ownership hiện hành ở [CURRENT](worklog/CURRENT.md).
+
 ## CẬP NHẬT 06/09 — NHẬN CANONICAL MAUI PACKAGES; NATIVE iOS TRANSPORT ĐÃ QUA
 
 Root f344 full/iOS/Q/Windows packages xanh; desktop navigation/editor trước đó
