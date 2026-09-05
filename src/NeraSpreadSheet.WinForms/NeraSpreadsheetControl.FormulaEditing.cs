@@ -72,13 +72,19 @@ public sealed partial class NeraSpreadsheetControl
 
     private void OnFormulaEditorKeyUp(object? sender, KeyEventArgs e)
     {
-        if (e.KeyCode is Keys.Left or Keys.Right or Keys.Home or Keys.End)
+        ClearMovedFormulaReferenceSpan();
+        if (e.KeyCode is not (Keys.Up or Keys.Down or Keys.Tab or Keys.Escape or Keys.Enter))
+            UpdateFormulaSuggestions();
+    }
+
+    private void ClearMovedFormulaReferenceSpan()
+    {
+        if (_formulaReferenceSpan is { } span &&
+            (_editor.SelectionStart != span.End || _editor.SelectionLength != 0))
         {
             _formulaReferenceSpan = null;
             _provisionalReference = null;
         }
-        if (e.KeyCode is not (Keys.Up or Keys.Down or Keys.Tab or Keys.Escape or Keys.Enter))
-            UpdateFormulaSuggestions();
     }
 
     private void OnFormulaEditorMouseUp(object? sender, MouseEventArgs e)
@@ -183,6 +189,9 @@ public sealed partial class NeraSpreadsheetControl
     public bool InsertFormulaReference(CellRange range, string? worksheetName = null)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
+        // WinForms has no TextBox SelectionChanged event. Validate here as well
+        // as on KeyUp so programmatic caret/selection changes cannot reuse a stale span.
+        ClearMovedFormulaReferenceSpan();
         if (_session is null || _cellEditor?.State is not { } state ||
             !SpreadsheetFormulaEditingAssistant.CanInsertReference(_editor.Text, _editor.SelectionStart, _formulaReferenceSpan))
             return false;
