@@ -1,5 +1,19 @@
 # RELEASE-009 Split Editor — Handoff lane A
 
+## Native47 và follow-up sau review ảnh
+
+- Windows47 job101368593377 đã qua build, Core, native runtime và capture matrix.
+  Artifact9976188018 có237PNG, ZIP SHA256
+  `7613c3902be3129f73381679170dca1e497d965df1cbb92bd39840111c8aa332`.
+  Đã xem ba PNG riêng: nested IF help có active argument3 đúng; actual split
+  editor ở pane active. Không thay evidence47 cho final HEAD.
+- Review pane-edge ảnh cho thấy helper cần tránh phần bị integrated scrollbar
+  overlay che. Bổ sung visibleRight/Bottom từ actual frame.ScrollBars.Bounds,
+  giữ cell/layout/engine offset maxima; regression yêu cầu destination không
+  intersect thanh cuộn. Capture outcome ngay sau commit, trước Undo/Redo.
+- Source8d957bb1 đã push extra draft-echo grant và shared help formatter, đang
+  chạy năm gates. Follow-up overlay/source tiếp theo vẫn cần CI riêng.
+
 ## Bổ sung grant — giữ direction khi echo bản nháp nguyên trạng
 
 - Root cấp thêm riêng Control.EditorDraft.cs và SplitAdorner.EditorDraft.cs.
