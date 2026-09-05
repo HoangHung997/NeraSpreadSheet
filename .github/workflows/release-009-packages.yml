@@ -1,0 +1,39 @@
+name: RELEASE-009 packaged Windows SDK consumer
+
+on:
+  push:
+    branches: ['feature/bootstrap-architecture-v0.1']
+    paths:
+      - '.github/workflows/release-009-packages.yml'
+      - 'scripts/run-release-009-packages.ps1'
+      - 'tests/NeraSpreadSheet.Packaged.Windows.Smoke/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-packages:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Verify architecture and package metadata
+        shell: pwsh
+        run: |
+          ./scripts/verify-architecture.ps1
+          ./scripts/verify-packaging-sdk.ps1
+      - name: Pack exact-source desktop SDK and run isolated PackageReference consumer
+        shell: pwsh
+        run: ./scripts/run-release-009-packages.ps1
+      - name: Upload experimental packages and sanitized consumer evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-009-windows-packages-${{ github.sha }}
+          path: artifacts/release-009/
+          if-no-files-found: error
+          retention-days: 30

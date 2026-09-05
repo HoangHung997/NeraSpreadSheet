@@ -44,8 +44,38 @@ không sửa source hay native desktop thuộc các lane. Đây chưa phải R1/
 5. Giữ preservation/unsupported semantics đã công bố; không mô tả sample actions
    là Excel parity, không public NuGet publish khi mới pack thử nghiệm.
 
+### Kiểm tra NuGet / consumer — R3 còn OPEN
+
+Artifact `sdk-packages` của baseline integrated `2e8482c2` có 18 nupkg từ
+`NeraSpreadSheet.Core.slnx`. Đã đối chiếu file artifact: **không có**
+`NeraSpreadSheet.Wpf`, `NeraSpreadSheet.WinForms`, `NeraSpreadSheet.Maui` hoặc
+`NeraSpreadSheet.Rendering.Direct2D`. Các project này có PackageId và vẫn
+packable, nhưng metadata pass hoặc build desktop không phải pack/consumer proof.
+
+Trước khi báo SDK control sẵn sàng qua NuGet cho app khác cần:
+
+- pack các desktop host/backend và toàn bộ dependency packages từ cùng final
+  source; MAUI phải ghi chính xác target frameworks thực sự có trong package,
+  không gọi một Windows-only pack là đủ đa nền tảng;
+- restore/build một consumer ở thư mục cô lập, chỉ dùng PackageReference và
+  local artifact feed cho Nera packages, không ProjectReference về source repo;
+- dùng version/cache isolation và kiểm tra assets/source revision để không vô
+  tình test lại gói 0.1.0 cũ trong cache;
+- loaded WPF/WinForms consumer smoke trên runner riêng hoặc sau desktop lease
+  transfer; kiểm tra workbook/editor/Ribbon thực từ các assembly đã pack;
+- giữ việc tạo artifact thử nghiệm tách biệt public NuGet feed publishing.
+
+Root đã thêm workflow riêng `release-009-packages.yml`, script
+`run-release-009-packages.ps1` và consumer `NeraSpreadSheet.Packaged.Windows.Smoke`;
+không sửa ci.yml A đang giữ. Closure thực tế có 18 packages trong tập desktop/
+OpenXml này (không phải cùng tập 18 core packages cũ). Local read-only plan,
+parser, architecture và package metadata pass; CI build/pack/loaded runtime
+chưa nghiệm thu. [Contract](../release-009-package-consumer-contract.md).
+R3 không được đóng bằng số packages hoặc source ProjectReference tests; MAUI
+package matrix và final combined-source consumer còn OPEN.
+
 ### Bước tiếp theo duy nhất
 
 Sau khi A release source/sample ownership, coordinator tích hợp và bổ sung
-full-shell workbook loading + acceptance checklist/consumer demo trên cùng
+full-shell workbook loading + acceptance checklist/isolated package consumer trên cùng
 combined source. Sau đó chạy lại catalog/native/roundtrip gates và mới đóng R1/R2.

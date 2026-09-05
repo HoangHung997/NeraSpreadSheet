@@ -1,6 +1,48 @@
 # Current Work Handoff
 
-## Current wave — UX-007 / TABLE-007 / PERF-008-HARNESS
+## Current checkpoint — PERF-008 integrated; UX/Table native fixes; R3 Windows gate
+
+- Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+  Root has integrated seven released lane C commits from source final
+  `fe01586468d455c2ec26cc084e523c32c4c31baa` as `4e42a584`; all C-owned paths
+  are byte-equivalent to source. A/B production is not integrated yet.
+- Root independently verified C exact-source full `33977445862` (five jobs),
+  iOS `33977447539`, Q003C `33977449065` and isolated performance
+  `33975174271`: all success. Source Core 1505, Windows 107, MAUI 44 tests,
+  zero skips; isolated 11 workloads and two native tests pass. Corrected
+  pre/post-output guards were reviewed, not stale precomputed outputs.
+  Evidence and integration limits: [PERF_008_INTEGRATION_20260905.md](PERF_008_INTEGRATION_20260905.md).
+- A checkpoint `1c855249`: full `33978210256`, iOS `33978211948`, Q003C
+  `33978213440` dispatched and exact heads verified. A is correcting a
+  high-contrast open-Picker capture; not released for final integration.
+  A released sample files to root but reacquired the exclusive desktop lease;
+  production and the bounded ci.yml upload step remain A-owned.
+- B checkpoint `35cedeaa`: full `33977571678`, iOS `33977573066`, Q003C
+  `33977574262`. Desktop, Windows MAUI and Android passed; Mac signal 11 and
+  iOS editor-before-layout failures remain. New bounded fix/diagnostic source
+  `3e9239ab3282a45bd6c52fb9fb62a8c240857458` needs exact-source gates.
+  B source Core 1532/1532; no local desktop lease. Do not silently drop gates.
+- Root added a separate RELEASE-009 Windows package-consumer gate, not to
+  A-owned ci.yml: package closure includes WPF/WinForms/OpenXml/Direct2D,
+  unique prerelease version, isolated cache/feed and PackageReference-only
+  loaded consumer. Local closure/PowerShell parsing/architecture/metadata pass;
+  actual CI pack/build/runtime is still pending. MAUI package matrix remains OPEN.
+  [Contract](../release-009-package-consumer-contract.md).
+- C: has about 130 MB free at last check. No heavy local build, workload install
+  or cleanup workaround after denial. User was asked to free several GB before
+  demo packaging; no user data/artifact/worktree deleted. Native local is A only.
+- Three existing tasks retain GPT-6 Astra/xhigh. The thread heartbeat was updated
+  to check every 15 minutes, quiet on unchanged/non-actionable state; at most one
+  same-model resume per capacity incident. No duplicate task or model downgrade.
+- Coordination source `06279bb9` verified green: full `33973482579`, iOS
+  `33973482564`, Q003C `33973482563`. New integration/consumer source must pass
+  its own exact final-head CI; source-green does not close combined acceptance.
+  U1–U5, T1–T3, P1–P3 and R1–R4 still require combined/hardware/release evidence.
+- Single next step: push this integration/consumer checkpoint and verify its
+  exact-head CI while A/B finish their native-source corrections, then receive
+  released final sources sequentially; do not merge PR or publish a public feed.
+
+## Earlier dispatch — UX-007 / TABLE-007 / PERF-008-HARNESS
 
 - Người dùng yêu cầu mở worktree tiếp tục hoàn thiện Table/Filter/Ribbon/UX.
   Ba task đã active và xác minh đúng base/model `gpt-6-astra / xhigh`;

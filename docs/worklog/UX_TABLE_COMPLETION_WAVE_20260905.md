@@ -25,7 +25,7 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
 | --- | --- | --- |
 | A — UX-007 | Keyboard, focus, accessibility; hoàn thiện localization/chrome/customization còn thiếu của UX-006 | ACTIVE |
 | B — TABLE-007 | Shared structured-formula editor cho split/MAUI; corpus do LibreOffice thật tạo | ACTIVE |
-| C — PERF-008-HARNESS | Harness, stress tests, paired baseline trên CI runner riêng | ACTIVE |
+| C — PERF-008-HARNESS | Harness, stress tests, paired baseline trên CI runner riêng | SOURCE RELEASED / INTEGRATED; P3 OPEN |
 
 | Lane | Task ID | Branch |
 | --- | --- | --- |
@@ -129,8 +129,39 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
   20ms trở lên để giảm timer/scheduling noise; Ribbon/open/search giữ nguyên.
   Giữ nguyên thresholds/statistics/datasets; freeze revision rồi chạy lại TOÀN
   A/A và AB/BA, không ghép/chọn samples. Run cũ không xóa; P1/P3 vẫn OPEN.
+- Approval count cuối đến sau C đã push revision v2 `97f20261`, run
+  `33973443725`. Root thấy phase measurement đã completed nên không cancel;
+  v2 được lưu riêng, không trộn. C freeze v3 theo counts cuối đã chốt trước khi
+  đọc candidate raw; giữ cả v1/v2 dù kết quả nào.
+- C final candidate `3cefe685` đã dispatch full `33974253095`, iOS
+  `33974254655`, Q003C `33974255889`, isolated `33974159142` đúng SHA.
+  Source chưa release: root review thấy Measure hash precomputed output trước
+  batch, chưa recapture kết quả thực sau batch. C được yêu cầu bổ sung before/
+  after postcondition ngoài measured window + negative drift regression, giữ
+  v3 counts/thresholds/datasets và archive các run cũ; new final SHA cần gate lại.
+- Exact-final perf run `33974159142` tại `3cefe685`: C báo INCONCLUSIVE 4/11,
+  native 2/2 PASS, 0 skip. Giữ artifact `9971867019`, không dùng implementation
+  `726ace80` green thay final. Root không retest commit còn correctness gap;
+  sau guard fix chạy full matrix ở new HEAD, nếu còn noise chỉ cho một bounded
+  full exact-HEAD retest, không đổi policy/counts hoặc rerun-until-green. Nếu
+  vẫn noisy giữ P1/P3 OPEN và yêu cầu controlled-runner decision.
 
 ## Checkpoint vận hành
+
+- C final `fe015864` đã được root xác minh bốn workflow đúng SHA xanh, review
+  corrected output guards và ghép bảy commits sạch thành `4e42a584`.
+  [Integration/evidence](PERF_008_INTEGRATION_20260905.md); P3 chưa chạy combined.
+- A source `1c855249` đang CI; producer HCLight open-Picker cần sửa thêm. A đã
+  release sample paths, nhưng tiếp tục giữ production/ci.yml và reacquire
+  desktop độc quyền để kiểm chứng. B/C/root không dùng native local.
+- B `35cedeaa` xanh desktop/Windows MAUI/Android, còn Apple failures. Source
+  `3e9239ab` thêm layout-ready wait và stage diagnostics, cần gate đúng SHA mới.
+- Root thêm RELEASE-009 package consumer qua workflow riêng; CI pending,
+  không đụng ci.yml A đang giữ. Local chỉ plan/parser/architecture/metadata.
+- Dung lượng C khoảng 130 MB; dừng local heavy builds, không cleanup workaround.
+  Heartbeat trong task root kiểm tra mỗi 15 phút, không tạo task trùng/đổi model,
+  im lặng khi chưa có thay đổi đáng chú ý. Các capacity interruptions được
+  tiếp tục trên task/model cũ, không thay worktree hoặc ghi đè source.
 
 - Coordination commit `847ff4beec70a05ab4f4f15be9e4d52e82ae7ac7` đã xanh ba
   workflows: full `33971257042`, iOS `33971257063`, Q003C `33971256987`.
@@ -155,6 +186,9 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
   catalog/Table/Ribbon tests PASS; R1/R2 vẫn OPEN. Preview Open hiện mở một grid
   window không có full shell và worksheet selector là ComboBox, cần xử lý sau
   A release sample ownership. Xem [release audit](RELEASE-009_COMMAND_AUDIT.md).
+- R3 audit: artifact hiện chỉ có 18 core packages, chưa có WPF/WinForms/MAUI/
+  Direct2D nupkg. Packable metadata hoặc source project build không thay
+  isolated PackageReference consumer/loaded host proof; R3 vẫn OPEN.
 
 ## Single writer và tích hợp
 
