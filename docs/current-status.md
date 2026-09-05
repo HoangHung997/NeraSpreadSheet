@@ -1,5 +1,17 @@
 # NeraSpreadSheet current implementation status
 
+## TABLE-006-NATIVE / UX-006 — ACTIVE TRÊN HAI WORKTREE
+
+Baseline tích hợp cuối `2bc00eb667da2f2c5afda1024ab753ac638d85d4` đã xanh
+full CI #1334 / `33954450148`, iOS #155 / `33954450152`, Q003C #152 /
+`33954450150`, mọi job success. Theo yêu cầu tiếp tục phần dở và chạy song
+song phần mới, hai task `gpt-6-astra / xhigh` đã active từ đúng baseline này:
+TABLE-006-NATIVE làm editor structured references và corpus có provenance;
+UX-006 làm visual/localization của Ribbon/Bar/Table Design/Filter. Hai lane
+không sửa chung file; desktop local chỉ lane native dùng, lane UX kiểm chứng
+native UI qua GitHub. Xem [wave/ownership](worklog/TABLE_UX_WAVE_20260905.md).
+Không nâng phần chưa làm thành DONE, không mở Avalonia hoặc phát hành demo/NuGet.
+
 ## TABLE-005 / TABLE-RIBBON-012 / TABLE-006 — INTEGRATED, IMPLEMENTATION GREEN
 
 Ngày 05/09/2026, coordinator đã ghép sạch sáu commit lane A đến `d283a55b`

@@ -1,5 +1,12 @@
 # Kế hoạch hoàn thiện Table, Filter, Ribbon và UX
 
+Đợt tiếp tục 05/09/2026: từ final integrated `2bc00eb6` xanh đủ ba workflow,
+TABLE-006-NATIVE tiếp tục native editor/corpus; UX-006 khởi động sớm phần
+chrome/localization độc lập trên worktree riêng. Hai task đã active, cùng
+`gpt-6-astra / xhigh`. Đây là ngoại lệ tiến độ có ranh giới file/desktop rõ,
+không bỏ dependency semantic hoặc combined CI; chi tiết ở
+[wave TABLE/UX](worklog/TABLE_UX_WAVE_20260905.md).
+
 Tiến độ thực tế 05/09/2026: hai lane TABLE-RIBBON-012 và TABLE-006 đã bàn giao,
 TABLE-005/Table Design cùng headless compatibility đã ghép vào implementation
 `e29acb44`, xanh đủ ba workflow/mọi job. Lịch ngày bên dưới vẫn là mốc dự kiến,

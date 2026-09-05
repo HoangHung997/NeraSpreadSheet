@@ -26,8 +26,8 @@ Task owners write their own `docs/worklog/<CHECKPOINT>.md` handoff.
 | 9 | `RIBBON-VISUAL-011` | A | `DONE` | Codex task `RIBBON-VISUAL-011 — Excel-density adaptive layout` | `feature/ribbon-visual-011` | `RIBBON-010` | integrated/green implementation 05/09 |
 | 10 | `TABLE-005` | Source | `DONE` | Coordinator; source imported once through A | `feature/bootstrap-architecture-v0.1` | `TABLE-004`; defined scope | combined implementation `e29acb44` green 05/09 |
 | 11 | `TABLE-RIBBON-012` | A | `DONE` | Coordinator; source task `01a0704c-1f36-7232-a54f-bc67c965e89c` handed off `d283a55b` | `feature/bootstrap-architecture-v0.1` | `488c61ea` + immutable TABLE-005 source | combined implementation `e29acb44` green 05/09 |
-| 12 | `TABLE-006` | B | `READY` | Coordinator; source task complete; remaining native work not dispatched | `feature/bootstrap-architecture-v0.1` | headless `7f73a97d` integrated/green at `e29acb44`; native UX/corpus still open | headless green 05/09; whole checkpoint not DONE |
-| 13 | `UX-006` | Integration | `BACKLOG` | Integration owner | `feature/ux-006-visual-localization` | both lanes | 12–15/10 |
+| 12 | `TABLE-006` / `TABLE-006-NATIVE` | A | `ACTIVE` | Task `01a070ae-bcfe-7562-acad-9c53287433d3`, `gpt-6-astra / xhigh` | `feature/table-006-native-compat` | headless integrated/green at final `2bc00eb6`; native UX/corpus remaining | native continuation started 05/09; whole checkpoint not DONE |
+| 13 | `UX-006` | B | `ACTIVE` | Task `01a070af-9093-7303-a811-821cde640467`, `gpt-6-astra / xhigh` | `feature/ux-006-visual-localization` | independent chrome from final `2bc00eb6`; combined acceptance still required | started early 05/09; planned window 12–15/10 |
 | 14 | `UX-007` | Integration | `BACKLOG` | Integration owner | `feature/ux-007-keyboard-a11y` | `UX-006` | 16–21/10 |
 | 15 | `PERF-008` | Integration | `BACKLOG` | Integration owner | `feature/perf-008-ribbon-filter` | `UX-007` | 22–26/10 |
 | 16 | `RELEASE-009` | Integration | `BACKLOG` | Integration owner | `release/0.2.0-rc1` | `PERF-008` | 27–28/10 |
@@ -67,6 +67,7 @@ waits.
 | `RIBBON-VISUAL-011` | nine-commit lane ending at `7cfcfdfc6f337da1b37ca05b9254b903a33f32d2` | `7cfcfdfc6f337da1b37ca05b9254b903a33f32d2` (fast-forward) | full #1324; iOS #145; Q003C #142 | Green; documentation descendant requires exact-head gates |
 | Ribbon integration documentation | `488c61ea75ea6c8f7a6ceb480035a341f24c6c19` | `488c61ea75ea6c8f7a6ceb480035a341f24c6c19` | full #1325 / 33949294692; iOS #146 / 33949294721; Q003C #143 / 33949294687 | Green at final integration HEAD |
 | `TABLE-005` / `TABLE-RIBBON-012` / `TABLE-006` headless | A `d283a55b` + B `7f73a97d` + combined regression | `e29acb44bc058e91a27c9dcc35a6979909d4dd5b` | full #1333 / 33953936497; iOS #154 / 33953936520; Q003C #151 / 33953936475 | Green, all seven jobs; whole TABLE-006 remains open; final documentation descendant requires exact-head gates |
+| Final Table/Ribbon integration documentation | `2bc00eb667da2f2c5afda1024ab753ac638d85d4` | `2bc00eb667da2f2c5afda1024ab753ac638d85d4` | full #1334 / 33954450148; iOS #155 / 33954450152; Q003C #152 / 33954450150 | Green at final HEAD, all seven jobs; baseline of TABLE-006-NATIVE / UX-006 |
 
 Append one row only after exact-head CI completes. Never mark a checkpoint
 `DONE` using a green run from a parent commit.
@@ -117,3 +118,8 @@ Append one row only after exact-head CI completes. Never mark a checkpoint
   no successor is dispatched. Native structured-reference editor wiring and
   native producer corpus keep whole TABLE-006 open. See
   [`TABLE_RIBBON_INTEGRATION_20260905.md`](TABLE_RIBBON_INTEGRATION_20260905.md).
+- 05/09/2026, native/UX continuation: user requested unfinished work to continue
+  and independent new work to run in parallel. TABLE-006-NATIVE and UX-006 are
+  active from exact green `2bc00eb6` with `gpt-6-astra / xhigh`. UI desktop is
+  exclusive to A; B uses remote native CI/captures. File ownership and bounded
+  early UX start are fixed in [`TABLE_UX_WAVE_20260905.md`](TABLE_UX_WAVE_20260905.md).

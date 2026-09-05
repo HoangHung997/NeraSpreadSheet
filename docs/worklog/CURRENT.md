@@ -1,6 +1,32 @@
 # Current Work Handoff
 
-## Current integration — TABLE-005 / TABLE-RIBBON-012 / TABLE-006
+## Current dispatch — TABLE-006-NATIVE / UX-006
+
+- Integration branch `feature/bootstrap-architecture-v0.1`, PR #1
+  Draft/open/unmerged. Final integration baseline
+  **`2bc00eb667da2f2c5afda1024ab753ac638d85d4`** đã xanh full #1334 /
+  `33954450148`, iOS #155 / `33954450152`, Q003C #152 / `33954450150`,
+  đủ bảy job; Windows CI 77/77, MAUI 43/43, capture 177/128.
+- Theo yêu cầu tiếp tục, mở đúng hai worktree từ baseline trên, giữ
+  **`gpt-6-astra / xhigh`**, đã xác nhận hai task active/inProgress và claim:
+  A `01a070ae-bcfe-7562-acad-9c53287433d3` / `feature/table-006-native-compat`;
+  B `01a070af-9093-7303-a811-821cde640467` / `feature/ux-006-visual-localization`.
+- A tiếp tục TABLE-006 native editor/structured references và producer corpus;
+  B làm UX-006 Ribbon/Bar/Table Design/Filter chrome và resource localization.
+  Chỉ phần chrome độc lập của UX-006 được bắt đầu sớm; chưa đóng TABLE-006.
+- Khóa file, desktop, project/CI và cổng handoff ở
+  [`TABLE_UX_WAVE_20260905.md`](TABLE_UX_WAVE_20260905.md). Desktop local chỉ A;
+  B chạy native smokes/capture bằng GitHub runner riêng, không giành focus.
+- Coordinator chỉ thay tài liệu điều phối; hai source task cũ đã completed.
+  Không sửa production, không đóng gói demo hoặc publish NuGet trong dispatch.
+  Markdown không đổi runtime nên không cần local regression/runtime mới;
+  diff/links/architecture/packaging và exact-head GitHub gates vẫn bắt buộc.
+- File handoff của worker: `docs/worklog/TABLE-006-NATIVE.md` và
+  `docs/worklog/UX-006.md` ở nhánh riêng. Shared CURRENT/status/board chỉ coordinator ghi.
+- Bước tiếp theo duy nhất: đọc handoff/source delta sau `2bc00eb6` của A rồi B,
+  review phạm vi/giới hạn và kiểm chứng combined exact HEAD trước checkpoint sau.
+
+## Previous integration — TABLE-005 / TABLE-RIBBON-012 / TABLE-006
 
 - Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
 - Đã nhận A đến `d283a55b` (sáu commit gồm TABLE-005 một lần), sau đó chỉ
