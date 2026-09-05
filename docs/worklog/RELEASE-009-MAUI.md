@@ -45,6 +45,10 @@
   fragment dù console/file hợp lệ. Default legacy vẫn giữ contract trước đó.
   Owned console fixture kiểm actual Emit và roundtrip qua chính shared Python CLI
   với private synthetic context; build/execution fixture này chờ hosted CI.
+- Owned `f5c9cce4942232fd5373ddd49490c012fa27e98b`, MAUI33991950309:
+  hosted fixture compile chặn CA1861 tại mảng tên assembly cố định. Chuyển mảng
+  fixture thành static readonly; không suppress analyzer hoặc thay consumer evidence.
+  Chưa chạy producer/native ở run này; final HEAD cần cohort/gates mới.
 
 ## Checkpoint package đã release — lịch sử
 
