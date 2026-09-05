@@ -46,8 +46,10 @@ package, viewport engine, editor model hoặc history model.
 
 - Chưa triển khai formula bar của sample hoặc split paged-filter popup.
 - API `UpdateEditorDraft(text, selectionStart, selectionLength)` mô tả một range,
-  không có tham số hướng selection/caret riêng. Regression native kiểm tra
-  backward selection và round-trip; không tự mở rộng public API trong slice này.
+  không có tham số hướng selection/caret riêng. WPF `TextBox.CaretIndex` báo
+  `SelectionStart`, nên snapshot hiện tại cũng không biểu diễn moving edge của
+  selection. Regression native kiểm tra backward range và Shift+Left sau
+  round-trip; không tự mở rộng public API trong slice này.
 - Không thay đổi host WinForms/MAUI hoặc tuyên bố hardware/performance acceptance.
 
 ## Cổng kiểm chứng

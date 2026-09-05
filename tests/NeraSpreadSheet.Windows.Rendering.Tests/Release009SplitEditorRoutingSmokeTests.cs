@@ -15,6 +15,7 @@ using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Layout;
 using NeraSpreadSheet.Viewport;
 using NeraSpreadSheet.Wpf;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using ListBox = System.Windows.Controls.ListBox;
 using TextBox = System.Windows.Controls.TextBox;
 
