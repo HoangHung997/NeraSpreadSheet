@@ -4,7 +4,8 @@
 - Base clean đã xác minh: `2e8482c25a44797a479b276ae26f472811a0a81e`.
 - Product checkpoint đã push: `9bf24af9a44ce25da4826edb2f6039203f5416f1`;
   desktop21-path slice đã partial release, wholeB vẫn HOLD. Diagnostic checkpoint
-  `eca8a6d2d31574eda8ecc4ebf206abc6a6c82e96` có generated audit, native gates đỏ.
+  `c187fe808e65b0f4352cc8789d4f5d26220b2f56` có generated audit và completed
+  class-exclusion evidence; native gates đỏ. One-off variant đang được đóng.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
 - Root cho phép riêng workflow `table-007-libreoffice.yml` và producer script;
@@ -314,6 +315,66 @@
   hosted checkout áp dụng reproducibly; guard SHA/đúng hai paths và generated
   registrar class absence phải PASS trước launch. Không đổi original candidate,
   retries, runtime assertions/timeouts hoặc dùng variant làm acceptance.
-- Bước tiếp theo duy nhất: đọc bounded class-exclusion variant outcomes và stages,
-  đối chiếu với original candidate tại cùng source/toolchain; không sửa renderer/
-  Register/Preserve hoặc21 desktop paths đã release để đoán lỗi. WholeB HOLD.
+- Class-exclusion c187fe80 `33987516524`, Mac job101363710590: baselinePASS,
+  candidateFAIL; variant build/patch/absence guardPASS nhưng runtimeFAIL trước
+  Action/host entry. Variant registrar.h hash giống baseline
+  `f62948e90c080c8324010c1f0eacfed0edc46ae811d6fe58a53a3af590c8c819`,
+  literal CellTextView vắng khỏi generated.h/.mm. Matching variant IPS vẫn ở
+  realizeClassWithoutSwift/NSClassFromString/NSTextInputContext/UINSScene.
+  Subclass presence không cần để tái hiện failure này; không suy subclass fix.
+  Đóng one-off variant steps/checked-in patch, giữ historical commit/evidence,
+  original product registration và paired native gates. Windows candidateFAIL.
+- Root đã nhận exact21 source blobs tại ce1a00d2 và ghép A navigation ở
+  22338c79568af9106d9c6fda660180f1203940cd. Root sở hữu/fix ShowReferenceHighlights
+  ở split composers và full-cell WPF Measure; public CurrentFormula* metadata/help
+  split forwarding còn OPEN tại root. B không sửa/reimport các released paths.
+- Root yêu cầu read-only source map trước probe tiếp: base2e full33966917191,
+  Apple101308559859 SUCCESS (result success/10frames). cf680688 Apple101324733106
+  dừng ở iOS build, Mac skipped; ac96 không có exact-head run được liệt kê.
+  First-known native failure35cedeaa full33977571678/Apple101336874097 buildPASS,
+  nativeFAIL sau analytics-create-enter/draw-core-success, launchd signal11.
+  Không có early matching IPS nên không đồng nhất instruction với c187.
+- Delta ban đầu: cf thêm editor host/handler/bounds; ac sửa Apple compile, thêm
+  shared ComputeLayout và Mac wrapper/editor-before-analytics;35 chỉ thêm host
+  resize/font refresh và native InsertText thay Text setter. Class-excluded c187
+  còn page async/dispatch trước analytics, shared Compose layout extraction,
+  compiled editor host/bounds/assistant, sau đó là renderer-depth/fd2 probes.
+  Trước current Action marker chỉ layout và probes có đường chạy; editor subtree
+  chưa tạo. Probes sau35 không cần để tạo initial failure. Android/Windows key
+  adapters bị loại bởi platform guards; renderer scheduling/disposal không đổi.
+- Source byte-equality audit PASS cho global.json/Directory.Build.props/package
+  versions, MAUI project/smoke project, MauiProgram/SmokeTrace/Program/AppDelegate/
+  Info.plist giữa base và c187. Generated registrar có thể đổi reachability dù
+  file config giống; không coi source/evaluated equality là effective mode proof.
+- Source partition đề xuất (chưa được cấp/chạy): thay riêng Mac SmokePage bằng
+  exact base2e blob trong isolated current-candidate checkout; giữ product và
+  original failure, baseline analytics assertions. Variant không chạy editor,
+  không được coi là editor acceptance. Nó phân biệt page startup/reachability
+  với product delta còn lại, không tự chứng minh một dòng lỗi. Cũng bỏ later fd2
+  hook; first failure35 đã không có hook. Cần đọc generated metadata sau build.
+  Review-only patch/JSON artifacts/table-007-baseline-page-partition-proposal.*,
+  SHA256 bf026f39611378559bb8b2a4d0dfb1096891a44e639d4a79c19e43f8fb28a83b;
+  git apply --check PASS, không áp dụng lên source tracked.
+- Đính chính native logging proposal: Apple objc4 objc-env.h public option là
+  OBJC_PRINT_CLASS_SETUP, ánh xạ internal PrintConnecting; OBJC_PRINT_CONNECTING
+  không phải public option đã xác minh. Không bật flag nào; root ưu tiên source
+  partition assessment trước runtime logging, chưa cấp probe tiếp.
+- Root đã cấp đúng ONE baseline-page partition với patchSHA ở trên, same-current
+  checkout; before blob89bc459fa5c86b523e96bcd22f19a496e2151df6 và after blob
+  28bd663814d338a7a9564b852e6f4c5eb31dd664 bắt buộc exact, dừng nếu khác.
+  Workflow đóng class-exclusion variant cũ và thêm duy nhất partition này sau
+  baseline/original candidate; metadata đọc bounded trước launch. Custom handler,
+  native subclass/product/SDK/renderer/flags/signing và current runner giữ nguyên.
+  Không chạy editor trong diagnostic baseline page; baseline analytics assertions
+  không đổi và original failed steps giữ jobFAIL. Không nhận TABLE007 acceptance.
+- Local partition checks: three embedded Python blocks compile; positive và
+  negative guards cho frozen source/hash/path/afterblob PASS; seven Mac shell
+  blocks bash syntax PASS. Approved patch git apply --check/hash PASS; original
+  src/tests không đổi, architecture PASS. Native build/runtime chỉ chạy hosted
+  narrow CI; không heavy/local loaded run trong desktop lease của A.
+- Windows c187 job101363710716 đã đọc lại: cả2attempts qua editor assertions tới
+  first after-surface-reinsert; không recreated-frame-enter/native-unhandled
+  marker, có focus-none. Intermittent reattach failure vẫn OPEN.
+- Bước tiếp theo duy nhất: chạy narrow native CI cho approved baseline-page
+  partition, đọc generated metadata và runtime outcomes; giữ21 desktop paths
+  frozen và wholeB HOLD, không tự mở thêm variant hoặc bật runtime flags.
