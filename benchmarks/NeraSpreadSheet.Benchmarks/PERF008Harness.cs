@@ -45,7 +45,7 @@ internal static class PERF008Harness
             Require(session.History.UndoCount == 0, "Table toggle/undo did not restore history.");
             var table = session.ActiveWorksheet.Tables.Single();
             var input = new { unrelated, rows = 10, columns = new[] { "Item", "Amount" }, formula = "=Sales[Am" };
-            measurements.Add(Measure($"table.toggleUndo.{unrelated}", 64, 8,
+            measurements.Add(Measure($"table.toggleUndo.{unrelated}", 4_096, 128,
                 benchmark.FilterButtonToggleAndUndo, input, new { table.Name, table.Range, table.ShowFilterButtons,
                     columns = table.Columns.Select(column => column.Name).ToArray(), session.History.UndoCount }));
             Require(session.History.UndoCount == 0, "Measured Table toggle/undo did not restore history.");
@@ -68,7 +68,7 @@ internal static class PERF008Harness
             using var opened = NewView(filter);
             opened.InitializeAsync().GetAwaiter().GetResult();
         }, filterInput, PageEvidence(first)));
-        measurements.Add(Measure("filter.cachedPage.100000", 32_768, 1_024,
+        measurements.Add(Measure("filter.cachedPage.100000", 262_144, 4_096,
             () => GC.KeepAlive(view.GetPageAsync(0).GetAwaiter().GetResult()), filterInput, PageEvidence(first)));
         measurements.Add(Measure("filter.searchCycle.100000", 4, 2, () =>
         {

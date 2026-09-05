@@ -77,6 +77,13 @@ rồi chạy lại toàn ma trận. Bản v1 vẫn INCONCLUSIVE, không trộn h
 Review bổ sung guard environment/runtime/config giữa workers và hai phases,
 test phát hiện runtime mismatch và bảo toàn raw kể cả artifact hết retention.
 
+Coordinator supersede approval v2 bằng counts mục tiêu batch khoảng 20 ms trở
+lên: **toggle 4096/128, completion 32768/1024, cached-page 262144/4096**. Message
+đến sau push v2 `97f20261a6ee50a0246e03b78a60b3c3dd30aaff`; run `33973443725`
+vừa bắt đầu. C nhận quyết định và freeze **v3** trước khi xem candidate v2;
+đã yêu cầu root cancel run superseded nếu chưa đo để tiết kiệm. Nếu có samples,
+giữ riêng run v2, không ghép hoặc dùng nó để chọn counts/thresholds v3.
+
 Run đầu [33971846930](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33971846930)
 tại `413ab07a0feec7bc258f39b825ceba97e497f458` dừng trước calibration: runner
 setup theo global.json `latestFeature` chọn SDK **10.0.400**; canonical guard từ

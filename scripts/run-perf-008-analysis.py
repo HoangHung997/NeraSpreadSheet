@@ -8,7 +8,7 @@ import statistics as stats
 import sys
 from pathlib import Path
 
-RULE = "perf008-v2:6-aa;12-abba;mad3;floor5pct;noise10pct;bootstrap95;alloc1pct-or1B;completion-cache32768-warm1024"
+RULE = "perf008-v3:6-aa;12-abba;mad3;floor5pct;noise10pct;bootstrap95;alloc1pct-or1B;toggle4096-128;completion32768-1024;cache262144-4096"
 ENVIRONMENT_KEYS = ("runtime", "framework", "os", "architecture", "processors", "configuration", "tieredCompilation", "serverGc")
 
 
