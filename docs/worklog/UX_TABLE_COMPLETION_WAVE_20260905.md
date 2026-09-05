@@ -107,6 +107,12 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
   whitelist stage labels, không workbook values/paths/environment. Giữ retry
   count/criteria, timeout, frame/success gates và cleanup cũ; trace không được
   thay result JSON hoặc biến failure thành success. Không retry đến khi xanh.
+- Cho B tạo riêng `.github/workflows/table-007-native-diagnostics.yml` để
+  rút ngắn vòng PROBE: chỉ Windows.Smoke và MacCatalyst.AnalyticsSmoke trên
+  hosted runners, giữ setup/scripts/timeouts/attempts và tất cả assertions của
+  hai project như full CI. Push chỉ nhánh B, không sửa ci.yml. Có thể chạy
+  diagnostic trước trong vòng probe; final source vẫn bắt buộc ba existing
+  workflows/bảy jobs và diagnostic xanh đúng HEAD. Không thay final gates.
 
 ### Quyền sửa C
 

@@ -17,6 +17,14 @@ Windows stage đã qua editor rồi fail original stress, Mac mutation chạy tr
 paint có thể chưa attached. C review READ-ONLY source B, không sở hữu code B.
 Next: kiểm CI full-shell checkpoint và nhận final A/B có review/source gates.
 
+B được tạo workflow chẩn đoán riêng table-007-native-diagnostics.yml chỉ build/
+run hai existing Windows/Mac smoke projects với nguyên setup/gates, để tránh
+lặp các build không liên quan ở mỗi PROBE. Final B vẫn cần ba existing workflows/
+bảy jobs + diagnostic exact-head green. Root giữ Mac handler ownership; audit C
+thấy khả năng reentrant render/dispose-during-paint trong handler cũ, nhưng B
+queued-editor source3f vẫn crash trước callback nên chưa kết luận cause hoặc
+cho phép bỏ IME/clip/original stress. C review xong, không sửa production.
+
 ## Handoff mới nhất — 06/09/2026, Windows package gate đã xanh
 
 - Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
