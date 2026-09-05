@@ -12,6 +12,36 @@ namespace NeraSpreadSheet.Windows.Rendering.Tests;
 public sealed class WinFormsStructuredReferenceEditorTests
 {
     [TestMethod]
+    [DataRow(Keys.Up)]
+    [DataRow(Keys.Down)]
+    [DataRow(Keys.PageUp)]
+    [DataRow(Keys.PageDown)]
+    [DataRow(Keys.None)]
+    [Timeout(60_000)]
+    public void PointModeShouldInsertAtMovedMultilineCaretAndKeepPreviousReference(Keys caretKey)
+    {
+        RunLoaded((control, session, editor) =>
+        {
+            session.ActiveWorksheet.SetCell(new CellAddress(20, 0), new CellData(CellValue.FromNumber(999d), "=1+1"));
+            var before = session.ActiveWorksheet.EnumerateUsedCells().ToArray();
+            control.BeginEdit("=SUM(" + Environment.NewLine);
+            Assert.IsTrue(control.InsertFormulaReference(new CellRange(new CellAddress(1, 1), new CellAddress(2, 1))));
+            Assert.AreEqual("=SUM(" + Environment.NewLine + "B2:B3", control.CurrentEditText);
+            Assert.IsFalse(GetField<ListBox>(control, "_formulaSuggestionList").Visible);
+            // Model the native caret change before KeyUp. None covers callers
+            // that move the caret programmatically without a keyboard event.
+            editor.Select(5, 0);
+            if (caretKey != Keys.None) Raise(editor, "OnKeyUp", new KeyEventArgs(caretKey));
+            Assert.IsTrue(control.InsertFormulaReference(new CellRange(new CellAddress(4, 0), new CellAddress(4, 0))));
+            Assert.AreEqual("=SUM(A5" + Environment.NewLine + "B2:B3", control.CurrentEditText);
+            Assert.IsTrue(control.InsertFormulaReference(new CellRange(new CellAddress(4, 0), new CellAddress(5, 0))));
+            Assert.AreEqual("=SUM(A5:A6" + Environment.NewLine + "B2:B3", control.CurrentEditText);
+            Assert.AreEqual(0, session.History.UndoCount);
+            CollectionAssert.AreEqual(before, session.ActiveWorksheet.EnumerateUsedCells().ToArray());
+        });
+    }
+
+    [TestMethod]
     [Timeout(60_000)]
     public void PointModeCommitShouldRestoreEditedCellAndPreserveClippedEditorWidth()
     {
