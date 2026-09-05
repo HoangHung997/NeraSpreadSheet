@@ -53,6 +53,8 @@ public sealed class NeraRibbonCustomizationDialog : Window
         FontSize = 13d;
         SetResourceReference(BackgroundProperty, "RibbonSurface");
         SetResourceReference(ForegroundProperty, "RibbonForeground");
+        _visible.SetResourceReference(Control.ForegroundProperty, "RibbonForeground");
+        _large.SetResourceReference(Control.ForegroundProperty, "RibbonForeground");
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         AutomationProperties.SetAutomationId(this, "NeraRibbonCustomizationDialog");
         AutomationProperties.SetName(this, Title);

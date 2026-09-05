@@ -33,6 +33,17 @@ public sealed class DesktopRibbonCustomizationDialogSmokeTests
                 {
                     wpf.Show();
                     wpf.Dispatcher.Invoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, static () => { });
+                    if (theme is NeraIconTheme.Dark or NeraIconTheme.HighContrastDark)
+                    {
+                        var expectedForeground = ((System.Windows.Media.SolidColorBrush)wpf.FindResource("RibbonForeground")).Color;
+                        var options = FindWpfCheckBoxes(wpf).ToArray();
+                        Assert.HasCount(2, options);
+                        foreach (var option in options)
+                        {
+                            Assert.AreEqual(expectedForeground, ((System.Windows.Media.SolidColorBrush)option.Foreground).Color,
+                                $"The effective checkbox label foreground must follow {theme} instead of the native default black.");
+                        }
+                    }
                     Assert.AreEqual(2, wpf.Session.Entries.Count(entry => entry.Target.Kind == RibbonCustomizationTargetKind.Command && entry.Caption == "Sao chép"));
                     wpf.SelectedTarget = RibbonCustomizationTarget.Command("home", "clipboard", "edit.copy");
                     Assert.IsTrue(wpf.SetSelectedVisible(false));
@@ -75,6 +86,16 @@ public sealed class DesktopRibbonCustomizationDialogSmokeTests
             new RibbonTabDefinition("home", "Trang đầu", [new RibbonGroupDefinition("clipboard", "Bảng tạm", [new RibbonItemDefinition("edit.copy")])]),
             new RibbonTabDefinition("insert", "Chèn", [new RibbonGroupDefinition("clipboard", "Bảng tạm", [new RibbonItemDefinition("edit.copy")])]),
         ]), registry);
+    }
+
+    private static IEnumerable<System.Windows.Controls.CheckBox> FindWpfCheckBoxes(System.Windows.DependencyObject parent)
+    {
+        for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, index);
+            if (child is System.Windows.Controls.CheckBox checkBox) yield return checkBox;
+            foreach (var descendant in FindWpfCheckBoxes(child)) yield return descendant;
+        }
     }
 
     [TestMethod]
