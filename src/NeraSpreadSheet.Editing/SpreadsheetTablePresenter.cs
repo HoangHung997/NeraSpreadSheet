@@ -1,0 +1,701 @@
+using System.Globalization;
+using NeraSpreadSheet.Core;
+
+namespace NeraSpreadSheet.Editing;
+
+public sealed record SpreadsheetTableManagerColumnSnapshot(
+    Guid Id,
+    string Name,
+    int WorksheetColumnIndex,
+    bool HasCalculatedFormula,
+    bool HasTotalsFormula,
+    bool HasTotalsLabel,
+    bool IsFiltered);
+
+public sealed record SpreadsheetTableManagerItemSnapshot(
+    Guid Id,
+    string Name,
+    CellRange Range,
+    bool HasHeaders,
+    bool HasTotalsRow,
+    string? StyleName,
+    bool HasActiveFilter,
+    IReadOnlyList<SpreadsheetTableManagerColumnSnapshot> Columns);
+
+public sealed record SpreadsheetTableManagerSnapshot(
+    string WorksheetName,
+    IReadOnlyList<SpreadsheetTableManagerItemSnapshot> Tables);
+
+public sealed record SpreadsheetTableFilterValueItem(
+    CellValue Value,
+    string DisplayText,
+    int Count,
+    bool IsSelected);
+
+public sealed record SpreadsheetTableFilterMenuSnapshot(
+    Guid TableId,
+    Guid ColumnId,
+    string TableName,
+    string ColumnName,
+    string SearchText,
+    int SourceRowCount,
+    int ScannedRowCount,
+    int DistinctValueCount,
+    bool IsRowScanTruncated,
+    bool IsDistinctValueTruncated,
+    bool HasActiveFilter,
+    bool HasCustomFilter,
+    bool AreAllVisibleValuesSelected,
+    bool AreNoVisibleValuesSelected,
+    bool CanApplyValueSelection,
+    IReadOnlyList<SpreadsheetTableFilterValueItem> Values)
+{
+    public bool IsTruncated =>
+        IsRowScanTruncated || IsDistinctValueTruncated;
+}
+
+public sealed record SpreadsheetTableFilterValuePage(
+    Guid TableId,
+    Guid ColumnId,
+    string SearchText,
+    int Offset,
+    int PageSize,
+    int TotalVisibleValueCount,
+    bool HasPreviousPage,
+    bool HasNextPage,
+    bool IsSourceTruncated,
+    IReadOnlyList<SpreadsheetAutoFilterMenuKind> MenuKinds,
+    IReadOnlyList<SpreadsheetTableFilterValueItem> Values);
+
+public sealed class SpreadsheetTableFilterMenu
+{
+    public const int MaximumPageSize = 1000;
+
+    private readonly SpreadsheetTablePresenterController _owner;
+    private readonly Dictionary<CellValue, int> _counts;
+    private readonly Dictionary<DateTime, int> _dateCounts;
+    private readonly HashSet<CellValue> _selected;
+    private string _searchText = string.Empty;
+
+    internal SpreadsheetTableFilterMenu(
+        SpreadsheetTablePresenterController owner,
+        SpreadsheetTable table,
+        SpreadsheetTableColumn column,
+        Dictionary<CellValue, int> counts,
+        Dictionary<DateTime, int> dateCounts,
+        TableFilterColumn? currentFilter,
+        int sourceRowCount,
+        int scannedRowCount,
+        bool isRowScanTruncated,
+        bool isDistinctValueTruncated)
+    {
+        _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentNullException.ThrowIfNull(column);
+        _counts = counts ?? throw new ArgumentNullException(nameof(counts));
+        _dateCounts = dateCounts ??
+            throw new ArgumentNullException(nameof(dateCounts));
+        TableId = table.Id;
+        ColumnId = column.Id;
+        TableName = table.Name;
+        ColumnName = column.Name;
+        SourceRowCount = sourceRowCount;
+        ScannedRowCount = scannedRowCount;
+        IsRowScanTruncated = isRowScanTruncated;
+        IsDistinctValueTruncated = isDistinctValueTruncated;
+        HasActiveFilter = currentFilter is not null;
+        HasCustomFilter = currentFilter is not null &&
+            (currentFilter.FirstCondition is not null ||
+             currentFilter.DateGroups.Count > 0 ||
+             currentFilter.TopBottom is not null ||
+             currentFilter.DynamicFilter is not null ||
+             currentFilter.ColorFilter is not null ||
+             currentFilter.IconFilter is not null);
+
+        _selected = currentFilter is null || HasCustomFilter
+            ? _counts.Keys.ToHashSet()
+            : currentFilter.Values.ToHashSet();
+        if (currentFilter?.IncludeBlank == true)
+        {
+            _selected.Add(CellValue.Blank);
+        }
+    }
+
+    public Guid TableId { get; }
+
+    public Guid ColumnId { get; }
+
+    public string TableName { get; }
+
+    public string ColumnName { get; }
+
+    public int SourceRowCount { get; }
+
+    public int ScannedRowCount { get; }
+
+    public bool IsRowScanTruncated { get; }
+
+    public bool IsDistinctValueTruncated { get; }
+
+    public bool IsTruncated =>
+        IsRowScanTruncated || IsDistinctValueTruncated;
+
+    public bool HasActiveFilter { get; }
+
+    public bool HasCustomFilter { get; }
+
+    public string SearchText => _searchText;
+
+    public event EventHandler? Changed;
+
+    public SpreadsheetTableFilterMenuSnapshot Capture()
+    {
+        var visible = GetVisibleValues(CancellationToken.None);
+        var selectedVisibleCount = visible.Count(item =>
+            _selected.Contains(item.Value));
+        return new SpreadsheetTableFilterMenuSnapshot(
+            TableId,
+            ColumnId,
+            TableName,
+            ColumnName,
+            _searchText,
+            SourceRowCount,
+            ScannedRowCount,
+            _counts.Count,
+            IsRowScanTruncated,
+            IsDistinctValueTruncated,
+            HasActiveFilter,
+            HasCustomFilter,
+            visible.Count > 0 && selectedVisibleCount == visible.Count,
+            selectedVisibleCount == 0,
+            _selected.Count > 0 && !IsTruncated,
+            visible.Select(item => new SpreadsheetTableFilterValueItem(
+                    item.Value,
+                    item.DisplayText,
+                    item.Count,
+                    _selected.Contains(item.Value)))
+                .ToArray());
+    }
+
+    public SpreadsheetTableFilterValuePage CapturePage(
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(
+            pageSize,
+            MaximumPageSize);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var visible = GetVisibleValues(cancellationToken);
+        var page = visible
+            .Skip(offset)
+            .Take(pageSize)
+            .Select(item =>
+                new SpreadsheetTableFilterValueItem(
+                    item.Value,
+                    item.DisplayText,
+                    item.Count,
+                    _selected.Contains(item.Value)))
+            .ToArray();
+        cancellationToken.ThrowIfCancellationRequested();
+        return new SpreadsheetTableFilterValuePage(
+            TableId,
+            ColumnId,
+            _searchText,
+            offset,
+            pageSize,
+            visible.Count,
+            offset > 0,
+            checked(offset + page.Length) < visible.Count,
+            IsTruncated,
+            SpreadsheetAutoFilterRichProjection.GetMenuKinds(
+                _counts.Keys,
+                _dateCounts),
+            page);
+    }
+
+    public SpreadsheetAutoFilterDatePage CaptureDatePage(
+        long generation,
+        SpreadsheetAutoFilterDateParent parent,
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        SpreadsheetAutoFilterRichProjection.CaptureDatePage(
+            _dateCounts,
+            generation,
+            parent,
+            offset,
+            pageSize,
+            cancellationToken);
+
+    public void SetSearchText(string? searchText)
+    {
+        var normalized = searchText?.Trim() ?? string.Empty;
+        if (string.Equals(
+                _searchText,
+                normalized,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _searchText = normalized;
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void SetSelected(CellValue value, bool selected)
+    {
+        if (!_counts.ContainsKey(value))
+        {
+            throw new ArgumentException(
+                "The value is not part of this filter menu.",
+                nameof(value));
+        }
+
+        var changed = selected
+            ? _selected.Add(value)
+            : _selected.Remove(value);
+        if (changed)
+        {
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public void SelectAllVisible(
+        CancellationToken cancellationToken = default)
+    {
+        var changed = false;
+        foreach (var item in GetVisibleValues(cancellationToken))
+        {
+            changed |= _selected.Add(item.Value);
+        }
+        if (changed)
+        {
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public void ClearVisibleSelection(
+        CancellationToken cancellationToken = default)
+    {
+        var changed = false;
+        foreach (var item in GetVisibleValues(cancellationToken))
+        {
+            changed |= _selected.Remove(item.Value);
+        }
+        if (changed)
+        {
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public void ApplyValueSelection() =>
+        _owner.ApplyValueSelection(this);
+
+    public void ApplyCustomFilter(
+        TableFilterCondition firstCondition,
+        TableFilterCondition? secondCondition = null,
+        bool combineWithAnd = true) =>
+        _owner.ApplyCustomFilter(
+            TableId,
+            ColumnId,
+            firstCondition,
+            secondCondition,
+            combineWithAnd);
+
+    public void ApplyRichFilter(SpreadsheetAutoFilterRichCriterion criterion) =>
+        _owner.ApplyRichFilter(TableId, ColumnId, criterion);
+
+    public void ClearColumnFilter() =>
+        _owner.ClearColumnFilter(TableId, ColumnId);
+
+    public void ClearAllTableFilters() =>
+        _owner.ClearAllTableFilters(TableId);
+
+    internal CellValue[] GetSelectedValues() =>
+        _selected
+            .OrderBy(static value => value.Kind)
+            .ThenBy(static value => FormatValue(value), StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    internal bool RepresentsEveryEnumeratedValue =>
+        _selected.Count == _counts.Count &&
+        _counts.Keys.All(_selected.Contains);
+
+    private List<ValueCount> GetVisibleValues(
+        CancellationToken cancellationToken)
+    {
+        var result = new List<ValueCount>(_counts.Count);
+        var index = 0;
+        foreach (var pair in _counts)
+        {
+            if ((index++ & 255) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            var item = new ValueCount(
+                pair.Key,
+                FormatValue(pair.Key),
+                pair.Value);
+            if (_searchText.Length == 0 ||
+                item.DisplayText.Contains(
+                    _searchText,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                result.Add(item);
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        result.Sort(static (left, right) =>
+        {
+            var blank = (left.Value.IsBlank ? 0 : 1)
+                .CompareTo(right.Value.IsBlank ? 0 : 1);
+            if (blank != 0)
+            {
+                return blank;
+            }
+            var text = StringComparer.OrdinalIgnoreCase.Compare(
+                left.DisplayText,
+                right.DisplayText);
+            return text != 0
+                ? text
+                : left.Value.Kind.CompareTo(right.Value.Kind);
+        });
+        return result;
+    }
+
+    private static string FormatValue(CellValue value) =>
+        value.Kind switch
+        {
+            CellValueKind.Blank => "(Blank)",
+            CellValueKind.DateTime => ((DateTime)value.RawValue!).ToString(
+                "yyyy-MM-dd HH:mm:ss",
+                CultureInfo.InvariantCulture),
+            CellValueKind.Boolean => (bool)value.RawValue! ? "TRUE" : "FALSE",
+            _ => value.ToString(),
+        };
+
+    private readonly record struct ValueCount(
+        CellValue Value,
+        string DisplayText,
+        int Count);
+}
+
+public sealed class SpreadsheetTablePresenterController
+{
+    public const int DefaultMaximumRows = 100_000;
+    public const int DefaultMaximumDistinctValues = 10_000;
+
+    private readonly SpreadsheetSession _session;
+
+    public SpreadsheetTablePresenterController(SpreadsheetSession session)
+    {
+        _session = session ?? throw new ArgumentNullException(nameof(session));
+    }
+
+    public SpreadsheetTableManagerSnapshot GetManagerSnapshot()
+    {
+        var worksheet = _session.ActiveWorksheet;
+        var tables = worksheet.Tables
+            .Select(table => new SpreadsheetTableManagerItemSnapshot(
+                table.Id,
+                table.Name,
+                table.Range,
+                table.HasHeaders,
+                table.HasTotalsRow,
+                table.StyleName,
+                table.AutoFilter is { Columns.Count: > 0 },
+                table.Columns.Select((column, index) =>
+                    new SpreadsheetTableManagerColumnSnapshot(
+                        column.Id,
+                        column.Name,
+                        table.Range.Left + index,
+                        column.CalculatedColumnFormula is not null,
+                        column.TotalsRowFormula is not null,
+                        column.TotalsRowLabel is not null,
+                        table.AutoFilter?.Columns.Any(filter =>
+                            filter.ColumnId == column.Id) == true))
+                    .ToArray()))
+            .ToArray();
+        return new SpreadsheetTableManagerSnapshot(
+            worksheet.Name,
+            tables);
+    }
+
+    public SpreadsheetTableFilterMenu OpenFilterMenu(
+        Guid tableId,
+        Guid columnId,
+        int maximumRows = DefaultMaximumRows,
+        int maximumDistinctValues = DefaultMaximumDistinctValues,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumRows);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(
+            maximumDistinctValues);
+        var table = GetTable(tableId);
+        if (!table.TryGetColumn(columnId, out var column) ||
+            column is null)
+        {
+            throw new KeyNotFoundException(
+                $"Table column '{columnId}' was not found.");
+        }
+
+        var counts = new Dictionary<CellValue, int>();
+        var dateCounts = new Dictionary<DateTime, int>();
+        var sourceRowCount = table.DataRange?.RowCount ?? 0;
+        var scannedRowCount = 0;
+        var distinctTruncated = false;
+        if (table.DataRange is { } dataRange)
+        {
+            var snapshot = WorksheetSnapshot.Capture(
+                _session.ActiveWorksheet);
+            var worksheetColumn = table.Range.Left +
+                                  table.GetColumnIndex(columnId);
+            var rowLimit = Math.Min(
+                dataRange.RowCount,
+                maximumRows);
+            for (var offset = 0; offset < rowLimit; offset++)
+            {
+                if ((offset & 255) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+                var address = new CellAddress(
+                    dataRange.Top + offset,
+                    worksheetColumn);
+                var value = snapshot.GetCell(address).Value;
+                scannedRowCount++;
+                var retained = true;
+                if (counts.TryGetValue(value, out var count))
+                {
+                    counts[value] = checked(count + 1);
+                }
+                else if (counts.Count < maximumDistinctValues)
+                {
+                    counts.Add(value, 1);
+                }
+                else
+                {
+                    distinctTruncated = true;
+                    retained = false;
+                }
+                if (retained &&
+                    value.Kind is CellValueKind.DateTime or
+                        CellValueKind.Number &&
+                    SpreadsheetAutoFilterDateProjection.TryGetDate(
+                        value,
+                        snapshot.GetEffectiveStyle(address)
+                            .NumberFormat.FormatCode,
+                        snapshot.DateSystem,
+                        out var date))
+                {
+                    dateCounts[date] = dateCounts.TryGetValue(
+                        date,
+                        out var dateCount)
+                        ? checked(dateCount + 1)
+                        : 1;
+                }
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        var currentFilter = table.AutoFilter?.Columns
+            .FirstOrDefault(candidate =>
+                candidate.ColumnId == columnId)
+            ?.Copy();
+        return new SpreadsheetTableFilterMenu(
+            this,
+            table,
+            column,
+            counts,
+            dateCounts,
+            currentFilter,
+            sourceRowCount,
+            scannedRowCount,
+            sourceRowCount > maximumRows,
+            distinctTruncated);
+    }
+
+    public void ApplyValueSelection(
+        SpreadsheetTableFilterMenu menu)
+    {
+        ArgumentNullException.ThrowIfNull(menu);
+        EnsureMenuBelongsToActiveTable(menu);
+        if (menu.IsTruncated)
+        {
+            throw new InvalidOperationException(
+                "The complete value catalog is unavailable; applying retained values would silently exclude values outside the bounded scan.");
+        }
+        var selected = menu.GetSelectedValues();
+        if (selected.Length == 0)
+        {
+            throw new InvalidOperationException(
+                "At least one value must be selected before applying a value filter.");
+        }
+
+        TableFilterColumn? replacement = null;
+        if (menu.IsTruncated || !menu.RepresentsEveryEnumeratedValue)
+        {
+            var includeBlank = selected.Any(static value =>
+                value.IsBlank);
+            replacement = new TableFilterColumn(
+                menu.ColumnId,
+                selected,
+                includeBlank);
+        }
+
+        ReplaceColumnFilter(
+            menu.TableId,
+            menu.ColumnId,
+            replacement);
+    }
+
+    public void ApplyCustomFilter(
+        Guid tableId,
+        Guid columnId,
+        TableFilterCondition firstCondition,
+        TableFilterCondition? secondCondition = null,
+        bool combineWithAnd = true)
+    {
+        ArgumentNullException.ThrowIfNull(firstCondition);
+        var table = GetTable(tableId);
+        if (!table.TryGetColumn(columnId, out _))
+        {
+            throw new KeyNotFoundException(
+                $"Table column '{columnId}' was not found.");
+        }
+
+        ReplaceColumnFilter(
+            tableId,
+            columnId,
+            new TableFilterColumn(
+                columnId,
+                firstCondition: firstCondition,
+                secondCondition: secondCondition,
+                combineWithAnd: combineWithAnd));
+    }
+
+    public void ApplyRichFilter(
+        Guid tableId,
+        Guid columnId,
+        SpreadsheetAutoFilterRichCriterion criterion)
+    {
+        ArgumentNullException.ThrowIfNull(criterion);
+        var table = GetTable(tableId);
+        if (!table.TryGetColumn(columnId, out _))
+        {
+            throw new KeyNotFoundException(
+                $"Table column '{columnId}' was not found.");
+        }
+        ReplaceColumnFilter(
+            tableId,
+            columnId,
+            criterion.CreateTableColumn(columnId));
+    }
+
+    public void ClearColumnFilter(Guid tableId, Guid columnId)
+    {
+        var table = GetTable(tableId);
+        if (!table.TryGetColumn(columnId, out _))
+        {
+            throw new KeyNotFoundException(
+                $"Table column '{columnId}' was not found.");
+        }
+        ReplaceColumnFilter(tableId, columnId, replacement: null);
+    }
+
+    public void ClearAllTableFilters(Guid tableId)
+    {
+        var table = GetTable(tableId);
+        if (table.AutoFilter is null)
+        {
+            return;
+        }
+        _session.Tables.ClearAutoFilter(tableId);
+    }
+
+    private void ReplaceColumnFilter(
+        Guid tableId,
+        Guid columnId,
+        TableFilterColumn? replacement)
+    {
+        var table = GetTable(tableId);
+        var current = table.AutoFilter?.Columns
+            .FirstOrDefault(candidate => candidate.ColumnId == columnId);
+        if (AreEquivalent(current, replacement))
+        {
+            return;
+        }
+        var columns = table.AutoFilter?.Columns
+            .Where(candidate => candidate.ColumnId != columnId)
+            .Select(static candidate => candidate.Copy())
+            .ToList() ?? [];
+        if (replacement is not null)
+        {
+            columns.Add(replacement.Copy());
+        }
+        _session.Tables.SetAutoFilter(
+            tableId,
+            columns.Count == 0 && table.AutoFilter?.SortState is null
+                ? null
+                : new TableAutoFilter(columns, table.AutoFilter?.SortState));
+    }
+
+    private static bool AreEquivalent(
+        TableFilterColumn? left,
+        TableFilterColumn? right)
+    {
+        if (ReferenceEquals(left, right))
+        {
+            return true;
+        }
+        if (left is null || right is null)
+        {
+            return false;
+        }
+        return left.ColumnId == right.ColumnId &&
+               left.IncludeBlank == right.IncludeBlank &&
+               left.CombineWithAnd == right.CombineWithAnd &&
+               Equals(left.FirstCondition, right.FirstCondition) &&
+               Equals(left.SecondCondition, right.SecondCondition) &&
+               Equals(left.TopBottom, right.TopBottom) &&
+               Equals(left.DynamicFilter, right.DynamicFilter) &&
+               Equals(left.ColorFilter, right.ColorFilter) &&
+               Equals(left.IconFilter, right.IconFilter) &&
+               left.Values.Count == right.Values.Count &&
+               left.Values.ToHashSet().SetEquals(right.Values) &&
+               left.DateGroups.Count == right.DateGroups.Count &&
+               left.DateGroups.ToHashSet().SetEquals(right.DateGroups);
+    }
+
+    private SpreadsheetTable GetTable(Guid tableId)
+    {
+        if (_session.ActiveWorksheet.TryGetTable(
+                tableId,
+                out var table) &&
+            table is not null)
+        {
+            return table;
+        }
+
+        throw new KeyNotFoundException(
+            $"Table '{tableId}' was not found on the active worksheet.");
+    }
+
+    private void EnsureMenuBelongsToActiveTable(
+        SpreadsheetTableFilterMenu menu)
+    {
+        var table = GetTable(menu.TableId);
+        if (!table.TryGetColumn(menu.ColumnId, out _))
+        {
+            throw new InvalidOperationException(
+                "The filter menu no longer targets a column in the active table.");
+        }
+    }
+}

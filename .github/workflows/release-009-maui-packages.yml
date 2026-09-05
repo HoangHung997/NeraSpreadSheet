@@ -1,0 +1,173 @@
+name: RELEASE-009 MAUI canonical packages (Android native, other native OPEN)
+
+on:
+  push:
+    branches: ['feature/release-009-maui-packages', 'feature/bootstrap-architecture-v0.1']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixtures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate assembler negative fixtures
+        run: python -B eng/release-009-maui/test_package_matrix.py
+      - name: Validate released native result transport fixtures
+        run: python -B scripts/test-native-smoke-result.py
+      - name: Verify architecture and package metadata
+        shell: pwsh
+        run: |
+          ./scripts/verify-architecture.ps1
+          ./scripts/verify-packaging-sdk.ps1
+
+  producer:
+    needs: fixtures
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: neutral
+            os: ubuntu-latest
+            workload: ''
+          - platform: windows
+            os: windows-latest
+            workload: maui-windows
+          - platform: android
+            os: ubuntu-latest
+            workload: maui-android
+          - platform: ios
+            os: macos-latest
+            workload: maui-ios
+          - platform: maccatalyst
+            os: macos-latest
+            workload: maui-maccatalyst
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.302'
+      - uses: actions/setup-java@v5
+        if: matrix.platform == 'android'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install workload using the exact cohort SDK
+        if: matrix.workload != ''
+        shell: pwsh
+        env:
+          NERA_WORKLOAD: ${{ matrix.workload }}
+        run: |
+          . ./eng/release-009-maui/Common.ps1
+          $cohort = Get-MauiCohort $env:GITHUB_WORKSPACE
+          $scratch = New-MauiScratch $cohort
+          Push-Location $scratch
+          try {
+            Assert-MauiSdk $cohort
+            Invoke-MauiDotnet @('workload', 'install', $env:NERA_WORKLOAD, '--skip-manifest-update')
+          } finally { Pop-Location }
+      - name: Build and pack source-stamped shard
+        shell: pwsh
+        run: ./scripts/build-release-009-maui-shard.ps1 -Platform '${{ matrix.platform }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release009-maui-shard-${{ github.sha }}-${{ github.run_attempt }}-${{ matrix.platform }}
+          path: artifacts/release-009-maui/shards/${{ matrix.platform }}/
+          if-no-files-found: error
+          retention-days: 30
+
+  assemble:
+    needs: producer
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.302'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release009-maui-shard-${{ github.sha }}-${{ github.run_attempt }}-*
+          path: ${{ runner.temp }}/maui-shards
+      - name: Assemble and verify one canonical multi-target package
+        shell: pwsh
+        run: ./scripts/assemble-release-009-maui-packages.ps1 -ShardDirectory '${{ runner.temp }}/maui-shards'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release009-maui-feed-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            artifacts/release-009-maui/canonical/feed/
+            artifacts/release-009-maui/canonical/feed-manifest.json
+            artifacts/release-009-maui/canonical/assembly-inputs.json
+          if-no-files-found: error
+          retention-days: 30
+
+  consumer-check:
+    name: Consumer ${{ matrix.platform }}
+    needs: assemble
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            os: windows-latest
+            workload: maui-windows
+          - platform: android
+            os: ubuntu-latest
+            workload: maui-android
+          - platform: ios
+            os: macos-latest
+            workload: maui-ios
+          - platform: maccatalyst
+            os: macos-latest
+            workload: maui-maccatalyst
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.302'
+      - uses: actions/setup-java@v5
+        if: matrix.platform == 'android'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          name: release009-maui-feed-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/maui-feed
+      - name: Install workload using the exact cohort SDK
+        shell: pwsh
+        env:
+          NERA_WORKLOAD: ${{ matrix.workload }}
+        run: |
+          . ./eng/release-009-maui/Common.ps1
+          $cohort = Get-MauiCohort $env:GITHUB_WORKSPACE
+          $scratch = New-MauiScratch $cohort
+          Push-Location $scratch
+          try {
+            Assert-MauiSdk $cohort
+            Invoke-MauiDotnet @('workload', 'install', $env:NERA_WORKLOAD, '--skip-manifest-update')
+          } finally { Pop-Location }
+      - name: Build isolated public consumer and run Android native package smoke
+        shell: pwsh
+        run: ./scripts/run-release-009-maui-consumer.ps1 -Platform '${{ matrix.platform }}' -FeedDirectory '${{ runner.temp }}/maui-feed' -RunAndroidNative:('${{ matrix.platform }}' -eq 'android')
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release009-maui-consumer-${{ github.sha }}-${{ github.run_attempt }}-${{ matrix.platform }}
+          path: artifacts/release-009-maui/consumers/${{ matrix.platform }}/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Report acceptance boundary
+        shell: pwsh
+        run: |
+          if ('${{ matrix.platform }}' -eq 'android') {
+            'Android native public package smoke and exact cohort/nonce/app hash verification passed. Native editor coverage remains OPEN.' >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            'PackageReference consumer build complete. Native runtime and native editor coverage remain OPEN for this platform.' >> $env:GITHUB_STEP_SUMMARY
+          }

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Description>Sparse workbook and worksheet model for NeraSpreadSheet.</Description>
+    <PackageId>NeraSpreadSheet.Core</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NeraSpreadSheet.Foundation/NeraSpreadSheet.Foundation.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- This project is copied outside the source checkout before restore. -->
+  <PropertyGroup>
+    <TargetFramework>$(NeraConsumerTargetFramework)</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <UseMaui>true</UseMaui>
+    <MauiVersion>$(NeraMauiControlsVersion)</MauiVersion>
+    <SingleProject>true</SingleProject>
+    <RootNamespace>Packaged.Maui.Smoke</RootNamespace>
+    <AssemblyName>NeraSpreadSheet.Packaged.Maui.Smoke</AssemblyName>
+    <ApplicationTitle>NeraSpreadSheet package consumer</ApplicationTitle>
+    <ApplicationId>com.neraspreadsheet.packagedmauismoke</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>14.0</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <IsPackable>false</IsPackable>
+    <DebugType>None</DebugType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(NeraConsumerPlatform)' == 'windows'">
+    <OutputType>WinExe</OutputType>
+    <UseWinUI>true</UseWinUI>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <ApplicationManifest>Platforms/Windows/app.manifest</ApplicationManifest>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- The hosted smoke uses the installed .NET runtime, with identical restore/publish properties. -->
+    <SelfContained>false</SelfContained>
+    <PublishSelfContained>false</PublishSelfContained>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishReadyToRun>false</PublishReadyToRun>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(NeraConsumerPlatform)' == 'android'">
+    <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <!-- Same bounded host probe as the existing source gate, not AOT acceptance. -->
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <AndroidLinkMode>None</AndroidLinkMode>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(NeraConsumerPlatform)' == 'ios' Or '$(NeraConsumerPlatform)' == 'maccatalyst'">
+    <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+    <ValidateXcodeVersion>false</ValidateXcodeVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="NeraSpreadSheet.Maui" Version="[$(NeraPackageVersion)]" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="[$(NeraMauiControlsVersion)]" />
+  </ItemGroup>
+  <Target Name="RequireIsolatedConsumer" BeforeTargets="Restore;Build">
+    <Error Condition="'$(NeraPackageVersion)' == '' Or '$(NeraMauiControlsVersion)' == '' Or '$(NeraConsumerTargetFramework)' == '' Or !Exists('CohortIdentity.g.cs')" Text="Use run-release-009-maui-consumer.ps1 with a verified canonical feed." />
+  </Target>
+</Project>

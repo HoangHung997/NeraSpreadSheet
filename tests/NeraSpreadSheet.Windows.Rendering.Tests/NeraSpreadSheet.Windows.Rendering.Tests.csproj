@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <Description>Windows runtime smoke tests for NeraSpreadSheet desktop rendering backends.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/NeraSpreadSheet.Bars.Core/NeraSpreadSheet.Bars.Core.csproj" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.Commands/NeraSpreadSheet.Commands.csproj" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="MSTest.TestAdapter" />
+    <PackageReference Include="MSTest.TestFramework" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/NeraSpreadSheet.Core/NeraSpreadSheet.Core.csproj" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.Editing/NeraSpreadSheet.Editing.csproj" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.Foundation/NeraSpreadSheet.Foundation.csproj" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.Rendering.Abstractions/NeraSpreadSheet.Rendering.Abstractions.csproj" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.Rendering.Direct2D/NeraSpreadSheet.Rendering.Direct2D.csproj" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.Ribbon.Core/NeraSpreadSheet.Ribbon.Core.csproj" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.WinForms/NeraSpreadSheet.WinForms.csproj" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.Wpf/NeraSpreadSheet.Wpf.csproj" />
+    <ProjectReference Include="../../samples/NeraSpreadSheet.WinForms.Sample/NeraSpreadSheet.WinForms.Sample.csproj" />
+    <ProjectReference Include="../../samples/NeraSpreadSheet.Wpf.Sample/NeraSpreadSheet.Wpf.Sample.csproj" />
+  </ItemGroup>
+</Project>

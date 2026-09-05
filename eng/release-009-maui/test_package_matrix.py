@@ -1,0 +1,323 @@
+"""Small in-memory negative fixtures; no SDK, workload, build, or native process."""
+import copy
+import contextlib
+import io
+import os
+from pathlib import Path
+import tempfile
+import unittest
+import zipfile
+import xml.etree.ElementTree as ET
+
+import package_matrix as matrix
+
+SHA = "a" * 40
+VERSION = "0.1.0-ci.123.1.g" + SHA[:12]
+TFMS = {"windows": "net10.0-windows10.0.19041.0", "android": "net10.0-android36.0",
+        "ios": "net10.0-ios18.7", "maccatalyst": "net10.0-maccatalyst18.7"}
+
+
+@contextlib.contextmanager
+def app_fixture():
+    base = Path(tempfile.gettempdir()).resolve()
+    workspace = tempfile.TemporaryDirectory(prefix="nera-r009-fixture-")
+    sandbox = Path(workspace.name).resolve()
+    try:
+        root = sandbox / "app"
+        root.mkdir()
+        executable = root / "Fixture.exe"
+        executable.write_bytes(b"synthetic executable")
+        yield executable
+    finally:
+        matrix.require(Path(workspace.name).resolve() == sandbox and sandbox.parent == base and
+                       sandbox.name.startswith("nera-r009-fixture-"), "Unsafe fixture cleanup path")
+        workspace.cleanup()
+
+
+class AppInventoryTests(unittest.TestCase):
+    def createLink(self, path, target, directory=False):
+        try:
+            path.symlink_to(target, target_is_directory=directory)
+        except OSError as error:
+            if os.name == "nt" and error.winerror == 1314:
+                self.skipTest("Windows has no symlink privilege; these actual-filesystem cases run in Linux CI.")
+            raise
+
+    def buildManifest(self, executable):
+        return {"schemaVersion": 1, "platform": "windows", "appName": executable.name,
+                "files": matrix.capture_app_payload(executable, "windows")}
+
+    def testScannerShouldIncludeAndVerifyHiddenFileContents(self):
+        for change in ("change-content", "add-hidden", "remove-hidden"):
+            with self.subTest(change=change), app_fixture() as executable:
+                hidden = executable.parent / ".payload"
+                hidden.write_bytes(b"first")
+                build = self.buildManifest(executable)
+                self.assertEqual({"Fixture.exe", ".payload"}, {record["file"] for record in build["files"]})
+                matrix.verify_app(executable, build)
+                if change == "change-content":
+                    hidden.write_bytes(b"other")  # Same length; the content hash must detect this.
+                elif change == "add-hidden":
+                    (executable.parent / ".added").write_bytes(b"extra")
+                else:
+                    hidden.unlink()
+                with self.assertRaisesRegex(ValueError, "payload differs"), contextlib.redirect_stdout(io.StringIO()):
+                    matrix.verify_app(executable, build)
+
+    def testFileLinkRetargetingShouldFailEvenForIdenticalContents(self):
+        with app_fixture() as executable:
+            root = executable.parent
+            (root / "first.bin").write_bytes(b"same")
+            (root / "second.bin").write_bytes(b"same")
+            link = root / "alias.bin"
+            self.createLink(link, "first.bin")
+            build = self.buildManifest(executable)
+            record = next(record for record in build["files"] if record["file"] == "alias.bin")
+            self.assertEqual(("symlink-file", "first.bin", "first.bin"),
+                             (record["kind"], record["linkTarget"], record["resolvedTarget"]))
+            matrix.verify_app(executable, build)
+            link.unlink()
+            self.createLink(link, "second.bin")
+            with self.assertRaisesRegex(ValueError, "payload differs"), contextlib.redirect_stdout(io.StringIO()):
+                matrix.verify_app(executable, build)
+
+    def testInternalDirectoryLinkShouldRemainExplicitWithoutFlattening(self):
+        with app_fixture() as executable:
+            root = executable.parent
+            directory = root / "Resources"
+            directory.mkdir()
+            (directory / ".hidden").write_bytes(b"resource")
+            (root / "Other").mkdir()
+            (root / "Other/.hidden").write_bytes(b"resource")
+            self.createLink(root / "Alias", "Resources", directory=True)
+            build = self.buildManifest(executable)
+            records = {record["file"]: record for record in build["files"]}
+            self.assertEqual({"Fixture.exe", "Resources/.hidden", "Other/.hidden", "Alias"}, set(records))
+            self.assertEqual("symlink-directory", records["Alias"]["kind"])
+            self.assertEqual("Resources", records["Alias"]["resolvedTarget"])
+            matrix.verify_app(executable, build)
+            (root / "Alias").unlink()
+            self.createLink(root / "Alias", "Other", directory=True)
+            with self.assertRaisesRegex(ValueError, "payload differs"), contextlib.redirect_stdout(io.StringIO()):
+                matrix.verify_app(executable, build)
+
+    def testEscapingAndCyclicLinksShouldBeRejected(self):
+        for case in ("escape", "absolute-internal", "symbolic-cycle", "directory-cycle"):
+            with self.subTest(case=case), app_fixture() as executable:
+                root = executable.parent
+                if case == "escape":
+                    (root.parent / "outside.bin").write_bytes(b"outside app")
+                    self.createLink(root / "alias", "../outside.bin")
+                elif case == "absolute-internal":
+                    self.createLink(root / "alias", executable)
+                elif case == "symbolic-cycle":
+                    self.createLink(root / "first", "second")
+                    self.createLink(root / "second", "first")
+                else:
+                    (root / "First").mkdir()
+                    (root / "Second").mkdir()
+                    self.createLink(root / "First/to-second", "../Second", directory=True)
+                    self.createLink(root / "Second/to-first", "../First", directory=True)
+                with self.assertRaisesRegex(ValueError, "escapes|cyclic|Cyclic|Non-relative"):
+                    self.buildManifest(executable)
+
+    def testAppEntryNameShouldMatchBeforeScanning(self):
+        with app_fixture() as executable:
+            build = self.buildManifest(executable)
+            other = executable.parent / "Other.exe"
+            other.write_bytes(executable.read_bytes())
+            with self.assertRaisesRegex(ValueError, "entry differs"):
+                matrix.verify_app(other, build)
+
+
+def archive(platform="windows", version=VERSION, sha=SHA, extra=None, dependency_version=VERSION):
+    tfm = TFMS[platform]
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, "w") as package:
+        package.writestr("NeraSpreadSheet.Maui.nuspec", f"""<package><metadata>
+          <id>NeraSpreadSheet.Maui</id><version>{version}</version><authors>Nera</authors>
+          <description>Fixture</description><repository type="git" commit="{sha}"/>
+          <dependencies><group targetFramework="{tfm}">
+          <dependency id="NeraSpreadSheet.Core" version="{dependency_version}"/>
+          </group></dependencies></metadata></package>""")
+        package.writestr(f"lib/{tfm}/NeraSpreadSheet.Maui.dll", b"fixture-" + platform.encode())
+        package.writestr("README.md", b"same synthetic README")
+        for name, value in (extra or {}).items():
+            package.writestr(name, value)
+    return data.getvalue()
+
+
+class PackageMatrixTests(unittest.TestCase):
+    def testFeedIdentityShouldBindEvaluatedMauiDependencies(self):
+        packages = [{"id": "NeraSpreadSheet.Maui", "sha256": "a" * 64}]
+        dependencies = {"Microsoft.Maui.Controls": "10.0.20"}
+        self.assertNotEqual(matrix.feed_identity(packages, dependencies),
+                            matrix.feed_identity(packages, {"Microsoft.Maui.Controls": "10.0.0"}))
+        for invalid in ({}, {"Microsoft.Maui.Controls": "10.0.20;InvalidProperty=true"}):
+            with self.assertRaises(ValueError):
+                matrix.feed_identity(packages, invalid)
+
+    def testFourTargetsShouldPreserveEveryAssemblyAndDependencyGroup(self):
+        packages = {p: matrix.inspect_package(archive(p), VERSION, SHA) for p in TFMS}
+        metadata, payload = matrix.merge_maui(packages)
+        self.assertEqual(4, len(matrix.child(metadata, "dependencies")))
+        self.assertEqual(5, len(payload))
+        for p, tfm in TFMS.items():
+            self.assertEqual(b"fixture-" + p.encode(), payload[f"lib/{tfm}/NeraSpreadSheet.Maui.dll"])
+
+    def testMissingPlatformShouldBeRejected(self):
+        with self.assertRaisesRegex(ValueError, "Missing"):
+            matrix.merge_maui({p: matrix.inspect_package(archive(p), VERSION, SHA) for p in ("windows", "android", "ios")})
+
+    def testWrongPlatformPayloadShouldBeRejected(self):
+        packages = {p: matrix.inspect_package(archive(p), VERSION, SHA) for p in TFMS}
+        packages["ios"] = packages["android"]
+        with self.assertRaisesRegex(ValueError, "Wrong or duplicate"):
+            matrix.merge_maui(packages)
+
+    def testForeignPackageVersionAndSourceShouldBeRejected(self):
+        for data in (archive(version="0.1.0"), archive(sha="b" * 40), archive(dependency_version="0.1.0")):
+            with self.assertRaisesRegex(ValueError, "version|Version"):
+                matrix.inspect_package(data, VERSION, SHA)
+
+    def testUnsafePathsShouldBeRejected(self):
+        for path in ("../README.md", "lib/../../bad", "/root/file", "C:/secret", "lib\\x.dll", "lib//x.dll"):
+            with self.assertRaises(ValueError):
+                matrix.inspect_package(archive(extra={path: b"bad"}), VERSION, SHA)
+
+    def testDuplicateCaseAndSourcePayloadShouldBeRejected(self):
+        for path in ("readme.md", "src/source.cs", "private.pdb"):
+            with self.assertRaises(ValueError):
+                matrix.inspect_package(archive(extra={path: b"bad"}), VERSION, SHA)
+
+    def testConflictingSharedFileShouldBeRejected(self):
+        packages = {p: matrix.inspect_package(archive(p), VERSION, SHA) for p in TFMS}
+        packages["ios"]["payload"]["README.md"] = b"foreign"
+        with self.assertRaisesRegex(ValueError, "Conflicting shared package file"):
+            matrix.merge_maui(packages)
+
+    def testConflictingMetadataShouldBeRejected(self):
+        packages = {p: matrix.inspect_package(archive(p), VERSION, SHA) for p in TFMS}
+        matrix.child(packages["ios"]["metadata"], "authors").text = "different"
+        with self.assertRaisesRegex(ValueError, "metadata"):
+            matrix.merge_maui(packages)
+
+    def testForeignLibraryFrameworkShouldBeRejected(self):
+        with self.assertRaisesRegex(ValueError, "groups differ"):
+            matrix.inspect_package(archive(extra={"lib/net10.0-ios18.7/NeraSpreadSheet.Maui.dll": b"foreign"}), VERSION, SHA)
+
+    def testFrameworkMetadataShouldSurviveAssembly(self):
+        packages = {p: matrix.inspect_package(archive(p), VERSION, SHA) for p in TFMS}
+        for platform, package in packages.items():
+            refs = ET.SubElement(package["metadata"], "frameworkReferences")
+            group = ET.SubElement(refs, "group", {"targetFramework": TFMS[platform]})
+            ET.SubElement(group, "frameworkReference", {"name": "Synthetic.Framework"})
+        metadata, _ = matrix.merge_maui(packages)
+        self.assertEqual(4, len(matrix.child(metadata, "frameworkReferences")))
+
+    def testEquivalentFrameworkSpellingsShouldCompareIdentically(self):
+        original = ET.fromstring('<group targetFramework="net10.0-ios18.7"/>')
+        canonical = ET.fromstring('<group targetFramework=".NETCoreApp10.0-IOS18.7"/>')
+        different = ET.fromstring('<group targetFramework="net10.0-ios18.8"/>')
+        self.assertEqual(matrix.xml_key(original), matrix.xml_key(canonical))
+        self.assertNotEqual(matrix.xml_key(original), matrix.xml_key(different))
+
+    def testMixedProducerCohortShouldBeRejected(self):
+        manifest = {"schemaVersion": 1, "platform": "windows", "sourceSha": SHA,
+                    "version": VERSION, "sdkVersion": "10.0.302", "expectedNeutralIds": sorted(matrix.NEUTRAL_IDS)}
+        matrix.verify_producer(manifest, SHA, VERSION, "10.0.302")
+        for key, value in (("sourceSha", "b" * 40), ("version", "0.1.0"), ("sdkVersion", "10.0.400"),
+                           ("expectedNeutralIds", ["NeraSpreadSheet.Core"])):
+            changed = copy.deepcopy(manifest)
+            changed[key] = value
+            with self.assertRaises(ValueError):
+                matrix.verify_producer(changed, SHA, VERSION, "10.0.302")
+
+    def testLicenseAcceptanceDefaultShouldPreserveBooleanMeaning(self):
+        absent = ET.fromstring('<metadata><description>Fixture</description></metadata>')
+        for value in ("false", "0", "true", "1"):
+            explicit = copy.deepcopy(absent)
+            ET.SubElement(explicit, "requireLicenseAcceptance").text = value
+            self.assertEqual(value in ("false", "0"), matrix.xml_key(absent) == matrix.xml_key(explicit))
+        for xml in ('<metadata><requireLicenseAcceptance>invalid</requireLicenseAcceptance></metadata>',
+                    '<metadata><requireLicenseAcceptance>false</requireLicenseAcceptance><requireLicenseAcceptance>false</requireLicenseAcceptance></metadata>'):
+            with self.assertRaisesRegex(ValueError, "license acceptance"):
+                matrix.xml_key(ET.fromstring(xml))
+
+    def testArchiveHashAndAssemblyProvenanceShouldBeRequired(self):
+        data = archive()
+        package = matrix.inspect_package(data, VERSION, SHA)
+        record = {"sha256": matrix.digest(data), "assemblies": [
+            {"file": name, "sha256": matrix.digest(blob), "informationalVersion": VERSION + "+" + SHA}
+            for name, blob in package["payload"].items() if name.endswith(".dll")]}
+        matrix.verify_shard_package(data, record, VERSION, SHA)
+        changed = copy.deepcopy(record)
+        changed["sha256"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "hash"):
+            matrix.verify_shard_package(data, changed, VERSION, SHA)
+        for change in ([], [{**record["assemblies"][0], "sha256": "0" * 64}],
+                       [{**record["assemblies"][0], "informationalVersion": "0.1.0"}]):
+            changed = {**record, "assemblies": change}
+            with self.assertRaises(ValueError):
+                matrix.verify_shard_package(data, changed, VERSION, SHA)
+
+    def testConsumerAssetsShouldRejectSourceCacheAndFrameworkBypasses(self):
+        manifest = {"version": VERSION, "packages": [{"id": name} for name in matrix.NEUTRAL_IDS | {matrix.MAUI_ID}],
+                    "targetFrameworks": list(TFMS.values()), "mauiDependencies": {"Microsoft.Maui.Controls": "10.0.20"}}
+        libraries = {record["id"] + "/" + VERSION: {"type": "package"} for record in manifest["packages"]}
+        libraries["Microsoft.Maui.Controls/10.0.20"] = {"type": "package"}
+        maui = {"compile": {f"lib/{TFMS['windows']}/NeraSpreadSheet.Maui.dll": {}},
+                "runtime": {f"lib/{TFMS['windows']}/NeraSpreadSheet.Maui.dll": {}}}
+        assets = {"libraries": libraries, "packageFolders": {"synthetic-cache": {}},
+                  "targets": {TFMS["windows"] + "/win-x64": {matrix.MAUI_ID + "/" + VERSION: maui}}}
+        matrix.verify_assets(assets, manifest, "synthetic-cache", "windows", "win-x64")
+        variants = []
+        source = copy.deepcopy(assets)
+        source["libraries"][matrix.MAUI_ID + "/" + VERSION]["type"] = "project"
+        variants.append(source)
+        cache = copy.deepcopy(assets)
+        cache["packageFolders"]["foreign-cache"] = {}
+        variants.append(cache)
+        framework = copy.deepcopy(assets)
+        framework["targets"][TFMS["windows"] + "/win-x64"][matrix.MAUI_ID + "/" + VERSION]["compile"] = {
+            f"lib/{TFMS['android']}/NeraSpreadSheet.Maui.dll": {}}
+        variants.append(framework)
+        controls = copy.deepcopy(assets)
+        controls["libraries"]["Microsoft.Maui.Controls/10.0.0"] = controls["libraries"].pop("Microsoft.Maui.Controls/10.0.20")
+        variants.append(controls)
+        for variant in variants:
+            with self.assertRaises(ValueError):
+                matrix.verify_assets(variant, manifest, "synthetic-cache", "windows", "win-x64")
+
+    def testRuntimeShouldRejectStaleNonceAndIncompletePostconditions(self):
+        build = {"sourceSha": SHA, "version": VERSION, "feedHash": "1" * 64, "nonce": "2" * 32, "platform": "windows"}
+        marker = {"schema": "release009-maui-consumer-v1", "status": "success", "sourceSha": SHA,
+                  "packageVersion": VERSION, "feedHash": "1" * 64, "nonce": "2" * 32, "target": "windows", "frameCount": 3,
+                  "details": {"publicApiOnly": True, "controllerEditUndo": True, "actualResize": True, "filterValues": 20,
+                              "gpu": {"FramesFailed": 0, "FramesCompleted": 3, "HasActiveFrame": False},
+                              "assemblies": [{"name": "NeraSpreadSheet." + name, "informationalVersion": VERSION + "+" + SHA}
+                                             for name in ("Maui", "Core", "Editing", "Formulas", "Rendering.Skia", "Ribbon.Core")]}}
+        matrix.verify_runtime(marker, build)
+        for key, value in (("nonce", "3" * 32), ("sourceSha", "b" * 40), ("target", "ios"),
+                           ("status", "failure"), ("frameCount", 0), ("details", {})):
+            changed = copy.deepcopy(marker)
+            changed[key] = value
+            with self.assertRaises(ValueError):
+                matrix.verify_runtime(changed, build)
+
+    def testConsumerAppPayloadShouldRejectChangedMissingAndExtraFiles(self):
+        files = [{"file": "Synthetic.exe", "bytes": 2, "sha256": "a" * 64},
+                 {"file": "lib/Synthetic.dll", "bytes": 3, "sha256": "b" * 64}]
+        build = {"schemaVersion": 1, "platform": "windows", "files": files}
+        matrix.verify_app_payload(list(reversed(files)), build)
+        variants = [[], files[:1], files + [{**files[0], "file": "Extra.dll"}],
+                    files + [{**files[0], "file": "synthetic.exe"}]]
+        for field, value in (("file", "../Synthetic.exe"), ("bytes", 4), ("sha256", "c" * 64)):
+            variants.append([{**files[0], field: value}, files[1]])
+        for variant in variants:
+            with self.assertRaises(ValueError), contextlib.redirect_stdout(io.StringIO()):
+                matrix.verify_app_payload(variant, build)
+
+
+if __name__ == "__main__":
+    unittest.main()

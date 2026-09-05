@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Description>Skia display-list renderer for NeraSpreadSheet.</Description>
+    <PackageId>NeraSpreadSheet.Rendering.Skia</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
+    <ProjectReference Include="../NeraSpreadSheet.Foundation/NeraSpreadSheet.Foundation.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Rendering.Abstractions/NeraSpreadSheet.Rendering.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

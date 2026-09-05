@@ -1,0 +1,39 @@
+name: Q003C analytics OpenXML gate
+
+on:
+  push:
+    branches:
+      - 'ai/chatgpt/q003c-analytics-openxml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analytics-openxml:
+    name: Analytics session OpenXML persistence
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore Core solution
+        run: dotnet restore NeraSpreadSheet.Core.slnx
+
+      - name: Build Core solution
+        run: dotnet build NeraSpreadSheet.Core.slnx -c Release --no-restore
+
+      - name: Run OpenXML persistence tests
+        run: dotnet test tests/NeraSpreadSheet.OpenXml.Tests/NeraSpreadSheet.OpenXml.Tests.csproj -c Release --no-build --logger "trx;LogFileName=q003c-openxml.trx"
+
+      - name: Verify architecture
+        shell: pwsh
+        run: ./scripts/verify-architecture.ps1

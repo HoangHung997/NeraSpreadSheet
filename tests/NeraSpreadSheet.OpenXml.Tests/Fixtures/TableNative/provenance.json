@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "createdDate": "2026-09-05",
+  "fixtures": [
+    {
+      "file": "excel-table.xlsx",
+      "sha256": "CC69EFBA4A6DDCC038DB99FD49F74DF6423BEDAE57B6E2109B7A16124247C6A6",
+      "producer": "Microsoft Excel for Windows",
+      "version": "16.0.20326.20132 (EXCEL.EXE); package AppVersion 16.0300",
+      "origin": "New blank workbook created and saved through native Excel UI for TABLE-006-NATIVE",
+      "originalSha256": "830B42DC9BE4A6E5A0E7FC6AA623673A68CD79BFA39F4FBF90B7356FDEC4373C",
+      "recipe": "README.md#excel",
+      "license": "Original minimal sample data for this repository; no third-party document content. Same repository rights; no separate redistribution license granted.",
+      "sanitizedParts": ["docProps/core.xml", "xl/workbook.xml"],
+      "nativeTablePart": "/xl/tables/table1.xml",
+      "nativeTableRelationship": "rId1",
+      "nativeTableId": 1,
+      "nativeColumnIds": [1, 2]
+    },
+    {
+      "file": "nera-table.xlsx",
+      "sha256": "100774875CF7D38A36C19EAC3ED60E5C5CD6649ABCFE726D70B22F098F1A6C58",
+      "producer": "NeraSpreadSheet NeraOpenXmlSpreadsheetSessionSerializer",
+      "version": "0.1.0, source base 2bc00eb667da2f2c5afda1024ab753ac638d85d4 plus TABLE-006-NATIVE editor delta; serializer unchanged at generation",
+      "origin": "Generated through SpreadsheetSession.Tables and the production session serializer, without ZIP/XML edits",
+      "recipe": "README.md#nera",
+      "license": "Original minimal sample data for this repository; no third-party document content. Same repository rights; no separate redistribution license granted."
+    }
+  ],
+  "expected": {
+    "worksheets": ["Sheet1"],
+    "tableName": "Table1",
+    "range": "A1:B5",
+    "dataRange": "A2:B4",
+    "headers": ["Amount", "Double"],
+    "values": {"A2": 10, "A3": 20, "A4": 30, "B2": 20, "B3": 40, "B4": 60, "B5": 120, "D1": 60},
+    "calculatedColumnFormula": "=Table1[[#This Row],[Amount]]*2",
+    "summaryFormula": "=SUM(Table1[Amount])",
+    "totalsFunction": "sum",
+    "totalsLabel": "Total",
+    "styleName": "TableStyleMedium2"
+  },
+  "gaps": [
+    "No installed LibreOffice was discovered through native app inventory or standard installation paths.",
+    "Four candidate Table fixtures from LibreOffice/core/sc/qa/unit/data/xlsx report Microsoft Excel or Microsoft Excel Online as producer; they were inspected locally, not committed and are not LibreOffice evidence.",
+    "No native physical multi-monitor/DPI acceptance is claimed by these workbooks."
+  ]
+}

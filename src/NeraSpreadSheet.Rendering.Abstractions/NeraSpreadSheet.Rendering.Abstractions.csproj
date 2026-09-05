@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Description>Display-list and render backend contracts for NeraSpreadSheet.</Description>
+    <PackageId>NeraSpreadSheet.Rendering.Abstractions</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NeraSpreadSheet.Foundation/NeraSpreadSheet.Foundation.csproj" />
+  </ItemGroup>
+</Project>

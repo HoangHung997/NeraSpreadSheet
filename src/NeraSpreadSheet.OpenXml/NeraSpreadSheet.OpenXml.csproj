@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Description>Open XML import and export boundary for NeraSpreadSheet.</Description>
+    <PackageId>NeraSpreadSheet.OpenXml</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NeraSpreadSheet.Core/NeraSpreadSheet.Core.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Editing/NeraSpreadSheet.Editing.csproj" />
+    <PackageReference Include="DocumentFormat.OpenXml" />
+  </ItemGroup>
+</Project>

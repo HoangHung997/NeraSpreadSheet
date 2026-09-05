@@ -1,0 +1,2196 @@
+{
+  "schema": "neraspreadsheet.icon-catalog",
+  "version": 1,
+  "fluentSourceCommit": "5bae3fb7771054c252a54b1d9210e9c03439fa1b",
+  "sizes": [
+    16,
+    20,
+    24,
+    32,
+    48
+  ],
+  "themes": [
+    "light",
+    "dark",
+    "high_contrast_light",
+    "high_contrast_dark"
+  ],
+  "icons": [
+    {
+      "key": "file.new",
+      "label": "New workbook",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Document Add",
+      "asset": "document_add"
+    },
+    {
+      "key": "file.open",
+      "label": "Open workbook",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Folder Open",
+      "asset": "folder_open"
+    },
+    {
+      "key": "file.save",
+      "label": "Save",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Save",
+      "asset": "save"
+    },
+    {
+      "key": "file.save-as",
+      "label": "Save as",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Save Edit",
+      "asset": "save_edit"
+    },
+    {
+      "key": "file.print",
+      "label": "Print",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Print",
+      "asset": "print"
+    },
+    {
+      "key": "file.export.pdf",
+      "label": "Export PDF",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Document PDF",
+      "asset": "document_pdf"
+    },
+    {
+      "key": "file.import.csv",
+      "label": "Import CSV",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Arrow Import",
+      "asset": "arrow_import"
+    },
+    {
+      "key": "file.export.csv",
+      "label": "Export CSV",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Arrow Export",
+      "asset": "arrow_export"
+    },
+    {
+      "key": "edit.undo",
+      "label": "Undo",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Arrow Undo",
+      "asset": "arrow_undo"
+    },
+    {
+      "key": "edit.redo",
+      "label": "Redo",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Arrow Redo",
+      "asset": "arrow_redo"
+    },
+    {
+      "key": "edit.repeat",
+      "label": "Repeat",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Arrow Repeat All",
+      "asset": "arrow_repeat_all"
+    },
+    {
+      "key": "app.search",
+      "label": "Search commands",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Search",
+      "asset": "search"
+    },
+    {
+      "key": "ribbon.customize",
+      "label": "Customize Ribbon",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Ribbon",
+      "asset": "ribbon"
+    },
+    {
+      "key": "ribbon.collapse",
+      "label": "Collapse Ribbon",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Chevron Up",
+      "asset": "chevron_up"
+    },
+    {
+      "key": "ribbon.expand",
+      "label": "Expand Ribbon",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Chevron Down",
+      "asset": "chevron_down"
+    },
+    {
+      "key": "ribbon.pin",
+      "label": "Pin Ribbon",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Pin",
+      "asset": "pin"
+    },
+    {
+      "key": "quick-access.add",
+      "label": "Add to Quick Access Toolbar",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Add",
+      "asset": "add"
+    },
+    {
+      "key": "quick-access.remove",
+      "label": "Remove from Quick Access Toolbar",
+      "category": "File and Quick Access",
+      "source": "fluent",
+      "sourceName": "Subtract",
+      "asset": "subtract"
+    },
+    {
+      "key": "edit.cut",
+      "label": "Cut",
+      "category": "Clipboard",
+      "source": "fluent",
+      "sourceName": "Cut",
+      "asset": "cut"
+    },
+    {
+      "key": "edit.copy",
+      "label": "Copy",
+      "category": "Clipboard",
+      "source": "fluent",
+      "sourceName": "Copy",
+      "asset": "copy"
+    },
+    {
+      "key": "edit.paste",
+      "label": "Paste",
+      "category": "Clipboard",
+      "source": "fluent",
+      "sourceName": "Clipboard Paste",
+      "asset": "clipboard_paste"
+    },
+    {
+      "key": "edit.paste-special",
+      "label": "Paste special",
+      "category": "Clipboard",
+      "source": "fluent",
+      "sourceName": "Clipboard More",
+      "asset": "clipboard_more"
+    },
+    {
+      "key": "format.painter",
+      "label": "Format painter",
+      "category": "Clipboard",
+      "source": "fluent",
+      "sourceName": "Paint Brush",
+      "asset": "paint_brush"
+    },
+    {
+      "key": "cell.clear",
+      "label": "Clear contents",
+      "category": "Clipboard",
+      "source": "fluent",
+      "sourceName": "Text Clear Formatting",
+      "asset": "text_clear_formatting"
+    },
+    {
+      "key": "font.family",
+      "label": "Font family",
+      "category": "Font",
+      "source": "fluent",
+      "sourceName": "Text Font",
+      "asset": "text_font"
+    },
+    {
+      "key": "font.size",
+      "label": "Font size",
+      "category": "Font",
+      "source": "fluent",
+      "sourceName": "Text Font Size",
+      "asset": "text_font_size"
+    },
+    {
+      "key": "font.increase",
+      "label": "Increase font size",
+      "category": "Font",
+      "source": "fluent",
+      "sourceName": "Text Font Size",
+      "asset": "text_font_size"
+    },
+    {
+      "key": "font.decrease",
+      "label": "Decrease font size",
+      "category": "Font",
+      "source": "fluent",
+      "sourceName": "Text Font Size Off",
+      "asset": "text_font_size_off"
+    },
+    {
+      "key": "font.bold",
+      "label": "Bold",
+      "category": "Font",
+      "source": "fluent",
+      "sourceName": "Text Bold",
+      "asset": "text_bold"
+    },
+    {
+      "key": "font.italic",
+      "label": "Italic",
+      "category": "Font",
+      "source": "fluent",
+      "sourceName": "Text Italic",
+      "asset": "text_italic"
+    },
+    {
+      "key": "font.underline",
+      "label": "Underline",
+      "category": "Font",
+      "source": "fluent",
+      "sourceName": "Text Underline",
+      "asset": "text_underline"
+    },
+    {
+      "key": "font.underline-double",
+      "label": "Double underline",
+      "category": "Font",
+      "source": "fluent",
+      "sourceName": "Text Underline Double",
+      "asset": "text_underline_double"
+    },
+    {
+      "key": "font.strikethrough",
+      "label": "Strikethrough",
+      "category": "Font",
+      "source": "fluent",
+      "sourceName": "Text Strikethrough",
+      "asset": "text_strikethrough"
+    },
+    {
+      "key": "font.color",
+      "label": "Font color",
+      "category": "Font",
+      "source": "fluent",
+      "sourceName": "Text Color",
+      "asset": "text_color"
+    },
+    {
+      "key": "fill.color",
+      "label": "Fill color",
+      "category": "Font",
+      "source": "fluent",
+      "sourceName": "Paint Bucket",
+      "asset": "paint_bucket"
+    },
+    {
+      "key": "format.cells",
+      "label": "Format cells",
+      "category": "Font",
+      "source": "fluent",
+      "sourceName": "Table Cell Edit",
+      "asset": "table_cell_edit"
+    },
+    {
+      "key": "border.all",
+      "label": "All borders",
+      "category": "Borders",
+      "source": "fluent",
+      "sourceName": "Border All",
+      "asset": "border_all"
+    },
+    {
+      "key": "border.bottom",
+      "label": "Bottom border",
+      "category": "Borders",
+      "source": "fluent",
+      "sourceName": "Border Bottom",
+      "asset": "border_bottom"
+    },
+    {
+      "key": "border.bottom-double",
+      "label": "Double bottom border",
+      "category": "Borders",
+      "source": "fluent",
+      "sourceName": "Border Bottom Double",
+      "asset": "border_bottom_double"
+    },
+    {
+      "key": "border.bottom-thick",
+      "label": "Thick bottom border",
+      "category": "Borders",
+      "source": "fluent",
+      "sourceName": "Border Bottom Thick",
+      "asset": "border_bottom_thick"
+    },
+    {
+      "key": "border.inside",
+      "label": "Inside borders",
+      "category": "Borders",
+      "source": "fluent",
+      "sourceName": "Border Inside",
+      "asset": "border_inside"
+    },
+    {
+      "key": "border.left",
+      "label": "Left border",
+      "category": "Borders",
+      "source": "fluent",
+      "sourceName": "Border Left",
+      "asset": "border_left"
+    },
+    {
+      "key": "border.none",
+      "label": "No border",
+      "category": "Borders",
+      "source": "fluent",
+      "sourceName": "Border None",
+      "asset": "border_none"
+    },
+    {
+      "key": "border.outside",
+      "label": "Outside border",
+      "category": "Borders",
+      "source": "fluent",
+      "sourceName": "Border Outside",
+      "asset": "border_outside"
+    },
+    {
+      "key": "border.outside-thick",
+      "label": "Thick outside border",
+      "category": "Borders",
+      "source": "fluent",
+      "sourceName": "Border Outside Thick",
+      "asset": "border_outside_thick"
+    },
+    {
+      "key": "border.right",
+      "label": "Right border",
+      "category": "Borders",
+      "source": "fluent",
+      "sourceName": "Border Right",
+      "asset": "border_right"
+    },
+    {
+      "key": "border.top",
+      "label": "Top border",
+      "category": "Borders",
+      "source": "fluent",
+      "sourceName": "Border Top",
+      "asset": "border_top"
+    },
+    {
+      "key": "border.top-bottom",
+      "label": "Top and bottom border",
+      "category": "Borders",
+      "source": "fluent",
+      "sourceName": "Border Top Bottom",
+      "asset": "border_top_bottom"
+    },
+    {
+      "key": "align.top",
+      "label": "Top align",
+      "category": "Alignment",
+      "source": "fluent",
+      "sourceName": "Align Top",
+      "asset": "align_top"
+    },
+    {
+      "key": "align.middle",
+      "label": "Middle align",
+      "category": "Alignment",
+      "source": "fluent",
+      "sourceName": "Align Center Vertical",
+      "asset": "align_center_vertical"
+    },
+    {
+      "key": "align.bottom",
+      "label": "Bottom align",
+      "category": "Alignment",
+      "source": "fluent",
+      "sourceName": "Align Bottom",
+      "asset": "align_bottom"
+    },
+    {
+      "key": "align.left",
+      "label": "Align left",
+      "category": "Alignment",
+      "source": "fluent",
+      "sourceName": "Text Align Left",
+      "asset": "text_align_left"
+    },
+    {
+      "key": "align.center",
+      "label": "Center",
+      "category": "Alignment",
+      "source": "fluent",
+      "sourceName": "Text Align Center",
+      "asset": "text_align_center"
+    },
+    {
+      "key": "align.right",
+      "label": "Align right",
+      "category": "Alignment",
+      "source": "fluent",
+      "sourceName": "Text Align Right",
+      "asset": "text_align_right"
+    },
+    {
+      "key": "align.indent-decrease",
+      "label": "Decrease indent",
+      "category": "Alignment",
+      "source": "fluent",
+      "sourceName": "Text Indent Decrease LTR",
+      "asset": "text_indent_decrease_ltr"
+    },
+    {
+      "key": "align.indent-increase",
+      "label": "Increase indent",
+      "category": "Alignment",
+      "source": "fluent",
+      "sourceName": "Text Indent Increase LTR",
+      "asset": "text_indent_increase_ltr"
+    },
+    {
+      "key": "align.orientation",
+      "label": "Text orientation",
+      "category": "Alignment",
+      "source": "fluent",
+      "sourceName": "TextBox Rotate 90",
+      "asset": "textbox_rotate_90"
+    },
+    {
+      "key": "align.wrap",
+      "label": "Wrap text",
+      "category": "Alignment",
+      "source": "fluent",
+      "sourceName": "Text Wrap",
+      "asset": "text_wrap"
+    },
+    {
+      "key": "align.merge",
+      "label": "Merge cells",
+      "category": "Alignment",
+      "source": "fluent",
+      "sourceName": "Table Cells Merge",
+      "asset": "table_cells_merge"
+    },
+    {
+      "key": "align.merge-center",
+      "label": "Merge and center",
+      "category": "Alignment",
+      "source": "fluent",
+      "sourceName": "Table Cell Center Arrow Repeat All",
+      "asset": "table_cell_center_arrow_repeat_all"
+    },
+    {
+      "key": "align.unmerge",
+      "label": "Unmerge cells",
+      "category": "Alignment",
+      "source": "fluent",
+      "sourceName": "Table Cells Split",
+      "asset": "table_cells_split"
+    },
+    {
+      "key": "number.format",
+      "label": "Number format",
+      "category": "Number",
+      "source": "fluent",
+      "sourceName": "Number Symbol",
+      "asset": "number_symbol"
+    },
+    {
+      "key": "number.accounting",
+      "label": "Accounting format",
+      "category": "Number",
+      "source": "fluent",
+      "sourceName": "Money Calculator",
+      "asset": "money_calculator"
+    },
+    {
+      "key": "number.currency",
+      "label": "Currency",
+      "category": "Number",
+      "source": "fluent",
+      "sourceName": "Money",
+      "asset": "money"
+    },
+    {
+      "key": "number.percent",
+      "label": "Percent",
+      "category": "Number",
+      "source": "fluent",
+      "sourceName": "Text Percent",
+      "asset": "text_percent"
+    },
+    {
+      "key": "number.comma",
+      "label": "Comma style",
+      "category": "Number",
+      "source": "fluent",
+      "sourceName": "Comma",
+      "asset": "comma"
+    },
+    {
+      "key": "number.decimal-increase",
+      "label": "Increase decimal",
+      "category": "Number",
+      "source": "fluent",
+      "sourceName": "Decimal Arrow Right",
+      "asset": "decimal_arrow_right"
+    },
+    {
+      "key": "number.decimal-decrease",
+      "label": "Decrease decimal",
+      "category": "Number",
+      "source": "fluent",
+      "sourceName": "Decimal Arrow Left",
+      "asset": "decimal_arrow_left"
+    },
+    {
+      "key": "number.date",
+      "label": "Date format",
+      "category": "Number",
+      "source": "fluent",
+      "sourceName": "Calendar Date",
+      "asset": "calendar_date"
+    },
+    {
+      "key": "number.time",
+      "label": "Time format",
+      "category": "Number",
+      "source": "fluent",
+      "sourceName": "Clock",
+      "asset": "clock"
+    },
+    {
+      "key": "number.fraction",
+      "label": "Fraction format",
+      "category": "Number",
+      "source": "nera",
+      "sourceName": "number_fraction",
+      "asset": "number_fraction"
+    },
+    {
+      "key": "number.scientific",
+      "label": "Scientific format",
+      "category": "Number",
+      "source": "nera",
+      "sourceName": "number_scientific",
+      "asset": "number_scientific"
+    },
+    {
+      "key": "style.conditional",
+      "label": "Conditional formatting",
+      "category": "Styles",
+      "source": "fluent",
+      "sourceName": "Table Lightning",
+      "asset": "table_lightning"
+    },
+    {
+      "key": "style.format-as-table",
+      "label": "Format as table",
+      "category": "Styles",
+      "source": "fluent",
+      "sourceName": "Table Sparkle",
+      "asset": "table_sparkle"
+    },
+    {
+      "key": "style.cell-styles",
+      "label": "Cell styles",
+      "category": "Styles",
+      "source": "fluent",
+      "sourceName": "Color Fill Accent",
+      "asset": "color_fill_accent"
+    },
+    {
+      "key": "cell.insert",
+      "label": "Insert cells",
+      "category": "Cells and structure",
+      "source": "fluent",
+      "sourceName": "Table Cell Add",
+      "asset": "table_cell_add"
+    },
+    {
+      "key": "cell.delete",
+      "label": "Delete cells",
+      "category": "Cells and structure",
+      "source": "fluent",
+      "sourceName": "Table Cell Cross",
+      "asset": "table_cell_cross"
+    },
+    {
+      "key": "row.insert",
+      "label": "Insert rows",
+      "category": "Cells and structure",
+      "source": "fluent",
+      "sourceName": "Table Insert Row",
+      "asset": "table_insert_row"
+    },
+    {
+      "key": "row.delete",
+      "label": "Delete rows",
+      "category": "Cells and structure",
+      "source": "fluent",
+      "sourceName": "Table Delete Row",
+      "asset": "table_delete_row"
+    },
+    {
+      "key": "column.insert",
+      "label": "Insert columns",
+      "category": "Cells and structure",
+      "source": "fluent",
+      "sourceName": "Table Insert Column",
+      "asset": "table_insert_column"
+    },
+    {
+      "key": "column.delete",
+      "label": "Delete columns",
+      "category": "Cells and structure",
+      "source": "fluent",
+      "sourceName": "Table Delete Column",
+      "asset": "table_delete_column"
+    },
+    {
+      "key": "row.hide",
+      "label": "Hide rows",
+      "category": "Cells and structure",
+      "source": "fluent",
+      "sourceName": "Table Freeze Row Dismiss",
+      "asset": "table_freeze_row_dismiss"
+    },
+    {
+      "key": "row.unhide",
+      "label": "Unhide rows",
+      "category": "Cells and structure",
+      "source": "fluent",
+      "sourceName": "Table Freeze Row",
+      "asset": "table_freeze_row"
+    },
+    {
+      "key": "column.hide",
+      "label": "Hide columns",
+      "category": "Cells and structure",
+      "source": "fluent",
+      "sourceName": "Table Freeze Column Dismiss",
+      "asset": "table_freeze_column_dismiss"
+    },
+    {
+      "key": "column.unhide",
+      "label": "Unhide columns",
+      "category": "Cells and structure",
+      "source": "fluent",
+      "sourceName": "Table Freeze Column",
+      "asset": "table_freeze_column"
+    },
+    {
+      "key": "row.height",
+      "label": "Row height",
+      "category": "Cells and structure",
+      "source": "fluent",
+      "sourceName": "Table Resize Row",
+      "asset": "table_resize_row"
+    },
+    {
+      "key": "column.width",
+      "label": "Column width",
+      "category": "Cells and structure",
+      "source": "fluent",
+      "sourceName": "Table Resize Column",
+      "asset": "table_resize_column"
+    },
+    {
+      "key": "row.autofit",
+      "label": "AutoFit row",
+      "category": "Cells and structure",
+      "source": "fluent",
+      "sourceName": "Auto Fit Height",
+      "asset": "auto_fit_height"
+    },
+    {
+      "key": "column.autofit",
+      "label": "AutoFit column",
+      "category": "Cells and structure",
+      "source": "fluent",
+      "sourceName": "Auto Fit Width",
+      "asset": "auto_fit_width"
+    },
+    {
+      "key": "formula.autosum",
+      "label": "AutoSum",
+      "category": "Editing",
+      "source": "fluent",
+      "sourceName": "AutoSum",
+      "asset": "autosum"
+    },
+    {
+      "key": "edit.fill",
+      "label": "Fill",
+      "category": "Editing",
+      "source": "fluent",
+      "sourceName": "Color Fill",
+      "asset": "color_fill"
+    },
+    {
+      "key": "edit.find",
+      "label": "Find",
+      "category": "Editing",
+      "source": "fluent",
+      "sourceName": "Search",
+      "asset": "search"
+    },
+    {
+      "key": "edit.replace",
+      "label": "Replace",
+      "category": "Editing",
+      "source": "fluent",
+      "sourceName": "Arrow Swap",
+      "asset": "arrow_swap"
+    },
+    {
+      "key": "edit.go-to",
+      "label": "Go to",
+      "category": "Editing",
+      "source": "fluent",
+      "sourceName": "Navigation",
+      "asset": "navigation"
+    },
+    {
+      "key": "edit.select",
+      "label": "Select",
+      "category": "Editing",
+      "source": "fluent",
+      "sourceName": "Select Object",
+      "asset": "select_object"
+    },
+    {
+      "key": "formula.recalculate",
+      "label": "Recalculate workbook",
+      "category": "Editing",
+      "source": "fluent",
+      "sourceName": "Calculator Arrow Clockwise",
+      "asset": "calculator_arrow_clockwise"
+    },
+    {
+      "key": "insert.table",
+      "label": "Insert table",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Table Add",
+      "asset": "table_add"
+    },
+    {
+      "key": "insert.pivot",
+      "label": "Insert pivot table",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Pivot",
+      "asset": "pivot"
+    },
+    {
+      "key": "insert.checkbox",
+      "label": "Insert checkbox",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Checkbox Unchecked",
+      "asset": "checkbox_unchecked"
+    },
+    {
+      "key": "insert.picture",
+      "label": "Insert picture",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Image Add",
+      "asset": "image_add"
+    },
+    {
+      "key": "insert.shape",
+      "label": "Insert shape",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Shapes",
+      "asset": "shapes"
+    },
+    {
+      "key": "insert.chart.column",
+      "label": "Column chart",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Data Bar Vertical",
+      "asset": "data_bar_vertical"
+    },
+    {
+      "key": "insert.chart.bar",
+      "label": "Bar chart",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Data Bar Horizontal",
+      "asset": "data_bar_horizontal"
+    },
+    {
+      "key": "insert.chart.line",
+      "label": "Line chart",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Data Line",
+      "asset": "data_line"
+    },
+    {
+      "key": "insert.chart.pie",
+      "label": "Pie chart",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Data Pie",
+      "asset": "data_pie"
+    },
+    {
+      "key": "insert.chart.area",
+      "label": "Area chart",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Data Area",
+      "asset": "data_area"
+    },
+    {
+      "key": "insert.chart.scatter",
+      "label": "Scatter chart",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Data Scatter",
+      "asset": "data_scatter"
+    },
+    {
+      "key": "insert.chart.histogram",
+      "label": "Histogram",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Data Histogram",
+      "asset": "data_histogram"
+    },
+    {
+      "key": "insert.chart.waterfall",
+      "label": "Waterfall chart",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Data Waterfall",
+      "asset": "data_waterfall"
+    },
+    {
+      "key": "insert.chart.combo",
+      "label": "Combo chart",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Chart Multiple",
+      "asset": "chart_multiple"
+    },
+    {
+      "key": "insert.chart.pivot",
+      "label": "Pivot chart",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Chart Multiple",
+      "asset": "chart_multiple"
+    },
+    {
+      "key": "insert.sparkline",
+      "label": "Sparkline",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Arrow Trending Lines",
+      "asset": "arrow_trending_lines"
+    },
+    {
+      "key": "insert.slicer",
+      "label": "Slicer",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Filter Add",
+      "asset": "filter_add"
+    },
+    {
+      "key": "insert.timeline",
+      "label": "Timeline",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Timeline",
+      "asset": "timeline"
+    },
+    {
+      "key": "insert.link",
+      "label": "Link",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Link Add",
+      "asset": "link_add"
+    },
+    {
+      "key": "insert.comment",
+      "label": "Comment",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Comment Add",
+      "asset": "comment_add"
+    },
+    {
+      "key": "insert.text-box",
+      "label": "Text box",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "TextBox",
+      "asset": "textbox"
+    },
+    {
+      "key": "insert.header-footer",
+      "label": "Header and footer",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Document Header Footer",
+      "asset": "document_header_footer"
+    },
+    {
+      "key": "insert.symbol",
+      "label": "Symbol",
+      "category": "Insert",
+      "source": "fluent",
+      "sourceName": "Symbols",
+      "asset": "symbols"
+    },
+    {
+      "key": "page.theme",
+      "label": "Theme",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Dark Theme",
+      "asset": "dark_theme"
+    },
+    {
+      "key": "page.theme-colors",
+      "label": "Theme colors",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Color",
+      "asset": "color"
+    },
+    {
+      "key": "page.theme-fonts",
+      "label": "Theme fonts",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Text Font",
+      "asset": "text_font"
+    },
+    {
+      "key": "page.theme-effects",
+      "label": "Theme effects",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Text Effects",
+      "asset": "text_effects"
+    },
+    {
+      "key": "page.margins",
+      "label": "Margins",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Document Margins",
+      "asset": "document_margins"
+    },
+    {
+      "key": "page.orientation",
+      "label": "Orientation",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Orientation",
+      "asset": "orientation"
+    },
+    {
+      "key": "page.size",
+      "label": "Paper size",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Slide Size",
+      "asset": "slide_size"
+    },
+    {
+      "key": "page.print-area",
+      "label": "Print area",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Document Border Print",
+      "asset": "document_border_print"
+    },
+    {
+      "key": "page.breaks",
+      "label": "Page breaks",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Document Page Break",
+      "asset": "document_page_break"
+    },
+    {
+      "key": "page.background",
+      "label": "Sheet background",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Image",
+      "asset": "image"
+    },
+    {
+      "key": "page.print-titles",
+      "label": "Print titles",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Document Header",
+      "asset": "document_header"
+    },
+    {
+      "key": "page.fit-width",
+      "label": "Fit width",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Arrow Autofit Width",
+      "asset": "arrow_autofit_width"
+    },
+    {
+      "key": "page.fit-height",
+      "label": "Fit height",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Arrow Autofit Height",
+      "asset": "arrow_autofit_height"
+    },
+    {
+      "key": "page.scale",
+      "label": "Scale",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Scale Fit",
+      "asset": "scale_fit"
+    },
+    {
+      "key": "page.gridlines",
+      "label": "Gridlines",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Grid",
+      "asset": "grid"
+    },
+    {
+      "key": "view.gridlines",
+      "label": "Gridlines",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Grid",
+      "asset": "grid"
+    },
+    {
+      "key": "page.headings",
+      "label": "Headings",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Text Header 1",
+      "asset": "text_header_1"
+    },
+    {
+      "key": "arrange.forward",
+      "label": "Bring forward",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Position Forward",
+      "asset": "position_forward"
+    },
+    {
+      "key": "arrange.backward",
+      "label": "Send backward",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Position Backward",
+      "asset": "position_backward"
+    },
+    {
+      "key": "arrange.selection-pane",
+      "label": "Selection pane",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Panel Right",
+      "asset": "panel_right"
+    },
+    {
+      "key": "arrange.align",
+      "label": "Align objects",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Align Center Horizontal",
+      "asset": "align_center_horizontal"
+    },
+    {
+      "key": "arrange.group",
+      "label": "Group objects",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Group",
+      "asset": "group"
+    },
+    {
+      "key": "arrange.rotate",
+      "label": "Rotate object",
+      "category": "Page Layout",
+      "source": "fluent",
+      "sourceName": "Arrow Rotate Clockwise",
+      "asset": "arrow_rotate_clockwise"
+    },
+    {
+      "key": "formula.insert",
+      "label": "Insert function",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Math Formula",
+      "asset": "math_formula"
+    },
+    {
+      "key": "formula.recent",
+      "label": "Recently used",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "History",
+      "asset": "history"
+    },
+    {
+      "key": "formula.financial",
+      "label": "Financial functions",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Money Calculator",
+      "asset": "money_calculator"
+    },
+    {
+      "key": "formula.logical",
+      "label": "Logical functions",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Branch",
+      "asset": "branch"
+    },
+    {
+      "key": "formula.text",
+      "label": "Text functions",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Text T",
+      "asset": "text_t"
+    },
+    {
+      "key": "formula.date-time",
+      "label": "Date and time functions",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Calendar Clock",
+      "asset": "calendar_clock"
+    },
+    {
+      "key": "formula.lookup",
+      "label": "Lookup and reference",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Table Search",
+      "asset": "table_search"
+    },
+    {
+      "key": "formula.math",
+      "label": "Math and trigonometry",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Math Symbols",
+      "asset": "math_symbols"
+    },
+    {
+      "key": "formula.statistical",
+      "label": "Statistical functions",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Data Histogram",
+      "asset": "data_histogram"
+    },
+    {
+      "key": "formula.engineering",
+      "label": "Engineering functions",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Settings Cog Multiple",
+      "asset": "settings_cog_multiple"
+    },
+    {
+      "key": "formula.information",
+      "label": "Information functions",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Info",
+      "asset": "info"
+    },
+    {
+      "key": "formula.name-manager",
+      "label": "Name manager",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "TextBox Settings",
+      "asset": "textbox_settings"
+    },
+    {
+      "key": "formula.define-name",
+      "label": "Define name",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Rename",
+      "asset": "rename"
+    },
+    {
+      "key": "formula.use-name",
+      "label": "Use in formula",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Braces Variable",
+      "asset": "braces_variable"
+    },
+    {
+      "key": "formula.create-names",
+      "label": "Create names from selection",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Table Select Range",
+      "asset": "table_select_range"
+    },
+    {
+      "key": "formula.trace-precedents",
+      "label": "Trace precedents",
+      "category": "Formulas",
+      "source": "nera",
+      "sourceName": "trace_precedents",
+      "asset": "trace_precedents"
+    },
+    {
+      "key": "formula.trace-dependents",
+      "label": "Trace dependents",
+      "category": "Formulas",
+      "source": "nera",
+      "sourceName": "trace_dependents",
+      "asset": "trace_dependents"
+    },
+    {
+      "key": "formula.remove-arrows",
+      "label": "Remove auditing arrows",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Branch Fork Hint",
+      "asset": "branch_fork_hint"
+    },
+    {
+      "key": "formula.show",
+      "label": "Show formulas",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Eye Lines",
+      "asset": "eye_lines"
+    },
+    {
+      "key": "formula.error-check",
+      "label": "Error checking",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Error Circle",
+      "asset": "error_circle"
+    },
+    {
+      "key": "formula.evaluate",
+      "label": "Evaluate formula",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Math Formula Sparkle",
+      "asset": "math_formula_sparkle"
+    },
+    {
+      "key": "formula.calculation-options",
+      "label": "Calculation options",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Calculator",
+      "asset": "calculator"
+    },
+    {
+      "key": "formula.calculate-now",
+      "label": "Calculate now",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Calculator Arrow Clockwise",
+      "asset": "calculator_arrow_clockwise"
+    },
+    {
+      "key": "formula.calculate-sheet",
+      "label": "Calculate sheet",
+      "category": "Formulas",
+      "source": "fluent",
+      "sourceName": "Table Calculator",
+      "asset": "table_calculator"
+    },
+    {
+      "key": "data.get",
+      "label": "Get data",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Database Arrow Down",
+      "asset": "database_arrow_down"
+    },
+    {
+      "key": "data.from-csv",
+      "label": "From text or CSV",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Document CSV",
+      "asset": "document_csv"
+    },
+    {
+      "key": "data.from-web",
+      "label": "From web",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Globe Arrow Up",
+      "asset": "globe_arrow_up"
+    },
+    {
+      "key": "data.from-table",
+      "label": "From table or range",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Document Table Arrow Right",
+      "asset": "document_table_arrow_right"
+    },
+    {
+      "key": "data.from-picture",
+      "label": "Data from picture",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Image Table",
+      "asset": "image_table"
+    },
+    {
+      "key": "data.recent-sources",
+      "label": "Recent sources",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "History",
+      "asset": "history"
+    },
+    {
+      "key": "data.connections",
+      "label": "Existing connections",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Database Plug Connected",
+      "asset": "database_plug_connected"
+    },
+    {
+      "key": "data.refresh-all",
+      "label": "Refresh all",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Arrow Sync",
+      "asset": "arrow_sync"
+    },
+    {
+      "key": "data.queries",
+      "label": "Queries and connections",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Database Multiple",
+      "asset": "database_multiple"
+    },
+    {
+      "key": "data.workbook-links",
+      "label": "Workbook links",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Document Data Link",
+      "asset": "document_data_link"
+    },
+    {
+      "key": "data.sort-ascending",
+      "label": "Sort ascending",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Arrow Sort Up Lines",
+      "asset": "arrow_sort_up_lines"
+    },
+    {
+      "key": "data.sort-descending",
+      "label": "Sort descending",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Arrow Sort Down Lines",
+      "asset": "arrow_sort_down_lines"
+    },
+    {
+      "key": "data.sort",
+      "label": "Custom sort",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Arrow Sort",
+      "asset": "arrow_sort"
+    },
+    {
+      "key": "data.filter",
+      "label": "Filter",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Filter",
+      "asset": "filter"
+    },
+    {
+      "key": "data.filter-clear",
+      "label": "Clear filter",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Filter Dismiss",
+      "asset": "filter_dismiss"
+    },
+    {
+      "key": "data.filter-reapply",
+      "label": "Reapply filter",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Filter Sync",
+      "asset": "filter_sync"
+    },
+    {
+      "key": "data.filter-advanced",
+      "label": "Advanced filter",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Data Funnel",
+      "asset": "data_funnel"
+    },
+    {
+      "key": "data.filter-text",
+      "label": "Text filters",
+      "category": "Data and Filter",
+      "source": "nera",
+      "sourceName": "filter_text",
+      "asset": "filter_text"
+    },
+    {
+      "key": "data.filter-number",
+      "label": "Number filters",
+      "category": "Data and Filter",
+      "source": "nera",
+      "sourceName": "filter_number",
+      "asset": "filter_number"
+    },
+    {
+      "key": "data.filter-date",
+      "label": "Date filters",
+      "category": "Data and Filter",
+      "source": "nera",
+      "sourceName": "filter_date",
+      "asset": "filter_date"
+    },
+    {
+      "key": "data.filter-color",
+      "label": "Filter by color",
+      "category": "Data and Filter",
+      "source": "nera",
+      "sourceName": "filter_color",
+      "asset": "filter_color"
+    },
+    {
+      "key": "data.filter-icon",
+      "label": "Filter by icon",
+      "category": "Data and Filter",
+      "source": "nera",
+      "sourceName": "filter_icon",
+      "asset": "filter_icon"
+    },
+    {
+      "key": "data.filter-top",
+      "label": "Top values",
+      "category": "Data and Filter",
+      "source": "nera",
+      "sourceName": "filter_top",
+      "asset": "filter_top"
+    },
+    {
+      "key": "data.text-columns",
+      "label": "Text to columns",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Text Column Three",
+      "asset": "text_column_three"
+    },
+    {
+      "key": "data.flash-fill",
+      "label": "Flash fill",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Flash",
+      "asset": "flash"
+    },
+    {
+      "key": "data.remove-duplicates",
+      "label": "Remove duplicates",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Table Simple Exclude",
+      "asset": "table_simple_exclude"
+    },
+    {
+      "key": "data.validation",
+      "label": "Data validation",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Table Simple Checkmark",
+      "asset": "table_simple_checkmark"
+    },
+    {
+      "key": "data.consolidate",
+      "label": "Consolidate",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Table Stack Below",
+      "asset": "table_stack_below"
+    },
+    {
+      "key": "data.what-if",
+      "label": "What-if analysis",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Data Trending",
+      "asset": "data_trending"
+    },
+    {
+      "key": "data.forecast",
+      "label": "Forecast",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Arrow Trending",
+      "asset": "arrow_trending"
+    },
+    {
+      "key": "data.group",
+      "label": "Group",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Group",
+      "asset": "group"
+    },
+    {
+      "key": "data.ungroup",
+      "label": "Ungroup",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Group Dismiss",
+      "asset": "group_dismiss"
+    },
+    {
+      "key": "data.subtotal",
+      "label": "Subtotal",
+      "category": "Data and Filter",
+      "source": "fluent",
+      "sourceName": "Table Calculator",
+      "asset": "table_calculator"
+    },
+    {
+      "key": "review.spelling",
+      "label": "Spelling",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Book Search",
+      "asset": "book_search"
+    },
+    {
+      "key": "review.thesaurus",
+      "label": "Thesaurus",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Book Open",
+      "asset": "book_open"
+    },
+    {
+      "key": "review.statistics",
+      "label": "Workbook statistics",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Data Usage",
+      "asset": "data_usage"
+    },
+    {
+      "key": "review.performance",
+      "label": "Check performance",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Top Speed",
+      "asset": "top_speed"
+    },
+    {
+      "key": "review.accessibility",
+      "label": "Check accessibility",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Accessibility Checkmark",
+      "asset": "accessibility_checkmark"
+    },
+    {
+      "key": "review.translate",
+      "label": "Translate",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Translate",
+      "asset": "translate"
+    },
+    {
+      "key": "review.changes",
+      "label": "Show changes",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "History",
+      "asset": "history"
+    },
+    {
+      "key": "review.comment-new",
+      "label": "New comment",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Comment Add",
+      "asset": "comment_add"
+    },
+    {
+      "key": "review.comment-delete",
+      "label": "Delete comment",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Comment Dismiss",
+      "asset": "comment_dismiss"
+    },
+    {
+      "key": "review.comment-previous",
+      "label": "Previous comment",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Comment Arrow Left",
+      "asset": "comment_arrow_left"
+    },
+    {
+      "key": "review.comment-next",
+      "label": "Next comment",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Comment Arrow Right",
+      "asset": "comment_arrow_right"
+    },
+    {
+      "key": "review.comments",
+      "label": "Show comments",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Comment Multiple",
+      "asset": "comment_multiple"
+    },
+    {
+      "key": "review.notes",
+      "label": "Notes",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Comment Note",
+      "asset": "comment_note"
+    },
+    {
+      "key": "review.protect-sheet",
+      "label": "Protect sheet",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Table Lock",
+      "asset": "table_lock"
+    },
+    {
+      "key": "review.protect-workbook",
+      "label": "Protect workbook",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Document Lock",
+      "asset": "document_lock"
+    },
+    {
+      "key": "review.allow-edit-ranges",
+      "label": "Allow edit ranges",
+      "category": "Review",
+      "source": "fluent",
+      "sourceName": "Lock Open",
+      "asset": "lock_open"
+    },
+    {
+      "key": "view.normal",
+      "label": "Normal view",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Table",
+      "asset": "table"
+    },
+    {
+      "key": "view.page-break",
+      "label": "Page break preview",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Document Page Break",
+      "asset": "document_page_break"
+    },
+    {
+      "key": "view.page-layout",
+      "label": "Page layout view",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Slide Layout",
+      "asset": "slide_layout"
+    },
+    {
+      "key": "view.custom",
+      "label": "Custom views",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Window Settings",
+      "asset": "window_settings"
+    },
+    {
+      "key": "view.show",
+      "label": "Show options",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Eye",
+      "asset": "eye"
+    },
+    {
+      "key": "view.zoom",
+      "label": "Zoom",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Zoom In",
+      "asset": "zoom_in"
+    },
+    {
+      "key": "view.zoom-100",
+      "label": "Zoom 100 percent",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Document 100",
+      "asset": "document_100"
+    },
+    {
+      "key": "view.zoom-selection",
+      "label": "Zoom to selection",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Zoom Fit",
+      "asset": "zoom_fit"
+    },
+    {
+      "key": "view.new-window",
+      "label": "New window",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Window New",
+      "asset": "window_new"
+    },
+    {
+      "key": "view.arrange",
+      "label": "Arrange windows",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Window Multiple",
+      "asset": "window_multiple"
+    },
+    {
+      "key": "view.freeze-panes",
+      "label": "Freeze panes",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Table Freeze Column And Row",
+      "asset": "table_freeze_column_and_row"
+    },
+    {
+      "key": "view.unfreeze-panes",
+      "label": "Unfreeze panes",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Table Freeze Column And Row Dismiss",
+      "asset": "table_freeze_column_and_row_dismiss"
+    },
+    {
+      "key": "view.split",
+      "label": "Split",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Table Split",
+      "asset": "table_split"
+    },
+    {
+      "key": "view.split-undo",
+      "label": "Undo split change",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Arrow Undo",
+      "asset": "arrow_undo"
+    },
+    {
+      "key": "view.split-redo",
+      "label": "Redo split change",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Arrow Redo",
+      "asset": "arrow_redo"
+    },
+    {
+      "key": "view.hide-window",
+      "label": "Hide window",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Window Multiple Off",
+      "asset": "window_multiple_off"
+    },
+    {
+      "key": "view.unhide-window",
+      "label": "Unhide window",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Window Multiple",
+      "asset": "window_multiple"
+    },
+    {
+      "key": "view.side-by-side",
+      "label": "View side by side",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Column Double Compare",
+      "asset": "column_double_compare"
+    },
+    {
+      "key": "view.sync-scroll",
+      "label": "Synchronous scrolling",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Arrow Sync",
+      "asset": "arrow_sync"
+    },
+    {
+      "key": "view.reset-window",
+      "label": "Reset window position",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Window Multiple Swap",
+      "asset": "window_multiple_swap"
+    },
+    {
+      "key": "view.switch-window",
+      "label": "Switch windows",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Window Multiple Swap",
+      "asset": "window_multiple_swap"
+    },
+    {
+      "key": "view.macros",
+      "label": "Macros",
+      "category": "View",
+      "source": "fluent",
+      "sourceName": "Code",
+      "asset": "code"
+    },
+    {
+      "key": "table.properties",
+      "label": "Table properties",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Table Settings",
+      "asset": "table_settings"
+    },
+    {
+      "key": "table.resize",
+      "label": "Resize table",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Resize Table",
+      "asset": "resize_table"
+    },
+    {
+      "key": "table.summarize-pivot",
+      "label": "Summarize with pivot",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Pivot",
+      "asset": "pivot"
+    },
+    {
+      "key": "table.remove-duplicates",
+      "label": "Remove duplicates",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Table Simple Exclude",
+      "asset": "table_simple_exclude"
+    },
+    {
+      "key": "table.convert-range",
+      "label": "Convert to range",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Table Dismiss",
+      "asset": "table_dismiss"
+    },
+    {
+      "key": "table.insert-slicer",
+      "label": "Insert slicer",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Filter Add",
+      "asset": "filter_add"
+    },
+    {
+      "key": "table.export",
+      "label": "Export table",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Table Arrow Up",
+      "asset": "table_arrow_up"
+    },
+    {
+      "key": "table.refresh",
+      "label": "Refresh table",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Table Arrow Repeat All",
+      "asset": "table_arrow_repeat_all"
+    },
+    {
+      "key": "table.unlink",
+      "label": "Unlink table",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Table Link",
+      "asset": "table_link"
+    },
+    {
+      "key": "table.header-row",
+      "label": "Header row",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Table Stack Above",
+      "asset": "table_stack_above"
+    },
+    {
+      "key": "table.total-row",
+      "label": "Total row",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Table Bottom Row",
+      "asset": "table_bottom_row"
+    },
+    {
+      "key": "table.banded-rows",
+      "label": "Banded rows",
+      "category": "Table Design",
+      "source": "nera",
+      "sourceName": "table_banded_rows",
+      "asset": "table_banded_rows"
+    },
+    {
+      "key": "table.first-column",
+      "label": "First column",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Table Stack Left",
+      "asset": "table_stack_left"
+    },
+    {
+      "key": "table.last-column",
+      "label": "Last column",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Table Stack Right",
+      "asset": "table_stack_right"
+    },
+    {
+      "key": "table.banded-columns",
+      "label": "Banded columns",
+      "category": "Table Design",
+      "source": "nera",
+      "sourceName": "table_banded_columns",
+      "asset": "table_banded_columns"
+    },
+    {
+      "key": "table.filter-buttons",
+      "label": "Filter buttons",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Filter",
+      "asset": "filter"
+    },
+    {
+      "key": "table.styles",
+      "label": "Table styles",
+      "category": "Table Design",
+      "source": "fluent",
+      "sourceName": "Table Sparkle",
+      "asset": "table_sparkle"
+    },
+    {
+      "key": "customize.add",
+      "label": "Add command",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Add",
+      "asset": "add"
+    },
+    {
+      "key": "customize.remove",
+      "label": "Remove command",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Subtract",
+      "asset": "subtract"
+    },
+    {
+      "key": "customize.move-up",
+      "label": "Move up",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Arrow Up",
+      "asset": "arrow_up"
+    },
+    {
+      "key": "customize.move-down",
+      "label": "Move down",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Arrow Down",
+      "asset": "arrow_down"
+    },
+    {
+      "key": "customize.move-left",
+      "label": "Move left",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Arrow Left",
+      "asset": "arrow_left"
+    },
+    {
+      "key": "customize.move-right",
+      "label": "Move right",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Arrow Right",
+      "asset": "arrow_right"
+    },
+    {
+      "key": "customize.rename",
+      "label": "Rename",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Rename",
+      "asset": "rename"
+    },
+    {
+      "key": "customize.new-tab",
+      "label": "New tab",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Tab Add",
+      "asset": "tab_add"
+    },
+    {
+      "key": "customize.new-group",
+      "label": "New group",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Tab Group",
+      "asset": "tab_group"
+    },
+    {
+      "key": "customize.show",
+      "label": "Show",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Eye",
+      "asset": "eye"
+    },
+    {
+      "key": "customize.hide",
+      "label": "Hide",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Eye Off",
+      "asset": "eye_off"
+    },
+    {
+      "key": "customize.large",
+      "label": "Large command",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Resize Large",
+      "asset": "resize_large"
+    },
+    {
+      "key": "customize.small",
+      "label": "Small command",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Resize Small",
+      "asset": "resize_small"
+    },
+    {
+      "key": "customize.reset",
+      "label": "Reset",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Arrow Counterclockwise",
+      "asset": "arrow_counterclockwise"
+    },
+    {
+      "key": "customize.import",
+      "label": "Import customization",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Arrow Import",
+      "asset": "arrow_import"
+    },
+    {
+      "key": "customize.export",
+      "label": "Export customization",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Arrow Export",
+      "asset": "arrow_export"
+    },
+    {
+      "key": "customize.more",
+      "label": "More commands",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "More Horizontal",
+      "asset": "more_horizontal"
+    },
+    {
+      "key": "customize.settings",
+      "label": "Customization settings",
+      "category": "Ribbon customization",
+      "source": "fluent",
+      "sourceName": "Settings",
+      "asset": "settings"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Copied outside the repository by run-release-009-packages.ps1. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>14.0</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="NeraSpreadSheet.Wpf" Version="[$(NeraPackageVersion)]" />
+    <PackageReference Include="NeraSpreadSheet.WinForms" Version="[$(NeraPackageVersion)]" />
+    <PackageReference Include="NeraSpreadSheet.OpenXml" Version="[$(NeraPackageVersion)]" />
+  </ItemGroup>
+  <Target Name="RequireIsolatedPackageVersion" BeforeTargets="Restore;Build">
+    <Error Condition="'$(NeraPackageVersion)' == ''" Text="Use the isolated RELEASE-009 package runner with an exact package version." />
+  </Target>
+</Project>

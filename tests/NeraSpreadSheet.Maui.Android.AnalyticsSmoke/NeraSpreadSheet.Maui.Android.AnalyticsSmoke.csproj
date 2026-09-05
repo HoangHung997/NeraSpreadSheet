@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <RootNamespace>NeraSpreadSheet.Maui.Android.AnalyticsSmoke</RootNamespace>
+    <AssemblyName>NeraSpreadSheet.Maui.Android.AnalyticsSmoke</AssemblyName>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <EnableDefaultMauiItems>false</EnableDefaultMauiItems>
+    <ApplicationTitle>Nera Android Analytics Smoke</ApplicationTitle>
+    <ApplicationId>com.neraspreadsheet.androidanalyticssmoke</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <AndroidLinkMode>None</AndroidLinkMode>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <IsPackable>false</IsPackable>
+    <Description>Loaded MAUI Android TalkBack virtual analytics accessibility smoke for NeraSpreadSheet. AOT is intentionally disabled only for this host-level runtime probe so native accessibility can be isolated from x86_64 Release-AOT startup failures; the production Android target remains built separately in Release.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/NeraSpreadSheet.Maui/NeraSpreadSheet.Maui.csproj" />
+  </ItemGroup>
+</Project>

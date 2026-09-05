@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Description>High-level worksheet-to-PDF export orchestration for NeraSpreadSheet.</Description>
+    <PackageId>NeraSpreadSheet.Export.Pdf</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NeraSpreadSheet.Core/NeraSpreadSheet.Core.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Rendering.Spreadsheet/NeraSpreadSheet.Rendering.Spreadsheet.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Rendering.Skia/NeraSpreadSheet.Rendering.Skia.csproj" />
+  </ItemGroup>
+</Project>

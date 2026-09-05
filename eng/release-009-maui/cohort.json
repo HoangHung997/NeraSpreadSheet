@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "sdkVersion": "10.0.302",
+  "targets": {
+    "windows": "net10.0-windows10.0.19041.0",
+    "android": "net10.0-android",
+    "ios": "net10.0-ios",
+    "maccatalyst": "net10.0-maccatalyst"
+  }
+}

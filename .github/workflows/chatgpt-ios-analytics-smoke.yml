@@ -1,0 +1,64 @@
+name: iOS analytics accessibility gate
+
+on:
+  push:
+    branches:
+      - 'ai/chatgpt/q003b-ios'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-analytics-smoke:
+    name: Loaded MAUI iOS VoiceOver analytics smoke
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Install MAUI iOS workload
+        run: dotnet workload install maui-ios --skip-manifest-update
+
+      - name: Build production MAUI iOS target
+        run: dotnet build src/NeraSpreadSheet.Maui/NeraSpreadSheet.Maui.csproj -c Release -f net10.0-ios -p:NeraMauiTargetFrameworks=net10.0-ios
+
+      - name: Build loaded iOS analytics accessibility smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(uname -m)" = "arm64" ]; then
+            RID="iossimulator-arm64"
+          else
+            RID="iossimulator-x64"
+          fi
+          echo "NERA_IOS_SMOKE_RID=$RID" >> "$GITHUB_ENV"
+          echo "iOS simulator smoke RID: $RID"
+          # Production iOS is built in Release above. The loaded simulator probe
+          # intentionally uses Debug so CI validates UIKit/VoiceOver behavior
+          # without paying the Release AOT/link cost a second time.
+          dotnet build tests/NeraSpreadSheet.Maui.iOS.AnalyticsSmoke/NeraSpreadSheet.Maui.iOS.AnalyticsSmoke.csproj \
+            -c Debug \
+            -f net10.0-ios \
+            -r "$RID" \
+            -p:NeraMauiTargetFrameworks=net10.0-ios
+
+      - name: Run loaded iOS analytics accessibility smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="tests/NeraSpreadSheet.Maui.iOS.AnalyticsSmoke/bin/Debug/net10.0-ios/$NERA_IOS_SMOKE_RID"
+          APP="$(find "$ROOT" -type d -name 'NeraSpreadSheet.Maui.iOS.AnalyticsSmoke.app' | head -n 1 || true)"
+          if [ -z "$APP" ]; then
+            echo "iOS analytics smoke app bundle was not produced."
+            exit 1
+          fi
+          bash scripts/run-maui-ios-smoke.sh "$APP"

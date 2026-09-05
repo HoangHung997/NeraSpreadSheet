@@ -1,0 +1,36 @@
+name: Báo lỗi
+about: Báo hành vi sai hoặc lỗi hồi quy
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Mô tả lỗi
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Các bước tái hiện
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Kết quả mong đợi
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Môi trường
+      description: OS, .NET SDK, DPI, refresh rate, input device và backend.
+    validations:
+      required: true
+  - type: textarea
+    id: sensitive
+    attributes:
+      label: Kiểm tra dữ liệu nhạy cảm
+      description: Xác nhận log/fixture không chứa token, Machine ID, đường dẫn cá nhân hoặc workbook thật.
+    validations:
+      required: true

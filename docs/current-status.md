@@ -1,0 +1,644 @@
+# NeraSpreadSheet current implementation status
+
+## CẬP NHẬT 06/09 — SPLIT EDITOR ROUTING ĐÃ GHÉP; THANH CÔNG THỨC ĐANG LÀM
+
+Root76d1e68c đã xanh cả6workflows. Nhận tiếp A finaleea6 thành8eb622b5..37a55b05:
+active-pane reveal tránh scrollbars, nested argument help/metadata đúngeditor,
+identical draft echo giữ hướng selection; 5sourcegates/Core1515/native146 và
+3ảnh final đã xác minh. Bản kết hợp mới cần CI riêng. A tiếp tục samplebar;
+split paged filter, whole B/editor/corpus và final performance/hardware còn OPEN.
+C iOS package build xanh nhưng log result987 malformed, chưa nhận source686;
+root/C đang thử opt-in full-file/compactmarker giữ nguyên provenance, không
+bỏ gate. Chi tiết và ownership hiện hành ở [CURRENT](worklog/CURRENT.md).
+
+## CẬP NHẬT 06/09 — NHẬN CANONICAL MAUI PACKAGES; NATIVE iOS TRANSPORT ĐÃ QUA
+
+Root f344 full/iOS/Q/Windows packages xanh; desktop navigation/editor trước đó
+được giữ. Đã ghép 28 C-owned paths từ source8b (sáu workflows xanh, Android
+PackageReference consumer thật10frames) thành e3c0e1c7..f62ea0dd. Consumer build
+đủ bốn MAUI targets qua một canonical feed16packages; Windows/iOS/Mac package
+native chưa nghiệm thu. Bản kết hợp mới cần CI riêng, không kế thừa sourcegreen.
+A tiếp tục split editor routing/help/selection, C nối iOS package runtime, B
+khoanh vùng Mac startup và Windows reattach. Whole B, bar/filter integration,
+final performance/hardware còn OPEN; chưa đạt100% Table/Filter/Ribbon/UX.
+[Chi tiết hiện hành](worklog/CURRENT.md).
+
+## CẬP NHẬT 06/09 — ĐÃ GHÉP NAVIGATION VÀ DESKTOP EDITOR, CHỜ CI KẾT HỢP
+
+Root đã nhận A navigation/split shell finalbed515b7 (năm source workflows
+xanh, 8 ảnh final được xem) và riêng 21 paths B desktop editor/draft bridge
+9bf24af9 (source Windows121/121). Thêm regression cho split highlight opt-out
+và full-cell text measure khi resize. Đây chưa phải whole B hoặc bản nghiệm
+thu: combined native CI cần xác minh, iOS shared launcher framing còn FAIL,
+MAUI native/package và final performance/hardware còn OPEN. Formula bar
+sample vẫn read-only. [Hồ sơ](worklog/RELEASE-009_DESKTOP_INTEGRATION_20260906.md).
+
+## CẬP NHẬT 06/09 — BẢN TÍCH HỢP 50cb357a ĐÃ XANH; TIẾP TỤC R2/R3
+
+Exact source `50cb357a` đã success đủ full/iOS/Q003C, Windows NuGet consumer
+và published Win11 x64 demo. A tiếp tục thanh cuộn worksheet/loaded split;
+C chuẩn bị canonical MAUI package và consumer bốn nền tảng trong worktree riêng.
+B còn xử lý native/editor/corpus; chưa ghép toàn lane hoặc đóng final combined
+performance. Thanh công thức chỉnh sửa cần bridge tới editor SDK hiện hữu.
+Ownership và gates được giữ trong [wave](worklog/UX_TABLE_COMPLETION_WAVE_20260905.md).
+Không đồng nghĩa toàn bộ Table/Filter/Ribbon/UX hoặc toàn SDK đạt 100%.
+
+## CẬP NHẬT 06/09/2026 — UX-007 ĐÃ GHÉP, DESKTOP LIFECYCLE ĐÃ NHẬN
+
+Root đã ghép7commits A final24d130c6 (source đủ7jobs xanh, native13ảnh đã
+review) và nhận riêng WPF49/WinForms64 cancellation source/test slices đã
+release. Giữ một Ribbon/customization/session model, scoped native HC resources,
+exactly-once shortcuts và native cleanup khi đổi sheet. B MAUI/editor/corpus
+vẫn đang điều tra; chưa ghép hoặc báo100%. [Integration record](worklog/UX_007_INTEGRATION_20260906.md).
+
+Root checkpoint7b6e2297 trước đợt ghép này đã xanh cả5workflows gồm experimental
+Win11 x64 published demo và isolated Windows PackageReference consumer. Mã kết
+hợp mới phải qua CI đúngHEAD riêng. R2 formula bar/worksheet scrollbars/split
+shell, MAUI packages, full combined perf và actual hardware acceptance còn OPEN;
+chi tiết vận hành mới nhất ở [CURRENT](worklog/CURRENT.md).
+
+## CẬP NHẬT 06/09/2026 — HARNESS ĐÃ GHÉP, WINDOWS NUGET CONSUMER ĐÃ PASS
+
+Root đã ghép source PERF-008 `fe015864` (bốn workflow exact-source xanh),
+giữ P3 chờ combined UX-007/TABLE-007. Implementation `4534e231` thêm package
+gate cô lập: 18 gói desktop/OpenXml có WPF/WinForms/Direct2D, loaded consumer
+chỉ dùng PackageReference đã PASS run `33979253272`, artifact `9973277152`
+được root verify digest và manifest/runtime evidence. Không phải full MAUI/
+GPU package acceptance hoặc bản demo hoàn chỉnh. C source review đã giúp sửa
+provenance và postcondition gaps trước khi nhận package smoke xanh.
+
+A đang chốt producer ảnh native Picker; B đang sửa Apple editor/Windows startup
+runtime. Chưa tích hợp hai lane này hoặc báo 100%. Root giữ shared docs, A/B
+chỉ ghi owned files; trạng thái mới nhất và exact-head gates được ghi trong
+[CURRENT](worklog/CURRENT.md). Các mục dưới đây là checkpoint/lịch sử.
+
+## HIỆN HÀNH — BASELINE ĐÃ XANH; MỞ BA LANE HOÀN THIỆN
+
+Final combined **`2e8482c25a44797a479b276ae26f472811a0a81e`** đã xanh đủ
+ba workflow/bảy job: full `33966917191`, iOS `33966917101`, Q003C `33966917091`.
+Core **1505/1505**, Windows **105/105**, MAUI **44/44**, không skip; desktop
+build 0 warnings/errors. Final artifacts gồm 226 Ribbon PNG/128 layouts,
+4 MAUI PNG và 18 nupkg. [Handoff và evidence](https://github.com/HoangHung997/NeraSpreadSheet/pull/1#issuecomment-5551912649).
+
+Theo yêu cầu mới của người dùng, tiếp tục ba worktree `gpt-6-astra / xhigh`:
+UX-007 (presentation/keyboard/a11y), TABLE-007 (split/MAUI editor + LibreOffice),
+PERF-008-HARNESS (isolated benchmark/stress). Root điều phối và giữ các file
+trạng thái chung; chỉ UX lane giữ desktop lease. Ba task đã active đúng base/model,
+chưa có implementation mới được nghiệm thu. Xem
+[ownership và checklist 100% phạm vi Table/Filter/Ribbon/UX](worklog/UX_TABLE_COMPLETION_WAVE_20260905.md).
+
+Các acceptance còn mở vẫn được tính là chưa hoàn tất, đặc biệt actual physical
+DPI/touch/screen reader, editor/corpus, controlled performance, demo/consumer
+acceptance. Không suy ra tỷ lệ hoàn thành toàn SDK từ số task đã giao.
+
+## LỊCH SỬ — NATIVE TABLE + UX-006, TRƯỚC FINAL GATE
+
+A đã integrated-green tại `ca69da45`, đủ bảy job: full `33964496297`, iOS
+`33964496300`, Q003C `33964496314`. B final `292a48d1` xanh đủ bảy job ở
+full `33965918117`, iOS `33965919539`, Q003C `33965921194`, đã release toàn bộ.
+Coordinator ghép đúng bốn commits B thành combined checkpoint `0e770e52`, không
+conflict hoặc path overlap; không có writer source/desktop nào còn active.
+
+Resources theo host, Ribbon/Bar/Table/Filter chrome và native adorner/theme fixes
+đã ghép với editor/corpus Table. Không đổi workbook/calculation/history semantics.
+Source final artifacts: 226 Ribbon PNG/128 layouts, 4 MAUI PNG; coordinator đã
+inspect và xác minh final hashes trùng d55. Combined desktop build 0 warnings/errors,
+Core **1505/1505**, MAUI headless **44/44** local (SDK/workload khác biệt được ghi
+trong hồ sơ); exact-final-HEAD CI vẫn là cổng riêng.
+[Hồ sơ tích hợp](worklog/UX_INTEGRATION_20260905.md).
+
+Whole UX-006/TABLE-006 chưa DONE: còn physical DPI/touch/screen reader, partial
+English, Picker dropdown mở, MAUI custom shell; MAUI/split editor và LibreOffice.
+Chưa kết luận latency không hồi quy. Không phát hành demo/NuGet hoặc merge PR.
+
+## LỊCH SỬ — TABLE-006-NATIVE ĐÃ GHÉP, UX-006 KHI CÒN ACTIVE
+
+A đã bàn giao `4ae7731fbc35362809fd9fb4027b53fdbfb6ebdc`, xanh đủ bảy job
+đúng SHA: full #1339 / `33958874774`, iOS #160 / `33958876307`, Q003C #157 /
+`33958877741`. Core **1497/1497**, Windows runtime **102/102**, không skip.
+Coordinator ghép đúng năm commits, không conflict, thành implementation
+`1aaba747f379877d0b1813ebebbf3705763a6186`. Exact-HEAD integration CI sau tài
+liệu vẫn là cổng riêng trước nghiệm thu. Xem
+[hồ sơ tích hợp](worklog/TABLE_NATIVE_INTEGRATION_20260905.md).
+
+Standalone WPF/WinForms có Table completion/point-mode/draft highlights và
+hai regression caret/pointer; corpus Excel/Nera cùng dxf import/preservation
+đã ghép. Whole TABLE-006 vẫn mở vì MAUI/split editor, LibreOffice producer,
+physical DPI và các giới hạn preservation được ghi trong contract.
+UX-006 đang sửa lỗi capture WPF/MAUI theme tại source riêng, chưa tích hợp.
+Desktop hiện do B sở hữu; A đã release toàn bộ. Không publish demo/NuGet.
+
+## TABLE-006-NATIVE / UX-006 — LỊCH SỬ DISPATCH HAI WORKTREE
+
+Baseline tích hợp cuối `2bc00eb667da2f2c5afda1024ab753ac638d85d4` đã xanh
+full CI #1334 / `33954450148`, iOS #155 / `33954450152`, Q003C #152 /
+`33954450150`, mọi job success. Theo yêu cầu tiếp tục phần dở và chạy song
+song phần mới, hai task `gpt-6-astra / xhigh` đã active từ đúng baseline này:
+TABLE-006-NATIVE làm editor structured references và corpus có provenance;
+UX-006 làm visual/localization của Ribbon/Bar/Table Design/Filter. Hai lane
+không sửa chung file; desktop local chỉ lane native dùng, lane UX kiểm chứng
+native UI qua GitHub. Xem [wave/ownership](worklog/TABLE_UX_WAVE_20260905.md).
+Không nâng phần chưa làm thành DONE, không mở Avalonia hoặc phát hành demo/NuGet.
+
+## TABLE-005 / TABLE-RIBBON-012 / TABLE-006 — INTEGRATED, IMPLEMENTATION GREEN
+
+Ngày 05/09/2026, coordinator đã ghép sạch sáu commit lane A đến `d283a55b`
+và ba commit delta lane B đến `7f73a97d`, không nhập trùng TABLE-005.
+Implementation kết hợp `e29acb44bc058e91a27c9dcc35a6979909d4dd5b` đã push.
+Table Design/gallery/19 Table commands dùng command registry thật, gồm fix
+Convert-to-range giữ giá trị công thức; regression command và native dialog
+smoke đã kiểm tra điểm nối này. Local: Core **1470/1470**, MAUI **43/43**,
+loaded MAUI Ribbon success, build 0/0, capture **177 ảnh/128 layouts**, 18 nupkg.
+Windows local **76/77** giữ nguyên failure `window.Activate()` trước SDK behavior.
+Combined implementation xanh đủ ba gate, mọi job, attempt 1: full #1333 /
+`33953936497`, iOS #154 / `33953936520`, Q003C #151 / `33953936475`;
+Windows CI **77/77**, capture **177/128**. TABLE-005 và TABLE-RIBBON-012
+**DONE for defined scope**. Commit tài liệu cuối vẫn phải qua ba gate ở đúng
+SHA của nó; final SHA/run URLs ghi trên PR #1 trước bàn giao.
+TABLE-006 chưa đóng toàn bộ: còn native editor structured-reference wiring và
+corpus Excel/LibreOffice có provenance. Các mục dưới là lịch sử checkpoint,
+không phủ nhận trạng thái tích hợp mới này. PR #1 vẫn Draft/unmerged; chưa
+repack demo ngoài repo. Xem
+[integration worklog](worklog/TABLE_RIBBON_INTEGRATION_20260905.md).
+
+## Đợt Table/Ribbon trước tích hợp — lịch sử DISPATCH
+
+Ribbon integration final HEAD `488c61ea75ea6c8f7a6ceb480035a341f24c6c19`
+đã xanh full CI `33949294692`, iOS `33949294721`, Q003C `33949294687`.
+TABLE-005 đã hoàn thành ở nhánh riêng tại `cf923db2` và cũng có đủ ba cổng
+xanh tại exact HEAD, nhưng chưa tích hợp. Theo yêu cầu người dùng, hai task
+worktree mới được giao `gpt-6-astra` / `xhigh`: TABLE-RIBBON-012 ghép contextual
+Table Design vào dense Ribbon; TABLE-006 làm compatibility/hardening headless
+trên source Table đã xanh. Xem [phân quyền và thứ tự tích hợp](worklog/TABLE_RIBBON_WAVE_20260905.md).
+Không mở Avalonia, không tự merge PR #1, không coi hai lane riêng là combined
+checkpoint đã hoàn thành.
+
+## RIBBON-VISUAL-011 — INTEGRATED, IMPLEMENTATION VALIDATED
+
+Ngày 05/09/2026, nhánh `feature/bootstrap-architecture-v0.1` đã nhận nguyên
+chín commit của lane bằng fast-forward đến
+`7cfcfdfc6f337da1b37ca05b9254b903a33f32d2`, không conflict. Tại đúng SHA
+này, full CI **#1324 / 33945704736**, iOS **#145 / 33945705984** và
+Q003C **#142 / 33945707221** đều success. Kiểm tra lại trên checkout tích hợp:
+Core **1386/1386**, MAUI **41/41**, Windows **74/75** (duy nhất hạn chế
+foreground cũ), build 0/0, architecture/packaging pass, **18 nupkg**, runtime
+capture **176 ảnh / 128 snapshots**. Commit đồng bộ tài liệu cũng phải qua
+ba cổng ở đúng HEAD cuối trước khi bàn giao. `TABLE-005` vẫn ở nhánh riêng;
+PR #1 giữ Draft/unmerged. Xem
+[hồ sơ tích hợp](worklog/RIBBON_VISUAL_INTEGRATION_20260905.md).
+
+Branch `feature/ribbon-visual-011` triển khai dense layout ba hàng dùng chung
+cho WPF/WinForms/MAUI, caption nhóm ở đáy, bốn palette, icon QAT, Backstage
+rail/content và gallery thumbnail. Preview runnable đã có tám tab capability
+thật cùng File; Table Style chỉ xem trước và không thay mutation của
+`TABLE-005`. Xem [visual contract](ribbon-visual-contract.md) và
+[lane worklog](worklog/RIBBON-VISUAL-011.md). Core solution **1386/1386**,
+focused Ribbon **75/75**, desktop Ribbon **16/16**, MAUI **41/41** và loaded
+MAUI Windows Ribbon smoke đã pass. Build/analyzers 0 warning/error,
+architecture/SDK packaging verifier pass; preview có **176 ảnh / 128 native
+layout snapshots**. Full Windows local **74/75** do test foreground cũ dừng ở
+`window.Activate()` trước SDK behavior; Windows CI đạt **75/75** và capture
+**176/128**. MAUI giữ command/popup khi chỉ đổi chiều cao; loaded native smoke
+kiểm tra visible stage, frame readiness và width/scale/bounds/focus thực tế.
+Checkpoint `47ccc882be420de1464888b3400606d040cd9194` đã xanh cả full CI
+#1323 / `33945177202`, iOS #144 / `33945179079` và Q003C #141 /
+`33945180352`. Artifact `ribbon-visual-matrix` là `9963130150`. Handoff chỉ
+hoàn tất khi commit tài liệu cuối cũng có ba workflow xanh tại đúng HEAD;
+không dùng checkpoint cha thay cho yêu cầu này.
+
+## Overall roadmap implementation progress
+
+The fixed weighted roadmap rubric in [`project-progress.md`](project-progress.md) currently evaluates to **83.98%**, reported as **84%**. This is an implementation-roadmap score, not a claim that NeraSpreadSheet implements 84% of every Microsoft Excel feature and not a production-readiness percentage.
+
+## TABLE/FILTER/RIBBON/UX — ACTIVE
+
+The remaining Table, Filter, Ribbon and UX work now has an executable two-lane
+schedule in [`ribbon-table-filter-ux-delivery-plan.md`](ribbon-table-filter-ux-delivery-plan.md)
+and a single-writer coordination board in
+[`worklog/RIBBON_TABLE_FILTER_UX.md`](worklog/RIBBON_TABLE_FILTER_UX.md).
+The plan starts from exact-head green baseline
+`34a81c5d45c2b28397c1688ae665cce0d0e8dfe7`, targets a Windows 11 x64 demo and
+NuGet release candidate on **28 October 2026** with two independent lanes, and
+documents the sequential fallback through **20 November 2026**. `RIBBON-007`
+and `FILTER-005` were completed in isolated worktrees and integrated with
+cross-lane hardening on 04 September 2026. Local Core solution is **1296/1296**,
+OpenXML **93/93**, MAUI presenter **34/34**, focused desktop Ribbon **3/3**, and
+the loaded MAUI Windows Ribbon smoke reports success. Integrated exact head
+`05c6974fa907f5022f28c85f13f06dbb35288556` passed full CI #1307, iOS #128
+and Q003C/OpenXML #125. `RIBBON-008` and `FILTER-006` were immediately opened
+in new isolated worktrees rather than waiting for the calendar date. Both were
+independently reviewed, hardened and integrated without conflict. Combined
+local gates pass Core solution **1324/1324**, MAUI **36/36**, focused desktop
+**7/7**, and loaded MAUI Windows Ribbon plus Table-filter runtime smokes.
+Combined exact head `d595539d616cba1bb5543ab3530035f927304069`
+passed full CI #1309, iOS #130 and Q003C/OpenXML #127. `RIBBON-009` and
+`FILTER-007` then completed in isolated worktrees, passed independent blocker
+reviews and were integrated without conflict. The new combined local gates are
+Core solution **1354/1354**, MAUI **40/40**, focused desktop Ribbon/Table-filter
+**13/13**, and both loaded MAUI Windows Ribbon and Table-filter runtime smokes.
+Exact combined head `f75e2f103598cbbe7b5c22f92c3ab8dd755ef8c3`
+passed full CI #1312, iOS #133 and Q003C/OpenXML #130. Both checkpoints are
+`DONE`. `RIBBON-010` and `TABLE-004` then completed in isolated,
+non-overlapping worktrees and were integrated without conflict. Combined local
+gates pass Core solution **1372/1372**, MAUI **41/41**, focused desktop
+customization/table-style **4/4**, and loaded MAUI Windows Ribbon plus
+Table-filter runtime smokes. Exact combined head
+`57a8c0c0fe8eb452bcb054432d2d37b9e9807e73` passed full CI #1318, iOS #139
+and Q003C/OpenXML #136. Both checkpoints are `DONE`; `TABLE-005` is active in
+an isolated worktree from that exact green integration branch with high
+reasoning. Schedule checkpoint
+`f9340c1bf3c59e2c85336c961cf017d2c9ef8858` passed full CI #1303, iOS gate
+#124 and Q003C/OpenXML gate #121.
+
+## RIBBON-ICONOGRAPHY-006 — DONE FOR DEFINED SCOPE
+
+The SDK now contains a separate, packable `NeraSpreadSheet.Iconography`
+project with **272 semantic keys**, **242 unique SVG masters** and **4,840 PNG
+variants**. Assets cover File/Quick Access, Home, Insert, Page Layout, Formulas,
+Data/Filter, Review, View, contextual Table Design and Ribbon customization at
+16/20/24/32/48 pixels in light, dark and both high-contrast polarities.
+
+WPF, WinForms and MAUI Ribbon/Bar presenters now resolve default cached native
+icons without application setup. Existing string resolvers remain the highest
+priority override, with a new size/theme-aware resolver underneath them. Large
+Ribbon commands use 32-pixel artwork; compact commands and Bars use 16 pixels.
+Changing the resolver or theme rebuilds command chrome immediately. The 30
+currently registered production commands carry stable semantic icon keys.
+
+The catalog is generated from a pinned Microsoft Fluent UI System Icons commit
+under its MIT license plus a small set of independently composed Nera glyphs.
+Four checked-in contact sheets provide visual QA. Local gates: Core solution
+**1270/1270**, icon catalog **4/4**, focused loaded WPF/WinForms Ribbon
+**4/4**, MAUI **34/34**, loaded MAUI Windows Ribbon smoke **success**, builds
+and analyzers **0 warnings / 0 errors**, architecture and SDK packaging checks
+passed. The single full Windows test failure is the already documented local
+foreground-window restriction at `window.Activate()` and occurs before SDK
+behavior is exercised. Exact-head GitHub gates at
+`661504994f2b411c5f7d5a7c88fe836176335ba5` passed: full CI #1301, iOS
+accessibility #122 and Q003C/OpenXML #119. The SDK package artifact is
+`9935206623`.
+
+## EXCEL-BASIC-NAV-003 — DONE FOR DEFINED SCOPE
+
+The adaptive desktop navigation contract now keeps a bounded, configurable
+blank workspace after used content while preserving the current manually
+scrolled viewport independently from selection. WPF and WinForms expose the
+shared 100-row/20-column defaults as public properties suitable for NuGet
+consumers. Implementation checkpoint `45fae777c58a4a83bb65716c3dc3aecf71c5dd83`
+passed full CI #1294, iOS gate #115 and Q003C/OpenXML gate #112.
+
+## EXCEL-BASIC-COMPAT-002 — DONE FOR DEFINED SCOPE
+
+The supplied six-sheet workbook exposed a recalculation regression rather than
+an OpenXML-load failure: 28 cached Excel errors became 981 errors after Nera
+recalculation. Lookup error propagation and sparse whole-column `VLOOKUP`
+support now keep the result at the original 28 errors with zero newly-created
+errors. WPF also provides 25%-400% Ctrl+wheel zoom and an in-cell editor that
+matches effective cell typography, alignment and wrapping. Implementation
+checkpoint `d86376403e15011304974c5476fe11683347fd19` passed full CI #1296,
+iOS gate #117 and Q003C/OpenXML gate #114.
+
+## EXCEL-BASIC-VISIBILITY-004 — DONE FOR DEFINED SCOPE
+
+Excel-observed manual row/column visibility is being added as reusable sparse
+SDK state. Hide/unhide commands, undo/redo, retained custom sizes, OpenXML
+round trips and WPF/WinForms keyboard skipping are implemented locally. Core
+tests pass 1254/1254, focused loaded desktop visibility smokes pass 2/2, the
+solution builds with 0 warnings/errors, architecture and SDK packaging checks
+pass, and the external Win11 demo passes its internal and supplied-workbook
+smokes. Implementation checkpoint `944fadd9864bfeca41abf9ff8e155305fc8cd06c`
+passed full CI #1298, iOS gate #119 and Q003C/OpenXML gate #116. The SDK package
+artifact is `9928856103`.
+
+## EXCEL-FORMAT-EDIT-HELP-005 — IMPLEMENTED LOCALLY; CI PENDING
+
+The reusable SDK now has one host-neutral Excel value formatter and a wider
+Format Cells model. Common number/date/time, percentage, scientific, fraction,
+conditional-section and locale-currency formats are converted before the
+display list reaches WPF, WinForms, Direct2D or Skia. The workbook 1900/1904
+date system round-trips through OpenXML. Fonts, alignments, rotations, pattern
+fills, common border variants and protection metadata also round-trip, while
+the shared text command carries italic, underline, strike-through, alignment,
+wrapping and rotation intent to all four renderers.
+
+The WPF editor overlay is measured against the complete cell/merged-cell
+rectangle and clipped only by the current viewport, so resizing the app no
+longer changes the text wrap width. Enter commits and leaves edit mode;
+Alt+Enter inserts a line break. Invalid unmodified text keys no longer reach
+the window-level WPF shortcut converter, removing the `=SUM` crash path.
+
+`SpreadsheetSession` prepares indexed static dependencies once. Session XLSX
+loads perform this preparation off the caller/UI context, and ordinary edits
+calculate only the changed formula and transitive dependents. Formula help is
+host-neutral and covers the currently implemented callable surface with
+completion signatures, descriptions, nested-call detection and active argument
+help; WPF and the external Win11 demo present it.
+
+Local gates: Core solution **1266/1266**, Windows rendering **58/58** excluding
+the pre-existing foreground-activation-only native mouse smoke, build/analyzers
+**0 warnings / 0 errors**, architecture and SDK packaging verification passed.
+The supplied six-sheet workbook demo smoke retains **28 cached errors before
+and after** recalculation, adds no new errors and leaves the source SHA-256
+unchanged. Exact-head GitHub CI is the remaining completion gate.
+
+## Formula subsystem — CLOSED
+
+| Counter | Value |
+|---|---:|
+| Eager/versioned | 468 |
+| AST/reference-aware | 40 |
+| Dynamic-array unique | 38 |
+| **Total** | **546 / 546 locked catalog names** |
+| Formula/hardening tests | **524/524** |
+| Completed formula cycles | F001-F019 |
+
+The formula catalog is considered complete. New names are added only if a compatibility audit supplies concrete evidence worth reopening the catalog.
+
+## Q001 — differential and fuzz hardening — DONE
+
+Q001 locked deterministic scalar, arithmetic, dependency and malformed-input fuzz gates. Exact-head CI **#924** passed.
+
+## Q002 — workbook/editing + OpenXML differential hardening — DONE
+
+Q002 added deterministic `SpreadsheetSession` state-model fuzz, structural row/column model fuzz with atomic boundary rejection, and sparse/extreme OpenXML save-load-save differential corpora while retaining unknown-part/package preservation gates. Exact-head CI **#932** passed.
+
+## Q003A — analytics foundation + shared vector rendering — DONE
+
+Q003A added chart models/projection (Column, Bar, Line, Pie), pivot models/projection (Sum, Count, Average, Minimum, Maximum), per-worksheet analytics editing with Undo/Redo, shared DisplayList analytics rendering and common polygon rendering across Skia/Direct2D/WPF/WinForms. Exact-head CI **#958** passed.
+
+## Q003B — floating analytics interaction + native accessibility — DONE
+
+Validated capabilities include:
+
+- host-neutral analytics placement state, viewport mapping and floating chart/pivot overlay composition;
+- select, move, resize, Delete/Escape and normalized keyboard editing through shared Undo/Redo semantics;
+- scroll/freeze/split integration and synchronized placement snapshots for UI/GPU concurrency;
+- WPF native `AutomationPeer` analytics children;
+- WinForms native `AccessibleObject` analytics children;
+- MAUI Windows native UI Automation children over the GPU surface;
+- Android/TalkBack-compatible virtual per-chart/per-pivot accessibility children with loaded emulator smoke;
+- iOS/VoiceOver-compatible virtual `UIAccessibilityElement` chart/pivot children with loaded iOS Simulator smoke;
+- Mac Catalyst/VoiceOver-compatible virtual `UIAccessibilityElement` chart/pivot children with loaded host smoke;
+- native names/identifiers, roles, visible/clipped bounds and activation-to-selection behavior;
+- preservation of the single GPU-backed spreadsheet surface without creating a native control per cell.
+
+The previously bounded iOS runtime gap is closed. Q003B is no longer ACTIVE.
+
+## Q003C — analytics/OpenXML managed chart persistence — DONE FOR DEFINED SCOPE
+
+Implemented and validated:
+
+- `SpreadsheetSession.SaveSessionAsync` automatically materializes managed charts into standard XLSX worksheet drawing/chart parts;
+- native analytics metadata preserves chart/pivot identity, semantics, worksheet ownership and floating placement across session round trips;
+- Save → Load → Save keeps a single managed chart/drawing relationship instead of accumulating duplicate/orphan managed parts;
+- removing the final managed chart removes the now-empty Nera-managed drawing relationship/part;
+- foreign/third-party drawing content survives analytics Save → Load → Save when the existing opt-in `PreserveUnknownParts = true` import/export contract is enabled;
+- standard generated drawing/chart markup remains OpenXML-schema valid.
+
+Q003C does not claim standard Excel pivot creation/import.
+
+## Q003D — standard Excel PivotTable/PivotCache preservation — DONE FOR DEFINED SCOPE
+
+Q003D was implemented test-first and required **no production serializer patch**: the existing package-envelope preservation path already preserves a schema-valid standard Excel PivotTable/PivotCache graph when preservation is explicitly enabled.
+
+Regression coverage proves that:
+
+- an existing workbook-level `pivotCaches` entry and `PivotTableCacheDefinitionPart` survive `SpreadsheetSession` Load → Save;
+- the worksheet `PivotTablePart` survives and continues to point at the same cache-definition part;
+- workbook → cache, worksheet → pivot and pivot → cache relationship IDs remain stable across repeated save cycles;
+- standard pivot/cache part URIs, pivot name/cache ID and worksheet source `sheet`/`ref` metadata remain stable;
+- the preserved standard pivot graph remains OpenXML-schema valid;
+- a Nera-managed pivot may be added to the same session without destroying or taking ownership of the external standard PivotTable package graph;
+- a standard external Excel PivotTable is not silently imported or reclassified as a Nera-managed pivot merely because package preservation is enabled.
+
+This is intentionally **preservation interoperability**, not full pivot semantic interoperability. Still open: creation of standard Excel pivot parts from a Nera pivot, semantic import of an Excel pivot into the Nera model, cache-record interoperability, refresh/calculation equivalence, pivot destination-cell modeling, slicers/timelines and broader Excel UI parity.
+
+### Combined exact-head evidence for Q003B/Q003C/Q003D
+
+Combined implementation checkpoint: `ff7af0da897efc5007645905f529c4bdbe9eb202`.
+
+- full CI: **#1209 / run 33248651484 — success**;
+- iOS analytics accessibility gate: **#12 / run 33248651481 — success**;
+- Q003C/OpenXML gate: **#9 / run 33248651547 — success**;
+- Core solution: **1212/1212 passed**, **0 warnings**, **0 errors**;
+- Core **110/110**;
+- Editing **209/209**;
+- Interaction **20/20**;
+- Rendering.Spreadsheet **118/118**;
+- Rendering.Skia **14/14**;
+- Viewport **56/56**;
+- Formulas **518/518**;
+- OpenXML **65/65**;
+- architecture verification: **passed**;
+- Windows hosts + desktop GPU runtime smoke: **passed**;
+- MAUI Android build + loaded analytics accessibility smoke: **passed**;
+- MAUI iOS build + loaded analytics accessibility smoke: **passed**;
+- MAUI Mac Catalyst build + loaded analytics accessibility smoke: **passed**;
+- MAUI Windows build + handler-resolution + loaded Table-filter/runtime/analytics/scale smokes: **passed**.
+
+## Ribbon and Bars SDK — DESKTOP STACK INTEGRATED
+
+Desktop Ribbon/Bars from the Codex lane remains preserved in the combined checkpoint. Implemented and validated:
+
+- immutable Ribbon/Bars customization for visibility, ordering and Ribbon item size;
+- deterministic versioned JSON persistence with legacy migration and bounded input validation;
+- command-state presentation snapshots and runtime controllers using the shared command dispatcher;
+- native WPF and WinForms Ribbon, toolbar, menu and context-menu presenters;
+- native WPF and WinForms customization dialogs with apply/reset/save/load flows;
+- normalized shortcut resolution and WPF/WinForms keyboard bindings;
+- loaded desktop smoke coverage for presentation, activation, state refresh, customization and shortcuts.
+
+`RIBBON-MAUI` is **DONE** at exact-head checkpoint
+`b806cc7ed2317b456a6171672e577ee816e4692d`. The implementation adds MAUI
+Ribbon/Bar presenters, shortcut binding, Ribbon customization binding and a
+loaded MAUI Windows Ribbon smoke. GitHub CI evidence: full CI **#1214 / run
+33777851358 — success**, iOS analytics accessibility gate **#17 / run
+33777851359 — success**, and Q003C/OpenXML gate **#14 / run 33777851399 —
+success**.
+
+## PIVOT-OPENXML-STANDARD — DONE FOR DEFINED SCOPE
+
+Implemented and locally validated:
+
+- Nera-managed pivots materialize as standard Excel PivotTable, PivotCache and
+  PivotCacheRecords package parts during session save;
+- compatible standard worksheet-range PivotTables import into the existing Nera
+  pivot model during normal loads;
+- repeated Save -> Load -> Save keeps a single managed standard pivot package
+  graph instead of accumulating duplicate/orphan pivot parts;
+- explicit `PreserveUnknownParts = true` keeps Q003D preservation-only behavior
+  for external Excel pivots and does not silently reclassify them as
+  Nera-managed pivots;
+- generated standard pivot package graphs remain OpenXML-schema valid.
+
+Supported scope remains intentionally bounded to one row field, one value
+field, worksheet-range sources, header-row field names and
+Sum/Count/Average/Minimum/Maximum aggregation. Slicers, timelines, calculated
+fields/items, filters, multi-axis layouts, OLAP/external data sources,
+refresh/calculation equivalence and user-editable pivot destination cells remain
+future work.
+
+## DRAWING-MEDIA-COMPAT — DONE FOR DEFINED SCOPE
+
+Implemented and locally validated:
+
+- worksheet drawing image content referenced from a `oneCellAnchor` survives
+  repeated preserved session Load/Save cycles;
+- worksheet background `picture` image relationships survive with stable
+  relationship IDs, part URIs and bytes;
+- legacy VML drawing parts referenced by `legacyDrawing` survive repeated
+  preserved session saves;
+- workbook edits made between round trips do not disturb third-party
+  drawing/media package graphs;
+- managed chart and standard pivot OpenXML gates remain green.
+
+This lane is preservation-first. User-authored pictures, VML drawings,
+background pictures, OLE/control objects, video/audio and rich shape semantics
+remain opaque until Nera has first-class ownership models for them.
+
+## PACKAGING-SDK — DONE FOR PACKAGE-READINESS GATE SCOPE
+
+Implemented and locally validated:
+
+- common NuGet project URL, README file and package tags are defined in
+  `Directory.Build.props`;
+- the root `README.md` is packed into every SDK package;
+- all `src` SDK projects now declare explicit package IDs and descriptions;
+- tests, samples and benchmarks are checked to remain non-packable;
+- `scripts/verify-packaging-sdk.ps1` validates package metadata and source
+  package boundaries;
+- CI now runs the packaging verifier, packs `NeraSpreadSheet.Core.slnx`, and
+  uploads generated `.nupkg` files as the `sdk-packages` artifact.
+
+Local validation produced 17 SDK packages, confirmed every package contains
+`README.md`, and kept Core Release tests at 1216/1216 with 0 build warnings and
+0 errors.
+
+Exact-head GitHub evidence at commit
+`47591a8ac223f0ee5141e92bb31fca304fbe0a50`:
+
+- full CI: **#1239 / run 33787957484 — success**;
+- Core job: build/test, architecture verification, SDK packaging metadata
+  verification, SDK package pack and artifact upload all passed;
+- `sdk-packages` artifact: ID `9906198247`, digest
+  `sha256:3d697797e79866e1420bd58702d574eb1469cd26856cdd57a3cfe80b8d77bd06`;
+- iOS analytics accessibility gate: **#42 / run 33787957432 — success**;
+- Q003C/OpenXML gate: **#39 / run 33787957448 — success**.
+
+## SECURITY-RECOVERY — ACTIVE
+
+First ten hardening patches are integrated and exact-head validated:
+
+- external formula provider failures are contained at scalar, higher-order and
+  dynamic-array boundaries and return `#N/A` instead of escaping through formula
+  evaluation;
+- `WEBSERVICE`, `CALL` and `STOCKHISTORY` provider exception paths are covered;
+- document-level XLSX saves now snapshot seekable/readable destinations and
+  restore the previous bytes if the final write or flush fails after package
+  validation;
+- workbook-level XLSX saves now use the same recovery path for generated
+  packages and preserve-unknown output;
+- session-level XLSX saves now use the same recovery path after applying split
+  view, analytics, pivot and chart package metadata;
+- document, workbook and session final package writes now use a shared internal
+  recovery helper;
+- the document, workbook and session save-failure recovery paths are covered by
+  failing stream tests that verify existing destination bytes survive
+  unchanged.
+- preserve-unknown worksheet reference replacement is rejected before
+  destination bytes are mutated.
+- malformed percent-escapes in relationship targets are rejected before URI
+  decode, while common Excel hyperlink/file/relative/fragment targets remain
+  accepted.
+- malformed percent-escapes in part URIs and relationship type URIs are covered
+  by direct validator regressions while safe escaped part/type forms remain
+  accepted.
+- package-level XLSX archive scanning now validates every ZIP part name and
+  `.rels` entry before OpenXML SDK load, covering malformed escaped internal
+  part targets, relationship type URIs and external relationship targets even
+  when the SDK would not materialize those relationships into the workbook
+  object graph.
+- `[Content_Types].xml` override `PartName` values are validated during archive
+  scanning so malformed escaped package part names in the content-type table
+  are rejected before OpenXML SDK load.
+- duplicate ZIP entries are rejected during archive scanning so ambiguous
+  repeated package part names cannot reach OpenXML SDK load or preservation
+  merge paths.
+
+Exact-head GitHub evidence at commit
+`275c1b4e5e24b5c53d27546492c4e343509e127f`:
+
+- full CI: **#1286 / run 33816357502 — success**;
+- iOS analytics accessibility gate: **#106 / run 33816357459 — success**;
+- Q003C/OpenXML gate: **#103 / run 33816357453 — success**;
+- `sdk-packages` artifact: ID `9916694642`, digest
+  `sha256:a2a7d18733f941a770202723f67bddb7212ee3ecff07a8e75ddacdbc6c9df306`.
+
+## EXCEL-BASIC-COMPAT-001 — DONE FOR DEFINED SCOPE
+
+The user-reported workbook compatibility and reusable formula-editing gaps now
+have a bounded SDK implementation:
+
+- Excel differential fills that use only `bgColor`, including files with no
+  `patternType`, import without aborting the workbook load;
+- explicit unknown-part preservation tolerates unsupported conditional-format
+  rules and preserves the original rule/`dxf` mapping on save;
+- the supplied six-sheet workbook `Excel_Thuan Thanh 6789.xlsx` passes an
+  in-memory Load -> Save -> Load smoke with its source SHA-256 unchanged and
+  zero OpenXML schema validation errors;
+- host-neutral formula completion, A1 point-mode insertion and static reference
+  analysis APIs are available;
+- shared rendering draws visible precedent outlines, and the WPF control binds
+  suggestions, mouse-drag reference insertion and formula-cell highlights;
+- formula-reference theme defaults retain stable record equality so viewport
+  display-list cache keys remain reusable across equivalent default themes;
+- OpenXML 83/83, Editing 214/214, Rendering.Spreadsheet 120/120 and Formulas
+  522/522 pass locally; Core solution 1241/1241 and the focused WPF
+  formula-editing smoke pass.
+
+The demo-specific visible scrollbar and horizontal sheet-tab layout remain
+outside this SDK change.
+
+Exact-head implementation evidence at commit
+`29d07537243d937e3ab83b7c03e71f2041c8d4f5`:
+
+- full CI: **#1290 / run 33830342078 — success**;
+- iOS analytics accessibility gate: **#111 / run 33830342090 — success**;
+- Q003C/OpenXML gate: **#108 / run 33830342087 — success**;
+- `sdk-packages` artifact: ID `9921465835`, digest
+  `sha256:6b9104ecaba62bdeb480033f374735e707b42389aea977c59c56aedc1fe2bcba`.
+
+## EXCEL-BASIC-NAV-002 — DONE FOR DEFINED SCOPE
+
+The reusable viewport and desktop-host navigation gap now has a bounded SDK
+implementation:
+
+- the physical worksheet limits remain unchanged;
+- an opt-in adaptive extent includes used sparse cells, merges, tables,
+  dimension overrides and the active navigation cell;
+- an empty tail expands while it is active and contracts after navigation
+  returns unless workbook content still owns it;
+- WPF and WinForms arrow, Enter and Tab navigation automatically scroll the
+  active cell into view;
+- Viewport 58/58, focused loaded desktop smoke 2/2 and Core solution 1243/1243
+  pass locally; build/analyzers and architecture verification are green.
+
+Split-pane adaptive extent and the MAUI host opt-in remain outside this bounded
+hotfix.
+
+Exact-head implementation evidence at commit
+`3a4b8e885b204d99354216a29dd9ead759672c8c`:
+
+- full CI: **#1292 / run 33836662403 — success**;
+- iOS analytics accessibility gate: **#113 / run 33836662383 — success**;
+- Q003C/OpenXML gate: **#110 / run 33836662385 — success**.
+
+## Current boundaries
+
+PR #1 remains **Draft, open and unmerged**. Q003B, Q003C, the defined Q003D
+preservation scope, `RIBBON-MAUI`, `PIVOT-OPENXML-STANDARD`,
+`DRAWING-MEDIA-COMPAT` and `PACKAGING-SDK` are closed for their defined scopes.
+`SECURITY-RECOVERY` remains active after the first ten validated hardening
+patches. Major remaining roadmap areas include additional security/isolation
+coverage, broader localization/accessibility completion and final
+acceptance/release evidence.

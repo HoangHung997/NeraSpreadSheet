@@ -1,0 +1,15 @@
+<Solution>
+  <Project Path="src/NeraSpreadSheet.Foundation/NeraSpreadSheet.Foundation.csproj" />
+  <Project Path="src/NeraSpreadSheet.Core/NeraSpreadSheet.Core.csproj" />
+  <Project Path="src/NeraSpreadSheet.Formulas/NeraSpreadSheet.Formulas.csproj" />
+  <Project Path="src/NeraSpreadSheet.Layout/NeraSpreadSheet.Layout.csproj" />
+  <Project Path="src/NeraSpreadSheet.Scrolling/NeraSpreadSheet.Scrolling.csproj" />
+  <Project Path="src/NeraSpreadSheet.Commands/NeraSpreadSheet.Commands.csproj" />
+  <Project Path="src/NeraSpreadSheet.Iconography/NeraSpreadSheet.Iconography.csproj" />
+  <Project Path="src/NeraSpreadSheet.Ribbon.Core/NeraSpreadSheet.Ribbon.Core.csproj" />
+  <Project Path="src/NeraSpreadSheet.Bars.Core/NeraSpreadSheet.Bars.Core.csproj" />
+  <Project Path="src/NeraSpreadSheet.DataGrid.Core/NeraSpreadSheet.DataGrid.Core.csproj" />
+  <Project Path="src/NeraSpreadSheet.Rendering.Abstractions/NeraSpreadSheet.Rendering.Abstractions.csproj" />
+  <Project Path="src/NeraSpreadSheet.Rendering.Skia/NeraSpreadSheet.Rendering.Skia.csproj" />
+  <Project Path="src/NeraSpreadSheet.Maui/NeraSpreadSheet.Maui.csproj" />
+</Solution>

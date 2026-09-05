@@ -1,0 +1,37 @@
+name: Đề xuất tính năng
+about: Đề xuất thay đổi có mục tiêu và tiêu chí nghiệm thu
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Vấn đề cần giải quyết
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Phương án đề xuất
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Tiêu chí nghiệm thu
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Mô-đun chính
+      options:
+        - Core
+        - Formula
+        - Layout/Scrolling
+        - Direct2D/Windows
+        - Skia/MAUI
+        - OpenXml/Printing
+        - Ribbon/DataGrid
+        - Khác
+    validations:
+      required: true
