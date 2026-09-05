@@ -1,6 +1,26 @@
 # NeraSpreadSheet current implementation status
 
-## TABLE-006-NATIVE — ĐÃ GHÉP SOURCE; UX-006 VẪN ACTIVE
+## NATIVE TABLE + UX-006 — ĐÃ GHÉP HAI SOURCE; CHỜ COMBINED FINAL GATE
+
+A đã integrated-green tại `ca69da45`, đủ bảy job: full `33964496297`, iOS
+`33964496300`, Q003C `33964496314`. B final `292a48d1` xanh đủ bảy job ở
+full `33965918117`, iOS `33965919539`, Q003C `33965921194`, đã release toàn bộ.
+Coordinator ghép đúng bốn commits B thành combined checkpoint `0e770e52`, không
+conflict hoặc path overlap; không có writer source/desktop nào còn active.
+
+Resources theo host, Ribbon/Bar/Table/Filter chrome và native adorner/theme fixes
+đã ghép với editor/corpus Table. Không đổi workbook/calculation/history semantics.
+Source final artifacts: 226 Ribbon PNG/128 layouts, 4 MAUI PNG; coordinator đã
+inspect và xác minh final hashes trùng d55. Combined desktop build 0 warnings/errors,
+Core **1505/1505**, MAUI headless **44/44** local (SDK/workload khác biệt được ghi
+trong hồ sơ); exact-final-HEAD CI vẫn là cổng riêng.
+[Hồ sơ tích hợp](worklog/UX_INTEGRATION_20260905.md).
+
+Whole UX-006/TABLE-006 chưa DONE: còn physical DPI/touch/screen reader, partial
+English, Picker dropdown mở, MAUI custom shell; MAUI/split editor và LibreOffice.
+Chưa kết luận latency không hồi quy. Không phát hành demo/NuGet hoặc merge PR.
+
+## LỊCH SỬ — TABLE-006-NATIVE ĐÃ GHÉP, UX-006 KHI CÒN ACTIVE
 
 A đã bàn giao `4ae7731fbc35362809fd9fb4027b53fdbfb6ebdc`, xanh đủ bảy job
 đúng SHA: full #1339 / `33958874774`, iOS #160 / `33958876307`, Q003C #157 /

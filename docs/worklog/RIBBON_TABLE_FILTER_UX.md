@@ -26,8 +26,8 @@ Task owners write their own `docs/worklog/<CHECKPOINT>.md` handoff.
 | 9 | `RIBBON-VISUAL-011` | A | `DONE` | Codex task `RIBBON-VISUAL-011 — Excel-density adaptive layout` | `feature/ribbon-visual-011` | `RIBBON-010` | integrated/green implementation 05/09 |
 | 10 | `TABLE-005` | Source | `DONE` | Coordinator; source imported once through A | `feature/bootstrap-architecture-v0.1` | `TABLE-004`; defined scope | combined implementation `e29acb44` green 05/09 |
 | 11 | `TABLE-RIBBON-012` | A | `DONE` | Coordinator; source task `01a0704c-1f36-7232-a54f-bc67c965e89c` handed off `d283a55b` | `feature/bootstrap-architecture-v0.1` | `488c61ea` + immutable TABLE-005 source | combined implementation `e29acb44` green 05/09 |
-| 12 | `TABLE-006` / `TABLE-006-NATIVE` | A → Coordinator | `INTEGRATED / FINAL GATE` | A released source `4ae7731f`; coordinator verifies integration | `feature/bootstrap-architecture-v0.1` | five A commits after `2bc00eb6` imported as `1aaba747`; source 7/7 green | whole TABLE-006 not DONE; MAUI/split/LibreOffice gaps remain |
-| 13 | `UX-006` | B | `ACTIVE` | Task `01a070af-9093-7303-a811-821cde640467`, `gpt-6-astra / xhigh` | `feature/ux-006-visual-localization` | independent chrome from final `2bc00eb6`; combined acceptance still required | started early 05/09; planned window 12–15/10 |
+| 12 | `TABLE-006` / `TABLE-006-NATIVE` | Coordinator | `INTEGRATED / BOUNDED` | A released; final `ca69da45` 7/7 green | `feature/bootstrap-architecture-v0.1` | native editor/corpus accepted; preserved during UX integration | whole TABLE-006 not DONE; MAUI/split/LibreOffice gaps remain |
+| 13 | `UX-006` | B → Coordinator | `INTEGRATED / FINAL GATE` | B released source `292a48d1`; coordinator validates combined HEAD | `feature/bootstrap-architecture-v0.1` | four B commits imported onto `ca69da45` as `0e770e52`; source 7/7 green | whole UX-006 not DONE; physical DPI/a11y/latency acceptance open |
 | 14 | `UX-007` | Integration | `BACKLOG` | Integration owner | `feature/ux-007-keyboard-a11y` | `UX-006` | 16–21/10 |
 | 15 | `PERF-008` | Integration | `BACKLOG` | Integration owner | `feature/perf-008-ribbon-filter` | `UX-007` | 22–26/10 |
 | 16 | `RELEASE-009` | Integration | `BACKLOG` | Integration owner | `release/0.2.0-rc1` | `PERF-008` | 27–28/10 |
@@ -52,7 +52,15 @@ waits.
 
 ## Integration record
 
-### TABLE-006-NATIVE source handoff và integration
+### UX-006 kết hợp native Table
+
+A final `ca69da45` xanh full `33964496297`, iOS `33964496300`, Q003C `33964496314`.
+B final `292a48d1` xanh full `33965918117`, iOS `33965919539`, Q003C `33965921194`.
+Cả hai source đã release files/desktop. Bốn commits B ghép không conflict/path
+overlap thành `0e770e52`; combined exact-final-HEAD CI sau docs vẫn bắt buộc.
+[Commit map, source evidence, giới hạn và rollback](UX_INTEGRATION_20260905.md).
+
+### Lịch sử TABLE-006-NATIVE source handoff và integration
 
 Source `4ae7731f`: full #1339 / `33958874774`, iOS #160 / `33958876307`,
 Q003C #157 / `33958877741`, cả bảy job success; Core1497/1497, Windows102/102.

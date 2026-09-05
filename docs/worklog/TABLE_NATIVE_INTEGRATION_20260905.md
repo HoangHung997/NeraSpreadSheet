@@ -1,5 +1,18 @@
 # Tích hợp TABLE-006-NATIVE — 05/09/2026
 
+## Kết quả final và checkpoint kế tiếp
+
+Final integration **`ca69da45a04301bc63286c168f887488d681a00e`** đã verified
+full #1340 / `33964496297`, iOS #161 / `33964496300`, Q003C #158 /
+`33964496314`: đủ bảy job completed/success đúng SHA. Windows 102/102, Core
+1497/1497, capture 177 PNG/128 layouts. Final evidence ở
+[PR handoff](https://github.com/HoangHung997/NeraSpreadSheet/pull/1#issuecomment-5551593661).
+
+B sau đó đã final handoff `292a48d1` và release toàn bộ files/desktop, được ghép
+thành `0e770e52`. Trạng thái quyền ghi/CI tiếp theo ở
+[hồ sơ combined UX](UX_INTEGRATION_20260905.md); các mục bên dưới giữ lịch sử
+lúc A tích hợp, không còn có nghĩa B đang giữ desktop hoặc candidate cũ active.
+
 ## Phạm vi và nguồn đã nghiệm thu
 
 Coordinator nhận handoff độc quyền từ task A

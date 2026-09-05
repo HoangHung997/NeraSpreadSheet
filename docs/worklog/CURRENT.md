@@ -1,6 +1,35 @@
 # Current Work Handoff
 
-## Current integration — TABLE-006-NATIVE; UX-006 vẫn đang chạy
+## Current integration — native Table + UX-006
+
+- Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+  A baseline final **`ca69da45a04301bc63286c168f887488d681a00e`** đã xanh full
+  `33964496297`, iOS `33964496300`, Q003C `33964496314`, đủ bảy job đúng SHA.
+- B final **`292a48d19435e76589c1f0eaa12302e94ace5a48`** đã handoff và release
+  toàn bộ files/desktop; source full `33965918117`, iOS `33965919539`, Q003C
+  `33965921194` đều success, đủ bảy job đúng SHA. Cả A/B không còn writer active.
+- Ghép đúng bốn commits B sau `2bc00eb6` lên `ca69da45`, không conflict/path overlap.
+  Combined checkpoint **`0e770e5293c4f7e60e53fdc9ffc1ad5a36616fc7`**; từng source
+  path A/B giữ byte-equivalent với respective finals. Không nhập baseline hai lần.
+- Đã ghép host-scoped resources/chrome, WPF adorner idle, MAUI Label/visual states/
+  checkbox/Picker contrast và regressions giữ identity/focus/query/history.
+  Coordinator inspect ảnh; final source hashes bằng 226 Ribbon + 4 MAUI ảnh d55.
+- Source B Core 1478/1478, Windows 80/80, MAUI 44/44. Combined desktop build
+  0 warnings/errors, Core **1505/1505**, 0 skip; architecture/packaging pass.
+  MAUI headless **44/44** bằng SDK 10.0.201 có sẵn; SDK 10.0.302 local thiếu
+  workload (NETSDK1147), không đổi global.json. Native combined gates
+  dùng GitHub CI tại HEAD cuối gồm docs; source CI không thay integration CI.
+- Whole TABLE-006/UX-006 còn mở: MAUI/split editor, LibreOffice; physical DPI/touch/
+  screen reader, partial English, open Picker dropdown capture, MAUI custom shell.
+  Layout allocation tương đương nhưng chưa chấp nhận no-latency-regression.
+- Commit map, review, tests, artifacts, file trọng tâm và rollback:
+  [UX_INTEGRATION_20260905.md](UX_INTEGRATION_20260905.md),
+  [UX-006.md](UX-006.md), [contract](../ux-006-visual-localization-contract.md).
+- Bước tiếp theo duy nhất: chốt build/Core/docs, push và kiểm chứng ba workflow/
+  bảy job/runtime artifacts ở HEAD kết hợp cuối rồi ghi handoff PR #1. Không
+  merge, publish NuGet, repack demo/Avalonia hoặc mở wave mới trước nghiệm thu.
+
+## Historical integration — TABLE-006-NATIVE; UX-006 khi còn chạy
 
 - Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
   A đã bàn giao final `4ae7731fbc35362809fd9fb4027b53fdbfb6ebdc`, được kiểm tra

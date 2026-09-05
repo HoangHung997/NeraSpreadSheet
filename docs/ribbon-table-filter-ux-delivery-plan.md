@@ -1,5 +1,15 @@
 # Kế hoạch hoàn thiện Table, Filter, Ribbon và UX
 
+Cập nhật hiện hành 05/09/2026: A final `ca69da45` đã integrated-green; B final
+`292a48d1` đã source-green đủ ba workflow/bảy job và release toàn bộ files/desktop.
+Đã ghép bốn commits B với native Table thành `0e770e52`. Resources/chrome/contrast
+và WPF idle fixes có source regression/capture evidence; combined final gates
+là bước kế tiếp. Whole TABLE-006/UX-006 vẫn còn các acceptance được ghi rõ,
+không đổi thành DONE chỉ vì code đã ghép. Không publish demo/NuGet hoặc mở wave
+mới trước nghiệm thu. [Hồ sơ tích hợp UX](worklog/UX_INTEGRATION_20260905.md).
+
+## Lịch sử các checkpoint đã triển khai sớm
+
 Cập nhật tích hợp A ngày 05/09/2026: source TABLE-006-NATIVE `4ae7731f` xanh
 ba workflow/bảy job, đã ghép năm commits thành `1aaba747`. Standalone native
 editor và corpus Excel/Nera đã có; MAUI/split editor, LibreOffice và các giới

@@ -1,6 +1,17 @@
 # Đợt TABLE-006-NATIVE / UX-006 — 05/09/2026
 
-## Cập nhật hiện hành — A đã handoff, B tiếp tục
+## Cập nhật hiện hành — cả hai lane đã release, coordinator tích hợp
+
+A final integration `ca69da45` đã xanh đủ bảy job. B final source `292a48d1`
+xanh full `33965918117`, iOS `33965919539`, Q003C `33965921194`, đủ bảy job;
+đã RELEASE ALL OWNED FILES kể cả transfer legacy TableHost/CI upload step.
+Không còn source writer hoặc native desktop owner active. Coordinator đã ghép
+bốn commits B lên A thành `0e770e52`, không conflict/path overlap, giữ source
+paths của cả hai lane. [Combined integration record](UX_INTEGRATION_20260905.md).
+Build/Core/combined exact-final-HEAD CI sau docs phải qua trước bàn giao.
+Không tạo thêm task trong wave; các quyền/trạng thái bên dưới là lịch sử.
+
+## Lịch sử — A đã handoff, B khi còn tiếp tục
 
 A final `4ae7731f` xanh full `33958874774`, iOS `33958876307`, Q003C
 `33958877741`, đủ bảy job. Coordinator ghép năm commits thành `1aaba747`,
@@ -43,7 +54,7 @@ và không bỏ combined CI khi nghiệm thu.
 | Lane | Checkpoint | Branch dự kiến | Trạng thái |
 | --- | --- | --- | --- |
 | A | TABLE-006-NATIVE — editor và producer corpus | `feature/table-006-native-compat` | HANDED OFF / RELEASED; integrated `1aaba747` |
-| B | UX-006 — visual system và localization | `feature/ux-006-visual-localization` | ACTIVE |
+| B | UX-006 — visual system và localization | `feature/ux-006-visual-localization` | HANDED OFF / RELEASED; imported `0e770e52` |
 
 Đã xác nhận task có turn `inProgress`, đúng model/effort/base và worklog claim:
 
