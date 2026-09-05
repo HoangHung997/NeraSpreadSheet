@@ -1,0 +1,62 @@
+name: PERF-008 isolated paired acceptance
+
+on:
+  push:
+    branches: ['feature/perf-008-harness']
+  workflow_dispatch:
+    inputs:
+      baseline_sha:
+        description: Exact production baseline SHA
+        required: true
+        default: '2e8482c25a44797a479b276ae26f472811a0a81e'
+      candidate_sha:
+        description: Exact combined production SHA; empty uses workflow HEAD
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perf-008-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  paired:
+    name: Serial paired CPU measurements and native lifecycle stress
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: harness
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.baseline_sha || '2e8482c25a44797a479b276ae26f472811a0a81e' }}
+          path: baseline
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+          path: candidate
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: harness/global.json
+      - name: Run calibration, frozen budgets, paired measurements and headless stress
+        shell: pwsh
+        run: ./harness/scripts/run-perf-008.ps1 -BaselineRoot baseline -CandidateRoot candidate -HarnessRoot harness -OutputRoot artifacts/perf-008
+      - name: Run native Windows PERF008 stress on candidate production
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          Copy-Item -Path harness/tests/NeraSpreadSheet.Windows.Rendering.Tests/PERF008*.cs -Destination candidate/tests/NeraSpreadSheet.Windows.Rendering.Tests/ -Force
+          Set-Location candidate
+          dotnet test tests/NeraSpreadSheet.Windows.Rendering.Tests/NeraSpreadSheet.Windows.Rendering.Tests.csproj -c Release --filter 'FullyQualifiedName~PERF008' --logger 'trx;LogFileName=perf008-native.trx' --results-directory ../artifacts/perf-008/native -m:1 /nodeReuse:false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./scripts/verify-architecture.ps1
+      - name: Upload all raw evidence, including failures and inconclusive runs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-008-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/perf-008/
+          if-no-files-found: error
+          retention-days: 30
