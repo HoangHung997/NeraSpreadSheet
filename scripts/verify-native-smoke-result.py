@@ -165,7 +165,7 @@ def reconcile_unified_duplicates(console, unified, prefix, minimum_frames=2):
     return normalized
 
 
-def read_result(paths, prefix, minimum_frames=2, json_paths=()):
+def read_result(paths, prefix, minimum_frames=2, json_paths=(), allow_truncated_duplicates=True):
     texts = []
     console = ""
     for path, is_json in [(path, False) for path in paths] + [(path, True) for path in json_paths]:
@@ -176,7 +176,9 @@ def read_result(paths, prefix, minimum_frames=2, json_paths=()):
             raise NativeResultError("oversized-log")
         text = source.read_text(encoding="utf-8", errors="replace")
         if is_json:
-            text = reconcile_unified_duplicates(console, extract_unified_messages(text, prefix), prefix, minimum_frames)
+            text = extract_unified_messages(text, prefix)
+            if allow_truncated_duplicates:
+                text = reconcile_unified_duplicates(console, text, prefix, minimum_frames)
         else:
             console += text + "\n"
         texts.append(text)
@@ -262,7 +264,8 @@ def main():
     parser.add_argument("--file-context", help="Private launcher-created context for opt-in app-file evidence")
     args = parser.parse_args()
     try:
-        result = read_result(args.log, args.prefix, args.minimum_frames, args.json_log)
+        result = read_result(args.log, args.prefix, args.minimum_frames, args.json_log,
+                             allow_truncated_duplicates=args.file_context is None)
         if result is None:
             return 2  # Pending, not a successful result or a retry of the app.
         if args.file_context:
