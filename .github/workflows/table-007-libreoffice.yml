@@ -1,0 +1,23 @@
+name: table-007-libreoffice
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  producer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install actual Calc producer
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-calc
+      - name: Generate isolated synthetic producer corpus
+        run: python3 scripts/table-007-libreoffice.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: table-007-libreoffice-producer
+          path: artifacts/table-007-libreoffice/
+          if-no-files-found: error
