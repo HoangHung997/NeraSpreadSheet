@@ -4,10 +4,9 @@
 - Base clean đã xác minh: `2e8482c25a44797a479b276ae26f472811a0a81e`.
 - Product checkpoint đã push: `9bf24af9a44ce25da4826edb2f6039203f5416f1`;
   desktop21-path slice đã partial release, wholeB vẫn HOLD. Diagnostic checkpoint
-  `a3b7a4df27e559c3cc4acb9293fee07ec04090e2` có completed dispatcher partition:
-  Mac variant FAIL, Windows native PASS; original Mac gate đỏ. One-off đã đóng;
-  historical commit giữ exact patch và evidence. Completed-await variant mới
-  đã được cấp; chưa có runtime result.
+  `1ff4f3582c55ce0690afd930da37417c873b5460` có completed async-shape partition:
+  Mac variant PASS, Windows native PASS; original Mac gate đỏ. One-off đã đóng;
+  historical commit giữ exact patch và evidence. Chưa có active variant tiếp.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
 - Root cho phép riêng workflow `table-007-libreoffice.yml` và producer script;
@@ -457,6 +456,19 @@
   3 Python/7 Bash syntax, original workload/baseline/candidate steps byte-equal normal
   workflow, approved patch git apply --check/hash, original src/tests unchanged.
   Native compile/runtime chưa chạy local; chờ narrow hosted CI.
-- Bước tiếp theo duy nhất: chạy approved completed-await partition trong narrow
-  native CI, đọc build/phase/current-process/native outcomes; giữ21 desktop paths
-  frozen và wholeB HOLD, không tự mở thêm variant hoặc sửa product.
+- Completed-await1ff narrow33991085641 DONE: Mac101373326278 baselinePASS và
+  variantPASS đều10frames/2native elements/chart+pivot activation; original
+  candidateFAIL trước Action entry. All3builds0warnings/errors; exact patch/blob/
+  single-path/metadata guards PASS. Async helper/caller alone không tái hiện;
+  dispatch invocation/suspension/timing còn là nhóm delta cần phân biệt, chưa
+  chứng minh Dispatcher hay renderer là nguyên nhân. Đóng completed one-off.
+- Selected generated class declarations/counts/implementations/maps bằng current
+  candidate và faileda3 variant; registrar.h vẫnf514f42d, mm1054529bytes/fullhash
+  khác. SDK/evaluatedprops/packages giống. Unchanged runner chỉ in trace khi lỗi,
+  nên literal completed-entry marker của successful variant không trực tiếp có
+  trong log; chỉ có source/control-flow + successful native analytics result.
+- Windows1ff101373326163 baselinePASS43frames/candidatePASS/table007Editor=true/
+  62frames, cả hai3recreation cycles. Không xóa known first-reinsert risk trước đó.
+- Bước tiếp theo duy nhất: nhận scope root cho orchestration thực từ page Loaded/
+  frame readiness ngoài PaintSurface, giữ all true editor/analytics assertions;
+  giữ21 desktop paths frozen và wholeB HOLD, không tự mở variant hoặc sửa product.
