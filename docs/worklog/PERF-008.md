@@ -49,6 +49,10 @@ Harness fix pin install **10.0.302** vào runtime directory riêng của runner,
 giữ global.json nguyên trạng; sửa test/analyzer và OutputRoot theo PowerShell
 working directory, giữ manifest kể cả preflight failure. Không đổi threshold.
 
+Run `33972065761` tại `a08eeffb` bị workflow validation từ chối trước khi tạo
+job vì `runner.temp` nằm ở job-level env. Đưa install-dir env xuống setup step
+(context runner hợp lệ); không có samples hoặc runtime evidence ở run này.
+
 - `benchmarks/NeraSpreadSheet.Benchmarks/PERF008Harness.cs`, `PERF008Stress.cs`,
   `Program.cs`; không sửa workbook/editor/calculation model.
 - `scripts/run-perf-008.ps1`, `scripts/run-perf-008-analysis.py`.
