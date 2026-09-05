@@ -22,6 +22,65 @@ class NativeResultTests(unittest.TestCase):
         value = self.marker(nonce="same-run")
         self.assertEqual(json.loads(value), MODULE.parse_result("TEST:" + value + "\n2026 app TEST:" + value, "TEST:"))
 
+    def testUnifiedJsonPreservesEscapedMessageFraming(self):
+        value = self.marker(description='Nội dung "được giữ"\ntrong JSON', details="x" * 2000)
+        events = json.dumps([
+            {"eventMessage": "unrelated log", "processImagePath": "/private/not-exported"},
+            {"eventMessage": "TEST:" + value},
+        ], ensure_ascii=False)
+        messages = MODULE.extract_unified_messages(events, "TEST:")
+        self.assertNotIn("not-exported", messages)
+        self.assertEqual(json.loads(value), MODULE.parse_result("TEST:" + value + "\n" + messages, "TEST:"))
+
+    def testUnifiedFailureCannotBeHiddenByConsoleSuccess(self):
+        events = json.dumps([{"eventMessage": "TEST:" + self.marker(status="failure")}])
+        with self.assertRaisesRegex(MODULE.NativeResultError, "failure-or-unknown-status"):
+            MODULE.parse_result("TEST:" + self.marker() + "\n" + MODULE.extract_unified_messages(events, "TEST:"), "TEST:")
+
+    def testMalformedUnifiedTransportFailsClosedAndEmptyStaysPending(self):
+        for value in ('[{"eventMessage":', '{}', '[{}]', '[{"eventMessage":false}]'):
+            with self.subTest(value=value), self.assertRaises(MODULE.NativeResultError):
+                MODULE.extract_unified_messages(value, "TEST:")
+        self.assertIsNone(MODULE.parse_result(MODULE.extract_unified_messages("[]", "TEST:"), "TEST:"))
+
+    def testTruncatedUnifiedDuplicateRequiresExactCompleteConsolePayload(self):
+        value = self.marker(nonce="current-run", details="x" * 1500)
+        console = "TEST:" + value
+        fragment = value[:990]
+        normalized = MODULE.reconcile_unified_duplicates(console, "TEST:" + fragment, "TEST:")
+        self.assertEqual(console, normalized)
+        self.assertEqual(json.loads(value), MODULE.parse_result(console + "\n" + normalized, "TEST:"))
+
+    def testTruncatedUnifiedMarkerCannotSucceedWithoutFullConsoleEvidence(self):
+        fragment = "TEST:" + self.marker(details="x" * 1500)[:990]
+        with self.assertRaises(MODULE.NativeResultError):
+            MODULE.reconcile_unified_duplicates("", fragment, "TEST:")
+        with self.assertRaises(MODULE.NativeResultError):
+            MODULE.reconcile_unified_duplicates(fragment, fragment, "TEST:")
+
+    def testUnknownTruncatedStatusOrFrameCannotBorrowConsoleSuccess(self):
+        value = self.marker(details="x" * 1500)
+        for fragment in ('{', '{"status":"suc', '{"status":"success",', '{"status":"success","frameCount":3'):
+            with self.subTest(length=len(fragment)), self.assertRaises(MODULE.NativeResultError):
+                MODULE.reconcile_unified_duplicates("TEST:" + value, "TEST:" + fragment, "TEST:")
+
+    def testUnifiedMismatchFailureAndCorruptionCannotUseConsoleFallback(self):
+        value = self.marker(nonce="current-run", details="x" * 1500)
+        for other in (
+            self.marker(nonce="old-run", details="x" * 1500)[:990],
+            self.marker(status="failure", details="x" * 1500)[:990],
+            value[:500] + "broken" + value[506:990],
+            self.marker(nonce="different-complete-result"),
+            self.marker(status="failure"),
+        ):
+            with self.subTest(other_length=len(other)), self.assertRaises(MODULE.NativeResultError):
+                MODULE.reconcile_unified_duplicates("TEST:" + value, "TEST:" + other, "TEST:")
+
+    def testCompleteUnifiedResultStillWorksWithoutConsoleMarker(self):
+        value = self.marker()
+        normalized = MODULE.reconcile_unified_duplicates("no console marker", "TEST:" + value, "TEST:")
+        self.assertEqual(json.loads(value), MODULE.parse_result(normalized, "TEST:"))
+
     def testMissingAndWrongPrefixStayPending(self):
         self.assertIsNone(MODULE.parse_result("other:" + self.marker(), "TEST:"))
         self.assertIsNone(MODULE.parse_result("runtime has not finished", ""))
