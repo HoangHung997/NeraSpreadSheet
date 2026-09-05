@@ -5,9 +5,9 @@
   `feature/bootstrap-architecture-v0.1`.
 - Pull request: #1 Draft, open, unmerged; base `develop`.
 - Latest implementation exact-head CI checkpoint:
-  `f75e2f103598cbbe7b5c22f92c3ab8dd755ef8c3`; full CI run `33931524467` /
-  #1312, iOS run `33931524461` / #133 and Q003C/OpenXML run `33931524543` /
-  #130 passed.
+  `57a8c0c0fe8eb452bcb054432d2d37b9e9807e73`; full CI run `33936291893` /
+  #1318, iOS run `33936291863` / #139 and Q003C/OpenXML run `33936291978` /
+  #136 passed.
 - Iconography implementation commit:
   `2b933fd8b04042c0c52854dd73651161e9ae9322`; implementation/docs head
   `661504994f2b411c5f7d5a7c88fe836176335ba5` passed all exact-head gates.
@@ -123,9 +123,15 @@
   Ribbon/Table-filter **13/13**, and both loaded MAUI Windows Ribbon and
   Table-filter smokes **success**. Exact combined head
   `f75e2f103598cbbe7b5c22f92c3ab8dd755ef8c3` passed full CI #1312, iOS #133
-  and Q003C/OpenXML #130. Both checkpoints are `DONE`; `RIBBON-010
-  Customization SDK` and `TABLE-004 Table Style Engine` are active in isolated,
-  non-overlapping worktrees from that exact green SHA.
+  and Q003C/OpenXML #130. `RIBBON-010 Customization SDK` and `TABLE-004 Table
+  Style Engine` then completed in isolated worktrees and were integrated without
+  conflict. Combined gates: Core solution **1372/1372**, MAUI **41/41**,
+  focused desktop **4/4**, loaded MAUI Windows Ribbon and Table-filter smokes
+  **success**, architecture and packaging verification **passed**. Exact
+  combined head `57a8c0c0fe8eb452bcb054432d2d37b9e9807e73` passed full CI #1318,
+  iOS #139 and Q003C/OpenXML #136. Both checkpoints are `DONE`; `TABLE-005 —
+  Contextual Table Design` is active from the exact green integration branch in
+  a new worktree with `thinking: high`.
   Schedule commit
   `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` passed full CI #1303, iOS #124
   and Q003C/OpenXML #121.
@@ -300,9 +306,10 @@ For `RIBBON-ICONOGRAPHY-006` local validation:
 
 ## Next step
 
-Monitor the isolated `RIBBON-009` and `FILTER-007` lanes. Independently review
-each pushed handoff, integrate only their disjoint approved commit sets, then
-require full CI, iOS and Q003C/OpenXML success at the resulting exact SHA.
+Monitor the isolated `TABLE-005 — Contextual Table Design` worktree. Review its
+pushed handoff, integrate only its approved commit chain, then require full CI,
+iOS and Q003C/OpenXML success at the resulting exact SHA before opening
+`TABLE-006`.
 
 ## Remaining limits
 

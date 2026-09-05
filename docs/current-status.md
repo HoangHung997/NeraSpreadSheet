@@ -32,8 +32,15 @@ Core solution **1354/1354**, MAUI **40/40**, focused desktop Ribbon/Table-filter
 **13/13**, and both loaded MAUI Windows Ribbon and Table-filter runtime smokes.
 Exact combined head `f75e2f103598cbbe7b5c22f92c3ab8dd755ef8c3`
 passed full CI #1312, iOS #133 and Q003C/OpenXML #130. Both checkpoints are
-`DONE`; `RIBBON-010` and `TABLE-004` are active in isolated, non-overlapping
-worktrees from that exact green SHA. Schedule checkpoint
+`DONE`. `RIBBON-010` and `TABLE-004` then completed in isolated,
+non-overlapping worktrees and were integrated without conflict. Combined local
+gates pass Core solution **1372/1372**, MAUI **41/41**, focused desktop
+customization/table-style **4/4**, and loaded MAUI Windows Ribbon plus
+Table-filter runtime smokes. Exact combined head
+`57a8c0c0fe8eb452bcb054432d2d37b9e9807e73` passed full CI #1318, iOS #139
+and Q003C/OpenXML #136. Both checkpoints are `DONE`; `TABLE-005` is active in
+an isolated worktree from that exact green integration branch with high
+reasoning. Schedule checkpoint
 `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` passed full CI #1303, iOS gate
 #124 and Q003C/OpenXML gate #121.
 

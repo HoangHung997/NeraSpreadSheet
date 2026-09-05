@@ -21,9 +21,9 @@ Task owners write their own `docs/worklog/<CHECKPOINT>.md` handoff.
 | 4 | `FILTER-006` | B | `DONE` | Codex task `FILTER-006 Native Rich Filter UX` (`client-new-thread:6b8ccb3d-d6ac-4034-b044-ce5135978940`) | `feature/filter-006-native-ux` | `FILTER-005`; Ribbon integration waits for `RIBBON-008` | integrated/green 04/09 |
 | 5 | `RIBBON-009` | A | `DONE` | Codex task `RIBBON-009 Contextual QAT Key Tips` (`client-new-thread:857c5cdd-87ba-4756-8942-55fd33757ccc`) | `feature/ribbon-009-contextual-qat` | `RIBBON-008` | integrated/green 05/09 |
 | 6 | `FILTER-007` | B | `DONE` | Codex task `FILTER-007 Sort Reapply Accessibility` (`client-new-thread:15e93970-66ea-4bdc-b34d-5e143f3c7c1c`) | `feature/filter-007-sort-accessibility` | `FILTER-006` | integrated/green 05/09 |
-| 7 | `RIBBON-010` | A | `ACTIVE` | Codex task `RIBBON-010 Customization SDK` (`client-new-thread:5d0abfeb-94ff-4b03-ab7a-3bd7236347bb`) | `feature/ribbon-010-customization` | `RIBBON-009` | started early 05/09 |
-| 8 | `TABLE-004` | B | `ACTIVE` | Codex task `TABLE-004 Table Style Engine` (`client-new-thread:9d15985f-554c-49df-be81-30fc4ebc2ef4`) | `feature/table-004-style-engine` | `FILTER-007` | started early 05/09 |
-| 9 | `TABLE-005` | B | `BACKLOG` | Unclaimed | `feature/table-005-design-surface` | `TABLE-004`; integration waits for `RIBBON-009` | 30/09–06/10 |
+| 7 | `RIBBON-010` | A | `DONE` | Codex task `RIBBON-010 Customization SDK` (`client-new-thread:5d0abfeb-94ff-4b03-ab7a-3bd7236347bb`) | `feature/ribbon-010-customization` | `RIBBON-009` | integrated/green 05/09 |
+| 8 | `TABLE-004` | B | `DONE` | Codex task `TABLE-004 Table Style Engine` (`client-new-thread:9d15985f-554c-49df-be81-30fc4ebc2ef4`) | `feature/table-004-style-engine` | `FILTER-007` | integrated/green 05/09 |
+| 9 | `TABLE-005` | B | `ACTIVE` | Codex task `TABLE-005 — Contextual Table Design` (`client-new-thread:c583141a-9f25-498d-9820-db20707d0f05`, `thinking: high`) | `feature/table-005-contextual-design` | `TABLE-004`; integration waits for `RIBBON-009` | started early 05/09 |
 | 10 | `TABLE-006` | B | `BACKLOG` | Unclaimed | `feature/table-006-compat-hardening` | `TABLE-005` | 07–09/10 |
 | 11 | `UX-006` | Integration | `BACKLOG` | Integration owner | `feature/ux-006-visual-localization` | both lanes | 12–15/10 |
 | 12 | `UX-007` | Integration | `BACKLOG` | Integration owner | `feature/ux-007-keyboard-a11y` | `UX-006` | 16–21/10 |
@@ -60,6 +60,8 @@ waits.
 | `FILTER-006` | `fec8f2eec1222cfa7db9f67b40be709201285b15` + `08fc0228a390e2f5626dc2bead83f9bc2d1419e3` | `d595539d616cba1bb5543ab3530035f927304069` | full #1309; iOS #130; Q003C #127 | Green |
 | `RIBBON-009` | `e1e38b37416f0df1a6fea2cb59346deb22e7d3e6` + `a743826` + `5e4ffe7` + `e393840` | `f75e2f103598cbbe7b5c22f92c3ab8dd755ef8c3` | full #1312; iOS #133; Q003C #130 | Green |
 | `FILTER-007` | `6510923` + `a6eddd96ab4f61b46bee243c74b9defb3c2eacf1` + `022cfd8f0a63f02377d3365e91c54e0ae52a4de2` | `f75e2f103598cbbe7b5c22f92c3ab8dd755ef8c3` | full #1312; iOS #133; Q003C #130 | Green |
+| `RIBBON-010` | `eb08b0f95176b1a23e01ccf0b09a112bdc562dac` + `9aeed672cea94db3d4c2d0ecb4a4f55a85e1dbaf` | `57a8c0c0fe8eb452bcb054432d2d37b9e9807e73` | full #1318; iOS #139; Q003C #136 | Green |
+| `TABLE-004` | `3a459320ef7192f5843dcd6d3bfb0a56ae7698ea` + `cffdc9d8f05c50dafc7a875910d2f0c6b4851416` + `ed01ed6b1243ea41490dc4ac3b4d38411dcc0892` | `57a8c0c0fe8eb452bcb054432d2d37b9e9807e73` | full #1318; iOS #139; Q003C #136 | Green |
 
 Append one row only after exact-head CI completes. Never mark a checkpoint
 `DONE` using a green run from a parent commit.
@@ -85,3 +87,8 @@ Append one row only after exact-head CI completes. Never mark a checkpoint
   `f75e2f103598cbbe7b5c22f92c3ab8dd755ef8c3` passed full CI #1312, iOS #133
   and Q003C/OpenXML #130. `RIBBON-010` and `TABLE-004` were immediately
   dispatched from that exact green SHA into isolated, non-overlapping worktrees.
+- 05/09/2026: `RIBBON-010` and `TABLE-004` completed on disjoint file sets and
+  were cherry-picked without conflict. Combined head
+  `57a8c0c0fe8eb452bcb054432d2d37b9e9807e73` passed full CI #1318, iOS #139
+  and Q003C/OpenXML #136. The next dependency-valid checkpoint, `TABLE-005`,
+  was immediately dispatched from that exact green branch with high reasoning.
