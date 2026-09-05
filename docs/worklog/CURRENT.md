@@ -1,5 +1,22 @@
 # Current Work Handoff
 
+## Tiếp tục độc lập R2 — full-shell workbook loading
+
+Root đang bổ sung sample OpenWorkbookAsync dùng đầy đủ RibbonPreviewWindow với
+existing imported session; cùng theme, workbook title, Ribbon/Backstage/formula
+display/worksheet selector. Parameterless preview fixture không đổi. Test mới
+RibbonLoadedWorkbookSmokeTests kiểm loaded shell giữ session/active sheet/cell/
+history và chuyển sheet thật. Native build/test chỉ chạy CI; local không build
+nặng. Sheet tabs, editable formula bar và app demo packaging vẫn OPEN.
+
+A source 8f5e9882 đã xanh và root xem đủ9ảnh, nhưng root phát hiện HC native
+Picker/Entry/flyout chưa đồng bộ palette. A xác nhận RequestedTheme chỉ Light/
+Dark, đang sửa scoped resources, chưa đóng U3/release. Không dùng lại local
+capture sau AccessDenied. B source4cdee6aa đang điều tra native lifecycle;
+Windows stage đã qua editor rồi fail original stress, Mac mutation chạy trong
+paint có thể chưa attached. C review READ-ONLY source B, không sở hữu code B.
+Next: kiểm CI full-shell checkpoint và nhận final A/B có review/source gates.
+
 ## Handoff mới nhất — 06/09/2026, Windows package gate đã xanh
 
 - Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.

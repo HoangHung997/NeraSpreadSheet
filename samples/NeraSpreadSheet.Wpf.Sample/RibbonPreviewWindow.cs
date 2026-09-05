@@ -31,7 +31,12 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
     private bool _showGridlines = true;
     private bool _disposed;
 
-    public RibbonPreviewWindow()
+    public RibbonPreviewWindow() : this(CreatePreviewSession())
+    {
+    }
+
+    /// <summary>Creates the complete sample shell over an existing workbook session without replacing its state.</summary>
+    public RibbonPreviewWindow(SpreadsheetSession session, string? workbookTitle = null)
     {
         Title = "NeraSpreadSheet · Ribbon SDK";
         Width = 1280;
@@ -41,7 +46,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         FontFamily = new FontFamily("Segoe UI");
         FontSize = 12;
         Background = Brushes.White;
-        _session = CreatePreviewSession();
+        _session = session ?? throw new ArgumentNullException(nameof(session));
         _sheet.Session = _session;
         RegisterPreviewCommands();
         _runtime = new RibbonRuntimeController(CreatePreviewDefinition(), _commands);
@@ -56,7 +61,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         _session.ActiveWorksheetChanged += OnPreviewStateChanged;
         var title = new TextBlock
         {
-            Text = Localization.Get("NERA  /  Bảng tính bán hàng"),
+            Text = workbookTitle ?? Localization.Get("NERA  /  Bảng tính bán hàng"),
             FontSize = 14,
             FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(28, 91, 111)),

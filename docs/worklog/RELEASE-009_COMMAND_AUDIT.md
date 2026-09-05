@@ -91,6 +91,13 @@ branch để không bỏ final docs/source revision sau ghép.
 
 ### Bước tiếp theo duy nhất
 
+06/09, sau khi A release sample paths: root bổ sung constructor full shell nhận
+existing session và chuyển OpenWorkbookAsync sang cửa sổ đó, giữ theme/tên file.
+Regression loaded Windows mới kiểm cùng session, active sheet/cell/history,
+Ribbon/formula display và selector thật. Không thay fixture của capture cũ,
+chưa sửa sheet tabs/formula-bar editor hoặc đóng gói app. Build/native CI trên
+checkpoint này còn pending; không đóng R2 bằng thay đổi constructor đơn lẻ.
+
 Sau khi A release source/sample ownership, coordinator tích hợp và bổ sung
 full-shell workbook loading + acceptance checklist/isolated package consumer trên cùng
 combined source. Sau đó chạy lại catalog/native/roundtrip gates và mới đóng R1/R2.

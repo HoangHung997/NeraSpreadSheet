@@ -169,10 +169,13 @@ public sealed partial class RibbonPreviewWindow
         var loaded = await new NeraOpenXmlSpreadsheetSessionSerializer().LoadSessionAsync(stream, new OpenXmlImportOptions()).ConfigureAwait(false);
         await Dispatcher.InvokeAsync(() =>
         {
-            var window = new Window { Owner = this, Title = "Workbook đã mở", Width = 1100, Height = 720 };
-            var spreadsheet = new NeraSpreadsheetControl { Session = loaded };
-            window.Content = new System.Windows.Documents.AdornerDecorator { Child = spreadsheet };
-            window.Closed += (_, _) => spreadsheet.Dispose();
+            var caption = Path.GetFileName(dialog.FileName);
+            var window = new RibbonPreviewWindow(loaded, caption)
+            {
+                Owner = this,
+                Title = $"{caption} · NeraSpreadSheet",
+            };
+            window.SetTheme(_ribbon.IconTheme);
             window.Show();
         });
     }

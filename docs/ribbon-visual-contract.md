@@ -36,6 +36,15 @@ trong sample chỉ gọi API có sẵn: cell styles, print settings/preview, for
 editing/help, filter, zoom, table rename và totals. Save ghi vào file tạm cùng
 thư mục và chỉ thay bản đích sau khi serialize thành công.
 
+Open workbook tạo cùng `RibbonPreviewWindow` đầy đủ qua constructor nhận
+`SpreadsheetSession` đã import: giữ workbook, active worksheet/selection/history,
+Ribbon/Backstage, formula display và worksheet selector; không mở grid-only
+window hoặc thay session bằng dữ liệu bán hàng synthetic. Tiêu đề lấy tên file,
+theme kế thừa cửa sổ gọi. Parameterless preview/capture vẫn dùng fixture cũ.
+Đây mới là checkpoint full-shell loading: formula display còn read-only và
+selector còn ComboBox; sheet tabs/editor formula bar/demo packaging thuộc R2
+tiếp theo, chưa gọi sample này là bản demo hoàn thiện.
+
 `RibbonProductionCommandCatalog` là manifest của 49 command session có
 sẵn, không thêm khả năng chưa đăng ký. Factory mặc định giữ tab/command IDs
 cũ và đánh dấu năm command chính là large. Sample minh họa cách host lắp thêm
