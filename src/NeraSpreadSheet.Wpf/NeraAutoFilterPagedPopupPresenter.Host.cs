@@ -1,3 +1,4 @@
+using NeraSpreadSheet.Commands;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -107,8 +108,8 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             _ => throw new ArgumentOutOfRangeException(nameof(ownerKind)),
         };
 
-    private static string DisplayValue(CellValue value) =>
-        value.IsBlank ? "(Trống)" : value.ToString();
+    private string DisplayValue(CellValue value) =>
+        value.IsBlank ? Localization.Get("(Trống)") : value.ToString();
 
     private static System.Windows.Media.Color ToColor(ColorRgba color) =>
         System.Windows.Media.Color.FromArgb(

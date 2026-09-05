@@ -71,6 +71,13 @@ public sealed class BarPresentationProjector
         _resolver = new CommandPresentationResolver(registry);
     }
 
+    /// <summary>Gets or sets resources used on the next projection.</summary>
+    public PresentationLocalization Localization
+    {
+        get => _resolver.Localization;
+        set => _resolver.Localization = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
     /// <summary>
     /// Projects the current registry state, resolving each command at most once.
     /// </summary>

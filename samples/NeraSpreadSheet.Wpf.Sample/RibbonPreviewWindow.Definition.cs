@@ -4,7 +4,7 @@ namespace NeraSpreadSheet.Wpf.Sample;
 
 public sealed partial class RibbonPreviewWindow
 {
-    private RibbonDefinition CreatePreviewDefinition() => new(
+    private RibbonDefinition CreatePreviewDefinition() => LocalizeDefinition(new(
     [
         new RibbonTabDefinition("home", "Trang đầu",
         [
@@ -60,7 +60,14 @@ public sealed partial class RibbonPreviewWindow
     ],
     [new RibbonContextualTabRule("table-design", RibbonContextRequirement.Table, "TB")],
     [new("Sample.Save", "1"), new("Edit.Undo", "2"), new("Edit.Redo", "3")],
-    [new("Sample.New", "N"), new("Sample.Open", "O"), new("Sample.Save", "S"), new("Sample.PrintPreview", "P"), new("Sample.Statistics", "I")]);
+    [new("Sample.New", "N"), new("Sample.Open", "O"), new("Sample.Save", "S"), new("Sample.PrintPreview", "P"), new("Sample.Statistics", "I")]));
+
+    private static RibbonDefinition LocalizeDefinition(RibbonDefinition definition) => new(
+        definition.Tabs.Select(tab => new RibbonTabDefinition(tab.Id, tab.Caption,
+            tab.Groups.Select(group => new RibbonGroupDefinition(group.Id, group.Caption, group.Items,
+                group.Order, group.CollapsePriority) { CaptionResourceKey = group.Caption }), tab.Order)
+            { CaptionResourceKey = tab.Caption }),
+        definition.ContextualTabs, definition.QuickAccessToolbar, definition.Backstage);
 
     private static RibbonGroupDefinition Group(string id, string caption, int priority, params RibbonItemDefinition[] items) =>
         new(id, caption, items, 0, priority);

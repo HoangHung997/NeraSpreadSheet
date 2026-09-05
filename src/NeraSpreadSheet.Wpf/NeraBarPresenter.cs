@@ -14,6 +14,8 @@ namespace NeraSpreadSheet.Wpf;
 /// </summary>
 public sealed class NeraBarPresenter : IDisposable
 {
+    private PresentationLocalization Localization => _runtime.Localization;
+
     private readonly BarRuntimeController _runtime;
     private readonly List<IDisposable> _shortcutBindings = [];
     private Func<string, ImageSource?>? _iconResolver;
@@ -25,6 +27,9 @@ public sealed class NeraBarPresenter : IDisposable
     {
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         NativeControl = CreateRoot(runtime.Snapshot.Kind);
+        NeraRibbonChrome.Install(NativeControl);
+        NativeControl.SetResourceReference(Control.ForegroundProperty, "RibbonForeground");
+        NativeControl.SetResourceReference(Control.BackgroundProperty, "RibbonSurface");
         _runtime.SnapshotChanged += OnSnapshotChanged;
         Rebuild();
     }
@@ -100,6 +105,7 @@ public sealed class NeraBarPresenter : IDisposable
     public void Rebuild()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        NeraRibbonChrome.ApplyTheme(NativeControl, IconTheme);
         NativeControl.Items.Clear();
         foreach (var item in _runtime.Snapshot.Items)
         {
@@ -120,6 +126,7 @@ public sealed class NeraBarPresenter : IDisposable
             binding.Dispose();
         }
         _shortcutBindings.Clear();
+        NeraRibbonChrome.ApplyTheme(NativeControl, IconTheme);
         NativeControl.Items.Clear();
         GC.SuppressFinalize(this);
     }

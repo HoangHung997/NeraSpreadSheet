@@ -1,3 +1,6 @@
+using System.Globalization;
+using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Iconography;
 using System.Reflection;
 using System.Text.Json;
 using Microsoft.Maui.Controls;
@@ -34,6 +37,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private bool _undoRedoVerified;
     private bool _pagedRichSurfaceVerified;
     private bool _pagedSortVerified;
+    private readonly List<object> _presentationCaptures = [];
+    private bool _presentationVerified;
     private bool _disposed;
     private string? _semanticDescription;
 
@@ -129,8 +134,12 @@ internal sealed class SmokePage : ContentPage, IDisposable
             await DispatchAsync(OpenPagedRichSurface)
                 .ConfigureAwait(false);
             await Task.Delay(350, timeout.Token).ConfigureAwait(false);
+            await DispatchAsync(() => CaptureSheetAsync(GetPrivateField<VerticalStackLayout>(_pagedHost, "_sheetPanel"),
+                "ux006-paged-vi-light.png", "vi-VN", "Light")).ConfigureAwait(false);
             await DispatchAsync(ValidatePagedRichSurface)
                 .ConfigureAwait(false);
+            await DispatchAsync(() => CaptureSheetAsync(GetPrivateField<VerticalStackLayout>(_pagedHost, "_sheetPanel"),
+                "ux006-paged-en-highcontrastdark.png", "en-GB", "HighContrastDark")).ConfigureAwait(false);
             await DispatchAsync(_pagedHost.CloseFilterSheet)
                 .ConfigureAwait(false);
 
@@ -140,6 +149,11 @@ internal sealed class SmokePage : ContentPage, IDisposable
                     expectedFocused: true,
                     timeout.Token)
                 .ConfigureAwait(false);
+            await DispatchAsync(() => CaptureSheetAsync(GetPrivateField<VerticalStackLayout>(_host, "_sheetPanel"),
+                "ux006-legacy-vi-light.png", "vi-VN", "Light")).ConfigureAwait(false);
+            await DispatchAsync(ValidateLegacyPresentation).ConfigureAwait(false);
+            await DispatchAsync(() => CaptureSheetAsync(GetPrivateField<VerticalStackLayout>(_host, "_sheetPanel"),
+                "ux006-legacy-en-highcontrastdark.png", "en-GB", "HighContrastDark")).ConfigureAwait(false);
             await DispatchAsync(ValidateSheetAndApplyFilter)
                 .ConfigureAwait(false);
             await WaitForSearchFocusStateAsync(
@@ -243,7 +257,91 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Require(criterion.Handler?.PlatformView is not null &&
                 criterion.AutomationId == "NeraAutoFilterPagedCriterion",
             "The loaded rich criterion editor was not available.");
+        var search = GetPrivateField<Entry>(_pagedHost, "_search");
+        var apply = GetPrivateField<Button>(_pagedHost, "_applyButton");
+        var panel = GetPrivateField<VerticalStackLayout>(_pagedHost, "_sheetPanel");
+        var binding = GetPrivateField<NeraMauiAutoFilterPagedBinding>(_pagedHost, "_binding");
+        var items = binding.Items.ToArray();
+        var history = _pagedHost.Spreadsheet.Session!.History.UndoCount;
+        var culture = CultureInfo.CurrentUICulture;
+        var resources = Application.Current!.Resources;
+        var resourceCount = resources.Count;
+        search.Text = "O";
+        search.CursorPosition = 1;
+        search.SelectionLength = 0;
+        var focused = search.IsFocused;
+        _pagedHost.SetPresentation(new PresentationLocalization(CultureInfo.GetCultureInfo("en-GB")), NeraIconTheme.HighContrastDark);
+        Require(apply.Text == "Apply" && panel.BackgroundColor == Colors.Black, "Paged filter did not apply scoped resources and palette.");
+        Require(search.Text == "O" && search.CursorPosition == 1 && search.SelectionLength == 0 && search.IsFocused == focused,
+            "Paged filter presentation switch changed query/caret/focus.");
+        Require(items.SequenceEqual(binding.Items) && ReferenceEquals(values.ItemsSource, binding.Items),
+            "Paged filter presentation switch recreated or changed the current value page.");
+        Require(history == _pagedHost.Spreadsheet.Session.History.UndoCount && CultureInfo.CurrentUICulture == culture &&
+                ReferenceEquals(resources, Application.Current.Resources) && resources.Count == resourceCount,
+            "Paged filter presentation switch mutated history or global resources/culture.");
         _pagedRichSurfaceVerified = true;
+    }
+
+    private void ValidateLegacyPresentation()
+    {
+        var search = GetPrivateField<Entry>(_host, "_search");
+        var sheet = GetPrivateField<VerticalStackLayout>(_host, "_sheetPanel");
+        var apply = GetPrivateField<Button>(_host, "_apply");
+        var values = GetPrivateField<List<CheckBox>>(_host, "_valueCheckBoxes");
+        var menu = GetPrivateField<SpreadsheetTableFilterMenu>(_host, "_menu");
+        var originalValues = values.ToArray();
+        var history = _host.Session!.History.UndoCount;
+        var culture = CultureInfo.CurrentUICulture;
+        var resources = Application.Current!.Resources;
+        var resourceCount = resources.Count;
+        search.CursorPosition = 0;
+        search.SelectionLength = 0;
+        var query = search.Text;
+        var selected = menu.Capture().Values.Select(static item => item.IsSelected).ToArray();
+        _host.SetPresentation(new PresentationLocalization(CultureInfo.GetCultureInfo("en-GB")), NeraIconTheme.HighContrastDark);
+        Require(apply.Text == "Apply" && sheet.BackgroundColor == Colors.Black, "Legacy filter did not apply scoped resources and palette.");
+        Require(search.IsFocused && search.Text == query && search.CursorPosition == 0 && search.SelectionLength == 0,
+            "Legacy filter presentation switch changed query/caret/focus.");
+        Require(originalValues.SequenceEqual(values) && selected.SequenceEqual(menu.Capture().Values.Select(static item => item.IsSelected)),
+            "Legacy filter presentation switch recreated controls or changed selected values.");
+        Require(history == _host.Session.History.UndoCount && CultureInfo.CurrentUICulture == culture &&
+                ReferenceEquals(resources, Application.Current.Resources) && resources.Count == resourceCount,
+            "Legacy filter presentation switch mutated history or global resources/culture.");
+        _presentationVerified = true;
+    }
+
+    private async Task CaptureSheetAsync(VisualElement sheet, string fileName, string culture, string theme)
+    {
+        Require(sheet.Handler?.PlatformView is Microsoft.UI.Xaml.FrameworkElement,
+            "The capture target must be a loaded native Filter sheet.");
+        var native = (Microsoft.UI.Xaml.FrameworkElement)sheet.Handler!.PlatformView!;
+        Require(native.IsLoaded && native.ActualWidth > 0 && native.ActualHeight > 0,
+            "The loaded Filter sheet had no measurable native bounds.");
+        var bitmap = new Microsoft.UI.Xaml.Media.Imaging.RenderTargetBitmap();
+        await bitmap.RenderAsync(native);
+        Require(bitmap.PixelWidth > 0 && bitmap.PixelHeight > 0, "Native Filter capture returned empty pixels.");
+        var buffer = await bitmap.GetPixelsAsync();
+        var pixels = new byte[buffer.Length];
+        using (var reader = global::Windows.Storage.Streams.DataReader.FromBuffer(buffer)) reader.ReadBytes(pixels);
+        var directory = await global::Windows.Storage.StorageFolder.GetFolderFromPathAsync(AppContext.BaseDirectory);
+        var file = await directory.CreateFileAsync(fileName, global::Windows.Storage.CreationCollisionOption.ReplaceExisting);
+        using var stream = await file.OpenAsync(global::Windows.Storage.FileAccessMode.ReadWrite);
+        var encoder = await global::Windows.Graphics.Imaging.BitmapEncoder.CreateAsync(global::Windows.Graphics.Imaging.BitmapEncoder.PngEncoderId, stream);
+        encoder.SetPixelData(global::Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, global::Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied,
+            (uint)bitmap.PixelWidth, (uint)bitmap.PixelHeight, 96, 96, pixels);
+        await encoder.FlushAsync();
+        _presentationCaptures.Add(new { file = fileName, culture, theme, width = bitmap.PixelWidth, height = bitmap.PixelHeight });
+    }
+
+    private Task DispatchAsync(Func<Task> action)
+    {
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!Dispatcher.Dispatch(async () =>
+        {
+            try { await action(); completion.SetResult(); }
+            catch (Exception exception) { completion.SetException(exception); }
+        })) completion.SetException(new InvalidOperationException("Native capture dispatch was rejected."));
+        return completion.Task;
     }
 
     private void ValidateSheetAndApplyFilter()
@@ -475,6 +573,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
             undoRedoVerified = _undoRedoVerified,
             pagedRichSurfaceVerified = _pagedRichSurfaceVerified,
             pagedSortVerified = _pagedSortVerified,
+            presentationVerified = _presentationVerified,
+            presentationCaptures = _presentationCaptures,
             semanticDescription = _semanticDescription,
             cachedTypefaces = _host.Spreadsheet.CachedTypefaceCount,
             contextGeneration =

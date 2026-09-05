@@ -121,6 +121,14 @@ jobs:
         shell: pwsh
         run: ./scripts/run-maui-windows-smoke.ps1 -ExecutablePath "artifacts/maui-windows-table-filter-smoke/NeraSpreadSheet.Maui.Windows.TableFilterSmoke.exe"
 
+      - name: Upload loaded MAUI Filter presentation captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maui-windows-table-filter-ux006
+          path: artifacts/maui-windows-table-filter-smoke/ux006-*.png
+          if-no-files-found: error
+
       - name: Publish loaded MAUI Windows runtime smoke
         run: dotnet publish tests/NeraSpreadSheet.Maui.Windows.Smoke/NeraSpreadSheet.Maui.Windows.Smoke.csproj -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --self-contained false -p:NeraMauiTargetFrameworks=net10.0-windows10.0.19041.0 -o artifacts/maui-windows-smoke
 

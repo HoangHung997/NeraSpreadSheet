@@ -42,6 +42,9 @@ public sealed class RibbonTabDefinition
 
     public string Caption { get; }
 
+    /// <summary>Optional SDK resource key. User captions that differ from the source caption clear this key.</summary>
+    public string? CaptionResourceKey { get; init; }
+
     public IReadOnlyList<RibbonGroupDefinition> Groups { get; }
 
     public int Order { get; }

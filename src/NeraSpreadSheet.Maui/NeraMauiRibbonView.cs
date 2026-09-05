@@ -11,6 +11,8 @@ namespace NeraSpreadSheet.Maui;
 /// </summary>
 public sealed class NeraMauiRibbonView : ContentView, IDisposable
 {
+    private PresentationLocalization Localization => _runtime.Localization;
+
     private readonly RibbonRuntimeController _runtime;
     private readonly RibbonResponsiveLayoutEngine _layoutEngine = new();
     private readonly Grid _root = new();
@@ -60,7 +62,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             AutomationId = "ribbon-popup-host",
         };
         AutomationId = "NeraMauiRibbon";
-        SemanticProperties.SetDescription(this, "Thanh Ribbon NeraSpreadSheet");
+        SemanticProperties.SetDescription(this, Localization.Get("Thanh Ribbon NeraSpreadSheet"));
         _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
         _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
         _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
@@ -158,9 +160,11 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     /// </summary>
     public RibbonLayoutSnapshot LayoutSnapshot { get; private set; } = null!;
 
-    public string FileCaption { get; set; } = "Tệp";
+    private string? _fileCaption;
+    public string FileCaption { get => _fileCaption ?? Localization.Get("Tệp"); set => _fileCaption = value; }
 
-    public string FileAutomationName { get; set; } = "Mở khu vực Tệp";
+    private string? _localizedFileAutomationName;
+    public string FileAutomationName { get => _localizedFileAutomationName ?? Localization.Get("Mở khu vực Tệp"); set => _localizedFileAutomationName = value; }
 
     public bool IsMinimized
     {
@@ -446,7 +450,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             Spacing = 12d,
         };
         var title = new Label { Text = selection?.Caption ?? FileCaption, FontSize = 22d, TextColor = Palette.Text };
-        var detail = new Label { Text = selection is null ? "Chọn lệnh để làm việc với sổ tính." : BuildToolTip(selection), FontSize = 13d, TextColor = Palette.Muted };
+        var detail = new Label { Text = selection is null ? Localization.Get("Chọn lệnh để làm việc với sổ tính.") : BuildToolTip(selection), FontSize = 13d, TextColor = Palette.Muted };
         content.Children.Add(title);
         content.Children.Add(detail);
         if (selection is not null)
@@ -684,7 +688,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             button.Text = $"{command.Caption} [{keyTip}]";
         }
         var toggleState = item.Presentation.IsToggle
-            ? command.IsChecked == true ? "Đang bật" : "Đang tắt"
+            ? command.IsChecked == true ? Localization.Get("Đang bật") : Localization.Get("Đang tắt")
             : null;
         SemanticProperties.SetDescription(
             button,
@@ -751,7 +755,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         StyleButton(menuButton);
         SemanticProperties.SetDescription(
             menuButton,
-            $"{item.Presentation.AutomationName}, mở danh sách");
+            Localization.Format("{0}, mở danh sách", item.Presentation.AutomationName));
         SemanticProperties.SetHint(
             menuButton,
             BuildToolTip(item.Presentation.Command));
@@ -1018,7 +1022,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             IsEnabled = command.IsEnabled,
         };
         StyleButton(more);
-        SemanticProperties.SetDescription(more, $"{item.Presentation.AutomationName}, thêm lựa chọn");
+        SemanticProperties.SetDescription(more, Localization.Format("{0}, thêm lựa chọn", item.Presentation.AutomationName));
         var choices = CreateChoiceStack(item);
         more.Clicked += (_, _) => ShowChoices(choices);
         TrackFocus(more, command.CommandId, more.AutomationId);
@@ -1047,14 +1051,14 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
 
         var overflowButton = new Button
         {
-            Text = "Thêm",
+            Text = Localization.Get("Thêm"),
             AutomationId = "ribbon-overflow",
             WidthRequest = 56d,
             HeightRequest = 76d,
             Margin = new Thickness(0d, 4d, 0d, 0d),
         };
         StyleButton(overflowButton);
-        SemanticProperties.SetDescription(overflowButton, "Lệnh Ribbon bổ sung");
+        SemanticProperties.SetDescription(overflowButton, Localization.Get("Lệnh Ribbon bổ sung"));
         overflowButton.Clicked += (_, _) =>
         {
             _isOverflowOpen = !_isOverflowOpen;

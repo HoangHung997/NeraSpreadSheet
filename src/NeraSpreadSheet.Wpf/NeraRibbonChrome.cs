@@ -6,6 +6,18 @@ namespace NeraSpreadSheet.Wpf;
 
 internal static class NeraRibbonChrome
 {
+    internal static void InstallFilter(FrameworkElement owner, NeraIconTheme theme)
+    {
+        Install(owner);
+        ApplyTheme(owner, theme);
+        owner.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "RibbonForeground");
+        if (owner is System.Windows.Controls.Border border)
+        {
+            border.SetResourceReference(System.Windows.Controls.Border.BackgroundProperty, "RibbonSurface");
+            border.SetResourceReference(System.Windows.Controls.Border.BorderBrushProperty, "RibbonFieldBorder");
+        }
+    }
+
     internal static void Install(FrameworkElement owner)
     {
         owner.Resources.MergedDictionaries.Add(new ResourceDictionary
@@ -29,7 +41,7 @@ internal static class NeraRibbonChrome
         Set("RibbonAccent", highContrast ? (dark ? "#FFEF00" : "#0035B2") : (dark ? "#69D5A0" : "#18734A"));
         Set("RibbonHover", highContrast ? (dark ? "#3A3A3A" : "#D9E5FF") : (dark ? "#3A4640" : "#EAF2ED"));
         Set("RibbonHoverBorder", highContrast ? (dark ? "#FFEF00" : "#0035B2") : (dark ? "#688473" : "#B9D2C2"));
-        Set("RibbonPressed", dark ? "#496052" : "#C8E2D2");
+        Set("RibbonPressed", highContrast ? (dark ? "#555555" : "#B8CCFF") : (dark ? "#496052" : "#C8E2D2"));
         Set("RibbonChecked", highContrast ? (dark ? "#3A3A3A" : "#D9E5FF") : (dark ? "#354D40" : "#DDEFE4"));
         Set("RibbonRail", highContrast ? (dark ? "#000000" : "#FFFFFF") : (dark ? "#172B21" : "#F0F5F2"));
 

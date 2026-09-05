@@ -10,6 +10,8 @@ namespace NeraSpreadSheet.Maui;
 /// </summary>
 public sealed class NeraMauiBarPresenter : ContentView, IDisposable
 {
+    private PresentationLocalization Localization => _runtime.Localization;
+
     private readonly BarRuntimeController _runtime;
     private readonly Microsoft.Maui.Controls.Layout _items;
     private readonly List<Button> _commandButtons = [];
@@ -108,6 +110,7 @@ public sealed class NeraMauiBarPresenter : ContentView, IDisposable
     public void Rebuild()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        BackgroundColor = NeraMauiRibbonPalette.For(IconTheme).Surface;
         _items.Children.Clear();
         _commandButtons.Clear();
         foreach (var item in _runtime.Snapshot.Items)
@@ -129,6 +132,7 @@ public sealed class NeraMauiBarPresenter : ContentView, IDisposable
             binding.Dispose();
         }
         _shortcutBindings.Clear();
+        BackgroundColor = NeraMauiRibbonPalette.For(IconTheme).Surface;
         _items.Children.Clear();
         _commandButtons.Clear();
         GC.SuppressFinalize(this);
@@ -185,6 +189,7 @@ public sealed class NeraMauiBarPresenter : ContentView, IDisposable
         }
         NeraMauiCommandChrome.Configure(button, command, "bar-command");
         button.Clicked += OnCommandClicked;
+        NeraMauiRibbonChrome.Configure(button, NeraMauiRibbonPalette.For(IconTheme), command.IsChecked == true);
         _commandButtons.Add(button);
         return button;
     }

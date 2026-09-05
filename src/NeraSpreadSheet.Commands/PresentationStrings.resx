@@ -1,0 +1,1339 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <data name="(Trống)" xml:space="preserve">
+    <value>(Trống)</value>
+  </data>
+  <data name="Alt+mũi tên xuống để mở; dùng phím mũi tên, Home, End, Page Up, Page Down, Space, Enter và Escape để thao tác." xml:space="preserve">
+    <value>Alt+mũi tên xuống để mở; dùng phím mũi tên, Home, End, Page Up, Page Down, Space, Enter và Escape để thao tác.</value>
+  </data>
+  <data name="Bold" xml:space="preserve">
+    <value>Đậm</value>
+  </data>
+  <data name="Bảng tạm" xml:space="preserve">
+    <value>Bảng tạm</value>
+  </data>
+  <data name="Bỏ chọn" xml:space="preserve">
+    <value>Bỏ chọn</value>
+  </data>
+  <data name="Bỏ chọn kết quả" xml:space="preserve">
+    <value>Bỏ chọn kết quả</value>
+  </data>
+  <data name="Bỏ chọn mọi giá trị khớp tìm kiếm" xml:space="preserve">
+    <value>Bỏ chọn mọi giá trị khớp tìm kiếm</value>
+  </data>
+  <data name="Bỏ chọn mọi giá trị đang hiển thị" xml:space="preserve">
+    <value>Bỏ chọn mọi giá trị đang hiển thị</value>
+  </data>
+  <data name="Bỏ chọn mọi giá trị đang hiển thị; phím tắt Ctrl+Shift+A khi con trỏ ở danh sách." xml:space="preserve">
+    <value>Bỏ chọn mọi giá trị đang hiển thị; phím tắt Ctrl+Shift+A khi con trỏ ở danh sách.</value>
+  </data>
+  <data name="Bỏ chọn tất cả kết quả" xml:space="preserve">
+    <value>Bỏ chọn tất cả kết quả</value>
+  </data>
+  <data name="Bỏ chọn đang thấy" xml:space="preserve">
+    <value>Bỏ chọn đang thấy</value>
+  </data>
+  <data name="Bộ lọc bảng tính" xml:space="preserve">
+    <value>Bộ lọc bảng tính</value>
+  </data>
+  <data name="Bộ lọc cột của bảng tính NeraSpreadSheet" xml:space="preserve">
+    <value>Bộ lọc cột của bảng tính NeraSpreadSheet</value>
+  </data>
+  <data name="Bộ lọc {0}" xml:space="preserve">
+    <value>Bộ lọc {0}</value>
+  </data>
+  <data name="Chuyển thành phạm vi" xml:space="preserve">
+    <value>Chuyển thành phạm vi</value>
+  </data>
+  <data name="Chèn" xml:space="preserve">
+    <value>Chèn</value>
+  </data>
+  <data name="Chèn cột Bảng" xml:space="preserve">
+    <value>Chèn cột Bảng</value>
+  </data>
+  <data name="Chèn hàng Bảng" xml:space="preserve">
+    <value>Chèn hàng Bảng</value>
+  </data>
+  <data name="Chưa chọn" xml:space="preserve">
+    <value>Chưa chọn</value>
+  </data>
+  <data name="Chạm hoặc nhấn Enter để mở danh sách giá trị phân trang." xml:space="preserve">
+    <value>Chạm hoặc nhấn Enter để mở danh sách giá trị phân trang.</value>
+  </data>
+  <data name="Chọn hoặc bỏ chọn giá trị trên trang này" xml:space="preserve">
+    <value>Chọn hoặc bỏ chọn giá trị trên trang này</value>
+  </data>
+  <data name="Chọn kết quả" xml:space="preserve">
+    <value>Chọn kết quả</value>
+  </data>
+  <data name="Chọn lệnh để làm việc với sổ tính." xml:space="preserve">
+    <value>Chọn lệnh để làm việc với sổ tính.</value>
+  </data>
+  <data name="Chọn lọc giá trị, văn bản, số, ngày, màu, biểu tượng hoặc điều kiện tùy chỉnh" xml:space="preserve">
+    <value>Chọn lọc giá trị, văn bản, số, ngày, màu, biểu tượng hoặc điều kiện tùy chỉnh</value>
+  </data>
+  <data name="Chọn lọc giá trị, văn bản, số, ngày, màu, biểu tượng hoặc điều kiện tùy chỉnh." xml:space="preserve">
+    <value>Chọn lọc giá trị, văn bản, số, ngày, màu, biểu tượng hoặc điều kiện tùy chỉnh.</value>
+  </data>
+  <data name="Chọn mọi giá trị khớp tìm kiếm" xml:space="preserve">
+    <value>Chọn mọi giá trị khớp tìm kiếm</value>
+  </data>
+  <data name="Chọn mọi giá trị đang hiển thị" xml:space="preserve">
+    <value>Chọn mọi giá trị đang hiển thị</value>
+  </data>
+  <data name="Chọn mọi giá trị đang hiển thị; phím tắt Ctrl+A khi con trỏ ở danh sách." xml:space="preserve">
+    <value>Chọn mọi giá trị đang hiển thị; phím tắt Ctrl+A khi con trỏ ở danh sách.</value>
+  </data>
+  <data name="Chọn nhóm điều kiện lọc" xml:space="preserve">
+    <value>Chọn nhóm điều kiện lọc</value>
+  </data>
+  <data name="Chọn tab, nhóm hoặc lệnh" xml:space="preserve">
+    <value>Chọn tab, nhóm hoặc lệnh</value>
+  </data>
+  <data name="Chọn tất cả" xml:space="preserve">
+    <value>Chọn tất cả</value>
+  </data>
+  <data name="Chọn tất cả kết quả" xml:space="preserve">
+    <value>Chọn tất cả kết quả</value>
+  </data>
+  <data name="Clear contents" xml:space="preserve">
+    <value>Xóa nội dung</value>
+  </data>
+  <data name="Copy" xml:space="preserve">
+    <value>Sao chép</value>
+  </data>
+  <data name="Cut" xml:space="preserve">
+    <value>Cắt</value>
+  </data>
+  <data name="Các lệnh được nhóm theo tab nguồn.&#10;Chọn một mục bên phải để đổi hiển thị hoặc kích thước." xml:space="preserve">
+    <value>Các lệnh được nhóm theo tab nguồn.
+Chọn một mục bên phải để đổi hiển thị hoặc kích thước.</value>
+  </data>
+  <data name="Cách kết hợp hai điều kiện" xml:space="preserve">
+    <value>Cách kết hợp hai điều kiện</value>
+  </data>
+  <data name="Cách kết hợp điều kiện" xml:space="preserve">
+    <value>Cách kết hợp điều kiện</value>
+  </data>
+  <data name="Cây ngày được tải lười theo năm, tháng và ngày" xml:space="preserve">
+    <value>Cây ngày được tải lười theo năm, tháng và ngày</value>
+  </data>
+  <data name="Công cụ dữ liệu" xml:space="preserve">
+    <value>Công cụ dữ liệu</value>
+  </data>
+  <data name="Công thức" xml:space="preserve">
+    <value>Công thức</value>
+  </data>
+  <data name="Cấu trúc" xml:space="preserve">
+    <value>Cấu trúc</value>
+  </data>
+  <data name="Cấu trúc Ribbon hiện tại" xml:space="preserve">
+    <value>Cấu trúc Ribbon hiện tại</value>
+  </data>
+  <data name="Cột cuối cùng" xml:space="preserve">
+    <value>Cột cuối cùng</value>
+  </data>
+  <data name="Cột xen kẽ" xml:space="preserve">
+    <value>Cột xen kẽ</value>
+  </data>
+  <data name="Cột {0} trong {1}, {2}" xml:space="preserve">
+    <value>Cột {0} trong {1}, {2}</value>
+  </data>
+  <data name="Cột được tính" xml:space="preserve">
+    <value>Cột được tính</value>
+  </data>
+  <data name="Cột đầu tiên" xml:space="preserve">
+    <value>Cột đầu tiên</value>
+  </data>
+  <data name="Cửa sổ" xml:space="preserve">
+    <value>Cửa sổ</value>
+  </data>
+  <data name="Danh mục lệnh" xml:space="preserve">
+    <value>Danh mục lệnh</value>
+  </data>
+  <data name="Danh sách chỉ chứa trang hiện hành; Space để chọn hoặc bỏ chọn." xml:space="preserve">
+    <value>Danh sách chỉ chứa trang hiện hành; Space để chọn hoặc bỏ chọn.</value>
+  </data>
+  <data name="Danh sách giá trị được tải theo trang, không tải toàn bộ control cùng lúc." xml:space="preserve">
+    <value>Danh sách giá trị được tải theo trang, không tải toàn bộ control cùng lúc.</value>
+  </data>
+  <data name="Delete columns" xml:space="preserve">
+    <value>Xóa cột</value>
+  </data>
+  <data name="Delete rows" xml:space="preserve">
+    <value>Xóa hàng</value>
+  </data>
+  <data name="Dùng mũi tên để duyệt, Space hoặc Enter để chọn, Escape để đóng." xml:space="preserve">
+    <value>Dùng mũi tên để duyệt, Space hoặc Enter để chọn, Escape để đóng.</value>
+  </data>
+  <data name="Dùng mũi tên để duyệt; Space hoặc Enter để chọn hay bỏ chọn." xml:space="preserve">
+    <value>Dùng mũi tên để duyệt; Space hoặc Enter để chọn hay bỏ chọn.</value>
+  </data>
+  <data name="Dùng mũi tên, Home, End, Page Up, Page Down để di chuyển; Space hoặc Enter để thay đổi lựa chọn." xml:space="preserve">
+    <value>Dùng mũi tên, Home, End, Page Up, Page Down để di chuyển; Space hoặc Enter để thay đổi lựa chọn.</value>
+  </data>
+  <data name="Dùng tìm kiếm, trang trước/sau và danh sách giá trị để lọc." xml:space="preserve">
+    <value>Dùng tìm kiếm, trang trước/sau và danh sách giá trị để lọc.</value>
+  </data>
+  <data name="Dữ liệu" xml:space="preserve">
+    <value>Dữ liệu</value>
+  </data>
+  <data name="Freeze panes" xml:space="preserve">
+    <value>Cố định ngăn</value>
+  </data>
+  <data name="Giá trị lọc của cột {0}" xml:space="preserve">
+    <value>Giá trị lọc của cột {0}</value>
+  </data>
+  <data name="Giá trị điều kiện (Top10%, Today, #RRGGBB…)" xml:space="preserve">
+    <value>Giá trị điều kiện (Top10%, Today, #RRGGBB…)</value>
+  </data>
+  <data name="Giá trị điều kiện lọc" xml:space="preserve">
+    <value>Giá trị điều kiện lọc</value>
+  </data>
+  <data name="Hiển thị" xml:space="preserve">
+    <value>Hiển thị</value>
+  </data>
+  <data name="Hiện cột" xml:space="preserve">
+    <value>Hiện cột</value>
+  </data>
+  <data name="Hiện hàng" xml:space="preserve">
+    <value>Hiện hàng</value>
+  </data>
+  <data name="Hoặc" xml:space="preserve">
+    <value>Hoặc</value>
+  </data>
+  <data name="Hàm tổng" xml:space="preserve">
+    <value>Hàm tổng</value>
+  </data>
+  <data name="Hàng tiêu đề" xml:space="preserve">
+    <value>Hàng tiêu đề</value>
+  </data>
+  <data name="Hàng tổng" xml:space="preserve">
+    <value>Hàng tổng</value>
+  </data>
+  <data name="Hàng và cột" xml:space="preserve">
+    <value>Hàng và cột</value>
+  </data>
+  <data name="Hàng xen kẽ" xml:space="preserve">
+    <value>Hàng xen kẽ</value>
+  </data>
+  <data name="Hủy" xml:space="preserve">
+    <value>Hủy</value>
+  </data>
+  <data name="Insert bar chart" xml:space="preserve">
+    <value>Chèn biểu đồ thanh</value>
+  </data>
+  <data name="Insert column chart" xml:space="preserve">
+    <value>Chèn biểu đồ cột</value>
+  </data>
+  <data name="Insert columns" xml:space="preserve">
+    <value>Chèn cột</value>
+  </data>
+  <data name="Insert line chart" xml:space="preserve">
+    <value>Chèn biểu đồ đường</value>
+  </data>
+  <data name="Insert pie chart" xml:space="preserve">
+    <value>Chèn biểu đồ tròn</value>
+  </data>
+  <data name="Insert pivot summary" xml:space="preserve">
+    <value>Chèn bảng tổng hợp</value>
+  </data>
+  <data name="Insert rows" xml:space="preserve">
+    <value>Chèn hàng</value>
+  </data>
+  <data name="Italic" xml:space="preserve">
+    <value>Nghiêng</value>
+  </data>
+  <data name="Không có" xml:space="preserve">
+    <value>Không có</value>
+  </data>
+  <data name="Không khả dụng" xml:space="preserve">
+    <value>Không khả dụng</value>
+  </data>
+  <data name="Kiểu Bảng" xml:space="preserve">
+    <value>Kiểu Bảng</value>
+  </data>
+  <data name="Kiểu tiếp theo" xml:space="preserve">
+    <value>Kiểu tiếp theo</value>
+  </data>
+  <data name="Kiểu trước" xml:space="preserve">
+    <value>Kiểu trước</value>
+  </data>
+  <data name="Kết hợp hai điều kiện bằng AND hoặc OR" xml:space="preserve">
+    <value>Kết hợp hai điều kiện bằng AND hoặc OR</value>
+  </data>
+  <data name="Loại bỏ trùng lặp" xml:space="preserve">
+    <value>Loại bỏ trùng lặp</value>
+  </data>
+  <data name="Lên" xml:space="preserve">
+    <value>Lên</value>
+  </data>
+  <data name="Lệnh Ribbon bổ sung" xml:space="preserve">
+    <value>Lệnh Ribbon bổ sung</value>
+  </data>
+  <data name="Lệnh có sẵn" xml:space="preserve">
+    <value>Lệnh có sẵn</value>
+  </data>
+  <data name="Lệnh khác" xml:space="preserve">
+    <value>Lệnh khác</value>
+  </data>
+  <data name="Lọc cột {0} trong Table {1}" xml:space="preserve">
+    <value>Lọc cột {0} trong Table {1}</value>
+  </data>
+  <data name="Lọc {0} trong Table {1}" xml:space="preserve">
+    <value>Lọc {0} trong Table {1}</value>
+  </data>
+  <data name="Lọc {0} trong {1}" xml:space="preserve">
+    <value>Lọc {0} trong {1}</value>
+  </data>
+  <data name="Lọc {0} trong {1}, {2}" xml:space="preserve">
+    <value>Lọc {0} trong {1}, {2}</value>
+  </data>
+  <data name="Lớn nhất" xml:space="preserve">
+    <value>Lớn nhất</value>
+  </data>
+  <data name="Merge cells" xml:space="preserve">
+    <value>Gộp ô</value>
+  </data>
+  <data name="Mặc định" xml:space="preserve">
+    <value>Mặc định</value>
+  </data>
+  <data name="Mở bộ lọc Table" xml:space="preserve">
+    <value>Mở bộ lọc Table</value>
+  </data>
+  <data name="Mở bộ lọc bảng tính" xml:space="preserve">
+    <value>Mở bộ lọc bảng tính</value>
+  </data>
+  <data name="Mở khu vực Tệp" xml:space="preserve">
+    <value>Mở khu vực Tệp</value>
+  </data>
+  <data name="Mở menu lọc bằng Enter, Space hoặc Alt+mũi tên xuống từ ô đang chọn." xml:space="preserve">
+    <value>Mở menu lọc bằng Enter, Space hoặc Alt+mũi tên xuống từ ô đang chọn.</value>
+  </data>
+  <data name="Mở menu lọc phân trang bằng Enter, Space hoặc Alt+mũi tên xuống." xml:space="preserve">
+    <value>Mở menu lọc phân trang bằng Enter, Space hoặc Alt+mũi tên xuống.</value>
+  </data>
+  <data name="Mở {0}" xml:space="preserve">
+    <value>Mở {0}</value>
+  </data>
+  <data name="Mở ▶" xml:space="preserve">
+    <value>Mở ▶</value>
+  </data>
+  <data name="Mục {0:N0}/{1:N0}: {2}" xml:space="preserve">
+    <value>Mục {0:N0}/{1:N0}: {2}</value>
+  </data>
+  <data name="Ngày {0}/{1}/{2}" xml:space="preserve">
+    <value>Ngày {0}/{1}/{2}</value>
+  </data>
+  <data name="Nhóm điều kiện lọc" xml:space="preserve">
+    <value>Nhóm điều kiện lọc</value>
+  </data>
+  <data name="Nhấn Enter để áp dụng, Escape để đóng, Page Up hoặc Page Down để đổi trang." xml:space="preserve">
+    <value>Nhấn Enter để áp dụng, Escape để đóng, Page Up hoặc Page Down để đổi trang.</value>
+  </data>
+  <data name="Nhấn Enter để áp dụng, Escape để đóng, hoặc mũi tên xuống để duyệt giá trị." xml:space="preserve">
+    <value>Nhấn Enter để áp dụng, Escape để đóng, hoặc mũi tên xuống để duyệt giá trị.</value>
+  </data>
+  <data name="Nhấn Enter để áp dụng, Escape để đóng, hoặc mũi tên xuống để vào danh sách." xml:space="preserve">
+    <value>Nhấn Enter để áp dụng, Escape để đóng, hoặc mũi tên xuống để vào danh sách.</value>
+  </data>
+  <data name="Nhập một hoặc hai điều kiện rồi chọn cách kết hợp." xml:space="preserve">
+    <value>Nhập một hoặc hai điều kiện rồi chọn cách kết hợp.</value>
+  </data>
+  <data name="Nhập từ khóa; danh sách tự tải lại từ trang đầu." xml:space="preserve">
+    <value>Nhập từ khóa; danh sách tự tải lại từ trang đầu.</value>
+  </data>
+  <data name="Nhập điều kiện lọc rồi chọn Áp dụng." xml:space="preserve">
+    <value>Nhập điều kiện lọc rồi chọn Áp dụng.</value>
+  </data>
+  <data name="Nhỏ nhất" xml:space="preserve">
+    <value>Nhỏ nhất</value>
+  </data>
+  <data name="Nút lọc" xml:space="preserve">
+    <value>Nút lọc</value>
+  </data>
+  <data name="Nút lớn" xml:space="preserve">
+    <value>Nút lớn</value>
+  </data>
+  <data name="Năm {0}" xml:space="preserve">
+    <value>Năm {0}</value>
+  </data>
+  <data name="Paste" xml:space="preserve">
+    <value>Dán</value>
+  </data>
+  <data name="Phân tích" xml:space="preserve">
+    <value>Phân tích</value>
+  </data>
+  <data name="Quay về cấp ngày cha" xml:space="preserve">
+    <value>Quay về cấp ngày cha</value>
+  </data>
+  <data name="Quay về năm hoặc danh sách năm" xml:space="preserve">
+    <value>Quay về năm hoặc danh sách năm</value>
+  </data>
+  <data name="Recalculate workbook" xml:space="preserve">
+    <value>Tính lại sổ tính</value>
+  </data>
+  <data name="Redo" xml:space="preserve">
+    <value>Làm lại</value>
+  </data>
+  <data name="Redo split view change" xml:space="preserve">
+    <value>Làm lại chia ngăn</value>
+  </data>
+  <data name="Ribbon hiện tại" xml:space="preserve">
+    <value>Ribbon hiện tại</value>
+  </data>
+  <data name="Sort ascending" xml:space="preserve">
+    <value>Sắp xếp tăng dần</value>
+  </data>
+  <data name="Sort descending" xml:space="preserve">
+    <value>Sắp xếp giảm dần</value>
+  </data>
+  <data name="Space hoặc Enter để chọn hay bỏ chọn" xml:space="preserve">
+    <value>Space hoặc Enter để chọn hay bỏ chọn</value>
+  </data>
+  <data name="Sắp xếp Ribbon theo cách làm việc của bạn" xml:space="preserve">
+    <value>Sắp xếp Ribbon theo cách làm việc của bạn</value>
+  </data>
+  <data name="Sắp xếp Table giảm dần theo cột này" xml:space="preserve">
+    <value>Sắp xếp Table giảm dần theo cột này</value>
+  </data>
+  <data name="Sắp xếp Table giảm dần theo cột này." xml:space="preserve">
+    <value>Sắp xếp Table giảm dần theo cột này.</value>
+  </data>
+  <data name="Sắp xếp Table tăng dần theo cột này" xml:space="preserve">
+    <value>Sắp xếp Table tăng dần theo cột này</value>
+  </data>
+  <data name="Sắp xếp Table tăng dần theo cột này." xml:space="preserve">
+    <value>Sắp xếp Table tăng dần theo cột này.</value>
+  </data>
+  <data name="Sắp xếp cột giảm dần" xml:space="preserve">
+    <value>Sắp xếp cột giảm dần</value>
+  </data>
+  <data name="Sắp xếp cột tăng dần" xml:space="preserve">
+    <value>Sắp xếp cột tăng dần</value>
+  </data>
+  <data name="Sắp xếp giảm dần" xml:space="preserve">
+    <value>Sắp xếp giảm dần</value>
+  </data>
+  <data name="Sắp xếp lệnh theo cách bạn làm việc. Thay đổi được xem trước trên Ribbon." xml:space="preserve">
+    <value>Sắp xếp lệnh theo cách bạn làm việc. Thay đổi được xem trước trên Ribbon.</value>
+  </data>
+  <data name="Sắp xếp tăng dần" xml:space="preserve">
+    <value>Sắp xếp tăng dần</value>
+  </data>
+  <data name="Sắp xếp ↑" xml:space="preserve">
+    <value>Sắp xếp ↑</value>
+  </data>
+  <data name="Sắp xếp ↓" xml:space="preserve">
+    <value>Sắp xếp ↓</value>
+  </data>
+  <data name="Sắp ↑" xml:space="preserve">
+    <value>Sắp ↑</value>
+  </data>
+  <data name="Sắp ↓" xml:space="preserve">
+    <value>Sắp ↓</value>
+  </data>
+  <data name="Tab và nhóm hiện tại" xml:space="preserve">
+    <value>Tab và nhóm hiện tại</value>
+  </data>
+  <data name="Tab để chuyển vùng; mũi tên, Home, End, Page Up và Page Down để duyệt giá trị." xml:space="preserve">
+    <value>Tab để chuyển vùng; mũi tên, Home, End, Page Up và Page Down để duyệt giá trị.</value>
+  </data>
+  <data name="Thanh Ribbon NeraSpreadSheet" xml:space="preserve">
+    <value>Thanh Ribbon NeraSpreadSheet</value>
+  </data>
+  <data name="Thiết kế Bảng" xml:space="preserve">
+    <value>Thiết kế Bảng</value>
+  </data>
+  <data name="Thuộc tính" xml:space="preserve">
+    <value>Thuộc tính</value>
+  </data>
+  <data name="Tháng {0}/{1}" xml:space="preserve">
+    <value>Tháng {0}/{1}</value>
+  </data>
+  <data name="Thêm" xml:space="preserve">
+    <value>Thêm</value>
+  </data>
+  <data name="Thêm ⌄" xml:space="preserve">
+    <value>Thêm ⌄</value>
+  </data>
+  <data name="Trang giá trị lọc của cột {0}" xml:space="preserve">
+    <value>Trang giá trị lọc của cột {0}</value>
+  </data>
+  <data name="Trang hiện hành của danh sách giá trị lọc" xml:space="preserve">
+    <value>Trang hiện hành của danh sách giá trị lọc</value>
+  </data>
+  <data name="Trang sau ▶" xml:space="preserve">
+    <value>Trang sau ▶</value>
+  </data>
+  <data name="Trang đầu" xml:space="preserve">
+    <value>Trang đầu</value>
+  </data>
+  <data name="Trung bình" xml:space="preserve">
+    <value>Trung bình</value>
+  </data>
+  <data name="Tìm giá trị" xml:space="preserve">
+    <value>Tìm giá trị</value>
+  </data>
+  <data name="Tìm giá trị lọc" xml:space="preserve">
+    <value>Tìm giá trị lọc</value>
+  </data>
+  <data name="Tìm giá trị trong cột" xml:space="preserve">
+    <value>Tìm giá trị trong cột</value>
+  </data>
+  <data name="Tìm giá trị trong cột {0}" xml:space="preserve">
+    <value>Tìm giá trị trong cột {0}</value>
+  </data>
+  <data name="Tìm giá trị trong nguồn lọc" xml:space="preserve">
+    <value>Tìm giá trị trong nguồn lọc</value>
+  </data>
+  <data name="Tìm giá trị; nhấn mũi tên xuống để vào danh sách" xml:space="preserve">
+    <value>Tìm giá trị; nhấn mũi tên xuống để vào danh sách</value>
+  </data>
+  <data name="Tìm kiếm theo tên lệnh hoặc tab" xml:space="preserve">
+    <value>Tìm kiếm theo tên lệnh hoặc tab</value>
+  </data>
+  <data name="Tìm lệnh" xml:space="preserve">
+    <value>Tìm lệnh</value>
+  </data>
+  <data name="Tìm lệnh theo tên hoặc danh mục" xml:space="preserve">
+    <value>Tìm lệnh theo tên hoặc danh mục</value>
+  </data>
+  <data name="Tìm lệnh…" xml:space="preserve">
+    <value>Tìm lệnh…</value>
+  </data>
+  <data name="Tìm trong danh mục lệnh" xml:space="preserve">
+    <value>Tìm trong danh mục lệnh</value>
+  </data>
+  <data name="Tùy biến Ribbon" xml:space="preserve">
+    <value>Tùy biến Ribbon</value>
+  </data>
+  <data name="Tùy chỉnh" xml:space="preserve">
+    <value>Tùy chỉnh</value>
+  </data>
+  <data name="Tùy chọn kiểu Bảng" xml:space="preserve">
+    <value>Tùy chọn kiểu Bảng</value>
+  </data>
+  <data name="Tạo Bảng" xml:space="preserve">
+    <value>Tạo Bảng</value>
+  </data>
+  <data name="Tải lười cấp ngày con" xml:space="preserve">
+    <value>Tải lười cấp ngày con</value>
+  </data>
+  <data name="Tải trang giá trị sau" xml:space="preserve">
+    <value>Tải trang giá trị sau</value>
+  </data>
+  <data name="Tải trang giá trị trước" xml:space="preserve">
+    <value>Tải trang giá trị trước</value>
+  </data>
+  <data name="Tất cả kiểu" xml:space="preserve">
+    <value>Tất cả kiểu</value>
+  </data>
+  <data name="Tệp" xml:space="preserve">
+    <value>Tệp</value>
+  </data>
+  <data name="Tổng" xml:space="preserve">
+    <value>Tổng</value>
+  </data>
+  <data name="Undo" xml:space="preserve">
+    <value>Hoàn tác</value>
+  </data>
+  <data name="Undo split view change" xml:space="preserve">
+    <value>Hoàn tác chia ngăn</value>
+  </data>
+  <data name="Unfreeze panes" xml:space="preserve">
+    <value>Bỏ cố định ngăn</value>
+  </data>
+  <data name="Unmerge cells" xml:space="preserve">
+    <value>Bỏ gộp ô</value>
+  </data>
+  <data name="Và" xml:space="preserve">
+    <value>Và</value>
+  </data>
+  <data name="Ví dụ: North; 10; 2026-09-04; #33AA66; 3TrafficLights1:0; Top10%; Today" xml:space="preserve">
+    <value>Ví dụ: North; 10; 2026-09-04; #33AA66; 3TrafficLights1:0; Top10%; Today</value>
+  </data>
+  <data name="Xem" xml:space="preserve">
+    <value>Xem</value>
+  </data>
+  <data name="Xuống" xml:space="preserve">
+    <value>Xuống</value>
+  </data>
+  <data name="Xóa SX" xml:space="preserve">
+    <value>Xóa SX</value>
+  </data>
+  <data name="Xóa bộ lọc" xml:space="preserve">
+    <value>Xóa bộ lọc</value>
+  </data>
+  <data name="Xóa bộ lọc của cột hiện tại" xml:space="preserve">
+    <value>Xóa bộ lọc của cột hiện tại</value>
+  </data>
+  <data name="Xóa bộ lọc hiện tại của cột này" xml:space="preserve">
+    <value>Xóa bộ lọc hiện tại của cột này</value>
+  </data>
+  <data name="Xóa bộ lọc hiện tại của cột này." xml:space="preserve">
+    <value>Xóa bộ lọc hiện tại của cột này.</value>
+  </data>
+  <data name="Xóa cột Bảng" xml:space="preserve">
+    <value>Xóa cột Bảng</value>
+  </data>
+  <data name="Xóa hàng Bảng" xml:space="preserve">
+    <value>Xóa hàng Bảng</value>
+  </data>
+  <data name="Xóa lọc" xml:space="preserve">
+    <value>Xóa lọc</value>
+  </data>
+  <data name="Xóa sắp xếp" xml:space="preserve">
+    <value>Xóa sắp xếp</value>
+  </data>
+  <data name="Xóa trạng thái sắp xếp" xml:space="preserve">
+    <value>Xóa trạng thái sắp xếp</value>
+  </data>
+  <data name="Xóa trạng thái sắp xếp nhưng giữ nguyên thứ tự hàng hiện tại" xml:space="preserve">
+    <value>Xóa trạng thái sắp xếp nhưng giữ nguyên thứ tự hàng hiện tại</value>
+  </data>
+  <data name="Xóa trạng thái sắp xếp nhưng giữ nguyên thứ tự hàng hiện tại." xml:space="preserve">
+    <value>Xóa trạng thái sắp xếp nhưng giữ nguyên thứ tự hàng hiện tại.</value>
+  </data>
+  <data name="chưa lọc hoặc sắp xếp" xml:space="preserve">
+    <value>chưa lọc hoặc sắp xếp</value>
+  </data>
+  <data name="{0:N0} giá trị khác nhau trong {1:N0} hàng." xml:space="preserve">
+    <value>{0:N0} giá trị khác nhau trong {1:N0} hàng.</value>
+  </data>
+  <data name="{0:N0}–{1:N0}/{2:N0} giá trị." xml:space="preserve">
+    <value>{0:N0}–{1:N0}/{2:N0} giá trị.</value>
+  </data>
+  <data name="{0:N0}–{1:N0}/{2:N0} nhóm ngày; " xml:space="preserve">
+    <value>{0:N0}–{1:N0}/{2:N0} nhóm ngày; </value>
+  </data>
+  <data name="{0:N0}–{1:N0}/{2:N0} nhóm ngày; đã chọn {3:N0}." xml:space="preserve">
+    <value>{0:N0}–{1:N0}/{2:N0} nhóm ngày; đã chọn {3:N0}.</value>
+  </data>
+  <data name="{0:N0}–{1:N0}/{2:N0}; nguồn bị giới hạn, không thể áp dụng chọn giá trị." xml:space="preserve">
+    <value>{0:N0}–{1:N0}/{2:N0}; nguồn bị giới hạn, không thể áp dụng chọn giá trị.</value>
+  </data>
+  <data name="{0} giá trị; {1} hàng dữ liệu." xml:space="preserve">
+    <value>{0} giá trị; {1} hàng dữ liệu.</value>
+  </data>
+  <data name="{0}, mở danh sách" xml:space="preserve">
+    <value>{0}, mở danh sách</value>
+  </data>
+  <data name="{0}, thêm lựa chọn" xml:space="preserve">
+    <value>{0}, thêm lựa chọn</value>
+  </data>
+  <data name="{0}, {1} lần" xml:space="preserve">
+    <value>{0}, {1} lần</value>
+  </data>
+  <data name="{0}; {1:N0} dòng" xml:space="preserve">
+    <value>{0}; {1:N0} dòng</value>
+  </data>
+  <data name="Áp dụng" xml:space="preserve">
+    <value>Áp dụng</value>
+  </data>
+  <data name="Áp dụng các giá trị đã chọn" xml:space="preserve">
+    <value>Áp dụng các giá trị đã chọn</value>
+  </data>
+  <data name="Áp dụng các giá trị đã chọn; phím tắt Enter trong ô tìm kiếm." xml:space="preserve">
+    <value>Áp dụng các giá trị đã chọn; phím tắt Enter trong ô tìm kiếm.</value>
+  </data>
+  <data name="Áp dụng lại" xml:space="preserve">
+    <value>Áp dụng lại</value>
+  </data>
+  <data name="Áp dụng lại lọc và sắp xếp hiện tại" xml:space="preserve">
+    <value>Áp dụng lại lọc và sắp xếp hiện tại</value>
+  </data>
+  <data name="Áp dụng lại thứ tự sắp xếp hiện tại" xml:space="preserve">
+    <value>Áp dụng lại thứ tự sắp xếp hiện tại</value>
+  </data>
+  <data name="Áp dụng lại thứ tự sắp xếp hiện tại." xml:space="preserve">
+    <value>Áp dụng lại thứ tự sắp xếp hiện tại.</value>
+  </data>
+  <data name="Áp dụng lựa chọn trên toàn danh sách phân trang" xml:space="preserve">
+    <value>Áp dụng lựa chọn trên toàn danh sách phân trang</value>
+  </data>
+  <data name="Áp dụng lựa chọn trên toàn danh sách đã phân trang" xml:space="preserve">
+    <value>Áp dụng lựa chọn trên toàn danh sách đã phân trang</value>
+  </data>
+  <data name="Ô" xml:space="preserve">
+    <value>Ô</value>
+  </data>
+  <data name="Đang bật" xml:space="preserve">
+    <value>Đang bật</value>
+  </data>
+  <data name="Đang tắt" xml:space="preserve">
+    <value>Đang tắt</value>
+  </data>
+  <data name="Điều hướng Tệp" xml:space="preserve">
+    <value>Điều hướng Tệp</value>
+  </data>
+  <data name="Điều kiện lọc thứ hai" xml:space="preserve">
+    <value>Điều kiện lọc thứ hai</value>
+  </data>
+  <data name="Điều kiện thứ hai" xml:space="preserve">
+    <value>Điều kiện thứ hai</value>
+  </data>
+  <data name="Điều kiện thứ hai, ví dụ LessThan:100" xml:space="preserve">
+    <value>Điều kiện thứ hai, ví dụ LessThan:100</value>
+  </data>
+  <data name="Đã chọn" xml:space="preserve">
+    <value>Đã chọn</value>
+  </data>
+  <data name="Đã chọn {0:N0} nhóm ngày." xml:space="preserve">
+    <value>Đã chọn {0:N0} nhóm ngày.</value>
+  </data>
+  <data name="Đã quét {0:N0} hàng; danh sách giá trị đã bị giới hạn." xml:space="preserve">
+    <value>Đã quét {0:N0} hàng; danh sách giá trị đã bị giới hạn.</value>
+  </data>
+  <data name="Đã quét {0}/{1} hàng; danh sách bị giới hạn." xml:space="preserve">
+    <value>Đã quét {0}/{1} hàng; danh sách bị giới hạn.</value>
+  </data>
+  <data name="Đóng" xml:space="preserve">
+    <value>Đóng</value>
+  </data>
+  <data name="Đóng mà không áp dụng thay đổi" xml:space="preserve">
+    <value>Đóng mà không áp dụng thay đổi</value>
+  </data>
+  <data name="Đóng mà không áp dụng thay đổi; phím tắt Escape." xml:space="preserve">
+    <value>Đóng mà không áp dụng thay đổi; phím tắt Escape.</value>
+  </data>
+  <data name="Đếm không trống" xml:space="preserve">
+    <value>Đếm không trống</value>
+  </data>
+  <data name="Đếm số" xml:space="preserve">
+    <value>Đếm số</value>
+  </data>
+  <data name="Định dạng" xml:space="preserve">
+    <value>Định dạng</value>
+  </data>
+  <data name="Đổi kích thước Bảng" xml:space="preserve">
+    <value>Đổi kích thước Bảng</value>
+  </data>
+  <data name="Đổi tên Bảng" xml:space="preserve">
+    <value>Đổi tên Bảng</value>
+  </data>
+  <data name="đang lọc" xml:space="preserve">
+    <value>đang lọc</value>
+  </data>
+  <data name="đang lọc và sắp xếp giảm dần" xml:space="preserve">
+    <value>đang lọc và sắp xếp giảm dần</value>
+  </data>
+  <data name="đang lọc và sắp xếp tăng dần" xml:space="preserve">
+    <value>đang lọc và sắp xếp tăng dần</value>
+  </data>
+  <data name="đang sắp xếp giảm dần" xml:space="preserve">
+    <value>đang sắp xếp giảm dần</value>
+  </data>
+  <data name="đang sắp xếp tăng dần" xml:space="preserve">
+    <value>đang sắp xếp tăng dần</value>
+  </data>
+  <data name="đã chọn {0:N0}." xml:space="preserve">
+    <value>đã chọn {0:N0}.</value>
+  </data>
+  <data name="Ẩn cột" xml:space="preserve">
+    <value>Ẩn cột</value>
+  </data>
+  <data name="Ẩn hàng" xml:space="preserve">
+    <value>Ẩn hàng</value>
+  </data>
+  <data name="↑ Lên" xml:space="preserve">
+    <value>↑ Lên</value>
+  </data>
+  <data name="↓ Xuống" xml:space="preserve">
+    <value>↓ Xuống</value>
+  </data>
+  <data name="◀ Lùi một cấp ngày" xml:space="preserve">
+    <value>◀ Lùi một cấp ngày</value>
+  </data>
+  <data name="◀ Trang trước" xml:space="preserve">
+    <value>◀ Trang trước</value>
+  </data>
+  <data name="Giá trị" xml:space="preserve">
+    <value>Giá trị</value>
+  </data>
+  <data name="Bộ lọc văn bản" xml:space="preserve">
+    <value>Bộ lọc văn bản</value>
+  </data>
+  <data name="Bộ lọc số" xml:space="preserve">
+    <value>Bộ lọc số</value>
+  </data>
+  <data name="Bộ lọc ngày" xml:space="preserve">
+    <value>Bộ lọc ngày</value>
+  </data>
+  <data name="Màu nền" xml:space="preserve">
+    <value>Màu nền</value>
+  </data>
+  <data name="Màu chữ" xml:space="preserve">
+    <value>Màu chữ</value>
+  </data>
+  <data name="Biểu tượng" xml:space="preserve">
+    <value>Biểu tượng</value>
+  </data>
+  <data name="Điều kiện tùy chỉnh" xml:space="preserve">
+    <value>Điều kiện tùy chỉnh</value>
+  </data>
+  <data name="Trên/Dưới" xml:space="preserve">
+    <value>Trên/Dưới</value>
+  </data>
+  <data name="Ngày động/Trung bình" xml:space="preserve">
+    <value>Ngày động/Trung bình</value>
+  </data>
+  <data name="ít nhất {0:N0} kết quả" xml:space="preserve">
+    <value>ít nhất {0:N0} kết quả</value>
+  </data>
+  <data name="{0:N0} kết quả" xml:space="preserve">
+    <value>{0:N0} kết quả</value>
+  </data>
+  <data name="Cột {0} trong {1}, {2}, {3}." xml:space="preserve">
+    <value>Cột {0} trong {1}, {2}, {3}.</value>
+  </data>
+  <data name="FilterState.None.Ascending" xml:space="preserve">
+    <value>chưa lọc hoặc sắp xếp</value>
+  </data>
+  <data name="FilterState.None.Descending" xml:space="preserve">
+    <value>chưa lọc hoặc sắp xếp</value>
+  </data>
+  <data name="FilterState.Filtered.Ascending" xml:space="preserve">
+    <value>đang lọc</value>
+  </data>
+  <data name="FilterState.Filtered.Descending" xml:space="preserve">
+    <value>đang lọc</value>
+  </data>
+  <data name="FilterState.Sorted.Ascending" xml:space="preserve">
+    <value>đang sắp xếp tăng dần</value>
+  </data>
+  <data name="FilterState.Sorted.Descending" xml:space="preserve">
+    <value>đang sắp xếp giảm dần</value>
+  </data>
+  <data name="FilterState.FilteredAndSorted.Ascending" xml:space="preserve">
+    <value>đang lọc và sắp xếp tăng dần</value>
+  </data>
+  <data name="FilterState.FilteredAndSorted.Descending" xml:space="preserve">
+    <value>đang lọc và sắp xếp giảm dần</value>
+  </data>
+  <data name="Công thức cột" xml:space="preserve">
+    <value>Công thức cột</value>
+  </data>
+  <data name="Công thức hàng tổng" xml:space="preserve">
+    <value>Công thức hàng tổng</value>
+  </data>
+  <data name="Vùng đã chọn: {0}. Hàng đầu là tiêu đề. Để trống tên để tự đặt." xml:space="preserve">
+    <value>Vùng đã chọn: {0}. Hàng đầu là tiêu đề. Để trống tên để tự đặt.</value>
+  </data>
+  <data name="Nhập tên Bảng. Các tham chiếu có cấu trúc sẽ theo tên mới." xml:space="preserve">
+    <value>Nhập tên Bảng. Các tham chiếu có cấu trúc sẽ theo tên mới.</value>
+  </data>
+  <data name="Nhập phạm vi A1, giữ ô đầu {0}. Ví dụ: A1:E40." xml:space="preserve">
+    <value>Nhập phạm vi A1, giữ ô đầu {0}. Ví dụ: A1:E40.</value>
+  </data>
+  <data name="Cột: {0}. Nhập công thức; để trống để bỏ công thức cột." xml:space="preserve">
+    <value>Cột: {0}. Nhập công thức; để trống để bỏ công thức cột.</value>
+  </data>
+  <data name="Cột: {0}. Chọn hàm tổng; công thức bên dưới chỉ dùng cho Tùy chỉnh." xml:space="preserve">
+    <value>Cột: {0}. Chọn hàm tổng; công thức bên dưới chỉ dùng cho Tùy chỉnh.</value>
+  </data>
+  <data name="Nhập tên cột mới, hoặc để trống để tự đặt tên." xml:space="preserve">
+    <value>Nhập tên cột mới, hoặc để trống để tự đặt tên.</value>
+  </data>
+  <data name="Chọn cột dùng để so sánh. Giữ hàng đầu tiên của mỗi nhóm trùng." xml:space="preserve">
+    <value>Chọn cột dùng để so sánh. Giữ hàng đầu tiên của mỗi nhóm trùng.</value>
+  </data>
+  <data name="Chọn kiểu cho Bảng. Có thể Hoàn tác." xml:space="preserve">
+    <value>Chọn kiểu cho Bảng. Có thể Hoàn tác.</value>
+  </data>
+  <data name="Chuyển Bảng {0} thành ô thường. Nội dung ô được giữ. Có thể Hoàn tác." xml:space="preserve">
+    <value>Chuyển Bảng {0} thành ô thường. Nội dung ô được giữ. Có thể Hoàn tác.</value>
+  </data>
+  <data name="Phạm vi chưa hợp lệ. Nhập địa chỉ như A1:E40." xml:space="preserve">
+    <value>Phạm vi chưa hợp lệ. Nhập địa chỉ như A1:E40.</value>
+  </data>
+  <data name="Chọn ít nhất một cột để so sánh." xml:space="preserve">
+    <value>Chọn ít nhất một cột để so sánh.</value>
+  </data>
+  <data name="Vui lòng nhập giá trị trước khi áp dụng." xml:space="preserve">
+    <value>Vui lòng nhập giá trị trước khi áp dụng.</value>
+  </data>
+  <data name="Chọn một giá trị trước khi áp dụng." xml:space="preserve">
+    <value>Chọn một giá trị trước khi áp dụng.</value>
+  </data>
+  <data name="Vùng chọn đã thay đổi. Mở lại lệnh cho vùng hiện tại." xml:space="preserve">
+    <value>Vùng chọn đã thay đổi. Mở lại lệnh cho vùng hiện tại.</value>
+  </data>
+  <data name="Phạm vi mới phải giữ nguyên ô đầu của Bảng." xml:space="preserve">
+    <value>Phạm vi mới phải giữ nguyên ô đầu của Bảng.</value>
+  </data>
+  <data name="Không thể mở rộng Bảng vì các ô đích đã có dữ liệu." xml:space="preserve">
+    <value>Không thể mở rộng Bảng vì các ô đích đã có dữ liệu.</value>
+  </data>
+  <data name="Phạm vi chồng Bảng khác, ô gộp hoặc vùng kết quả mảng. Chọn phạm vi trống phù hợp." xml:space="preserve">
+    <value>Phạm vi chồng Bảng khác, ô gộp hoặc vùng kết quả mảng. Chọn phạm vi trống phù hợp.</value>
+  </data>
+  <data name="Thao tác bị từ chối vì sẽ thay đổi tham chiếu công thức. Kiểm tra công thức liên quan rồi thử lại." xml:space="preserve">
+    <value>Thao tác bị từ chối vì sẽ thay đổi tham chiếu công thức. Kiểm tra công thức liên quan rồi thử lại.</value>
+  </data>
+  <data name="Giá trị chưa hợp lệ. Kiểm tra tên Bảng/cột, phạm vi hoặc cú pháp công thức; tên phải duy nhất và không trùng địa chỉ ô." xml:space="preserve">
+    <value>Giá trị chưa hợp lệ. Kiểm tra tên Bảng/cột, phạm vi hoặc cú pháp công thức; tên phải duy nhất và không trùng địa chỉ ô.</value>
+  </data>
+  <data name="Không thể áp dụng cho Bảng hiện tại. Kiểm tra phạm vi, hàng tổng/tiêu đề, dữ liệu đích và tham chiếu công thức." xml:space="preserve">
+    <value>Không thể áp dụng cho Bảng hiện tại. Kiểm tra phạm vi, hàng tổng/tiêu đề, dữ liệu đích và tham chiếu công thức.</value>
+  </data>
+  <data name="Không thực hiện được lệnh: {0}" xml:space="preserve">
+    <value>Không thực hiện được lệnh: {0}</value>
+  </data>
+  <data name="NERA  /  Bảng tính bán hàng" xml:space="preserve">
+    <value>NERA  /  Bảng tính bán hàng</value>
+  </data>
+  <data name="Trang tính hiện tại" xml:space="preserve">
+    <value>Trang tính hiện tại</value>
+  </data>
+  <data name="ƒx" xml:space="preserve">
+    <value>ƒx</value>
+  </data>
+  <data name="Thu gọn / Mở rộng" xml:space="preserve">
+    <value>Thu gọn / Mở rộng</value>
+  </data>
+  <data name="Sáng" xml:space="preserve">
+    <value>Sáng</value>
+  </data>
+  <data name="Tối" xml:space="preserve">
+    <value>Tối</value>
+  </data>
+  <data name="Tương phản sáng" xml:space="preserve">
+    <value>Tương phản sáng</value>
+  </data>
+  <data name="Tương phản tối" xml:space="preserve">
+    <value>Tương phản tối</value>
+  </data>
+  <data name="Sẵn sàng · Lệnh chỉnh sửa dùng lịch sử Hoàn tác của workbook" xml:space="preserve">
+    <value>Sẵn sàng · Lệnh chỉnh sửa dùng lịch sử Hoàn tác của workbook</value>
+  </data>
+  <data name="Hoàn tác" xml:space="preserve">
+    <value>Hoàn tác</value>
+  </data>
+  <data name="Làm lại" xml:space="preserve">
+    <value>Làm lại</value>
+  </data>
+  <data name="Sao chép" xml:space="preserve">
+    <value>Sao chép</value>
+  </data>
+  <data name="Cắt" xml:space="preserve">
+    <value>Cắt</value>
+  </data>
+  <data name="Dán" xml:space="preserve">
+    <value>Dán</value>
+  </data>
+  <data name="Xóa nội dung" xml:space="preserve">
+    <value>Xóa nội dung</value>
+  </data>
+  <data name="Đậm" xml:space="preserve">
+    <value>Đậm</value>
+  </data>
+  <data name="Nghiêng" xml:space="preserve">
+    <value>Nghiêng</value>
+  </data>
+  <data name="Gộp ô" xml:space="preserve">
+    <value>Gộp ô</value>
+  </data>
+  <data name="Tách ô" xml:space="preserve">
+    <value>Tách ô</value>
+  </data>
+  <data name="Tính lại workbook" xml:space="preserve">
+    <value>Tính lại workbook</value>
+  </data>
+  <data name="Sắp xếp tăng" xml:space="preserve">
+    <value>Sắp xếp tăng</value>
+  </data>
+  <data name="Sắp xếp giảm" xml:space="preserve">
+    <value>Sắp xếp giảm</value>
+  </data>
+  <data name="Chèn hàng" xml:space="preserve">
+    <value>Chèn hàng</value>
+  </data>
+  <data name="Xóa hàng" xml:space="preserve">
+    <value>Xóa hàng</value>
+  </data>
+  <data name="Chèn cột" xml:space="preserve">
+    <value>Chèn cột</value>
+  </data>
+  <data name="Xóa cột" xml:space="preserve">
+    <value>Xóa cột</value>
+  </data>
+  <data name="Cố định khung" xml:space="preserve">
+    <value>Cố định khung</value>
+  </data>
+  <data name="Bỏ cố định" xml:space="preserve">
+    <value>Bỏ cố định</value>
+  </data>
+  <data name="Hoàn tác chia khung" xml:space="preserve">
+    <value>Hoàn tác chia khung</value>
+  </data>
+  <data name="Làm lại chia khung" xml:space="preserve">
+    <value>Làm lại chia khung</value>
+  </data>
+  <data name="Biểu đồ cột" xml:space="preserve">
+    <value>Biểu đồ cột</value>
+  </data>
+  <data name="Biểu đồ thanh" xml:space="preserve">
+    <value>Biểu đồ thanh</value>
+  </data>
+  <data name="Biểu đồ đường" xml:space="preserve">
+    <value>Biểu đồ đường</value>
+  </data>
+  <data name="Biểu đồ tròn" xml:space="preserve">
+    <value>Biểu đồ tròn</value>
+  </data>
+  <data name="Bảng tổng hợp" xml:space="preserve">
+    <value>Bảng tổng hợp</value>
+  </data>
+  <data name="Phông chữ" xml:space="preserve">
+    <value>Phông chữ</value>
+  </data>
+  <data name="Cỡ chữ" xml:space="preserve">
+    <value>Cỡ chữ</value>
+  </data>
+  <data name="Gạch chân" xml:space="preserve">
+    <value>Gạch chân</value>
+  </data>
+  <data name="Căn trái" xml:space="preserve">
+    <value>Căn trái</value>
+  </data>
+  <data name="Căn giữa" xml:space="preserve">
+    <value>Căn giữa</value>
+  </data>
+  <data name="Căn phải" xml:space="preserve">
+    <value>Căn phải</value>
+  </data>
+  <data name="Ngắt dòng" xml:space="preserve">
+    <value>Ngắt dòng</value>
+  </data>
+  <data name="Định dạng số" xml:space="preserve">
+    <value>Định dạng số</value>
+  </data>
+  <data name="Số nguyên" xml:space="preserve">
+    <value>Số nguyên</value>
+  </data>
+  <data name="Hai số thập phân" xml:space="preserve">
+    <value>Hai số thập phân</value>
+  </data>
+  <data name="Phần trăm" xml:space="preserve">
+    <value>Phần trăm</value>
+  </data>
+  <data name="Ngày tháng" xml:space="preserve">
+    <value>Ngày tháng</value>
+  </data>
+  <data name="Đường viền" xml:space="preserve">
+    <value>Đường viền</value>
+  </data>
+  <data name="Mở bộ lọc" xml:space="preserve">
+    <value>Mở bộ lọc</value>
+  </data>
+  <data name="Chọn một ô trong bảng có hàng tiêu đề để mở bộ lọc." xml:space="preserve">
+    <value>Chọn một ô trong bảng có hàng tiêu đề để mở bộ lọc.</value>
+  </data>
+  <data name="Trợ giúp hàm" xml:space="preserve">
+    <value>Trợ giúp hàm</value>
+  </data>
+  <data name="Chèn hàm SUM" xml:space="preserve">
+    <value>Chèn hàm SUM</value>
+  </data>
+  <data name="Chèn AVERAGE" xml:space="preserve">
+    <value>Chèn AVERAGE</value>
+  </data>
+  <data name="Chèn hàm IF" xml:space="preserve">
+    <value>Chèn hàm IF</value>
+  </data>
+  <data name="Chèn XLOOKUP" xml:space="preserve">
+    <value>Chèn XLOOKUP</value>
+  </data>
+  <data name="Hướng giấy" xml:space="preserve">
+    <value>Hướng giấy</value>
+  </data>
+  <data name="Dọc" xml:space="preserve">
+    <value>Dọc</value>
+  </data>
+  <data name="Khổ giấy" xml:space="preserve">
+    <value>Khổ giấy</value>
+  </data>
+  <data name="Lề trang" xml:space="preserve">
+    <value>Lề trang</value>
+  </data>
+  <data name="Bình thường" xml:space="preserve">
+    <value>Bình thường</value>
+  </data>
+  <data name="Hẹp" xml:space="preserve">
+    <value>Hẹp</value>
+  </data>
+  <data name="In đường lưới" xml:space="preserve">
+    <value>In đường lưới</value>
+  </data>
+  <data name="In tiêu đề" xml:space="preserve">
+    <value>In tiêu đề</value>
+  </data>
+  <data name="Xem trước in" xml:space="preserve">
+    <value>Xem trước in</value>
+  </data>
+  <data name="Thống kê workbook" xml:space="preserve">
+    <value>Thống kê workbook</value>
+  </data>
+  <data name="Kiểm tra lỗi ô" xml:space="preserve">
+    <value>Kiểm tra lỗi ô</value>
+  </data>
+  <data name="Đường lưới" xml:space="preserve">
+    <value>Đường lưới</value>
+  </data>
+  <data name="Tiêu đề hàng cột" xml:space="preserve">
+    <value>Tiêu đề hàng cột</value>
+  </data>
+  <data name="Thu phóng" xml:space="preserve">
+    <value>Thu phóng</value>
+  </data>
+  <data name="Cửa sổ mới" xml:space="preserve">
+    <value>Cửa sổ mới</value>
+  </data>
+  <data name="Mở workbook" xml:space="preserve">
+    <value>Mở workbook</value>
+  </data>
+  <data name="Lưu bản sao" xml:space="preserve">
+    <value>Lưu bản sao</value>
+  </data>
+  <data name="Định dạng từ Ribbon" xml:space="preserve">
+    <value>Định dạng từ Ribbon</value>
+  </data>
+  <data name="Không màu" xml:space="preserve">
+    <value>Không màu</value>
+  </data>
+  <data name="Xanh lá" xml:space="preserve">
+    <value>Xanh lá</value>
+  </data>
+  <data name="Vàng" xml:space="preserve">
+    <value>Vàng</value>
+  </data>
+  <data name="Đỏ" xml:space="preserve">
+    <value>Đỏ</value>
+  </data>
+  <data name="Trắng" xml:space="preserve">
+    <value>Trắng</value>
+  </data>
+  <data name="Đen" xml:space="preserve">
+    <value>Đen</value>
+  </data>
+  <data name="Đã cập nhật thiết lập in · có thể Hoàn tác" xml:space="preserve">
+    <value>Đã cập nhật thiết lập in · có thể Hoàn tác</value>
+  </data>
+  <data name="Nhập dấu = trong ô để mở gợi ý hàm và đối số." xml:space="preserve">
+    <value>Nhập dấu = trong ô để mở gợi ý hàm và đối số.</value>
+  </data>
+  <data name="Không có ô lỗi trong trang tính." xml:space="preserve">
+    <value>Không có ô lỗi trong trang tính.</value>
+  </data>
+  <data name="Workbook đã mở" xml:space="preserve">
+    <value>Workbook đã mở</value>
+  </data>
+  <data name="Thiết lập trang in" xml:space="preserve">
+    <value>Thiết lập trang in</value>
+  </data>
+  <data name="Căn chỉnh" xml:space="preserve">
+    <value>Căn chỉnh</value>
+  </data>
+  <data name="Số" xml:space="preserve">
+    <value>Số</value>
+  </data>
+  <data name="Chỉnh sửa" xml:space="preserve">
+    <value>Chỉnh sửa</value>
+  </data>
+  <data name="Bảng" xml:space="preserve">
+    <value>Bảng</value>
+  </data>
+  <data name="Biểu đồ" xml:space="preserve">
+    <value>Biểu đồ</value>
+  </data>
+  <data name="Bố trí trang" xml:space="preserve">
+    <value>Bố trí trang</value>
+  </data>
+  <data name="Thiết lập trang" xml:space="preserve">
+    <value>Thiết lập trang</value>
+  </data>
+  <data name="Tùy chọn in" xml:space="preserve">
+    <value>Tùy chọn in</value>
+  </data>
+  <data name="Bản in" xml:space="preserve">
+    <value>Bản in</value>
+  </data>
+  <data name="Thư viện hàm" xml:space="preserve">
+    <value>Thư viện hàm</value>
+  </data>
+  <data name="Tính toán" xml:space="preserve">
+    <value>Tính toán</value>
+  </data>
+  <data name="Kiểm tra công thức" xml:space="preserve">
+    <value>Kiểm tra công thức</value>
+  </data>
+  <data name="Sắp xếp và lọc" xml:space="preserve">
+    <value>Sắp xếp và lọc</value>
+  </data>
+  <data name="Xem lại" xml:space="preserve">
+    <value>Xem lại</value>
+  </data>
+  <data name="Kiểm tra dữ liệu" xml:space="preserve">
+    <value>Kiểm tra dữ liệu</value>
+  </data>
+  <data name="Trợ giúp" xml:space="preserve">
+    <value>Trợ giúp</value>
+  </data>
+  <data name="Kiểu sáng {0}" xml:space="preserve">
+    <value>Kiểu sáng {0}</value>
+  </data>
+  <data name="Kiểu trung bình {0}" xml:space="preserve">
+    <value>Kiểu trung bình {0}</value>
+  </data>
+  <data name="Kiểu tối {0}" xml:space="preserve">
+    <value>Kiểu tối {0}</value>
+  </data>
+  <data name="Light" xml:space="preserve">
+    <value>Sáng</value>
+  </data>
+  <data name="Medium" xml:space="preserve">
+    <value>Trung bình</value>
+  </data>
+  <data name="Dark" xml:space="preserve">
+    <value>Tối</value>
+  </data>
+  <data name="Add table" xml:space="preserve">
+    <value>Thêm bảng</value>
+  </data>
+  <data name="Remove table" xml:space="preserve">
+    <value>Xóa bảng</value>
+  </data>
+  <data name="Rename table" xml:space="preserve">
+    <value>Đổi tên bảng</value>
+  </data>
+  <data name="Rename table column" xml:space="preserve">
+    <value>Đổi tên cột bảng</value>
+  </data>
+  <data name="Convert table to range" xml:space="preserve">
+    <value>Chuyển bảng thành phạm vi</value>
+  </data>
+  <data name="Create table" xml:space="preserve">
+    <value>Tạo bảng</value>
+  </data>
+  <data name="Set table header row" xml:space="preserve">
+    <value>Đặt hàng tiêu đề bảng</value>
+  </data>
+  <data name="Set table totals row" xml:space="preserve">
+    <value>Đặt hàng tổng bảng</value>
+  </data>
+  <data name="Insert table row" xml:space="preserve">
+    <value>Chèn hàng bảng</value>
+  </data>
+  <data name="Delete table row" xml:space="preserve">
+    <value>Xóa hàng bảng</value>
+  </data>
+  <data name="Insert table column" xml:space="preserve">
+    <value>Chèn cột bảng</value>
+  </data>
+  <data name="Delete table column" xml:space="preserve">
+    <value>Xóa cột bảng</value>
+  </data>
+  <data name="Remove duplicate table rows" xml:space="preserve">
+    <value>Loại bỏ hàng trùng trong bảng</value>
+  </data>
+  <data name="Set first table column" xml:space="preserve">
+    <value>Đặt cột đầu bảng</value>
+  </data>
+  <data name="Set last table column" xml:space="preserve">
+    <value>Đặt cột cuối bảng</value>
+  </data>
+  <data name="Set table row bands" xml:space="preserve">
+    <value>Đặt hàng xen kẽ</value>
+  </data>
+  <data name="Set table column bands" xml:space="preserve">
+    <value>Đặt cột xen kẽ</value>
+  </data>
+  <data name="Set table filter buttons" xml:space="preserve">
+    <value>Đặt nút lọc bảng</value>
+  </data>
+  <data name="Set table style" xml:space="preserve">
+    <value>Đặt kiểu bảng</value>
+  </data>
+  <data name="Set calculated table column" xml:space="preserve">
+    <value>Đặt cột được tính</value>
+  </data>
+  <data name="Set table totals function" xml:space="preserve">
+    <value>Đặt hàm tổng bảng</value>
+  </data>
+  <data name="Add data validation" xml:space="preserve">
+    <value>Thêm kiểm tra dữ liệu</value>
+  </data>
+  <data name="Remove data validation" xml:space="preserve">
+    <value>Xóa kiểm tra dữ liệu</value>
+  </data>
+  <data name="Set cell value" xml:space="preserve">
+    <value>Đặt giá trị ô</value>
+  </data>
+  <data name="Set cell formula" xml:space="preserve">
+    <value>Đặt công thức ô</value>
+  </data>
+  <data name="Clear cells" xml:space="preserve">
+    <value>Xóa nội dung ô</value>
+  </data>
+  <data name="Paste cells" xml:space="preserve">
+    <value>Dán ô</value>
+  </data>
+  <data name="Format cells" xml:space="preserve">
+    <value>Định dạng ô</value>
+  </data>
+  <data name="Set cell style" xml:space="preserve">
+    <value>Đặt kiểu ô</value>
+  </data>
+  <data name="Sort cells" xml:space="preserve">
+    <value>Sắp xếp ô</value>
+  </data>
+  <data name="Bảng tính Nera có bộ lọc Table tương tác." xml:space="preserve">
+    <value>Bảng tính Nera có bộ lọc Table tương tác.</value>
+  </data>
+  <data name="Chạm bên ngoài bảng lọc để đóng." xml:space="preserve">
+    <value>Chạm bên ngoài bảng lọc để đóng.</value>
+  </data>
+  <data name="Chạm hoặc nhấn Enter để mở. Trên Windows cũng có thể dùng Alt và mũi tên xuống từ ô đang chọn." xml:space="preserve">
+    <value>Chạm hoặc nhấn Enter để mở. Trên Windows cũng có thể dùng Alt và mũi tên xuống từ ô đang chọn.</value>
+  </data>
+  <data name="Chọn hoặc bỏ chọn các giá trị cần hiển thị." xml:space="preserve">
+    <value>Chọn hoặc bỏ chọn các giá trị cần hiển thị.</value>
+  </data>
+  <data name="Chọn hoặc bỏ chọn giá trị này." xml:space="preserve">
+    <value>Chọn hoặc bỏ chọn giá trị này.</value>
+  </data>
+  <data name="Cột {0} trong Table {1}, {2}" xml:space="preserve">
+    <value>Cột {0} trong Table {1}, {2}</value>
+  </data>
+  <data name="Danh sách giá trị lọc" xml:space="preserve">
+    <value>Danh sách giá trị lọc</value>
+  </data>
+  <data name="Lọc Table" xml:space="preserve">
+    <value>Lọc Table</value>
+  </data>
+  <data name="Lớp phủ bộ lọc Table" xml:space="preserve">
+    <value>Lớp phủ bộ lọc Table</value>
+  </data>
+  <data name="Nhập nội dung tìm kiếm. Nhấn Enter để áp dụng nếu lựa chọn hợp lệ." xml:space="preserve">
+    <value>Nhập nội dung tìm kiếm. Nhấn Enter để áp dụng nếu lựa chọn hợp lệ.</value>
+  </data>
+  <data name="Trên Windows, nhấn Alt và mũi tên xuống để mở bộ lọc của cột Table đang chọn." xml:space="preserve">
+    <value>Trên Windows, nhấn Alt và mũi tên xuống để mở bộ lọc của cột Table đang chọn.</value>
+  </data>
+  <data name="Tìm kiếm hoặc chọn giá trị. Escape đóng, Enter áp dụng, các phím mũi tên duyệt danh sách trên Windows." xml:space="preserve">
+    <value>Tìm kiếm hoặc chọn giá trị. Escape đóng, Enter áp dụng, các phím mũi tên duyệt danh sách trên Windows.</value>
+  </data>
+  <data name="Đóng bộ lọc" xml:space="preserve">
+    <value>Đóng bộ lọc</value>
+  </data>
+  <data name=" · Đã khóa bởi ứng dụng" xml:space="preserve">
+    <value> · Đã khóa bởi ứng dụng</value>
+  </data>
+</root>

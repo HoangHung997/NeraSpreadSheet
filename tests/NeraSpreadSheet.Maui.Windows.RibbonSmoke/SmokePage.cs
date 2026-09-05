@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.Maui.Controls;
 using NeraSpreadSheet.Bars.Core;
@@ -163,14 +164,14 @@ internal sealed class SmokePage : ContentPage
                     }));
             }
             complexItems.Add(RibbonItemDefinition.Separator("primary", complexOrder));
-            using var complexRibbon = new NeraMauiRibbonView(
-                new RibbonRuntimeController(
+            var complexRuntime = new RibbonRuntimeController(
                     new RibbonDefinition([
                         new RibbonTabDefinition("complex", "Phức hợp", [
                             new RibbonGroupDefinition("items", "Mục", complexItems),
                         ]),
                     ]),
-                    complexRegistry))
+                    complexRegistry);
+            using var complexRibbon = new NeraMauiRibbonView(complexRuntime)
             {
                 WidthRequest = 1_600d,
             };
@@ -467,6 +468,15 @@ internal sealed class SmokePage : ContentPage
                 "The MAUI Ribbon did not rebuild after customization reset.");
 
             await VerifyDenseGeometryAsync(complexRibbon, focusOrigin).ConfigureAwait(true);
+            var tabTips = complexRuntime.KeyTips.TabTips.ToArray();
+            complexRuntime.SetLocalization(new PresentationLocalization(CultureInfo.GetCultureInfo("en-GB")));
+            await Task.Delay(100).ConfigureAwait(true);
+            var localizedFile = Descendants<Button>(complexRibbon).Single(static button => button.AutomationId == "ribbon-file");
+            Require(localizedFile.Text == "File" && localizedFile.Handler?.PlatformView is not null,
+                "The loaded MAUI File control did not switch culture.");
+            Require(tabTips.SequenceEqual(complexRuntime.KeyTips.TabTips), "Culture changed stable tab key tips.");
+            Require(focusOrigin.IsFocused, "Culture switch stole focus from the sibling control.");
+            complexRuntime.SetLocalization(PresentationLocalization.Default);
 
             CompleteSuccessfully();
         }

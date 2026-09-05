@@ -34,6 +34,25 @@ public sealed class RibbonRuntimeController
         Snapshot = Project(EffectiveDefinition, context);
     }
 
+    /// <summary>Gets the resources used by this runtime and its native chrome.</summary>
+    public PresentationLocalization Localization => _projector.Localization;
+
+    /// <summary>
+    /// Switches presentation resources and republishes command state. Call on the
+    /// host UI context, supplying the same command context as a normal refresh.
+    /// Definitions, customization profiles, shortcuts and workbook history are unchanged.
+    /// </summary>
+    public RibbonPresentationSnapshot SetLocalization(PresentationLocalization localization, CommandContext context = default)
+    {
+        ArgumentNullException.ThrowIfNull(localization);
+        var previous = _projector.Localization;
+        _projector.Localization = localization;
+        RibbonProjection projection;
+        try { projection = CreateProjection(EffectiveDefinition, context, _selectionContext); }
+        catch { _projector.Localization = previous; throw; }
+        return Publish(projection);
+    }
+
     /// <summary>
     /// Raised synchronously after <see cref="Snapshot"/> is replaced.
     /// </summary>
@@ -53,7 +72,7 @@ public sealed class RibbonRuntimeController
     public RibbonDefinition Definition { get; }
 
     /// <summary>Gets the immutable grouped catalog available to customization hosts.</summary>
-    public RibbonCommandCatalog CommandCatalog => _commandCatalog;
+    public RibbonCommandCatalog CommandCatalog => _commandCatalog.Localize(Localization);
 
     /// <summary>
     /// Gets the customization currently applied to <see cref="Definition"/>.

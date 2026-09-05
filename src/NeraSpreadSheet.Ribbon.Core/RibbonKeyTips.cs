@@ -273,7 +273,8 @@ public sealed class RibbonKeyTipController
             result.Add(tab.Id, explicitTip);
         }
         var generatedTips = AllocateUniqueTips(
-            generatedTabs.Select(static tab => (tab.Caption, tab.Id)).ToArray(),
+            generatedTabs.Select(tab => (definition.Tabs.Single(source =>
+                string.Equals(source.Id, tab.Id, StringComparison.OrdinalIgnoreCase)).Caption, tab.Id)).ToArray(),
             used);
         for (var index = 0; index < generatedTabs.Count; index++)
         {

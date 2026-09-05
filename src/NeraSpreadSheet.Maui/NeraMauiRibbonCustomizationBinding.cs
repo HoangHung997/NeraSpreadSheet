@@ -25,13 +25,13 @@ public sealed class NeraMauiRibbonCustomizationBinding
             runtime.Definition,
             runtime.CommandCatalog,
             runtime.Customization,
-            commandCaption,
+            commandCaption ?? (id => runtime.CommandCatalog.Entries.FirstOrDefault(entry => entry.CommandId == id)?.Caption ?? id.Value),
             policy);
     }
 
     public event EventHandler? Changed;
 
-    public IReadOnlyList<RibbonCustomizationEntry> Entries => _session.Entries;
+    public IReadOnlyList<RibbonCustomizationEntry> Entries => _session.GetLocalizedEntries(_runtime.Localization);
 
     public RibbonCustomization CreateCustomization() =>
         _session.CreateCustomization();

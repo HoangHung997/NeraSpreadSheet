@@ -1,3 +1,5 @@
+using NeraSpreadSheet.Iconography;
+using NeraSpreadSheet.Commands;
 using System.Drawing;
 using System.Windows.Forms;
 using NeraSpreadSheet.Core;
@@ -13,6 +15,12 @@ namespace NeraSpreadSheet.WinForms;
 /// </summary>
 public sealed class NeraTableFilterDropDownPresenter : IDisposable
 {
+    /// <summary>Resources used when the filter surface is next opened or refreshed.</summary>
+    public PresentationLocalization Localization { get; set; } = PresentationLocalization.Default;
+
+    /// <summary>Gets or sets the palette used the next time the filter opens.</summary>
+    public NeraIconTheme IconTheme { get; set; } = NeraIconTheme.Light;
+
     private const int DropDownWidth = 340;
     private const int DropDownHeight = 466;
 
@@ -151,7 +159,7 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             button.FlatAppearance.BorderColor = ToColor(visual.Border);
             button.AccessibleName = $"{GetFilterButtonAccessibleName(hit)}, {GetHeaderStateText(hit)}";
             button.AccessibleDescription =
-                "Mở menu lọc bằng Enter, Space hoặc Alt+mũi tên xuống từ ô đang chọn.";
+                Localization.Get("Mở menu lọc bằng Enter, Space hoặc Alt+mũi tên xuống từ ô đang chọn.");
             button.Visible = true;
             button.BringToFront();
         }
@@ -188,17 +196,17 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
         return button;
     }
 
-    private static string GetHeaderStateText(SpreadsheetTableFilterButtonHit hit) =>
+    private string GetHeaderStateText(SpreadsheetTableFilterButtonHit hit) =>
         hit.HeaderState switch
         {
-            SpreadsheetFilterHeaderState.Filtered => "đang lọc",
+            SpreadsheetFilterHeaderState.Filtered => Localization.Get("đang lọc"),
             SpreadsheetFilterHeaderState.Sorted => hit.SortDescending == true
-                ? "đang sắp xếp giảm dần"
-                : "đang sắp xếp tăng dần",
+                ? Localization.Get("đang sắp xếp giảm dần")
+                : Localization.Get("đang sắp xếp tăng dần"),
             SpreadsheetFilterHeaderState.FilteredAndSorted => hit.SortDescending == true
-                ? "đang lọc và sắp xếp giảm dần"
-                : "đang lọc và sắp xếp tăng dần",
-            _ => "chưa lọc hoặc sắp xếp",
+                ? Localization.Get("đang lọc và sắp xếp giảm dần")
+                : Localization.Get("đang lọc và sắp xếp tăng dần"),
+            _ => Localization.Get("chưa lọc hoặc sắp xếp"),
         };
 
     private SpreadsheetTableFilterButtonHit[] GetVisibleButtons()
@@ -258,10 +266,10 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             table.TryGetColumn(hit.ColumnId, out var column) &&
             column is not null)
         {
-            return $"Lọc cột {column.Name} trong Table {table.Name}";
+            return Localization.Format("Lọc cột {0} trong Table {1}", column.Name, table.Name);
         }
 
-        return "Mở bộ lọc Table";
+        return Localization.Get("Mở bộ lọc Table");
     }
 
     private void OnFilterButtonClick(object? sender, EventArgs e)
@@ -293,6 +301,7 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
         _navigator = navigator;
 
         var content = BuildDropDownPanel(menu, navigator);
+        NeraWinFormsRibbonChrome.ApplyFilter(content.Panel, IconTheme);
         _searchBox = content.Search;
         _valuesList = content.Values;
         _applyButton = content.Apply;
@@ -308,9 +317,9 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             AutoSize = false,
             Padding = Padding.Empty,
             Size = content.Panel.Size,
-            AccessibleName = $"Lọc {menu.ColumnName} trong Table {menu.TableName}",
+            AccessibleName = Localization.Format("Lọc {0} trong Table {1}", menu.ColumnName, menu.TableName),
             AccessibleDescription =
-                "Dùng mũi tên để duyệt, Space hoặc Enter để chọn, Escape để đóng.",
+                Localization.Get("Dùng mũi tên để duyệt, Space hoặc Enter để chọn, Escape để đóng."),
         };
         dropDown.Items.Add(host);
         dropDown.Opened += (_, _) => FocusSearchBox(dropDown, content.Search);
@@ -343,9 +352,9 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             Size = new Size(DropDownWidth, DropDownHeight),
             BackColor = Color.White,
             Padding = new Padding(10),
-            AccessibleName = $"Bộ lọc {menu.ColumnName}",
+            AccessibleName = Localization.Format("Bộ lọc {0}", menu.ColumnName),
             AccessibleDescription =
-                "Tab để chuyển vùng; mũi tên, Home, End, Page Up và Page Down để duyệt giá trị.",
+                Localization.Get("Tab để chuyển vùng; mũi tên, Home, End, Page Up và Page Down để duyệt giá trị."),
             AccessibleRole = AccessibleRole.Pane,
         };
         var title = new Label
@@ -357,29 +366,29 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
                 FontStyle.Bold),
             Location = new Point(10, 10),
             Size = new Size(DropDownWidth - 20, 24),
-            AccessibleName = $"Lọc {menu.ColumnName} trong Table {menu.TableName}",
+            AccessibleName = Localization.Format("Lọc {0} trong Table {1}", menu.ColumnName, menu.TableName),
             AccessibleRole = AccessibleRole.StaticText,
         };
         var search = new TextBox
         {
-            PlaceholderText = "Tìm giá trị",
+            PlaceholderText = Localization.Get("Tìm giá trị"),
             Location = new Point(10, 75),
             Size = new Size(DropDownWidth - 20, 27),
-            AccessibleName = $"Tìm giá trị trong cột {menu.ColumnName}",
+            AccessibleName = Localization.Format("Tìm giá trị trong cột {0}", menu.ColumnName),
             AccessibleDescription =
-                "Nhấn Enter để áp dụng, Escape để đóng, hoặc mũi tên xuống để vào danh sách.",
+                Localization.Get("Nhấn Enter để áp dụng, Escape để đóng, hoặc mũi tên xuống để vào danh sách."),
             AccessibleRole = AccessibleRole.Text,
         };
         var selectAll = CreateCommandButton(
-            "Chọn tất cả",
+            Localization.Get("Chọn tất cả"),
             new Point(10, 108),
             100,
-            "Chọn mọi giá trị đang hiển thị");
+            Localization.Get("Chọn mọi giá trị đang hiển thị"));
         var selectNone = CreateCommandButton(
-            "Bỏ chọn",
+            Localization.Get("Bỏ chọn"),
             new Point(116, 108),
             88,
-            "Bỏ chọn mọi giá trị đang hiển thị");
+            Localization.Get("Bỏ chọn mọi giá trị đang hiển thị"));
         var status = new Label
         {
             AutoSize = false,
@@ -394,48 +403,48 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             IntegralHeight = false,
             Location = new Point(10, 177),
             Size = new Size(DropDownWidth - 20, 224),
-            AccessibleName = $"Giá trị lọc của cột {menu.ColumnName}",
+            AccessibleName = Localization.Format("Giá trị lọc của cột {0}", menu.ColumnName),
             AccessibleDescription =
-                "Dùng mũi tên để duyệt; Space hoặc Enter để chọn hay bỏ chọn.",
+                Localization.Get("Dùng mũi tên để duyệt; Space hoặc Enter để chọn hay bỏ chọn."),
             AccessibleRole = AccessibleRole.List,
         };
         var clear = CreateCommandButton(
-            "Xóa lọc",
+            Localization.Get("Xóa lọc"),
             new Point(10, 418),
             82,
-            "Xóa bộ lọc hiện tại của cột này");
+            Localization.Get("Xóa bộ lọc hiện tại của cột này"));
         var cancel = CreateCommandButton(
-            "Hủy",
+            Localization.Get("Hủy"),
             new Point(174, 418),
             66,
-            "Đóng mà không áp dụng thay đổi");
+            Localization.Get("Đóng mà không áp dụng thay đổi"));
         var apply = CreateCommandButton(
-            "Áp dụng",
+            Localization.Get("Áp dụng"),
             new Point(246, 418),
             84,
-            "Áp dụng các giá trị đã chọn");
+            Localization.Get("Áp dụng các giá trị đã chọn"));
         var sortAscending = CreateCommandButton(
-            "Sắp ↑",
+            Localization.Get("Sắp ↑"),
             new Point(10, 41),
             70,
-            "Sắp xếp Table tăng dần theo cột này");
-        sortAscending.AccessibleName = "Sắp xếp tăng dần";
+            Localization.Get("Sắp xếp Table tăng dần theo cột này"));
+        sortAscending.AccessibleName = Localization.Get("Sắp xếp tăng dần");
         var sortDescending = CreateCommandButton(
-            "Sắp ↓",
+            Localization.Get("Sắp ↓"),
             new Point(84, 41),
             70,
-            "Sắp xếp Table giảm dần theo cột này");
-        sortDescending.AccessibleName = "Sắp xếp giảm dần";
+            Localization.Get("Sắp xếp Table giảm dần theo cột này"));
+        sortDescending.AccessibleName = Localization.Get("Sắp xếp giảm dần");
         var reapply = CreateCommandButton(
-            "Áp dụng lại",
+            Localization.Get("Áp dụng lại"),
             new Point(158, 41),
             92,
-            "Áp dụng lại thứ tự sắp xếp hiện tại");
+            Localization.Get("Áp dụng lại thứ tự sắp xếp hiện tại"));
         var clearSort = CreateCommandButton(
-            "Xóa SX",
+            Localization.Get("Xóa SX"),
             new Point(254, 41),
             76,
-            "Xóa trạng thái sắp xếp nhưng giữ nguyên thứ tự hàng hiện tại");
+            Localization.Get("Xóa trạng thái sắp xếp nhưng giữ nguyên thứ tự hàng hiện tại"));
         panel.Controls.AddRange([
             title,
             sortAscending,
@@ -483,8 +492,8 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             }
 
             status.Text = menu.ValuesTruncated
-                ? $"Đã quét {menu.ScannedRowCount:N0} hàng; danh sách giá trị đã bị giới hạn."
-                : $"{menu.DistinctValueCount:N0} giá trị khác nhau trong {menu.ScannedRowCount:N0} hàng.";
+                ? Localization.Format("Đã quét {0:N0} hàng; danh sách giá trị đã bị giới hạn.", menu.ScannedRowCount)
+                : Localization.Format("{0:N0} giá trị khác nhau trong {1:N0} hàng.", menu.DistinctValueCount, menu.ScannedRowCount);
             status.AccessibleName = status.Text;
             apply.Enabled = menu.CanApplyValueSelection;
             if (restoreValueFocus)
@@ -852,8 +861,8 @@ public sealed class NeraTableFilterDropDownPresenter : IDisposable
             color.Green,
             color.Blue);
 
-    private static string DisplayValue(CellValue value) =>
-        value.IsBlank ? "(Trống)" : value.ToString();
+    private string DisplayValue(CellValue value) =>
+        value.IsBlank ? Localization.Get("(Trống)") : value.ToString();
 
     private sealed record DropDownContent(
         Panel Panel,

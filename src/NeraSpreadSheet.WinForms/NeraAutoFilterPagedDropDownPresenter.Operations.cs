@@ -1,3 +1,4 @@
+using NeraSpreadSheet.Commands;
 using System.Windows.Forms;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
@@ -272,13 +273,13 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
                 node.Day),
         };
 
-    private static string DisplayDateNode(
+    private string DisplayDateNode(
         SpreadsheetAutoFilterDateNode node) => node.Level switch
         {
-            SpreadsheetAutoFilterDateNodeLevel.Year => $"Năm {node.Year}",
+            SpreadsheetAutoFilterDateNodeLevel.Year => Localization.Format("Năm {0}", node.Year),
             SpreadsheetAutoFilterDateNodeLevel.Month =>
-                $"Tháng {node.Month}/{node.Year}",
-            _ => $"Ngày {node.Day}/{node.Month}/{node.Year}",
+                Localization.Format("Tháng {0}/{1}", node.Month, node.Year),
+            _ => Localization.Format("Ngày {0}/{1}/{2}", node.Day, node.Month, node.Year),
         };
 
     private async Task ClearAndCloseAsync(CancellationToken token)

@@ -31,22 +31,22 @@ public sealed partial class RibbonPreviewWindow
         var column = table?.Columns.FirstOrDefault(item => item.Id == state.ColumnId);
         var title = id switch
         {
-            "Table.Create" => "Tạo Bảng", "Table.Rename" => "Đổi tên Bảng",
-            "Table.Resize" => "Đổi kích thước Bảng", "Table.CalculatedColumn" => "Công thức cột",
-            "Table.TotalsFunction" => "Công thức hàng tổng", "Table.Column.Insert" => "Chèn cột Bảng",
-            "Table.RemoveDuplicates" => "Loại bỏ trùng lặp", "Table.Style" => "Kiểu Bảng", _ => "Chuyển thành phạm vi",
+            "Table.Create" => Localization.Get("Tạo Bảng"), "Table.Rename" => Localization.Get("Đổi tên Bảng"),
+            "Table.Resize" => Localization.Get("Đổi kích thước Bảng"), "Table.CalculatedColumn" => Localization.Get("Công thức cột"),
+            "Table.TotalsFunction" => Localization.Get("Công thức hàng tổng"), "Table.Column.Insert" => Localization.Get("Chèn cột Bảng"),
+            "Table.RemoveDuplicates" => Localization.Get("Loại bỏ trùng lặp"), "Table.Style" => Localization.Get("Kiểu Bảng"), _ => Localization.Get("Chuyển thành phạm vi"),
         };
         var help = id switch
         {
-            "Table.Create" => $"Vùng đã chọn: {selection[0]}. Hàng đầu là tiêu đề. Để trống tên để tự đặt.",
-            "Table.Rename" => "Nhập tên Bảng. Các tham chiếu có cấu trúc sẽ theo tên mới.",
-            "Table.Resize" => $"Nhập phạm vi A1, giữ ô đầu {table?.Range.TopLeft}. Ví dụ: A1:E40.",
-            "Table.CalculatedColumn" => $"Cột: {column?.Name}. Nhập công thức; để trống để bỏ công thức cột.",
-            "Table.TotalsFunction" => $"Cột: {column?.Name}. Chọn hàm tổng; công thức bên dưới chỉ dùng cho Tùy chỉnh.",
-            "Table.Column.Insert" => "Nhập tên cột mới, hoặc để trống để tự đặt tên.",
-            "Table.RemoveDuplicates" => "Chọn cột dùng để so sánh. Giữ hàng đầu tiên của mỗi nhóm trùng.",
-            "Table.Style" => "Chọn kiểu cho Bảng. Có thể Hoàn tác.",
-            _ => $"Chuyển Bảng {table?.Name} thành ô thường. Nội dung ô được giữ. Có thể Hoàn tác.",
+            "Table.Create" => Localization.Format("Vùng đã chọn: {0}. Hàng đầu là tiêu đề. Để trống tên để tự đặt.", selection[0]),
+            "Table.Rename" => Localization.Get("Nhập tên Bảng. Các tham chiếu có cấu trúc sẽ theo tên mới."),
+            "Table.Resize" => Localization.Format("Nhập phạm vi A1, giữ ô đầu {0}. Ví dụ: A1:E40.", table?.Range.TopLeft),
+            "Table.CalculatedColumn" => Localization.Format("Cột: {0}. Nhập công thức; để trống để bỏ công thức cột.", column?.Name),
+            "Table.TotalsFunction" => Localization.Format("Cột: {0}. Chọn hàm tổng; công thức bên dưới chỉ dùng cho Tùy chỉnh.", column?.Name),
+            "Table.Column.Insert" => Localization.Get("Nhập tên cột mới, hoặc để trống để tự đặt tên."),
+            "Table.RemoveDuplicates" => Localization.Get("Chọn cột dùng để so sánh. Giữ hàng đầu tiên của mỗi nhóm trùng."),
+            "Table.Style" => Localization.Get("Chọn kiểu cho Bảng. Có thể Hoàn tác."),
+            _ => Localization.Format("Chuyển Bảng {0} thành ô thường. Nội dung ô được giữ. Có thể Hoàn tác.", table?.Name),
         };
         var input = new TextBox
         {
@@ -66,7 +66,7 @@ public sealed partial class RibbonPreviewWindow
         ComboBox? values = null;
         if (selectedValue is null && id is "Table.Style" or "Table.TotalsFunction")
         {
-            var command = new CommandDispatcher(_commands).QueryState(commandId);
+            var command = new CommandPresentationResolver(_commands) { Localization = Localization }.Resolve(commandId);
             values = new ComboBox { ItemsSource = command.ItemsSource, DisplayMemberPath = "Caption", SelectedValuePath = "Value",
                 SelectedValue = command.SelectedValue, Margin = new Thickness(0, 12, 0, 8), MinHeight = 28 };
             AutomationProperties.SetAutomationId(values, "table-parameter-choice");
@@ -103,20 +103,20 @@ public sealed partial class RibbonPreviewWindow
         input.Foreground = dialog.Foreground;
         error.Foreground = dark ? Brushes.LightSalmon : Brushes.DarkRed;
         object? parameter = null;
-        var apply = ShellButton("Áp dụng", () =>
+        var apply = ShellButton(Localization.Get("Áp dụng"), () =>
         {
             if (id == "Table.Resize")
             {
                 var parts = input.Text.Trim().Split(':');
                 if (parts.Length is < 1 or > 2 || !CellAddress.TryParseA1(parts[0], out var first) ||
                     !CellAddress.TryParseA1(parts[^1], out var last))
-                { error.Text = "Phạm vi chưa hợp lệ. Nhập địa chỉ như A1:E40."; input.Focus(); return; }
+                { error.Text = Localization.Get("Phạm vi chưa hợp lệ. Nhập địa chỉ như A1:E40."); input.Focus(); return; }
                 parameter = new CellRange(first, last);
             }
             else if (id == "Table.RemoveDuplicates")
             {
                 var ids = choices.Where(choice => choice.IsChecked == true).Select(choice => (Guid)choice.Tag).ToArray();
-                if (ids.Length == 0) { error.Text = "Chọn ít nhất một cột để so sánh."; return; }
+                if (ids.Length == 0) { error.Text = Localization.Get("Chọn ít nhất một cột để so sánh."); return; }
                 parameter = ids;
             }
             else
@@ -124,19 +124,19 @@ public sealed partial class RibbonPreviewWindow
                 var text = input.Text.Trim();
                 if (text.Length == 0 && (id == "Table.Rename" || id == "Table.TotalsFunction" &&
                     (selectedValue ?? values?.SelectedValue as string) == "Custom"))
-                { error.Text = "Vui lòng nhập giá trị trước khi áp dụng."; input.Focus(); return; }
+                { error.Text = Localization.Get("Vui lòng nhập giá trị trước khi áp dụng."); input.Focus(); return; }
                 parameter = text.Length == 0 ? null : text;
             }
             if (values is not null)
             {
-                if (values.SelectedValue is not string choice) { error.Text = "Chọn một giá trị trước khi áp dụng."; return; }
+                if (values.SelectedValue is not string choice) { error.Text = Localization.Get("Chọn một giá trị trước khi áp dụng."); return; }
                 parameter = new RibbonItemActivation(choice, parameter);
             }
             dialog.DialogResult = true;
         });
         apply.IsDefault = true;
         AutomationProperties.SetAutomationId(apply, "table-parameter-apply");
-        var cancel = new Button { Content = "Hủy", IsCancel = true, Margin = new Thickness(3), Padding = new Thickness(10, 3, 10, 3) };
+        var cancel = new Button { Content = Localization.Get("Hủy"), IsCancel = true, Margin = new Thickness(3), Padding = new Thickness(10, 3, 10, 3) };
         cancel.Click += (_, _) => dialog.DialogResult = false;
         AutomationProperties.SetAutomationId(cancel, "table-parameter-cancel");
         buttons.Children.Add(apply);
@@ -159,23 +159,23 @@ public sealed partial class RibbonPreviewWindow
             current.ColumnId != state.ColumnId || activeCell != _session.Selection.ActiveCell ||
             !selection.SequenceEqual(_session.Selection.Ranges))
         {
-            SetStatus("Vùng chọn đã thay đổi. Mở lại lệnh cho vùng hiện tại.");
+            SetStatus(Localization.Get("Vùng chọn đã thay đổi. Mở lại lệnh cho vùng hiện tại."));
             return ValueTask.FromResult<CommandContext?>(null);
         }
         return ValueTask.FromResult<CommandContext?>(context with { Parameter = parameter });
     }
 
-    private static string DescribeTableError(Exception exception)
+    private string DescribeTableError(Exception exception)
     {
         var message = exception.Message;
-        if (message.Contains("top-left", StringComparison.Ordinal)) return "Phạm vi mới phải giữ nguyên ô đầu của Bảng.";
-        if (message.Contains("destination cells", StringComparison.Ordinal)) return "Không thể mở rộng Bảng vì các ô đích đã có dữ liệu.";
+        if (message.Contains("top-left", StringComparison.Ordinal)) return Localization.Get("Phạm vi mới phải giữ nguyên ô đầu của Bảng.");
+        if (message.Contains("destination cells", StringComparison.Ordinal)) return Localization.Get("Không thể mở rộng Bảng vì các ô đích đã có dữ liệu.");
         if (message.Contains("overlap", StringComparison.Ordinal) || message.Contains("spill", StringComparison.Ordinal))
-            return "Phạm vi chồng Bảng khác, ô gộp hoặc vùng kết quả mảng. Chọn phạm vi trống phù hợp.";
+            return Localization.Get("Phạm vi chồng Bảng khác, ô gộp hoặc vùng kết quả mảng. Chọn phạm vi trống phù hợp.");
         if (message.Contains("reference", StringComparison.OrdinalIgnoreCase) || message.Contains("A1", StringComparison.Ordinal))
-            return "Thao tác bị từ chối vì sẽ thay đổi tham chiếu công thức. Kiểm tra công thức liên quan rồi thử lại.";
-        if (exception is ArgumentException) return "Giá trị chưa hợp lệ. Kiểm tra tên Bảng/cột, phạm vi hoặc cú pháp công thức; tên phải duy nhất và không trùng địa chỉ ô.";
-        if (exception is InvalidOperationException) return "Không thể áp dụng cho Bảng hiện tại. Kiểm tra phạm vi, hàng tổng/tiêu đề, dữ liệu đích và tham chiếu công thức.";
-        return $"Không thực hiện được lệnh: {message}";
+            return Localization.Get("Thao tác bị từ chối vì sẽ thay đổi tham chiếu công thức. Kiểm tra công thức liên quan rồi thử lại.");
+        if (exception is ArgumentException) return Localization.Get("Giá trị chưa hợp lệ. Kiểm tra tên Bảng/cột, phạm vi hoặc cú pháp công thức; tên phải duy nhất và không trùng địa chỉ ô.");
+        if (exception is InvalidOperationException) return Localization.Get("Không thể áp dụng cho Bảng hiện tại. Kiểm tra phạm vi, hàng tổng/tiêu đề, dữ liệu đích và tham chiếu công thức.");
+        return Localization.Format("Không thực hiện được lệnh: {0}", message);
     }
 }

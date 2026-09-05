@@ -12,14 +12,45 @@ internal sealed record NeraMauiRibbonPalette(
     internal static NeraMauiRibbonPalette For(NeraIconTheme theme) => theme switch
     {
         NeraIconTheme.Dark => new(Color.FromArgb("#252525"), Color.FromArgb("#202020"), Color.FromArgb("#F4F4F4"), Color.FromArgb("#BDBDBD"), Color.FromArgb("#494949"), Color.FromArgb("#3A4640"), Color.FromArgb("#496052"), Color.FromArgb("#354D40"), Color.FromArgb("#69D5A0")),
-        NeraIconTheme.HighContrastDark => new(Color.FromArgb("#252525"), Color.FromArgb("#202020"), Color.FromArgb("#F4F4F4"), Colors.White, Colors.White, Color.FromArgb("#3A3A3A"), Color.FromArgb("#496052"), Color.FromArgb("#3A3A3A"), Color.FromArgb("#FFEF00")),
-        NeraIconTheme.HighContrastLight => new(Colors.White, Color.FromArgb("#F5F7F6"), Color.FromArgb("#24292D"), Colors.Black, Colors.Black, Color.FromArgb("#D9E5FF"), Color.FromArgb("#C8E2D2"), Color.FromArgb("#D9E5FF"), Color.FromArgb("#0035B2")),
+        NeraIconTheme.HighContrastDark => new(Colors.Black, Colors.Black, Colors.White, Colors.White, Colors.White, Color.FromArgb("#3A3A3A"), Color.FromArgb("#555555"), Color.FromArgb("#3A3A3A"), Color.FromArgb("#FFEF00")),
+        NeraIconTheme.HighContrastLight => new(Colors.White, Colors.White, Colors.Black, Colors.Black, Colors.Black, Color.FromArgb("#D9E5FF"), Color.FromArgb("#B8CCFF"), Color.FromArgb("#D9E5FF"), Color.FromArgb("#0035B2")),
         _ => new(Colors.White, Color.FromArgb("#F5F7F6"), Color.FromArgb("#24292D"), Color.FromArgb("#60676C"), Color.FromArgb("#DEE3E0"), Color.FromArgb("#EAF2ED"), Color.FromArgb("#C8E2D2"), Color.FromArgb("#DDEFE4"), Color.FromArgb("#18734A")),
     };
 }
 
 internal static class NeraMauiRibbonChrome
 {
+    internal static void ConfigureFilter(VisualElement root, NeraMauiRibbonPalette palette)
+    {
+        root.BackgroundColor = palette.Surface;
+        switch (root)
+        {
+            case Button button:
+                Configure(button, palette, false);
+                button.MinimumHeightRequest = 32d;
+                break;
+            case Label label: label.TextColor = palette.Text; break;
+            case Entry entry:
+                entry.TextColor = palette.Text;
+                entry.PlaceholderColor = palette.Muted;
+                break;
+            case Picker picker:
+                picker.TextColor = palette.Text;
+                picker.TitleColor = palette.Muted;
+                break;
+            case CheckBox checkBox: checkBox.Color = palette.Accent; break;
+        }
+        IEnumerable<VisualElement> children = root switch
+        {
+            Microsoft.Maui.Controls.Layout layout => layout.Children.OfType<VisualElement>(),
+            Border { Content: { } content } => [content],
+            ContentView { Content: { } content } => [content],
+            ScrollView { Content: { } content } => [content],
+            _ => [],
+        };
+        foreach (var child in children) ConfigureFilter(child, palette);
+    }
+
     internal static void Configure(Button button, NeraMauiRibbonPalette palette, bool isChecked)
     {
         button.FontFamily = "Segoe UI";
@@ -33,16 +64,17 @@ internal static class NeraMauiRibbonChrome
         button.BorderColor = palette.Accent;
         button.BorderWidth = isChecked ? 1d : 0d;
         var states = new VisualStateGroup { Name = "CommonStates" };
-        AddState(states, "Normal", isChecked ? palette.Checked : palette.Surface, palette.Text);
-        AddState(states, "PointerOver", palette.Hover, palette.Text);
-        AddState(states, "Pressed", palette.Pressed, palette.Text);
+        AddState(states, "Normal", isChecked ? palette.Checked : palette.Surface, palette.Text, isChecked ? 1d : 0d);
+        AddState(states, "PointerOver", palette.Hover, palette.Text, 1d);
+        AddState(states, "Pressed", palette.Pressed, palette.Text, 2d);
         AddState(states, "Disabled", palette.Surface, palette.Muted);
         var focused = new VisualState { Name = "Focused" };
-        focused.Setters.Add(new Setter { Property = Button.BorderWidthProperty, Value = 1d });
+        focused.Setters.Add(new Setter { Property = Button.BorderWidthProperty, Value = 2d });
         focused.Setters.Add(new Setter { Property = Button.BorderColorProperty, Value = palette.Accent });
         states.States.Add(focused);
         VisualStateManager.SetVisualStateGroups(button, [states]);
         RemoveNativeMinimums(button);
+        button.Loaded -= ConfigureNativeCaption;
         button.Loaded += ConfigureNativeCaption;
     }
 
@@ -58,6 +90,7 @@ internal static class NeraMauiRibbonChrome
                 native.Padding = new Microsoft.UI.Xaml.Thickness(3d, 0d, 3d, 0d);
             }
         }
+        element.HandlerChanged -= ConfigureNative;
         element.HandlerChanged += ConfigureNative;
         ConfigureNative(element, EventArgs.Empty);
 #endif
@@ -90,11 +123,12 @@ internal static class NeraMauiRibbonChrome
         return ImageSource.FromStream(() => new MemoryStream(bytes, writable: false));
     }
 
-    private static void AddState(VisualStateGroup group, string name, Color background, Color foreground)
+    private static void AddState(VisualStateGroup group, string name, Color background, Color foreground, double borderWidth = 0d)
     {
         var state = new VisualState { Name = name };
         state.Setters.Add(new Setter { Property = VisualElement.BackgroundColorProperty, Value = background });
         state.Setters.Add(new Setter { Property = Button.TextColorProperty, Value = foreground });
+        state.Setters.Add(new Setter { Property = Button.BorderWidthProperty, Value = borderWidth });
         group.States.Add(state);
     }
 

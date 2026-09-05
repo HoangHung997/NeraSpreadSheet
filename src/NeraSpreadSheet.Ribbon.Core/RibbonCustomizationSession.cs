@@ -105,6 +105,23 @@ public sealed class RibbonCustomizationSession
     }
 
     public IReadOnlyList<RibbonCustomizationEntry> Entries => CreateEntries();
+
+    /// <summary>Projects SDK default labels for a native editor without changing its working profile.</summary>
+    public IReadOnlyList<RibbonCustomizationEntry> GetLocalizedEntries(PresentationLocalization localization)
+    {
+        ArgumentNullException.ThrowIfNull(localization);
+        return Entries.Select(entry =>
+        {
+            if (entry.IsCustom || entry.Target.Kind == RibbonCustomizationTargetKind.Command) return entry;
+            var tab = _definition.Tabs.FirstOrDefault(tab => EqualsId(tab.Id, entry.Target.TabId));
+            var group = tab?.Groups.FirstOrDefault(group => EqualsId(group.Id, entry.Target.GroupId ?? string.Empty));
+            var caption = entry.Target.Kind == RibbonCustomizationTargetKind.Tab ? tab?.Caption : group?.Caption;
+            var key = entry.Target.Kind == RibbonCustomizationTargetKind.Tab ? tab?.CaptionResourceKey : group?.CaptionResourceKey;
+            return key is not null && string.Equals(entry.Caption, caption, StringComparison.Ordinal)
+                ? entry with { Caption = localization.Get(key) } : entry;
+        }).ToArray();
+    }
+
     public IReadOnlyList<CommandId> QuickAccessToolbar => _quickAccessToolbar.OrderBy(static item => item.Order).Select(static item => item.CommandId).ToArray();
 
     public bool SetVisible(RibbonCustomizationTarget target, bool isVisible)

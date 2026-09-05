@@ -1,3 +1,5 @@
+using NeraSpreadSheet.Iconography;
+using NeraSpreadSheet.Commands;
 using System.Drawing;
 using System.Windows.Forms;
 using NeraSpreadSheet.Core;
@@ -14,6 +16,12 @@ namespace NeraSpreadSheet.WinForms;
 /// </summary>
 public sealed partial class NeraAutoFilterPagedDropDownPresenter : IDisposable
 {
+    /// <summary>Resources used when the filter surface is next opened or refreshed.</summary>
+    public PresentationLocalization Localization { get; set; } = PresentationLocalization.Default;
+
+    /// <summary>Gets or sets the palette used the next time the filter opens.</summary>
+    public NeraIconTheme IconTheme { get; set; } = NeraIconTheme.Light;
+
     private const int DropDownWidth = 350;
     private const int DropDownHeight = 540;
     private const int PageSize = 100;

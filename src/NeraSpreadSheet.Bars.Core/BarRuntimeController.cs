@@ -31,6 +31,27 @@ public sealed class BarRuntimeController
         Snapshot = Project(EffectiveDefinition, context);
     }
 
+    /// <summary>Gets the resources used by this runtime and its native chrome.</summary>
+    public PresentationLocalization Localization => _projector.Localization;
+
+    /// <summary>
+    /// Switches presentation resources and republishes command state. Call on the
+    /// host UI context, supplying the same command context as a normal refresh.
+    /// Definitions, customization profiles, shortcuts and workbook history are unchanged.
+    /// </summary>
+    public BarPresentationSnapshot SetLocalization(PresentationLocalization localization, CommandContext context = default)
+    {
+        ArgumentNullException.ThrowIfNull(localization);
+        var previous = _projector.Localization;
+        _projector.Localization = localization;
+        BarPresentationSnapshot snapshot;
+        try { snapshot = Project(EffectiveDefinition, context); }
+        catch { _projector.Localization = previous; throw; }
+        Snapshot = snapshot;
+        SnapshotChanged?.Invoke(this, EventArgs.Empty);
+        return Snapshot;
+    }
+
     /// <summary>
     /// Raised synchronously after <see cref="Snapshot"/> is replaced.
     /// </summary>

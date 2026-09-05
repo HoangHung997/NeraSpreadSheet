@@ -1,3 +1,4 @@
+using NeraSpreadSheet.Commands;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -16,6 +17,9 @@ public sealed class NeraMauiAutoFilterPagedBinding :
     IDisposable,
     IAsyncDisposable
 {
+    /// <summary>Resources used by the next published native page.</summary>
+    public PresentationLocalization Localization { get; set; } = PresentationLocalization.Default;
+
     private readonly IDispatcher _dispatcher;
     private readonly SpreadsheetAutoFilterPagedPresenter _presenter;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
@@ -33,7 +37,7 @@ public sealed class NeraMauiAutoFilterPagedBinding :
     private bool _hasNextPage;
     private bool _isSourceTruncated;
     private IReadOnlyList<SpreadsheetAutoFilterMenuKind> _menuKinds = [];
-    private string _accessibilityAnnouncement = string.Empty;
+    private SpreadsheetAutoFilterPagedPresenterSnapshot? _publishedSnapshot;
 
     public NeraMauiAutoFilterPagedBinding(
         SpreadsheetAutoFilterPagedPresenter presenter,
@@ -111,8 +115,15 @@ public sealed class NeraMauiAutoFilterPagedBinding :
 
     public string AccessibilityAnnouncement
     {
-        get => _accessibilityAnnouncement;
-        private set => SetField(ref _accessibilityAnnouncement, value);
+        get
+        {
+            var snapshot = _publishedSnapshot;
+            if (snapshot is null) return string.Empty;
+            var stateKey = $"FilterState.{snapshot.Target.HeaderState}.{(snapshot.Target.SortDescending == true ? "Descending" : "Ascending")}";
+            var countKey = snapshot.IsResultCountTruncated ? "ít nhất {0:N0} kết quả" : "{0:N0} kết quả";
+            return Localization.Format("Cột {0} trong {1}, {2}, {3}.", snapshot.Target.ColumnName,
+                snapshot.Target.OwnerName, Localization.Get(stateKey), Localization.Format(countKey, snapshot.ResultRowCount));
+        }
     }
 
     public Task InitializeAsync(
@@ -403,7 +414,7 @@ public sealed class NeraMauiAutoFilterPagedBinding :
             Items.Clear();
             foreach (var item in snapshot.Values)
             {
-                Items.Add(item);
+                Items.Add(item.Value.IsBlank ? item with { DisplayText = Localization.Get("(Trống)") } : item);
             }
             SearchText = snapshot.SearchText;
             PageOffset = snapshot.PageOffset;
@@ -413,7 +424,8 @@ public sealed class NeraMauiAutoFilterPagedBinding :
             HasNextPage = snapshot.HasNextPage;
             IsSourceTruncated = snapshot.IsSourceTruncated;
             MenuKinds = snapshot.MenuKinds;
-            AccessibilityAnnouncement = snapshot.AccessibilityAnnouncement;
+            _publishedSnapshot = snapshot;
+            OnPropertyChanged(nameof(AccessibilityAnnouncement));
             OnPropertyChanged(nameof(Target));
         });
     }

@@ -1,3 +1,4 @@
+using NeraSpreadSheet.Commands;
 using System.Drawing;
 using System.Windows.Forms;
 using NeraSpreadSheet.Core;
@@ -31,6 +32,7 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             _control);
         _binding = binding;
         var content = BuildDropDownPanel(target);
+        NeraWinFormsRibbonChrome.ApplyFilter(content, IconTheme);
         var host = new ToolStripControlHost(content)
         {
             AutoSize = false,
@@ -43,9 +45,9 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             AutoSize = false,
             Padding = Padding.Empty,
             Size = content.Size,
-            AccessibleName = $"Lọc {target.ColumnName} trong {target.OwnerName}",
+            AccessibleName = Localization.Format("Lọc {0} trong {1}", target.ColumnName, target.OwnerName),
             AccessibleDescription =
-                "Dùng tìm kiếm, trang trước/sau và danh sách giá trị để lọc.",
+                Localization.Get("Dùng tìm kiếm, trang trước/sau và danh sách giá trị để lọc."),
         };
         dropDown.Items.Add(host);
         dropDown.Opened += OnDropDownOpened;
@@ -65,9 +67,9 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             Size = new Size(DropDownWidth, DropDownHeight),
             BackColor = Color.White,
             Padding = new Padding(10),
-            AccessibleName = $"Bộ lọc {target.ColumnName}",
+            AccessibleName = Localization.Format("Bộ lọc {0}", target.ColumnName),
             AccessibleDescription =
-                "Danh sách giá trị được tải theo trang, không tải toàn bộ control cùng lúc.",
+                Localization.Get("Danh sách giá trị được tải theo trang, không tải toàn bộ control cùng lúc."),
             AccessibleRole = AccessibleRole.Pane,
         };
         var title = new Label
@@ -81,12 +83,12 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         };
         var search = new TextBox
         {
-            PlaceholderText = "Tìm giá trị",
+            PlaceholderText = Localization.Get("Tìm giá trị"),
             Location = new Point(10, 39),
             Size = new Size(DropDownWidth - 20, 27),
-            AccessibleName = $"Tìm giá trị trong cột {target.ColumnName}",
+            AccessibleName = Localization.Format("Tìm giá trị trong cột {0}", target.ColumnName),
             AccessibleDescription =
-                "Nhấn Enter để áp dụng, Escape để đóng, Page Up hoặc Page Down để đổi trang.",
+                Localization.Get("Nhấn Enter để áp dụng, Escape để đóng, Page Up hoặc Page Down để đổi trang."),
             AccessibleRole = AccessibleRole.Text,
         };
         _searchBox = search;
@@ -95,16 +97,16 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             DropDownStyle = ComboBoxStyle.DropDownList,
             Location = new Point(10, 72),
             Size = new Size(DropDownWidth - 20, 28),
-            AccessibleName = "Nhóm điều kiện lọc",
-            AccessibleDescription = "Chọn lọc giá trị, văn bản, số, ngày, màu, biểu tượng hoặc điều kiện tùy chỉnh.",
+            AccessibleName = Localization.Get("Nhóm điều kiện lọc"),
+            AccessibleDescription = Localization.Get("Chọn lọc giá trị, văn bản, số, ngày, màu, biểu tượng hoặc điều kiện tùy chỉnh."),
         };
         _menuKindBox = menuKind;
         var criterionInput = new TextBox
         {
-            PlaceholderText = "Giá trị điều kiện (Top10%, Today, #RRGGBB…)",
+            PlaceholderText = Localization.Get("Giá trị điều kiện (Top10%, Today, #RRGGBB…)"),
             Location = new Point(10, 105),
             Size = new Size(DropDownWidth - 20, 27),
-            AccessibleName = "Giá trị điều kiện lọc",
+            AccessibleName = Localization.Get("Giá trị điều kiện lọc"),
         };
         _criterionInput = criterionInput;
         var conditionJoin = new ComboBox
@@ -112,37 +114,37 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             DropDownStyle = ComboBoxStyle.DropDownList,
             Location = new Point(10, 138),
             Size = new Size(82, 28),
-            DataSource = new[] { "Và", "Hoặc" },
-            AccessibleName = "Cách kết hợp điều kiện",
+            DataSource = new[] { Localization.Get("Và"), Localization.Get("Hoặc") },
+            AccessibleName = Localization.Get("Cách kết hợp điều kiện"),
             Visible = false,
         };
         _conditionJoinBox = conditionJoin;
         var secondCriterion = new TextBox
         {
-            PlaceholderText = "Điều kiện thứ hai",
+            PlaceholderText = Localization.Get("Điều kiện thứ hai"),
             Location = new Point(98, 138),
             Size = new Size(DropDownWidth - 108, 27),
-            AccessibleName = "Điều kiện lọc thứ hai",
+            AccessibleName = Localization.Get("Điều kiện lọc thứ hai"),
             Visible = false,
         };
         _secondCriterionInput = secondCriterion;
         var selectAll = CreateCommandButton(
-            "Chọn kết quả",
+            Localization.Get("Chọn kết quả"),
             new Point(10, 138),
             108,
-            "Chọn mọi giá trị khớp tìm kiếm");
+            Localization.Get("Chọn mọi giá trị khớp tìm kiếm"));
         _selectAllButton = selectAll;
         var selectNone = CreateCommandButton(
-            "Bỏ chọn kết quả",
+            Localization.Get("Bỏ chọn kết quả"),
             new Point(124, 138),
             120,
-            "Bỏ chọn mọi giá trị khớp tìm kiếm");
+            Localization.Get("Bỏ chọn mọi giá trị khớp tìm kiếm"));
         _selectNoneButton = selectNone;
         var dateBack = CreateCommandButton(
-            "◀ Lùi một cấp ngày",
+            Localization.Get("◀ Lùi một cấp ngày"),
             new Point(10, 138),
             150,
-            "Quay về cấp ngày cha");
+            Localization.Get("Quay về cấp ngày cha"));
         dateBack.Visible = false;
         _dateBackButton = dateBack;
         var status = new Label
@@ -160,47 +162,47 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             IntegralHeight = false,
             Location = new Point(10, 207),
             Size = new Size(DropDownWidth - 20, 200),
-            AccessibleName = $"Trang giá trị lọc của cột {target.ColumnName}",
+            AccessibleName = Localization.Format("Trang giá trị lọc của cột {0}", target.ColumnName),
             AccessibleDescription =
-                "Danh sách chỉ chứa trang hiện hành; Space để chọn hoặc bỏ chọn.",
+                Localization.Get("Danh sách chỉ chứa trang hiện hành; Space để chọn hoặc bỏ chọn."),
             AccessibleRole = AccessibleRole.List,
         };
         _valuesList = values;
         var previous = CreateCommandButton(
-            "◀ Trang trước",
+            Localization.Get("◀ Trang trước"),
             new Point(10, 413),
             105,
-            "Tải trang giá trị trước");
+            Localization.Get("Tải trang giá trị trước"));
         var next = CreateCommandButton(
-            "Trang sau ▶",
+            Localization.Get("Trang sau ▶"),
             new Point(121, 413),
             105,
-            "Tải trang giá trị sau");
+            Localization.Get("Tải trang giá trị sau"));
         _previousButton = previous;
         _nextButton = next;
         var sortAscending = CreateCommandButton(
-            "Sắp xếp ↑", new Point(10, 451), 80, "Sắp xếp cột tăng dần");
+            Localization.Get("Sắp xếp ↑"), new Point(10, 451), 80, Localization.Get("Sắp xếp cột tăng dần"));
         var sortDescending = CreateCommandButton(
-            "Sắp xếp ↓", new Point(96, 451), 80, "Sắp xếp cột giảm dần");
+            Localization.Get("Sắp xếp ↓"), new Point(96, 451), 80, Localization.Get("Sắp xếp cột giảm dần"));
         var reapply = CreateCommandButton(
-            "Áp dụng lại", new Point(182, 451), 78, "Áp dụng lại lọc và sắp xếp hiện tại");
+            Localization.Get("Áp dụng lại"), new Point(182, 451), 78, Localization.Get("Áp dụng lại lọc và sắp xếp hiện tại"));
         var clearSort = CreateCommandButton(
-            "Xóa SX", new Point(266, 451), 74, "Xóa trạng thái sắp xếp");
+            Localization.Get("Xóa SX"), new Point(266, 451), 74, Localization.Get("Xóa trạng thái sắp xếp"));
         var clear = CreateCommandButton(
-            "Xóa lọc",
+            Localization.Get("Xóa lọc"),
             new Point(10, 487),
             82,
-            "Xóa bộ lọc hiện tại của cột này");
+            Localization.Get("Xóa bộ lọc hiện tại của cột này"));
         var cancel = CreateCommandButton(
-            "Hủy",
+            Localization.Get("Hủy"),
             new Point(184, 487),
             66,
-            "Đóng mà không áp dụng thay đổi");
+            Localization.Get("Đóng mà không áp dụng thay đổi"));
         var apply = CreateCommandButton(
-            "Áp dụng",
+            Localization.Get("Áp dụng"),
             new Point(256, 487),
             84,
-            "Áp dụng lựa chọn trên toàn danh sách đã phân trang");
+            Localization.Get("Áp dụng lựa chọn trên toàn danh sách đã phân trang"));
         _applyButton = apply;
         panel.Controls.AddRange([
             title,
@@ -364,7 +366,7 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         {
             var selectedIndex = _menuKindBox.SelectedIndex;
             var labels = _binding.MenuKinds
-                .Select(static kind => kind.GetDefaultDisplayName())
+                .Select(kind => Localization.Get(kind.GetDefaultDisplayName()))
                 .ToArray();
             _menuKindBox.BeginUpdate();
             _menuKindBox.DataSource = null;
@@ -427,13 +429,13 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         var last = Math.Min(total, offset + pageCount);
         _status.Text = !isValues && !isDate
             ? isCustom
-                ? "Nhập một hoặc hai điều kiện rồi chọn cách kết hợp."
-                : "Nhập điều kiện lọc rồi chọn Áp dụng."
+                ? Localization.Get("Nhập một hoặc hai điều kiện rồi chọn cách kết hợp.")
+                : Localization.Get("Nhập điều kiện lọc rồi chọn Áp dụng.")
             : isDate
-            ? $"{first:N0}–{last:N0}/{total:N0} nhóm ngày; đã chọn {_selectedDateGroups.Count:N0}."
+            ? Localization.Format("{0:N0}–{1:N0}/{2:N0} nhóm ngày; đã chọn {3:N0}.", first, last, total, _selectedDateGroups.Count)
             : _binding.IsSourceTruncated
-                ? $"{first:N0}–{last:N0}/{total:N0}; nguồn bị giới hạn, không thể áp dụng chọn giá trị."
-                : $"{first:N0}–{last:N0}/{total:N0} giá trị.";
+                ? Localization.Format("{0:N0}–{1:N0}/{2:N0}; nguồn bị giới hạn, không thể áp dụng chọn giá trị.", first, last, total)
+                : Localization.Format("{0:N0}–{1:N0}/{2:N0} giá trị.", first, last, total);
         _status.AccessibleName = _status.Text;
         _status.AccessibleDescription = _binding.AccessibilityAnnouncement;
         _previousButton!.Visible = isValues || isDate;
@@ -469,7 +471,7 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             }
             if (_status is not null)
             {
-                _status.Text = $"Đã chọn {_selectedDateGroups.Count:N0} nhóm ngày.";
+                _status.Text = Localization.Format("Đã chọn {0:N0} nhóm ngày.", _selectedDateGroups.Count);
             }
             return;
         }
@@ -549,8 +551,8 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         e.SuppressKeyPress = true;
     }
 
-    private static string DisplayValue(CellValue value) =>
-        value.IsBlank ? "(Trống)" : value.ToString();
+    private string DisplayValue(CellValue value) =>
+        value.IsBlank ? Localization.Get("(Trống)") : value.ToString();
 
     private sealed record FilterListItem(
         CellValue Value,

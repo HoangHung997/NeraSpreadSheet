@@ -66,6 +66,9 @@ public sealed class CommandPresentationResolver
         _dispatcher = new CommandDispatcher(registry);
     }
 
+    /// <summary>Gets or sets resources used on the next projection.</summary>
+    public PresentationLocalization Localization { get; set; } = PresentationLocalization.Default;
+
     /// <summary>
     /// Resolves one command. Unregistered commands remain visible as disabled fallback items.
     /// </summary>
@@ -91,18 +94,34 @@ public sealed class CommandPresentationResolver
 
         var state = _dispatcher.QueryState(commandId, context);
         var caption = string.IsNullOrWhiteSpace(state.DisplayText)
-            ? descriptor.Caption
-            : state.DisplayText;
+            ? descriptor.CaptionResourceKey is { } captionKey ? Localization.Get(captionKey) : Localization.CommandCaption(commandId, descriptor.Caption)
+            : PresentationLocalization.IsDefaultCommand(descriptor) &&
+                (string.Equals(commandId.Value, "Edit.Undo", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(commandId.Value, "Edit.Redo", StringComparison.OrdinalIgnoreCase))
+                ? Localization.Get(state.DisplayText)
+                : state.DisplayText;
+        var items = PresentationLocalization.IsDefaultCommand(descriptor) && string.Equals(commandId.Value, "Table.TotalsFunction", StringComparison.OrdinalIgnoreCase)
+            ? state.ItemsSource.Select(item => new CommandItem(item.Value, Localization.Get(item.Caption),
+                item.IsEnabled, item.IsChecked, item.Tooltip, item.IconKey, item.Children))
+            : state.ItemsSource;
+        if (PresentationLocalization.IsDefaultCommand(descriptor) && string.Equals(commandId.Value, "Table.Style", StringComparison.OrdinalIgnoreCase))
+        {
+            caption = Localization.TableStyleCaption(caption);
+            items = state.ItemsSource.Select(item => new CommandItem(item.Value,
+                item.Caption == item.Value ? Localization.TableStyleCaption(item.Caption) : item.Caption,
+                item.IsEnabled, item.IsChecked, item.Tooltip is null ? null : Localization.Get(item.Tooltip),
+                item.IconKey, item.Children));
+        }
         return new CommandPresentation(
             commandId,
             IsRegistered: true,
             caption,
-            descriptor.Tooltip,
+            descriptor.TooltipResourceKey is { } tooltipKey ? Localization.Get(tooltipKey) : descriptor.Tooltip,
             descriptor.IconKey,
             descriptor.Shortcut,
             state.IsEnabled,
             state.IsChecked,
             state.SelectedValue,
-            state.ItemsSource);
+            items);
     }
 }

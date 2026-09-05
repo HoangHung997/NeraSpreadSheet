@@ -16,6 +16,8 @@ namespace NeraSpreadSheet.Wpf;
 /// </summary>
 public sealed class NeraRibbonControl : UserControl, IDisposable
 {
+    private PresentationLocalization Localization => _runtime.Localization;
+
     private readonly RibbonRuntimeController _runtime;
     private readonly RibbonResponsiveLayoutEngine _layoutEngine = new();
     private readonly DockPanel _root = new();
@@ -58,7 +60,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         _root.Children.Add(_contentHost);
         Content = _root;
         AutomationProperties.SetAutomationId(this, "NeraRibbon");
-        AutomationProperties.SetName(this, "Thanh Ribbon NeraSpreadSheet");
+        AutomationProperties.SetName(this, Localization.Get("Thanh Ribbon NeraSpreadSheet"));
         _runtime.SnapshotChanged += OnSnapshotChanged;
         _tabs.SelectionChanged += OnTabSelectionChanged;
         SizeChanged += OnRibbonSizeChanged;
@@ -133,10 +135,12 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     public RibbonLayoutSnapshot LayoutSnapshot { get; private set; } = null!;
 
     /// <summary>Gets or sets the localizable File-surface caption.</summary>
-    public string FileCaption { get; set; } = "Tệp";
+    private string? _fileCaption;
+    public string FileCaption { get => _fileCaption ?? Localization.Get("Tệp"); set => _fileCaption = value; }
 
     /// <summary>Gets or sets the localizable File-surface automation name.</summary>
-    public string FileAutomationName { get; set; } = "Mở khu vực Tệp";
+    private string? _localizedFileAutomationName;
+    public string FileAutomationName { get => _localizedFileAutomationName ?? Localization.Get("Mở khu vực Tệp"); set => _localizedFileAutomationName = value; }
 
     /// <summary>Gets the native tab control used by the presenter.</summary>
     public TabControl NativeTabControl => _tabs;
@@ -902,17 +906,17 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         AutomationProperties.SetName(gallery, item.Presentation.AutomationName);
         var controls = new UniformGrid { Rows = 3, Width = 18d };
         DockPanel.SetDock(controls, Dock.Right);
-        var previous = new Button { Content = "⌃", Padding = new Thickness(0d), ToolTip = "Kiểu trước", IsEnabled = false };
+        var previous = new Button { Content = "⌃", Padding = new Thickness(0d), ToolTip = Localization.Get("Kiểu trước"), IsEnabled = false };
         previous.Click += (_, _) => scroll.ScrollToHorizontalOffset(Math.Max(0d, scroll.HorizontalOffset - 74d));
-        var next = new Button { Content = "⌄", Padding = new Thickness(0d), ToolTip = "Kiểu tiếp theo", IsEnabled = command.IsEnabled };
+        var next = new Button { Content = "⌄", Padding = new Thickness(0d), ToolTip = Localization.Get("Kiểu tiếp theo"), IsEnabled = command.IsEnabled };
         next.Click += (_, _) => scroll.ScrollToHorizontalOffset(scroll.HorizontalOffset + 74d);
-        var more = new Button { Content = "⌄", Padding = new Thickness(0d), ToolTip = "Tất cả kiểu", Tag = command.CommandId, IsEnabled = command.IsEnabled };
+        var more = new Button { Content = "⌄", Padding = new Thickness(0d), ToolTip = Localization.Get("Tất cả kiểu"), Tag = command.CommandId, IsEnabled = command.IsEnabled };
         AutomationProperties.SetAutomationId(previous, $"ribbon-command-{command.CommandId.Value}-previous");
         AutomationProperties.SetAutomationId(next, $"ribbon-command-{command.CommandId.Value}-next");
         AutomationProperties.SetAutomationId(more, $"ribbon-command-{command.CommandId.Value}-more");
-        AutomationProperties.SetName(previous, "Kiểu trước");
-        AutomationProperties.SetName(next, "Kiểu tiếp theo");
-        AutomationProperties.SetName(more, "Tất cả kiểu");
+        AutomationProperties.SetName(previous, Localization.Get("Kiểu trước"));
+        AutomationProperties.SetName(next, Localization.Get("Kiểu tiếp theo"));
+        AutomationProperties.SetName(more, Localization.Get("Tất cả kiểu"));
         controls.Children.Add(previous);
         controls.Children.Add(next);
         controls.Children.Add(more);
@@ -1072,9 +1076,9 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             return;
         }
 
-        var root = new MenuItem { Header = "Thêm ⌄", Width = 56d, Height = 76d };
+        var root = new MenuItem { Header = Localization.Get("Thêm ⌄"), Width = 56d, Height = 76d };
         AutomationProperties.SetAutomationId(root, "ribbon-overflow");
-        AutomationProperties.SetName(root, "Lệnh Ribbon bổ sung");
+        AutomationProperties.SetName(root, Localization.Get("Lệnh Ribbon bổ sung"));
         foreach (var group in overflowGroups)
         {
             var groupItem = new MenuItem { Header = group.Presentation.Caption };

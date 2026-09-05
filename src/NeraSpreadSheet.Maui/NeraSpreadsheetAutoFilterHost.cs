@@ -1,3 +1,5 @@
+using NeraSpreadSheet.Iconography;
+using NeraSpreadSheet.Commands;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 using NeraSpreadSheet.Core;
@@ -14,6 +16,15 @@ namespace NeraSpreadSheet.Maui;
 /// </summary>
 public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
 {
+    /// <summary>Resources used when the filter surface is next opened or refreshed.</summary>
+    public PresentationLocalization Localization { get; private set; } = PresentationLocalization.Default;
+
+    /// <summary>Gets the palette chosen for this filter host.</summary>
+    public NeraIconTheme IconTheme { get; private set; }
+
+    private readonly NeraMauiFilterResources _shellResources;
+    private readonly List<WeakReference<Grid>> _presentationRows = [];
+
     private const int PageSize = 100;
     private static readonly TimeSpan SearchDelay =
         TimeSpan.FromMilliseconds(180d);
@@ -63,7 +74,14 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
     private int _keyboardActiveIndex;
 
     public NeraSpreadsheetAutoFilterHost()
+        : this(PresentationLocalization.Default, NeraIconTheme.Light)
     {
+    }
+
+    /// <summary>Creates a filter host with resources and palette scoped to its own chrome.</summary>
+    public NeraSpreadsheetAutoFilterHost(PresentationLocalization localization, NeraIconTheme iconTheme)
+    {
+        ArgumentNullException.ThrowIfNull(localization);
         Spreadsheet = new NeraSpreadsheetView
         {
             AutomationId = "NeraAutoFilterSpreadsheet",
@@ -76,6 +94,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
         var sheet = CreateSheet();
         _sheetOverlay = sheet.Overlay;
         _sheetPanel = sheet.Panel;
+        NeraMauiRibbonChrome.ConfigureFilter(_sheetPanel, NeraMauiRibbonPalette.For(IconTheme));
         _search = sheet.Search;
         _menuKindPicker = sheet.MenuKindPicker;
         _criterionInput = sheet.CriterionInput;
@@ -93,6 +112,8 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
         Children.Add(Spreadsheet);
         Children.Add(_buttonLayer);
         Children.Add(_sheetOverlay);
+        _shellResources = new NeraMauiFilterResources(_sheetOverlay);
+        SetPresentation(localization, iconTheme);
         Spreadsheet.SizeChanged += OnSpreadsheetLayoutChanged;
         Spreadsheet.HandlerChanged += OnSpreadsheetHandlerChanged;
         Spreadsheet.ScrollChanged += OnSpreadsheetLayoutChanged;
@@ -451,12 +472,13 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
         var binding = new NeraMauiAutoFilterPagedBinding(
             presenter,
             Dispatcher);
+        binding.Localization = Localization;
         _binding = binding;
         _values.ItemsSource = binding.Items;
         _sheetOverlay.IsVisible = true;
         SemanticProperties.SetDescription(
             _sheetPanel,
-            $"Lọc {target.ColumnName} trong {target.OwnerName}");
+            Localization.Format("Lọc {0} trong {1}", target.ColumnName, target.OwnerName));
         _search.Text = string.Empty;
         StartOperation(async token =>
         {
@@ -473,31 +495,31 @@ public sealed partial class NeraSpreadsheetAutoFilterHost : Grid, IDisposable
         Button button,
         SpreadsheetAutoFilterButtonHit hit)
     {
-        var description = "Mở bộ lọc bảng tính";
+        var description = Localization.Get("Mở bộ lọc bảng tính");
         if (_session?.TryResolveAutoFilterTarget(
                 hit.HeaderCell,
                 out var target) == true)
         {
-            description = $"Cột {target.ColumnName} trong {target.OwnerName}, {GetHeaderStateText(target.HeaderState, target.SortDescending)}";
+            description = Localization.Format("Cột {0} trong {1}, {2}", target.ColumnName, target.OwnerName, GetHeaderStateText(target.HeaderState, target.SortDescending));
         }
         SemanticProperties.SetDescription(button, description);
         SemanticProperties.SetHint(
             button,
-            "Chạm hoặc nhấn Enter để mở danh sách giá trị phân trang.");
+            Localization.Get("Chạm hoặc nhấn Enter để mở danh sách giá trị phân trang."));
     }
 
-    private static string GetHeaderStateText(
+    private string GetHeaderStateText(
         SpreadsheetFilterHeaderState state,
         bool? descending) => state switch
         {
-            SpreadsheetFilterHeaderState.Filtered => "đang lọc",
+            SpreadsheetFilterHeaderState.Filtered => Localization.Get("đang lọc"),
             SpreadsheetFilterHeaderState.Sorted => descending == true
-                ? "đang sắp xếp giảm dần"
-                : "đang sắp xếp tăng dần",
+                ? Localization.Get("đang sắp xếp giảm dần")
+                : Localization.Get("đang sắp xếp tăng dần"),
             SpreadsheetFilterHeaderState.FilteredAndSorted => descending == true
-                ? "đang lọc và sắp xếp giảm dần"
-                : "đang lọc và sắp xếp tăng dần",
-            _ => "chưa lọc hoặc sắp xếp",
+                ? Localization.Get("đang lọc và sắp xếp giảm dần")
+                : Localization.Get("đang lọc và sắp xếp tăng dần"),
+            _ => Localization.Get("chưa lọc hoặc sắp xếp"),
         };
 
     private void HideAllButtons()

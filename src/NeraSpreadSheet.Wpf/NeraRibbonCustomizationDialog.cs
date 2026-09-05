@@ -15,10 +15,12 @@ namespace NeraSpreadSheet.Wpf;
 /// </summary>
 public sealed class NeraRibbonCustomizationDialog : Window
 {
+    private PresentationLocalization Localization => _runtime.Localization;
+
     private readonly RibbonRuntimeController _runtime;
     private readonly ListBox _entries = new();
-    private readonly CheckBox _visible = new() { Content = "Hiển thị" };
-    private readonly CheckBox _large = new() { Content = "Nút lớn" };
+    private readonly CheckBox _visible = new();
+    private readonly CheckBox _large = new();
     private readonly ListBox _catalog = new();
     private readonly TextBox _search = new();
     private readonly TextBlock _selectionCaption = new();
@@ -37,13 +39,15 @@ public sealed class NeraRibbonCustomizationDialog : Window
         RibbonCustomizationPolicy? policy)
     {
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
+        _visible.Content = Localization.Get("Hiển thị");
+        _large.Content = Localization.Get("Nút lớn");
         Session = new RibbonCustomizationSession(
             runtime.Definition,
             runtime.CommandCatalog,
             runtime.Customization,
             CreateCaptionResolver(runtime.Snapshot),
             policy);
-        Title = "Tùy biến Ribbon";
+        Title = Localization.Get("Tùy biến Ribbon");
         Width = 900d;
         Height = 640d;
         MinWidth = 740d;
@@ -183,7 +187,7 @@ public sealed class NeraRibbonCustomizationDialog : Window
         var root = new DockPanel { Margin = new Thickness(24d) };
         var heading = new StackPanel { Margin = new Thickness(0d, 0d, 0d, 22d) };
         heading.Children.Add(new TextBlock { Text = Title, FontSize = 24d, FontWeight = FontWeights.SemiBold });
-        heading.Children.Add(CreateMutedText("Sắp xếp lệnh theo cách bạn làm việc. Thay đổi được xem trước trên Ribbon.", new Thickness(0d, 8d, 0d, 0d)));
+        heading.Children.Add(CreateMutedText(Localization.Get("Sắp xếp lệnh theo cách bạn làm việc. Thay đổi được xem trước trên Ribbon."), new Thickness(0d, 8d, 0d, 0d)));
         DockPanel.SetDock(heading, Dock.Top);
         root.Children.Add(heading);
         var footer = new StackPanel
@@ -192,12 +196,12 @@ public sealed class NeraRibbonCustomizationDialog : Window
             HorizontalAlignment = HorizontalAlignment.Right,
             Margin = new Thickness(0d, 18d, 0d, 0d),
         };
-        footer.Children.Add(CreateButton("Mặc định", "Reset", ResetCustomization));
-        var apply = CreateButton("Áp dụng", "Apply", ApplyCustomization);
+        footer.Children.Add(CreateButton(Localization.Get("Mặc định"), "Reset", ResetCustomization));
+        var apply = CreateButton(Localization.Get("Áp dụng"), "Apply", ApplyCustomization);
         apply.SetResourceReference(Control.BackgroundProperty, "RibbonChecked");
         apply.SetResourceReference(Control.BorderBrushProperty, "RibbonAccent");
         footer.Children.Add(apply);
-        footer.Children.Add(CreateButton("Hủy", "Cancel", () => { CancelCustomization(); Close(); }));
+        footer.Children.Add(CreateButton(Localization.Get("Hủy"), "Cancel", () => { CancelCustomization(); Close(); }));
         DockPanel.SetDock(footer, Dock.Bottom);
         root.Children.Add(footer);
 
@@ -209,14 +213,14 @@ public sealed class NeraRibbonCustomizationDialog : Window
 
         var available = new DockPanel();
         var availableHeader = new StackPanel();
-        availableHeader.Children.Add(new TextBlock { Text = "Lệnh có sẵn", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0d, 0d, 0d, 10d) });
+        availableHeader.Children.Add(new TextBlock { Text = Localization.Get("Lệnh có sẵn"), FontWeight = FontWeights.SemiBold, Margin = new Thickness(0d, 0d, 0d, 10d) });
         _search.Height = 32d;
         _search.Padding = new Thickness(8d, 5d, 8d, 5d);
-        _search.ToolTip = "Tìm lệnh theo tên hoặc danh mục";
+        _search.ToolTip = Localization.Get("Tìm lệnh theo tên hoặc danh mục");
         AutomationProperties.SetAutomationId(_search, "RibbonCustomizationSearch");
-        AutomationProperties.SetName(_search, "Tìm lệnh");
+        AutomationProperties.SetName(_search, Localization.Get("Tìm lệnh"));
         availableHeader.Children.Add(_search);
-        availableHeader.Children.Add(CreateMutedText("Tìm kiếm theo tên lệnh hoặc tab", new Thickness(0d, 5d, 0d, 10d), 11d));
+        availableHeader.Children.Add(CreateMutedText(Localization.Get("Tìm kiếm theo tên lệnh hoặc tab"), new Thickness(0d, 5d, 0d, 10d), 11d));
         DockPanel.SetDock(availableHeader, Dock.Top);
         available.Children.Add(availableHeader);
         _catalog.DisplayMemberPath = nameof(RibbonCommandCatalogEntry.Caption);
@@ -225,14 +229,14 @@ public sealed class NeraRibbonCustomizationDialog : Window
         _catalog.SetResourceReference(Control.BackgroundProperty, "RibbonSurface");
         _catalog.SetResourceReference(Control.ForegroundProperty, "RibbonForeground");
         AutomationProperties.SetAutomationId(_catalog, "RibbonCustomizationCatalog");
-        AutomationProperties.SetName(_catalog, "Lệnh có sẵn");
+        AutomationProperties.SetName(_catalog, Localization.Get("Lệnh có sẵn"));
         available.Children.Add(_catalog);
         body.Children.Add(available);
 
         var current = new DockPanel();
         Grid.SetColumn(current, 2);
         body.Children.Add(current);
-        var currentHeader = new TextBlock { Text = "Ribbon hiện tại", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0d, 0d, 0d, 12d) };
+        var currentHeader = new TextBlock { Text = Localization.Get("Ribbon hiện tại"), FontWeight = FontWeights.SemiBold, Margin = new Thickness(0d, 0d, 0d, 12d) };
         DockPanel.SetDock(currentHeader, Dock.Top);
         current.Children.Add(currentHeader);
         var details = new StackPanel { Margin = new Thickness(0d, 12d, 0d, 0d) };
@@ -249,8 +253,8 @@ public sealed class NeraRibbonCustomizationDialog : Window
         options.Children.Add(_large);
         details.Children.Add(options);
         var ordering = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0d, 12d, 0d, 0d) };
-        ordering.Children.Add(CreateButton("↑ Lên", "MoveUp", () => MoveSelected(-1)));
-        ordering.Children.Add(CreateButton("↓ Xuống", "MoveDown", () => MoveSelected(1)));
+        ordering.Children.Add(CreateButton(Localization.Get("↑ Lên"), "MoveUp", () => MoveSelected(-1)));
+        ordering.Children.Add(CreateButton(Localization.Get("↓ Xuống"), "MoveDown", () => MoveSelected(1)));
         details.Children.Add(ordering);
         DockPanel.SetDock(details, Dock.Bottom);
         current.Children.Add(details);
@@ -262,7 +266,7 @@ public sealed class NeraRibbonCustomizationDialog : Window
         _entries.ItemTemplate = CreateEntryTemplate();
         _entries.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         AutomationProperties.SetAutomationId(_entries, "RibbonCustomizationEntries");
-        AutomationProperties.SetName(_entries, "Cấu trúc Ribbon hiện tại");
+        AutomationProperties.SetName(_entries, Localization.Get("Cấu trúc Ribbon hiện tại"));
         current.Children.Add(_entries);
         return root;
     }
@@ -329,7 +333,7 @@ public sealed class NeraRibbonCustomizationDialog : Window
         try
         {
             var entry = (_entries.SelectedItem as EditorRow)?.Entry;
-            _selectionCaption.Text = entry?.Caption ?? "Chọn tab, nhóm hoặc lệnh";
+            _selectionCaption.Text = entry?.Caption ?? Localization.Get("Chọn tab, nhóm hoặc lệnh");
             _visible.IsEnabled = entry is not null && !entry.IsLocked;
             _visible.IsChecked = entry?.IsVisible;
             _large.IsEnabled = entry?.Target.Kind == RibbonCustomizationTargetKind.Command && !entry.IsLocked;
@@ -361,7 +365,7 @@ public sealed class NeraRibbonCustomizationDialog : Window
         try
         {
             _entries.Items.Clear();
-            foreach (var entry in Session.Entries)
+            foreach (var entry in Session.GetLocalizedEntries(Localization))
             {
                 _entries.Items.Add(new EditorRow(entry));
             }

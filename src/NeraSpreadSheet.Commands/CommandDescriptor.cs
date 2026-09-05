@@ -25,7 +25,13 @@ public sealed record CommandDescriptor
 
     public string Caption { get; }
 
+    /// <summary>Optional SDK resource key, explicitly opted into by the embedding host.</summary>
+    public string? CaptionResourceKey { get; init; }
+
     public string? Tooltip { get; }
+
+    /// <summary>Optional SDK resource key for the tooltip. Null preserves host text.</summary>
+    public string? TooltipResourceKey { get; init; }
 
     public string? IconKey { get; }
 
