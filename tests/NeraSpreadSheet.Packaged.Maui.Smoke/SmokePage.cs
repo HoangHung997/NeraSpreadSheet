@@ -52,6 +52,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     private async Task RunAsync()
     {
+        var stage = "native-frames";
         try
         {
             var view = _host.Spreadsheet;
@@ -60,6 +61,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             PackageProvenance.Require(view.Handler?.PlatformView is not null && view.GRContext is not null &&
                 _ribbon.Handler?.PlatformView is not null, "Public package hosts did not attach native handlers.");
             var session = _host.Session!;
+            stage = "controller-edit-undo-cancel";
             var address = new CellAddress(1, 2);
             var before = session.ActiveWorksheet.GetCell(address);
             var history = session.History.UndoCount;
@@ -73,6 +75,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             PackageProvenance.Require(session.Editor.Cancel() && !session.Editor.IsEditing &&
                 session.ActiveWorksheet.GetCell(address) == before && session.History.UndoCount == history,
                 "Controller Cancel mutated workbook state.");
+            stage = "native-filter-values";
             PackageProvenance.Require(_host.TryOpenFilter(_tableId, _columnId), "Packaged filter did not open.");
             await UntilAsync(() => Descendants(_host).OfType<CheckBox>().Count(box =>
                 box.AutomationId?.StartsWith("NeraTableFilterValue_", StringComparison.Ordinal) == true &&
@@ -81,16 +84,20 @@ internal sealed class SmokePage : ContentPage, IDisposable
             _host.CloseFilterSheet();
             PackageProvenance.Require(!_host.IsFilterSheetOpen, "Filter close did not complete.");
             var width = view.Width;
+            stage = "actual-resize";
             var framesBeforeResize = view.GpuContextDiagnostics.FramesCompleted;
             _host.WidthRequest = width * 0.65d;
             _host.HorizontalOptions = LayoutOptions.Start;
             await UntilAsync(() => view.Width < width * 0.8d &&
                 view.GpuContextDiagnostics.FramesCompleted > framesBeforeResize, view.InvalidateSurface);
             view.HasRenderLoop = false;
+            stage = "idle-gpu";
             var gpu = await WaitForIdleGpuAsync(view);
             PackageProvenance.Require(gpu.FramesCompleted >= 3 && gpu.FramesFailed == 0 && !gpu.HasActiveFrame,
                 "Package GPU lifecycle did not finish healthy frames.");
+            stage = "assembly-provenance";
             var assemblies = PackageProvenance.VerifyLoadedAssemblies();
+            stage = "dispose";
             Dispose();
             PackageProvenance.Emit("success", Volatile.Read(ref _frames), new { assemblies, gpu, controllerEditUndo = true,
                 filterValues = 20, actualResize = true, publicApiOnly = true });
@@ -99,7 +106,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
         catch (Exception exception)
         {
             // Never serialize exception messages/stack traces containing runner paths.
-            PackageProvenance.Emit("failure", Volatile.Read(ref _frames), new { exceptionType = exception.GetType().FullName });
+            PackageProvenance.Emit("failure", Volatile.Read(ref _frames), new { stage, exceptionType = exception.GetType().FullName });
             Environment.Exit(1);
         }
     }

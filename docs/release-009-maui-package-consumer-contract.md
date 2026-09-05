@@ -31,7 +31,10 @@ Source của checkpoint này từ baseline tích hợp `50cb357a`; chưa nhận 
    process exit code; không ghi thành OS exit-code proof. Missing/failure marker
    không được PASS.
    Shared Windows/Mac launchers vẫn thuộc B; Android/iOS extraction thuộc root.
-   Chưa có wiring native ở checkpoint build này; `runtimeAcceptance=OPEN`.
+   Android có wiring opt-in qua immutable root223 transport, luôn giữ own gate
+   tối thiểu 3 completed frames và toàn bộ public postconditions. Result được ghi
+   riêng `runtime-verification.json` chỉ sau khi verifier PASS. Windows/iOS/Mac
+   chưa có wiring native; actual Android native vẫn OPEN tới khi CI chạy thành công.
 
 ## Matrix và giới hạn
 
@@ -41,6 +44,11 @@ Source của checkpoint này từ baseline tích hợp `50cb357a`; chưa nhận 
 | Android | Ubuntu, maui-android, JDK17, android-x64 | APK trên emulator API35 |
 | iOS | macOS, maui-ios, Xcode | Debug simulator consumer của Release package |
 | Mac Catalyst | macOS, maui-maccatalyst, Xcode | App bundle theo kiến trúc runner |
+
+Apple bundle được chọn duy nhất bằng CFBundleIdentifier trong compiled Info.plist.
+Một Python scanner chung chụp/kiểm app inventory, gồm hidden files và resolved
+internal links; link ra ngoài app root bị từ chối. Manifest giữ appName/size/hash,
+marker runtime phải được tạo mới từ chính build đó.
 
 Android host probe giữ AOT-disabled như source gate hiện hữu. Simulator/debug
 không thay device/AOT/signing/hardware acceptance. Native editor bridge chờ B

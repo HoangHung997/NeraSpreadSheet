@@ -1,12 +1,14 @@
 param(
     [ValidateSet('windows', 'android', 'ios', 'maccatalyst')][string] $Platform = 'windows',
     [string] $FeedDirectory,
+    [switch] $RunAndroidNative,
     [switch] $PlanOnly
 )
 $ErrorActionPreference = 'Stop'
 $mauiRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $mauiRoot 'eng/release-009-maui/Common.ps1')
-if ($PlanOnly) { Write-Output 'Verify canonical feed; copy public consumer outside checkout; restore into fresh cache; verify resolved TFM; build exact app. Native launcher integration remains OPEN.'; return }
+if ($RunAndroidNative -and $Platform -ne 'android') { throw 'Only the released Android transport is available for native package execution.' }
+if ($PlanOnly) { Write-Output 'Verify canonical feed; copy public consumer outside checkout; restore into fresh cache; verify TFM/app payload. Optional Android native execution verifies fresh cohort marker; other native platforms remain OPEN.'; return }
 $mauiCohort = Get-MauiCohort $mauiRoot
 $mauiConfig = Get-Content -Raw -LiteralPath (Join-Path $mauiRoot 'eng/release-009-maui/cohort.json') | ConvertFrom-Json
 $mauiVerifier = Join-Path $mauiRoot 'eng/release-009-maui/package_matrix.py'
@@ -77,22 +79,36 @@ try {
         if ($mauiCandidates.Count -ne 1) { throw 'Consumer output is missing or ambiguous.' }
         $mauiAppPath = $mauiCandidates[0].FullName
     }
-    $mauiAppRoot = if ($Platform -eq 'windows') { Split-Path -Parent $mauiAppPath } elseif ($Platform -eq 'android') { Split-Path -Parent $mauiAppPath } else { $mauiAppPath }
-    $mauiFiles = if ($Platform -eq 'android') { @(Get-Item -LiteralPath $mauiAppPath) } else { @(Get-ChildItem -LiteralPath $mauiAppRoot -File -Recurse) }
-    $mauiPayload = @($mauiFiles | Sort-Object FullName | ForEach-Object {
-        [ordered]@{ file = [IO.Path]::GetRelativePath($mauiAppRoot, $_.FullName).Replace('\', '/'); bytes = $_.Length
-            sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
-    })
+    # One scanner defines hidden-file and internal-link semantics on every host.
+    $mauiPayloadPath = Join-Path $mauiScratch 'app-payload.json'
+    & python $mauiVerifier capture-app --app $mauiAppPath --platform $Platform --output $mauiPayloadPath
+    if ($LASTEXITCODE -ne 0) { throw 'Consumer app payload capture failed.' }
+    $mauiPayload = @(Get-Content -Raw -LiteralPath $mauiPayloadPath | ConvertFrom-Json)
     Write-MauiJson ([ordered]@{ schemaVersion = 1; status = 'built-runtime-open'; sourceSha = $mauiCohort.sourceSha
         version = $mauiCohort.version; sdkVersion = $mauiCohort.sdkVersion; feedHash = $mauiFeed.feedHash
         platform = $Platform; rid = $mauiRid; configuration = $mauiConfiguration; nonce = $mauiNonce
         appName = [IO.Path]::GetFileName($mauiAppPath)
         files = $mauiPayload; runtimeAcceptance = 'OPEN'; nativeEditorCoverage = 'OPEN' }) (Join-Path $mauiOutput 'build-manifest.json')
-    & python $mauiVerifier verify-app --app $mauiAppPath --build (Join-Path $mauiOutput 'build-manifest.json')
-    if ($LASTEXITCODE -ne 0) { throw 'Consumer app payload verification failed.' }
-    # Kept exclusively in RUNNER_TEMP for the future owner-approved shared launcher.
+    # Absolute paths stay exclusively in RUNNER_TEMP.
     Write-MauiJson ([ordered]@{ appPath = $mauiAppPath; evidenceDirectory = $mauiOutput; nonce = $mauiNonce
         sourceSha = $mauiCohort.sourceSha; version = $mauiCohort.version; feedHash = $mauiFeed.feedHash
         bundleId = $mauiBundleId; markerPrefix = 'NERA_PACKAGED_MAUI_SMOKE:' }) (Join-Path $mauiScratch 'launch-inputs.json')
+    & python $mauiVerifier verify-app --app $mauiAppPath --build (Join-Path $mauiOutput 'build-manifest.json')
+    if ($LASTEXITCODE -ne 0) { throw 'Consumer app payload verification failed.' }
+    if ($RunAndroidNative) {
+        $mauiNativeResult = Join-Path $mauiScratch ('android-result-' + [Guid]::NewGuid().ToString('N') + '.json')
+        # Shared transport is imported unchanged from the released root source; no retries or fallback.
+        & bash (Join-Path $mauiRoot 'scripts/run-maui-android-smoke.sh') $mauiAppPath $mauiBundleId 'NeraPackagedMauiSmoke' 'NERA_PACKAGED_MAUI_SMOKE:' $mauiNativeResult
+        if ($LASTEXITCODE -ne 0) { throw 'Android native package transport failed.' }
+        & python $mauiVerifier verify-runtime --result $mauiNativeResult --build (Join-Path $mauiOutput 'build-manifest.json')
+        if ($LASTEXITCODE -ne 0) { throw 'Android runtime cohort or public postconditions failed.' }
+        Copy-Item -LiteralPath $mauiNativeResult -Destination (Join-Path $mauiOutput 'loaded-consumer.json')
+        Write-MauiJson ([ordered]@{ schemaVersion = 1; status = 'success'; platform = $Platform
+            sourceSha = $mauiCohort.sourceSha; version = $mauiCohort.version; feedHash = $mauiFeed.feedHash
+            nonce = $mauiNonce; appName = [IO.Path]::GetFileName($mauiAppPath)
+            runtimeAcceptance = 'Android public package smoke verified'; exitEvidence = 'explicit-completed-marker'
+            nativeEditorCoverage = 'OPEN' }) (Join-Path $mauiOutput 'runtime-verification.json')
+    }
 } finally { Pop-Location }
-Write-Output "$Platform PackageReference app built from the canonical feed; runtime acceptance is OPEN pending shared launcher integration."
+if ($RunAndroidNative) { Write-Output 'Android PackageReference consumer passed native public postconditions and exact cohort validation; native editor remains OPEN.' }
+else { Write-Output "$Platform PackageReference app built from the canonical feed; runtime acceptance is OPEN pending shared launcher integration." }
