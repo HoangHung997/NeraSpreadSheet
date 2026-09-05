@@ -1,6 +1,48 @@
 # RELEASE-009 Navigation — Handoff lane A
 
-## Current implementation đang gate
+## Hồ sơ bàn giao — implementation 81d4c045
+
+- Branch feature/release-009-navigation-shell. Implementation commit chính xác
+  81d4c0452d152fd9c056349bbfc105bd1235e0cc, sau d5cd3242 và29cffe1c.
+  HEAD kế tiếp chứa hồ sơ này; phải xác minh lại full/iOS/Q003C/packages/demo
+  tại đúng HEAD cuối trước release. PR #1 vẫn Draft/open/unmerged.
+- Hoàn tất source trong phạm vi được giao: standalone native scrollbars với
+  fractional input gom theo frame, adaptive extent refresh và current viewport
+  floor; pending thumb không vượt qua sheet/selection navigation; loaded split
+  cùng session/state/history, một active hit-test/focus/bar topology; native
+  names Việt/Anh đổi theo runtime và cô lập giữa hai cửa sổ.
+- Exact81d Windows job101360615445/full33986396930 PASS121/121 native,
+  Core1506/1506,0skip; build0warnings/0errors. Native tests đã đi qua actual
+  Thumb/Track và Window.InputHitTest, Table/merge extent, header command ở cả
+  hai host, freeze/hidden axes/zoom, stale input/switch/dispose, language isolation,
+  XLSX state/history/hidden pane offsets và save/reload.
+- Exact81d iOS33986398131, Q003C33986399345, packages33986400519 và
+  demo33986401520 đều success. Full33986396930 tại lúc ghi còn MAUI jobs;
+  không gọi native-green là all-workflow-green hoặc source đã release.
+- Matrix artifact9975340538:234PNG/128layouts, ZIP SHA256
+  1d23aa297256c921af5eaa6af5315cff7f733dfd2178414ede9d6261deddf8e7.
+  Cả8navigation PNG byte-identical với d5 đã xem; digest ZIP được kiểm trước
+  trích8PNG vào artifact riêng. Không lưu ZIP lớn trên đĩa local.
+- Local architecture và diff checks PASS; kiểm XML xác nhận chỉ2approved keys
+  được thêm, mọi resource value cũ giữ nguyên. Không local build/runtime/UI,
+  install hoặc cleanup. Tất cả runtime/capture proof đến từ CI đúng SHA.
+- File trọng tâm: RibbonPreviewWindow.Navigation.cs / SplitShell.cs / Capture.cs,
+  constructor + state refresh trong RibbonPreviewWindow.cs; hai native test
+  files; hai PresentationStrings resources; contract và worklog riêng. Không
+  sửa WorksheetTabs, Commands.cs, SDK behavior, serializer hoặc CI/shared docs.
+- Giới hạn còn lại: formula bar read-only và formula/filter command routing
+  trong split chờ B bridge + root integration; B đã báo desktop bridge partial
+  release nhưng chưa có trên nhánh này. Whole R2, split native accessibility,
+  physical DPI/touch/screen-reader, theme parity cả cửa sổ và combined performance
+  không được nghiệm thu bởi slice navigation. Không mở rộng Excel features.
+- Rollback: revert riêng chuỗi navigation; không có schema/history migration.
+  Chỉ release writer cho coordinator sau exact-final gates; artifact không phải
+  commit source. Nhánh UX cũ24d130c6 giữ nguyên, không reset/rebase/merge main.
+- Một bước tiếp theo duy nhất: verify5workflows của HEAD chứa hồ sơ này, đối chiếu
+  final8PNG với81d, gửi exact SHA/run IDs và release10owned paths cho coordinator
+  để ghép cùng source B; không tiếp tục sửa formula bar khi chưa được giao.
+
+## Lịch sử checkpoint 29c
 
 - HEAD29cffe1cee8e7c68a393a00d27caf556ee4a7343 đã push, chứa follow-up source và
   2resource keys grant. Exact workflows: full33986122936, iOS33986124357,
