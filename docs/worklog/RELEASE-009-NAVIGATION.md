@@ -1,10 +1,25 @@
 # RELEASE-009 Navigation — Handoff lane A
 
+## Current implementation đang gate
+
+- HEAD29cffe1cee8e7c68a393a00d27caf556ee4a7343 đã push, chứa follow-up source và
+  2resource keys grant. Exact workflows: full33986122936, iOS33986124357,
+  Q003C33986125616, packages33986127177, demo33986128442; đang kiểm chứng,
+  chưa release files. Không nhận kết quả d5 làm xanh cho29c.
+- Test refinement chuẩn bị final: actual Window.InputHitTest tại integrated
+  scrollbar phải trả split adorner, bổ sung proof input routing trước khi gọi
+  native scrollbar state machine. Final commit cần gate riêng.
+- 29c Windows job101359815299 dừng ở build vì hai CA2012 trong Headers tests:
+  truy cập trực tiếp ValueTask.GetAwaiter().GetResult. Chuyển hai test qua AsTask,
+  không suppress analyzer hoặc đổi command behavior. Native regression29c chưa
+  chạy; packages33986127177/demo33986128442/Q003C33986125616 đã success.
+  Candidate sau sửa này vẫn cần toàn bộ exact-HEAD gates và review ảnh mới.
+
 ## Checkpoint sau review d5cd3242
 
 - Implementation d5cd3242f9a4953fc6d6b684530f6d66b641dbb4 đã push. Windows
   job101358623874/full33985680001 PASS120/120 native, Core1506/1506,0skip.
-  Full tại checkpoint còn mobile jobs; iOS33985681101, Q003C33985682014,
+  Full đã đủ5jobs success; iOS33985681101, Q003C33985682014,
   packages33985682933 và demo33985684451 đều success đúng d5.
 - Artifact matrix9975137918 ZIP SHA256
   1aacfc0c10966ff30f526e2af0d737a5316d2fb556fd755d96f760c6fb1e6ff8.

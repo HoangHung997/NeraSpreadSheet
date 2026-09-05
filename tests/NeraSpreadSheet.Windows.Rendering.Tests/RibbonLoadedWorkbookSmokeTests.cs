@@ -83,7 +83,7 @@ public sealed class RibbonLoadedWorkbookSmokeTests
             Assert.IsFalse(grid.Focusable);
             Assert.IsTrue(NavigationBars(window).All(bar => bar.Visibility == Visibility.Collapsed && !bar.IsEnabled));
             var splitBodyWidth = split.LastFrame!.Layout.ViewportSize.Width;
-            Assert.IsTrue(Field<RibbonRuntimeController>(window, "_runtime").TryActivateAsync("Sample.Headers").GetAwaiter().GetResult());
+            Assert.IsTrue(Field<RibbonRuntimeController>(window, "_runtime").TryActivateAsync("Sample.Headers").AsTask().GetAwaiter().GetResult());
             PumpSplit(window);
             Assert.IsTrue(split.LastFrame!.Layout.ViewportSize.Width > splitBodyWidth + 10d,
                 "A header command must invalidate the active split renderer as well as the standalone control.");
@@ -98,6 +98,8 @@ public sealed class RibbonLoadedWorkbookSmokeTests
             var chrome = SpreadsheetChromeGeometry.Calculate(grid.ActualWidth, grid.ActualHeight, grid.RenderTheme);
             var pointX = bar.IncreaseButtonBounds.Left + bar.IncreaseButtonBounds.Width / 2d + chrome.RowHeaderWidth;
             var pointY = bar.IncreaseButtonBounds.Top + bar.IncreaseButtonBounds.Height / 2d + chrome.ColumnHeaderHeight;
+            Assert.AreSame(adorner, window.InputHitTest(grid.TranslatePoint(new System.Windows.Point(pointX, pointY), window)),
+                "Native hit testing must route the visible pane scrollbar to the split adorner.");
             var begin = adorner.GetType().GetMethod("TryBeginScrollBarInteraction", BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.IsNotNull(begin);
             Assert.AreEqual(true, begin.Invoke(adorner, [pointX, pointY]));
