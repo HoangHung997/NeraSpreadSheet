@@ -15,8 +15,8 @@
 
 ## Status
 
-- State: `VALIDATED_LOCAL`.
-- Implementation SHA: pending commit.
+- State: `READY_FOR_PUSH`.
+- Implementation SHA: `c8793a4f9181dc0f7c2f0f6e393ab7df51b198f8`.
 - Exact-head GitHub Actions: pending push.
 
 ## Completed
