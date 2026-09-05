@@ -274,7 +274,12 @@ public sealed class Table007SplitEditorSmokeTests
                 Assert.AreEqual(1000d, editor.ActualWidth, 0.01d);
                 CollectionAssert.AreEqual(lines, Enumerable.Range(0, editor.LineCount).Select(editor.GetLineText).ToArray(),
                     "Only the visible clip may change; native text line breaks must follow the full cell.");
+                Assert.IsTrue(editor.ExtentHeight > editor.ViewportHeight,
+                    "The fixture must contain more native text lines than the editor can display at once.");
                 editor.ScrollToEnd();
+                // WPF queues ScrollToEnd commands for its next LayoutUpdated pass.
+                // Flush that pass before reading the reported native offset.
+                window.UpdateLayout();
                 Assert.IsTrue(editor.VerticalOffset > 0d, "The native editor must retain internal scrolling for clipped lines.");
                 Assert.AreEqual(text, editor.Text);
                 Assert.AreEqual(0, session.History.UndoCount);

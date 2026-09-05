@@ -15,6 +15,17 @@ public draft bridge, không tạo model hoặc tự sửa SDK/Commands. C tiếp
 canonical MAUI consumer ở branch riêng; shared Android/iOS launchers root
 chưa release vì iOS framing FAIL. Whole B/P3/hardware vẫn OPEN.
 
+Partial transport release theo sau: Android job101364379179 ở root22338c79
+SUCCESS (và job101363322182 ở479 cũng SUCCESS). C được nhận đúng ba blobs
+source223 của run-maui-android-smoke.sh, verify-native-smoke-result.py và
+test-native-smoke-result.py; shared source vẫn root-owned, không sửa riêng.
+C được wire Android runtime trong owned package wrapper/workflow: verify-app
+file-set/size/hash trước install, explicit identity/tag/prefix/fresh result và
+verify-runtime đầy đủ source/version/feed/nonce/target/public API/assemblies,
+>=3 completed frames. Không lấy legacy minimum2 làm consumer acceptance.
+Android source success không thay consumer success; Windows/iOS/Mac native
+và full B/P3 vẫn OPEN. iOS launcher chưa release, Windows/Mac còn B giữ.
+
 B được thêm một Mac diagnostic variant từ cùng exact candidate ở checkout
 tạm riêng: bỏ handler mapping và exclude native Apple CellTextView class khỏi
 compile bằng explicit patch đã freeze. Phải verify registrar thật không còn
@@ -23,6 +34,11 @@ gốc chạy trước, failure giữ nguyên làm job FAIL; không thêm variant
 đổi assertions/time bounds, production fallback hoặc publish variant. Existing
 sanitized 32 KiB bound giữ nguyên. Đây không phải acceptance hoặc bằng chứng
 để tự sửa Register/Preserve/renderer.
+
+Variant c187fe80/run33987516524 đã build/registrar-absence guard PASS nhưng
+native vẫn FAIL cùng stack; shared registrar.h trùng baseline. B đóng variant,
+không suy ra subclass là root cause. B tiếp tục read-only first-failing SHA/
+minimal startup delta analysis; chưa được bật thêm private Objective-C flags.
 
 Chi tiết source, test, giới hạn và rollback trong
 [integration record](RELEASE-009_DESKTOP_INTEGRATION_20260906.md).

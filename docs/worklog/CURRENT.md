@@ -1,5 +1,28 @@
 # Current Work Handoff
 
+## Bổ sung sau combined223 — giữ runtime gates và tiếp tục Android consumer
+
+`22338c79568af9106d9c6fda660180f1203940cd`: Core/Q33987765564,
+Windows packages33987763038, published demo33987763102 và Android native
+job101364379179 PASS. Windows job101364379098 FAIL duy nhất assertion native
+VerticalOffset ngay sau ScrollToEnd trong regression mới; line-break equality
+qua resize và các tests khác đã qua. WPF queues scroll commands cho layout:
+test sửa bằng flush LayoutUpdated trước đọc offset, thêm assertion fixture
+ExtentHeight > ViewportHeight; giữ nguyên yêu cầu phải cuộn và không sửa dữ
+liệu. Không sửa product hoặc bỏ assertion để nhận xanh. New HEAD cần CI riêng.
+iOS33987765551 đang chạy tại checkpoint;479 iOS malformed-marker vẫn giữ FAIL.
+
+C được partial receive ba Android transport blobs source223 và wire actual
+Android PackageReference runtime theo wave (verify-app trước install, strict
+cohort/nonce + >=3 frames sau launch). iOS chưa release; Windows/Mac B giữ.
+B class-exclusion variant c187 vẫn Mac FAIL dù native subclass thật đã vắng;
+không có căn cứ sửa registration/renderer, B đang read-only first-failing delta.
+A read-only chuẩn bị formula bar, chưa được source grant. Root giữ shared docs.
+
+Bước tiếp theo duy nhất: verify exact-head test-timing correction cùng iOS
+framing diagnostics, rồi cấp A implementation trên combined green; C/B tiếp
+tục độc lập theo grant, không tạo thêm task hoặc báo scope100%.
+
 ## Mới nhất — đã ghép navigation và desktop draft bridge, chờ combined CI
 
 Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.

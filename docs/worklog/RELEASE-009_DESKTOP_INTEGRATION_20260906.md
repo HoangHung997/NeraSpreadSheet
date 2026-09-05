@@ -54,6 +54,14 @@ Không lấy source xanh của A/B làm bằng chứng combined native transport
 
 ## Còn mở và rollback
 
+Combined223 Windows job101364379098 pass resize line equality nhưng FAIL
+đọc VerticalOffset ngay sau ScrollToEnd. Theo
+[WPF ScrollViewer source](https://github.com/dotnet/wpf/blob/main/src/Microsoft.DotNet.Wpf/src/PresentationFramework/System/Windows/Controls/ScrollViewer.cs),
+scroll commands được queue và xử lý ở LayoutUpdated. Regression phải flush
+layout trước đọc offset và chứng minh fixture thực sự overflow; giữ native
+scroll/history assertions, không thay product. New exact-head CI vẫn bắt buộc.
+Combined223 Core/Android/Q/packages/demo đã PASS; iOS còn chạy tại checkpoint.
+
 Formula bar editable/active split metadata/help/filter routing, full B MAUI
 Mac crash và Windows reattach, LibreOffice acceptance, canonical MAUI native
 consumer, final combined P3 cùng physical DPI/touch/screen reader vẫn OPEN.
