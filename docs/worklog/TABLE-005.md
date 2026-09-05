@@ -15,9 +15,12 @@
 
 ## Status
 
-- State: `READY_FOR_PUSH`.
+- State: `COMPLETE`.
 - Implementation SHA: `c8793a4f9181dc0f7c2f0f6e393ab7df51b198f8`.
-- Exact-head GitHub Actions: pending push.
+- Validated handoff SHA: `0c2c64f65d51c9f21a7bcd3cadb9f53b4aa1060b`.
+- Exact-head GitHub Actions on that handoff SHA: `ci` run `33940473162`,
+  `iOS analytics accessibility gate` run `33940474175`, and
+  `Q003C analytics OpenXML gate` run `33940475205`; all passed.
 
 ## Completed
 
@@ -102,5 +105,6 @@
 
 ## Next step
 
-Commit and push the validated branch, then require all three GitHub Actions
-workflows to pass on the exact pushed HEAD before handoff.
+Start TABLE-006 compatibility hardening from the final TABLE-005 branch head and
+exercise the Excel/LibreOffice/Nera round-trip corpus against this single Table
+model and command path.
