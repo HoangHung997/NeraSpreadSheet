@@ -2,8 +2,9 @@
 
 - Branch: `feature/table-007-editor-corpus`; PR lane chưa tạo.
 - Base clean đã xác minh: `2e8482c25a44797a479b276ae26f472811a0a81e`.
-- Implementation checkpoint đã push: `0ebd18bdcfa12987105f5c408eaf2dd534cb0fac`;
-  đang sửa native CI, chưa release/exact-final-head green.
+- Product checkpoint đã push: `9bf24af9a44ce25da4826edb2f6039203f5416f1`;
+  desktop21-path slice đã partial release, wholeB vẫn HOLD. Diagnostic checkpoint
+  `eca8a6d2d31574eda8ecc4ebf206abc6a6c82e96` có generated audit, native gates đỏ.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
 - Root cho phép riêng workflow `table-007-libreoffice.yml` và producer script;
@@ -296,6 +297,23 @@
   class-map metadata type tokens/flags và resolved package names/versions; không
   in method body, assembly UUID, source path hoặc raw metadata. Không sửa native
   registration/renderer/keyboard/timeout dựa vào type-count difference đơn lẻ.
-- Bước tiếp theo duy nhất: đọc targeted generated implementation/class-map audit
-  của checkpoint kế tiếp, đối chiếu shared type và subclass để chốt một thay đổi
-  có bằng chứng với root; giữ21 desktop paths đã release và wholeB HOLD.
+- Audit eca8a6d2 `33986930666`, Mac job101362141244: baselinePASS/candidateFAIL,
+  metadata stepPASS; Windows candidate cũngFAIL. Shared MauiTextView implementation
+  hash `4182b68c858f1edd8dba5f8123b825e2478ee1ba81c51e926beefe93ffcc1e0f`
+  giống hệt,19signatures/runtime calls/index190/flags3 giữ; UITextView index189/
+  flags0 giữ. CandidateCellTextView index248/flags3/token609 với đúng2selectors;
+  token references thay đổi không tự chứng minh invalid metadata. Cả hai resolve
+  Microsoft.Maui.Core/Controls10.0.20 và SkiaSharp.Views.Maui.Controls4.151.1.
+  Không thấy sai shared implementation/base/selector từ các facts này.
+- Root đã cấp đúng một isolated same-source variant sau audit eca8a6d2:
+  bỏ mapping cùng Apple handler class khỏi compile, xác minh generated class
+  absent trước native launch; giữ all assertions và candidate failure. Patch
+  review-only `artifacts/table-007-remove-apple-subclass-variant.patch`, SHA256
+  `cfc3b7cec04b46b822dd9eb6398b3b43d13bf4fe97ce9047049699e2f08e8fcf`.
+  Tracked native source không đổi. Patch được giữ đúng bytes trong scripts để
+  hosted checkout áp dụng reproducibly; guard SHA/đúng hai paths và generated
+  registrar class absence phải PASS trước launch. Không đổi original candidate,
+  retries, runtime assertions/timeouts hoặc dùng variant làm acceptance.
+- Bước tiếp theo duy nhất: đọc bounded class-exclusion variant outcomes và stages,
+  đối chiếu với original candidate tại cùng source/toolchain; không sửa renderer/
+  Register/Preserve hoặc21 desktop paths đã release để đoán lỗi. WholeB HOLD.

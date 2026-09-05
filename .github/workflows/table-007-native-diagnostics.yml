@@ -130,6 +130,92 @@ jobs:
         if: ${{ !cancelled() && steps.baseline_build.outcome == 'success' && steps.candidate_build.outcome == 'success' }}
         shell: bash
         run: python3 ./scripts/inspect-table007-apple-registrar.py
+      - name: Checkout same-source native subclass exclusion variant
+        id: variant_checkout
+        if: ${{ !cancelled() && steps.candidate_build.outcome == 'success' }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: class-exclusion-variant
+      - name: Apply only the approved native subclass exclusion patch
+        id: variant_prepare
+        if: ${{ !cancelled() && steps.variant_checkout.outcome == 'success' }}
+        working-directory: class-exclusion-variant
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          path = Path('../scripts/table007-exclude-apple-subclass.patch')
+          expected = 'cfc3b7cec04b46b822dd9eb6398b3b43d13bf4fe97ce9047049699e2f08e8fcf'
+          if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+              raise SystemExit('The approved class exclusion patch hash differs.')
+          print('Approved variant patch SHA256: ' + expected)
+          PY
+          git apply --check ../scripts/table007-exclude-apple-subclass.patch
+          git apply ../scripts/table007-exclude-apple-subclass.patch
+          python3 - <<'PY'
+          import subprocess
+          expected = ['src/NeraSpreadSheet.Maui/NeraCellEditorHandler.Apple.cs',
+                      'src/NeraSpreadSheet.Maui/NeraSpreadSheetMauiAppBuilderExtensions.cs']
+          if subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines() != expected:
+              raise SystemExit('The class exclusion variant modified unexpected paths.')
+          PY
+          git diff --check
+          git diff -- src/NeraSpreadSheet.Maui/NeraCellEditorHandler.Apple.cs src/NeraSpreadSheet.Maui/NeraSpreadSheetMauiAppBuilderExtensions.cs
+          git -C .. diff --exit-code
+      - name: Build native subclass exclusion variant with original assertions
+        id: variant_build
+        if: ${{ !cancelled() && steps.variant_prepare.outcome == 'success' }}
+        working-directory: class-exclusion-variant
+        run: dotnet build tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke.csproj -c Release -f net10.0-maccatalyst -r "$NERA_MACCATALYST_SMOKE_RID" -p:NeraMauiTargetFrameworks=net10.0-maccatalyst
+      - name: Verify generated native subclass absence before launch
+        id: variant_verify
+        if: ${{ !cancelled() && steps.variant_build.outcome == 'success' }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import runpy
+          module = runpy.run_path('scripts/inspect-table007-apple-registrar.py')
+          checkout = Path('class-exclusion-variant').resolve()
+          report = module['cohort_report'](checkout, os.environ['NERA_MACCATALYST_SMOKE_RID'])
+          generated = [item for item in report['generatedFiles'] if 'registrar' in Path(item['file']).name]
+          if report['sourceSha'] != '${{ github.sha }}' or report['registrarMetadata'] != 'available' or not generated:
+              raise SystemExit('Generated class metadata is unavailable for the expected variant source.')
+          root = checkout / 'tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/obj'
+          for item in generated:
+              if 'sha256' not in item:
+                  raise SystemExit('Generated registrar exceeded its read budget.')
+              with (root / item['file']).open('rb') as stream:
+                  raw = stream.read(module['MAX_FILE_BYTES'] + 1)
+              if len(raw) > module['MAX_FILE_BYTES'] or hashlib.sha256(raw).hexdigest() != item['sha256']:
+                  raise SystemExit('Generated registrar changed after the bounded audit.')
+              if b'CellTextView' in raw:
+                  raise SystemExit('The excluded native subclass still exists in generated registrar output.')
+          print(json.dumps({'variantSource': report['sourceSha'], 'generatedCellTextViewAbsent': True,
+                            'registrarHashes': {item['file']: item['sha256'] for item in generated}}))
+          PY
+      - name: Run native subclass exclusion variant with current runner
+        id: variant_run
+        if: ${{ !cancelled() && steps.variant_verify.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="class-exclusion-variant/tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/bin/Release/net10.0-maccatalyst/$NERA_MACCATALYST_SMOKE_RID"
+          RESULT="$RUNNER_TEMP/nera-maccatalyst-class-exclusion-variant-smoke.json"
+          APP="$(find "$ROOT" -type d -name 'NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke.app' | head -n 1 || true)"
+          if [ -z "$APP" ]; then
+            echo "Mac native subclass exclusion variant app bundle was not produced."
+            exit 1
+          fi
+          git diff --exit-code
+          bash ./scripts/run-maui-maccatalyst-smoke.sh "$APP" "$RESULT"
       - name: Record paired Mac Catalyst outcomes
         if: always()
         shell: bash
@@ -140,4 +226,7 @@ jobs:
           Baseline build/run: ${{ steps.baseline_build.outcome }} / ${{ steps.baseline_run.outcome }}
           Candidate build/run: ${{ steps.candidate_build.outcome }} / ${{ steps.candidate_run.outcome }}
           Baseline comparison does not replace candidate acceptance. Every failed step retains job failure.
+          Native subclass exclusion variant source: ${{ github.sha }}; patch cfc3b7cec04b46b822dd9eb6398b3b43d13bf4fe97ce9047049699e2f08e8fcf.
+          Variant build/absence-check/run: ${{ steps.variant_build.outcome }} / ${{ steps.variant_verify.outcome }} / ${{ steps.variant_run.outcome }}
+          Variant is diagnostic only and never replaces candidate acceptance or native editor assertions.
           SUMMARY
