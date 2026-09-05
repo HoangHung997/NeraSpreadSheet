@@ -14,6 +14,20 @@ public sealed record FormulaStructuredReferenceSuggestion(
 public sealed partial class SpreadsheetFormulaEditingAssistant
 {
     /// <summary>
+    /// Reports whether point-mode insertion is outside a quoted literal or an
+    /// existing structured token. A provisional span is validated against the draft.
+    /// This query never reads cells or changes workbook/history state.
+    /// </summary>
+    public static bool CanInsertReference(string text, int caretIndex, FormulaTextSpan? provisionalSpan = null)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        if (!text.StartsWith('=') || caretIndex < 0 || caretIndex > text.Length) return false;
+        var span = provisionalSpan ?? new FormulaTextSpan(caretIndex, 0);
+        return span.Start >= 0 && span.Length >= 0 && span.Start <= text.Length &&
+            span.Length <= text.Length - span.Start && IsOutsideLiteralAndReference(text, span.Start);
+    }
+
+    /// <summary>
     /// Completes a Table name or a simple Table[column]/[@column] fragment.
     /// Results are bounded to 256 metadata items and never enumerate worksheet cells.
     /// </summary>

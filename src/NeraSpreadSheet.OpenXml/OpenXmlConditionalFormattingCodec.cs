@@ -604,7 +604,11 @@ internal static class OpenXmlConditionalFormattingCodec
                 "Differential styles cannot be empty.");
         }
 
-        _ = new DifferentialStyleCatalog().Intern(patch);
+        // Workbook dxfs also serve Table formatting. Explicit default-valued
+        // overrides (for example numFmt General) are valid and must retain
+        // their original index even when they do not change CellStyle.Default.
+        // The managed conditional-rule catalog enforces its own contract later.
+        _ = new CellStyleCatalog().Intern(patch.Apply(CellStyle.Default));
         return patch;
     }
 

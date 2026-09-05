@@ -59,9 +59,10 @@ public sealed partial class NeraSpreadsheetControl : Control
         TabStop = true;
         _frameTimer = new System.Windows.Forms.Timer { Interval = 8 };
         _frameTimer.Tick += OnFrameTick;
-        _editor = new TextBox { Visible = false, BorderStyle = BorderStyle.FixedSingle };
+        _editor = new TextBox { Visible = false, BorderStyle = BorderStyle.FixedSingle, Multiline = true, AcceptsReturn = true, AcceptsTab = true };
         _editor.KeyDown += OnEditorKeyDown;
         Controls.Add(_editor);
+        InitializeFormulaEditingUi();
     }
 
     [Browsable(false)]
@@ -264,6 +265,7 @@ public sealed partial class NeraSpreadsheetControl : Control
         {
             return;
         }
+        if (TryBeginFormulaReferencePointer(e.X, e.Y)) return;
         if (IsEditing)
         {
             CommitEditor();
@@ -357,6 +359,7 @@ public sealed partial class NeraSpreadsheetControl : Control
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
+        if (UpdateFormulaReferencePointer(e.X, e.Y)) return;
         if (_headerResize is { } resize)
         {
             ApplyHeaderResize(resize, e.X, e.Y);
@@ -383,6 +386,7 @@ public sealed partial class NeraSpreadsheetControl : Control
         {
             return;
         }
+        if (UpdateFormulaReferencePointer(e.X, e.Y, release: true)) return;
 
         if (_headerResize is { } resize)
         {
@@ -602,8 +606,10 @@ public sealed partial class NeraSpreadsheetControl : Control
                 RenderTheme);
             _lastLayout = frame.Layout;
             UpdateContentExtent(chrome);
+            var bodyDisplayList = SpreadsheetFormulaReferenceDisplayListComposer.Compose(
+                frame.DisplayList, frame.Layout, GetFormulaReferenceHighlights(), RenderTheme.FormulaReferenceStrokeWidth);
             var displayList = SpreadsheetChromeDisplayListComposer.Compose(
-                frame.DisplayList,
+                bodyDisplayList,
                 frame.Layout,
                 _session.Selection.Capture(),
                 RenderTheme);
@@ -660,6 +666,7 @@ public sealed partial class NeraSpreadsheetControl : Control
             return;
         }
         var state = _cellEditor.BeginEdit();
+        _editor.WordWrap = _session!.ActiveWorksheet.GetEffectiveStyle(state.Address, _session.Workbook.Styles).Alignment.WrapText;
         _editor.Text = replacementText ?? state.InitialText;
         _editor.Visible = true;
         UpdateEditorBounds();
@@ -673,10 +680,12 @@ public sealed partial class NeraSpreadsheetControl : Control
             _editor.SelectionStart = _editor.TextLength;
             _editor.SelectionLength = 0;
         }
+        UpdateFormulaSuggestions();
     }
 
     public bool CommitEditor()
     {
+        if (_cellEditor?.State is { } target) _session!.Selection.SetActiveCell(target.Address);
         if (_cellEditor is null || !_cellEditor.Commit(_editor.Text))
         {
             return false;
@@ -688,6 +697,7 @@ public sealed partial class NeraSpreadsheetControl : Control
 
     public bool CancelEditor()
     {
+        if (_cellEditor?.State is { } target) _session!.Selection.SetActiveCell(target.Address);
         if (_cellEditor is null || !_cellEditor.Cancel())
         {
             return false;
@@ -800,6 +810,7 @@ public sealed partial class NeraSpreadsheetControl : Control
             _frameTimer.Tick -= OnFrameTick;
             _frameTimer.Dispose();
             _editor.KeyDown -= OnEditorKeyDown;
+            DisposeFormulaEditingUi();
             DisposeGpuRenderers();
             _displayListRenderer.Dispose();
         }
@@ -1323,8 +1334,21 @@ public sealed partial class NeraSpreadsheetControl : Control
 
     private void OnEditorKeyDown(object? sender, KeyEventArgs e)
     {
+        if (TryHandleFormulaSuggestionKey(e))
+        {
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            return;
+        }
         if (e.KeyCode == Keys.Enter)
         {
+            if (e.Alt)
+            {
+                _editor.SelectedText = Environment.NewLine;
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
             if (CommitEditor())
             {
                 MoveActiveCell(1, 0, false);
@@ -1359,6 +1383,7 @@ public sealed partial class NeraSpreadsheetControl : Control
         if (!_viewport.TryGetCellBounds(state.Address, scroll.OffsetX, scroll.OffsetY, out var bounds))
         {
             _editor.Visible = false;
+            _formulaSuggestionList.Visible = false;
             return;
         }
 
@@ -1384,16 +1409,22 @@ public sealed partial class NeraSpreadsheetControl : Control
         if (visible.Width <= 0 || visible.Height <= 0)
         {
             _editor.Visible = false;
+            _formulaSuggestionList.Visible = false;
             return;
         }
 
-        _editor.Bounds = visible;
+        _editor.Bounds = raw;
+        var oldRegion = _editor.Region;
+        _editor.Region = new Region(new Rectangle(visible.X - raw.X, visible.Y - raw.Y, visible.Width, visible.Height));
+        oldRegion?.Dispose();
         _editor.Visible = true;
         _editor.BringToFront();
+        UpdateFormulaSuggestionBounds();
     }
 
     private void HideEditor()
     {
+        ResetFormulaEditingUi();
         _editor.Visible = false;
         _editor.Text = string.Empty;
     }

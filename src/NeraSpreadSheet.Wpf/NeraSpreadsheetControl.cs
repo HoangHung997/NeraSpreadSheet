@@ -766,6 +766,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
     public bool CommitEditor()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_cellEditor?.State is { } target) _session!.Selection.SetActiveCell(target.Address);
         if (_cellEditor is null || !_cellEditor.Commit(_editor.Text))
         {
             return false;
@@ -779,6 +780,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
     public bool CancelEditor()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_cellEditor?.State is { } target) _session!.Selection.SetActiveCell(target.Address);
         if (_cellEditor is null || !_cellEditor.Cancel())
         {
             return false;
@@ -1044,6 +1046,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         _scrollController.Reset();
         _framePacing.Reset();
         HideEditor();
+        ResetFormulaEditingUi();
         AttachSessionEvents();
         UpdateContentExtent();
         UpdateGpuSurfaceVisibility();
@@ -1302,7 +1305,8 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
             e.Handled = true;
             return;
         }
-        if (e.Key is Key.Enter or Key.Return)
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key is Key.Enter or Key.Return)
         {
             if ((Keyboard.Modifiers & ModifierKeys.Alt) != 0)
             {
