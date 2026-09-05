@@ -155,7 +155,7 @@ public sealed class RibbonWorksheetNavigationSmokeTests
             Assert.AreEqual(Math.Max(0d, grid.ContentWidth - chrome.BodyWidth), horizontal.Maximum, 0.01d);
             Assert.AreEqual(Math.Max(0d, grid.ContentHeight - chrome.BodyHeight), vertical.Maximum, 0.01d);
             var beforeHeaderToggle = horizontal.ViewportSize;
-            Assert.IsTrue(Field<RibbonRuntimeController>(window, "_runtime").TryActivateAsync("Sample.Headers").GetAwaiter().GetResult());
+            Assert.IsTrue(Field<RibbonRuntimeController>(window, "_runtime").TryActivateAsync("Sample.Headers").AsTask().GetAwaiter().GetResult());
             PumpUntil(() => horizontal.ViewportSize > beforeHeaderToggle + 10d, "A shell header command must refresh body metrics without an SDK metrics event.");
         }
         finally { window.Close(); }
