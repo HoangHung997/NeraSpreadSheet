@@ -158,7 +158,7 @@ public sealed class Table007WpfEditorDraftSmokeTests
     [DataRow(false)]
     [DataRow(true)]
     [Timeout(60_000)]
-    public void DraftRoundTripShouldRetainBackwardSelectedTextWhileExposingUnrepresentedDirection(bool useSplit)
+    public void IdenticalDraftEchoShouldPreserveNativeBackwardSelectionDirectionAndApplyChangedRanges(bool useSplit)
     {
         RunLoaded(useSplit, (control, _, editor, formulaBar, session) =>
         {
@@ -172,7 +172,10 @@ public sealed class Table007WpfEditorDraftSmokeTests
             Assert.AreEqual(2, backward.CaretIndex);
             var canonical = session.Editor.State;
             Assert.IsTrue(formulaBar.Focus());
+            var notifications = 0;
+            control.EditorDraftChanged += (_, _) => notifications++;
             Assert.IsTrue(control.UpdateEditorDraft(backward.Text, backward.SelectionStart, backward.SelectionLength));
+            Assert.AreEqual(0, notifications, "An identical snapshot must remain de-duplicated.");
             var restored = control.CurrentEditorDraft!;
             Assert.AreEqual(backward.Text, restored.Text);
             Assert.AreEqual(backward.SelectionStart, restored.SelectionStart);
@@ -186,9 +189,18 @@ public sealed class Table007WpfEditorDraftSmokeTests
             Assert.IsTrue(control.FocusEditor());
             Assert.AreEqual(restored, control.CurrentEditorDraft);
             EditingCommands.SelectLeftByCharacter.Execute(null, editor);
-            Assert.AreEqual(2, editor.SelectionStart);
-            Assert.AreEqual(1, editor.SelectionLength,
-                "Select(start, length) normalizes direction: Shift+Left contracts instead of extending a backward selection.");
+            Assert.AreEqual(1, editor.SelectionStart);
+            Assert.AreEqual(3, editor.SelectionLength,
+                "An identical echo must retain the backward moving edge so Shift+Left extends the existing selection.");
+            Assert.IsTrue(formulaBar.Focus());
+            var beforeRangeChange = notifications;
+            Assert.IsTrue(control.UpdateEditorDraft(restored.Text, 3, 2));
+            Assert.AreEqual(beforeRangeChange + 1, notifications);
+            Assert.AreEqual(3, editor.SelectionStart);
+            Assert.AreEqual(2, editor.SelectionLength);
+            Assert.AreSame(formulaBar, Keyboard.FocusedElement);
+            Assert.AreSame(canonical, session.Editor.State);
+            Assert.AreEqual(0, session.History.UndoCount);
             Assert.IsTrue(control.CancelEditor());
         });
     }

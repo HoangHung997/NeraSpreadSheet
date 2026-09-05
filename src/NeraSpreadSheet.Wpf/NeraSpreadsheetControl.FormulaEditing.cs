@@ -260,28 +260,27 @@ public sealed partial class NeraSpreadsheetControl
         SelectionChangedEventArgs e) =>
         UpdateFormulaHelpText();
 
-    private void UpdateFormulaHelpText()
+    private void UpdateFormulaHelpText() =>
+        _formulaHelpText.Text = FormatFormulaHelpText(_formulaSuggestionList.SelectedItem, _formulaHelpContext);
+
+    internal static string FormatFormulaHelpText(object? selectedSuggestion, FormulaFunctionHelpContext? helpContext)
     {
-        if (_formulaSuggestionList.SelectedItem is FormulaStructuredReferenceSuggestion structured)
+        if (selectedSuggestion is FormulaStructuredReferenceSuggestion structured)
         {
-            _formulaHelpText.Text = structured.DisplayText;
-            return;
+            return structured.DisplayText;
         }
-        if (_formulaSuggestionList.SelectedItem is
+        if (selectedSuggestion is
             FormulaFunctionSuggestion suggestion)
         {
-            _formulaHelpText.Text =
-                $"{suggestion.Signature}\n{suggestion.Description}";
-            return;
+            return $"{suggestion.Signature}\n{suggestion.Description}";
         }
-        if (_formulaHelpContext is not { } context)
+        if (helpContext is not { } context)
         {
-            _formulaHelpText.Text = string.Empty;
-            return;
+            return string.Empty;
         }
 
         var argument = context.ActiveArgument;
-        _formulaHelpText.Text = argument is null
+        return argument is null
             ? $"{context.Function.Signature}\n{context.Function.Description}"
             : $"{context.Function.Signature}\n{context.Function.Description}\n" +
               $"Đối số {context.ActiveArgumentIndex + 1}: " +

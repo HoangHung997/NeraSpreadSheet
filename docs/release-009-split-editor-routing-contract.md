@@ -48,8 +48,12 @@ package, viewport engine, editor model hoặc history model.
 - API `UpdateEditorDraft(text, selectionStart, selectionLength)` mô tả một range,
   không có tham số hướng selection/caret riêng. WPF `TextBox.CaretIndex` báo
   `SelectionStart`, nên snapshot hiện tại cũng không biểu diễn moving edge của
-  selection. Regression native kiểm tra backward range và Shift+Left sau
-  round-trip; không tự mở rộng public API trong slice này.
+  selection; đây là public caret do WPF báo, không hứa trả moving edge của một
+  selection có độ dài. Khi text/range được echo nguyên trạng, bridge tránh gọi
+  native Select lại để giữ direction đang có. Changed text/range vẫn áp dụng qua
+  native editor. Regression kiểm tra Shift+Left mở rộng backward selection sau
+  echo và range thay đổi vẫn được áp dụng. Không chuyển arbitrary direction
+  giữa hai control hoặc tự mở rộng public API trong slice này.
 - Không thay đổi host WinForms/MAUI hoặc tuyên bố hardware/performance acceptance.
 
 ## Cổng kiểm chứng

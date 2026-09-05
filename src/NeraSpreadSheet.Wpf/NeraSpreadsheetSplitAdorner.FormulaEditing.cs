@@ -147,29 +147,8 @@ internal sealed partial class NeraSpreadsheetSplitAdorner
 
     private void OnFormulaSuggestionSelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateFormulaHelpText();
 
-    private void UpdateFormulaHelpText()
-    {
-        if (_formulaSuggestionList.SelectedItem is FormulaStructuredReferenceSuggestion structured)
-        {
-            _formulaHelpText.Text = structured.DisplayText;
-        }
-        else if (_formulaSuggestionList.SelectedItem is FormulaFunctionSuggestion suggestion)
-        {
-            _formulaHelpText.Text = $"{suggestion.Signature}\n{suggestion.Description}";
-        }
-        else if (_formulaHelpContext is { } context)
-        {
-            var argument = context.ActiveArgument;
-            _formulaHelpText.Text = argument is null
-                ? $"{context.Function.Signature}\n{context.Function.Description}"
-                : $"{context.Function.Signature}\n{context.Function.Description}\n" +
-                  $"Đối số {context.ActiveArgumentIndex + 1}: {argument.Name} — {argument.Description}";
-        }
-        else
-        {
-            _formulaHelpText.Text = string.Empty;
-        }
-    }
+    private void UpdateFormulaHelpText() =>
+        _formulaHelpText.Text = NeraSpreadsheetControl.FormatFormulaHelpText(_formulaSuggestionList.SelectedItem, _formulaHelpContext);
 
     private bool TryHandleFormulaSuggestionKey(KeyEventArgs e)
     {
