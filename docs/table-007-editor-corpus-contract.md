@@ -16,9 +16,23 @@ Phạm vi T1–T3 theo wave 05/09/2026; chưa coi kế hoạch dưới đây là
   Split editor giữ pane bắt đầu khi cuộn hoặc kích hoạt pane khác; khi pane đó
   không còn trong layout mới, dùng pane active còn lại. Mất capture kết thúc
   drag provisional, cancel giải phóng capture; moved caret không ghi đè span cũ.
-- WPF/WinForms CancelEditor luôn dọn native overlay/popup khi session đã hủy draft trước
+- WPF/WinForms (standalone và split) cùng MAUI CancelEditor luôn dọn native overlay/popup khi session đã hủy draft trước
   đó (ví dụ ActivateWorksheet). Trả false nếu không có draft để hủy, không focus
   hoặc chọn lại ô cũ trong sheet mới; cleanup UI không thêm history hay sửa ô.
+- WPF `CurrentEditorDraft` đọc snapshot từ native TextBox thật: address, text,
+  UTF-16 selection start/length và caret. `CurrentEditText` cũng lấy đúng draft
+  khi split enabled; không lấy InitialText hoặc hidden standalone editor.
+  `EditorDraftChanged` trên owning control báo native text/selection và begin/
+  commit/cancel, kể cả canonical cancellation trực tiếp hoặc worksheet switch.
+- WPF `UpdateEditorDraft(text, selectionStart, selectionLength)` thay native
+  draft/selection mà không lấy focus, restart edit, validate/recalculate hay thêm
+  history. Bounds sai bị từ chối trước mutation; không có native draft thì false.
+  Một lần cập nhật bridge phát một snapshot hoàn chỉnh; native text/caret events
+  vẫn cập nhật formula bar. `FocusEditor()` riêng trả focus cho editor hiện có.
+  Begin/Commit/Cancel trên control route split controller hiện hữu khi enabled;
+  split controller cũng expose các API draft này, event ở owning control.
+  Validation failure giữ draft/selection/focus; successful commit dùng một
+  Session.Editor transaction/Undo. Các API này dùng trên UI thread.
 - LibreOffice thật import/export synthetic Nera seed trong Ubuntu CI với profile
   riêng. Ghi version, native/sanitized SHA-256, provenance và từng payload không
   đổi; chỉ core author/timestamps và ZIP timestamps được sanitize. Không gọi

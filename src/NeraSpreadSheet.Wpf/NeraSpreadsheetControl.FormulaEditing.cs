@@ -64,7 +64,7 @@ public sealed partial class NeraSpreadsheetControl
     /// Gets the current in-cell edit text, or <see langword="null"/> when the
     /// control is not editing.
     /// </summary>
-    public string? CurrentEditText => IsEditing ? _editor.Text : null;
+    public string? CurrentEditText => CurrentEditorDraft?.Text;
 
     /// <summary>
     /// Gets the visible active-sheet precedent ranges for the formula cell that
@@ -94,6 +94,8 @@ public sealed partial class NeraSpreadsheetControl
         };
         _editor.TextChanged += OnFormulaEditorTextChanged;
         _editor.SelectionChanged += OnFormulaEditorSelectionChanged;
+        _editor.TextChanged += OnNativeEditorDraftChanged;
+        _editor.SelectionChanged += OnNativeEditorDraftChanged;
         _formulaSuggestionList.Focusable = false;
         _formulaSuggestionList.PreviewMouseDown += OnFormulaSuggestionMouseClick;
         _formulaSuggestionList.SelectionChanged +=
@@ -105,6 +107,8 @@ public sealed partial class NeraSpreadsheetControl
         HideFormulaSuggestions();
         _editor.TextChanged -= OnFormulaEditorTextChanged;
         _editor.SelectionChanged -= OnFormulaEditorSelectionChanged;
+        _editor.TextChanged -= OnNativeEditorDraftChanged;
+        _editor.SelectionChanged -= OnNativeEditorDraftChanged;
         _formulaSuggestionList.PreviewMouseDown -= OnFormulaSuggestionMouseClick;
         _formulaSuggestionList.SelectionChanged -=
             OnFormulaSuggestionSelectionChanged;
@@ -150,7 +154,7 @@ public sealed partial class NeraSpreadsheetControl
 
     private void UpdateFormulaSuggestions(int? caretIndex = null)
     {
-        if (_session is null || !IsEditing)
+        if (_session is null || !_hasEditorDraft || !IsEditing)
         {
             HideFormulaSuggestions();
             return;
@@ -454,7 +458,7 @@ public sealed partial class NeraSpreadsheetControl
     private IReadOnlyList<SpreadsheetFormulaReferenceHighlight>
         GetFormulaReferenceHighlights()
     {
-        if (!ShowFormulaReferenceHighlights || _session is null)
+        if (!ShowFormulaReferenceHighlights || _session is null || (IsEditing && !_hasEditorDraft))
         {
             return Array.Empty<SpreadsheetFormulaReferenceHighlight>();
         }

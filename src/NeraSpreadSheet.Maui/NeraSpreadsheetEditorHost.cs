@@ -132,14 +132,14 @@ public sealed partial class NeraSpreadsheetEditorHost : Grid, IDisposable
         return true;
     }
 
-    /// <summary>Cancels the draft without adding a history operation.</summary>
+    /// <summary>Always cleans up the native overlay; returns true only when a canonical draft was canceled, without adding history.</summary>
     public bool CancelEditor()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_session?.Editor.Cancel() != true) return false;
+        var canceled = _session?.Editor.Cancel() == true;
         HideEditor();
-        Spreadsheet.Focus();
-        return true;
+        if (canceled) Spreadsheet.Focus();
+        return canceled;
     }
 
     /// <summary>Inserts a newline at the native caret, replacing its selection.</summary>

@@ -123,37 +123,45 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         e.Handled = true;
     }
 
-    private void BeginEdit(string? replacementText = null)
+    internal void BeginEdit(string? replacementText = null)
     {
+        SynchronizeSession();
         if (_cellEditor is null || EnsureFrame() is not { } frame)
         {
             return;
         }
 
-        var state = _cellEditor.BeginEdit();
-        _editorPane = frame.ActivePane;
-        ResetFormulaEditingUi();
-        WpfCellEditorStyle.Apply(
-            _editor,
-            _session!.ActiveWorksheet.GetEffectiveStyle(
-                state.Address,
-                _session.Workbook.Styles));
-        _editor.Text = replacementText ?? state.InitialText;
-        _editor.Visibility = Visibility.Visible;
-        UpdateEditorBounds();
-        _editor.Focus();
-        if (replacementText is null)
+        _changingEditorDraft = true;
+        try
         {
-            _editor.SelectAll();
+            var state = _cellEditor.BeginEdit();
+            _hasEditorDraft = true;
+            _editorPane = frame.ActivePane;
+            ResetFormulaEditingUi();
+            WpfCellEditorStyle.Apply(
+                _editor,
+                _session!.ActiveWorksheet.GetEffectiveStyle(
+                    state.Address,
+                    _session.Workbook.Styles));
+            _editor.Text = replacementText ?? state.InitialText;
+            _editor.Visibility = Visibility.Visible;
+            UpdateEditorBounds();
+            _editor.Focus();
+            if (replacementText is null)
+            {
+                _editor.SelectAll();
+            }
+            else
+            {
+                _editor.CaretIndex = _editor.Text.Length;
+            }
+            UpdateFormulaSuggestions();
         }
-        else
-        {
-            _editor.CaretIndex = _editor.Text.Length;
-        }
-        UpdateFormulaSuggestions();
+        finally { _changingEditorDraft = false; }
+        NotifyEditorDraftChanged();
     }
 
-    private bool CommitEditor()
+    internal bool CommitEditor()
     {
         var address = _cellEditor?.State?.Address;
         if (_cellEditor is null || !_cellEditor.Commit(_editor.Text))
@@ -167,21 +175,17 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         return true;
     }
 
-    private bool CancelEditor()
+    internal bool CancelEditor()
     {
-        if (_cellEditor is null || !_cellEditor.Cancel())
-        {
-            return false;
-        }
-
+        var canceled = _cellEditor?.Cancel() == true;
         HideEditor();
-        Focus();
-        return true;
+        if (canceled) Focus();
+        return canceled;
     }
 
     private void UpdateEditorBounds()
     {
-        if (_cellEditor?.State is not { } state ||
+        if (!_hasEditorDraft || _cellEditor?.State is not { } state ||
             _engine is null ||
             _session is null ||
             EnsureFrame() is not { } frame ||
@@ -246,11 +250,13 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 
     private void HideEditor()
     {
+        _hasEditorDraft = false;
         ResetFormulaEditingUi();
         _editor.Visibility = Visibility.Collapsed;
         _editorBounds = Rect.Empty;
         _editor.Text = string.Empty;
         InvalidateArrange();
+        NotifyEditorDraftChanged();
     }
 
     private void MoveActiveCell(int rowDelta, int columnDelta, bool extend)

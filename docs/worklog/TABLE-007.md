@@ -243,9 +243,28 @@
   không đổi; failure gốc giữ job FAIL bất kể variant outcome. Không dùng variant
   làm acceptance, publish artifact hoặc production fallback. Workflow/log freeze
   trước product cleanup/API để giữ experiment inputs cùng source.
+- Registration experiment freeze `4bef0f0ec1e72c17cd9ba6899fd5c15922182845`,
+  narrow run `33985385938` DONE: Windows baseline/candidate PASS; Mac baseline
+  PASS, candidate và registration variant compilePASS/runtimeFAIL trước Action
+  entry. Exact removal diff guard PASS. Variant có matching current-process IPS:
+  SIGSEGV tại libobjc realizeClassWithoutSwift, NSClassFromString, AppKit
+  NSTextInputContext, UIKitMacHelper UINSInputView/UINSSceneView/window creation.
+  Chưa biết class đang realize hoặc delta gây lỗi; không suy renderer cause.
+  Candidate stderr664B/5lines, variant669B/5lines, không symbolized fd2 frames.
+  Đóng transient variant steps sau bounded experiment; giữ product registration
+  và paired diagnostic/full acceptance gates. Product delta không thay inputs4bef.
 - Root cấp tiếp WPF public draft/caret bridge và idempotent split/MAUI cleanup;
-  standalone WPF main writer mở lại. A dùng API qua cùng control cho formula bar,
-  không SetFormula trực tiếp/repeated BeginEdit. Các delta này chưa triển khai.
+  standalone WPF main writer mở lại. Đã triển khai snapshot native TextBox và
+  notifications ở owner; UpdateEditorDraft không focus/history/restart, atomic
+  selection validation, FocusEditor riêng; existing lifecycle route split facade.
+  Canonical end dọn WPF UI ngay, hidden standalone không dựng bounds/highlights
+  từ shared split state. Không thêm Core draft model hoặc editor controller.
+- Native regressions mới:8 WPF bridge/validation/focus/history/lifecycle cases
+  (standalone/split),2 WinForms split cleanup cases; MAUI Windows/Android helper
+  giữ native editor, external canonical cancel rồi moved selection/host cleanup,
+  xác minh candidates/text/cells/history. Local incremental desktop test build
+  SDK10.0.302 PASS0warnings/errors (initial test alias collision đã sửa); chưa
+  chạy local runtime vì lease A. Architecture/diff PASS; native CI còn chờ.
 - Bước tiếp theo: đọc bounded registration-variant outcome/stages tại exact
   source, đồng thời triển khai WPF draft API và split/MAUI cleanup đã được cấp;
   không release whole lane trước full/iOS/Q003C/diagnostic final green.

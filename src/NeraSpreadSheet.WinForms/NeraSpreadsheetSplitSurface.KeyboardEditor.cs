@@ -169,14 +169,10 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
     private bool CancelEditor()
     {
-        if (_cellEditor is null || !_cellEditor.Cancel())
-        {
-            return false;
-        }
-
+        var canceled = _cellEditor?.Cancel() == true;
         HideEditor();
-        Focus();
-        return true;
+        if (canceled) Focus();
+        return canceled;
     }
 
     private void UpdateEditorBounds()

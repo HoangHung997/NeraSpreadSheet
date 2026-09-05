@@ -89,6 +89,24 @@ internal static class Table007EditorSmoke
         await PressNativeAsync(host, native, 0x1B);
         Trace("table-editor-escape-returned");
         Require(!session.Editor.IsEditing, "Native Escape did not cancel the multiline draft.");
+        var cellsBeforeCancel = sheet.EnumerateUsedCells().ToArray();
+        var selectionBeforeCancel = session.Selection.Capture();
+        var historyBeforeCancel = session.History.UndoCount;
+        var redoBeforeCancel = session.History.RedoCount;
+        Require(host.BeginEdit("=SUM(EditorSales[Am"), "The native editor did not reopen for canonical cancellation.");
+        Require(editor.IsVisible && host.CurrentStructuredReferenceSuggestions.Count == 1,
+            "Canonical cancellation requires a visible native draft and candidates.");
+        Require(session.Editor.Cancel(), "Canonical cancellation did not end the edit.");
+        session.Selection.SetActiveCell(new CellAddress(7, 2));
+        var selectionVersion = session.Selection.Version;
+        Require(!host.CancelEditor(), "Repeated cancellation reported another canonical edit.");
+        Require(!editor.IsVisible && string.IsNullOrEmpty(native.Text) && host.CurrentEditText is null &&
+            host.CurrentStructuredReferenceSuggestions.Count == 0, "Canonical cancellation left native draft or candidates visible.");
+        Require(session.Selection.Version == selectionVersion && session.Selection.ActiveCell == new CellAddress(7, 2),
+            "Cleanup changed the caller's newer selection.");
+        Require(session.History.UndoCount == historyBeforeCancel && session.History.RedoCount == redoBeforeCancel &&
+            cellsBeforeCancel.SequenceEqual(sheet.EnumerateUsedCells()), "Cleanup changed cells or history.");
+        session.Selection.Restore(selectionBeforeCancel);
         host.SetEnglishResources(true);
         Require((string)host.Resources["CellEditor.Commit"] == "Commit", "Shell-local editor resources were not applied.");
         host.SetEnglishResources(false);

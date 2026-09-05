@@ -184,6 +184,55 @@ public sealed class Table007SplitEditorSmokeTests
         });
     }
 
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    [Timeout(90_000)]
+    public void WinFormsSplitCancellationShouldClearNativeDraftAndCandidatesAfterCanonicalEditEnds(bool switchWorksheet)
+    {
+        RunInSta(() =>
+        {
+            var session = CreateSession();
+            var first = session.ActiveWorksheet;
+            var second = session.Workbook.AddWorksheet("Other");
+            var firstCells = first.EnumerateUsedCells().ToArray();
+            var secondCells = second.EnumerateUsedCells().ToArray();
+            using var owner = new NeraSpreadSheet.WinForms.NeraSpreadsheetControl { Session = session, Dock = Forms.DockStyle.Fill };
+            using var form = new Forms.Form { Width = 760, Height = 540, ShowInTaskbar = false };
+            form.Controls.Add(owner);
+            form.Show();
+            Forms.Application.DoEvents();
+            using var split = owner.EnableSplitPanes(NeraSpreadSheet.WinForms.SpreadsheetSplitPaneMode.Both);
+            split.RenderNow();
+            var surface = Field<object>(split, "_surface");
+            var editor = Field<Forms.TextBox>(surface, "_editor");
+            var list = Field<Forms.ListBox>(surface, "_formulaSuggestionList");
+            Invoke(surface, "BeginEdit", "=SUM(Sales[A");
+            editor.AppendText("m");
+            Assert.AreEqual("=SUM(Sales[Am", editor.Text);
+            Assert.IsTrue(editor.Visible && list.Visible);
+            Assert.AreEqual(1, list.Items.Count);
+            if (switchWorksheet)
+            {
+                session.ActivateWorksheet(second);
+                Assert.IsFalse(editor.Visible || list.Visible,
+                    "Worksheet activation must clean up before caller cancellation.");
+            }
+            else Assert.IsTrue(session.Editor.Cancel());
+            session.Selection.SetActiveCell(new CellAddress(11, 5));
+            var version = session.Selection.Version;
+            Assert.IsFalse((bool)Invoke(surface, "CancelEditor")!);
+            Assert.IsFalse(editor.Visible || list.Visible);
+            Assert.AreEqual(string.Empty, editor.Text);
+            Assert.AreEqual(0, list.Items.Count);
+            Assert.AreEqual(version, session.Selection.Version);
+            Assert.AreEqual(new CellAddress(11, 5), session.Selection.ActiveCell);
+            Assert.AreEqual(0, session.History.UndoCount);
+            CollectionAssert.AreEqual(firstCells, first.EnumerateUsedCells().ToArray());
+            CollectionAssert.AreEqual(secondCells, second.EnumerateUsedCells().ToArray());
+        });
+    }
+
     private static SpreadsheetSession CreateSession()
     {
         var workbook = new Workbook();

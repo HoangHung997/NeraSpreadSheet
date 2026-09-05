@@ -126,54 +126,6 @@ jobs:
             exit 1
           fi
           bash ./scripts/run-maui-maccatalyst-smoke.sh "$APP" "$RESULT"
-      - name: Checkout same-source Mac registration variant
-        id: variant_checkout
-        if: ${{ !cancelled() && steps.candidate_build.outcome == 'success' }}
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.sha }}
-          path: registration-variant
-      - name: Remove only the variant Apple editor registration
-        id: variant_prepare
-        if: ${{ !cancelled() && steps.variant_checkout.outcome == 'success' }}
-        working-directory: registration-variant
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('src/NeraSpreadSheet.Maui/NeraSpreadSheetMauiAppBuilderExtensions.cs')
-          original = path.read_bytes()
-          block = b'#if IOS || MACCATALYST\n        builder.ConfigureMauiHandlers(static handlers =>\n            handlers.AddHandler<NeraCellEditor, NeraCellEditorHandler>());\n#endif\n'
-          if original.count(block) != 1:
-              raise SystemExit('Expected exactly one Apple editor registration block.')
-          path.write_bytes(original.replace(block, b'', 1))
-          PY
-          test "$(git diff --name-only)" = 'src/NeraSpreadSheet.Maui/NeraSpreadSheetMauiAppBuilderExtensions.cs'
-          git diff --check
-          git diff -- src/NeraSpreadSheet.Maui/NeraSpreadSheetMauiAppBuilderExtensions.cs
-          git -C .. diff --exit-code
-      - name: Build Mac registration variant with original assertions
-        id: variant_build
-        if: ${{ !cancelled() && steps.variant_prepare.outcome == 'success' }}
-        working-directory: registration-variant
-        run: dotnet build tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke.csproj -c Release -f net10.0-maccatalyst -r "$NERA_MACCATALYST_SMOKE_RID" -p:NeraMauiTargetFrameworks=net10.0-maccatalyst
-      - name: Run Mac registration variant with current runner
-        id: variant_run
-        if: ${{ !cancelled() && steps.variant_build.outcome == 'success' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          ROOT="registration-variant/tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/bin/Release/net10.0-maccatalyst/$NERA_MACCATALYST_SMOKE_RID"
-          RESULT="$RUNNER_TEMP/nera-maccatalyst-registration-variant-smoke.json"
-          APP="$(find "$ROOT" -type d -name 'NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke.app' | head -n 1 || true)"
-          if [ -z "$APP" ]; then
-            echo "Mac registration variant app bundle was not produced."
-            exit 1
-          fi
-          git diff --exit-code
-          bash ./scripts/run-maui-maccatalyst-smoke.sh "$APP" "$RESULT"
       - name: Record paired Mac Catalyst outcomes
         if: always()
         shell: bash
@@ -184,7 +136,4 @@ jobs:
           Baseline build/run: ${{ steps.baseline_build.outcome }} / ${{ steps.baseline_run.outcome }}
           Candidate build/run: ${{ steps.candidate_build.outcome }} / ${{ steps.candidate_run.outcome }}
           Baseline comparison does not replace candidate acceptance. Every failed step retains job failure.
-          Registration variant source: ${{ github.sha }}; only Apple editor handler registration removed in isolated checkout.
-          Registration variant build/run: ${{ steps.variant_build.outcome }} / ${{ steps.variant_run.outcome }}
-          Variant is diagnostic only. Original editor and analytics assertions remain required; variant never replaces candidate acceptance.
           SUMMARY

@@ -35,6 +35,8 @@ internal sealed partial class NeraSpreadsheetSplitAdorner
         };
         _editor.TextChanged += OnFormulaTextChanged;
         _editor.SelectionChanged += OnFormulaSelectionChanged;
+        _editor.TextChanged += OnNativeEditorDraftChanged;
+        _editor.SelectionChanged += OnNativeEditorDraftChanged;
         _formulaSuggestionList.PreviewMouseDown += OnFormulaSuggestionMouseDown;
     }
 
@@ -43,6 +45,8 @@ internal sealed partial class NeraSpreadsheetSplitAdorner
         ResetFormulaEditingUi();
         _editor.TextChanged -= OnFormulaTextChanged;
         _editor.SelectionChanged -= OnFormulaSelectionChanged;
+        _editor.TextChanged -= OnNativeEditorDraftChanged;
+        _editor.SelectionChanged -= OnNativeEditorDraftChanged;
         _formulaSuggestionList.PreviewMouseDown -= OnFormulaSuggestionMouseDown;
         if (_formulaSuggestionPopup is { } popup) popup.Child = null;
         _formulaSuggestionPopup = null;
