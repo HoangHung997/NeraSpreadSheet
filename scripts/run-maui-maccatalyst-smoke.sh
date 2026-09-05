@@ -18,6 +18,8 @@ LAUNCHER="$WORK_DIR/LaunchNeraMacCatalystSmoke.swift"
 INFO_PLIST="$APP/Contents/Info.plist"
 EXPECTED_BUNDLE_ID="com.neraspreadsheet.maccatalystanalyticssmoke"
 LAUNCH_DIAG_START=""
+NERA_MAUI_NATIVE_STDERR_RUN="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+export NERA_MAUI_NATIVE_STDERR_RUN
 
 if [ ! -d "$APP" ]; then
   echo "Mac Catalyst smoke app bundle does not exist: $APP" >&2
@@ -80,6 +82,79 @@ if ! codesign --verify --deep --strict --verbose=4 "$APP"; then
   exit 1
 fi
 echo "Mac Catalyst strict code-signature verification: PASS"
+
+native_stderr_diagnostics() {
+  python3 - "$1" "$CONTAINER_ROOT/tmp" "${APP_PID:-}" "$NERA_MAUI_NATIVE_STDERR_RUN" "${LAUNCH_DIAG_START:-}" <<'PY'
+import datetime
+import os
+from pathlib import Path
+import re
+import sys
+
+
+def method_frames(raw):
+    frames = []
+    for line in raw.splitlines()[1:]:
+        # Only native symbolized frame formats, never exception messages,
+        # registers, managed locals, environment values or arbitrary stderr.
+        match = re.fullmatch(r"\s*0x[0-9a-fA-F]+\s+-\s+(.+?)\s+:\s+(.+?)\s*", line)
+        if match is None:
+            match = re.fullmatch(r"\s*\d+\s+(\S+)\s+0x[0-9a-fA-F]+\s+(.+?)\s*", line)
+        if match is None:
+            continue
+        module, symbol = match.groups()
+        module = Path(module).name
+        symbol = re.sub(r"\s+\+\s+\d+\s*$", "", symbol)
+        symbol = symbol.split("(", 1)[0].strip()
+        if not re.fullmatch(r"[A-Za-z0-9_.+-]{1,120}", module):
+            continue
+        if not (re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$.:<>~]{0,239}", symbol)
+                or re.fullmatch(r"[-+]\[[A-Za-z_$][A-Za-z0-9_$.]* [A-Za-z_$][A-Za-z0-9_$:]*\]", symbol)):
+            continue
+        if re.search(r"0x[0-9a-fA-F]+|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", module + symbol):
+            continue
+        frames.append(module + "!" + symbol)
+        if len(frames) == 64:
+            break
+    return frames
+
+
+def main():
+    action, directory, pid, run_key, launch_text = sys.argv[1:6]
+    if not pid.isdecimal() or not re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", run_key) or not launch_text:
+        return
+    path = Path(directory) / ("nera-native-stderr-" + run_key + "-" + pid + ".log")
+    try:
+        launch = datetime.datetime.strptime(launch_text, "%Y-%m-%d %H:%M:%S").timestamp()
+        if path.is_symlink() or not path.is_file():
+            if action == "read":
+                print("No current-process native stderr capture was produced.")
+            return
+        stat = path.stat()
+        if stat.st_uid != os.getuid() or stat.st_mtime < launch:
+            return
+        with path.open("rb") as stream:
+            raw = stream.read(64 * 1024).decode("utf-8", errors="replace")
+        if raw.splitlines()[0] != "NERA_NATIVE_STDERR_V1:" + pid + ":" + run_key:
+            return
+        if action == "cleanup":
+            path.unlink()
+        elif action == "read":
+            frames = method_frames(raw)
+            print("Native stderr capture matched the current process and run.")
+            for frame in frames:
+                print(frame)
+            if not frames:
+                print("No whitelisted symbolized native frames were captured.")
+    except (OSError, ValueError, IndexError):
+        if action == "read":
+            print("Current-process native stderr diagnostics were unavailable.")
+
+
+if __name__ == "__main__":
+    main()
+PY
+}
 
 print_trace_file() {
   local trace_file="$1"
@@ -187,6 +262,7 @@ print_diagnostics() {
     --predicate "process == \"$PROCESS_NAME\"" \
     2>/dev/null | tail -n 400 || true
   echo "--- Mac Catalyst sanitized current-process crash diagnostics ---"
+  native_stderr_diagnostics read
   python3 - "$PROCESS_NAME" "${APP_PID:-}" "${LAUNCH_DIAG_START:-}" <<'PY' || true
 import datetime
 import json
@@ -352,6 +428,7 @@ cleanup() {
       kill "$replacement_pid" 2>/dev/null || true
     fi
   done < <(pgrep -f -- "$APP_EXECUTABLE" 2>/dev/null || true)
+  native_stderr_diagnostics cleanup
 }
 trap cleanup EXIT
 

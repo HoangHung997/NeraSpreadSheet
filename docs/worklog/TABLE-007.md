@@ -2,7 +2,7 @@
 
 - Branch: `feature/table-007-editor-corpus`; PR lane chưa tạo.
 - Base clean đã xác minh: `2e8482c25a44797a479b276ae26f472811a0a81e`.
-- Implementation checkpoint đã push: `9c584bb36c840b447c3095db9095b468588c6ccb`;
+- Implementation checkpoint đã push: `64c04f5fdf0d4d3af82659c75d841dc86950e8ab`;
   đang sửa native CI, chưa release/exact-final-head green.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
@@ -189,6 +189,34 @@
   desktop test build SDK10.0.302 PASS0warnings/errors,25.7s; runtime đợi CI.
 - Paired workflow source `c6de63379b16718e67be24df6ba7bfb4a9296e9d` đã push;
   run `33983361424` được GitHub parser chấp nhận, hai jobs đang thực thi baseline.
+- Partial release WinForms: exact64 full `33983522435`, Windows job
+  `101352853547` SUCCESS, desktop111/111 zero skipped, build0/0/runtime/capture
+  PASS. Root nhận riêng WinForms control delta và new lifecycle test (base2e
+  APIs), không cherry-pick B docs. Đóng writer hai paths; whole lane vẫn HOLD.
+- Paired c6 `33983361424`: Windows baseline/candidate PASS (candidate
+  table007Editor=true,59frames,3recreations); baseline cần existing retry sau
+  native fast-fail attempt1. Chưa chứng minh nguồn fatal hoặc fix. Mac baseline
+  PASS/candidate FAIL cùng job/toolchain: signal11 trước editor host creation,
+  tám balanced draw pairs depth1, không dispose/IPS. Khoanh delta B, chưa cause.
+- Android49 có race validation khả thi từ event order: SDK bridge đọc projection
+  trước smoke PaintSurface callback, UI thread insert analytics đồng thời; callback
+  có thể thấy fresh model2nodes nhưng native snapshot từ đầu frame cũ. Guard
+  chỉ sửa SmokePage: bỏ validation state-1; sau transaction publish frame floor
+  trước state1, skip frame in-flight và yêu cầu frame kế tiếp rồi giữ mọi native
+  provider/identity/bounds/action assertions. Counter dùng Interlocked/Volatile;
+  không readiness polling hoặc bridge fallback. Android64 trước guard PASS,
+  không gọi race đã hết hoặc guard đã validated trước exact-source runtime.
+- Paired64 `33983495915`: baseline Windows/Mac PASS, cả hai candidates FAIL;
+  Windows lặp lại after-surface-reinsert trước Loaded ở cả2attempts. Kết hợp c6
+  candidatePASS vẫn chỉ chứng minh intermittent failure chưa xác định cause.
+- Root cấp native stderr probe chỉ synthetic Mac smoke: FileMode.CreateNew,
+  file sandbox riêng run/PID với identity header; dup2 chỉ fd2 của chính process
+  trước attach. Runner failure-only đọc<=64KiB, whitelist<=64 native method
+  frames, không message/path/UUID/address/register/value/raw dump hoặc upload.
+  Cleanup xác minh run/PID/header/owner/freshness rồi unlink đúng một file; không
+  đổi gates/timeouts/attempts, signing/OS/debugger/scheduler. Native stderr audit
+  PASS (two frame formats/ObjC/privacy/cap/identity/freshness/bounded read/cleanup),
+  bash syntax/architecture/diff PASS. Native compile/capture còn đợi CI.
 - Gaps: T1/T2 còn native CI và Apple hardware-key evidence; T3 corpus đã có,
   final regression/exact-head CI đang chờ. CI actual SDK phải đọc log (global
   requested .302 + latestFeature có thể chọn .400), không suy ra từ config.

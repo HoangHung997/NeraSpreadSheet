@@ -32,6 +32,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private SpreadsheetAnalyticsItemKey _pivotItem;
     private int _frameCount;
     private int _analyticsInserted;
+    private int _validationFrameFloor;
     private int _finished;
     private bool _disposed;
 
@@ -101,12 +102,24 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
         try
         {
-            _frameCount++;
+            var frameCount = Interlocked.Increment(ref _frameCount);
             ValidateLoadedHost(view);
 
-            if (Volatile.Read(ref _analyticsInserted) == 0)
+            var analyticsState = Volatile.Read(ref _analyticsInserted);
+            if (analyticsState == 0)
             {
                 QueueAnalyticsCreation(view);
+                return;
+            }
+            if (analyticsState < 0) return;
+
+            // The SDK accessibility bridge runs earlier in this PaintSurface
+            // event. A frame already in flight at transaction completion can
+            // still contain its previous native snapshot. Require the next
+            // complete frame before checking the real native provider.
+            if (frameCount <= Volatile.Read(ref _validationFrameFloor))
+            {
+                view.InvalidateSurface();
                 return;
             }
 
@@ -165,6 +178,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                     requestedName: "AndroidAccessibilityPivot");
                 _chartItem = SpreadsheetAnalyticsItemKey.ForChart(chart.Id);
                 _pivotItem = SpreadsheetAnalyticsItemKey.ForPivot(pivot.Id);
+                Volatile.Write(ref _validationFrameFloor, Volatile.Read(ref _frameCount) + 1);
                 Volatile.Write(ref _analyticsInserted, 1);
                 view.InvalidateSurface();
             }
@@ -206,7 +220,10 @@ internal sealed class SmokePage : ContentPage, IDisposable
             ?? throw new InvalidOperationException(
                 "The Android accessibility provider did not expose a root node.");
         Require(root.ChildCount >= 2,
-            "The Android accessibility root did not expose both analytics virtual children.");
+            $"The Android accessibility root did not expose both analytics virtual children. " +
+            $"NativeChildren={root.ChildCount}; Frame={Volatile.Read(ref _frameCount)}; " +
+            $"ValidationFrameFloor={Volatile.Read(ref _validationFrameFloor)}; " +
+            $"AnalyticsState={Volatile.Read(ref _analyticsInserted)}.");
 
         using var first = provider.CreateAccessibilityNodeInfo(FirstAnalyticsVirtualViewId)
             ?? throw new InvalidOperationException(

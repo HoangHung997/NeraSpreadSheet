@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Runtime.InteropServices;
 using Foundation;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Dispatching;
@@ -39,6 +40,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     public SmokePage()
     {
+        CaptureNativeStandardError();
         SmokeTrace.Append("smoke-page-constructor-enter");
         Title = "Nera Mac Catalyst analytics accessibility smoke";
         Content = _host;
@@ -77,6 +79,33 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Loaded += OnLoaded;
         SmokeTrace.Append("smoke-page-constructor-success");
     }
+
+    private static void CaptureNativeStandardError()
+    {
+        var runKey = Environment.GetEnvironmentVariable("NERA_MAUI_NATIVE_STDERR_RUN");
+        if (string.IsNullOrEmpty(runKey)) return;
+        Require(Guid.TryParseExact(runKey, "D", out _), "The native diagnostic run key is invalid.");
+        var resultPath = Environment.GetEnvironmentVariable("NERA_MAUI_SMOKE_RESULT");
+        Require(!string.IsNullOrEmpty(resultPath), "The native diagnostic result directory is missing.");
+        var directory = Path.GetDirectoryName(resultPath!)
+            ?? throw new InvalidOperationException("The native diagnostic result directory is invalid.");
+        var fileName = $"nera-native-stderr-{runKey}-{Environment.ProcessId}.log";
+        using var output = new FileStream(Path.Combine(directory, fileName), new FileStreamOptions
+        {
+            Mode = FileMode.CreateNew,
+            Access = FileAccess.Write,
+            Share = FileShare.ReadWrite | FileShare.Delete,
+            UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
+        });
+        output.Write(System.Text.Encoding.ASCII.GetBytes($"NERA_NATIVE_STDERR_V1:{Environment.ProcessId}:{runKey}\n"));
+        output.Flush();
+        Require(DuplicateDescriptor(output.SafeFileHandle.DangerousGetHandle().ToInt32(), 2) == 2,
+            "The native diagnostic stderr descriptor could not be redirected.");
+        SmokeTrace.Append("native-stderr-capture-installed");
+    }
+
+    [DllImport("/usr/lib/libSystem.dylib", EntryPoint = "dup2", SetLastError = true)]
+    private static extern int DuplicateDescriptor(int source, int destination);
 
     public void Dispose()
     {
