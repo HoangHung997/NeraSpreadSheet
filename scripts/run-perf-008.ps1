@@ -9,7 +9,7 @@ if ($env:GITHUB_ACTIONS -ne 'true') { throw 'Paired timing is restricted to an i
 $BaselineRoot = (Resolve-Path -LiteralPath $BaselineRoot).Path
 $CandidateRoot = (Resolve-Path -LiteralPath $CandidateRoot).Path
 $HarnessRoot = (Resolve-Path -LiteralPath $HarnessRoot).Path
-$OutputRoot = [IO.Path]::GetFullPath($OutputRoot)
+$OutputRoot = [IO.Path]::GetFullPath($OutputRoot, (Get-Location).Path)
 if (Test-Path -LiteralPath $OutputRoot) { throw 'Use a fresh artifact directory; never overwrite raw evidence or a frozen budget.' }
 New-Item -ItemType Directory -Path $OutputRoot | Out-Null
 
@@ -33,7 +33,8 @@ $manifest = [ordered]@{
     order = 'Calibration baseline/baseline; paired even baseline/candidate, odd candidate/baseline'
     overlay = @()
 }
-if ($manifest.sdk -ne '10.0.302') { throw 'Canonical SDK 10.0.302 is required.' }
+$manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $OutputRoot 'manifest.json') -Encoding utf8
+if ($manifest.sdk -ne '10.0.302') { throw "Canonical SDK 10.0.302 is required; observed $sdk." }
 $overlayNames = @('Program.cs', 'RibbonLayoutBenchmarks.cs', 'TableCompatibilityBenchmarks.cs') +
     @(Get-ChildItem -LiteralPath (Join-Path $HarnessRoot 'benchmarks/NeraSpreadSheet.Benchmarks') -Filter 'PERF008*.cs' | Select-Object -ExpandProperty Name)
 foreach ($name in $overlayNames) {

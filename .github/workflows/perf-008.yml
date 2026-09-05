@@ -25,6 +25,8 @@ jobs:
     name: Serial paired CPU measurements and native lifecycle stress
     runs-on: windows-latest
     timeout-minutes: 45
+    env:
+      DOTNET_INSTALL_DIR: ${{ runner.temp }}/perf008-dotnet
     steps:
       - uses: actions/checkout@v6
         with:
@@ -39,7 +41,7 @@ jobs:
           path: candidate
       - uses: actions/setup-dotnet@v6
         with:
-          global-json-file: harness/global.json
+          dotnet-version: '10.0.302'
       - name: Run calibration, frozen budgets, paired measurements and headless stress
         shell: pwsh
         run: ./harness/scripts/run-perf-008.ps1 -BaselineRoot baseline -CandidateRoot candidate -HarnessRoot harness -OutputRoot artifacts/perf-008
@@ -47,6 +49,10 @@ jobs:
         if: ${{ !cancelled() }}
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Path artifacts/perf-008 -Force | Out-Null
+          Get-ChildItem -Path harness/tests/NeraSpreadSheet.Windows.Rendering.Tests/PERF008*.cs | ForEach-Object {
+            @{ path = $_.Name; sha256 = (Get-FileHash -LiteralPath $_.FullName).Hash }
+          } | ConvertTo-Json | Set-Content artifacts/perf-008/native-overlay.json
           Copy-Item -Path harness/tests/NeraSpreadSheet.Windows.Rendering.Tests/PERF008*.cs -Destination candidate/tests/NeraSpreadSheet.Windows.Rendering.Tests/ -Force
           Set-Location candidate
           dotnet test tests/NeraSpreadSheet.Windows.Rendering.Tests/NeraSpreadSheet.Windows.Rendering.Tests.csproj -c Release --filter 'FullyQualifiedName~PERF008' --logger 'trx;LogFileName=perf008-native.trx' --results-directory ../artifacts/perf-008/native -m:1 /nodeReuse:false

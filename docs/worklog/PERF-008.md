@@ -40,6 +40,15 @@ existing workflow, project refs hoặc test lane A/B.
 
 ## Files trọng tâm
 
+Run đầu [33971846930](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33971846930)
+tại `413ab07a0feec7bc258f39b825ceba97e497f458` dừng trước calibration: runner
+setup theo global.json `latestFeature` chọn SDK **10.0.400**; canonical guard từ
+chối đúng. Chưa sinh baseline/candidate samples. Native test mới cũng dừng compile
+ở thiếu `System.IO` và CA1861 arrays; không có runtime evidence tại run này.
+Harness fix pin install **10.0.302** vào runtime directory riêng của runner,
+giữ global.json nguyên trạng; sửa test/analyzer và OutputRoot theo PowerShell
+working directory, giữ manifest kể cả preflight failure. Không đổi threshold.
+
 - `benchmarks/NeraSpreadSheet.Benchmarks/PERF008Harness.cs`, `PERF008Stress.cs`,
   `Program.cs`; không sửa workbook/editor/calculation model.
 - `scripts/run-perf-008.ps1`, `scripts/run-perf-008-analysis.py`.
