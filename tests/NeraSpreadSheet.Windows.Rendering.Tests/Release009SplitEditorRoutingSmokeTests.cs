@@ -13,6 +13,7 @@ using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Layout;
+using NeraSpreadSheet.Rendering.Spreadsheet;
 using NeraSpreadSheet.Viewport;
 using NeraSpreadSheet.Wpf;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
@@ -53,7 +54,7 @@ public sealed class Release009SplitEditorRoutingSmokeTests
             host.Window.UpdateLayout();
             if (useSplit)
             {
-                Capture(host.Window, "release009-split-formula-help-host");
+                Capture((FrameworkElement)host.Window.Content, "release009-split-formula-help-host");
                 Capture((FrameworkElement)popup.Child!, "release009-split-formula-help-popup");
             }
             Assert.IsTrue(owner.UpdateEditorDraft(nested, nested.IndexOf("IF", StringComparison.Ordinal), 0));
@@ -182,11 +183,11 @@ public sealed class Release009SplitEditorRoutingSmokeTests
             Assert.IsNull(host.Owner.CurrentEditorDraft);
             Assert.AreEqual(1, session.History.UndoCount);
             Assert.AreEqual(history, session.View.SplitViewUndoCount);
+            if (key == Key.Enter) Capture((FrameworkElement)host.Window.Content, "release009-split-enter-pane-edge");
             Assert.IsTrue(session.Undo());
             Assert.IsNull(session.ActiveWorksheet.GetValue(target));
             Assert.IsTrue(session.Redo());
             Assert.AreEqual(42d, session.ActiveWorksheet.GetValue(target));
-            if (key == Key.Enter) Capture(host.Window, "release009-split-enter-pane-edge");
         });
     }
 
@@ -217,6 +218,10 @@ public sealed class Release009SplitEditorRoutingSmokeTests
         Assert.IsTrue(bounds.Top >= pane.Pane.Bounds.Top + pane.ViewportFrame.Layout.FrozenHeight - 1e-7);
         Assert.IsTrue(bounds.Right <= pane.Pane.Bounds.Right + 1e-7);
         Assert.IsTrue(bounds.Bottom <= pane.Pane.Bounds.Bottom + 1e-7);
+        if (host.Split.LastFrame.ScrollBars.TryGetBar(host.Split.ActivePane, SpreadsheetScrollBarOrientation.Vertical, out var vertical))
+            Assert.IsTrue(bounds.Right <= vertical.Bounds.Left + 1e-7, "The vertical overlay must not cover the destination cell.");
+        if (host.Split.LastFrame.ScrollBars.TryGetBar(host.Split.ActivePane, SpreadsheetScrollBarOrientation.Horizontal, out var horizontal))
+            Assert.IsTrue(bounds.Bottom <= horizontal.Bounds.Top + 1e-7, "The horizontal overlay must not cover the destination cell.");
     }
 
     private static void Press(TextBox editor, Key key)

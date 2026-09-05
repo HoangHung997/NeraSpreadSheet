@@ -16,6 +16,10 @@ package, viewport engine, editor model hoặc history model.
   workbook identity và frozen axes không bị thay đổi bởi lời gọi visibility.
 - Dùng frame/metric hiện có, bounds đầy đủ của ô hoặc ô gộp, frozen clip và
   `ScrollPaneTo`; không quét toàn worksheet hoặc materialize row/column axis.
+  Vùng reveal loại trừ bounds của integrated scrollbars trong cùng frame;
+  scrollbar vẫn là overlay, không làm đổi layout/cell coordinates hay maximum
+  offset của engine. Ở giới hạn worksheet tuyệt đối, reveal vẫn bị clamp theo
+  extent hiện có; không tạo thêm tail ngoài giới hạn để né overlay.
 - Ô vừa pane được đưa vào vùng nhìn thấy với dịch chuyển tối thiểu. Ô lớn hơn
   vùng cuộn giữ cạnh đầu trong vùng nhìn thấy để các lời gọi lặp không dao động.
   Vùng cuộn bằng không trên một trục không làm offset trục đó thay đổi.

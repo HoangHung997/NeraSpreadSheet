@@ -6,6 +6,7 @@ using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
 using NeraSpreadSheet.Layout;
+using NeraSpreadSheet.Rendering.Spreadsheet;
 
 namespace NeraSpreadSheet.Wpf;
 
@@ -299,18 +300,22 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         var anchor = _session.ActiveWorksheet.ResolveMergedAnchor(address);
         var viewport = pane.Pane.Bounds;
         var layout = pane.ViewportFrame.Layout;
+        var visibleRight = frame.ScrollBars.TryGetBar(frame.ActivePane, SpreadsheetScrollBarOrientation.Vertical, out var verticalBar)
+            ? Math.Min(viewport.Right, verticalBar.Bounds.Left) : viewport.Right;
+        var visibleBottom = frame.ScrollBars.TryGetBar(frame.ActivePane, SpreadsheetScrollBarOrientation.Horizontal, out var horizontalBar)
+            ? Math.Min(viewport.Bottom, horizontalBar.Bounds.Top) : viewport.Bottom;
         var scroll = _engine.GetPaneScroll(frame.ActivePane);
         var nextX = scroll.X;
         var nextY = scroll.Y;
         if (anchor.ColumnIndex >= _session.View.FrozenColumns)
         {
             nextX += GetVisibilityDelta(bounds.Left, bounds.Right,
-                viewport.Left + Math.Clamp(layout.FrozenWidth, 0d, viewport.Width), viewport.Right);
+                viewport.Left + Math.Clamp(layout.FrozenWidth, 0d, viewport.Width), visibleRight);
         }
         if (anchor.RowIndex >= _session.View.FrozenRows)
         {
             nextY += GetVisibilityDelta(bounds.Top, bounds.Bottom,
-                viewport.Top + Math.Clamp(layout.FrozenHeight, 0d, viewport.Height), viewport.Bottom);
+                viewport.Top + Math.Clamp(layout.FrozenHeight, 0d, viewport.Height), visibleBottom);
         }
 
         var extent = _engine.GetContentExtent();
