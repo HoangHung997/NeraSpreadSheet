@@ -245,6 +245,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         _editor.Visibility = Visibility.Visible;
         _editorBounds = candidate;
         _editorClipBounds = new Rect(visible.X - candidate.X, visible.Y - candidate.Y, visible.Width, visible.Height);
+        InvalidateMeasure();
         InvalidateArrange();
     }
 
@@ -254,7 +255,9 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         ResetFormulaEditingUi();
         _editor.Visibility = Visibility.Collapsed;
         _editorBounds = Rect.Empty;
+        _editorClipBounds = Rect.Empty;
         _editor.Text = string.Empty;
+        InvalidateMeasure();
         InvalidateArrange();
         NotifyEditorDraftChanged();
     }

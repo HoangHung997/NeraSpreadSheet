@@ -199,7 +199,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface
 
     private DisplayList ComposeFormulaHighlights(SpreadsheetSplitViewportFrame frame)
     {
-        if (_session is null || _cellEditor?.State is not { } state || !_editor.Text.StartsWith('=') ||
+        if (!_owner.ShowFormulaReferenceHighlights || _session is null || _cellEditor?.State is not { } state || !_editor.Text.StartsWith('=') ||
             _owner.RenderTheme.FormulaReferenceColors.Count == 0) return frame.DisplayList;
         if (!FormulaReferenceAnalyzer.TryGetReferences(_editor.Text, _session.Workbook, _session.ActiveWorksheet,
                 state.Address, out var references) && _provisionalReferenceRange is { } range)

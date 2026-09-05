@@ -138,7 +138,10 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner, IDisposable
     {
         var size = _owner.RenderSize;
         _gpuSurface.Measure(size);
-        _editor.Measure(size);
+        _editor.Measure(
+            _editor.Visibility == Visibility.Visible && !_editorBounds.IsEmpty
+                ? _editorBounds.Size
+                : new Size(0d, 0d));
         return size;
     }
 

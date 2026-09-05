@@ -1,5 +1,27 @@
 # Current Work Handoff
 
+## Mới nhất — đã ghép navigation và desktop draft bridge, chờ combined CI
+
+Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+B desktop21 source9bf đã nhận exact blobs thành `ce1a00d2`; A finalbed đã
+nhận bốn commits `fba2de6a..8fda1486`, 10 blobs trùng source, năm source
+workflow xanh và root review đủ 8 ảnh final. Root thêm split highlight opt-out
+và WPF full-cell measure/line-wrap regression; không lấy source121/121 của
+từng lane thay new combined runtime. [Hồ sơ tích hợp](RELEASE-009_DESKTOP_INTEGRATION_20260906.md).
+
+Root479 native policy fix: iOS33987368853 vẫn malformed-marker; thêm numeric
+shape/stream diagnostics giữ fail-closed và không output raw data. Shared
+Android/iOS chưa release cho C. C assembler + Windows consumer đã sourcePASS,
+Apple/Android packaging fixes f800 còn kiểm; native matrix chưa nghiệm thu.
+B bounded class-exclusion variant được grant trong wave; whole MAUI Mac crash,
+Windows reattach và P3 vẫn OPEN. Không đổi renderer hoặc nới native gates.
+
+Local architecture/packaging/diff và 12 parser regressions PASS; không local
+heavy build/native hoặc xóa artifacts. A/B paths nhận rồi thuộc root; A có thể
+read-only chuẩn bị formula bar qua bridge trước dispatch implementation.
+Bước tiếp theo duy nhất: verify năm exact combined workflows và chẩn đoán
+iOS framing bằng fixed diagnostics, rồi giao A formula bar; toàn bộ scope chưa100%.
+
 ## Tiếp tục — sửa frame policy của shared native transport
 
 Root `0a8e531fae612eba7534f86ff8786d84ee6407ae` đã PASS Windows/Core/MAUI

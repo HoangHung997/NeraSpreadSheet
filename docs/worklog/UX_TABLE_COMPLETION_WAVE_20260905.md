@@ -1,5 +1,32 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## Checkpoint tích hợp desktop — 06/09
+
+A đã release toàn bộ navigation tại `bed515b7`, source năm workflow xanh;
+root ghép bốn commits thành `fba2de6a..8fda1486`, review đủ 8 ảnh final.
+B release riêng 21 desktop/shared-assistant/test paths tại `9bf24af9`, root
+nhận thành `ce1a00d2` và kiểm exact blobs, không lấy MAUI/corpus/Viewport/docs
+hoặc lặp cancellation49/64. Root hiện giữ các paths đã nhận; A/B không viết
+tiếp khi chưa được grant. Root hardening measure/clip và highlight opt-out có
+native regressions mới; phải xanh đúng combined HEAD.
+
+A tạm read-only chuẩn bị formula-bar/active split command routing qua chính
+public draft bridge, không tạo model hoặc tự sửa SDK/Commands. C tiếp tục
+canonical MAUI consumer ở branch riêng; shared Android/iOS launchers root
+chưa release vì iOS framing FAIL. Whole B/P3/hardware vẫn OPEN.
+
+B được thêm một Mac diagnostic variant từ cùng exact candidate ở checkout
+tạm riêng: bỏ handler mapping và exclude native Apple CellTextView class khỏi
+compile bằng explicit patch đã freeze. Phải verify registrar thật không còn
+CellTextView (và vẫn có shared MauiTextView) trước launch. Baseline/candidate
+gốc chạy trước, failure giữ nguyên làm job FAIL; không thêm variants/retries,
+đổi assertions/time bounds, production fallback hoặc publish variant. Existing
+sanitized 32 KiB bound giữ nguyên. Đây không phải acceptance hoặc bằng chứng
+để tự sửa Register/Preserve/renderer.
+
+Chi tiết source, test, giới hạn và rollback trong
+[integration record](RELEASE-009_DESKTOP_INTEGRATION_20260906.md).
+
 ## Chuyển quyền tiếp tục tại baseline tích hợp 50cb357a — 06/09
 
 Mục này thay thế quyền sửa lịch sử của A/C bên dưới. Root đã xác minh đủ

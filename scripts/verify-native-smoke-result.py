@@ -49,8 +49,13 @@ def parse_result(text, prefix, minimum_frames=2):
             result, end = decoder.raw_decode(payload)
         except NativeResultError:
             raise
-        except (ValueError, json.JSONDecodeError) as error:
-            raise NativeResultError("malformed-marker") from error
+        except json.JSONDecodeError as error:
+            # Numeric shape only: diagnose transport framing without exposing
+            # JSON keys, app errors, device identities or arbitrary log text.
+            start_kind = "object" if payload.startswith("{") else "string" if payload.startswith('"') else "other"
+            raise NativeResultError(
+                f"malformed-marker chars={len(payload)} json-offset={error.pos} "
+                f"start={start_kind} ends-object={int(payload.rstrip().endswith('}'))}") from error
         if payload[end:].strip() or not isinstance(result, dict):
             raise NativeResultError("ambiguous-marker")
         results.append(result)
@@ -75,6 +80,13 @@ def read_result(paths, prefix, minimum_frames=2):
         if source.stat().st_size > MAX_LOG_BYTES:
             raise NativeResultError("oversized-log")
         texts.append(source.read_text(encoding="utf-8", errors="replace"))
+    # Report the failing stream index, not its filesystem path. The final
+    # combined pass still rejects contradictory markers across streams.
+    for index, text in enumerate(texts):
+        try:
+            parse_result(text, prefix, minimum_frames)
+        except NativeResultError as error:
+            raise NativeResultError(f"stream={index} {error}") from error
     return parse_result("\n".join(texts), prefix, minimum_frames)
 
 

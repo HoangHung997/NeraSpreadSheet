@@ -50,6 +50,7 @@ public sealed class Table007SplitEditorSmokeTests
                     PressWpf(editor, WpfInput.Key.Escape);
                 }
                 Assert.AreEqual(0, session.History.UndoCount);
+                AssertHighlightsRespectOptOut(surface, value => owner.ShowFormulaReferenceHighlights = value);
                 Invoke(surface, "BeginEdit", "=SUM(Sales[Am");
                 window.UpdateLayout();
                 Assert.AreEqual("Amount", ((FormulaStructuredReferenceSuggestion)list.Items[0]).DisplayText);
@@ -130,6 +131,7 @@ public sealed class Table007SplitEditorSmokeTests
                 PressForms(editor, Forms.Keys.Escape);
             }
             Assert.AreEqual(0, session.History.UndoCount);
+            AssertHighlightsRespectOptOut(surface, value => owner.ShowFormulaReferenceHighlights = value);
             Invoke(surface, "BeginEdit", "=SUM(Sales[Am");
             var list = Field<Forms.ListBox>(surface, "_formulaSuggestionList");
             Assert.AreEqual(1, list.Items.Count);
@@ -231,6 +233,69 @@ public sealed class Table007SplitEditorSmokeTests
             CollectionAssert.AreEqual(firstCells, first.EnumerateUsedCells().ToArray());
             CollectionAssert.AreEqual(secondCells, second.EnumerateUsedCells().ToArray());
         });
+    }
+
+    [TestMethod]
+    [Timeout(90_000)]
+    public void WpfSplitEditorShouldKeepWrappedLinesWhenTheWindowClipsTheFullCell()
+    {
+        RunInSta(() =>
+        {
+            var session = CreateSession();
+            var address = new CellAddress(6, 0);
+            session.ActiveWorksheet.Dimensions.SetColumnWidth(0, 1000d);
+            session.ActiveWorksheet.SetStyle(address, session.Workbook.Styles.Intern(CellStyle.Default with
+            {
+                Alignment = CellStyle.Default.Alignment with { WrapText = true, Vertical = CellVerticalAlignment.Top },
+            }));
+            using var owner = new NeraSpreadSheet.Wpf.NeraSpreadsheetControl { Session = session };
+            var window = new NativeWpf.Window { Width = 760, Height = 540, ShowInTaskbar = false,
+                Content = new System.Windows.Documents.AdornerDecorator { Child = owner } };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                using var split = owner.EnableSplitPanes(NeraSpreadSheet.Wpf.SpreadsheetSplitPaneMode.Both);
+                split.SetSplit(240, 260);
+                split.RenderNow();
+                var surface = Field<object>(split, "_adorner");
+                var editor = Field<WpfControls.TextBox>(surface, "_editor");
+                var text = string.Join(" ", Enumerable.Repeat("Nội dung ô không đổi theo cửa sổ.", 80));
+                owner.BeginEdit(text);
+                window.UpdateLayout();
+                var lines = Enumerable.Range(0, editor.LineCount).Select(editor.GetLineText).ToArray();
+                Assert.IsTrue(lines.Length > 2);
+                Assert.AreEqual(1000d, editor.ActualWidth, 0.01d);
+                Assert.AreEqual(NativeWpf.TextWrapping.Wrap, editor.TextWrapping);
+                window.Width = 540;
+                window.UpdateLayout();
+                split.RenderNow();
+                window.UpdateLayout();
+                Assert.AreEqual(1000d, editor.ActualWidth, 0.01d);
+                CollectionAssert.AreEqual(lines, Enumerable.Range(0, editor.LineCount).Select(editor.GetLineText).ToArray(),
+                    "Only the visible clip may change; native text line breaks must follow the full cell.");
+                editor.ScrollToEnd();
+                Assert.IsTrue(editor.VerticalOffset > 0d, "The native editor must retain internal scrolling for clipped lines.");
+                Assert.AreEqual(text, editor.Text);
+                Assert.AreEqual(0, session.History.UndoCount);
+                Assert.IsTrue(owner.CancelEditor());
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    private static void AssertHighlightsRespectOptOut(object surface, Action<bool> setEnabled)
+    {
+        Invoke(surface, "BeginEdit", "=SUM(B2:B4)");
+        Invoke(surface, "RenderNow");
+        var frame = Field<SpreadsheetSplitViewportFrame>(surface, "_lastFrame");
+        Assert.AreNotSame(frame.DisplayList, Invoke(surface, "ComposeFormulaHighlights", frame));
+        setEnabled(false);
+        Assert.AreSame(frame.DisplayList, Invoke(surface, "ComposeFormulaHighlights", frame),
+            "Split composition must respect the same public reference-highlight opt-out as standalone.");
+        setEnabled(true);
+        Assert.AreNotSame(frame.DisplayList, Invoke(surface, "ComposeFormulaHighlights", frame));
+        Invoke(surface, "CancelEditor");
     }
 
     private static SpreadsheetSession CreateSession()

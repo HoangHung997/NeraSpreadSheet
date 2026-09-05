@@ -30,6 +30,31 @@
 - Window-level Ribbon and bar shortcuts ignore unmodified text-entry keys and
   never construct an invalid WPF `KeyGesture`.
 
+## Desktop draft bridge and split integration
+
+- WPF `CurrentEditorDraft` is an immutable snapshot of the current native
+  editor text and UTF-16 selection/caret, not another workbook/editor model.
+  `EditorDraftChanged` reports completed snapshots, including null on cleanup.
+- `UpdateEditorDraft` validates selection bounds before mutation, updates the
+  same native overlay without restarting `Session.Editor`, adding history or
+  taking formula-bar focus. `FocusEditor` preserves text/selection. Begin,
+  Commit and Cancel route to the enabled split controller when appropriate.
+- Failed validation retains the draft/focus; successful commit creates one
+  history transaction. Canonical cancellation and worksheet switch clean the
+  native overlay/candidates even if a later explicit Cancel returns false.
+- Desktop split editors use the existing structured-reference assistant and
+  stable Table/column identities. Stale caret/selection/deleted identities are
+  rejected before mutation. Full-cell bounds are distinct from the visible
+  clip and remain anchored to the pane where editing began.
+- The WPF split overlay also measures against the full cell rectangle, not
+  the owner window. Both desktop split render paths obey the existing
+  `ShowFormulaReferenceHighlights` opt-out and preserve nested display lists.
+- Remaining integration work is explicit: the sample formula bar is still
+  read-only; split function-argument help and the owner's `CurrentFormula*`
+  metadata getters are not yet fully routed to split state. The WPF draft
+  bridge does not claim equivalent public draft/caret APIs for every host.
+  MAUI editor/native lifecycle acceptance remains separate and OPEN.
+
 ## Incremental calculation
 
 - A `SpreadsheetSession` prepares the static dependency graph from workbook

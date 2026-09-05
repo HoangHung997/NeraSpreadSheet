@@ -1,5 +1,15 @@
 # NeraSpreadSheet current implementation status
 
+## CẬP NHẬT 06/09 — ĐÃ GHÉP NAVIGATION VÀ DESKTOP EDITOR, CHỜ CI KẾT HỢP
+
+Root đã nhận A navigation/split shell finalbed515b7 (năm source workflows
+xanh, 8 ảnh final được xem) và riêng 21 paths B desktop editor/draft bridge
+9bf24af9 (source Windows121/121). Thêm regression cho split highlight opt-out
+và full-cell text measure khi resize. Đây chưa phải whole B hoặc bản nghiệm
+thu: combined native CI cần xác minh, iOS shared launcher framing còn FAIL,
+MAUI native/package và final performance/hardware còn OPEN. Formula bar
+sample vẫn read-only. [Hồ sơ](worklog/RELEASE-009_DESKTOP_INTEGRATION_20260906.md).
+
 ## CẬP NHẬT 06/09 — BẢN TÍCH HỢP 50cb357a ĐÃ XANH; TIẾP TỤC R2/R3
 
 Exact source `50cb357a` đã success đủ full/iOS/Q003C, Windows NuGet consumer
