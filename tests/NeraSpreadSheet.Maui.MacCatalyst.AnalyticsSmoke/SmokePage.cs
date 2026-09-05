@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 using Foundation;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Dispatching;
@@ -234,17 +235,14 @@ internal sealed class SmokePage : ContentPage, IDisposable
                     "The Mac Catalyst analytics smoke lost its session before analytics creation.");
             // The first GPU paint can run while UIKit is still attaching the
             // native window. Open/focus controls after that paint stack unwinds.
-            await view.Dispatcher.DispatchAsync(async () =>
+            Task? editorPhase = null;
+            await view.Dispatcher.DispatchAsync(() =>
             {
-                SmokeTrace.Append("table-editor-host-attach-enter");
-                _host.Children.Remove(view);
-                SmokeTrace.Append("table-editor-bare-view-removed");
-                _editorHost = new NeraSpreadsheetEditorHost(view);
-                SmokeTrace.Append("table-editor-host-created");
-                _host.Children.Add(_editorHost);
-                SmokeTrace.Append("table-editor-host-attach-returned");
-                await Table007EditorSmoke.RunAsync(_editorHost);
+                SmokeTrace.Append("table-editor-dispatch-action-enter");
+                editorPhase = RunEditorPhaseAsync(view);
             });
+            Require(editorPhase is not null, "The dispatched editor phase did not start.");
+            await editorPhase!;
             _editorVerified = true;
             var sourceRange = new CellRange(
                 new CellAddress(0, 0),
@@ -280,6 +278,19 @@ internal sealed class SmokePage : ContentPage, IDisposable
             SmokeTrace.Append($"analytics-create-catch:{exception.GetType().FullName}");
             Fail(exception);
         }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private async Task RunEditorPhaseAsync(NeraSpreadsheetView view)
+    {
+        SmokeTrace.Append("table-editor-host-attach-enter");
+        _host.Children.Remove(view);
+        SmokeTrace.Append("table-editor-bare-view-removed");
+        _editorHost = new NeraSpreadsheetEditorHost(view);
+        SmokeTrace.Append("table-editor-host-created");
+        _host.Children.Add(_editorHost);
+        SmokeTrace.Append("table-editor-host-attach-returned");
+        await Table007EditorSmoke.RunAsync(_editorHost);
     }
 
     private void ValidateNativeAccessibility(NeraSpreadsheetView view)

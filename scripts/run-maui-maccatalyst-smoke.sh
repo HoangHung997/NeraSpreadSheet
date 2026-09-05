@@ -142,6 +142,11 @@ def main():
         elif action == "read":
             frames = method_frames(raw)
             print("Native stderr capture matched the current process and run.")
+            print("Native stderr shape: bytes=" + str(len(raw.encode("utf-8")))
+                  + "; lines=" + str(len(raw.splitlines()))
+                  + "; nativeHeader=" + str("Native stacktrace" in raw)
+                  + "; managedHeader=" + str("Managed Stacktrace" in raw)
+                  + "; addressFrameLines=" + str(sum(bool(re.match(r"\s*(?:0x[0-9a-fA-F]+|\d+\s+\S+\s+0x[0-9a-fA-F]+)", line)) for line in raw.splitlines())))
             for frame in frames:
                 print(frame)
             if not frames:

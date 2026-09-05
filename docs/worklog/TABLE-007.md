@@ -2,7 +2,7 @@
 
 - Branch: `feature/table-007-editor-corpus`; PR lane chưa tạo.
 - Base clean đã xác minh: `2e8482c25a44797a479b276ae26f472811a0a81e`.
-- Implementation checkpoint đã push: `64c04f5fdf0d4d3af82659c75d841dc86950e8ab`;
+- Implementation checkpoint đã push: `0ebd18bdcfa12987105f5c408eaf2dd534cb0fac`;
   đang sửa native CI, chưa release/exact-final-head green.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
@@ -217,11 +217,22 @@
   đổi gates/timeouts/attempts, signing/OS/debugger/scheduler. Native stderr audit
   PASS (two frame formats/ObjC/privacy/cap/identity/freshness/bounded read/cleanup),
   bash syntax/architecture/diff PASS. Native compile/capture còn đợi CI.
+- Probe0e: full `33984152897` Android guard build/native PASS, Core/desktop
+  PASS. Mac full job101354516838 và pair `33984121857` job101354435125 cùng
+  compilePASS/runtimeFAIL signal11, trước host attach; stderr installed/matched
+  đúng process/run nhưng chưa có frame qua whitelist, IPS absent. Không suy ra
+  stderr rỗng: followup chỉ thêm numeric byte/line counts và literal header/format
+  presence. File không upload và cleanup sau lượt cũ, không thể đọc lại raw.
+- Bounded Mac callback isolation: dùng existing DispatchAsync(Action), callback
+  chỉ ghi entry và bắt đầu separate NoInlining async phase; await cả dispatch
+  và actual editor task trước analytics. Giữ queue/order/assertions/timeouts;
+  không renderer/scheduler/model mới. Tách entry của callback khỏi editor phase
+  để phân biệt activation/creation, chưa xác nhận fix hay nguyên nhân.
 - Gaps: T1/T2 còn native CI và Apple hardware-key evidence; T3 corpus đã có,
   final regression/exact-head CI đang chờ. CI actual SDK phải đọc log (global
   requested .302 + latestFeature có thể chọn .400), không suy ra từ config.
 - Rollback: revert các commit lane sau base; không migration/package mới.
 - File/desktop release: source còn active; desktop không giữ lease.
-- Bước tiếp theo: push followup checkpoint rồi tự dispatch ba existing workflows
-  theo quyền root đã cấp (verify remote HEAD/duplicates; auth chỉ trong memory),
-  đọc raw failure/artifact và hoàn thiện overlay trên SHA cuối bao gồm tài liệu.
+- Bước tiếp theo: đọc exact-head paired native diagnostic của followup callback/
+  stderr-shape, đối chiếu entry và native method frames để chọn một sửa lỗi có
+  evidence; không release whole lane trước full/iOS/Q003C/diagnostic final green.
