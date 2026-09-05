@@ -33,7 +33,9 @@ internal static partial class NeraMauiRibbonChrome
             if (!brushes.TryGetValue(key, out var brush))
             {
                 brushes.Add(key, brush = new SolidColorBrush());
-                resources.Dictionary.Add(key, brush);
+                // IDictionary.Add checks WinUI HasKey, which also sees fallback
+                // theme resources. Insert into our initially empty local dictionary.
+                resources.Dictionary[key] = brush;
             }
             // Mutate only brushes owned by this control. Existing ThemeResource references
             // must update even when Dark -> HighContrastDark leaves RequestedTheme unchanged.
