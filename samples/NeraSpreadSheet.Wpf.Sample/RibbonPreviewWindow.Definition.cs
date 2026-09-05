@@ -21,7 +21,7 @@ public sealed partial class RibbonPreviewWindow
         ]),
         new RibbonTabDefinition("insert", "Chèn",
         [
-            Group("tables", "Bảng tổng hợp", 100, Large("Insert.Pivot.Sum")),
+            Group("tables", "Bảng", 100, Large("Table.Create"), Large("Insert.Pivot.Sum")),
             Group("charts", "Biểu đồ", 80, Large("Insert.Chart.Column"), Item("Insert.Chart.Bar"), Item("Insert.Chart.Line"), Item("Insert.Chart.Pie")),
             Group("rows-columns", "Hàng và cột", 60, Item("Structure.Row.Insert"), Item("Structure.Column.Insert")),
         ]),
@@ -56,14 +56,7 @@ public sealed partial class RibbonPreviewWindow
             Group("window", "Cửa sổ", 70, Large("View.FreezePanes"), Item("View.UnfreezePanes"), Item("View.Split.Undo"), Item("View.Split.Redo")),
             Group("visibility", "Hàng và cột", 30, Item("Structure.Row.Unhide"), Item("Structure.Column.Unhide")),
         ]),
-        new RibbonTabDefinition("table-design", "Thiết kế Bảng",
-        [
-            Group("table-properties", "Thuộc tính", 100, Large("Sample.TableInfo"), Item("Sample.TableRename"), Choice("Sample.TableTotals", 132)),
-            Group("table-filter", "Dữ liệu bảng", 80, Item("Sample.Filter"), Item("Sample.FilterClear"), Item("Sample.FilterReapply")),
-            Group("table-styles", "Xem trước kiểu bảng", 60,
-                new RibbonItemDefinition("Sample.TableStylesPreview", RibbonItemKind.Gallery, measurement: context => context.Size switch
-                { RibbonItemSize.Large => 420, RibbonItemSize.Small => 300, _ => 220 }) { GalleryPreview = CreateStylePreview }),
-        ]),
+        RibbonProductionCommandCatalog.CreateDefaultDefinition(CreateStylePreview).Tabs.Single(tab => tab.Id == "table-design"),
     ],
     [new RibbonContextualTabRule("table-design", RibbonContextRequirement.Table, "TB")],
     [new("Sample.Save", "1"), new("Edit.Undo", "2"), new("Edit.Redo", "3")],

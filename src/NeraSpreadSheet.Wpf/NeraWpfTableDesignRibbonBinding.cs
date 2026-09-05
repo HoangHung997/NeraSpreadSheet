@@ -44,10 +44,13 @@ public sealed class NeraWpfTableDesignRibbonBinding : IDisposable
         {
             return;
         }
-        var snapshot = _tableDesign.Refresh();
-        void Apply() => _ribbon.SetSelectionContext(new RibbonSelectionContext(
-            snapshot.HasSelection,
-            snapshot.IsInTable));
+        void Apply()
+        {
+            if (_disposed) return;
+            var snapshot = _tableDesign.Snapshot;
+            _ribbon.SetSelectionContext(new RibbonSelectionContext(
+                snapshot.HasSelection, snapshot.IsInTable));
+        }
         if (_dispatcher.CheckAccess())
         {
             Apply();

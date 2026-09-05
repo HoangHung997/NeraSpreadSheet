@@ -12,6 +12,37 @@ namespace NeraSpreadSheet.Maui.Tests;
 public sealed class NeraMauiRibbonBarPresenterTests
 {
     [TestMethod]
+    public void QueuedTableDesignBindingShouldIgnoreDisposedWorkAndUseLatestContext()
+    {
+        var workbook = new Workbook();
+        var session = new SpreadsheetSession(workbook);
+        session.Tables.Create(new CellRange(default, new CellAddress(2, 0)), "Sales");
+        var runtime = new RibbonRuntimeController(RibbonProductionCommandCatalog.CreateDefaultDefinition(), session.Commands);
+        var dispatcher = new TableQueuedDispatcher();
+        using var binding = new NeraMauiTableDesignRibbonBinding(session, runtime, dispatcher);
+        session.Selection.SetActiveCell(new CellAddress(4, 4));
+        dispatcher.Drain();
+        Assert.IsFalse(runtime.SelectionContext.IsInTable);
+        session.Selection.SetActiveCell(new CellAddress(1, 0));
+        binding.Dispose();
+        dispatcher.Drain();
+        Assert.IsFalse(runtime.SelectionContext.IsInTable);
+        session.Selection.SetActiveCell(new CellAddress(2, 0));
+        Assert.AreEqual(0, dispatcher.PendingCount);
+    }
+
+    private sealed class TableQueuedDispatcher : Microsoft.Maui.Dispatching.IDispatcher
+    {
+        private readonly Queue<Action> _actions = new();
+        public bool IsDispatchRequired => true;
+        public int PendingCount => _actions.Count;
+        public bool Dispatch(Action action) { _actions.Enqueue(action); return true; }
+        public bool DispatchDelayed(TimeSpan delay, Action action) => Dispatch(action);
+        public Microsoft.Maui.Dispatching.IDispatcherTimer CreateTimer() => throw new NotSupportedException();
+        public void Drain() { while (_actions.TryDequeue(out var action)) action(); }
+    }
+
+    [TestMethod]
     public void TableDesignBindingShouldUseSharedSessionSelectionContext()
     {
         var workbook = new Workbook();

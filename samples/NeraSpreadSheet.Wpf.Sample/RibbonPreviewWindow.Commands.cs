@@ -110,47 +110,17 @@ public sealed partial class RibbonPreviewWindow
         Add("Sample.Zoom", "Thu phóng", "view.zoom", value => _sheet.Zoom = ParseNumber(value!) / 100,
             () => ChoiceState((_sheet.Zoom * 100).ToString(CultureInfo.InvariantCulture), "75", "100", "125", "150", "200"));
         Add("Sample.ZoomReset", "100%", "view.zoom-100", _ => _sheet.Zoom = 1);
-        Add("Sample.TableInfo", "Thuộc tính bảng", "table.properties", _ => ShowTableInfo(), () => new CommandState(CurrentTable is not null));
-        Add("Sample.TableRename", "Đổi tên bảng", "customize.rename", _ => RenameTable(), () => new CommandState(CurrentTable is not null));
-        Add("Sample.TableTotals", "Hàm hàng tổng", "table.total-row", value =>
-        {
-            if (CurrentTable is { } table) _session.Tables.SetTotalsRowFunction(table.Id, table.Columns[^1].Id, Enum.Parse<SpreadsheetTableTotalsFunction>(value!));
-        }, GetTableTotalsState);
-        Add("Sample.TableStylesPreview", "Xem trước kiểu bảng", "table.styles", value =>
-        {
-            _previewStyle = value!;
-            SetStatus($"Đang xem trước {value} · Kiểu hiện tại của bảng không thay đổi.");
-        }, () => new CommandState(true, null, null, _previewStyle,
-            _session.Workbook.TableStyles.BuiltInGallery.Select(entry => new CommandItem(entry.Name, DescribeTableStyle(entry.Name), tooltip: $"Xem trước {entry.Name}"))));
         Add("Sample.New", "Cửa sổ mới", "file.new", _ => new RibbonPreviewWindow().Show());
         _commands.Register(new CommandDescriptor("Sample.Open", "Mở workbook", iconKey: "file.open"), new AsyncPreviewHandler(OpenWorkbookAsync));
         _commands.Register(new CommandDescriptor("Sample.Save", "Lưu bản sao", iconKey: "file.save-as"), new AsyncPreviewHandler(SaveWorkbookAsync));
     }
 
     private SpreadsheetTable? CurrentTable => _session.ActiveWorksheet.Tables.FirstOrDefault(table => table.Range.Contains(_session.Selection.ActiveCell));
-    private CommandState GetTableTotalsState()
-    {
-        var table = CurrentTable;
-        var selected = table is null ? SpreadsheetTableTotalsFunction.None :
-            Enum.GetValues<SpreadsheetTableTotalsFunction>().Where(function => function != SpreadsheetTableTotalsFunction.Custom)
-                .FirstOrDefault(function => string.Equals(table.Columns[^1].TotalsRowFormula,
-                    SpreadsheetTableFormulaProjection.CreateTotalsFormula(table, table.Columns[^1].Id, function), StringComparison.Ordinal));
-        return new CommandState(table?.HasTotalsRow == true, null, null, selected.ToString(),
-            [new("None", "Không có"), new("Sum", "Tổng"), new("Average", "Trung bình"), new("Maximum", "Lớn nhất"), new("Minimum", "Nhỏ nhất")]);
-    }
     private void ApplyStyle(Func<CellStyle, CellStyle> transform) => _session.Styles.ApplyToSelection(transform, "Định dạng từ Ribbon");
     private static CommandState ChoiceState(string selected, params string[] values) => new(true, null, null, selected, values.Select(value => new CommandItem(value, value)));
     private static CommandState ColorState(ColorRgba selected) => new(true, null, null,
         selected.Alpha == 0 ? "#00000000" : $"#{selected.Red:X2}{selected.Green:X2}{selected.Blue:X2}",
         [new("#00000000", "Không màu"), new("#217346", "Xanh lá"), new("#156082", "Xanh lam"), new("#FFC000", "Vàng"), new("#C00000", "Đỏ"), new("#FFFFFF", "Trắng"), new("#000000", "Đen")]);
-    private static string DescribeTableStyle(string name)
-    {
-        foreach (var (prefix, caption) in new[] { ("TableStyleLight", "Nhạt"), ("TableStyleMedium", "Vừa"), ("TableStyleDark", "Đậm") })
-        {
-            if (name.StartsWith(prefix, StringComparison.Ordinal)) return $"{caption} {name[prefix.Length..]}";
-        }
-        return name;
-    }
     private static ColorRgba ParseColor(string text)
     {
         var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(text);
@@ -188,26 +158,6 @@ public sealed partial class RibbonPreviewWindow
         $"Trang tính: {_session.Workbook.Worksheets.Count}\nÔ có dữ liệu: {_session.ActiveWorksheet.EnumerateUsedCells().Count()}\nBảng: {_session.ActiveWorksheet.Tables.Count}", "Thống kê workbook");
     private void ShowCellErrors() => MessageBox.Show(this,
         string.Join(Environment.NewLine, _session.ActiveWorksheet.EnumerateUsedCells().Where(pair => pair.Value.Value.Kind == CellValueKind.Error).Take(100).Select(pair => $"{pair.Key}: {pair.Value.Value}")) is { Length: > 0 } errors ? errors : "Không có ô lỗi trong trang tính.", "Kiểm tra lỗi ô");
-    private void ShowTableInfo() { if (CurrentTable is { } table) MessageBox.Show(this, $"{table.Name}\n{table.Range}\n{table.Columns.Count} cột\n{table.StyleName}", "Thuộc tính bảng"); }
-    private void RenameTable()
-    {
-        if (CurrentTable is not { } table) return;
-        var input = new TextBox { Text = table.Name, Margin = new Thickness(16), MinWidth = 280 };
-        var dialog = new Window { Owner = this, Title = "Đổi tên bảng", SizeToContent = SizeToContent.WidthAndHeight, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-        var panel = new StackPanel();
-        panel.Children.Add(input);
-        var error = new TextBlock { Margin = new Thickness(16, 0, 16, 8), TextWrapping = TextWrapping.Wrap, MaxWidth = 320 };
-        panel.Children.Add(error);
-        panel.Children.Add(ShellButton("Áp dụng", () =>
-        {
-            try { _session.Tables.RenameTable(table.Id, input.Text); _runtime.Refresh(); dialog.Close(); }
-            catch (ArgumentException exception) { error.Text = exception.Message; }
-            catch (InvalidOperationException exception) { error.Text = exception.Message; }
-        }));
-        dialog.Content = panel;
-        dialog.ShowDialog();
-    }
-
     private async Task OpenWorkbookAsync()
     {
         var dialog = new OpenFileDialog { Filter = "Workbook Excel (*.xlsx)|*.xlsx", CheckFileExists = true };

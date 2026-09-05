@@ -18,7 +18,7 @@ public partial class App : Application
                 {
                     try
                     {
-                        await preview.CaptureMatrixAsync(e.Args[captureIndex + 1]);
+                        await preview.CaptureMatrixAsync(e.Args[captureIndex + 1], e.Args.Contains("--table-design-only", StringComparer.Ordinal));
                         Shutdown(0);
                     }
                     catch (Exception exception)

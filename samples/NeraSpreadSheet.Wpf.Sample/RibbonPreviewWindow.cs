@@ -24,7 +24,8 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
     private readonly RibbonRuntimeController _runtime;
     private readonly NeraRibbonControl _ribbon;
     private readonly IDisposable _shortcuts;
-    private string _previewStyle = "TableStyleMedium2";
+    private IReadOnlyList<SpreadsheetTableStyleGalleryItem>? _gallerySource;
+    private readonly Dictionary<string, RibbonGalleryPreview> _galleryThumbnails = new(StringComparer.Ordinal);
     private NeraAutoFilterPagedPopupPresenter? _filterPopup;
     private bool _showGridlines = true;
     private bool _disposed;
@@ -43,17 +44,15 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         _sheet.Session = _session;
         RegisterPreviewCommands();
         _runtime = new RibbonRuntimeController(CreatePreviewDefinition(), _commands);
-        _runtime.SetSelectionContext(new RibbonSelectionContext(true, true));
+        RibbonCommandCatalogAudit.Validate(_commands, _runtime.Definition, RibbonProductionCommandCatalog.CommandIds);
+        _runtime.ActivationContextProvider = CollectTableParametersAsync;
         _ribbon = new NeraRibbonControl(_runtime) { VerticalAlignment = VerticalAlignment.Top };
+        _ribbon.BindTableDesign(_session);
         _shortcuts = _ribbon.BindShortcuts(this);
-        _ribbon.CommandActivationFailed += (_, e) => SetStatus(e.Exception.Message);
-        _runtime.SnapshotChanged += (_, _) => Dispatcher.BeginInvoke(UpdateSelectionText);
-        _session.Selection.Changed += (_, _) =>
-        {
-            _runtime.SetSelectionContext(new RibbonSelectionContext(
-                true, _session.ActiveWorksheet.Tables.Any(table => table.Range.Contains(_session.Selection.ActiveCell))));
-            UpdateSelectionText();
-        };
+        _ribbon.CommandActivationFailed += OnCommandActivationFailed;
+        _runtime.SnapshotChanged += OnPreviewStateChanged;
+        _session.Selection.Changed += OnPreviewStateChanged;
+        _session.ActiveWorksheetChanged += OnPreviewStateChanged;
         var title = new TextBlock
         {
             Text = "NERA  /  Bảng tính bán hàng",
@@ -62,8 +61,17 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
             Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(28, 91, 111)),
             Margin = new Thickness(14, 10, 14, 8),
         };
-        DockPanel.SetDock(title, Dock.Top);
-        _root.Children.Add(title);
+        var titleRow = new DockPanel();
+        var worksheets = new ComboBox { ItemsSource = _session.Workbook.Worksheets, DisplayMemberPath = "Name",
+            SelectedItem = _session.ActiveWorksheet, Width = 150, Margin = new Thickness(8, 6, 12, 6) };
+        System.Windows.Automation.AutomationProperties.SetName(worksheets, "Trang tính hiện tại");
+        System.Windows.Automation.AutomationProperties.SetAutomationId(worksheets, "preview-worksheet");
+        worksheets.SelectionChanged += (_, _) => { if (worksheets.SelectedItem is Worksheet worksheet) _session.ActivateWorksheet(worksheet); };
+        DockPanel.SetDock(worksheets, Dock.Right);
+        titleRow.Children.Add(worksheets);
+        titleRow.Children.Add(title);
+        DockPanel.SetDock(titleRow, Dock.Top);
+        _root.Children.Add(titleRow);
         DockPanel.SetDock(_ribbon, Dock.Top);
         _root.Children.Add(_ribbon);
         var formulaRow = new DockPanel { Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(247, 249, 250)) };
@@ -102,6 +110,11 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _runtime.ActivationContextProvider = null;
+        _runtime.SnapshotChanged -= OnPreviewStateChanged;
+        _session.Selection.Changed -= OnPreviewStateChanged;
+        _session.ActiveWorksheetChanged -= OnPreviewStateChanged;
+        _ribbon.CommandActivationFailed -= OnCommandActivationFailed;
         _filterPopup?.Dispose();
         _shortcuts.Dispose();
         _ribbon.Dispose();
@@ -119,10 +132,15 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
     private void SetTheme(NeraIconTheme theme) => _ribbon.IconTheme = theme;
     private void SetStatus(string text) => _status.Text = text;
 
+    private void OnCommandActivationFailed(object? sender, NeraWpfCommandActivationFailedEventArgs e) =>
+        SetStatus(DescribeTableError(e.Exception));
+
+    private void OnPreviewStateChanged(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(UpdateSelectionText);
+
     private void UpdateSelectionText()
     {
-        var context = new RibbonSelectionContext(true, CurrentTable is not null);
-        if (_runtime.SelectionContext != context) _runtime.SetSelectionContext(context);
+        if (_disposed) return;
         var address = _session.Selection.ActiveCell;
         _address.Text = address.ToString();
         var cell = _session.ActiveWorksheet.GetCell(address);
@@ -134,6 +152,8 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
     {
         var workbook = new Workbook();
         var sheet = workbook.Worksheets[0];
+        workbook.RenameWorksheet(sheet, "Bán hàng");
+        workbook.AddWorksheet("Trang trống");
         string[] headers = ["Sản phẩm", "Khu vực", "Số lượng", "Đơn giá", "Thành tiền"];
         for (var column = 0; column < headers.Length; column++)
         {
@@ -147,24 +167,36 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
             sheet.SetValue(new CellAddress(row, 1), row % 2 == 0 ? "Miền Bắc" : "Miền Nam");
             sheet.SetValue(new CellAddress(row, 2), 10d + row * 3);
             sheet.SetValue(new CellAddress(row, 3), 15000d + (row % 5) * 8000);
-            sheet.SetFormula(new CellAddress(row, 4), $"=C{row + 1}*D{row + 1}");
         }
         var session = new SpreadsheetSession(workbook);
         session.Tables.Add(new SpreadsheetTable(
             Guid.NewGuid(), "BanHang", new CellRange(default, new CellAddress(32, 4)),
             headers.Select(name => new SpreadsheetTableColumn(Guid.NewGuid(), name)),
             hasTotalsRow: true, styleName: "TableStyleMedium2", showRowStripes: true));
+        var table = sheet.Tables.Single();
+        session.Tables.SetCalculatedColumnFormula(table.Id, table.Columns[^1].Id, "=[@[Số lượng]]*[@[Đơn giá]]");
         session.Selection.SetActiveCell(new CellAddress(1, 0));
         session.Recalculate();
         return session;
     }
 
-    private RibbonGalleryPreview CreateStylePreview(NeraSpreadSheet.Commands.CommandItem choice)
+    private RibbonGalleryPreview? CreateStylePreview(NeraSpreadSheet.Commands.CommandItem choice)
     {
-        var cells = TableStylePreview.Create(_session.Workbook.TableStyles.Get(choice.Value), _session.Workbook.Theme, 6, 5);
-        return new RibbonGalleryPreview(6, 5, cells.Select(cell => new RibbonGalleryPreviewCell(
+        var source = _session.TableDesign.Snapshot.Styles;
+        if (!ReferenceEquals(source, _gallerySource))
+        {
+            _gallerySource = source;
+            _galleryThumbnails.Clear();
+        }
+        if (_galleryThumbnails.TryGetValue(choice.Value, out var cached)) return cached;
+        var cells = source.FirstOrDefault(entry => entry.Name == choice.Value)?.Preview;
+        if (cells is null || cells.Count == 0) return null;
+        var preview = new RibbonGalleryPreview(cells.Max(cell => cell.RowIndex) + 1, cells.Max(cell => cell.ColumnIndex) + 1,
+            cells.Select(cell => new RibbonGalleryPreviewCell(
             Argb(cell.Style.Fill.IsVisible ? cell.Style.Fill.Color : ColorRgba.White),
             Argb(cell.Style.Font.Color))));
+        _galleryThumbnails.Add(choice.Value, preview);
+        return preview;
     }
 
     private static uint Argb(ColorRgba color) =>

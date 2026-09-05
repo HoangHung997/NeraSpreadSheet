@@ -34,6 +34,25 @@ public sealed class DesktopRibbonPresenterSmokeTests
         ["home.high", "home.left", "home.right"];
 
     [TestMethod]
+    public void WpfTableBindingShouldDiscardQueuedRefreshAfterDisposal()
+    {
+        RunInSta(() =>
+        {
+            var session = new NeraSpreadSheet.Editing.SpreadsheetSession(new NeraSpreadSheet.Core.Workbook());
+            session.Tables.Create(new NeraSpreadSheet.Core.CellRange(default, new NeraSpreadSheet.Core.CellAddress(2, 0)), "Sales");
+            var runtime = new RibbonRuntimeController(RibbonProductionCommandCatalog.CreateDefaultDefinition(), session.Commands);
+            using var binding = new NeraSpreadSheet.Wpf.NeraWpfTableDesignRibbonBinding(session, runtime,
+                System.Windows.Threading.Dispatcher.CurrentDispatcher);
+            Assert.IsTrue(runtime.SelectionContext.IsInTable);
+            Task.Run(() => session.Selection.SetActiveCell(new NeraSpreadSheet.Core.CellAddress(5, 5))).GetAwaiter().GetResult();
+            binding.Dispose();
+            System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(
+                System.Windows.Threading.DispatcherPriority.ApplicationIdle, static () => { });
+            Assert.IsTrue(runtime.SelectionContext.IsInTable, "A disposed binding must not publish queued work.");
+        });
+    }
+
+    [TestMethod]
     [Timeout(120_000)]
     public void DesktopTableDesignBindingShouldFollowSelectionAndExecuteOneTransaction()
     {
