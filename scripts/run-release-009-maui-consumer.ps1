@@ -25,6 +25,7 @@ foreach ($name in @('Directory.Build.props', 'Directory.Build.targets', 'Directo
     Set-Content -LiteralPath (Join-Path $mauiConsumer $name) -Value '<Project />' -Encoding utf8
 }
 $mauiNonce = [Guid]::NewGuid().ToString('N')
+$mauiBundleId = 'com.neraspreadsheet.packagedmauismoke'
 $mauiIdentity = @"
 namespace Packaged.Maui.Smoke;
 internal static class CohortIdentity
@@ -63,7 +64,16 @@ try {
         Invoke-MauiDotnet (@('build', '-c', $mauiConfiguration, '--no-restore', '-m:1', '/nodeReuse:false') + $mauiProperties)
         $mauiCandidates = @(if ($Platform -eq 'android') {
             Get-ChildItem -LiteralPath (Join-Path $mauiConsumer 'bin') -Recurse -Filter '*-Signed.apk' -File
-        } else { Get-ChildItem -LiteralPath (Join-Path $mauiConsumer 'bin') -Recurse -Filter 'NeraSpreadSheet.Packaged.Maui.Smoke.app' -Directory })
+        } else {
+            Get-ChildItem -LiteralPath (Join-Path $mauiConsumer 'bin') -Recurse -Filter '*.app' -Directory |
+                Where-Object {
+                    $mauiPlist = Join-Path $_.FullName $(if ($Platform -eq 'ios') { 'Info.plist' } else { 'Contents/Info.plist' })
+                    if (-not (Test-Path -LiteralPath $mauiPlist -PathType Leaf)) { throw 'Apple app bundle is missing its manifest.' }
+                    $mauiActualBundleId = & /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' $mauiPlist
+                    if ($LASTEXITCODE -ne 0) { throw 'Apple app bundle identity could not be read.' }
+                    $mauiActualBundleId -ceq $mauiBundleId
+                }
+        })
         if ($mauiCandidates.Count -ne 1) { throw 'Consumer output is missing or ambiguous.' }
         $mauiAppPath = $mauiCandidates[0].FullName
     }
@@ -76,12 +86,13 @@ try {
     Write-MauiJson ([ordered]@{ schemaVersion = 1; status = 'built-runtime-open'; sourceSha = $mauiCohort.sourceSha
         version = $mauiCohort.version; sdkVersion = $mauiCohort.sdkVersion; feedHash = $mauiFeed.feedHash
         platform = $Platform; rid = $mauiRid; configuration = $mauiConfiguration; nonce = $mauiNonce
+        appName = [IO.Path]::GetFileName($mauiAppPath)
         files = $mauiPayload; runtimeAcceptance = 'OPEN'; nativeEditorCoverage = 'OPEN' }) (Join-Path $mauiOutput 'build-manifest.json')
     & python $mauiVerifier verify-app --app $mauiAppPath --build (Join-Path $mauiOutput 'build-manifest.json')
     if ($LASTEXITCODE -ne 0) { throw 'Consumer app payload verification failed.' }
     # Kept exclusively in RUNNER_TEMP for the future owner-approved shared launcher.
     Write-MauiJson ([ordered]@{ appPath = $mauiAppPath; evidenceDirectory = $mauiOutput; nonce = $mauiNonce
         sourceSha = $mauiCohort.sourceSha; version = $mauiCohort.version; feedHash = $mauiFeed.feedHash
-        bundleId = 'com.neraspreadsheet.packagedmauismoke'; markerPrefix = 'NERA_PACKAGED_MAUI_SMOKE:' }) (Join-Path $mauiScratch 'launch-inputs.json')
+        bundleId = $mauiBundleId; markerPrefix = 'NERA_PACKAGED_MAUI_SMOKE:' }) (Join-Path $mauiScratch 'launch-inputs.json')
 } finally { Pop-Location }
 Write-Output "$Platform PackageReference app built from the canonical feed; runtime acceptance is OPEN pending shared launcher integration."

@@ -390,6 +390,7 @@ def verify_app_payload(actual, build):
 
 def verify_app(app, build):
     path = Path(app)
+    require(path.name == build["appName"], "Consumer app entry differs from the verified build")
     platform = build["platform"]
     if platform in ("ios", "maccatalyst"):
         require(path.is_dir() and path.suffix == ".app", "Missing consumer app bundle")
