@@ -14,7 +14,7 @@ namespace NeraSpreadSheet.Wpf.Sample;
 /// <summary>A runnable SDK Ribbon sample with real spreadsheet command bindings.</summary>
 public sealed partial class RibbonPreviewWindow : Window, IDisposable
 {
-    private readonly DockPanel _root = new() { Background = Brushes.White };
+    private readonly PreviewDockPanel _root = new() { Background = Brushes.White };
     private readonly TextBlock _status = new() { Margin = new Thickness(12, 5, 12, 5) };
     private readonly TextBlock _address = new() { Width = 84, Margin = new Thickness(12, 6, 8, 6) };
     private readonly TextBlock _formula = new() { Margin = new Thickness(10, 6, 8, 6) };
@@ -203,4 +203,14 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         ((uint)color.Alpha << 24) | ((uint)color.Red << 16) | ((uint)color.Green << 8) | color.Blue;
 
     private static double ParseNumber(string value) => double.Parse(value, CultureInfo.InvariantCulture);
+
+    private sealed class PreviewDockPanel : DockPanel
+    {
+        // A loaded native Window may be capped by the monitor's maximum track
+        // size. Capture the complete arranged logical surface without stretching
+        // the capped layout clip; interactive windows retain normal clipping.
+        public bool CaptureFullLayout { get; set; }
+        protected override Geometry? GetLayoutClip(Size layoutSlotSize) =>
+            CaptureFullLayout ? null : base.GetLayoutClip(layoutSlotSize);
+    }
 }

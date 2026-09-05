@@ -53,3 +53,11 @@ loaded host smokes và capture với dữ liệu synthetic tạo bởi Nera. Wid
 riêng với native DPI, không nhận là physical monitor DPI test. Actual style/undo
 và totals/undo phải được xác minh trước screenshot. Kết quả và giới hạn cuối ở
 `worklog/TABLE-RIBBON-012.md`.
+
+Windows có thể chặn kích thước native window theo monitor (local 1553,6 DIP).
+Capture vẫn arrange cây WPF đã load tại đúng 1600/1920 logical px và chỉ bỏ
+layout clip trên root sample trong chế độ capture. VisualBrush dùng viewbox
+tọa độ tuyệt đối để không kéo giãn nguồn bị clip. Manifest ghi riêng window,
+root, Ribbon width và native DPI; assertions khóa root/Ribbon/layout width
+bằng width yêu cầu. Đây là chụp logical surface đã load, không nhận là resize
+cửa sổ vật lý vượt giới hạn monitor.
