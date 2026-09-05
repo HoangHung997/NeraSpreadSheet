@@ -48,7 +48,10 @@ def load_pairs(root, phase, count):
             assert document["schema"] == "perf008-worker-v1" and document["mode"] == "measure"
             assert document["configuration"] == "Release" and document["tieredCompilation"] == "0"
             assert not document["serverGc"]
+            assert document["outputValidation"] == "pre-warmup/post-batch-factory-v1"
+            assert document["outputGuardSelfTestsPassed"] == 2
             assert len(document["measurements"]) == 11, "Missing workload"
+            assert all(item["OutputBeforeHash"] == item["OutputHash"] for item in document["measurements"]), "Post-batch output drift"
             environment = {key: document[key] for key in ENVIRONMENT_KEYS}
             if expected_environment is None:
                 expected_environment = environment
@@ -138,10 +141,11 @@ def self_test():
                     for index in range(count):
                         for side in ("baseline", "candidate"):
                             scale = (1.5 if index % 2 else .5) if noise else 1.
-                            item = dict(Name="metric", InputHash="bad" if tamper and side == "candidate" else "input", OutputHash="output",
+                            item = dict(Name="metric", InputHash="bad" if tamper and side == "candidate" else "input", OutputHash="output", OutputBeforeHash="output",
                                         Operations=100, Warmup=20, MicrosecondsPerOperation=100 * scale * (ratio if side == "candidate" else 1), BytesPerOperation=200)
                             data = dict(schema="perf008-worker-v1", mode="measure", runtime="test", framework="test", os="test", architecture="test", processors=2,
                                         configuration="Release", tieredCompilation="0", serverGc=False,
+                                        outputValidation="pre-warmup/post-batch-factory-v1", outputGuardSelfTestsPassed=2,
                                         measurements=[dict(item, Name=f"metric{n}") for n in range(11)])
                             (root / f"{phase}-{index:02}-{side}.json").write_text(json.dumps(data))
                 write("calibration", 6)
@@ -156,6 +160,11 @@ def self_test():
                 changed_path = root / "paired-11-candidate.json"
                 changed = json.loads(changed_path.read_text())
                 changed["runtime"] = "different-runtime"
+                changed_path.write_text(json.dumps(changed))
+                self.assertRaises(AssertionError, evaluate, root, budget)
+                write("paired", 12)
+                changed = json.loads(changed_path.read_text())
+                changed["measurements"][0]["OutputBeforeHash"] = "different-before-output"
                 changed_path.write_text(json.dumps(changed))
                 self.assertRaises(AssertionError, evaluate, root, budget)
                 write("calibration", 6, noise=True)

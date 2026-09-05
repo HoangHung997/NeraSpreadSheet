@@ -48,6 +48,14 @@ Mục tiêu 60 Hz cho viewport 4K:
 
 ## PERF-008 — CPU paired checkpoint v3, 05/09/2026
 
+**Bảng dưới là lịch sử trước output-guard correction, chưa thay nghiệm thu HEAD
+mới.** Final docs run `33974159142` tại `3cefe685` INCONCLUSIVE 4/11, native 2/2
+pass. Review phát hiện OutputHash cũ dùng object chụp trước warmup. Harness đã
+đổi sang actual pre-warmup/post-batch factories trên chính result/fixture đã đo
+và negative drift tests, giữ timing v3. Raw cũ không chứng minh post-batch output
+stability. Exact-HEAD results sau correction được gửi coordinator ở handoff;
+P3 combined và yêu cầu controlled runner nếu còn noisy vẫn là gate riêng.
+
 Số dưới đây là **batch CPU averages**, không phải input-to-display, displayed
 frame time hay GPU framerate. Production baseline `2e8482c2` so với harness
 checkpoint `726ace80`; lane không đổi production, nên đây là kiểm chứng harness

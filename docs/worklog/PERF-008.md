@@ -1,6 +1,50 @@
 # PERF-008 — Lane C harness
 
-## Handoff checkpoint P1/P2 — protocol v3 validated; P3 OPEN
+## Current — output-guard correctness correction, giữ timing v3
+
+Root review chặn release `3cefe685`: `Measure` trước đây hash object đã tạo trước
+warmup nên có thể bỏ lọt drift sau batch. Đã thay actual result factories trước
+warmup/sau batch, kiểm/hash ngoài elapsed/allocation/GC windows. Ribbon/completion/
+cache giữ last result của operation thật; Table và search đọc live fixture.
+Filter-open giữ last initialized measured view đến khi kiểm hash, mỗi iteration
+dispose view trước rồi mở view tiếp; không tạo replacement fixture trong capture.
+Raw ghi actual `OutputHash` và `OutputBeforeHash`. Hai deterministic negative
+self-tests gây drift sau initial sample và sau warmup phải reject; analyzer
+kiểm guard marker và pre/post hashes. Dataset/counts/thresholds/bootstrap/order
+v3, native test source và production giữ nguyên.
+
+Local corrected benchmark .302 build **0 warnings / 0 errors**, worker verify
+pass hai negative guards và **11/11 actual pre/post hashes bằng nhau**;
+P2 correctness pass. Statistical gate self-test pass cả post-hash mismatch.
+Commit chứa correction/archive/docs này là HEAD lane mới; exact SHA và bốn
+workflow final được gửi root sau push. **Không release hoặc dùng source green
+lịch sử thay final CI.** Root giữ shared CURRENT/status/plan/wave.
+
+Run [33974159142](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33974159142)
+tại `3cefe685f2bb278c8a0b1375d003ef175d2ecd52`: **INCONCLUSIVE 4/11**, gồm
+toggle/Undo 0 unrelated, completion 0/100.000 unrelated và filter search cycle;
+không có classification REGRESSION. Native **2/2**, 0 skip, 24 giây; build0/0,
+architecture pass. Artifact [9971867019](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33974159142/artifacts/9971867019),
+8.921.942 bytes, SHA-256 đã verify
+`944e3f6b199c58aa2ecb9ac88e10fb3cd65a304bd6c976d66e65ba740463ef52`.
+[Raw riêng](../../benchmarks/PERF008/results/33974159142.json) giữ
+36 workers/396 measurements cùng stress. Không dùng green `726ace80` thay run
+này. Full/iOS/Q003C historical runs ở `3cefe685` lần lượt `33974253095` /
+`33974254655` / `33974255889`, không thay corrected gates.
+
+Root không cho rerun `3cefe685` để chọn PASS; phải sửa guard và chạy full v3
+A/A→budget freeze→AB/BA→native trên HEAD mới. Nếu HEAD mới INCONCLUSIVE khi
+correctness đúng, tối đa một full retest, giữ nguyên code/counts/policy và raw
+attempts riêng; nếu vẫn noisy, P1/P3 acceptance OPEN, cần controlled runner.
+Không nới gate hoặc lặp đến khi xanh. **Whole PERF-008 chưa DONE.**
+
+Files/desktop: không đổi production/shared/other-lane files; desktop local chưa
+acquire và luôn release. Lane giữ owned files đến corrected final CI/handoff;
+rollback revert correction rồi chuỗi lịch sử ngược, không data migration.
+Bước tiếp theo duy nhất: nghiệm thu corrected exact-final-HEAD cùng bốn workflows
+và raw, bàn giao root để giao combined A+B SHA cho P3.
+
+## Lịch sử checkpoint P1/P2 — trước output-guard correction; P3 OPEN
 
 - Branch `feature/perf-008-harness`, base
   `2e8482c25a44797a479b276ae26f472811a0a81e`; không nhập lane khác.
