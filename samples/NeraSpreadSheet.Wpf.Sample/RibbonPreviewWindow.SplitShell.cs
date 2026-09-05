@@ -1,5 +1,6 @@
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
+using NeraSpreadSheet.Rendering.Spreadsheet;
 
 namespace NeraSpreadSheet.Wpf.Sample;
 
@@ -7,6 +8,7 @@ public sealed partial class RibbonPreviewWindow
 {
     private NeraSpreadsheetSplitController? _splitShell;
     private Worksheet? _splitShellWorksheet;
+    private SpreadsheetRenderTheme? _splitShellTheme;
 
     private void OnNavigationSplitChanged(object? sender, SpreadsheetSplitViewChangedEventArgs e)
     {
@@ -27,7 +29,15 @@ public sealed partial class RibbonPreviewWindow
         _splitShellWorksheet = _session.ActiveWorksheet;
         if (state.HasSplitPanes)
         {
-            if (_splitShell is not null) return;
+            if (_splitShell is not null)
+            {
+                if (!ReferenceEquals(_splitShellTheme, _sheet.RenderTheme))
+                {
+                    _splitShellTheme = _sheet.RenderTheme;
+                    _splitShell.RenderTheme = _splitShellTheme;
+                }
+                return;
+            }
             CancelNavigationInput();
             // Enable synchronizes the stored state before applying this same mode.
             // No default topology, synthetic cell or replayed scroll commands.
@@ -38,6 +48,7 @@ public sealed partial class RibbonPreviewWindow
                 SpreadsheetSplitViewMode.Both => SpreadsheetSplitPaneMode.Both,
                 _ => throw new InvalidOperationException("A split shell requires a split topology."),
             });
+            _splitShellTheme = _sheet.RenderTheme;
             _sheet.IsHitTestVisible = false;
             _sheet.Focusable = false;
             if (IsKeyboardFocusWithin) _splitShell.Focus();

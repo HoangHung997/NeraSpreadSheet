@@ -1390,4 +1390,10 @@ Select an item on the right to change visibility or size.</value>
   <data name="Không thể thay đổi cấu hình. Kiểm tra lựa chọn, tên và quyền tùy biến." xml:space="preserve">
     <value>Cannot change the profile. Check the selection, name and customization permissions.</value>
   </data>
+  <data name="Cuộn ngang trang tính" xml:space="preserve">
+    <value>Scroll worksheet horizontally</value>
+  </data>
+  <data name="Cuộn dọc trang tính" xml:space="preserve">
+    <value>Scroll worksheet vertically</value>
+  </data>
 </root>

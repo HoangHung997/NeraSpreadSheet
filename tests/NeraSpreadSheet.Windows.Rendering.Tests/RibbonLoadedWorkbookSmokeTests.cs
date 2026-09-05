@@ -10,6 +10,7 @@ using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Layout;
 using NeraSpreadSheet.OpenXml;
 using NeraSpreadSheet.Rendering.Spreadsheet;
+using NeraSpreadSheet.Ribbon.Core;
 using NeraSpreadSheet.Wpf;
 using NeraSpreadSheet.Wpf.Sample;
 using ListBox = System.Windows.Controls.ListBox;
@@ -81,6 +82,12 @@ public sealed class RibbonLoadedWorkbookSmokeTests
             Assert.IsFalse(grid.IsHitTestVisible);
             Assert.IsFalse(grid.Focusable);
             Assert.IsTrue(NavigationBars(window).All(bar => bar.Visibility == Visibility.Collapsed && !bar.IsEnabled));
+            var splitBodyWidth = split.LastFrame!.Layout.ViewportSize.Width;
+            Assert.IsTrue(Field<RibbonRuntimeController>(window, "_runtime").TryActivateAsync("Sample.Headers").GetAwaiter().GetResult());
+            PumpSplit(window);
+            Assert.IsTrue(split.LastFrame!.Layout.ViewportSize.Width > splitBodyWidth + 10d,
+                "A header command must invalidate the active split renderer as well as the standalone control.");
+            Assert.AreEqual(state, session.View.SplitState);
 
             // Drive the existing integrated native scrollbar state machine, not an
             // optional second overlay or a synthetic controller in the test.

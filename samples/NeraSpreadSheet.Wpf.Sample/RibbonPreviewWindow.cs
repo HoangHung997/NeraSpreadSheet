@@ -155,6 +155,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         _formula.Text = cell.Formula ?? cell.Value.ToString();
         SynchronizeWorksheetTabs();
         _sheet.InvalidateVisual();
+        QueueNavigationRefresh();
     }
 
     private static SpreadsheetSession CreatePreviewSession()

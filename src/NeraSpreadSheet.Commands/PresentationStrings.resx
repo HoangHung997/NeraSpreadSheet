@@ -1390,4 +1390,10 @@ Chọn một mục bên phải để đổi hiển thị hoặc kích thước.<
   <data name="Không thể thay đổi cấu hình. Kiểm tra lựa chọn, tên và quyền tùy biến." xml:space="preserve">
     <value>Không thể thay đổi cấu hình. Kiểm tra lựa chọn, tên và quyền tùy biến.</value>
   </data>
+  <data name="Cuộn ngang trang tính" xml:space="preserve">
+    <value>Cuộn ngang trang tính</value>
+  </data>
+  <data name="Cuộn dọc trang tính" xml:space="preserve">
+    <value>Cuộn dọc trang tính</value>
+  </data>
 </root>
