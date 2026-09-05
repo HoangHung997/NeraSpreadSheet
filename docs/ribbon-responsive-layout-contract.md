@@ -22,6 +22,13 @@ chrome nhỏ, không đi qua worksheet scroll/render frame. Resize liên tục p
 coalesce vào dispatcher/UI-frame kế tiếp để không dựng lại Ribbon theo từng raw
 event.
 
+MAUI chỉ yêu cầu responsive rebuild khi physical available width hoặc scale
+khác snapshot hiện tại. Sự kiện chỉ đổi chiều cao không được thay cây command;
+callback resize đã xếp hàng phải kiểm tra lại điều kiện này để bỏ rebuild thừa
+nếu một refresh khác đã cập nhật snapshot. Native smoke chờ frame arrange của
+cây control hiện tại trước khi so sánh bounds, không dùng delay cố định làm
+bằng chứng layout hoàn tất.
+
 ## Collapse deterministic
 
 Mỗi group bắt đầu bằng kích thước preferred hiện có (`IsLarge` hoặc small). Khi

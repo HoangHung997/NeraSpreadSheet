@@ -1116,8 +1116,15 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
 
     private void OnRibbonSizeChanged(object? sender, EventArgs e)
     {
-        ScheduleResizeRebuild();
+        if (NeedsResizeLayout())
+        {
+            ScheduleResizeRebuild();
+        }
     }
+
+    private bool NeedsResizeLayout() => LayoutSnapshot is null ||
+        !LayoutSnapshot.AvailableWidth.Equals(Width > 0d ? Width * LayoutScale : double.PositiveInfinity) ||
+        !LayoutSnapshot.Scale.Equals(LayoutScale);
 
     private void ScheduleResizeRebuild()
     {
@@ -1129,7 +1136,9 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         void RebuildOnce()
         {
             _resizeRebuildPending = false;
-            if (!_disposed)
+            // Height-only native layout and superseded resize callbacks must not
+            // replace controls whose width/scale snapshot is already current.
+            if (!_disposed && NeedsResizeLayout())
             {
                 Rebuild();
             }

@@ -305,6 +305,7 @@ internal sealed class SmokePage : ContentPage
             await Task.Delay(100).ConfigureAwait(true);
             Require(overflowHandlers[0].ExecutionCount == 1,
                 "A loaded command inside the MAUI overflow did not activate.");
+            await ShowGeometryStageAsync(complexRibbon, focusOrigin, 1600d).ConfigureAwait(true);
             Require(complexRibbon.ItemControls.Count ==
                     Enum.GetValues<RibbonItemKind>().Length,
                 "The MAUI Ribbon did not render every complex item kind.");
@@ -372,12 +373,29 @@ internal sealed class SmokePage : ContentPage
                         button.AutomationId.EndsWith("-menu", StringComparison.Ordinal))
                     .IsFocused,
                 "The MAUI split-button did not restore the focused subpart.");
+            rebuiltSplit.Children.OfType<HorizontalStackLayout>().Single().Children.OfType<Button>()
+                .Single(static button => button.AutomationId.EndsWith("-menu", StringComparison.Ordinal))
+                .SendClicked();
+            await WaitForNativeGeometryAsync(complexRibbon, 1600d, complexRibbon.LayoutScale).ConfigureAwait(true);
+            Require(Descendants<ScrollView>(complexRibbon).Single(static scroll => scroll.AutomationId == "ribbon-popup-host").IsVisible,
+                "A height-only native layout dismissed the MAUI split-button choices.");
+            Descendants<Button>(complexRibbon).Single(static button => button.AutomationId == "ribbon-command-complex.SplitButton-popup-choice-two").SendClicked();
+            await WaitForNativeGeometryAsync(complexRibbon, 1600d, complexRibbon.LayoutScale).ConfigureAwait(true);
+            Require(complexHandlers[RibbonItemKind.SplitButton].SelectedValue == "two" &&
+                    complexHandlers[RibbonItemKind.SplitButton].ExecutionCount == 1,
+                "A visible MAUI split-button choice did not execute exactly once after native layout.");
             var combo = complexRibbon.ItemControls.OfType<Picker>().First();
             combo.SelectedIndex = 1;
             await Task.Delay(100).ConfigureAwait(true);
             Require(complexHandlers[RibbonItemKind.ComboBox].SelectedValue == "two" &&
                     complexHandlers[RibbonItemKind.ComboBox].ExecutionCount == 1,
                 "The MAUI combo item did not activate its selected value.");
+
+            _host.Children.Clear();
+            _host.Children.Add(ribbon);
+            _host.Children.Add(bar);
+            _host.Children.Add(focusOrigin);
+            await WaitForRenderingAsync(TimeSpan.FromSeconds(5d)).ConfigureAwait(true);
 
             Require(await ribbon.TryActivateCommandAsync("view.gridlines"),
                 "The MAUI Ribbon command did not activate through runtime.");
@@ -503,29 +521,55 @@ internal sealed class SmokePage : ContentPage
         });
     }
 
-    private static async Task VerifyDenseGeometryAsync(NeraMauiRibbonView ribbon, Button externalFocus)
+    private async Task VerifyDenseGeometryAsync(NeraMauiRibbonView ribbon, Button externalFocus)
     {
+        await ShowGeometryStageAsync(ribbon, externalFocus, 1536d).ConfigureAwait(true);
+        var window = Window ?? throw new InvalidOperationException("The MAUI geometry stage has no containing window.");
         Require(externalFocus.Focus(), "The MAUI geometry smoke could not focus the worksheet sibling.");
-        await Task.Delay(100).ConfigureAwait(true);
+        await WaitForNativeGeometryAsync(ribbon, 1536d, ribbon.LayoutScale).ConfigureAwait(true);
         Require(externalFocus.IsFocused, "The MAUI geometry smoke worksheet sibling did not receive native focus.");
+        var initialHeightRequest = ribbon.HeightRequest;
+        var widthSnapshot = ribbon.LayoutSnapshot;
+        ribbon.HeightRequest = ribbon.Height + 24d;
+        await WaitForNativeGeometryAsync(ribbon, 1536d, ribbon.LayoutScale).ConfigureAwait(true);
+        Require(ReferenceEquals(widthSnapshot, ribbon.LayoutSnapshot),
+            $"A height-only MAUI layout replaced the current command snapshot. {DescribeNativeGeometry(ribbon, 1536d, ribbon.LayoutScale)}");
+        ribbon.HeightRequest = initialHeightRequest;
+        await WaitForNativeGeometryAsync(ribbon, 1536d, ribbon.LayoutScale).ConfigureAwait(true);
+        Require(ReferenceEquals(widthSnapshot, ribbon.LayoutSnapshot),
+            "Restoring the MAUI presenter height rebuilt unchanged command geometry.");
         foreach (var scale in new[] { 1d, 1.25d, 1.5d, 2d })
         {
             ribbon.LayoutScale = scale;
             foreach (var width in new[] { 1536d, 1280d, 1024d, 820d })
             {
+                window.Width = width + 64d;
                 ribbon.WidthRequest = width;
-                await Task.Delay(50).ConfigureAwait(true);
+                await WaitForNativeGeometryAsync(ribbon, width, scale).ConfigureAwait(true);
+                // Deliberately replace the controls once more: inspecting this
+                // fresh snapshot must wait for its own native arrange, not reuse
+                // frames from the preceding width.
                 ribbon.Rebuild();
-                await Task.Delay(50).ConfigureAwait(true);
-                Require(externalFocus.IsFocused, "MAUI Ribbon resize stole focus from the worksheet sibling.");
-                foreach (var group in ribbon.LayoutSnapshot.Tabs.SelectMany(static tab => tab.Groups)
+                await WaitForNativeGeometryAsync(ribbon, width, scale).ConfigureAwait(true);
+                var diagnostics = DescribeNativeGeometry(ribbon, width, scale);
+                Require(externalFocus.IsFocused, $"MAUI Ribbon resize stole focus from the worksheet sibling. {diagnostics}");
+                Require(Math.Abs(ribbon.Width - width) <= 1d && ribbon.LayoutSnapshot.Scale.Equals(scale) &&
+                        Math.Abs((ribbon.LayoutSnapshot.AvailableWidth / scale) - width) <= 1d,
+                    $"The MAUI geometry stage does not match its requested width or scale. {diagnostics}");
+                foreach (var group in ribbon.LayoutSnapshot.Tabs
+                             .Where(tab => string.Equals(tab.Presentation.Id, ribbon.LayoutSnapshot.SelectedTabId, StringComparison.Ordinal))
+                             .SelectMany(static tab => tab.Groups)
                              .Where(static group => group.Mode != RibbonGroupLayoutMode.Overflow))
                 {
                     var native = Descendants<AbsoluteLayout>(ribbon).Single(layout =>
                         layout.AutomationId == $"ribbon-group-{group.Presentation.Id}");
                     var caption = native.Children.OfType<Label>().Single();
                     Require(caption.Y + 1d >= group.Items.Max(static item => item.Y + item.Height) / scale,
-                        "A MAUI group caption overlaps its packed commands.");
+                        $"A MAUI group caption overlaps its packed commands. {diagnostics}");
+                    Require(Math.Abs(caption.Y - (group.CaptionY / scale)) <= 1d &&
+                            Math.Abs(caption.Height - (group.CaptionHeight / scale)) <= 1d,
+                        $"A MAUI group caption did not consume its assigned bounds. {diagnostics}");
+                    var bounds = new List<Rect>();
                     foreach (var item in group.Items)
                     {
                         var index = group.Items.ToList().IndexOf(item);
@@ -534,7 +578,12 @@ internal sealed class SmokePage : ContentPage
                                 Math.Abs(child.Y - (item.Y / scale)) <= 1d &&
                                 Math.Abs(child.Width - (item.Width / scale)) <= 1d &&
                                 Math.Abs(child.Height - (item.Height / scale)) <= 1d,
-                            $"MAUI native bounds differ from packed layout for {item.Presentation.Command.CommandId}.");
+                            $"MAUI native bounds differ from packed layout for {item.Presentation.Command.CommandId}. {diagnostics}");
+                        Require(bounds.All(previous => !previous.IntersectsWith(child.Bounds)),
+                            $"MAUI native command bounds overlap for {item.Presentation.Command.CommandId}. {diagnostics}");
+                        Require(child.Bounds.Bottom <= caption.Y + 1d,
+                            $"A native MAUI command overlaps its group caption. {diagnostics}");
+                        bounds.Add(child.Bounds);
                     }
                 }
             }
@@ -542,9 +591,80 @@ internal sealed class SmokePage : ContentPage
         foreach (var theme in Enum.GetValues<NeraSpreadSheet.Iconography.NeraIconTheme>())
         {
             ribbon.IconTheme = theme;
-            await Task.Delay(50).ConfigureAwait(true);
+            await WaitForNativeGeometryAsync(ribbon, 820d, ribbon.LayoutScale).ConfigureAwait(true);
             Require(externalFocus.IsFocused, "MAUI theme refresh stole worksheet focus.");
         }
+    }
+
+    private async Task ShowGeometryStageAsync(NeraMauiRibbonView ribbon, Button externalFocus, double width)
+    {
+        // Native layout may defer off-screen children. Put the actual presenter
+        // and its worksheet sibling in a visible stage before inspecting frames.
+        _host.Children.Clear();
+        ribbon.HorizontalOptions = LayoutOptions.Start;
+        _host.Children.Add(ribbon);
+        _host.Children.Add(externalFocus);
+        var window = Window ?? throw new InvalidOperationException("The MAUI geometry stage has no containing window.");
+        window.Height = 340d;
+        window.Width = width + 64d;
+        ribbon.WidthRequest = width;
+        await WaitForNativeGeometryAsync(ribbon, width, ribbon.LayoutScale).ConfigureAwait(true);
+    }
+
+    private static async Task WaitForNativeGeometryAsync(NeraMauiRibbonView ribbon, double width, double scale)
+    {
+        var timeout = TimeSpan.FromSeconds(5d);
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        RibbonLayoutSnapshot? previousSnapshot = null;
+        var stableFrames = 0;
+        while (timer.Elapsed < timeout)
+        {
+            try
+            {
+                await WaitForRenderingAsync(timeout - timer.Elapsed).ConfigureAwait(true);
+            }
+            catch (TimeoutException exception)
+            {
+                throw new TimeoutException($"The MAUI geometry stage did not receive its native rendering frame. {DescribeNativeGeometry(ribbon, width, scale)}", exception);
+            }
+            var snapshot = ribbon.LayoutSnapshot;
+            var groups = Descendants<AbsoluteLayout>(ribbon).ToArray();
+            var arranged = Math.Abs(ribbon.Width - width) <= 1d && snapshot.Scale.Equals(scale) &&
+                Math.Abs((snapshot.AvailableWidth / scale) - width) <= 1d &&
+                groups.Length > 0 && groups.All(static group =>
+                    group.Width > 0d && group.Height > 0d &&
+                    group.Children.OfType<View>().All(static child => child.Width > 0d && child.Height > 0d));
+            stableFrames = arranged && ReferenceEquals(previousSnapshot, snapshot) ? stableFrames + 1 : 0;
+            previousSnapshot = snapshot;
+            if (stableFrames >= 2)
+            {
+                return;
+            }
+        }
+        throw new TimeoutException($"The MAUI geometry stage did not receive a stable native arrange within {timeout}. {DescribeNativeGeometry(ribbon, width, scale)}");
+    }
+
+    private static async Task WaitForRenderingAsync(TimeSpan timeout)
+    {
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        EventHandler<object> rendered = (_, _) => completion.TrySetResult(true);
+        Microsoft.UI.Xaml.Media.CompositionTarget.Rendering += rendered;
+        try
+        {
+            await completion.Task.WaitAsync(timeout).ConfigureAwait(true);
+        }
+        finally
+        {
+            Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= rendered;
+        }
+    }
+
+    private static string DescribeNativeGeometry(NeraMauiRibbonView ribbon, double width, double scale)
+    {
+        var rasterizationScale = (ribbon.Handler?.PlatformView as Microsoft.UI.Xaml.FrameworkElement)?.XamlRoot?.RasterizationScale;
+        var groups = Descendants<AbsoluteLayout>(ribbon).Select(group =>
+            $"{group.AutomationId}:bounds={group.Bounds},children=[{string.Join(";", group.Children.OfType<View>().Select(child => $"{child.AutomationId ?? child.GetType().Name}:actual={child.Bounds},assigned={AbsoluteLayout.GetLayoutBounds(child)}"))}]");
+        return $"RequestedWidth={width},RequestedScale={scale},RasterizationScale={rasterizationScale},Ribbon={ribbon.Bounds},SnapshotWidth={ribbon.LayoutSnapshot.AvailableWidth},SnapshotScale={ribbon.LayoutSnapshot.Scale},Tab={ribbon.LayoutSnapshot.SelectedTabId},Groups={string.Join("|", groups)}";
     }
 
     private static IEnumerable<T> Descendants<T>(Microsoft.Maui.IVisualTreeElement root)
