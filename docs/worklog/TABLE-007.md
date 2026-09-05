@@ -45,6 +45,15 @@
 - Geometry regression: fractional offsets, hidden/frozen rows/columns, merge,
   worksheet switch, filtered snapshot refresh/reuse và no display-list/recalc.
   MAUI dùng real host bounds khi chưa có usable GPU frame; không giả GPU PASS.
+- Followup source review sau ac96e6cc: editor giữ pane bắt đầu khi active pane
+  đổi; pane bị bỏ mới fallback pane hiện tại. Point-mode dừng khi mất capture,
+  cancel giải phóng capture; completion xóa provisional highlights cũ. Loaded
+  desktop regression thêm cross-pane Table range, moved caret và capture loss;
+  project build .302 vẫn 0 warnings/errors, runtime đợi CI.
+- MAUI bounds refresh cập nhật font theo zoom; host resize hook được detach khi
+  dispose. Windows loaded smoke kiểm tra full raw width/clip/font khi zoom rồi
+  restore dimensions/scroll/zoom. Apple smoke nhập ký tự qua native InsertText
+  để đi qua native text notifications. Chưa gọi các runtime bổ sung là PASS.
 - Gaps: T1/T2 còn native CI và Apple hardware-key evidence; T3 corpus đã có,
   final regression/exact-head CI đang chờ. CI actual SDK phải đọc log (global
   requested .302 + latestFeature có thể chọn .400), không suy ra từ config.

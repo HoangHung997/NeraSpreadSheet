@@ -49,6 +49,33 @@ internal static class Table007EditorSmoke
             $"Native Alt+Enter differs: editing={session.Editor.IsEditing}, draft={System.Text.Json.JsonSerializer.Serialize(host.CurrentEditText)}.");
         Require(ReferenceEquals(native, editor.Handler?.PlatformView), "Editing created another native overlay.");
         Require(editor.Clip is RectangleGeometry, "The editor has no cell/viewport clip.");
+        var priorWidth = sheet.Dimensions.GetColumnWidth(0);
+        var priorZoom = view.Zoom;
+        var priorScroll = view.ScrollSnapshot;
+        var priorFontSize = editor.FontSize;
+        try
+        {
+            sheet.Dimensions.SetColumnWidth(0, view.Width * 2d);
+            view.ZoomTo(priorZoom * 1.25d, 0, 0);
+            view.ScrollTo(0, 0);
+            await Task.Delay(100);
+            Require(view.TryGetEditorBounds(new CellAddress(6, 0), out var raw, out var visible),
+                "The edited cell lost geometry after zoom.");
+            Require(raw.Width > visible.Width && Math.Abs(editor.Width - raw.Width) < 2d,
+                "The native editor wrap width was reduced to its viewport clip.");
+            Require(Math.Abs(editor.FontSize - priorFontSize * 1.25d) < 0.01d,
+                "The native draft font did not track the new zoom.");
+            Require(editor.Clip is RectangleGeometry geometry && Math.Abs(geometry.Rect.Width - visible.Width) < 2d,
+                "The native clip no longer matches visible cell geometry.");
+            Require(session.Editor.IsEditing && session.History.UndoCount == count,
+                "Editor geometry changed the active draft or history.");
+        }
+        finally
+        {
+            sheet.Dimensions.SetColumnWidth(0, priorWidth);
+            view.ZoomTo(priorZoom, 0, 0);
+            view.ScrollTo(priorScroll.OffsetX, priorScroll.OffsetY);
+        }
         await PressNativeAsync(host, native, 0x1B);
         Require(!session.Editor.IsEditing, "Native Escape did not cancel the multiline draft.");
         host.SetEnglishResources(true);

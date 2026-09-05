@@ -42,8 +42,10 @@ internal sealed partial class NeraSpreadsheetSplitSurface
 
     private void ResetFormulaEditingUi()
     {
+        var releaseCapture = _formulaReferenceAnchor is not null && Capture;
         _formulaReferenceSpan = null;
         _formulaReferenceAnchor = null;
+        if (releaseCapture) Capture = false;
         _provisionalReferenceRange = null;
         _formulaSuggestionList.DataSource = null;
         _formulaSuggestionList.Visible = false;
@@ -141,8 +143,9 @@ internal sealed partial class NeraSpreadsheetSplitSurface
         else if (_formulaSuggestionList.SelectedItem is FormulaFunctionSuggestion function)
             edit = SpreadsheetFormulaEditingAssistant.ApplySuggestion(_editor.Text, _editor.SelectionStart, function);
         else return false;
-        SetFormulaEditText(edit!);
         _formulaReferenceSpan = null;
+        _provisionalReferenceRange = null;
+        SetFormulaEditText(edit!);
         return true;
     }
 
@@ -156,7 +159,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface
         }
         finally { _updatingFormulaText = false; }
         UpdateFormulaSuggestions();
-        _editor.Focus();
+        if (_formulaReferenceAnchor is null) _editor.Focus();
         Invalidate();
     }
 

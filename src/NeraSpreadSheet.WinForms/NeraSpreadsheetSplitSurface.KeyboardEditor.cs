@@ -15,6 +15,8 @@ namespace NeraSpreadSheet.WinForms;
 
 internal sealed partial class NeraSpreadsheetSplitSurface : Control
 {
+    private SpreadsheetPaneId _editorPane;
+
     protected override bool IsInputKey(Keys keyData) =>
         (keyData & Keys.KeyCode) is Keys.Left or Keys.Right or Keys.Up or Keys.Down or Keys.Tab ||
         base.IsInputKey(keyData);
@@ -126,12 +128,13 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
     private void BeginEdit(string? replacementText = null)
     {
-        if (_cellEditor is null || EnsureFrame() is null)
+        if (_cellEditor is null || EnsureFrame() is not { } frame)
         {
             return;
         }
 
         var state = _cellEditor.BeginEdit();
+        _editorPane = frame.ActivePane;
         ResetFormulaEditingUi();
         _editor.WordWrap = _session!.ActiveWorksheet.GetEffectiveStyle(state.Address, _session.Workbook.Styles).Alignment.WrapText;
         _editor.Text = replacementText ?? state.InitialText;
@@ -182,8 +185,8 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             _engine is null ||
             _session is null ||
             EnsureFrame() is not { } frame ||
-            !frame.TryGetPane(frame.ActivePane, out var paneFrame) ||
-            !_engine.TryGetCellBounds(frame.ActivePane, state.Address, out var bodyBounds))
+            !(frame.TryGetPane(_editorPane, out var paneFrame) || frame.TryGetPane(frame.ActivePane, out paneFrame)) ||
+            !_engine.TryGetCellBounds(paneFrame.Pane.PaneId, state.Address, out var bodyBounds))
         {
             _editor.Visible = false;
             return;

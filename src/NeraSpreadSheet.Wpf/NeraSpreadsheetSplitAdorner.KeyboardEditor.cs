@@ -5,12 +5,14 @@ using System.Windows.Input;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
+using NeraSpreadSheet.Layout;
 
 namespace NeraSpreadSheet.Wpf;
 
 internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 {
     private bool IsEditing => _cellEditor?.IsEditing == true;
+    private SpreadsheetPaneId _editorPane;
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
@@ -123,12 +125,13 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 
     private void BeginEdit(string? replacementText = null)
     {
-        if (_cellEditor is null || EnsureFrame() is null)
+        if (_cellEditor is null || EnsureFrame() is not { } frame)
         {
             return;
         }
 
         var state = _cellEditor.BeginEdit();
+        _editorPane = frame.ActivePane;
         ResetFormulaEditingUi();
         WpfCellEditorStyle.Apply(
             _editor,
@@ -182,8 +185,8 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             _engine is null ||
             _session is null ||
             EnsureFrame() is not { } frame ||
-            !frame.TryGetPane(frame.ActivePane, out var paneFrame) ||
-            !_engine.TryGetCellBounds(frame.ActivePane, state.Address, out var bodyBounds))
+            !(frame.TryGetPane(_editorPane, out var paneFrame) || frame.TryGetPane(frame.ActivePane, out paneFrame)) ||
+            !_engine.TryGetCellBounds(paneFrame.Pane.PaneId, state.Address, out var bodyBounds))
         {
             _editor.Visibility = Visibility.Collapsed;
             _editorBounds = Rect.Empty;

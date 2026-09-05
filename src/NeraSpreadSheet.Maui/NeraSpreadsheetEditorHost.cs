@@ -30,6 +30,7 @@ public sealed partial class NeraSpreadsheetEditorHost : Grid, IDisposable
     private bool _updating;
     private bool _disposed;
     private int _selectedCandidate;
+    private double _editorFontSize;
 
     /// <summary>Wraps a view that has not yet been attached to another layout.</summary>
     public NeraSpreadsheetEditorHost(NeraSpreadsheetView spreadsheet)
@@ -66,6 +67,7 @@ public sealed partial class NeraSpreadsheetEditorHost : Grid, IDisposable
         spreadsheet.GestureRecognizers.Add(_editGesture);
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+        SizeChanged += OnHostSizeChanged;
         SetEnglishResources(false);
         SynchronizeSession();
     }
@@ -103,7 +105,8 @@ public sealed partial class NeraSpreadsheetEditorHost : Grid, IDisposable
         var state = _session.Editor.BeginEdit();
         var style = _session.ActiveWorksheet.GetEffectiveStyle(state.Address, _session.Workbook.Styles);
         _editor.FontFamily = style.Font.Family;
-        _editor.FontSize = style.Font.Size * Spreadsheet.Zoom;
+        _editorFontSize = style.Font.Size;
+        _editor.FontSize = _editorFontSize * Spreadsheet.Zoom;
         _editor.FontAttributes = (style.Font.Weight >= 700 ? FontAttributes.Bold : FontAttributes.None) |
             (style.Font.Italic ? FontAttributes.Italic : FontAttributes.None);
         _editor.TextColor = Color.FromRgba(style.Font.Color.Red, style.Font.Color.Green, style.Font.Color.Blue, style.Font.Color.Alpha);
@@ -207,7 +210,9 @@ public sealed partial class NeraSpreadsheetEditorHost : Grid, IDisposable
 
     private void UpdateBounds()
     {
+        if (_disposed) return;
         if (_session?.Editor.State is not { } state) return;
+        _editor.FontSize = _editorFontSize * Spreadsheet.Zoom;
         if (!Spreadsheet.TryGetEditorBounds(state.Address, out var raw, out var clip))
         {
             _editor.IsVisible = _suggestions.IsVisible = _suggestionScroll.IsVisible = _actions.IsVisible = false;
@@ -279,6 +284,7 @@ public sealed partial class NeraSpreadsheetEditorHost : Grid, IDisposable
     private void OnNewline(object? sender, EventArgs e) => InsertNewline();
     private void OnEditGesture(object? sender, TappedEventArgs e) => BeginEdit();
     private void OnLoaded(object? sender, EventArgs e) => AttachNativeEditor();
+    private void OnHostSizeChanged(object? sender, EventArgs e) => UpdateBounds();
     private void OnUnloaded(object? sender, EventArgs e) { _session?.Editor.Cancel(); HideEditor(); DetachNativeEditor(); }
     private void OnEditorHandlerChanged(object? sender, EventArgs e) => AttachNativeEditor();
     private void OnEditorHandlerChanging(object? sender, HandlerChangingEventArgs e) => DetachNativeEditor();
@@ -324,6 +330,7 @@ public sealed partial class NeraSpreadsheetEditorHost : Grid, IDisposable
         _editor.HandlerChanging -= OnEditorHandlerChanging;
         Loaded -= OnLoaded;
         Unloaded -= OnUnloaded;
+        SizeChanged -= OnHostSizeChanged;
         _commit.Clicked -= OnCommit;
         _cancel.Clicked -= OnCancel;
         _newline.Clicked -= OnNewline;

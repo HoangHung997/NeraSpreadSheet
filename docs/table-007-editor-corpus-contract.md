@@ -13,6 +13,9 @@ Phạm vi T1–T3 theo wave 05/09/2026; chưa coi kế hoạch dưới đây là
   tên mới resolve từ stable IDs. Completion chỉ metadata, không history/recalc.
 - Layout theo toàn bộ cell/merge rectangle; viewport/freeze/split chỉ clip.
   Commit giữ incremental session transaction; không full recalculation UI.
+  Split editor giữ pane bắt đầu khi cuộn hoặc kích hoạt pane khác; khi pane đó
+  không còn trong layout mới, dùng pane active còn lại. Mất capture kết thúc
+  drag provisional, cancel giải phóng capture; moved caret không ghi đè span cũ.
 - LibreOffice thật import/export synthetic Nera seed trong Ubuntu CI với profile
   riêng. Ghi version, native/sanitized SHA-256, provenance và từng payload không
   đổi; chỉ core author/timestamps và ZIP timestamps được sanitize. Không gọi

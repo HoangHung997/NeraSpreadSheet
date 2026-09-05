@@ -201,6 +201,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
     protected override void OnMouseCaptureChanged(EventArgs e)
     {
         base.OnMouseCaptureChanged(e);
+        if (!Capture) _formulaReferenceAnchor = null;
         if (Capture || _splitDrag is null)
         {
             return;

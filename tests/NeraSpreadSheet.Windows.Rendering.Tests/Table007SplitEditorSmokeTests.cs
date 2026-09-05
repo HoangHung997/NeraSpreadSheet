@@ -4,6 +4,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Layout;
+using NeraSpreadSheet.Rendering.Spreadsheet;
+using NeraSpreadSheet.Viewport;
 using NeraSpreadSheet.Wpf;
 using NeraSpreadSheet.WinForms;
 using NativeWpf = System.Windows;
@@ -70,9 +72,31 @@ public sealed class Table007SplitEditorSmokeTests
                 Assert.AreEqual(360d, full.Width, 0.01d);
                 Assert.IsTrue(clip.Width < full.Width);
                 Assert.AreEqual(full.Width, editor.ActualWidth, 0.01d);
+                split.SetActivePane(SpreadsheetPaneId.TopRight);
+                split.ScrollPaneTo(SpreadsheetPaneId.TopRight, 300d, 0d);
+                split.RenderNow();
+                window.UpdateLayout();
+                Assert.AreEqual(full, Field<NativeWpf.Rect>(surface, "_editorBounds"),
+                    "Scrolling another pane must not move the active editor into that pane.");
                 PressWpf(editor, WpfInput.Key.Escape);
                 Assert.IsFalse(session.Editor.IsEditing);
                 Assert.AreSame(editor, Field<WpfControls.TextBox>(surface, "_editor"));
+                split.SetActivePane(SpreadsheetPaneId.TopLeft);
+                Invoke(surface, "BeginEdit", "=SUM(");
+                var input = (NativeWpf.UIElement)surface;
+                var start = ReferencePoint(surface, 1, owner.RenderTheme);
+                var end = ReferencePoint(surface, 3, owner.RenderTheme);
+                Assert.IsTrue((bool)Invoke(surface, "TryInsertFormulaReference", new NativeWpf.Point(start.X, start.Y))!);
+                Assert.IsTrue((bool)Invoke(surface, "UpdateFormulaReferencePointer", new NativeWpf.Point(end.X, end.Y), false)!);
+                Assert.AreEqual("=SUM(Orders[[#Data],[Amount]]", editor.Text);
+                Assert.IsTrue(input.IsMouseCaptured);
+                input.ReleaseMouseCapture();
+                var released = editor.Text;
+                Assert.IsFalse((bool)Invoke(surface, "UpdateFormulaReferencePointer", new NativeWpf.Point(start.X, start.Y), false)!);
+                Assert.AreEqual(released, editor.Text);
+                Assert.IsTrue((bool)Invoke(surface, "TryInsertFormulaReference", new NativeWpf.Point(start.X, start.Y))!);
+                PressWpf(editor, WpfInput.Key.Escape);
+                Assert.IsFalse(input.IsMouseCaptured);
             }
             finally { window.Close(); }
         });
@@ -128,10 +152,35 @@ public sealed class Table007SplitEditorSmokeTests
             Assert.AreEqual(360, editor.Width);
             Assert.IsNotNull(editor.Region);
             using (var graphics = editor.CreateGraphics()) Assert.IsTrue(editor.Region.GetBounds(graphics).Width < editor.Width);
+            var bounds = editor.Bounds;
+            split.SetActivePane(SpreadsheetPaneId.TopRight);
+            split.ScrollPaneTo(SpreadsheetPaneId.TopRight, 300d, 0d);
+            split.RenderNow();
+            Forms.Application.DoEvents();
+            Assert.AreEqual(bounds, editor.Bounds, "Scrolling another pane must not move the active editor.");
             PressForms(editor, Forms.Keys.Escape);
             Assert.IsFalse(session.Editor.IsEditing);
             Assert.AreEqual(1, session.History.UndoCount);
             Assert.AreSame(editor, Field<Forms.TextBox>(surface, "_editor"));
+            split.SetActivePane(SpreadsheetPaneId.TopLeft);
+            Invoke(surface, "BeginEdit", "=SUM(");
+            var input = (Forms.Control)surface;
+            var start = ReferencePoint(surface, 1, owner.RenderTheme);
+            var end = ReferencePoint(surface, 3, owner.RenderTheme);
+            Assert.IsTrue((bool)Invoke(surface, "TryInsertFormulaReference", (int)start.X, (int)start.Y)!);
+            Assert.IsTrue((bool)Invoke(surface, "UpdateFormulaReferencePointer", (int)end.X, (int)end.Y, false)!);
+            Assert.AreEqual("=SUM(Sales[[#Data],[Amount]]", editor.Text);
+            Assert.IsTrue(input.Capture);
+            input.Capture = false;
+            var released = editor.Text;
+            Assert.IsFalse((bool)Invoke(surface, "UpdateFormulaReferencePointer", (int)start.X, (int)start.Y, false)!);
+            Assert.AreEqual(released, editor.Text);
+            editor.Select(1, 0);
+            Assert.IsTrue((bool)Invoke(surface, "TryInsertFormulaReference", (int)start.X, (int)start.Y)!);
+            Assert.IsTrue(editor.Text.EndsWith(released[1..], StringComparison.Ordinal),
+                "Moved native caret must invalidate the old provisional span.");
+            PressForms(editor, Forms.Keys.Escape);
+            Assert.IsFalse(input.Capture);
         });
     }
 
@@ -151,8 +200,18 @@ public sealed class Table007SplitEditorSmokeTests
 
     private static T Field<T>(object target, string name) =>
         (T)target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target)!;
-    private static void Invoke(object target, string name, params object?[] args) =>
+    private static object? Invoke(object target, string name, params object?[] args) =>
         target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(target, args);
+    private static NeraSpreadSheet.Foundation.PointD ReferencePoint(object surface, int row, SpreadsheetRenderTheme theme)
+    {
+        var engine = Field<SpreadsheetSplitViewportEngine>(surface, "_engine");
+        Assert.IsTrue(engine.TryGetCellBounds(SpreadsheetPaneId.TopRight, new CellAddress(row, 1), out var bounds));
+        var width = surface is NativeWpf.FrameworkElement wpf ? wpf.ActualWidth : ((Forms.Control)surface).ClientSize.Width;
+        var height = surface is NativeWpf.FrameworkElement wpfHost ? wpfHost.ActualHeight : ((Forms.Control)surface).ClientSize.Height;
+        var chrome = SpreadsheetChromeGeometry.Calculate(width, height, theme);
+        return new(bounds.X + bounds.Width / 2d + chrome.RowHeaderWidth,
+            bounds.Y + bounds.Height / 2d + chrome.ColumnHeaderHeight);
+    }
     private static void PressWpf(WpfControls.TextBox editor, WpfInput.Key key)
     {
         var source = NativeWpf.PresentationSource.FromVisual(editor)!;

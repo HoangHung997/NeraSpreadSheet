@@ -239,6 +239,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
         base.OnLostMouseCapture(e);
+        if (!IsMouseCaptured) _formulaReferenceAnchor = null;
         if (_splitDrag is null)
         {
             return;

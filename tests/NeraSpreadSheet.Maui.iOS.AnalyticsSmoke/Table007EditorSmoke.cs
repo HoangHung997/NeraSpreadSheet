@@ -31,7 +31,7 @@ internal static class Table007EditorSmoke
             Require(host.AcceptStructuredReferenceSuggestion(0), "The Table candidate was not accepted.");
             Require(host.CurrentEditText == "=SUM(EditorSales[[#Data],[Amount]]", "Structured completion differs.");
             Require(session.History.UndoCount == 0, "Completion changed workbook history.");
-            native.Text += ")";
+            native.InsertText(")");
             native.InsertText("\n");
             Require(!session.Editor.IsEditing, "Native Enter did not commit.");
             Require(Equals(sheet.GetValue(target), 60d), "The native editor formula value differs.");

@@ -50,8 +50,10 @@ internal sealed partial class NeraSpreadsheetSplitAdorner
 
     private void ResetFormulaEditingUi()
     {
+        var releaseCapture = _formulaReferenceAnchor is not null && IsMouseCaptured;
         _formulaReferenceSpan = null;
         _formulaReferenceAnchor = null;
+        if (releaseCapture) ReleaseMouseCapture();
         _provisionalReferenceRange = null;
         _formulaSuggestionList.ItemsSource = null;
         if (_formulaSuggestionPopup is { } popup) popup.IsOpen = false;
@@ -132,8 +134,9 @@ internal sealed partial class NeraSpreadsheetSplitAdorner
         else if (_formulaSuggestionList.SelectedItem is FormulaFunctionSuggestion function)
             edit = SpreadsheetFormulaEditingAssistant.ApplySuggestion(_editor.Text, _editor.CaretIndex, function);
         else return false;
-        SetFormulaEditText(edit!);
         _formulaReferenceSpan = null;
+        _provisionalReferenceRange = null;
+        SetFormulaEditText(edit!);
         return true;
     }
 
@@ -147,7 +150,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner
         }
         finally { _updatingFormulaText = false; }
         UpdateFormulaSuggestions();
-        _editor.Focus();
+        if (_formulaReferenceAnchor is null) _editor.Focus();
         InvalidateVisual();
     }
 
