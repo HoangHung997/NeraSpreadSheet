@@ -10,6 +10,10 @@ lại khi nhận item, tên mới được dùng sau rename; deleted/stale candi
 từ chối mà không commit fragment. Point-mode thay provisional span và dùng
 Table reference chỉ khi selection đúng area/current row; vùng khác dùng A1.
 Highlight đọc draft và provisional range khi draft chưa parse hoàn chỉnh.
+Provisional span chỉ được dùng lại khi caret còn ở cuối span và selection rỗng.
+WinForms kiểm tra lại ngay tại insertion boundary vì TextBox không có
+SelectionChanged event; Up/Down/PageUp/PageDown và programmatic Select không
+được làm lần point-mode tiếp theo ghi đè reference ở vị trí caret cũ.
 Không tạo editor cho mỗi cell; raw cell rectangle quyết định wrapping và
 viewport/frozen panes chỉ clip vùng hiển thị.
 
