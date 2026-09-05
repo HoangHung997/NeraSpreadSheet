@@ -89,6 +89,13 @@ class PackageMatrixTests(unittest.TestCase):
         metadata, _ = matrix.merge_maui(packages)
         self.assertEqual(4, len(matrix.child(metadata, "frameworkReferences")))
 
+    def testEquivalentFrameworkSpellingsShouldCompareIdentically(self):
+        original = ET.fromstring('<group targetFramework="net10.0-ios18.7"/>')
+        canonical = ET.fromstring('<group targetFramework=".NETCoreApp10.0-IOS18.7"/>')
+        different = ET.fromstring('<group targetFramework="net10.0-ios18.8"/>')
+        self.assertEqual(matrix.xml_key(original), matrix.xml_key(canonical))
+        self.assertNotEqual(matrix.xml_key(original), matrix.xml_key(different))
+
     def testMixedProducerCohortShouldBeRejected(self):
         manifest = {"schemaVersion": 1, "platform": "windows", "sourceSha": SHA,
                     "version": VERSION, "sdkVersion": "10.0.302", "expectedNeutralIds": sorted(matrix.NEUTRAL_IDS)}

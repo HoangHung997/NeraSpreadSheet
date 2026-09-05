@@ -51,7 +51,9 @@ def text_of(element, name):
 
 
 def xml_key(element):
-    return (local_name(element), tuple(sorted(element.attrib.items())),
+    attributes = {name: canonical_tfm(value) if name == "targetFramework" else value
+                  for name, value in element.attrib.items()}
+    return (local_name(element), tuple(sorted(attributes.items())),
             (element.text or "").strip(), tuple(sorted(xml_key(e) for e in element)))
 
 
@@ -245,6 +247,7 @@ def prepare(source, output, sha, version, sdk):
         "targetFrameworks": sorted(tfm for p in platforms.values() for tfm in p["groups"]),
         "payloadHashes": {name: digest(data) for name, data in sorted(payload.items())},
         "metadataHash": digest(json.dumps(xml_key(metadata)).encode()),
+        "metadataComponents": {local_name(element): xml_key(element) for element in metadata},
         "mauiDependencies": maui_dependencies,
     })
 
@@ -264,8 +267,17 @@ def finalize(output):
             require(set(package["groups"]) == set(inputs["targetFrameworks"]), "Final package missing target groups")
             require({p: digest(b) for p, b in package["payload"].items()} == inputs["payloadHashes"],
                     "Final pack changed verified shard payload")
-            require(digest(json.dumps(xml_key(package["metadata"])).encode()) == inputs["metadataHash"],
-                    "Final pack changed verified dependency/framework metadata")
+            if digest(json.dumps(xml_key(package["metadata"])).encode()) != inputs["metadataHash"]:
+                actual = {local_name(element): xml_key(element) for element in package["metadata"]}
+                expected = inputs["metadataComponents"]
+                changed = [name for name in sorted(set(actual) | set(expected))
+                           if json.dumps(actual.get(name)) != json.dumps(expected.get(name))]
+                print("Changed metadata components: " + ", ".join(changed), flush=True)
+                # Only generated framework/dependency identifiers and ranges, never paths/logs.
+                for name in ("dependencies", "frameworkReferences", "references"):
+                    if name in changed:
+                        print(json.dumps({"component": name, "expected": expected.get(name), "actual": actual.get(name)}), flush=True)
+                raise ValueError("Final pack changed verified dependency/framework metadata")
         records.append({"id": package["id"], "file": path.name, "sha256": package["sha256"],
                         "frameworks": sorted(package["groups"])})
     require(identities == NEUTRAL_IDS | {MAUI_ID}, "Missing canonical SDK identity")
