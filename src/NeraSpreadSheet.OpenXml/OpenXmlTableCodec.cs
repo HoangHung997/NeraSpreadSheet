@@ -401,11 +401,19 @@ internal static class OpenXmlTableCodec
         }
         var declaredReference = (string?)autoFilter.Attribute("ref");
         if (declaredReference is not null &&
-            ParseRange(declaredReference) != expectedRange)
+            ParseRange(declaredReference) != expectedRange &&
+            !(hasTotalsRow && ParseRange(declaredReference) == tableRange &&
+              !autoFilter.HasElements && string.IsNullOrWhiteSpace(autoFilter.Value) &&
+              autoFilter.Attributes().All(attribute => attribute.IsNamespaceDeclaration || attribute.Name == "ref") &&
+              tableRoot.Element(SpreadsheetNamespace + "sortState") is null))
         {
             throw new InvalidDataException(
                 "The table AutoFilter range does not match the table range.");
         }
+        // Calc 24.2 exports an empty filter over the entire Table including totals.
+        // With no predicate/sort/opaque payload this has no visibility semantics;
+        // save normalizes it to the canonical header + data range. Other mismatches
+        // remain malformed rather than silently changing a producer's criteria.
         var unsupported = autoFilter.Elements()
             .Where(element =>
                 element.Name != SpreadsheetNamespace + "filterColumn" &&

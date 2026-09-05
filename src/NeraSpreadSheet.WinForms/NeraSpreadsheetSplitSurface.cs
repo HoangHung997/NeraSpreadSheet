@@ -51,9 +51,13 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         {
             Visible = false,
             BorderStyle = BorderStyle.FixedSingle,
+            Multiline = true,
+            AcceptsReturn = true,
+            AcceptsTab = true,
         };
         _editor.KeyDown += OnEditorKeyDown;
         Controls.Add(_editor);
+        InitializeFormulaEditingUi();
     }
 
     internal SpreadsheetSplitPaneMode Mode => _mode;

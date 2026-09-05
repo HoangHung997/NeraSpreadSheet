@@ -132,6 +132,8 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         }
 
         var state = _cellEditor.BeginEdit();
+        ResetFormulaEditingUi();
+        _editor.WordWrap = _session!.ActiveWorksheet.GetEffectiveStyle(state.Address, _session.Workbook.Styles).Alignment.WrapText;
         _editor.Text = replacementText ?? state.InitialText;
         _editor.Visible = true;
         UpdateEditorBounds();
@@ -145,16 +147,19 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             _editor.SelectionStart = _editor.TextLength;
             _editor.SelectionLength = 0;
         }
+        UpdateFormulaSuggestions();
     }
 
     private bool CommitEditor()
     {
+        var address = _cellEditor?.State?.Address;
         if (_cellEditor is null || !_cellEditor.Commit(_editor.Text))
         {
             return false;
         }
 
         HideEditor();
+        if (address is { } target) _session!.Selection.SetActiveCell(target);
         Focus();
         return true;
     }
@@ -211,24 +216,34 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         }
 
         var raw = Rectangle.FromLTRB(
-            (int)Math.Floor(chrome.RowHeaderWidth + visibleBody.Left),
-            (int)Math.Floor(chrome.ColumnHeaderHeight + visibleBody.Top),
-            (int)Math.Ceiling(chrome.RowHeaderWidth + visibleBody.Right),
-            (int)Math.Ceiling(chrome.ColumnHeaderHeight + visibleBody.Bottom));
-        var visible = Rectangle.Intersect(raw, ClientRectangle);
+            (int)Math.Floor(chrome.RowHeaderWidth + commonBounds.Left),
+            (int)Math.Floor(chrome.ColumnHeaderHeight + commonBounds.Top),
+            (int)Math.Ceiling(chrome.RowHeaderWidth + commonBounds.Right),
+            (int)Math.Ceiling(chrome.ColumnHeaderHeight + commonBounds.Bottom));
+        var clip = Rectangle.FromLTRB(
+            (int)Math.Ceiling(chrome.RowHeaderWidth + visibleBody.Left),
+            (int)Math.Ceiling(chrome.ColumnHeaderHeight + visibleBody.Top),
+            (int)Math.Floor(chrome.RowHeaderWidth + visibleBody.Right),
+            (int)Math.Floor(chrome.ColumnHeaderHeight + visibleBody.Bottom));
+        var visible = Rectangle.Intersect(clip, ClientRectangle);
         if (visible.Width <= 0 || visible.Height <= 0)
         {
             _editor.Visible = false;
             return;
         }
 
-        _editor.Bounds = visible;
+        _editor.Bounds = raw;
+        var oldRegion = _editor.Region;
+        _editor.Region = new Region(new Rectangle(visible.X - raw.X, visible.Y - raw.Y, visible.Width, visible.Height));
+        oldRegion?.Dispose();
         _editor.Visible = true;
         _editor.BringToFront();
+        UpdateFormulaSuggestionBounds();
     }
 
     private void HideEditor()
     {
+        ResetFormulaEditingUi();
         _editor.Visible = false;
         _editor.Text = string.Empty;
     }
@@ -258,8 +273,21 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
     private void OnEditorKeyDown(object? sender, KeyEventArgs e)
     {
+        if (TryHandleFormulaSuggestionKey(e))
+        {
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            return;
+        }
         if (e.KeyCode == Keys.Enter)
         {
+            if (e.Alt)
+            {
+                _editor.SelectedText = Environment.NewLine;
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
             if (CommitEditor())
             {
                 MoveActiveCell(1, 0, false);

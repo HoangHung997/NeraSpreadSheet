@@ -129,6 +129,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         }
 
         var state = _cellEditor.BeginEdit();
+        ResetFormulaEditingUi();
         WpfCellEditorStyle.Apply(
             _editor,
             _session!.ActiveWorksheet.GetEffectiveStyle(
@@ -146,16 +147,19 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         {
             _editor.CaretIndex = _editor.Text.Length;
         }
+        UpdateFormulaSuggestions();
     }
 
     private bool CommitEditor()
     {
+        var address = _cellEditor?.State?.Address;
         if (_cellEditor is null || !_cellEditor.Commit(_editor.Text))
         {
             return false;
         }
 
         HideEditor();
+        if (address is { } target) _session!.Selection.SetActiveCell(target);
         Focus();
         return true;
     }
@@ -216,11 +220,12 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         }
 
         var candidate = new Rect(
-            chrome.RowHeaderWidth + visibleBody.Left,
-            chrome.ColumnHeaderHeight + visibleBody.Top,
-            Math.Max(20d, visibleBody.Width),
-            Math.Max(18d, visibleBody.Height));
-        var viewport = new Rect(0d, 0d, Math.Max(0d, ActualWidth), Math.Max(0d, ActualHeight));
+            chrome.RowHeaderWidth + commonBounds.Left,
+            chrome.ColumnHeaderHeight + commonBounds.Top,
+            commonBounds.Width,
+            commonBounds.Height);
+        var viewport = new Rect(chrome.RowHeaderWidth + visibleBody.Left,
+            chrome.ColumnHeaderHeight + visibleBody.Top, visibleBody.Width, visibleBody.Height);
         var visible = Rect.Intersect(candidate, viewport);
         if (visible.IsEmpty || visible.Width <= 0d || visible.Height <= 0d)
         {
@@ -231,12 +236,14 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         }
 
         _editor.Visibility = Visibility.Visible;
-        _editorBounds = visible;
+        _editorBounds = candidate;
+        _editorClipBounds = new Rect(visible.X - candidate.X, visible.Y - candidate.Y, visible.Width, visible.Height);
         InvalidateArrange();
     }
 
     private void HideEditor()
     {
+        ResetFormulaEditingUi();
         _editor.Visibility = Visibility.Collapsed;
         _editorBounds = Rect.Empty;
         _editor.Text = string.Empty;
@@ -273,7 +280,13 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             return;
         }
 
-        if (e.Key is Key.Enter or Key.Return)
+        if (TryHandleFormulaSuggestionKey(e))
+        {
+            e.Handled = true;
+            return;
+        }
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key is Key.Enter or Key.Return)
         {
             if ((Keyboard.Modifiers & ModifierKeys.Alt) != 0)
             {

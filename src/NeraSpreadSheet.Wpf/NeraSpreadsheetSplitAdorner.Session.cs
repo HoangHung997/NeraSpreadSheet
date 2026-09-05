@@ -396,5 +396,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         CommitSplitViewHistory();
         DetachFrameLoop();
         DetachSessionEvents();
+        _cellEditor?.Cancel();
+        HideEditor();
     }
 }

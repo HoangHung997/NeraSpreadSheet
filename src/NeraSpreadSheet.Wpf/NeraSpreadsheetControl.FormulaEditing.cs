@@ -285,12 +285,9 @@ public sealed partial class NeraSpreadsheetControl
         FormulaTextEditResult edit;
         if (_formulaSuggestionList.SelectedItem is FormulaStructuredReferenceSuggestion structured)
         {
-            var table = _session.Workbook.Tables.FirstOrDefault(table => table.Id == structured.TableId);
-            if (structured.SourceText != _editor.Text || table is null ||
-                structured.ColumnId is { } columnId && !table.TryGetColumn(columnId, out _) ||
-                structured.Area == TableReferenceArea.ThisRow &&
-                (!_session.ActiveWorksheet.Tables.Any(candidate => candidate.Id == table.Id) ||
-                 table.DataRange?.Contains(state.Address) != true))
+            if (!SpreadsheetFormulaEditingAssistant.TryApplyStructuredReferenceSuggestion(
+                    _editor.Text, _editor.CaretIndex, _editor.SelectionLength,
+                    _session.Workbook, _session.ActiveWorksheet, state.Address, structured, out var accepted))
             {
                 // A metadata mutation can invalidate an open popup. Consume acceptance
                 // without committing the stale fragment or changing workbook history.
@@ -298,8 +295,7 @@ public sealed partial class NeraSpreadsheetControl
                 _editor.Focus();
                 return true;
             }
-            edit = SpreadsheetFormulaEditingAssistant.ApplyStructuredReferenceSuggestion(
-                _editor.Text, _session.Workbook, _session.ActiveWorksheet, state.Address, structured);
+            edit = accepted!;
         }
         else if (_formulaSuggestionList.SelectedItem is FormulaFunctionSuggestion suggestion)
         {

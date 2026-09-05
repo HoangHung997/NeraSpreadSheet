@@ -64,7 +64,11 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 
         if (IsEditing)
         {
-            CommitEditor();
+            if (TryInsertFormulaReference(e.GetPosition(this)) || !CommitEditor())
+            {
+                e.Handled = true;
+                return;
+            }
         }
         Focus();
 
@@ -189,6 +193,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         }
 
         var point = e.GetPosition(this);
+        if (UpdateFormulaReferencePointer(point)) { e.Handled = true; return; }
         if (_splitDrag is { } drag)
         {
             ApplySeparatorDrag(drag, point.X, point.Y);
@@ -208,6 +213,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonUp(e);
+        if (UpdateFormulaReferencePointer(e.GetPosition(this), release: true)) { e.Handled = true; return; }
         if (_disposed || _splitDrag is not { } drag)
         {
             return;

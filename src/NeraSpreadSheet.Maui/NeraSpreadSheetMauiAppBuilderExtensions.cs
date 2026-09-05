@@ -16,6 +16,10 @@ public static class NeraSpreadSheetMauiAppBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.UseSkiaSharp();
+#if IOS || MACCATALYST
+        builder.ConfigureMauiHandlers(static handlers =>
+            handlers.AddHandler<NeraCellEditor, NeraCellEditorHandler>());
+#endif
 #if MACCATALYST
         builder.ConfigureMauiHandlers(static handlers =>
             handlers.AddHandler<NeraSpreadsheetView, NeraMacCatalystSKGLViewHandler>());

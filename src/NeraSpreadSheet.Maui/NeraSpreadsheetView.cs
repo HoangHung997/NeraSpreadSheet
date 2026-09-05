@@ -120,6 +120,40 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
 
     public event EventHandler? ScrollChanged;
 
+    /// <summary>
+    /// Gets the full cell rectangle and visible clip in MAUI logical coordinates.
+    /// Requires a composed frame. Clipping never changes the editor's wrap width.
+    /// </summary>
+    public bool TryGetEditorBounds(CellAddress address, out RectD bounds, out RectD clip)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        bounds = default;
+        clip = default;
+        if (_viewport is null || _session is null || _lastLayout is not { } layout) return false;
+        address = _session.ActiveWorksheet.ResolveMergedAnchor(address);
+        var scroll = _scroll.Snapshot;
+        if (!_viewport.TryGetCellBounds(address, scroll.OffsetX, scroll.OffsetY, out var body)) return false;
+        var chrome = GetChromeMetrics(_zoom);
+        var frozenColumn = address.ColumnIndex < _session.View.FrozenColumns;
+        var frozenRow = address.RowIndex < _session.View.FrozenRows;
+        var pane = new RectD(frozenColumn ? 0d : layout.FrozenWidth,
+            frozenRow ? 0d : layout.FrozenHeight,
+            frozenColumn ? layout.FrozenWidth : Math.Max(0d, _lastBodyWidth - layout.FrozenWidth),
+            frozenRow ? layout.FrozenHeight : Math.Max(0d, _lastBodyHeight - layout.FrozenHeight));
+        var visible = body.Intersect(pane);
+        if (visible.IsEmpty) return false;
+        // The SKGLView frame may be physical pixels even when its MAUI layout is DIPs.
+        var scaleX = _lastSurfaceWidth > 0 && Width > 0 ? Width / _lastSurfaceWidth : 1d;
+        var scaleY = _lastSurfaceHeight > 0 && Height > 0 ? Height / _lastSurfaceHeight : 1d;
+        bounds = new RectD((body.X + chrome.RowHeaderWidth) * _zoom * scaleX,
+            (body.Y + chrome.ColumnHeaderHeight) * _zoom * scaleY,
+            body.Width * _zoom * scaleX, body.Height * _zoom * scaleY);
+        clip = new RectD((visible.X + chrome.RowHeaderWidth) * _zoom * scaleX,
+            (visible.Y + chrome.ColumnHeaderHeight) * _zoom * scaleY,
+            visible.Width * _zoom * scaleX, visible.Height * _zoom * scaleY);
+        return true;
+    }
+
     public void ScrollTo(double offsetX, double offsetY, bool animated = false)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

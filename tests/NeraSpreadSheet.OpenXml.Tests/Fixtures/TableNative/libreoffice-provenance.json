@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "file": "libreoffice-table.xlsx",
+  "producer": "LibreOffice/24.2.7.2$Linux_X86_64 LibreOffice_project/420$Build-2",
+  "version": "LibreOffice 24.2.7.2 420(Build:2)",
+  "packages": "libreoffice-calc 4:24.2.7-0ubuntu0.24.04.6\nlibreoffice-core 4:24.2.7-0ubuntu0.24.04.6",
+  "sourceCommit": "acee9abaacbf8ee8b8699c3d72ca54564f92706a",
+  "runUrl": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33971871140",
+  "seed": "nera-table.xlsx",
+  "seedSha256": "100774875CF7D38A36C19EAC3ED60E5C5CD6649ABCFE726D70B22F098F1A6C58",
+  "originalSha256": "4D5F5D3B4BDCF03083A6740FBC499D617C9BA5F6741279B438A6B57BDCFB5B52",
+  "sha256": "531D092BD1A4D1B89EB5C99900515BC3E6E78158B828DB6365E10D8891B864CE",
+  "sanitizedParts": [
+    "docProps/core.xml"
+  ],
+  "unchangedPayloadSha256": {
+    "xl/_rels/workbook.xml.rels": "ABFDD1D68F8867E6B7E784ECD8839721B05F63651C82CFF13BA6C31F084BED56",
+    "xl/workbook.xml": "9C3B4EDF557DD52CE16E7C7141B6098D227DCD146C5BFA1F09A366247DE896E0",
+    "xl/theme/theme1.xml": "7166FBE6E56296E806FC913BCDA72F42C9985CD4E07ADCD1B822BA91A3804409",
+    "xl/styles.xml": "8F40DC7FC74ED69D3AB2D3DD1756789E8E3F401CCF8E17A3109E0656AB376629",
+    "xl/worksheets/_rels/sheet1.xml.rels": "4669086ED7959834C545895922B537BE59455DE3C7596D95B3208DF47F069B99",
+    "xl/worksheets/sheet1.xml": "D13933BB9A89BAC3E9F5D616C698F22B07266940E95F2A43B7026D8945813639",
+    "xl/sharedStrings.xml": "1FC41DD0853C067B651F680117367AA30C85BFC1D7B41016215570491A2444AC",
+    "xl/tables/table1.xml": "3397614110C0A4BFFBA29D84C742AE14C9B36284BD0EFA513DEAA25CE942DA67",
+    "_rels/.rels": "8934738E3BC3451CB3A03927211465C86FC52C3D7C9A0AD6DD6AA1AE18EA2498",
+    "docProps/app.xml": "97A9907310E6D93ACD1870A5BB16E5FDE94D508F054688B92D94F6F4D771F0CD",
+    "[Content_Types].xml": "84967A97A15CF29A061EC85F5532F46FCD51C2BB1637D7DCF7BA1AE6B22DE311"
+  },
+  "recipe": "scripts/table-007-libreoffice.py; fresh isolated profile, actual Calc XLSX import/export",
+  "privacy": "Repository-owned synthetic numbers and labels only; no user document; core author/timestamps removed; ZIP timestamps normalized; all other native payloads unchanged.",
+  "license": "Original synthetic repository data; same repository rights; no third-party document content."
+}

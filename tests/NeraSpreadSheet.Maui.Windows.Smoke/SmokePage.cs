@@ -9,7 +9,7 @@ using SkiaSharp.Views.Maui;
 
 namespace NeraSpreadSheet.Maui.Windows.Smoke;
 
-internal sealed class SmokePage : ContentPage
+internal sealed class SmokePage : ContentPage, IDisposable
 {
     private static readonly TimeSpan SmokeTimeout = TimeSpan.FromSeconds(60d);
     private static readonly JsonSerializerOptions ResultJsonOptions = new()
@@ -38,6 +38,8 @@ internal sealed class SmokePage : ContentPage
     private readonly int[] _handlerIdentities = new int[ResizeSequence.Length + 1];
     private readonly int[] _contextIdentities = new int[ResizeSequence.Length + 1];
     private NeraSpreadsheetView? _view;
+    private NeraSpreadsheetEditorHost? _editorHost;
+    private bool _editorSmokePassed;
     private object? _sessionIdentity;
     private CellAddress _expectedSelectionActive;
     private CellAddress _expectedSelectionAnchor;
@@ -82,7 +84,8 @@ internal sealed class SmokePage : ContentPage
         Loaded -= OnLoaded;
         _ = MonitorTimeoutAsync();
         _view = CreateView();
-        _host.Children.Add(_view);
+        _editorHost = new NeraSpreadsheetEditorHost(_view);
+        _host.Children.Add(_editorHost);
     }
 
     private NeraSpreadsheetView CreateView()
@@ -214,10 +217,15 @@ internal sealed class SmokePage : ContentPage
     private void QueuePrimaryInput(NeraSpreadsheetView view)
     {
         _stage = SmokeStage.AwaitPrimaryInput;
-        Dispatcher.Dispatch(() =>
+        Dispatcher.Dispatch(async () =>
         {
             try
             {
+                if (!_editorSmokePassed)
+                {
+                    await Table007EditorSmoke.RunAsync(_editorHost!);
+                    _editorSmokePassed = true;
+                }
                 ApplyPinch(view);
                 ApplyPanTo(view, ExpectedOffsetX, ExpectedOffsetY);
                 ApplyCornerTap(view);
@@ -489,7 +497,7 @@ internal sealed class SmokePage : ContentPage
         {
             try
             {
-                _host.Children.Remove(view);
+                _editorHost!.Children.Remove(view);
                 view.Handler = null!;
                 _cycleLostDiagnostics = view.GpuContextDiagnostics;
                 Require(!_cycleLostDiagnostics.HasActiveContext,
@@ -507,7 +515,7 @@ internal sealed class SmokePage : ContentPage
                 ValidateClearedPointerState(view);
 
                 _recreationApplied = true;
-                _host.Children.Add(view);
+                _editorHost.Children.Insert(0, view);
             }
             catch (Exception exception)
             {
@@ -665,6 +673,7 @@ internal sealed class SmokePage : ContentPage
         WriteResult(new
         {
             status = "success",
+            table007Editor = _editorSmokePassed,
             frameCount = _frameCount,
             recreationCycles = ResizeSequence.Length,
             firstWidth = _firstFrameWidth,
@@ -708,6 +717,7 @@ internal sealed class SmokePage : ContentPage
             selectionRangeCount = _expectedSelectionRanges.Length,
             cachedTypefaces = view.CachedTypefaceCount,
         });
+        Dispose();
         Environment.Exit(0);
     }
 
@@ -796,6 +806,20 @@ internal sealed class SmokePage : ContentPage
         {
             throw new InvalidOperationException(message);
         }
+    }
+
+    public void Dispose()
+    {
+        _editorHost?.Dispose();
+        _editorHost = null;
+        if (_view is { } view)
+        {
+            view.PaintSurface -= OnPaintSurface;
+            view.Loaded -= OnViewLoaded;
+            view.Dispose();
+            _view = null;
+        }
+        GC.SuppressFinalize(this);
     }
 
     private readonly record struct ResizeDelta(double Width, double Height);

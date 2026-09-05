@@ -33,6 +33,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner, IDisposable
     private TimeSpan? _lastRenderingTime;
     private SplitDragState? _splitDrag;
     private Rect _editorBounds = Rect.Empty;
+    private Rect _editorClipBounds = Rect.Empty;
     private SpreadsheetSplitPaneMode _mode;
     private double? _splitX;
     private double? _splitY;
@@ -63,8 +64,11 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner, IDisposable
             BorderThickness = new Thickness(1d),
             Padding = new Thickness(2d, 0d, 2d, 0d),
             VerticalContentAlignment = VerticalAlignment.Center,
+            AcceptsReturn = true,
+            AcceptsTab = true,
         };
-        _editor.KeyDown += OnEditorKeyDown;
+        _editor.PreviewKeyDown += OnEditorKeyDown;
+        InitializeFormulaEditingUi();
         _visuals.Add(_gpuSurface);
         _visuals.Add(_editor);
         Loaded += OnLoaded;
@@ -144,6 +148,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner, IDisposable
         if (_editor.Visibility == Visibility.Visible && !_editorBounds.IsEmpty)
         {
             _editor.Arrange(_editorBounds);
+            _editor.Clip = new RectangleGeometry(_editorClipBounds);
         }
         else
         {
@@ -352,7 +357,9 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner, IDisposable
         }
         Loaded -= OnLoaded;
         Unloaded -= OnUnloaded;
-        _editor.KeyDown -= OnEditorKeyDown;
+        _editor.PreviewKeyDown -= OnEditorKeyDown;
+        _cellEditor?.Cancel();
+        DisposeFormulaEditingUi();
         _gpuSurface.Dispose();
         _disposed = true;
     }
@@ -377,7 +384,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner, IDisposable
         }
 
         return SpreadsheetSplitChromeDisplayListComposer.Compose(
-            frame.DisplayList,
+            ComposeFormulaHighlights(frame),
             frame.Layout,
             paneLayouts,
             _session.Selection.Capture(),
