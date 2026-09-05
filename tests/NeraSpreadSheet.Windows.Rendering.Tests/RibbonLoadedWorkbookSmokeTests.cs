@@ -1,4 +1,5 @@
 using System.Runtime.ExceptionServices;
+using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
@@ -6,6 +7,9 @@ using System.Windows.Media;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
+using NeraSpreadSheet.Layout;
+using NeraSpreadSheet.OpenXml;
+using NeraSpreadSheet.Rendering.Spreadsheet;
 using NeraSpreadSheet.Wpf;
 using NeraSpreadSheet.Wpf.Sample;
 using ListBox = System.Windows.Controls.ListBox;
@@ -27,6 +31,140 @@ public sealed class RibbonLoadedWorkbookSmokeTests
     [Timeout(60_000)]
     public void WorksheetTabsShouldRemainHorizontalAndRevealTheActiveSheetAfterResize()
         => RunSta(VerifyWorksheetTabs);
+
+    [TestMethod]
+    [Timeout(60_000)]
+    public void ImportedSplitShellShouldPreservePaneStateHistoryAndSingleInputTopology()
+        => RunSta(VerifyImportedSplitShell);
+
+    private static void VerifyImportedSplitShell()
+    {
+        var source = new SpreadsheetSession(new Workbook());
+        source.ActiveWorksheet.SetValue(default, "Synthetic split import");
+        source.Workbook.AddWorksheet("Unsplit");
+        var hiddenSheet = source.Workbook.AddWorksheet("Hidden pane offsets");
+        var state = new SpreadsheetSplitViewState(SpreadsheetSplitViewMode.Both, 300.5d, 110.25d,
+            SpreadsheetSplitViewPane.BottomRight, new(12.25d, 20.5d), new(31.75d, 41.125d),
+            new(51.5d, 61.75d), new(71.25d, 81.5d));
+        var hiddenState = state.WithTopology(SpreadsheetSplitViewMode.Vertical, 270.125d, null);
+        source.View.SetSplitState(state);
+        source.View.SetSplitState(hiddenSheet, hiddenState);
+        var session = RoundTrip(source);
+        var first = session.ActiveWorksheet;
+        var beforeVersion = first.Version;
+        var beforeUsed = first.UsedCellCount;
+        var selection = session.Selection.Capture();
+        session.View.SetFrozenPanes(1, 1);
+        session.View.ExecuteSplitViewChange(state.WithPaneScroll(SpreadsheetSplitViewPane.TopLeft, 99d, 88d), "Synthetic prior view change");
+        Assert.IsTrue(session.View.UndoSplitViewChange());
+        var undo = session.View.SplitViewUndoCount;
+        var redo = session.View.SplitViewRedoCount;
+        var viewVersion = session.View.Version;
+        using var window = new RibbonPreviewWindow(session, "Loaded split workbook") { ShowInTaskbar = false };
+        try
+        {
+            window.Show();
+            PumpSplit(window);
+            var grid = Descendants(window).OfType<NeraSpreadsheetControl>().Single();
+            Assert.IsTrue(grid.TryGetSplitPaneController(out var split));
+            Assert.AreSame(session, split.Session);
+            Assert.IsTrue(split.IsAttached);
+            split.RenderNow();
+            Assert.AreEqual(4, split.LastFrame?.Panes.Count);
+            Assert.AreEqual(8, split.LastFrame?.ScrollBars.Bars.Count);
+            Assert.AreEqual(state, session.View.SplitState);
+            Assert.AreEqual(undo, session.View.SplitViewUndoCount);
+            Assert.AreEqual(redo, session.View.SplitViewRedoCount);
+            Assert.AreEqual(viewVersion, session.View.Version, "Opening a split shell must not publish a view mutation.");
+            Assert.AreEqual(selection.ActiveCell, session.Selection.ActiveCell);
+            Assert.AreEqual(selection.Version, session.Selection.Version);
+            Assert.IsFalse(grid.IsHitTestVisible);
+            Assert.IsFalse(grid.Focusable);
+            Assert.IsTrue(NavigationBars(window).All(bar => bar.Visibility == Visibility.Collapsed && !bar.IsEnabled));
+
+            // Drive the existing integrated native scrollbar state machine, not an
+            // optional second overlay or a synthetic controller in the test.
+            var frame = split.LastFrame!;
+            Assert.IsTrue(frame.ScrollBars.TryGetBar(SpreadsheetPaneId.BottomRight,
+                SpreadsheetScrollBarOrientation.Horizontal, out var bar));
+            var adorner = Field<object>(split, "_adorner");
+            var chrome = SpreadsheetChromeGeometry.Calculate(grid.ActualWidth, grid.ActualHeight, grid.RenderTheme);
+            var pointX = bar.IncreaseButtonBounds.Left + bar.IncreaseButtonBounds.Width / 2d + chrome.RowHeaderWidth;
+            var pointY = bar.IncreaseButtonBounds.Top + bar.IncreaseButtonBounds.Height / 2d + chrome.ColumnHeaderHeight;
+            var begin = adorner.GetType().GetMethod("TryBeginScrollBarInteraction", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(begin);
+            Assert.AreEqual(true, begin.Invoke(adorner, [pointX, pointY]));
+            PumpSplit(window);
+            var after = session.View.SplitState;
+            Assert.AreEqual(state.TopLeftScroll, after.TopLeftScroll);
+            Assert.AreEqual(state.TopRightScroll, after.TopRightScroll);
+            Assert.AreEqual(state.BottomLeftScroll, after.BottomLeftScroll);
+            Assert.AreEqual(state.BottomRightScroll.OffsetY, after.BottomRightScroll.OffsetY);
+            Assert.AreEqual(state.BottomRightScroll.OffsetX + grid.RenderTheme.ScrollBarLineStep,
+                after.BottomRightScroll.OffsetX, 0.01d);
+            Assert.AreEqual(beforeVersion, first.Version);
+            Assert.AreEqual(beforeUsed, first.UsedCellCount);
+            Assert.AreEqual(0, session.History.UndoCount);
+
+            session.ActivateWorksheet(session.Workbook.Worksheets[1]);
+            PumpSplit(window);
+            Assert.IsFalse(grid.TryGetSplitPaneController(out _));
+            Assert.IsTrue(grid.IsHitTestVisible && grid.Focusable);
+            Assert.IsTrue(NavigationBars(window).All(item => item.Visibility == Visibility.Visible && item.IsEnabled));
+            Assert.IsTrue(grid.UseAdaptiveNavigationExtent);
+            Assert.AreEqual(0, session.ActiveWorksheet.UsedCellCount, "An empty loaded worksheet must remain empty.");
+            session.ActivateWorksheet(session.Workbook.Worksheets[2]);
+            PumpSplit(window);
+            Assert.IsTrue(grid.TryGetSplitPaneController(out split));
+            split.RenderNow();
+            Assert.AreEqual(2, split.LastFrame?.Panes.Count);
+            Assert.AreEqual(hiddenState, session.View.SplitState, "Hidden pane offsets must survive shell activation.");
+            session.ActivateWorksheet(first);
+            PumpSplit(window);
+            Assert.AreEqual(after, session.View.SplitState);
+            Assert.AreEqual(1, session.View.FrozenRows);
+            Assert.AreEqual(1, session.View.FrozenColumns);
+            Assert.IsTrue(session.View.ClearSplitPanes());
+            PumpSplit(window);
+            Assert.IsFalse(grid.TryGetSplitPaneController(out _));
+            Assert.AreEqual(after.TopLeftScroll.OffsetX, grid.ScrollSnapshot.OffsetX, 1e-9);
+            session.View.SetSplitState(after);
+            PumpSplit(window);
+            Assert.IsTrue(grid.TryGetSplitPaneController(out split));
+            Assert.AreEqual(after, session.View.SplitState);
+            var reopened = RoundTrip(session);
+            Assert.AreEqual(after, reopened.View.SplitState);
+            Assert.AreEqual(hiddenState, reopened.View.GetSplitState(reopened.Workbook.Worksheets[2]));
+            Assert.AreEqual(beforeUsed, reopened.ActiveWorksheet.UsedCellCount);
+        }
+        finally { window.Close(); Pump(window); }
+    }
+
+    private static SpreadsheetSession RoundTrip(SpreadsheetSession session)
+    {
+        var serializer = new NeraOpenXmlSpreadsheetSessionSerializer();
+        using var stream = new MemoryStream();
+        serializer.SaveSessionAsync(session, stream, new OpenXmlExportOptions()).GetAwaiter().GetResult();
+        stream.Position = 0;
+        return serializer.LoadSessionAsync(stream, new OpenXmlImportOptions()).GetAwaiter().GetResult();
+    }
+
+    private static System.Windows.Controls.Primitives.ScrollBar[] NavigationBars(Window window) =>
+        Descendants(window).OfType<System.Windows.Controls.Primitives.ScrollBar>().Where(bar =>
+            System.Windows.Automation.AutomationProperties.GetAutomationId(bar)
+                .StartsWith("preview-worksheet-scroll-", StringComparison.Ordinal)).ToArray();
+
+    private static void PumpSplit(Window window)
+    {
+        window.UpdateLayout();
+        var frame = new System.Windows.Threading.DispatcherFrame();
+        var timer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.ApplicationIdle)
+        { Interval = TimeSpan.FromMilliseconds(100d) };
+        timer.Tick += (_, _) => { timer.Stop(); frame.Continue = false; };
+        timer.Start();
+        System.Windows.Threading.Dispatcher.PushFrame(frame);
+        window.UpdateLayout();
+    }
 
     private static void RunSta(Action verify)
     {

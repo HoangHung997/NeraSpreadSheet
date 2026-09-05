@@ -10,6 +10,7 @@ using System.Windows.Threading;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Iconography;
+using NeraSpreadSheet.OpenXml;
 using NeraSpreadSheet.Ribbon.Core;
 
 namespace NeraSpreadSheet.Wpf.Sample;
@@ -197,6 +198,7 @@ public sealed partial class RibbonPreviewWindow
             }
         }
         await CaptureLocalizationAsync(outputDirectory, images);
+        await CaptureNavigationShellAsync(outputDirectory, images);
         Console.Error.WriteLine($"Capture: complete, {images.Count} images.");
         var manifest = new
         {
@@ -214,6 +216,78 @@ public sealed partial class RibbonPreviewWindow
         await Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.Render);
         await Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ApplicationIdle);
         _root.UpdateLayout();
+    }
+
+    private static async Task CaptureNavigationShellAsync(string outputDirectory, List<object> images)
+    {
+        var workbook = new Workbook();
+        workbook.RenameWorksheet(workbook.Worksheets[0], "Split đã lưu");
+        workbook.AddWorksheet("Trang độc lập");
+        foreach (var worksheet in workbook.Worksheets)
+        {
+            for (var column = 0; column < 6; column++)
+            {
+                worksheet.Dimensions.SetColumnWidth(column, 145d);
+                worksheet.SetValue(new CellAddress(0, column), $"Cột {column + 1}");
+                for (var row = 1; row < 24; row++)
+                    worksheet.SetValue(new CellAddress(row, column), row * 10d + column);
+            }
+        }
+        var source = new SpreadsheetSession(workbook);
+        var stored = new SpreadsheetSplitViewState(SpreadsheetSplitViewMode.Both, 440.5d, 180.25d,
+            SpreadsheetSplitViewPane.BottomRight, new(12.25d, 20.5d), new(31.75d, 41.125d),
+            new(51.5d, 61.75d), new(71.25d, 81.5d));
+        source.View.SetSplitState(stored);
+        var serializer = new NeraOpenXmlSpreadsheetSessionSerializer();
+        using var stream = new MemoryStream();
+        await serializer.SaveSessionAsync(source, stream, new OpenXmlExportOptions());
+        stream.Position = 0;
+        var session = await serializer.LoadSessionAsync(stream, new OpenXmlImportOptions());
+        using var window = new RibbonPreviewWindow(session, "Điều hướng worksheet · Workbook XLSX tổng hợp")
+        {
+            ShowInTaskbar = false, WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize,
+            Left = -32000, Top = -32000, Width = 1056, Height = 760,
+        };
+        window._root.CaptureFullLayout = true;
+        window._root.Width = 1024;
+        window._root.Height = 720;
+        try
+        {
+            window.Show();
+            foreach (var theme in Enum.GetValues<NeraIconTheme>())
+            {
+                window.SetTheme(theme);
+                session.ActivateWorksheet(session.Workbook.Worksheets[0]);
+                await window.FlushCaptureAsync();
+                var split = window._splitShell ?? throw new InvalidOperationException("The loaded split shell was not attached.");
+                split.RenderNow();
+                await window.FlushCaptureAsync();
+                if (!split.IsAttached || split.LastFrame?.Panes.Count != 4 || split.LastFrame.ScrollBars.Bars.Count != 8 ||
+                    session.View.SplitState != stored || session.View.SplitViewUndoCount != 0 ||
+                    window._horizontalNavigation.IsVisible || window._verticalNavigation.IsVisible)
+                    throw new InvalidOperationException("The loaded split capture changed state or exposed duplicate scrollbar topology.");
+                var splitName = $"release009-navigation-{theme.ToString().ToLowerInvariant()}-split.png";
+                SaveCapture(window._root, Path.Combine(outputDirectory, splitName), 1d);
+                images.Add(new { file = splitName, theme = theme.ToString(), tab = "loaded-split-navigation", exportScale = 1d });
+
+                session.ActivateWorksheet(session.Workbook.Worksheets[1]);
+                await window.FlushCaptureAsync();
+                window._horizontalNavigation.Value = 63.25d;
+                window._verticalNavigation.Value = 91.5d;
+                for (var attempt = 0; attempt < 100 &&
+                    (window._sheet.ScrollSnapshot.OffsetX != 63.25d || window._sheet.ScrollSnapshot.OffsetY != 91.5d); attempt++)
+                    await Task.Delay(50);
+                await window.FlushCaptureAsync();
+                if (window._splitShell is not null || !window._horizontalNavigation.IsVisible || !window._verticalNavigation.IsVisible ||
+                    window._sheet.ScrollSnapshot.OffsetX != 63.25d || window._sheet.ScrollSnapshot.OffsetY != 91.5d ||
+                    session.History.UndoCount != 0)
+                    throw new InvalidOperationException("The standalone navigation capture did not apply the native bar offsets.");
+                var standaloneName = $"release009-navigation-{theme.ToString().ToLowerInvariant()}-standalone.png";
+                SaveCapture(window._root, Path.Combine(outputDirectory, standaloneName), 1d);
+                images.Add(new { file = standaloneName, theme = theme.ToString(), tab = "standalone-navigation", exportScale = 1d });
+            }
+        }
+        finally { window.Close(); }
     }
 
     private static void SaveCapture(FrameworkElement element, string filename, double scale)
