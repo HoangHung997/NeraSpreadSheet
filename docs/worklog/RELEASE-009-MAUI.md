@@ -60,7 +60,15 @@ giữ native Register name. Android build SUCCESS nhưng script gặp scalar Cou
 khi chỉ có một APK: bọc toàn if-expression trong array để giữ 0/1/many semantics.
 Không sửa SDK hoặc bỏ analyzers; runtime vẫn OPEN.
 
+Source `f80078381f1b74c2e6e8dd56dd0d0dd283eb27f5`, MAUI run `33987543995`:
+Windows/iOS/Android consumer SUCCESS; Mac build 0 warnings/errors nhưng fixed
+bundle basename discovery không tìm đúng một app. Thay bằng unique actual
+CFBundleIdentifier qua built Info.plist; appName được ghi và kiểm với build
+manifest. Năm producers/assembler vẫn SUCCESS. Existing Q33987598805,
+packages33987600233, demo33987601758 SUCCESS; full33987595198/iOS33987596708
+còn chạy tại checkpoint này, không dùng thay final exact-head gates.
+
 ## Bước tiếp theo duy nhất
 
-Push/check cohort sau `823e913e` với hai fixes Apple naming/PowerShell collection;
-chỉ nối launcher sau root release và giữ runtime OPEN tới actual evidence.
+Push/check cohort sau `f8007838` với Apple bundle identity discovery; chỉ nối
+launcher sau root release và giữ runtime OPEN tới actual evidence.
