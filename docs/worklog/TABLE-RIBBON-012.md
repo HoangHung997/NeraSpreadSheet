@@ -1,6 +1,6 @@
 # TABLE-RIBBON-012 — Table Design integration and UX
 
-- State: ACTIVE.
+- State: CI; implementation and local handoff checks complete.
 - Branch: `feature/table-ribbon-012-integration`.
 - Base: `488c61ea75ea6c8f7a6ceb480035a341f24c6c19`.
 - Imported immutable TABLE-005 baseline, in order:
@@ -58,6 +58,11 @@
   Table capture **33 images / 16 native snapshots**: four palettes and widths
   1024/1280/1600/1920, 125/150/200 raster exports, independent logical-layout
   invariants at scale 1/1.25/1.5/2 (also 820 width). Images inspected locally.
+  Review found initial 1600/1920 exports stretched a monitor-capped source.
+  Capture now uses an explicit source viewbox and capture-only unclipped root;
+  native window, root, Ribbon and layout widths are separately recorded and
+  asserted. Corrected 1920 export was inspected: normal text/cell proportions,
+  complete worksheet chooser/footer, no clipping or horizontal stretching.
 - Capture verifies native gallery and totals ComboBox mutation/Undo, cancel with
   no history, Vietnamese validation, Create/Rename/Resize/calculated/custom
   totals/Remove duplicates/Convert to range with one history entry and Undo,
@@ -68,10 +73,27 @@
   after imported baseline `8957f42a`; no package/project/workflow/shared
   coordination/private workbook/machine path is committed.
 
-## Remaining gate and limits
+## Implementation checkpoint and final handoff protocol
 
-Exact-head full CI, iOS and Q003C runs are pending. Local focus/cursor failures
-must be assessed against unchanged full Windows CI. This is not yet a handoff.
+- Implementation SHA: `facd85b0b3941b05f219d9080fc9b54c8b73a8dc`.
+- Checkpoint full CI: [33951644008](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33951644008).
+  Core, Windows, Apple and Android jobs passed; MAUI Windows Ribbon/Table-filter
+  loaded smokes passed and the remaining MAUI smokes were still running when
+  this record was prepared.
+- Windows job `101267443982`: **77/77**, capture **177/128**, build **0/0**.
+  The two local failures did not reproduce in CI; their cause is not established.
+- Checkpoint [iOS 33951645436](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33951645436)
+  and [Q003C 33951646681](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33951646681)
+  passed at that exact implementation SHA.
+- This record ships with the capture-only correction as a descendant of the
+  implementation checkpoint. Final SHA is the containing commit, resolved with
+  `git rev-parse feature/table-ribbon-012-integration`; it cannot contain its own
+  hash. All three workflows must be dispatched and inspected at this final SHA,
+  including every job, before the task's final handoff is sent to coordinator.
+  The final task response supplies the resulting SHA and direct run URLs.
+  A green implementation parent is not evidence for the final descendant.
+
+## Limits
 
 Dialogs are WPF sample integration; SDK users provide a callback on any host.
 Read-only policy continues through command handlers; no workbook protection

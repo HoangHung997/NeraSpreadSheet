@@ -26,8 +26,11 @@ public sealed partial class RibbonPreviewWindow
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
         Directory.CreateDirectory(outputDirectory);
         ShowInTaskbar = false;
+        WindowStyle = WindowStyle.None;
+        ResizeMode = ResizeMode.NoResize;
         Left = -32000;
         Top = -32000;
+        _root.CaptureFullLayout = true;
         _root.Height = 600;
         var images = new List<object>();
         var layouts = new List<object>();
@@ -72,6 +75,11 @@ public sealed partial class RibbonPreviewWindow
                     if (_session.Selection.ActiveCell != selection)
                         throw new InvalidOperationException("Ribbon layout changed worksheet selection.");
                     var nativeLayout = _ribbon.LayoutSnapshot;
+                    if (Math.Abs(_root.ActualWidth - width) > 0.01 ||
+                        Math.Abs(_ribbon.ActualWidth - width) > 0.01 ||
+                        Math.Abs(nativeLayout.AvailableWidth / nativeLayout.Scale - width) > 0.01 ||
+                        LayoutInformation.GetLayoutClip(_root) is not null)
+                        throw new InvalidOperationException("The loaded capture surface does not match the requested logical width.");
                     ValidateCaptureLayout(nativeLayout);
                     var filename = $"{theme.ToString().ToLowerInvariant()}-{width}-{tabId}.png";
                     SaveCapture(_root, Path.Combine(outputDirectory, filename), 1);
@@ -79,6 +87,8 @@ public sealed partial class RibbonPreviewWindow
                     layouts.Add(new
                     {
                         theme = theme.ToString(), logicalWidth = width, tab = tabId,
+                        windowWidth = ActualWidth, rootWidth = _root.ActualWidth, ribbonWidth = _ribbon.ActualWidth,
+                        rootClipWidth = LayoutInformation.GetLayoutClip(_root)?.Bounds.Width,
                         nativeScale = nativeLayout.Scale, ribbonHeight = _ribbon.ActualHeight,
                         groups = nativeLayout.Tabs.Single(tab => tab.Presentation.Id == tabId).Groups.Select(group => new
                         {
@@ -187,7 +197,7 @@ public sealed partial class RibbonPreviewWindow
         var manifest = new
         {
             schemaVersion = 2, status = "success", preview = "Production Table Design commands; Nera-generated synthetic workbook",
-            note = "Export scale tests raster sampling; native DPI is reported separately. Core layout is checked at 1/1.25/1.5/2.",
+            note = "Loaded offscreen logical-surface capture. OS-capped native window width is reported separately from arranged root/Ribbon width; this is not physical visible-window verification. Export scales are raster sampling; native DPI and 1/1.25/1.5/2 layout checks are separate.",
             commandSmoke = "Bold/Undo; Table.TotalsFunction/Average/Undo; Table.Style/mutation/Undo; dialog cancellation/validation; Create/Rename/Resize/CalculatedColumn/CustomTotals/RemoveDuplicates/ConvertToRange with Undo", selection = selection.ToString(), images, layouts,
         };
         await File.WriteAllTextAsync(Path.Combine(outputDirectory, "manifest.json"),
@@ -211,7 +221,12 @@ public sealed partial class RibbonPreviewWindow
         {
             drawing.DrawRectangle(Window.GetWindow(element)?.Background ?? Brushes.White, null,
                 new Rect(0, 0, element.ActualWidth, element.ActualHeight));
-            drawing.DrawRectangle(new VisualBrush(element) { Stretch = Stretch.Fill }, null,
+            drawing.DrawRectangle(new VisualBrush(element)
+            {
+                ViewboxUnits = BrushMappingMode.Absolute,
+                Viewbox = new Rect((Point)VisualTreeHelper.GetOffset(element), new Size(element.ActualWidth, element.ActualHeight)),
+                Stretch = Stretch.Fill,
+            }, null,
                 new Rect(0, 0, element.ActualWidth, element.ActualHeight));
         }
         bitmap.Render(visual);
