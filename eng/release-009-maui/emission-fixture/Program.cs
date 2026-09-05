@@ -24,6 +24,7 @@ internal static class Program
     private const string NonceVariable = "NERA_MAUI_SMOKE_NONCE";
     private const string PathVariable = "NERA_MAUI_SMOKE_RESULT";
     private static readonly string Description = string.Concat(Enumerable.Repeat("Dữ liệu kiểm chứng 🧪 ", 300));
+    private static readonly string[] AssemblyNames = ["Maui", "Core", "Editing", "Formulas", "Rendering.Skia", "Ribbon.Core"];
 
     private static int Main()
     {
@@ -63,7 +64,7 @@ internal static class Program
         description = Description, publicApiOnly = true, controllerEditUndo = true,
         actualResize = true, filterValues = 20,
         gpu = new { FramesFailed = 0, FramesCompleted = 3, HasActiveFrame = false },
-        assemblies = new[] { "Maui", "Core", "Editing", "Formulas", "Rendering.Skia", "Ribbon.Core" }
+        assemblies = AssemblyNames
             .Select(name => new { name = "NeraSpreadSheet." + name,
                 informationalVersion = CohortIdentity.Version + "+" + CohortIdentity.SourceSha }).ToArray(),
     };
