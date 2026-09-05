@@ -1,5 +1,12 @@
 # Kế hoạch hoàn thiện Table, Filter, Ribbon và UX
 
+Cập nhật tích hợp A ngày 05/09/2026: source TABLE-006-NATIVE `4ae7731f` xanh
+ba workflow/bảy job, đã ghép năm commits thành `1aaba747`. Standalone native
+editor và corpus Excel/Nera đã có; MAUI/split editor, LibreOffice và các giới
+hạn preservation vẫn mở. UX-006 tiếp tục độc lập, chưa đạt capture/theme gates.
+Không chờ lịch dự kiến, cũng không bỏ cổng exact-final-HEAD integration.
+[Hồ sơ tích hợp native Table](worklog/TABLE_NATIVE_INTEGRATION_20260905.md).
+
 Đợt tiếp tục 05/09/2026: từ final integrated `2bc00eb6` xanh đủ ba workflow,
 TABLE-006-NATIVE tiếp tục native editor/corpus; UX-006 khởi động sớm phần
 chrome/localization độc lập trên worktree riêng. Hai task đã active, cùng

@@ -1,6 +1,37 @@
 # Current Work Handoff
 
-## Current dispatch — TABLE-006-NATIVE / UX-006
+## Current integration — TABLE-006-NATIVE; UX-006 vẫn đang chạy
+
+- Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+  A đã bàn giao final `4ae7731fbc35362809fd9fb4027b53fdbfb6ebdc`, được kiểm tra
+  trực tiếp full #1339 / `33958874774`, iOS #160 / `33958876307`, Q003C #157 /
+  `33958877741`: đủ ba workflow/bảy job success đúng source SHA.
+- Đã cherry-pick đúng năm commits A sau `2bc00eb6` lên `554fbf7e`, không conflict.
+  Implementation integration **`1aaba747f379877d0b1813ebebbf3705763a6186`**;
+  production/tests/scripts/CI giống source final. Không nhập source B.
+- Standalone WPF/WinForms completion/point-mode/highlights, hai caret/pointer
+  regressions, General dxf decoder và Table differential-style preservation đã
+  ghép. Corpus Excel/Nera có provenance/privacy/schema/repeated roundtrip.
+- Source CI: Core 1497/1497, Windows 102/102, 0 skip. Integration desktop build
+  0 warnings/0 errors; Core 1497/1497, 0 skip; architecture/packaging/diff pass.
+  Integration exact-final-HEAD CI sau commit tài liệu vẫn bắt buộc;
+  kết quả final ghi trên PR #1, không thay bằng green source/commit cha.
+- A đã release quyền ghi và desktop. B task
+  `01a070af-9093-7303-a811-821cde640467` còn ACTIVE, desktop **độc quyền B**.
+  B đang sửa WPF Filter capture starvation/MAUI theme và kiểm chứng UX; candidate
+  `f9fc3724` chưa đạt gates. Không ghép sớm, đổi base hoặc sửa owned files của B.
+- Whole TABLE-006 còn mở: MAUI/split editor assistance, LibreOffice corpus,
+  physical DPI; dataDxfId preserve-only và mixed opaque CF editing chưa hỗ trợ.
+  Không đóng gói demo/NuGet/Avalonia hoặc tự merge PR.
+- File trọng tâm, commit map, review, tests và rollback:
+  [TABLE_NATIVE_INTEGRATION_20260905.md](TABLE_NATIVE_INTEGRATION_20260905.md),
+  [TABLE-006-NATIVE.md](TABLE-006-NATIVE.md),
+  [contract](../table-native-compatibility-contract.md).
+- Bước tiếp theo duy nhất: xác minh ba workflow/bảy job trên HEAD tích hợp cuối
+  gồm tài liệu rồi ghi handoff PR; chỉ nhận delta B sau `2bc00eb6` khi final
+  handoff/review/exact-source CI của B đạt.
+
+## Historical dispatch — TABLE-006-NATIVE / UX-006
 
 - Integration branch `feature/bootstrap-architecture-v0.1`, PR #1
   Draft/open/unmerged. Final integration baseline

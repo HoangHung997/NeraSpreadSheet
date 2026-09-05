@@ -1,5 +1,28 @@
 # Đợt TABLE-006-NATIVE / UX-006 — 05/09/2026
 
+## Cập nhật hiện hành — A đã handoff, B tiếp tục
+
+A final `4ae7731f` xanh full `33958874774`, iOS `33958876307`, Q003C
+`33958877741`, đủ bảy job. Coordinator ghép năm commits thành `1aaba747`,
+không conflict; final integration CI là cổng riêng. Xem
+[integration record](TABLE_NATIVE_INTEGRATION_20260905.md).
+A đã release toàn bộ files/desktop. **Desktop hiện độc quyền B**, sau các
+lượt transfer có xác nhận trên PR #1 và source worklogs; quyền ban đầu bên
+dưới chỉ là lịch sử, không cho A tự chạy native local lại.
+
+Các transfer file đã chấp thuận và không có hai writer cùng lúc:
+
+- A: OpenXmlConditionalFormattingCodec.cs và OpenXmlPackagePreserver.cs cho
+  native General/Table dxf; không thay Core catalog hoặc mixed opaque CF merge.
+- B: MAUI NeraSpreadsheetTableHost.cs/Keyboard.Windows.cs cho presentation;
+  một upload-artifact step trong ci.yml sau loaded TableFilterSmoke, chỉ
+  ux006-*.png, always/error nếu thiếu. Không đổi job/gates/timeouts/retries.
+- Coordinator là writer integration/status/CURRENT/board; source B vẫn từ
+  `2bc00eb6`, chưa nhập vì đang sửa WPF capture/MAUI theme tại `f9fc3724`.
+
+Không tạo thêm task trong wave; TABLE-006 chưa đóng toàn bộ và UX-006 chưa
+được nghiệm thu. Quyền ban đầu và scope chi tiết tiếp tục được giữ dưới đây.
+
 ## Baseline và quyết định
 
 Người dùng yêu cầu tiếp tục phần dở và mở worktree cho phần mới có thể chạy
@@ -19,7 +42,7 @@ và không bỏ combined CI khi nghiệm thu.
 
 | Lane | Checkpoint | Branch dự kiến | Trạng thái |
 | --- | --- | --- | --- |
-| A | TABLE-006-NATIVE — editor và producer corpus | `feature/table-006-native-compat` | ACTIVE |
+| A | TABLE-006-NATIVE — editor và producer corpus | `feature/table-006-native-compat` | HANDED OFF / RELEASED; integrated `1aaba747` |
 | B | UX-006 — visual system và localization | `feature/ux-006-visual-localization` | ACTIVE |
 
 Đã xác nhận task có turn `inProgress`, đúng model/effort/base và worklog claim:

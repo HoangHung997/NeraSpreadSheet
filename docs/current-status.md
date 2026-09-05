@@ -1,6 +1,23 @@
 # NeraSpreadSheet current implementation status
 
-## TABLE-006-NATIVE / UX-006 — ACTIVE TRÊN HAI WORKTREE
+## TABLE-006-NATIVE — ĐÃ GHÉP SOURCE; UX-006 VẪN ACTIVE
+
+A đã bàn giao `4ae7731fbc35362809fd9fb4027b53fdbfb6ebdc`, xanh đủ bảy job
+đúng SHA: full #1339 / `33958874774`, iOS #160 / `33958876307`, Q003C #157 /
+`33958877741`. Core **1497/1497**, Windows runtime **102/102**, không skip.
+Coordinator ghép đúng năm commits, không conflict, thành implementation
+`1aaba747f379877d0b1813ebebbf3705763a6186`. Exact-HEAD integration CI sau tài
+liệu vẫn là cổng riêng trước nghiệm thu. Xem
+[hồ sơ tích hợp](worklog/TABLE_NATIVE_INTEGRATION_20260905.md).
+
+Standalone WPF/WinForms có Table completion/point-mode/draft highlights và
+hai regression caret/pointer; corpus Excel/Nera cùng dxf import/preservation
+đã ghép. Whole TABLE-006 vẫn mở vì MAUI/split editor, LibreOffice producer,
+physical DPI và các giới hạn preservation được ghi trong contract.
+UX-006 đang sửa lỗi capture WPF/MAUI theme tại source riêng, chưa tích hợp.
+Desktop hiện do B sở hữu; A đã release toàn bộ. Không publish demo/NuGet.
+
+## TABLE-006-NATIVE / UX-006 — LỊCH SỬ DISPATCH HAI WORKTREE
 
 Baseline tích hợp cuối `2bc00eb667da2f2c5afda1024ab753ac638d85d4` đã xanh
 full CI #1334 / `33954450148`, iOS #155 / `33954450152`, Q003C #152 /

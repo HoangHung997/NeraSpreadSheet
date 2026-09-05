@@ -26,7 +26,7 @@ Task owners write their own `docs/worklog/<CHECKPOINT>.md` handoff.
 | 9 | `RIBBON-VISUAL-011` | A | `DONE` | Codex task `RIBBON-VISUAL-011 — Excel-density adaptive layout` | `feature/ribbon-visual-011` | `RIBBON-010` | integrated/green implementation 05/09 |
 | 10 | `TABLE-005` | Source | `DONE` | Coordinator; source imported once through A | `feature/bootstrap-architecture-v0.1` | `TABLE-004`; defined scope | combined implementation `e29acb44` green 05/09 |
 | 11 | `TABLE-RIBBON-012` | A | `DONE` | Coordinator; source task `01a0704c-1f36-7232-a54f-bc67c965e89c` handed off `d283a55b` | `feature/bootstrap-architecture-v0.1` | `488c61ea` + immutable TABLE-005 source | combined implementation `e29acb44` green 05/09 |
-| 12 | `TABLE-006` / `TABLE-006-NATIVE` | A | `ACTIVE` | Task `01a070ae-bcfe-7562-acad-9c53287433d3`, `gpt-6-astra / xhigh` | `feature/table-006-native-compat` | headless integrated/green at final `2bc00eb6`; native UX/corpus remaining | native continuation started 05/09; whole checkpoint not DONE |
+| 12 | `TABLE-006` / `TABLE-006-NATIVE` | A → Coordinator | `INTEGRATED / FINAL GATE` | A released source `4ae7731f`; coordinator verifies integration | `feature/bootstrap-architecture-v0.1` | five A commits after `2bc00eb6` imported as `1aaba747`; source 7/7 green | whole TABLE-006 not DONE; MAUI/split/LibreOffice gaps remain |
 | 13 | `UX-006` | B | `ACTIVE` | Task `01a070af-9093-7303-a811-821cde640467`, `gpt-6-astra / xhigh` | `feature/ux-006-visual-localization` | independent chrome from final `2bc00eb6`; combined acceptance still required | started early 05/09; planned window 12–15/10 |
 | 14 | `UX-007` | Integration | `BACKLOG` | Integration owner | `feature/ux-007-keyboard-a11y` | `UX-006` | 16–21/10 |
 | 15 | `PERF-008` | Integration | `BACKLOG` | Integration owner | `feature/perf-008-ribbon-filter` | `UX-007` | 22–26/10 |
@@ -51,6 +51,16 @@ the same owned paths. It either takes another `READY` row with disjoint paths or
 waits.
 
 ## Integration record
+
+### TABLE-006-NATIVE source handoff và integration
+
+Source `4ae7731f`: full #1339 / `33958874774`, iOS #160 / `33958876307`,
+Q003C #157 / `33958877741`, cả bảy job success; Core1497/1497, Windows102/102.
+Năm commits ghép không conflict lên `554fbf7e`, implementation `1aaba747`.
+Exact-final-HEAD integration gates được ghi trong PR handoff sau commit tài
+liệu; không dùng green source thay thế. [Commit map và giới hạn](TABLE_NATIVE_INTEGRATION_20260905.md).
+A đã release files/desktop; B vẫn ACTIVE và giữ desktop để debug UX. Candidate
+B `f9fc3724` chưa đạt native capture/theme gates; không nhập vào integration.
 
 | Checkpoint | Implementation SHA | Integration SHA | Exact-head CI | Result |
 | --- | --- | --- | --- | --- |
