@@ -51,6 +51,13 @@ assets phải giữ exact Controls version; không suppress downgrade hoặc MA0
 Windows smoke dùng installed .NET runtime và tắt trim/ReadyToRun riêng consumer;
 restore/publish dùng cùng configuration. Không thay production/AOT acceptance.
 
+Root đã release riêng Android transport tại `22338c79568af9106d9c6fda660180f1203940cd`.
+Lane C nhận ba shared blobs nguyên trạng, chỉ nối trong owned workflow/wrapper;
+không copy/reimplement launcher hoặc sửa generic legacy frame minimum. Own
+consumer gate vẫn bắt >=3 completed frames/cohort/app hash. Windows/iOS/Mac
+native và native editor vẫn OPEN. Khi tích hợp vào root phải bỏ qua ba imported
+shared files để không ghi đè parser/tests mới hơn của root.
+
 ## Tài liệu gốc
 
 - [NuGet nuspec pack qua MSBuild](https://learn.microsoft.com/en-us/nuget/reference/msbuild-targets#packing-using-a-nuspec-file).

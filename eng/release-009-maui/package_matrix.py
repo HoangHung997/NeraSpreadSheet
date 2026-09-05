@@ -385,13 +385,18 @@ def verify_app_payload(actual, build):
                 "Invalid consumer app file identity")
     def identity(records):
         return {record["file"]: (record["bytes"], record["sha256"]) for record in records}
-    require(identity(actual) == identity(expected), "Consumer app payload differs from the verified build")
+    actual_identity, expected_identity = identity(actual), identity(expected)
+    if actual_identity != expected_identity:
+        print(json.dumps({"missingFiles": sorted(expected_identity.keys() - actual_identity.keys())[:8],
+                          "extraFiles": sorted(actual_identity.keys() - expected_identity.keys())[:8],
+                          "changedFiles": sorted(name for name in actual_identity.keys() & expected_identity.keys()
+                                                 if actual_identity[name] != expected_identity[name])[:8]}), flush=True)
+        raise ValueError("Consumer app payload differs from the verified build")
 
 
-def verify_app(app, build):
+def capture_app_payload(app, platform):
     path = Path(app)
-    require(path.name == build["appName"], "Consumer app entry differs from the verified build")
-    platform = build["platform"]
+    require(platform in PLATFORMS, "Unexpected consumer app platform")
     if platform in ("ios", "maccatalyst"):
         require(path.is_dir() and path.suffix == ".app", "Missing consumer app bundle")
         root = path
@@ -407,7 +412,12 @@ def verify_app(app, build):
         if item.is_file():
             actual.append({"file": item.relative_to(root).as_posix(), "bytes": item.stat().st_size,
                            "sha256": digest(item.read_bytes())})
-    verify_app_payload(actual, build)
+    return sorted(actual, key=lambda record: record["file"])
+
+
+def verify_app(app, build):
+    require(Path(app).name == build["appName"], "Consumer app entry differs from the verified build")
+    verify_app_payload(capture_app_payload(app, build["platform"]), build)
 
 
 def verify_runtime(result, build):
@@ -453,6 +463,9 @@ if __name__ == "__main__":
     app_parser = sub.add_parser("verify-app")
     app_parser.add_argument("--app", required=True)
     app_parser.add_argument("--build", required=True)
+    capture_parser = sub.add_parser("capture-app")
+    for argument in ("app", "platform", "output"):
+        capture_parser.add_argument("--" + argument, required=True)
     args = vars(parser.parse_args())
     command = args.pop("command")
     if command == "prepare":
@@ -465,5 +478,7 @@ if __name__ == "__main__":
         inspect_consumer(**args)
     elif command == "verify-app":
         verify_app(args["app"], read_json(args["build"]))
+    elif command == "capture-app":
+        write_json(args["output"], capture_app_payload(args["app"], args["platform"]))
     else:
         verify_runtime(read_json(args["result"]), read_json(args["build"]))

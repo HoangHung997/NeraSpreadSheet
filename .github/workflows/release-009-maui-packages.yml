@@ -1,4 +1,4 @@
-name: RELEASE-009 MAUI canonical packages and consumer builds (native OPEN)
+name: RELEASE-009 MAUI canonical packages (Android native, other native OPEN)
 
 on:
   push:
@@ -15,6 +15,8 @@ jobs:
       - uses: actions/checkout@v6
       - name: Validate assembler negative fixtures
         run: python -B eng/release-009-maui/test_package_matrix.py
+      - name: Validate released native result transport fixtures
+        run: python -B scripts/test-native-smoke-result.py
       - name: Verify architecture and package metadata
         shell: pwsh
         run: |
@@ -104,7 +106,8 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  consumer-build:
+  consumer-check:
+    name: Consumer ${{ matrix.platform }}
     needs: assemble
     strategy:
       fail-fast: false
@@ -151,16 +154,20 @@ jobs:
             Assert-MauiSdk $cohort
             Invoke-MauiDotnet @('workload', 'install', $env:NERA_WORKLOAD, '--skip-manifest-update')
           } finally { Pop-Location }
-      - name: Restore only canonical packages and build isolated public consumer
+      - name: Build isolated public consumer and run Android native package smoke
         shell: pwsh
-        run: ./scripts/run-release-009-maui-consumer.ps1 -Platform '${{ matrix.platform }}' -FeedDirectory '${{ runner.temp }}/maui-feed'
+        run: ./scripts/run-release-009-maui-consumer.ps1 -Platform '${{ matrix.platform }}' -FeedDirectory '${{ runner.temp }}/maui-feed' -RunAndroidNative:('${{ matrix.platform }}' -eq 'android')
       - uses: actions/upload-artifact@v4
         with:
-          name: release009-maui-consumer-build-${{ github.sha }}-${{ github.run_attempt }}-${{ matrix.platform }}
+          name: release009-maui-consumer-${{ github.sha }}-${{ github.run_attempt }}-${{ matrix.platform }}
           path: artifacts/release-009-maui/consumers/${{ matrix.platform }}/
           if-no-files-found: error
           retention-days: 30
       - name: Report acceptance boundary
         shell: pwsh
         run: |
-          'PackageReference consumer build complete. Native launch, runtime nonce validation, and native editor coverage remain OPEN.' >> $env:GITHUB_STEP_SUMMARY
+          if ('${{ matrix.platform }}' -eq 'android') {
+            'Android native public package smoke and exact cohort/nonce/app hash verification passed. Native editor coverage remains OPEN.' >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            'PackageReference consumer build complete. Native runtime and native editor coverage remain OPEN for this platform.' >> $env:GITHUB_STEP_SUMMARY
+          }

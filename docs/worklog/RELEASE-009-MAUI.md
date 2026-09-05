@@ -12,16 +12,18 @@ ADR0008/contract mới. Không sửa SDK csproj, production, existing workflows,
 launchers hoặc shared status/CURRENT/wave. Scope grant ở wave root 06/09.
 
 Producer/assembler commit: `feb12d5f`.
-Local: 18 in-memory package/consumer negative fixtures PASS; all three plan modes
+Local: 18 package/consumer và 12 shared native transport in-memory fixtures PASS; all three plan modes
 and PowerShell parser PASS; architecture/packaging metadata/diff/privacy checks PASS.
 Build/publish/native chưa chạy local do disk constraint. CI exact implementation
 HEAD sẽ được ghi khi commit và run được xác minh; không dùng baseline green thay.
 
 ## OPEN
 
-Shared Windows/Mac launcher parameters đang chờ root/B; Android/iOS shared
-launcher extraction do root. Chưa nối native execution, marker verification hoặc
-native editor. Build-only manifests luôn ghi runtime OPEN. Whole B/P3 còn chờ.
+Shared Windows/Mac launcher parameters đang chờ root/B; iOS vẫn chưa release.
+Root đã release riêng Android223; owned workflow/wrapper nối Android native,
+actual execution vẫn OPEN tới CI success. Build manifests không tự nâng runtime
+thành PASS; runtime-verification riêng chỉ có sau own cohort validator. Whole B,
+native editor và P3 còn chờ.
 Run `33986092369`, source `4a7cf6fbc5c2b284d7f8bfbee351efe7c0e30347`: fixtures
 và cả năm producers SUCCESS. Actual SDK10.0.302 build/pack và informational
 version checks qua Windows/Android/iOS/Mac/neutral. Canonical pack tạo được
@@ -68,7 +70,36 @@ manifest. Năm producers/assembler vẫn SUCCESS. Existing Q33987598805,
 packages33987600233, demo33987601758 SUCCESS; full33987595198/iOS33987596708
 còn chạy tại checkpoint này, không dùng thay final exact-head gates.
 
+`f8007838` cuối đã xanh đủ năm existing gates ở các run đã nêu: full33987595198,
+iOS33987596708, Q33987598805, packages33987600233, demo33987601758. Đây không
+thay exact-head gates của Android wiring mới.
+
+`bcebe527e338d0153e092c7928c2bc36595aec76`, run33987907632: ba consumer
+Windows/iOS/Android SUCCESS; Mac chọn đúng bundle, build0/0 rồi inventory guard
+FAIL. Chụp/kiểm inventory dùng chung Python scanner để giữ hidden-file/internal-link
+semantics và appName; vẫn đọc lại actual payload để đối chiếu manifest, không bỏ
+hash/missing/extra guards. Diagnostic chỉ bounded relative file names.
+
+## Partial Android transport release và integration exclusion
+
+Nhận đúng root `22338c79568af9106d9c6fda660180f1203940cd` qua path-limited
+apply_patch; import riêng `dfd31be98dc64150bd34fcb13c1aa336058eb4b5`. Ba shared
+files giữ nguyên và vẫn root-owned:
+
+- run-maui-android-smoke.sh blob `f4ec92e07071e0b08b27ec5bf116a8bd1c27a809`.
+- verify-native-smoke-result.py blob `86ef8ccd2f4d543c98a8f02c2a45fecd9b1341d1`.
+- test-native-smoke-result.py blob `9cada9e7b01d06e5d46f220deb4cb103d3db75e8`.
+
+**Khi ghép C vào root: bỏ qua import commit dfd31be9 và ba shared files**, giữ
+parser/tests root mới hơn; không cherry-pick chúng đè lên iOS framing fix.
+Android source transport proof do root: job101364379179/source223 và trước đó
+101363322182. C gọi explicit APK/bundle/tag/prefix/fresh-result sau verify-app,
+không retry/fallback; sau helper0 còn bắt own source/version/feed/nonce/target,
+required assembly versions, public postconditions và >=3 completed frames.
+Generic legacy min2 không phải consumer acceptance. Chưa có Android native run
+ở source wiring này; Windows/iOS/Mac native, native editor/fullB/P3 vẫn OPEN.
+
 ## Bước tiếp theo duy nhất
 
-Push/check cohort sau `f8007838` với Apple bundle identity discovery; chỉ nối
-launcher sau root release và giữ runtime OPEN tới actual evidence.
+Push/check cohort Android native sau importdfd và owned wiring; xem Mac inventory
+và Android actual marker, giữ mọi failed/missing/cohort mismatch làm gate đỏ.
