@@ -1,5 +1,66 @@
 # PERF-008 — Lane C harness
 
+## Handoff checkpoint P1/P2 — protocol v3 validated; P3 OPEN
+
+- Branch `feature/perf-008-harness`, base
+  `2e8482c25a44797a479b276ae26f472811a0a81e`; không nhập lane khác.
+- Implementation final **`726ace806896ca1f3e5f7db85d9a5a1cb8deb062`**.
+  Isolated run [33973552493](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33973552493)
+  **success**, attempt 1: benchmark builds **0 warnings / 0 errors**, CPU
+  **11/11 PASS**, headless stress pass, native **2/2**, 0 skip, 26 giây,
+  architecture pass. Input/output/operation fingerprints bằng nhau.
+- Actual SDK **10.0.302**, runtime **10.0.11**; Release/tiered off/workstation GC,
+  Windows Server 2025 image `20260824.214.3`, AMD EPYC 7763, 4 logical processors.
+- Frozen v3 budget SHA-256:
+  `C52B42A523E1A02282D583C6BC70ADBAF823FA349F791E8F003B6A4855B2301C`.
+  Tolerance variance-derived 5–47,28%, giữ nguyên rule từ trước candidate;
+  observed upper 95% ratio từng workload ≤1,0429. Không gọi threshold là 5% chung.
+  [Bảng số thật](../performance-budget.md), [hợp đồng](../perf-008-acceptance-contract.md).
+- Artifact [9971704564](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33973552493/artifacts/9971704564),
+  **8.922.034 bytes**, đã tải/verify digest
+  `37119a7dcb1ab619a03184b1c28daef2c42ee8fa48eb8f6adb9f03b87142ae4a`.
+  [Raw v3](../../benchmarks/PERF008/results/33973552493.json) giữ 36 workers /
+  396 workload measurements cùng manifest/budget/comparison/native/headless data.
+- V2 `97f20261` / run `33973443725` **success**, artifact `9971644470`, digest
+  `58e3fa38515657720ba481025da5bf3fe68b242615a0bceba392117085dbe384` đã verify;
+  [raw v2](../../benchmarks/PERF008/results/33973443725.json) giữ riêng. Root
+  không cancel vì phase đo đã xong; không dùng kết quả v2 để chọn counts v3.
+  V1 vẫn INCONCLUSIVE như hồ sơ dưới, không bỏ hoặc ghép samples.
+- Local .302: benchmark build **0/0**, paging regression **8/8**, statistical
+  gate self-test pass (noise/regression/fingerprint/runtime/tamper), architecture
+  và diff check pass. Worker local chỉ correctness, không lấy timing nghiệm thu.
+- P2 native WPF managed bytes cycles 3→12 **6.278→6.594 MB**, WinForms
+  **6.292→6.404 MB**; raw có private bytes/working set/handles. Direct
+  runtime/grid/Table binding subscriptions trở baseline; không chứng nhận toàn
+  framework/GPU không leak. Native desktop local chưa acquire và luôn release.
+- Commit tài liệu/raw cuối là descendant của implementation; exact SHA lấy từ
+  `git rev-parse HEAD` sau commit và được gửi root cùng final run URLs. Cần
+  isolated perf + **full/iOS/Q003C success tại chính HEAD gồm docs**, không dùng
+  implementation run này thay gate final. Root giữ CURRENT/status/plan/wave.
+
+Commit map theo thứ tự, rollback bằng revert ngược:
+
+| Commit | Nội dung |
+| --- | --- |
+| `413ab07a` | Harness/workflow/native stress và predeclared v1 policy |
+| `a08eeffb` | SDK isolation, native compile/analyzer/probes, output evidence paths |
+| `2c8c4e2c` | Runner-context setup correction; v1 complete run |
+| `97f20261` | Protocol v2, environment guards, archive v1 INCONCLUSIVE |
+| `726ace80` | Counts v3 được coordinator chốt trước candidate; implementation final |
+| Commit chứa mục handoff này | Archive v2/v3, actual performance budget và documentation final |
+
+Phạm vi nghiệm thu checkpoint: reproducible paired CPU harness và các P2 stress
+đã liệt kê. **Whole PERF-008 chưa DONE.** P3 cần combined A+B; native MAUI/
+physical input-to-display, DPI/touch/4K/60–120 Hz và memory dài hạn còn thiếu.
+Cache chỉ bounded theo source cap/requested pages, chưa có eviction constant cap.
+Không đổi production, shared props/project refs/workflow hiện có hoặc PR #1.
+PR #1 giữ Draft/open/unmerged; không publish demo/NuGet. Khi final CI xanh, lane
+release các file đã liệt kê cho root; không giữ desktop lease.
+
+Bước tiếp theo duy nhất sau final CI/handoff: coordinator giao exact combined
+UX-007 + TABLE-007 SHA để dispatch `perf-008.yml` với baseline SHA ở trên và
+`candidate_sha` là combined SHA, rồi xử lý P3 dưới ownership được chuyển riêng.
+
 ## Checkpoint thiết kế trước chạy dài
 
 - Branch `feature/perf-008-harness`; base sạch đã xác minh
