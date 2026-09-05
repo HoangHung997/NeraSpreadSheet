@@ -1,5 +1,25 @@
 # Current Work Handoff
 
+## R2 — tab navigation và chuẩn bị packaged demo
+
+Root `b2f0f7d7` đã push tab sheet ngang. Full CI `33982284738` gặp lỗi namespace
+ScrollContentPresenter trong test mới; đã sửa về System.Windows.Controls cùng
+đúng VirtualizingStackPanel orientation dependency property. C review static
+tabs không còn blocker khác; thêm realized-container assertion để chứng minh
+virtualization. Controller cancel test không thay native overlay proof: B đã
+nhận exposure CancelEditor trả sớm sau Session.ActivateWorksheet và làm native
+regression/fix; root không sửa SDK B sở hữu.
+
+Root thêm dispatch-only RELEASE-009 demo: publish self-contained win-x64 từ
+sample hiện hữu, runtime switch chỉ bật trong demo để double-click mở Ribbon;
+chạy chính published exe với existing full capture matrix, source/version/PE
+checks và artifact có hash/README giới hạn. Local plan/parser/architecture/
+package metadata PASS, chưa chạy native/publish local. Build/capture CI mới còn
+pending; không phát hành public, không đóng R2 hoặc whole Table/Filter/Ribbon.
+
+Next: kiểm CI ở source sửa tabs, dispatch demo gate exact HEAD và nhận final
+A/B đã review/source-green/release trước khi tích hợp tuần tự.
+
 ## Tiếp tục 06/09 — root exact HEAD xanh, diagnostic native có giới hạn
 
 Root `c6c25d1733ba2ba5b8ec5747fda3a8bc50ad1a26` đã SUCCESS đủ bốn workflow:

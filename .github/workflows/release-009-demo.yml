@@ -1,0 +1,33 @@
+name: RELEASE-009 experimental Win11 x64 Ribbon demo
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-demo:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Verify architecture and package metadata
+        shell: pwsh
+        run: |
+          ./scripts/verify-architecture.ps1
+          ./scripts/verify-packaging-sdk.ps1
+      - name: Publish exact-source self-contained demo and run its loaded Ribbon matrix
+        shell: pwsh
+        run: ./scripts/run-release-009-demo.ps1
+      - name: Upload experimental demo and sanitized evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-009-win11-x64-demo-${{ github.sha }}
+          path: artifacts/release-009-demo/
+          if-no-files-found: error
+          retention-days: 30

@@ -7,7 +7,8 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        if (e.Args.Contains("--ribbon-preview", StringComparer.Ordinal))
+        if (e.Args.Contains("--ribbon-preview", StringComparer.Ordinal) ||
+            (AppContext.TryGetSwitch("NeraSpreadSheet.RibbonDemo", out var ribbonDemo) && ribbonDemo))
         {
             var preview = new RibbonPreviewWindow();
             MainWindow = preview;

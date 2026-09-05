@@ -91,6 +91,13 @@ branch để không bỏ final docs/source revision sau ghép.
 
 ### Bước tiếp theo duy nhất
 
+Root bổ sung workflow dispatch-only `release-009-demo.yml` và
+`run-release-009-demo.ps1`: self-contained win-x64 apphost mặc định vào Ribbon,
+exact source/version/PE/runtime checks, chạy existing complete capture matrix
+bằng published exe. Experimental artifact chỉ upload khi success, không public
+release; [contract](../release-009-demo-contract.md) và README demo ghi rõ gaps.
+Local parser/plan/architecture/packaging PASS; native demo gate còn pending.
+
 Root exact `c6c25d17` xanh đủ full/iOS/Q003C/Windows packages, gồm loaded full-
 shell regression. Tiếp tục thay worksheet ComboBox bằng horizontal virtualized
 ListBox trên chính Workbook.Worksheets, giữ native selection/focus và session

@@ -56,11 +56,15 @@ public sealed class RibbonLoadedWorkbookSmokeTests
             var scroller = Descendants(tabs).OfType<ScrollViewer>().Single();
             Assert.AreEqual(System.Windows.Controls.Orientation.Horizontal, panel.Orientation);
             Assert.IsTrue(scroller.ScrollableWidth > 0, "Many sheets must scroll, not wrap into extra rows.");
+            Assert.IsTrue(Descendants(tabs).OfType<ListBoxItem>().Count() < workbook.Worksheets.Count,
+                "The sheet row must not realize every offscreen worksheet tab.");
             var last = workbook.Worksheets[^1];
             session.ActivateWorksheet(last);
             Pump(window);
             Assert.AreSame(last, tabs.SelectedItem);
             AssertVisibleSelectedTab(tabs);
+            Assert.IsTrue(Descendants(tabs).OfType<ListBoxItem>().Count() < workbook.Worksheets.Count,
+                "Selecting a distant sheet must preserve tab virtualization.");
             var initialWidth = tabs.ActualWidth;
             window.Width = 640;
             Pump(window);
@@ -68,6 +72,8 @@ public sealed class RibbonLoadedWorkbookSmokeTests
             AssertVisibleSelectedTab(tabs);
             Assert.AreEqual(0d, scroller.ScrollableHeight, 0.1, "Sheet tabs must stay in one row.");
 
+            // Controller cancellation only; native draft/overlay teardown is a
+            // separate SDK regression in TABLE-007, not proved by this assertion.
             session.Editor.BeginEdit();
             var before = last.GetCell(default);
             var history = session.History.UndoCount;
@@ -86,7 +92,7 @@ public sealed class RibbonLoadedWorkbookSmokeTests
     {
         var item = tabs.ItemContainerGenerator.ContainerFromItem(tabs.SelectedItem) as ListBoxItem;
         Assert.IsNotNull(item, "The active worksheet tab must have a realized native container.");
-        var viewport = Descendants(tabs).OfType<System.Windows.Controls.Primitives.ScrollContentPresenter>().Single();
+        var viewport = Descendants(tabs).OfType<ScrollContentPresenter>().Single();
         var origin = item.TranslatePoint(default, viewport);
         Assert.IsTrue(origin.X >= -1 && origin.X + item.ActualWidth <= viewport.ActualWidth + 1,
             "The active tab was clipped outside the horizontal viewport.");

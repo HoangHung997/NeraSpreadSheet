@@ -12,7 +12,7 @@ public sealed partial class RibbonPreviewWindow
     private ListBox CreateWorksheetTabs()
     {
         var panel = new FrameworkElementFactory(typeof(VirtualizingStackPanel));
-        panel.SetValue(StackPanel.OrientationProperty, Orientation.Horizontal);
+        panel.SetValue(VirtualizingStackPanel.OrientationProperty, Orientation.Horizontal);
         var itemStyle = new Style(typeof(ListBoxItem));
         itemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(14, 5, 14, 5)));
         itemStyle.Setters.Add(new Setter(FrameworkElement.MinWidthProperty, 72d));

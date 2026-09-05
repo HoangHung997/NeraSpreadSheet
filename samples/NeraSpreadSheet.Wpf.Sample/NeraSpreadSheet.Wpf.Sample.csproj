@@ -6,6 +6,9 @@
     <UseWPF>true</UseWPF>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
+  <ItemGroup Condition="'$(NeraRibbonDemo)' == 'true'">
+    <RuntimeHostConfigurationOption Include="NeraSpreadSheet.RibbonDemo" Value="true" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/NeraSpreadSheet.Core/NeraSpreadSheet.Core.csproj" />
     <ProjectReference Include="../../src/NeraSpreadSheet.Editing/NeraSpreadSheet.Editing.csproj" />
