@@ -165,6 +165,22 @@
   và external canonical cancel + moved selection. Incremental desktop test
   project build SDK10.0.302 PASS 0warnings/errors (24s); native runtime chờ CI,
   không chạy local do lease A. Root giữ sample tab-click regression riêng.
+- Partial release WPF: source `49e1debeaa6187c91546d23c6ac63f96d9c10c60`,
+  full run `33982772337`, Windows job `101350852141` SUCCESS, desktop109/109,
+  zero skipped; build/runtime/capture PASS. Root nhận riêng delta WPF control và
+  Table007EditorLifecycleSmokeTests, không nhận toàn commit có B-only docs.
+  Hai source/test paths dùng APIs baseline2e; toàn lane B vẫn HOLD.
+- Diagnostic49 `33982749901`: Windows cả hai attempts qua toàn editor assertions,
+  vẫn fast-fail sau reinsert surface đầu tiên, trước Loaded/recreated frame;
+  không có native XAML exception marker. Mac vẫn signal11 trước editor wrapper
+  creation, draw depth1/disposedFalse, không matching crash report trong10s.
+  Full49 Android fail native accessibility root child count sau editor phase;
+  chưa coi đó là transient hoặc hạ gate. Core/Windows desktop PASS.
+- Root cấp paired same-run diagnostic: hai hosted jobs checkout thêm pinned
+  base2e vào subdirectory, dùng cùng SDK/workloads/current sanitized runners;
+  chạy baseline rồi candidate với outcomes/result labels riêng. Candidate vẫn
+  chạy sau baseline failure nhưng mọi failed step giữ job FAIL, không thêm
+  retry/timeout/assertion bypass. Baseline không thay candidate acceptance.
 - Gaps: T1/T2 còn native CI và Apple hardware-key evidence; T3 corpus đã có,
   final regression/exact-head CI đang chờ. CI actual SDK phải đọc log (global
   requested .302 + latestFeature có thể chọn .400), không suy ra từ config.

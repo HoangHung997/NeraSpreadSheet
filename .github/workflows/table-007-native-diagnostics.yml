@@ -18,17 +18,46 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Checkout pinned baseline
+        uses: actions/checkout@v6
+        with:
+          ref: 2e8482c25a44797a479b276ae26f472811a0a81e
+          path: baseline
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - name: Install MAUI Windows workload
+        id: workload
         run: dotnet workload install maui-windows --skip-manifest-update
-      - name: Publish loaded MAUI Windows runtime smoke
+      - name: Publish baseline Windows runtime smoke
+        id: baseline_build
+        working-directory: baseline
         run: dotnet publish tests/NeraSpreadSheet.Maui.Windows.Smoke/NeraSpreadSheet.Maui.Windows.Smoke.csproj -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --self-contained false -p:NeraMauiTargetFrameworks=net10.0-windows10.0.19041.0 -o artifacts/maui-windows-smoke
-      - name: Run loaded MAUI Windows runtime smoke
+      - name: Run baseline Windows runtime smoke with current runner
+        id: baseline_run
+        shell: pwsh
+        run: ./scripts/run-maui-windows-smoke.ps1 -ExecutablePath "baseline/artifacts/maui-windows-smoke/NeraSpreadSheet.Maui.Windows.Smoke.exe"
+      - name: Publish candidate Windows runtime smoke
+        id: candidate_build
+        if: ${{ !cancelled() && steps.workload.outcome == 'success' }}
+        run: dotnet publish tests/NeraSpreadSheet.Maui.Windows.Smoke/NeraSpreadSheet.Maui.Windows.Smoke.csproj -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --self-contained false -p:NeraMauiTargetFrameworks=net10.0-windows10.0.19041.0 -o artifacts/maui-windows-smoke
+      - name: Run candidate Windows runtime smoke
+        id: candidate_run
+        if: ${{ !cancelled() && steps.candidate_build.outcome == 'success' }}
         shell: pwsh
         run: ./scripts/run-maui-windows-smoke.ps1 -ExecutablePath "artifacts/maui-windows-smoke/NeraSpreadSheet.Maui.Windows.Smoke.exe"
+      - name: Record paired Windows outcomes
+        if: always()
+        shell: pwsh
+        run: |
+          @'
+          Baseline: 2e8482c25a44797a479b276ae26f472811a0a81e
+          Candidate: ${{ github.sha }}
+          Baseline build/run: ${{ steps.baseline_build.outcome }} / ${{ steps.baseline_run.outcome }}
+          Candidate build/run: ${{ steps.candidate_build.outcome }} / ${{ steps.candidate_run.outcome }}
+          Baseline comparison does not replace candidate acceptance. Every failed step retains job failure.
+          '@ | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
 
   maccatalyst:
     name: TABLE007 loaded Mac editor and analytics
@@ -37,13 +66,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Checkout pinned baseline
+        uses: actions/checkout@v6
+        with:
+          ref: 2e8482c25a44797a479b276ae26f472811a0a81e
+          path: baseline
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       - name: Install MAUI Apple workloads
+        id: workload
         run: dotnet workload install maui-ios maui-maccatalyst --skip-manifest-update
-      - name: Build loaded MAUI Mac Catalyst analytics accessibility smoke
+      - name: Select shared Mac Catalyst runtime
+        id: runtime
         shell: bash
         run: |
           set -euo pipefail
@@ -54,13 +90,35 @@ jobs:
           fi
           echo "NERA_MACCATALYST_SMOKE_RID=$RID" >> "$GITHUB_ENV"
           echo "Mac Catalyst smoke RID: $RID"
-          dotnet build tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke.csproj -c Release -f net10.0-maccatalyst -r "$RID" -p:NeraMauiTargetFrameworks=net10.0-maccatalyst
-      - name: Run loaded MAUI Mac Catalyst analytics accessibility smoke
+      - name: Build baseline Mac Catalyst analytics smoke
+        id: baseline_build
+        working-directory: baseline
+        run: dotnet build tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke.csproj -c Release -f net10.0-maccatalyst -r "$NERA_MACCATALYST_SMOKE_RID" -p:NeraMauiTargetFrameworks=net10.0-maccatalyst
+      - name: Run baseline Mac Catalyst analytics smoke with current runner
+        id: baseline_run
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="baseline/tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/bin/Release/net10.0-maccatalyst/$NERA_MACCATALYST_SMOKE_RID"
+          RESULT="$RUNNER_TEMP/nera-maccatalyst-baseline-smoke.json"
+          APP="$(find "$ROOT" -type d -name 'NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke.app' | head -n 1 || true)"
+          if [ -z "$APP" ]; then
+            echo "Baseline Mac Catalyst analytics smoke app bundle was not produced."
+            exit 1
+          fi
+          bash ./scripts/run-maui-maccatalyst-smoke.sh "$APP" "$RESULT"
+      - name: Build candidate Mac Catalyst analytics smoke
+        id: candidate_build
+        if: ${{ !cancelled() && steps.workload.outcome == 'success' && steps.runtime.outcome == 'success' }}
+        run: dotnet build tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke.csproj -c Release -f net10.0-maccatalyst -r "$NERA_MACCATALYST_SMOKE_RID" -p:NeraMauiTargetFrameworks=net10.0-maccatalyst
+      - name: Run candidate Mac Catalyst analytics smoke
+        id: candidate_run
+        if: ${{ !cancelled() && steps.candidate_build.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
           ROOT="tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/bin/Release/net10.0-maccatalyst/$NERA_MACCATALYST_SMOKE_RID"
-          RESULT="$RUNNER_TEMP/nera-maccatalyst-analytics-smoke.json"
+          RESULT="$RUNNER_TEMP/nera-maccatalyst-candidate-smoke.json"
           APP="$(find "$ROOT" -type d -name 'NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke.app' | head -n 1 || true)"
           if [ -z "$APP" ]; then
             echo "Mac Catalyst analytics smoke app bundle was not produced."
@@ -68,3 +126,14 @@ jobs:
             exit 1
           fi
           bash ./scripts/run-maui-maccatalyst-smoke.sh "$APP" "$RESULT"
+      - name: Record paired Mac Catalyst outcomes
+        if: always()
+        shell: bash
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'SUMMARY'
+          Baseline: 2e8482c25a44797a479b276ae26f472811a0a81e
+          Candidate: ${{ github.sha }}
+          Baseline build/run: ${{ steps.baseline_build.outcome }} / ${{ steps.baseline_run.outcome }}
+          Candidate build/run: ${{ steps.candidate_build.outcome }} / ${{ steps.candidate_run.outcome }}
+          Baseline comparison does not replace candidate acceptance. Every failed step retains job failure.
+          SUMMARY
