@@ -91,6 +91,21 @@ branch để không bỏ final docs/source revision sau ghép.
 
 ### Bước tiếp theo duy nhất
 
+Demo source `44f5a125` đã PASS run `33982749805`, artifact `9974246790`,
+98,872,278 bytes, ZIP SHA-256
+`c3d85d45f1a92c611236cbe0f9807aef08b312c9727ccd3a44974c25fa96bc0f`.
+Root verify source/version và toàn bộ 447 app-file hashes, 19 SDK/sample DLLs,
+226 PNG/128 layouts; đã xem representative Home/Table Design/light/dark ảnh
+published app. R3 Windows consumer cùng SHA run `33982749737` SUCCESS.
+Standalone worksheet thumb scrollbars chưa gắn trong Ribbon shell; bổ sung
+vào known limitations/R2, không nhầm với sheet-tab scrollbar mới.
+
+Root nhận slice WPF lifecycle đã release từ `49e1debe` (không whole B): two-path
+delta cùng two-case loaded regression. Tab-switch regression đổi từ headless
+Editor.BeginEdit sang actual native changed draft `=SU` + popup trước activation,
+kiểm editor/popup hidden và dữ liệu/history nguyên vẹn. New source cần CI/demo/
+consumer lần nữa; artifact 44f5 chưa có fix này, không phải final demo.
+
 Root bổ sung workflow `release-009-demo.yml` (bounded push + dispatch) và
 `run-release-009-demo.ps1`: self-contained win-x64 apphost mặc định vào Ribbon,
 exact source/version/PE/runtime checks, chạy existing complete capture matrix

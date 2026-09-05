@@ -1,4 +1,5 @@
 using System.Runtime.ExceptionServices;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -9,6 +10,7 @@ using NeraSpreadSheet.Wpf;
 using NeraSpreadSheet.Wpf.Sample;
 using ListBox = System.Windows.Controls.ListBox;
 using ListBoxItem = System.Windows.Controls.ListBoxItem;
+using TextBox = System.Windows.Controls.TextBox;
 
 namespace NeraSpreadSheet.Windows.Rendering.Tests;
 
@@ -72,14 +74,24 @@ public sealed class RibbonLoadedWorkbookSmokeTests
             AssertVisibleSelectedTab(tabs);
             Assert.AreEqual(0d, scroller.ScrollableHeight, 0.1, "Sheet tabs must stay in one row.");
 
-            // Controller cancellation only; native draft/overlay teardown is a
-            // separate SDK regression in TABLE-007, not proved by this assertion.
-            session.Editor.BeginEdit();
+            var grid = Descendants(window).OfType<NeraSpreadsheetControl>().Single();
+            grid.BeginEdit("=S");
+            var editor = Field<TextBox>(grid, "_editor");
+            editor.AppendText("U");
+            Pump(window);
+            var popup = Field<System.Windows.Controls.Primitives.Popup>(grid, "_formulaSuggestionPopup");
+            Assert.AreEqual("=SU", editor.Text);
+            Assert.AreEqual(Visibility.Visible, editor.Visibility);
+            Assert.IsTrue(popup.IsOpen && grid.CurrentFormulaSuggestions.Count > 0,
+                "The tab-switch regression must start with a real changed native draft and completion popup.");
             var before = last.GetCell(default);
             var history = session.History.UndoCount;
             tabs.SelectedItem = workbook.Worksheets[0];
             Pump(window);
             Assert.IsFalse(session.Editor.IsEditing, "Sheet activation must use the session's existing cancellation semantics.");
+            Assert.AreEqual(Visibility.Collapsed, editor.Visibility);
+            Assert.IsFalse(popup.IsOpen);
+            Assert.AreEqual(0, grid.CurrentFormulaSuggestions.Count);
             Assert.AreEqual(before, last.GetCell(default));
             Assert.AreEqual(history, session.History.UndoCount);
             Assert.AreSame(workbook.Worksheets[0], session.ActiveWorksheet);
@@ -87,6 +99,10 @@ public sealed class RibbonLoadedWorkbookSmokeTests
         }
         finally { window.Close(); Pump(window); }
     }
+
+    private static T Field<T>(object target, string name) =>
+        (T)(target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(target)
+            ?? throw new InvalidOperationException($"Expected native field {name} was not found."));
 
     private static void AssertVisibleSelectedTab(ListBox tabs)
     {

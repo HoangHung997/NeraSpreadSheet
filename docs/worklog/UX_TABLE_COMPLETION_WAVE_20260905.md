@@ -124,6 +124,15 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
   result; không set Handled, không nuốt lỗi, không success fallback. Chỉ đăng
   ký trong smoke, unsubscribe Dispose; giữ runner retries/timeouts/assertions.
   Loại workbook values/đường dẫn/UUID khỏi diagnostic, không upload raw dump.
+- Cho B một paired baseline/candidate diagnostic trong cùng hai hosted jobs
+  của `table-007-native-diagnostics.yml`: baseline cố định
+  `2e8482c25a44797a479b276ae26f472811a0a81e` checkout ở subdirectory riêng,
+  build bằng cùng SDK/workload và chạy tuần tự trước candidate bằng current
+  sanitized runner scripts. Không sửa baseline, OS/signing/security hoặc dùng
+  debugger bypass; labels/results tách biệt. Giữ runtime timeouts/attempts/
+  assertions, không continue-on-error hoặc success fallback. Candidate vẫn chạy
+  để thu evidence nếu baseline fail, nhưng job failure được giữ; baseline không
+  thay candidate acceptance hoặc final full/iOS/Q003C gates.
 
 ### Quyền sửa C
 
@@ -228,6 +237,16 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
   isolated PackageReference consumer/loaded host proof; R3 vẫn OPEN.
 
 ## Single writer và tích hợp
+
+- B đã release riêng delta hai file WPF tại
+  `49e1debeaa6187c91546d23c6ac63f96d9c10c60`: NeraSpreadsheetControl.cs và
+  Table007EditorLifecycleSmokeTests.cs. Exact Windows job `101350852141` /
+  full run `33982772337` success, 109/109 native tests, 0 skip; root review
+  source/test độc lập base và nhận bằng path-limited apply_patch, không lấy B
+  docs hoặc code MAUI đang fail. Đây là ngoại lệ slice có bounded evidence,
+  không công nhận toàn B source-green; root exact combined gates vẫn bắt buộc.
+  Khi ghép whole B sau này không nhập trùng hai source/test hunks của 49; docs
+  delta trong commit 49 chưa được nhận. B vẫn giữ các file/lane chưa release.
 
 - Root coordinator sở hữu CURRENT, current-status, AI_COORDINATION, delivery
   plan, file wave này; existing CI workflows, solution/shared props/project files

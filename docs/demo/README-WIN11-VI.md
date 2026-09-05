@@ -30,6 +30,9 @@ sau khi serialize thành công. Không dùng bản thử nghiệm làm nơi lưu
   chỉ vì xuất hiện trong dự án.
 - Thanh công thức phía trên hiện chỉ hiển thị. Hàng tab chưa có nút thêm/
   đổi tên/xóa sheet; có thể dùng API workbook từ app tích hợp riêng.
+- Shell Ribbon này chưa gắn thumb scrollbar riêng cho lưới standalone;
+  không coi scrollbar của hàng tab là scrollbar worksheet. Ghép scrollbar
+  standalone/split và editable formula bar vẫn thuộc nghiệm thu demo tiếp theo.
 - Không hỗ trợ Power Query, VBA, add-ins, OLAP; color/icon sort execution và
   một số conditional-format/dxf vẫn có giới hạn preservation đã khai báo.
 - UX-007/TABLE-007, native editor lifecycle, screen reader, DPI/multi-monitor/

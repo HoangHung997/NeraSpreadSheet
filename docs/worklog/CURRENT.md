@@ -1,5 +1,31 @@
 # Current Work Handoff
 
+## Nhận partial WPF lifecycle và xác minh experimental demo
+
+- Root branch feature/bootstrap-architecture-v0.1, PR #1 Draft/open/unmerged.
+  Source `44f5a125` demo run `33982749805` PASS; artifact `9974246790`,
+  98,872,278 bytes, SHA256
+  c3d85d45f1a92c611236cbe0f9807aef08b312c9727ccd3a44974c25fa96bc0f.
+  Root verify 447 app hashes/19 SDK+sample assembly versions, 226 PNG/128 layouts
+  và xem 3 published screenshots. Same-source package consumer33982749737 PASS;
+  full33982752401/iOS33982752196 tại checkpoint vẫn pending. Artifact thử nghiệm
+  không thay whole R2; còn formula bar, worksheet thumb scrollbars/split shell.
+- B release riêng source/test delta49e1debe, exact Windows101350852141 / run
+  33982772337 success109/109,0skip. Root kiểm blob trước sửa trùng parent49,
+  path-limited apply_patch two files, không nhập docs/MAUI B đang fail. Thêm
+  actual sample tab-switch changed draft/popup regression; root new HEAD phải
+  xanh full/iOS/Q003C/packages/demo trước nghiệm thu. Wave ghi bounded exception
+  và tránh nhập trùng source/test49 khi wholeB tích hợp sau này.
+- A source d492433f đã xanh7jobs; root review đủ9ảnh HC và HC resource/test
+  delta không còn blocker. A đang final docs/gates, chưa release production/
+  ci.yml. B tiếp tục paired same-run pinned baseline/native diagnostics và
+  WinForms cancellation equivalent; không suy đoán scheduler fix từ Macdepth1.
+- Local diff/architecture/packaging checks PASS, không native/build nặng local,
+  không xóa dữ liệu/artefacts hoặc thay app người dùng. C review demo/tabs đã
+  kết thúc read-only; P3 còn chờ A+B combined. Heartbeat15phút vẫn dùng tasks cũ.
+- Single next step: verify new root exact-head gates và nhận A final release để
+  ghép tuần tự, rồi tiếp tục B/runtime cùng R2 gaps đã ghi; không báo100%.
+
 ## R2 — tab navigation và chuẩn bị packaged demo
 
 Root `b2f0f7d7` đã push tab sheet ngang. Full CI `33982284738` gặp lỗi namespace
