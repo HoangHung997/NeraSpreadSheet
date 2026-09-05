@@ -9,6 +9,51 @@ namespace NeraSpreadSheet.Commands.Tests;
 public sealed class TableRibbonIntegrationTests
 {
     [TestMethod]
+    public async Task ConvertCommandShouldPreserveCalculatedAndCrossSheetValuesThroughHistory()
+    {
+        var (session, runtime) = CreateRuntime();
+        var sheet = session.ActiveWorksheet;
+        var table = sheet.Tables.Single();
+        var calculated = new CellAddress(1, 0);
+        var amount = new CellAddress(1, 1);
+        session.Tables.SetCalculatedColumnFormula(table.Id, table.Columns[0].Id, "=[@Amount]*2");
+        var summary = session.Workbook.AddWorksheet("Summary");
+        summary.SetFormula(default, "=SUM(Sales[Amount])");
+        summary.SetFormula(new CellAddress(1, 0), "=SUM(Sales[Amount])+'Sheet1'!B2");
+        session.Recalculate();
+        var history = session.History.UndoCount;
+        Assert.AreEqual(4d, sheet.GetValue(calculated));
+        Assert.AreEqual(2d, summary.GetValue(default));
+
+        Assert.IsTrue(await runtime.TryActivateAsync("Table.ConvertToRange"));
+
+        Assert.AreEqual(0, sheet.TableCount);
+        Assert.AreEqual(history + 1, session.History.UndoCount);
+        Assert.AreEqual("=B2*2", sheet.GetFormula(calculated));
+        Assert.AreEqual(4d, sheet.GetValue(calculated));
+        Assert.AreEqual(2d, summary.GetValue(default));
+        Assert.AreEqual(4d, summary.GetValue(new CellAddress(1, 0)));
+        runtime.SetSelectionContext(new RibbonSelectionContext(true, false));
+        Assert.IsFalse(runtime.Snapshot.Tabs.Any(tab => tab.Id == "table-design"));
+
+        Assert.IsTrue(await runtime.TryActivateAsync("Edit.Undo"));
+        Assert.AreEqual(history, session.History.UndoCount);
+        Assert.AreEqual(table.Id, sheet.Tables.Single().Id);
+        Assert.AreEqual("=[@Amount]*2", sheet.GetFormula(calculated));
+        Assert.AreEqual("=SUM(Sales[Amount])", summary.GetFormula(default));
+        Assert.IsTrue(await runtime.TryActivateAsync("Edit.Redo"));
+        Assert.AreEqual(0, sheet.TableCount);
+        Assert.AreEqual(history + 1, session.History.UndoCount);
+        Assert.AreEqual(4d, sheet.GetValue(calculated));
+        Assert.AreEqual(2d, summary.GetValue(default));
+
+        session.SetValue(amount, 5d);
+        Assert.AreEqual(10d, sheet.GetValue(calculated));
+        Assert.AreEqual(5d, summary.GetValue(default));
+        Assert.AreEqual(10d, summary.GetValue(new CellAddress(1, 0)));
+    }
+
+    [TestMethod]
     public async Task ParameterCancellationShouldLeaveTableIdentityAndHistoryUntouched()
     {
         var (session, runtime) = CreateRuntime();

@@ -76,7 +76,18 @@ public sealed partial class RibbonPreviewWindow
         await ApplyInputAsync("Table.CalculatedColumn", "=42", () => CurrentTable?.Columns[0].CalculatedColumnFormula == "=42");
         await ApplyInputAsync("Table.TotalsFunction", "=SUM(1,2)", () => CurrentTable?.Columns[0].TotalsRowFormula == "=SUM(1,2)", "Custom");
         await ApplyInputAsync("Table.RemoveDuplicates", null, () => CurrentTable?.Range.RowCount == 7);
-        await ApplyInputAsync("Table.ConvertToRange", null, () => _session.ActiveWorksheet.TableCount == 0);
+        var formulaCells = _session.ActiveWorksheet.EnumerateUsedCells()
+            .Where(pair => pair.Value.Formula is not null).ToArray();
+        if (formulaCells.Length == 0 || formulaCells.Any(pair => pair.Value.Value.Kind == CellValueKind.Error))
+            throw new InvalidOperationException("Convert smoke requires successfully evaluated Table formulas.");
+        await ApplyInputAsync("Table.ConvertToRange", null, () =>
+            _session.ActiveWorksheet.TableCount == 0 && formulaCells.All(pair =>
+                _session.ActiveWorksheet.GetCell(pair.Key).Value == pair.Value.Value &&
+                _session.ActiveWorksheet.GetFormula(pair.Key) is { } formula && formula != pair.Value.Formula));
+        if (CurrentTable?.Id != table.Id || formulaCells.Any(pair =>
+            _session.ActiveWorksheet.GetCell(pair.Key).Value != pair.Value.Value ||
+            _session.ActiveWorksheet.GetFormula(pair.Key) != pair.Value.Formula))
+            throw new InvalidOperationException("Convert Undo did not restore formula values and structured references.");
         var selection = _session.Selection.Ranges.ToArray();
         var active = _session.Selection.ActiveCell;
         _session.Selection.Select(new CellRange(new CellAddress(0, 6), new CellAddress(2, 7)));

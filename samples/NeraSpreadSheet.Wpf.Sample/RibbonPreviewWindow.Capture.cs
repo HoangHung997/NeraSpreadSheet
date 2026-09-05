@@ -198,7 +198,7 @@ public sealed partial class RibbonPreviewWindow
         {
             schemaVersion = 2, status = "success", preview = "Production Table Design commands; Nera-generated synthetic workbook",
             note = "Loaded offscreen logical-surface capture. OS-capped native window width is reported separately from arranged root/Ribbon width; this is not physical visible-window verification. Export scales are raster sampling; native DPI and 1/1.25/1.5/2 layout checks are separate.",
-            commandSmoke = "Bold/Undo; Table.TotalsFunction/Average/Undo; Table.Style/mutation/Undo; dialog cancellation/validation; Create/Rename/Resize/CalculatedColumn/CustomTotals/RemoveDuplicates/ConvertToRange with Undo", selection = selection.ToString(), images, layouts,
+            commandSmoke = "Bold/Undo; Table.TotalsFunction/Average/Undo; Table.Style/mutation/Undo; dialog cancellation/validation; Create/Rename/Resize/CalculatedColumn/CustomTotals/RemoveDuplicates with Undo; ConvertToRange evaluated values and structured references/Undo", selection = selection.ToString(), images, layouts,
         };
         await File.WriteAllTextAsync(Path.Combine(outputDirectory, "manifest.json"),
             JsonSerializer.Serialize(manifest, CaptureJsonOptions));
