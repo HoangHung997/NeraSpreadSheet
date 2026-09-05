@@ -222,6 +222,7 @@ public sealed partial class NeraSpreadsheetControl
 
     private bool TryBeginFormulaReferencePointer(int x, int y)
     {
+        ClearMovedFormulaReferenceSpan();
         if (IsEditing && _editor.Text.StartsWith('=') &&
             !SpreadsheetFormulaEditingAssistant.CanInsertReference(_editor.Text, _editor.SelectionStart, _formulaReferenceSpan))
             return true;

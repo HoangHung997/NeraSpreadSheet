@@ -14,6 +14,8 @@ Provisional span chỉ được dùng lại khi caret còn ở cuối span và s
 WinForms kiểm tra lại ngay tại insertion boundary vì TextBox không có
 SelectionChanged event; Up/Down/PageUp/PageDown và programmatic Select không
 được làm lần point-mode tiếp theo ghi đè reference ở vị trí caret cũ.
+Mouse precheck cũng đồng bộ span trước kiểm tra literal/structured context;
+click ở context không hợp lệ được consume, không rơi xuống commit draft.
 Không tạo editor cho mỗi cell; raw cell rectangle quyết định wrapping và
 viewport/frozen panes chỉ clip vùng hiển thị.
 
