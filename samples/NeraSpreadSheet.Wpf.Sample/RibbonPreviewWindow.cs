@@ -24,6 +24,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
     private readonly CommandRegistry _commands = new();
     private readonly RibbonRuntimeController _runtime;
     private readonly NeraRibbonControl _ribbon;
+    private readonly ListBox _worksheetTabs;
     private readonly IDisposable _shortcuts;
     private IReadOnlyList<SpreadsheetTableStyleGalleryItem>? _gallerySource;
     private readonly Dictionary<string, RibbonGalleryPreview> _galleryThumbnails = new(StringComparer.Ordinal);
@@ -67,17 +68,8 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
             Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(28, 91, 111)),
             Margin = new Thickness(14, 10, 14, 8),
         };
-        var titleRow = new DockPanel();
-        var worksheets = new ComboBox { ItemsSource = _session.Workbook.Worksheets, DisplayMemberPath = "Name",
-            SelectedItem = _session.ActiveWorksheet, Width = 150, Margin = new Thickness(8, 6, 12, 6) };
-        System.Windows.Automation.AutomationProperties.SetName(worksheets, Localization.Get("Trang tính hiện tại"));
-        System.Windows.Automation.AutomationProperties.SetAutomationId(worksheets, "preview-worksheet");
-        worksheets.SelectionChanged += (_, _) => { if (worksheets.SelectedItem is Worksheet worksheet) _session.ActivateWorksheet(worksheet); };
-        DockPanel.SetDock(worksheets, Dock.Right);
-        titleRow.Children.Add(worksheets);
-        titleRow.Children.Add(title);
-        DockPanel.SetDock(titleRow, Dock.Top);
-        _root.Children.Add(titleRow);
+        DockPanel.SetDock(title, Dock.Top);
+        _root.Children.Add(title);
         DockPanel.SetDock(_ribbon, Dock.Top);
         _root.Children.Add(_ribbon);
         var formulaRow = new DockPanel { Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(247, 249, 250)) };
@@ -105,6 +97,9 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         footer.Children.Add(_status);
         DockPanel.SetDock(footer, Dock.Bottom);
         _root.Children.Add(footer);
+        _worksheetTabs = CreateWorksheetTabs();
+        DockPanel.SetDock(_worksheetTabs, Dock.Bottom);
+        _root.Children.Add(_worksheetTabs);
         _root.Children.Add(new System.Windows.Documents.AdornerDecorator { Child = _sheet });
         Content = _root;
         Closed += (_, _) => Dispose();
@@ -121,6 +116,8 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         _session.Selection.Changed -= OnPreviewStateChanged;
         _session.ActiveWorksheetChanged -= OnPreviewStateChanged;
         _ribbon.CommandActivationFailed -= OnCommandActivationFailed;
+        _worksheetTabs.SelectionChanged -= OnWorksheetTabSelectionChanged;
+        _worksheetTabs.SizeChanged -= OnWorksheetTabsSizeChanged;
         _filterPopup?.Dispose();
         _shortcuts.Dispose();
         _ribbon.Dispose();
@@ -155,6 +152,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         _address.Text = address.ToString();
         var cell = _session.ActiveWorksheet.GetCell(address);
         _formula.Text = cell.Formula ?? cell.Value.ToString();
+        SynchronizeWorksheetTabs();
         _sheet.InvalidateVisual();
     }
 

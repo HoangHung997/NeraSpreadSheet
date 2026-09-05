@@ -7,7 +7,8 @@ using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Wpf;
 using NeraSpreadSheet.Wpf.Sample;
-using ComboBox = System.Windows.Controls.ComboBox;
+using ListBox = System.Windows.Controls.ListBox;
+using ListBoxItem = System.Windows.Controls.ListBoxItem;
 
 namespace NeraSpreadSheet.Windows.Rendering.Tests;
 
@@ -18,17 +19,79 @@ public sealed class RibbonLoadedWorkbookSmokeTests
     [TestMethod]
     [Timeout(60_000)]
     public void LoadedWorkbookShouldRetainTheCompleteRibbonShellAndExistingSession()
+        => RunSta(VerifyLoadedShell);
+
+    [TestMethod]
+    [Timeout(60_000)]
+    public void WorksheetTabsShouldRemainHorizontalAndRevealTheActiveSheetAfterResize()
+        => RunSta(VerifyWorksheetTabs);
+
+    private static void RunSta(Action verify)
     {
         ExceptionDispatchInfo? failure = null;
         var thread = new Thread(() =>
         {
-            try { VerifyLoadedShell(); }
+            try { verify(); }
             catch (Exception exception) { failure = ExceptionDispatchInfo.Capture(exception); }
         }) { IsBackground = true };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
         Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(45)), "Loaded workbook shell timed out.");
         failure?.Throw();
+    }
+
+    private static void VerifyWorksheetTabs()
+    {
+        var workbook = new Workbook();
+        for (var index = 1; index < 40; index++) workbook.AddWorksheet($"Worksheet {index:00}");
+        var session = new SpreadsheetSession(workbook);
+        using var window = new RibbonPreviewWindow(session) { ShowInTaskbar = false };
+        try
+        {
+            window.Show();
+            Pump(window);
+            var tabs = Descendants(window).OfType<ListBox>()
+                .Single(list => ReferenceEquals(list.ItemsSource, workbook.Worksheets));
+            var panel = Descendants(tabs).OfType<VirtualizingStackPanel>().Single();
+            var scroller = Descendants(tabs).OfType<ScrollViewer>().Single();
+            Assert.AreEqual(System.Windows.Controls.Orientation.Horizontal, panel.Orientation);
+            Assert.IsTrue(scroller.ScrollableWidth > 0, "Many sheets must scroll, not wrap into extra rows.");
+            var last = workbook.Worksheets[^1];
+            session.ActivateWorksheet(last);
+            Pump(window);
+            Assert.AreSame(last, tabs.SelectedItem);
+            AssertVisibleSelectedTab(tabs);
+            var initialWidth = tabs.ActualWidth;
+            window.Width = 640;
+            Pump(window);
+            Assert.IsTrue(tabs.ActualWidth < initialWidth - 100, "The loaded shell did not actually shrink.");
+            AssertVisibleSelectedTab(tabs);
+            Assert.AreEqual(0d, scroller.ScrollableHeight, 0.1, "Sheet tabs must stay in one row.");
+
+            session.Editor.BeginEdit();
+            var before = last.GetCell(default);
+            var history = session.History.UndoCount;
+            tabs.SelectedItem = workbook.Worksheets[0];
+            Pump(window);
+            Assert.IsFalse(session.Editor.IsEditing, "Sheet activation must use the session's existing cancellation semantics.");
+            Assert.AreEqual(before, last.GetCell(default));
+            Assert.AreEqual(history, session.History.UndoCount);
+            Assert.AreSame(workbook.Worksheets[0], session.ActiveWorksheet);
+            AssertVisibleSelectedTab(tabs);
+        }
+        finally { window.Close(); Pump(window); }
+    }
+
+    private static void AssertVisibleSelectedTab(ListBox tabs)
+    {
+        var item = tabs.ItemContainerGenerator.ContainerFromItem(tabs.SelectedItem) as ListBoxItem;
+        Assert.IsNotNull(item, "The active worksheet tab must have a realized native container.");
+        var viewport = Descendants(tabs).OfType<System.Windows.Controls.Primitives.ScrollContentPresenter>().Single();
+        var origin = item.TranslatePoint(default, viewport);
+        Assert.IsTrue(origin.X >= -1 && origin.X + item.ActualWidth <= viewport.ActualWidth + 1,
+            "The active tab was clipped outside the horizontal viewport.");
+        Assert.IsTrue(origin.Y >= -1 && origin.Y + item.ActualHeight <= viewport.ActualHeight + 1,
+            "The tab row changed height or clipped its selected label.");
     }
 
     private static void VerifyLoadedShell()
@@ -60,13 +123,17 @@ public sealed class RibbonLoadedWorkbookSmokeTests
             Assert.IsTrue(ribbon.IsLoaded && ribbon.LayoutSnapshot.Tabs.Count > 1);
             Assert.IsTrue(visuals.OfType<TextBlock>().Any(text => text.Text == "=1+2"), "The loaded shell lost its formula display.");
             Assert.IsTrue(visuals.OfType<TextBlock>().Any(text => text.Text == "Synthetic loaded workbook"));
-            var selector = visuals.OfType<ComboBox>().Single(combo => ReferenceEquals(combo.ItemsSource, workbook.Worksheets));
+            var selector = visuals.OfType<ListBox>().Single(list => ReferenceEquals(list.ItemsSource, workbook.Worksheets));
             Assert.AreSame(selectedSheet, selector.SelectedItem);
             selector.SelectedItem = workbook.Worksheets[0];
             Pump(window);
             Assert.AreSame(workbook.Worksheets[0], session.ActiveWorksheet);
             Assert.AreSame(session, grid.Session);
             Assert.IsTrue(ribbon.IsLoaded);
+            Assert.AreEqual(beforeHistory, session.History.UndoCount, "Sheet navigation must not mutate workbook history.");
+            session.ActivateWorksheet(selectedSheet);
+            Pump(window);
+            Assert.AreSame(selectedSheet, selector.SelectedItem, "Tabs must follow activation outside the tab row.");
         }
         finally { window.Close(); Pump(window); }
     }

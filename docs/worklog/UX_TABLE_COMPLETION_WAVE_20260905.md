@@ -113,6 +113,17 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
   hai project như full CI. Push chỉ nhánh B, không sửa ci.yml. Có thể chạy
   diagnostic trước trong vòng probe; final source vẫn bắt buộc ba existing
   workflows/bảy jobs và diagnostic xanh đúng HEAD. Không thay final gates.
+- Chuyển B writer duy nhất
+  `src/NeraSpreadSheet.Maui/NeraMacCatalystSKGLViewHandler.cs` cho diagnostic
+  bounded render-depth/queued/drawing/disposed stage, không đổi scheduling,
+  dispose hoặc success criteria trong probe. Trace chỉ stage/depth/flags,
+  không dữ liệu workbook/đường dẫn/identity thiết bị. B báo evidence trước khi
+  đề xuất production fix; root không sửa file này đến khi B release.
+- Windows SmokePage được bắt native Application.UnhandledException để ghi
+  failure stage và exception type/stack đã sanitize vào existing failure
+  result; không set Handled, không nuốt lỗi, không success fallback. Chỉ đăng
+  ký trong smoke, unsubscribe Dispose; giữ runner retries/timeouts/assertions.
+  Loại workbook values/đường dẫn/UUID khỏi diagnostic, không upload raw dump.
 
 ### Quyền sửa C
 

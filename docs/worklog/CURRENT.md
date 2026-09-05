@@ -1,5 +1,20 @@
 # Current Work Handoff
 
+## Tiếp tục 06/09 — root exact HEAD xanh, diagnostic native có giới hạn
+
+Root `c6c25d1733ba2ba5b8ec5747fda3a8bc50ad1a26` đã SUCCESS đủ bốn workflow:
+full `33981316722`, iOS `33981316714`, Q003C `33981316657`, package consumer
+`33981313992`. Full-shell loaded workbook regression đã qua cổng Windows.
+Root tiếp tục R2 tab sheet ngang trong sample, chưa ghép A/B hoặc báo 100%.
+
+A sửa HC tại source `0e6e02a9`, chưa release. B probe `24395c7a` / diagnostic
+`33981545011` fail cả Windows/Mac: Mac trước khi tạo editor subtree; Windows
+qua editor nhưng fail sau first reinsert trước Loaded. Root kiểm tra remove/
+insert đều dùng đúng editorHost parent, không có bằng chứng sai parent.
+Theo wave, B được instrument Mac handler depth/flags và Windows unhandled
+exception failure capture đã sanitize, không sửa scheduling hoặc bỏ gates.
+Next: hoàn tất sample tabs/test, nhận final source A/B đã release với CI xanh.
+
 ## Tiếp tục độc lập R2 — full-shell workbook loading
 
 Root đang bổ sung sample OpenWorkbookAsync dùng đầy đủ RibbonPreviewWindow với

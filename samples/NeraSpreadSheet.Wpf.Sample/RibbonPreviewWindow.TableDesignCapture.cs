@@ -94,8 +94,8 @@ public sealed partial class RibbonPreviewWindow
         await ApplyInputAsync("Table.Create", "NewTable", () => CurrentTable?.Name == "NewTable" && _session.ActiveWorksheet.TableCount == 2);
         _session.Selection.Select(selection[0]);
         _session.Selection.SetActiveCell(active);
-        var worksheets = CaptureDescendants<ComboBox>(_root).Single(combo =>
-            AutomationProperties.GetAutomationId(combo) == "preview-worksheet");
+        var worksheets = CaptureDescendants<ListBox>(_root).Single(list =>
+            AutomationProperties.GetAutomationId(list) == "preview-worksheet");
         worksheets.SelectedIndex = 1;
         if (_runtime.SelectionContext.IsInTable || await _runtime.TryActivateAsync("Table.Rename"))
             throw new InvalidOperationException("Table context survived switching to an empty worksheet.");

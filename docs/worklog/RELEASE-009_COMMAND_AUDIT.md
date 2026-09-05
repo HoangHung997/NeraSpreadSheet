@@ -91,6 +91,21 @@ branch để không bỏ final docs/source revision sau ghép.
 
 ### Bước tiếp theo duy nhất
 
+Root exact `c6c25d17` xanh đủ full/iOS/Q003C/Windows packages, gồm loaded full-
+shell regression. Tiếp tục thay worksheet ComboBox bằng horizontal virtualized
+ListBox trên chính Workbook.Worksheets, giữ native selection/focus và session
+activation/cancel/history; không thêm model hoặc add/remove/rename transactions.
+Loaded tests bổ sung 40 sheets, narrow resize, active-tab visibility và external
+activation. Table-dialog capture chuyển selector type, không bỏ context gates.
+CI/capture ở source mới vẫn pending. Editable formula bar, final combined demo
+packaging/walkthrough vẫn OPEN; không đóng R2 chỉ bằng tab row.
+
+Root static review phát hiện lifecycle gap trong SDK WPF đang B sở hữu:
+ActivateWorksheet hủy controller trước event, nhưng CancelEditor trả false sớm
+nếu state đã null, trước HideEditor/ResetFormulaEditingUi. Native draft overlay
+có thể chưa được dọn khi đổi sheet. Đã giao B xử lý cùng regression; không
+workaround model trong sample hoặc gọi headless cancel assertion là native proof.
+
 06/09, sau khi A release sample paths: root bổ sung constructor full shell nhận
 existing session và chuyển OpenWorkbookAsync sang cửa sổ đó, giữ theme/tên file.
 Regression loaded Windows mới kiểm cùng session, active sheet/cell/history,

@@ -41,9 +41,14 @@ Open workbook tạo cùng `RibbonPreviewWindow` đầy đủ qua constructor nh�
 Ribbon/Backstage, formula display và worksheet selector; không mở grid-only
 window hoặc thay session bằng dữ liệu bán hàng synthetic. Tiêu đề lấy tên file,
 theme kế thừa cửa sổ gọi. Parameterless preview/capture vẫn dùng fixture cũ.
-Đây mới là checkpoint full-shell loading: formula display còn read-only và
-selector còn ComboBox; sheet tabs/editor formula bar/demo packaging thuộc R2
-tiếp theo, chưa gọi sample này là bản demo hoàn thiện.
+Worksheet navigation dùng một hàng tab ngang ở đáy cửa sổ, cùng collection
+Worksheet và identity/session hiện hữu. Native ListBox có horizontal virtualized
+panel, overflow cuộn ngang thay vì xuống hàng; tab đang active được đưa vào vùng
+nhìn thấy. Activation từ session cập nhật tab, chuyển tab dùng nguyên cancellation/
+history semantics của session. Không tạo worksheet model hoặc transaction mới.
+Đây mới là checkpoint full-shell loading và tab navigation: formula display còn
+read-only; editable formula bar/demo packaging thuộc R2 tiếp theo, chưa gọi
+sample này là bản demo hoàn thiện. Row này chưa thêm lệnh add/rename/delete sheet.
 
 `RibbonProductionCommandCatalog` là manifest của 49 command session có
 sẵn, không thêm khả năng chưa đăng ký. Factory mặc định giữ tab/command IDs
