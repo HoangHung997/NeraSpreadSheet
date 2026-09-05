@@ -551,11 +551,19 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         try
         {
             var join = _conditionJoinPicker.SelectedIndex;
-            _conditionJoinPicker.ItemsSource = new[] { Localization.Get("Và"), Localization.Get("Hoặc") };
-            _conditionJoinPicker.SelectedIndex = join;
+            var joinLabels = new[] { Localization.Get("Và"), Localization.Get("Hoặc") };
+            if (!_conditionJoinPicker.Items.SequenceEqual(joinLabels))
+            {
+                _conditionJoinPicker.ItemsSource = joinLabels;
+                _conditionJoinPicker.SelectedIndex = join;
+            }
             var selected = _menuKindPicker.SelectedIndex;
-            _menuKindPicker.ItemsSource = _binding?.MenuKinds.Select(kind => Localization.Get(kind.GetDefaultDisplayName())).ToArray();
-            _menuKindPicker.SelectedIndex = selected;
+            var menuLabels = _binding?.MenuKinds.Select(kind => Localization.Get(kind.GetDefaultDisplayName())).ToArray() ?? [];
+            if (!_menuKindPicker.Items.SequenceEqual(menuLabels))
+            {
+                _menuKindPicker.ItemsSource = menuLabels;
+                _menuKindPicker.SelectedIndex = selected;
+            }
             UpdateStatusText();
             _presentationRows.RemoveAll(static reference => !reference.TryGetTarget(out _));
             foreach (var reference in _presentationRows)

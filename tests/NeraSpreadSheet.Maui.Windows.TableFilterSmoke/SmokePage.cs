@@ -252,6 +252,9 @@ internal sealed class SmokePage : ContentPage, IDisposable
             "The paged AutoFilter sheet closed before validation.");
         Require(picker.Handler?.PlatformView is not null && picker.Items.Count >= 2,
             "The loaded rich filter category picker was not populated.");
+        var nativePicker = (Microsoft.UI.Xaml.Controls.ComboBox)picker.Handler!.PlatformView!;
+        Require(nativePicker.RequestedTheme == Microsoft.UI.Xaml.ElementTheme.Light,
+            "The native picker must receive its Filter theme when the handler attaches.");
         Require(values.Handler?.PlatformView is not null,
             "The virtualized current-page CollectionView was not loaded.");
         Require(criterion.Handler?.PlatformView is not null &&
@@ -270,17 +273,29 @@ internal sealed class SmokePage : ContentPage, IDisposable
         search.CursorPosition = 1;
         search.SelectionLength = 0;
         var focused = search.IsFocused;
-        _pagedHost.SetPresentation(new PresentationLocalization(CultureInfo.GetCultureInfo("en-GB")), NeraIconTheme.HighContrastDark);
-        Require(apply.Text == "Apply" && panel.BackgroundColor == Colors.Black, "Paged filter did not apply scoped resources and palette.");
-        Require(apply.BackgroundColor == Colors.Black && apply.TextColor == Colors.White,
-            "Replacing native visual states restored stale button colors.");
-        Require(search.Text == "O" && search.CursorPosition == 1 && search.SelectionLength == 0 && search.IsFocused == focused,
-            "Paged filter presentation switch changed query/caret/focus.");
-        Require(items.SequenceEqual(binding.Items) && ReferenceEquals(values.ItemsSource, binding.Items),
-            "Paged filter presentation switch recreated or changed the current value page.");
-        Require(history == _pagedHost.Spreadsheet.Session.History.UndoCount && CultureInfo.CurrentUICulture == culture &&
-                ReferenceEquals(resources, Application.Current.Resources) && resources.Count == resourceCount,
-            "Paged filter presentation switch mutated history or global resources/culture.");
+        var selected = picker.SelectedIndex;
+        var localization = new PresentationLocalization(CultureInfo.GetCultureInfo("en-GB"));
+        for (var transition = 0; transition < 3; transition++)
+        {
+            var dark = transition != 1;
+            var pickerItems = picker.ItemsSource;
+            _pagedHost.SetPresentation(localization, dark ? NeraIconTheme.HighContrastDark : NeraIconTheme.Light);
+            Require(apply.Text == "Apply" && panel.BackgroundColor == (dark ? Colors.Black : Colors.White), "Paged filter did not apply scoped resources and palette.");
+            Require(!dark || (apply.BackgroundColor == Colors.Black && apply.TextColor == Colors.White),
+                "Replacing native visual states restored stale button colors.");
+            Require(ReferenceEquals(nativePicker, picker.Handler!.PlatformView) &&
+                nativePicker.RequestedTheme == (dark ? Microsoft.UI.Xaml.ElementTheme.Dark : Microsoft.UI.Xaml.ElementTheme.Light),
+                "The same native picker must follow Light and HighContrastDark Filter themes.");
+            Require(picker.SelectedIndex == selected && (transition == 0 || ReferenceEquals(pickerItems, picker.ItemsSource)),
+                "Changing only the theme must retain picker selection and ItemsSource.");
+            Require(search.Text == "O" && search.CursorPosition == 1 && search.SelectionLength == 0 && search.IsFocused == focused,
+                "Paged filter presentation switch changed query/caret/focus.");
+            Require(items.SequenceEqual(binding.Items) && ReferenceEquals(values.ItemsSource, binding.Items),
+                "Paged filter presentation switch recreated or changed the current value page.");
+            Require(history == _pagedHost.Spreadsheet.Session.History.UndoCount && CultureInfo.CurrentUICulture == culture &&
+                    ReferenceEquals(resources, Application.Current.Resources) && resources.Count == resourceCount,
+                "Paged filter presentation switch mutated history or global resources/culture.");
+        }
         _pagedRichSurfaceVerified = true;
     }
 

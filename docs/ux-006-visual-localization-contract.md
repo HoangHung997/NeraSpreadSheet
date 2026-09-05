@@ -69,6 +69,10 @@ không để setters cũ phục hồi màu trắng trên nền đen. Glyph check
 resources ở chính native checkbox (đen trên accent sáng, trắng trên accent tối),
 không thay application resources hoặc checked value. WPF checkbox foreground
 nhận palette trong scope popup để giá trị workbook vẫn đọc được trên nền tối.
+MAUI Windows Picker đặt theme ở native ComboBox của chính control, để chevron
+và dropdown đi cùng palette; TextColor riêng không đủ cho hai phần native này.
+Theme-only switch giữ ItemsSource và SelectedIndex khi nhãn Picker không đổi;
+chỉ thay danh sách nhãn khi bản dịch thực sự khác.
 
 Giữ engine dense ba hàng, caption đáy, responsive collapse/overflow và override
 measurement của host. Không đổi viewport/scroll/render algorithm. Nhãn dài phải
