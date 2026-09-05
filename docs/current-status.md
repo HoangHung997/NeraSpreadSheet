@@ -1,5 +1,20 @@
 # NeraSpreadSheet current implementation status
 
+## RIBBON-VISUAL-011 — IMPLEMENTED LOCALLY; EXACT-HEAD CI PENDING
+
+Branch `feature/ribbon-visual-011` triển khai dense layout ba hàng dùng chung
+cho WPF/WinForms/MAUI, caption nhóm ở đáy, bốn palette, icon QAT, Backstage
+rail/content và gallery thumbnail. Preview runnable đã có tám tab capability
+thật cùng File; Table Style chỉ xem trước và không thay mutation của
+`TABLE-005`. Xem [visual contract](ribbon-visual-contract.md) và
+[lane worklog](worklog/RIBBON-VISUAL-011.md). Core solution **1386/1386**,
+focused Ribbon **75/75**, desktop Ribbon **16/16**, MAUI **41/41** và loaded
+MAUI Windows Ribbon smoke đã pass. Build/analyzers 0 warning/error,
+architecture/SDK packaging verifier pass; preview có **176 ảnh / 128 native
+layout snapshots**. Full Windows local **74/75** do test foreground cũ dừng ở
+`window.Activate()` trước SDK behavior. CI Windows đã được thêm capture/artifact
+gate; chưa coi checkpoint DONE cho đến khi cả ba workflow xanh tại HEAD cuối.
+
 ## Overall roadmap implementation progress
 
 The fixed weighted roadmap rubric in [`project-progress.md`](project-progress.md) currently evaluates to **83.98%**, reported as **84%**. This is an implementation-roadmap score, not a claim that NeraSpreadSheet implements 84% of every Microsoft Excel feature and not a production-readiness percentage.

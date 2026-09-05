@@ -1,5 +1,34 @@
 # Current Work Handoff
 
+## Active isolated worktree — RIBBON-VISUAL-011
+
+- Branch hiện tại: `feature/ribbon-visual-011`; base SHA:
+  `284ccb76e5f69e170356ffc66915dd6e290b68fb`.
+- Implementation commit: `ee7df1ebeba207c3b0488604abf8d578199bbdd5`;
+  chuỗi trước đó: `1d0ad498`, `88ef9c03`, `a24cbcd0`, `621fb1ec`.
+  Checkpoint tài liệu này đứng ngay sau implementation; exact-head CI chưa chạy.
+- PR #1 vẫn Draft/unmerged; lane này không merge hoặc thay trạng thái PR.
+- Shared dense layout ba hàng, bốn palette, caption đáy, QAT, gallery và
+  Backstage/customization đã triển khai trên ba presenter. Preview dùng command
+  thật; Table Style chỉ xem trước, không có mutation thứ hai của TABLE-005.
+- Core **1386/1386**, focused Ribbon **75/75**, desktop Ribbon **16/16**,
+  MAUI **41/41**, loaded MAUI Windows Ribbon smoke success. Build/analyzers
+  **0 warning/error**, architecture/SDK packaging pass, **18 nupkg**.
+- Full Windows **74/75** do test foreground đã có dừng ở `window.Activate()`
+  trước SDK behavior; không bỏ hoặc nới test. Dark checkbox contrast regression
+  đã được thêm; focused customization chạy lại **3/3**.
+- Preview/capture: **176 ảnh / 128 native layout snapshots**, bốn widths và
+  palettes, gallery More/customization, raster exports 125/150/200%; command
+  smoke Bold/Undo, totals Average/Undo và gallery không đổi style đều pass.
+- File trọng tâm, benchmark trước/sau và giới hạn: xem
+  [`RIBBON-VISUAL-011.md`](RIBBON-VISUAL-011.md) và
+  [`ribbon-visual-contract.md`](../ribbon-visual-contract.md).
+- Bước tiếp theo duy nhất: push nhánh và dispatch full CI, iOS, Q003C/OpenXML
+  tại đúng HEAD này; chỉ bàn giao sau khi cả ba xanh, ghi run IDs vào handoff
+  rồi kiểm tra lại cả commit tài liệu cuối. Không merge PR #1.
+
+## Integration history (checkpoint before this isolated lane)
+
 - Repository: `HoangHung997/NeraSpreadSheet`.
 - Local branch: `feature/ribbon-table-filter-ux-plan`; integration branch:
   `feature/bootstrap-architecture-v0.1`.
