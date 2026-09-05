@@ -1,6 +1,27 @@
 # Current Work Handoff
 
-## Đang xác minh — shared Android/iOS transport
+## Tiếp tục — sửa frame policy của shared native transport
+
+Root `0a8e531fae612eba7534f86ff8786d84ee6407ae` đã PASS Windows/Core/MAUI
+Windows/Mac, Q003C `33986683354`, packages `33986681510`, demo `33986724554`.
+Full `33986683333` FAIL Android parser; iOS `33986683313` FAIL parser. Chưa
+release launcher cho C. Baseline Android success job `101358050609` thực tế có
+frameCount=2: giả định transport >=3 làm lệch contract source analytics cũ.
+Sửa minimum legacy về 2, giữ package consumer >=3 cùng nonce/provenance;
+thêm fixed rejection codes và non-finite guard, 12 in-memory tests PASS.
+iOS chưa có reason code nên chưa khẳng định cùng nguyên nhân; phải chạy đúng
+HEAD sửa mới. Không thay production/MAUI assertions hoặc bỏ native gate.
+
+B desktop21 đã independent-verify source Windows job101359345450 SUCCESS;
+chưa apply vì review split opt-out/metadata API còn tiếp tục. A finalbed515b7
+chờ release10paths sau năm gates/capture. C assembler4415b890 đã PASS, đang
+sửa consumer restore cohort/config ở823e913e; runtime vẫn OPEN.
+
+Bước tiếp theo duy nhất: verify new exact-head Android/iOS transport, sau đó
+nhận source đã review/release theo thứ tự B desktop và A navigation; full B
+Mac/Windows reattach cùng final P3/MAUI packages/hardware vẫn OPEN.
+
+## Lịch sử — shared Android/iOS transport extraction
 
 Root tách hai existing native launch blocks sang `run-maui-android-smoke.sh`
 và `run-maui-ios-smoke.sh`; giữ source apps/setup/bounds, thêm bounded JSON

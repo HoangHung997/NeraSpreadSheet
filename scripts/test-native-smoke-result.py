@@ -41,9 +41,26 @@ class NativeResultTests(unittest.TestCase):
                 MODULE.parse_result("TEST:" + payload, "TEST:")
 
     def testFramesMustBeAnActualPositiveInteger(self):
-        for frames in (None, False, "3", 0, 2, 3.5):
+        for frames in (None, False, "3", 0, 1, 3.5):
             with self.subTest(frames=frames), self.assertRaises(ValueError):
                 MODULE.parse_result(self.marker(frames=frames), "")
+
+    def testLegacyAnalyticsMayCompleteAfterTwoFrames(self):
+        value = self.marker(frames=2)
+        self.assertEqual(json.loads(value), MODULE.parse_result(value, ""))
+        self.assertEqual(json.loads(value), MODULE.parse_result("TEST:" + value, "TEST:"))
+
+    def testStricterConsumerFramePolicyIsNotRelaxed(self):
+        with self.assertRaisesRegex(MODULE.NativeResultError, "insufficient-frame-evidence"):
+            MODULE.parse_result(self.marker(frames=2), "", minimum_frames=3)
+        self.assertEqual(3, MODULE.parse_result(self.marker(), "", minimum_frames=3)["frameCount"])
+        with self.assertRaisesRegex(MODULE.NativeResultError, "invalid-frame-policy"):
+            MODULE.parse_result(self.marker(), "", minimum_frames=1)
+
+    def testNonfinitePayloadIsRejectedWithoutPrintingItsContent(self):
+        for value in ("NaN", "Infinity", "-Infinity"):
+            with self.subTest(value=value), self.assertRaisesRegex(MODULE.NativeResultError, "^nonfinite-number$"):
+                MODULE.parse_result('{"status":"success","frameCount":3,"privateField":' + value + '}', "")
 
     def testUnknownStatusIsRejected(self):
         with self.assertRaises(ValueError):

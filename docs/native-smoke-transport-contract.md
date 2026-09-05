@@ -28,7 +28,10 @@ they are not a way to automate applications on the user's desktop.
 ## Result validation
 
 `verify-native-smoke-result.py` reads at most 2 MiB per log. A complete JSON
-object, success status and integer frameCount >= 3 are mandatory. Missing
+object, success status and integer frameCount >= 2 are mandatory for the legacy
+analytics probes (creation frame followed by native accessibility validation).
+The isolated package consumer still requires >= 3 completed frames and all its
+additional runtime postconditions; transport does not replace that validator. Missing
 marker returns pending, never success. Malformed/duplicate fields, mixed
 success/failure, conflicting success payloads and missing frames fail closed.
 Identical console/unified-log duplicates are allowed. Evidence output uses
@@ -48,9 +51,18 @@ fresh nonce and all public-consumer runtime postconditions. C's MAUI package
 matrix remains native OPEN until that wrapper is wired and all targets run.
 The old analytics apps do not retroactively claim nonce-based provenance.
 
-Nine in-memory parser regressions cover raw/prefixed/duplicate/missing/malformed/
+Twelve in-memory parser regressions cover raw/prefixed/duplicate/missing/malformed/
 conflicting/failure/frame/duplicate-field cases. Syntax checks are not native
 proof: the existing full Android and separate iOS runtime jobs must pass at
 the exact extraction HEAD. SDK/render/input code is unchanged by this slice,
 so no render performance benchmark is required. Rollback restores the two
 inline workflow launch blocks and removes the shared scripts/tests/contract.
+
+Extraction `0a8e531f` rejected both Android and iOS markers. Its hardcoded >=3
+transport assumption was incompatible with the unchanged legacy analytics
+lifecycle: the preceding green Android job `101358050609` explicitly emitted
+success with frameCount=2. Correct the transport policy, not the app assertions.
+The iOS rejection reason was not captured by the initial coarse diagnostic;
+do not assert the same cause without a new exact-head runtime result. Rejections
+now expose a fixed reason code only, never raw app output. Non-finite JSON
+numbers are rejected as well. New native CI remains mandatory.
