@@ -16,6 +16,8 @@ public sealed class WorksheetSnapshot
     private readonly CellStylePatch[] _differentialStyles;
     private readonly DataValidationRule[] _dataValidationRules;
     private readonly SpreadsheetTable[] _tables;
+    private readonly Dictionary<string, TableStyleDefinition>
+        _tableStyles;
     private readonly FormulaSpillRange[] _formulaSpills;
     private readonly WorksheetAutoFilter? _autoFilter;
     private readonly WorksheetAxisInterval[] _hiddenRows;
@@ -24,6 +26,8 @@ public sealed class WorksheetSnapshot
         _axisStyleCache = new();
     private readonly ConcurrentDictionary<FilterPredicateCacheKey, Lazy<Func<int, bool>>>
         _filterPredicateCache = new();
+    private readonly ConcurrentDictionary<string, ResolvedTableStyle>
+        _resolvedTableStyles = new(StringComparer.OrdinalIgnoreCase);
     private readonly CellStyle[] _styles;
 
     private WorksheetSnapshot(
@@ -45,6 +49,8 @@ public sealed class WorksheetSnapshot
         CellStylePatch[] differentialStyles,
         DataValidationRule[] dataValidationRules,
         SpreadsheetTable[] tables,
+        TableStyleDefinition[] tableStyles,
+        WorkbookTheme theme,
         FormulaSpillRange[] formulaSpills,
         WorksheetAutoFilter? autoFilter)
     {
@@ -77,6 +83,11 @@ public sealed class WorksheetSnapshot
         _tables = tables
             .Select(static table => table.Copy())
             .ToArray();
+        _tableStyles = tableStyles.ToDictionary(
+            static style => style.Name,
+            static style => style.Copy(),
+            StringComparer.OrdinalIgnoreCase);
+        Theme = theme;
         _formulaSpills = formulaSpills
             .Select(static spill => spill.Copy())
             .OrderBy(static spill => spill.Owner.RowIndex)
@@ -133,6 +144,8 @@ public sealed class WorksheetSnapshot
         _dataValidationRules;
 
     public IReadOnlyList<SpreadsheetTable> Tables => _tables;
+
+    public WorkbookTheme Theme { get; }
 
     public IReadOnlyList<FormulaSpillRange> FormulaSpills =>
         _formulaSpills;
@@ -193,6 +206,58 @@ public sealed class WorksheetSnapshot
             static cacheKey => ComposeAxisStyle(cacheKey.RowOperations, cacheKey.ColumnOperations));
     }
 
+    /// <summary>
+    /// Applies direct and sparse axis formatting over a supplied base style.
+    /// Direct cell formatting remains a complete override.
+    /// </summary>
+    public CellStyle GetEffectiveStyle(
+        CellAddress address,
+        CellStyle baseStyle)
+    {
+        ArgumentNullException.ThrowIfNull(baseStyle);
+        address = ResolveMergedAnchor(address);
+        var cell = GetCell(address);
+        if (cell.StyleId != CellStyleCatalog.DefaultStyleId)
+        {
+            if ((uint)cell.StyleId >= (uint)_styles.Length)
+            {
+                throw new InvalidOperationException(
+                    "The captured cell references an unavailable style.");
+            }
+            return _styles[cell.StyleId];
+        }
+
+        var key = new AxisStyleCacheKey(
+            FindOperations(_rowStyleSpans, address.RowIndex),
+            FindOperations(_columnStyleSpans, address.ColumnIndex),
+            baseStyle);
+        return _axisStyleCache.GetOrAdd(
+            key,
+            static cacheKey => ComposeAxisStyle(
+                cacheKey.RowOperations,
+                cacheKey.ColumnOperations,
+                cacheKey.BaseStyle));
+    }
+
+    public bool TryGetResolvedTableStyle(
+        string name,
+        out ResolvedTableStyle? style)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (!_tableStyles.TryGetValue(name, out var definition))
+        {
+            style = null;
+            return false;
+        }
+        style = _resolvedTableStyles.GetOrAdd(
+            definition.Name,
+            static (_, state) => TableStyleResolver.Resolve(
+                state.Definition,
+                state.Theme),
+            (Definition: definition, Theme));
+        return true;
+    }
+
     public CellStylePatch GetDifferentialStyle(
         int styleId)
     {
@@ -251,9 +316,17 @@ public sealed class WorksheetSnapshot
         CellAddress address,
         out SpreadsheetTable? table)
     {
-        table = _tables.FirstOrDefault(candidate =>
-            candidate.Range.Contains(address));
-        return table is not null;
+        foreach (var candidate in _tables)
+        {
+            if (candidate.Range.Contains(address))
+            {
+                table = candidate;
+                return true;
+            }
+        }
+
+        table = null;
+        return false;
     }
 
     public bool TryGetFormulaSpill(
@@ -401,6 +474,8 @@ public sealed class WorksheetSnapshot
             [.. worksheet.DifferentialStyles.Snapshot()],
             [.. worksheet.DataValidationRules],
             [.. worksheet.Tables],
+            worksheet.Workbook.TableStyles.Snapshot(),
+            worksheet.Workbook.Theme,
             [.. worksheet.GetFormulaSpills()],
             worksheet.AutoFilter);
     }
@@ -469,9 +544,10 @@ public sealed class WorksheetSnapshot
 
     private static CellStyle ComposeAxisStyle(
         WorksheetAxisStyleOperation[] rowOperations,
-        WorksheetAxisStyleOperation[] columnOperations)
+        WorksheetAxisStyleOperation[] columnOperations,
+        CellStyle? baseStyle = null)
     {
-        var style = CellStyle.Default;
+        var style = baseStyle ?? CellStyle.Default;
         var rowIndex = 0;
         var columnIndex = 0;
         while (rowIndex < rowOperations.Length ||
@@ -498,7 +574,8 @@ public sealed class WorksheetSnapshot
 
     private readonly record struct AxisStyleCacheKey(
         WorksheetAxisStyleOperation[] RowOperations,
-        WorksheetAxisStyleOperation[] ColumnOperations);
+        WorksheetAxisStyleOperation[] ColumnOperations,
+        CellStyle? BaseStyle = null);
 
     private readonly record struct FilterPredicateCacheKey(
         CellRange DataRange,

@@ -816,6 +816,13 @@ public sealed class Worksheet
         PublishChange(signalRange);
     }
 
+    internal void InvalidateWorkbookAppearance() =>
+        PublishChange(new CellRange(
+            default,
+            new CellAddress(
+                SpreadsheetLimits.MaxRows - 1,
+                SpreadsheetLimits.MaxColumns - 1)));
+
     private Dictionary<CellAddress, CellData>
         CreateStructuralCells(
             WorksheetStructuralChange change)

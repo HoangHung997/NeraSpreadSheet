@@ -788,6 +788,24 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
             color.Green,
             color.Blue);
 
+    private SpreadsheetTableFilterButtonVisual GetButtonVisual(
+        SpreadsheetTableFilterButtonHit hit)
+    {
+        var session = _control.Session;
+        var table = session?.ActiveWorksheet.Tables.FirstOrDefault(candidate =>
+            candidate.Id == hit.TableId);
+        return session is null || table is null
+            ? new SpreadsheetTableFilterButtonVisual(
+                _control.RenderTheme.TableFilterButtonBackground,
+                _control.RenderTheme.TableFilterButtonActiveBackground,
+                _control.RenderTheme.TableFilterButtonBorder,
+                _control.RenderTheme.TableFilterButtonGlyph)
+            : SpreadsheetTableStyleVisuals.ResolveFilterButton(
+                session.Workbook,
+                table,
+                _control.RenderTheme);
+    }
+
     private sealed class FilterButtonAdorner : Adorner
     {
         private readonly NeraTableFilterPopupPresenter _presenter;
@@ -804,9 +822,9 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
         protected override void OnRender(DrawingContext drawingContext)
         {
             base.OnRender(drawingContext);
-            var theme = _presenter._control.RenderTheme;
             foreach (var button in _presenter.GetVisibleButtons())
             {
+                var visual = _presenter.GetButtonVisual(button);
                 var bounds = new Rect(
                     button.Bounds.X,
                     button.Bounds.Y,
@@ -814,10 +832,10 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
                     button.Bounds.Height);
                 var fill = new SolidColorBrush(ToColor(
                     button.IsFiltered
-                        ? theme.TableFilterButtonActiveBackground
-                        : theme.TableFilterButtonBackground));
+                        ? visual.ActiveBackground
+                        : visual.Background));
                 var border = new Pen(
-                    new SolidColorBrush(ToColor(theme.TableFilterButtonBorder)),
+                    new SolidColorBrush(ToColor(visual.Border)),
                     1d);
                 drawingContext.DrawRoundedRectangle(
                     fill,
@@ -832,7 +850,7 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
                     button.HeaderState,
                     button.SortDescending,
                     new SolidColorBrush(ToColor(
-                        theme.TableFilterButtonGlyph)));
+                        visual.Glyph)));
             }
         }
     }

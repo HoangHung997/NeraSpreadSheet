@@ -376,6 +376,12 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
         var visible = new HashSet<(Guid, Guid)>();
         foreach (var hit in hits)
         {
+            var table = _session.ActiveWorksheet.Tables.First(candidate =>
+                candidate.Id == hit.TableId);
+            var visual = SpreadsheetTableStyleVisuals.ResolveFilterButton(
+                _session.Workbook,
+                table,
+                Spreadsheet.RenderTheme);
             var key = (hit.TableId, hit.ColumnId);
             visible.Add(key);
             if (!_buttons.TryGetValue(key, out var button))
@@ -399,12 +405,12 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
                 hit.SortDescending);
             button.BackgroundColor = ToColor(
                 hit.IsFiltered
-                    ? Spreadsheet.RenderTheme.TableFilterButtonActiveBackground
-                    : Spreadsheet.RenderTheme.TableFilterButtonBackground);
+                    ? visual.ActiveBackground
+                    : visual.Background);
             button.TextColor = ToColor(
-                Spreadsheet.RenderTheme.TableFilterButtonGlyph);
+                visual.Glyph);
             button.BorderColor = ToColor(
-                Spreadsheet.RenderTheme.TableFilterButtonBorder);
+                visual.Border);
             var automationId =
                 $"NeraTableFilter_{hit.TableId:N}_{hit.ColumnId:N}";
             if (string.IsNullOrEmpty(button.AutomationId))

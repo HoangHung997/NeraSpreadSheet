@@ -459,12 +459,20 @@ public static class SpreadsheetDisplayListComposer
     private static CellStyle ResolveStyle(
         WorksheetSnapshot worksheet,
         CellAddress address,
-        CellStyleCatalog? styles) =>
-        styles is null
-            ? CellStyle.Default
-            : worksheet.GetEffectiveStyle(
-                address,
-                styles);
+        CellStyleCatalog? styles)
+    {
+        var tableBase = CellStyle.Default;
+        if (worksheet.TryGetTable(address, out var table) &&
+            table?.StyleName is { } styleName &&
+            worksheet.TryGetResolvedTableStyle(styleName, out var resolved))
+        {
+            tableBase = resolved!.ResolveCell(table, address);
+        }
+
+        return tableBase == CellStyle.Default && styles is not null
+            ? worksheet.GetEffectiveStyle(address, styles)
+            : worksheet.GetEffectiveStyle(address, tableBase);
+    }
 
     private static void DrawCellBorders(
         DisplayListBuilder builder,
