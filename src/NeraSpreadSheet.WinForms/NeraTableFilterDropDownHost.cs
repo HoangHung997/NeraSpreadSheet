@@ -1,3 +1,5 @@
+using NeraSpreadSheet.Iconography;
+using NeraSpreadSheet.Commands;
 using System.Drawing;
 using System.Windows.Forms;
 using NeraSpreadSheet.Core;
@@ -12,6 +14,9 @@ namespace NeraSpreadSheet.WinForms;
 /// </summary>
 public sealed class NeraTableFilterDropDown : IDisposable
 {
+    /// <summary>Resources used when the filter surface is next opened or refreshed.</summary>
+    public PresentationLocalization Localization { get; }
+
     private readonly SpreadsheetTablePresenterController _presenter;
     private readonly ToolStripDropDown _dropDown;
     private readonly TextBox _searchBox;
@@ -22,7 +27,14 @@ public sealed class NeraTableFilterDropDown : IDisposable
     private bool _disposed;
 
     public NeraTableFilterDropDown(SpreadsheetSession session)
+        : this(session, PresentationLocalization.Default, NeraIconTheme.Light)
     {
+    }
+
+    /// <summary>Creates filter chrome with host-scoped resources and a shared palette.</summary>
+    public NeraTableFilterDropDown(SpreadsheetSession session, PresentationLocalization localization, NeraIconTheme iconTheme)
+    {
+        Localization = localization ?? throw new ArgumentNullException(nameof(localization));
         ArgumentNullException.ThrowIfNull(session);
         _presenter = new SpreadsheetTablePresenterController(session);
         var panel = new TableLayoutPanel
@@ -40,7 +52,7 @@ public sealed class NeraTableFilterDropDown : IDisposable
         _searchBox = new TextBox
         {
             Dock = DockStyle.Fill,
-            PlaceholderText = "Tìm giá trị",
+            PlaceholderText = Localization.Get("Tìm giá trị"),
         };
         _searchBox.TextChanged += OnSearchChanged;
         _summary = new Label
@@ -63,13 +75,13 @@ public sealed class NeraTableFilterDropDown : IDisposable
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = true,
         };
-        buttons.Controls.Add(CreateButton("Chọn tất cả", (_, _) =>
+        buttons.Controls.Add(CreateButton(Localization.Get("Chọn tất cả"), (_, _) =>
             _menu?.SelectAllVisible()));
-        buttons.Controls.Add(CreateButton("Bỏ chọn", (_, _) =>
+        buttons.Controls.Add(CreateButton(Localization.Get("Bỏ chọn"), (_, _) =>
             _menu?.ClearVisibleSelection()));
-        buttons.Controls.Add(CreateButton("Xóa lọc", OnClearFilter));
-        buttons.Controls.Add(CreateButton("Áp dụng", OnApply));
-        buttons.Controls.Add(CreateButton("Đóng", (_, _) => Close()));
+        buttons.Controls.Add(CreateButton(Localization.Get("Xóa lọc"), OnClearFilter));
+        buttons.Controls.Add(CreateButton(Localization.Get("Áp dụng"), OnApply));
+        buttons.Controls.Add(CreateButton(Localization.Get("Đóng"), (_, _) => Close()));
         panel.Controls.Add(_searchBox, 0, 0);
         panel.Controls.Add(_summary, 0, 1);
         panel.Controls.Add(_values, 0, 2);
@@ -82,6 +94,7 @@ public sealed class NeraTableFilterDropDown : IDisposable
             Padding = Padding.Empty,
             Size = panel.Size,
         };
+        NeraWinFormsRibbonChrome.ApplyFilter(panel, iconTheme);
         _dropDown = new ToolStripDropDown
         {
             AutoClose = true,
@@ -161,8 +174,8 @@ public sealed class NeraTableFilterDropDown : IDisposable
         {
             var state = _menu.Capture();
             _summary.Text = state.IsTruncated
-                ? $"Đã quét {state.ScannedRowCount}/{state.SourceRowCount} hàng; danh sách bị giới hạn."
-                : $"{state.DistinctValueCount} giá trị; {state.SourceRowCount} hàng dữ liệu.";
+                ? Localization.Format("Đã quét {0}/{1} hàng; danh sách bị giới hạn.", state.ScannedRowCount, state.SourceRowCount)
+                : Localization.Format("{0} giá trị; {1} hàng dữ liệu.", state.DistinctValueCount, state.SourceRowCount);
             _values.BeginUpdate();
             try
             {
@@ -253,11 +266,17 @@ public sealed class NeraTableFilterDropDownHost : IDisposable
     private bool _disposed;
 
     public NeraTableFilterDropDownHost(NeraSpreadsheetControl control)
+        : this(control, PresentationLocalization.Default, NeraIconTheme.Light)
+    {
+    }
+
+    /// <summary>Attaches the existing filter presenter with host-scoped resources and palette.</summary>
+    public NeraTableFilterDropDownHost(NeraSpreadsheetControl control, PresentationLocalization localization, NeraIconTheme iconTheme)
     {
         _control = control ?? throw new ArgumentNullException(nameof(control));
         _dropDown = new NeraTableFilterDropDown(
             control.Session ?? throw new InvalidOperationException(
-                "Assign a SpreadsheetSession before enabling the Table filter dropdown."));
+                "Assign a SpreadsheetSession before enabling the Table filter dropdown."), localization, iconTheme);
         _control.MouseDown += OnMouseDown;
     }
 

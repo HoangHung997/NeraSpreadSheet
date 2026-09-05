@@ -1,3 +1,5 @@
+using NeraSpreadSheet.Iconography;
+using NeraSpreadSheet.Commands;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -20,6 +22,12 @@ namespace NeraSpreadSheet.Wpf;
 /// </summary>
 public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
 {
+    /// <summary>Resources used when the filter surface is next opened or refreshed.</summary>
+    public PresentationLocalization Localization { get; set; } = PresentationLocalization.Default;
+
+    /// <summary>Gets or sets the palette used the next time the filter opens.</summary>
+    public NeraIconTheme IconTheme { get; set; } = NeraIconTheme.Light;
+
     private const double PopupWidth = 340d;
     private const double PopupMaximumHeight = 540d;
     private const int PageSize = 100;
@@ -261,6 +269,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
         var binding = new NeraWpfAutoFilterPagedBinding(
             presenter,
             _control.Dispatcher);
+        binding.Localization = Localization;
         _binding = binding;
 
         var popup = new Popup

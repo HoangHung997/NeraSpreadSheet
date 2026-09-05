@@ -1,3 +1,4 @@
+using NeraSpreadSheet.Commands;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -35,10 +36,10 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             "NeraAutoFilterPagedPopup");
         AutomationProperties.SetName(
             root,
-            $"Lọc {target.ColumnName} trong {target.OwnerName}, {GetHeaderStateText(target.HeaderState, target.SortDescending)}");
+            Localization.Format("Lọc {0} trong {1}, {2}", target.ColumnName, target.OwnerName, GetHeaderStateText(target.HeaderState, target.SortDescending)));
         AutomationProperties.SetHelpText(
             root,
-            "Alt+mũi tên xuống để mở; dùng phím mũi tên, Home, End, Page Up, Page Down, Space, Enter và Escape để thao tác.");
+            Localization.Get("Alt+mũi tên xuống để mở; dùng phím mũi tên, Home, End, Page Up, Page Down, Space, Enter và Escape để thao tác."));
         KeyboardNavigation.SetTabNavigation(
             root,
             KeyboardNavigationMode.Cycle);
@@ -61,10 +62,10 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         {
             Margin = new Thickness(0d, 0d, 0d, 8d),
         };
-        var sortAscending = CreateCommandButton("Sắp xếp ↑", "NeraAutoFilterSortAscending");
-        var sortDescending = CreateCommandButton("Sắp xếp ↓", "NeraAutoFilterSortDescending");
-        var reapply = CreateCommandButton("Áp dụng lại", "NeraAutoFilterReapply");
-        var clearSort = CreateCommandButton("Xóa sắp xếp", "NeraAutoFilterClearSort");
+        var sortAscending = CreateCommandButton(Localization.Get("Sắp xếp ↑"), "NeraAutoFilterSortAscending");
+        var sortDescending = CreateCommandButton(Localization.Get("Sắp xếp ↓"), "NeraAutoFilterSortDescending");
+        var reapply = CreateCommandButton(Localization.Get("Áp dụng lại"), "NeraAutoFilterReapply");
+        var clearSort = CreateCommandButton(Localization.Get("Xóa sắp xếp"), "NeraAutoFilterClearSort");
         sortCommands.Children.Add(sortAscending);
         sortCommands.Children.Add(sortDescending);
         sortCommands.Children.Add(reapply);
@@ -75,10 +76,10 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         var menuKind = new ComboBox
         {
             Margin = new Thickness(0d, 0d, 0d, 8d),
-            ToolTip = "Chọn nhóm điều kiện lọc",
+            ToolTip = Localization.Get("Chọn nhóm điều kiện lọc"),
         };
         AutomationProperties.SetAutomationId(menuKind, "NeraAutoFilterPagedMenuKind");
-        AutomationProperties.SetName(menuKind, "Nhóm điều kiện lọc");
+        AutomationProperties.SetName(menuKind, Localization.Get("Nhóm điều kiện lọc"));
         _menuKindBox = menuKind;
         DockPanel.SetDock(menuKind, Dock.Top);
         panel.Children.Add(menuKind);
@@ -86,10 +87,10 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         var criterionInput = new TextBox
         {
             Margin = new Thickness(0d, 0d, 0d, 8d),
-            ToolTip = "Ví dụ: North; 10; 2026-09-04; #33AA66; 3TrafficLights1:0; Top10%; Today",
+            ToolTip = Localization.Get("Ví dụ: North; 10; 2026-09-04; #33AA66; 3TrafficLights1:0; Top10%; Today"),
         };
         AutomationProperties.SetAutomationId(criterionInput, "NeraAutoFilterPagedCriterion");
-        AutomationProperties.SetName(criterionInput, "Giá trị điều kiện lọc");
+        AutomationProperties.SetName(criterionInput, Localization.Get("Giá trị điều kiện lọc"));
         _criterionInput = criterionInput;
         DockPanel.SetDock(criterionInput, Dock.Top);
         panel.Children.Add(criterionInput);
@@ -106,24 +107,24 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
         var conditionJoin = new ComboBox
         {
-            ItemsSource = new[] { "Và", "Hoặc" },
+            ItemsSource = new[] { Localization.Get("Và"), Localization.Get("Hoặc") },
             SelectedIndex = 0,
             Margin = new Thickness(0d, 0d, 6d, 0d),
-            ToolTip = "Kết hợp hai điều kiện bằng AND hoặc OR",
+            ToolTip = Localization.Get("Kết hợp hai điều kiện bằng AND hoặc OR"),
         };
         AutomationProperties.SetAutomationId(
             conditionJoin,
             "NeraAutoFilterPagedConditionJoin");
-        AutomationProperties.SetName(conditionJoin, "Cách kết hợp điều kiện");
+        AutomationProperties.SetName(conditionJoin, Localization.Get("Cách kết hợp điều kiện"));
         _conditionJoinBox = conditionJoin;
         var secondCriterion = new TextBox
         {
-            ToolTip = "Điều kiện thứ hai, ví dụ LessThan:100",
+            ToolTip = Localization.Get("Điều kiện thứ hai, ví dụ LessThan:100"),
         };
         AutomationProperties.SetAutomationId(
             secondCriterion,
             "NeraAutoFilterPagedSecondCriterion");
-        AutomationProperties.SetName(secondCriterion, "Điều kiện lọc thứ hai");
+        AutomationProperties.SetName(secondCriterion, Localization.Get("Điều kiện lọc thứ hai"));
         _secondCriterionInput = secondCriterion;
         Grid.SetColumn(secondCriterion, 1);
         customConditionPanel.Children.Add(conditionJoin);
@@ -134,14 +135,14 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         var search = new TextBox
         {
             Margin = new Thickness(0d, 0d, 0d, 8d),
-            ToolTip = "Tìm giá trị trong nguồn lọc",
+            ToolTip = Localization.Get("Tìm giá trị trong nguồn lọc"),
         };
         AutomationProperties.SetAutomationId(
             search,
             "NeraAutoFilterPagedSearch");
         AutomationProperties.SetName(
             search,
-            $"Tìm giá trị trong cột {target.ColumnName}");
+            Localization.Format("Tìm giá trị trong cột {0}", target.ColumnName));
         _searchBox = search;
         DockPanel.SetDock(search, Dock.Top);
         panel.Children.Add(search);
@@ -152,10 +153,10 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         };
         _selectionCommands = selectionCommands;
         var selectAll = CreateCommandButton(
-            "Chọn tất cả kết quả",
+            Localization.Get("Chọn tất cả kết quả"),
             "NeraAutoFilterPagedSelectAll");
         var selectNone = CreateCommandButton(
-            "Bỏ chọn tất cả kết quả",
+            Localization.Get("Bỏ chọn tất cả kết quả"),
             "NeraAutoFilterPagedSelectNone");
         selectionCommands.Children.Add(selectAll);
         selectionCommands.Children.Add(selectNone);
@@ -163,7 +164,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         panel.Children.Add(selectionCommands);
 
         var dateBack = CreateCommandButton(
-            "◀ Lùi một cấp ngày",
+            Localization.Get("◀ Lùi một cấp ngày"),
             "NeraAutoFilterPagedDateBack");
         dateBack.HorizontalAlignment = HorizontalAlignment.Left;
         dateBack.Margin = new Thickness(0d, 0d, 0d, 8d);
@@ -174,7 +175,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
 
         var status = new TextBlock
         {
-            Foreground = Brushes.DimGray,
+
             FontSize = 11d,
             Margin = new Thickness(0d, 0d, 0d, 6d),
         };
@@ -208,10 +209,10 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             Margin = new Thickness(0d, 8d, 0d, 0d),
         };
         var previous = CreateCommandButton(
-            "◀ Trang trước",
+            Localization.Get("◀ Trang trước"),
             "NeraAutoFilterPagedPrevious");
         var next = CreateCommandButton(
-            "Trang sau ▶",
+            Localization.Get("Trang sau ▶"),
             "NeraAutoFilterPagedNext");
         _previousButton = previous;
         _nextButton = next;
@@ -227,13 +228,13 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             Margin = new Thickness(0d, 8d, 0d, 0d),
         };
         var clear = CreateCommandButton(
-            "Xóa lọc",
+            Localization.Get("Xóa lọc"),
             "NeraAutoFilterPagedClear");
         var cancel = CreateCommandButton(
-            "Hủy",
+            Localization.Get("Hủy"),
             "NeraAutoFilterPagedCancel");
         var apply = CreateCommandButton(
-            "Áp dụng",
+            Localization.Get("Áp dụng"),
             "NeraAutoFilterPagedApply");
         _applyButton = apply;
         footer.Children.Add(clear);
@@ -349,6 +350,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
                 args.Handled = true;
             }
         };
+        NeraRibbonChrome.InstallFilter(root, IconTheme);
         return root;
     }
 
@@ -423,7 +425,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         {
             var selectedIndex = _menuKindBox.SelectedIndex;
             _menuKindBox.ItemsSource = _binding.MenuKinds
-                .Select(static kind => kind.GetDefaultDisplayName())
+                .Select(kind => Localization.Get(kind.GetDefaultDisplayName()))
                 .ToArray();
             _menuKindBox.SelectedIndex = _binding.MenuKinds.Count == 0
                 ? -1
@@ -479,8 +481,8 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         if (!isValues)
         {
             _status.Text = isCustom
-                ? "Nhập một hoặc hai điều kiện rồi chọn cách kết hợp."
-                : "Nhập điều kiện lọc rồi chọn Áp dụng.";
+                ? Localization.Get("Nhập một hoặc hai điều kiện rồi chọn cách kết hợp.")
+                : Localization.Get("Nhập điều kiện lọc rồi chọn Áp dụng.");
             _previousButton!.Visibility = Visibility.Collapsed;
             _nextButton!.Visibility = Visibility.Collapsed;
             _applyButton!.IsEnabled = !_binding.IsBusy;
@@ -495,11 +497,11 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
                 IsChecked = item.IsSelected,
                 Content = $"{DisplayValue(item.Value)}  ({item.Count:N0})",
                 Margin = new Thickness(2d),
-                ToolTip = "Chọn hoặc bỏ chọn giá trị trên trang này",
+                ToolTip = Localization.Get("Chọn hoặc bỏ chọn giá trị trên trang này"),
             };
             AutomationProperties.SetName(
                 checkBox,
-                $"{DisplayValue(item.Value)}; {item.Count:N0} dòng");
+                Localization.Format("{0}; {1:N0} dòng", DisplayValue(item.Value), item.Count));
             checkBox.Checked += (_, _) =>
                 StartSelectionChange(pageIndex, selected: true);
             checkBox.Unchecked += (_, _) =>
@@ -515,8 +517,8 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             _binding.TotalItemCount,
             _binding.PageOffset + _binding.Items.Count);
         _status.Text = _binding.IsSourceTruncated
-            ? $"{first:N0}–{last:N0}/{_binding.TotalItemCount:N0}; nguồn bị giới hạn, không thể áp dụng chọn giá trị."
-            : $"{first:N0}–{last:N0}/{_binding.TotalItemCount:N0} giá trị.";
+            ? Localization.Format("{0:N0}–{1:N0}/{2:N0}; nguồn bị giới hạn, không thể áp dụng chọn giá trị.", first, last, _binding.TotalItemCount)
+            : Localization.Format("{0:N0}–{1:N0}/{2:N0} giá trị.", first, last, _binding.TotalItemCount);
         AutomationProperties.SetName(
             _status,
             $"{_binding.AccessibilityAnnouncement} {_status.Text}");
@@ -554,14 +556,14 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             };
             AutomationProperties.SetName(
                 checkBox,
-                $"{DisplayDateNode(node)}; {node.Count:N0} dòng");
+                Localization.Format("{0}; {1:N0} dòng", DisplayDateNode(node), node.Count));
             checkBox.Checked += (_, _) => _selectedDateGroups.Add(group);
             checkBox.Unchecked += (_, _) => _selectedDateGroups.Remove(group);
             row.Children.Add(checkBox);
             if (node.HasChildren)
             {
                 var drill = CreateCommandButton(
-                    "Mở ▶",
+                    Localization.Get("Mở ▶"),
                     $"NeraAutoFilterDateDrill{node.Year}{node.Month}");
                 drill.MinWidth = 58d;
                 drill.Click += (_, _) => StartOperation(token =>
@@ -578,8 +580,8 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         var count = _datePage?.Nodes.Count ?? 0;
         var last = Math.Min(_datePage?.TotalNodeCount ?? 0, first + count - 1);
         var total = _datePage?.TotalNodeCount ?? 0;
-        _status.Text = $"{first:N0}–{last:N0}/{total:N0} nhóm ngày; " +
-            $"đã chọn {_selectedDateGroups.Count:N0}.";
+        _status.Text = Localization.Format("{0:N0}–{1:N0}/{2:N0} nhóm ngày; ", first, last, total) +
+            Localization.Format("đã chọn {0:N0}.", _selectedDateGroups.Count);
         _previousButton!.Visibility = Visibility.Visible;
         _nextButton!.Visibility = Visibility.Visible;
         _previousButton.IsEnabled = _datePage?.HasPreviousPage == true && !_binding.IsBusy;
@@ -587,17 +589,17 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         _applyButton!.IsEnabled = !_binding.IsBusy && _selectedDateGroups.Count > 0;
     }
 
-    private static string GetHeaderStateText(
+    private string GetHeaderStateText(
         SpreadsheetFilterHeaderState state,
         bool? descending) => state switch
         {
-            SpreadsheetFilterHeaderState.Filtered => "đang lọc",
+            SpreadsheetFilterHeaderState.Filtered => Localization.Get("đang lọc"),
             SpreadsheetFilterHeaderState.Sorted => descending == true
-                ? "đang sắp xếp giảm dần"
-                : "đang sắp xếp tăng dần",
+                ? Localization.Get("đang sắp xếp giảm dần")
+                : Localization.Get("đang sắp xếp tăng dần"),
             SpreadsheetFilterHeaderState.FilteredAndSorted => descending == true
-                ? "đang lọc và sắp xếp giảm dần"
-                : "đang lọc và sắp xếp tăng dần",
-            _ => "chưa lọc hoặc sắp xếp",
+                ? Localization.Get("đang lọc và sắp xếp giảm dần")
+                : Localization.Get("đang lọc và sắp xếp tăng dần"),
+            _ => Localization.Get("chưa lọc hoặc sắp xếp"),
         };
 }

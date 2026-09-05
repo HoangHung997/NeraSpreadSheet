@@ -1,3 +1,5 @@
+using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Iconography;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 using NeraSpreadSheet.Core;
@@ -39,15 +41,28 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
     private VisualElement? _focusReturnTarget;
     private bool _disposed;
 
-    public NeraSpreadsheetTableHost()
+    private readonly NeraMauiFilterResources _shellResources;
+
+    /// <summary>Gets the resources scoped to this filter host.</summary>
+    public PresentationLocalization Localization { get; private set; } = PresentationLocalization.Default;
+
+    /// <summary>Gets the palette scoped to the filter sheet.</summary>
+    public NeraIconTheme IconTheme { get; private set; }
+
+    public NeraSpreadsheetTableHost() : this(PresentationLocalization.Default, NeraIconTheme.Light)
+    {
+    }
+
+    /// <summary>Creates the existing Table host with scoped filter resources and palette.</summary>
+    public NeraSpreadsheetTableHost(PresentationLocalization localization, NeraIconTheme iconTheme)
     {
         AutomationId = "NeraSpreadsheetTableHost";
         SemanticProperties.SetDescription(
             this,
-            "Bảng tính Nera có bộ lọc Table tương tác.");
+            Localization.Get("Bảng tính Nera có bộ lọc Table tương tác."));
         SemanticProperties.SetHint(
             this,
-            "Trên Windows, nhấn Alt và mũi tên xuống để mở bộ lọc của cột Table đang chọn.");
+            Localization.Get("Trên Windows, nhấn Alt và mũi tên xuống để mở bộ lọc của cột Table đang chọn."));
 
         Spreadsheet = new NeraSpreadsheetView
         {
@@ -71,6 +86,8 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
         Children.Add(Spreadsheet);
         Children.Add(_buttonLayer);
         Children.Add(_sheetOverlay);
+        _shellResources = new NeraMauiFilterResources(_sheetOverlay);
+        SetPresentation(localization, iconTheme);
 
         Spreadsheet.SizeChanged += OnSpreadsheetVisualChanged;
         Spreadsheet.ScrollChanged += OnSpreadsheetVisualChanged;
@@ -228,10 +245,10 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
         _sheetOverlay.IsVisible = true;
         SemanticProperties.SetDescription(
             _sheetPanel,
-            $"Lọc {_menu.ColumnName} trong Table {_menu.TableName}");
+            Localization.Format("Lọc {0} trong Table {1}", _menu.ColumnName, _menu.TableName));
         SemanticProperties.SetHint(
             _sheetPanel,
-            "Tìm kiếm hoặc chọn giá trị. Escape đóng, Enter áp dụng, các phím mũi tên duyệt danh sách trên Windows.");
+            Localization.Get("Tìm kiếm hoặc chọn giá trị. Escape đóng, Enter áp dụng, các phím mũi tên duyệt danh sách trên Windows."));
         Dispatcher.Dispatch(() =>
         {
             FocusSearchEntry();
@@ -446,7 +463,7 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
         Button button,
         SpreadsheetTableFilterButtonHit hit)
     {
-        var description = "Mở bộ lọc Table";
+        var description = Localization.Get("Mở bộ lọc Table");
         if (_session?.ActiveWorksheet.TryGetTable(
                 hit.TableId,
                 out var table) == true &&
@@ -456,22 +473,22 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
         {
             var state = hit.HeaderState switch
             {
-                SpreadsheetFilterHeaderState.Filtered => "đang lọc",
+                SpreadsheetFilterHeaderState.Filtered => Localization.Get("đang lọc"),
                 SpreadsheetFilterHeaderState.Sorted => hit.SortDescending == true
-                    ? "đang sắp xếp giảm dần"
-                    : "đang sắp xếp tăng dần",
+                    ? Localization.Get("đang sắp xếp giảm dần")
+                    : Localization.Get("đang sắp xếp tăng dần"),
                 SpreadsheetFilterHeaderState.FilteredAndSorted => hit.SortDescending == true
-                    ? "đang lọc và sắp xếp giảm dần"
-                    : "đang lọc và sắp xếp tăng dần",
-                _ => "chưa lọc hoặc sắp xếp",
+                    ? Localization.Get("đang lọc và sắp xếp giảm dần")
+                    : Localization.Get("đang lọc và sắp xếp tăng dần"),
+                _ => Localization.Get("chưa lọc hoặc sắp xếp"),
             };
-            description = $"Cột {column.Name} trong Table {table.Name}, {state}";
+            description = Localization.Format("Cột {0} trong Table {1}, {2}", column.Name, table.Name, state);
         }
 
         SemanticProperties.SetDescription(button, description);
         SemanticProperties.SetHint(
             button,
-            "Chạm hoặc nhấn Enter để mở. Trên Windows cũng có thể dùng Alt và mũi tên xuống từ ô đang chọn.");
+            Localization.Get("Chạm hoặc nhấn Enter để mở. Trên Windows cũng có thể dùng Alt và mũi tên xuống từ ô đang chọn."));
     }
 
     private Button CreateFilterButton()
@@ -522,7 +539,7 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
         };
         SemanticProperties.SetDescription(
             overlay,
-            "Lớp phủ bộ lọc Table");
+            Localization.Get("Lớp phủ bộ lọc Table"));
         var backdrop = new BoxView
         {
             AutomationId = "NeraTableFilterBackdrop",
@@ -532,10 +549,10 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
         };
         SemanticProperties.SetDescription(
             backdrop,
-            "Đóng bộ lọc");
+            Localization.Get("Đóng bộ lọc"));
         SemanticProperties.SetHint(
             backdrop,
-            "Chạm bên ngoài bảng lọc để đóng.");
+            Localization.Get("Chạm bên ngoài bảng lọc để đóng."));
         var backdropTap = new TapGestureRecognizer();
         backdropTap.Tapped += (_, _) => CloseFilterSheet();
         backdrop.GestureRecognizers.Add(backdropTap);
@@ -555,7 +572,7 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
         var title = new Label
         {
             AutomationId = "NeraTableFilterTitle",
-            Text = "Lọc Table",
+            Text = Localization.Get("Lọc Table"),
             FontSize = 18d,
             FontAttributes = FontAttributes.Bold,
         };
@@ -570,21 +587,21 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
             Spacing = 6d,
         };
         var sortAscending = CreateSheetButton(
-            "Sắp ↑",
+            Localization.Get("Sắp ↑"),
             "NeraTableFilterSortAscending",
-            "Sắp xếp Table tăng dần theo cột này");
+            Localization.Get("Sắp xếp Table tăng dần theo cột này"));
         var sortDescending = CreateSheetButton(
-            "Sắp ↓",
+            Localization.Get("Sắp ↓"),
             "NeraTableFilterSortDescending",
-            "Sắp xếp Table giảm dần theo cột này");
+            Localization.Get("Sắp xếp Table giảm dần theo cột này"));
         var reapply = CreateSheetButton(
-            "Áp dụng lại",
+            Localization.Get("Áp dụng lại"),
             "NeraTableFilterReapply",
-            "Áp dụng lại thứ tự sắp xếp hiện tại");
+            Localization.Get("Áp dụng lại thứ tự sắp xếp hiện tại"));
         var clearSort = CreateSheetButton(
-            "Xóa SX",
+            Localization.Get("Xóa SX"),
             "NeraTableFilterClearSort",
-            "Xóa trạng thái sắp xếp nhưng giữ nguyên thứ tự hàng hiện tại");
+            Localization.Get("Xóa trạng thái sắp xếp nhưng giữ nguyên thứ tự hàng hiện tại"));
         sortCommands.Children.Add(sortAscending);
         sortCommands.Children.Add(sortDescending);
         sortCommands.Children.Add(reapply);
@@ -594,15 +611,15 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
         var search = new Entry
         {
             AutomationId = "NeraTableFilterSearch",
-            Placeholder = "Tìm giá trị",
+            Placeholder = Localization.Get("Tìm giá trị"),
             ReturnType = ReturnType.Done,
         };
         SemanticProperties.SetDescription(
             search,
-            "Tìm giá trị lọc");
+            Localization.Get("Tìm giá trị lọc"));
         SemanticProperties.SetHint(
             search,
-            "Nhập nội dung tìm kiếm. Nhấn Enter để áp dụng nếu lựa chọn hợp lệ.");
+            Localization.Get("Nhập nội dung tìm kiếm. Nhấn Enter để áp dụng nếu lựa chọn hợp lệ."));
         panel.Children.Add(search);
 
         var commands = new HorizontalStackLayout
@@ -611,13 +628,13 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
             Spacing = 8d,
         };
         var selectAll = CreateSheetButton(
-            "Chọn tất cả",
+            Localization.Get("Chọn tất cả"),
             "NeraTableFilterSelectAll",
-            "Chọn mọi giá trị đang hiển thị");
+            Localization.Get("Chọn mọi giá trị đang hiển thị"));
         var selectNone = CreateSheetButton(
-            "Bỏ chọn",
+            Localization.Get("Bỏ chọn"),
             "NeraTableFilterSelectNone",
-            "Bỏ chọn mọi giá trị đang hiển thị");
+            Localization.Get("Bỏ chọn mọi giá trị đang hiển thị"));
         selectAll.HorizontalOptions = LayoutOptions.Fill;
         selectNone.HorizontalOptions = LayoutOptions.Fill;
         commands.Children.Add(selectAll);
@@ -639,10 +656,10 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
         };
         SemanticProperties.SetDescription(
             items,
-            "Danh sách giá trị lọc");
+            Localization.Get("Danh sách giá trị lọc"));
         SemanticProperties.SetHint(
             items,
-            "Chọn hoặc bỏ chọn các giá trị cần hiển thị.");
+            Localization.Get("Chọn hoặc bỏ chọn các giá trị cần hiển thị."));
         panel.Children.Add(new ScrollView
         {
             AutomationId = "NeraTableFilterValuesScroll",
@@ -657,17 +674,17 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
             HorizontalOptions = LayoutOptions.End,
         };
         var clear = CreateSheetButton(
-            "Xóa lọc",
+            Localization.Get("Xóa lọc"),
             "NeraTableFilterClear",
-            "Xóa bộ lọc của cột hiện tại");
+            Localization.Get("Xóa bộ lọc của cột hiện tại"));
         var cancel = CreateSheetButton(
-            "Hủy",
+            Localization.Get("Hủy"),
             "NeraTableFilterCancel",
-            "Đóng mà không áp dụng thay đổi");
+            Localization.Get("Đóng mà không áp dụng thay đổi"));
         var apply = CreateSheetButton(
-            "Áp dụng",
+            Localization.Get("Áp dụng"),
             "NeraTableFilterApply",
-            "Áp dụng các giá trị đã chọn");
+            Localization.Get("Áp dụng các giá trị đã chọn"));
         footer.Children.Add(clear);
         footer.Children.Add(cancel);
         footer.Children.Add(apply);
@@ -798,10 +815,10 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
             };
             SemanticProperties.SetDescription(
                 checkBox,
-                $"{displayText}; {item.Count:N0} dòng");
+                Localization.Format("{0}; {1:N0} dòng", displayText, item.Count));
             SemanticProperties.SetHint(
                 checkBox,
-                "Chọn hoặc bỏ chọn giá trị này.");
+                Localization.Get("Chọn hoặc bỏ chọn giá trị này."));
             checkBox.Focused += (_, _) =>
                 _navigator?.SetActiveValue(value);
             checkBox.CheckedChanged += (_, args) =>
@@ -829,16 +846,10 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
             });
             _valueCheckBoxes.Add(checkBox);
             _itemsPanel.Children.Add(row);
+            NeraMauiRibbonChrome.ConfigureFilter(row, NeraMauiRibbonPalette.For(IconTheme));
         }
 
-        _status.Text = _menu.ValuesTruncated
-            ? $"Đã quét {_menu.ScannedRowCount:N0} hàng; danh sách giá trị đã bị giới hạn."
-            : $"{_menu.DistinctValueCount:N0} giá trị khác nhau trong {_menu.ScannedRowCount:N0} hàng.";
-        SemanticProperties.SetDescription(_status, _status.Text);
-        _apply.IsEnabled = _menu.CanApplyValueSelection;
-        SemanticProperties.SetDescription(
-            _sheetPanel,
-            $"Lọc {_menu.ColumnName} trong Table {_menu.TableName}");
+        UpdateSheetText();
         if (focusActiveValue)
         {
             Dispatcher.Dispatch(() =>
@@ -846,6 +857,49 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
                 FocusActiveValue();
             });
         }
+    }
+
+    private void UpdateSheetText()
+    {
+        if (_menu is null) return;
+        _status.Text = _menu.ValuesTruncated
+            ? Localization.Format("Đã quét {0:N0} hàng; danh sách giá trị đã bị giới hạn.", _menu.ScannedRowCount)
+            : Localization.Format("{0:N0} giá trị khác nhau trong {1:N0} hàng.", _menu.DistinctValueCount, _menu.ScannedRowCount);
+        SemanticProperties.SetDescription(_status, _status.Text);
+        _apply.IsEnabled = _menu.CanApplyValueSelection;
+        SemanticProperties.SetDescription(
+            _sheetPanel,
+            Localization.Format("Lọc {0} trong Table {1}", _menu.ColumnName, _menu.TableName));
+    }
+
+    /// <summary>Updates native labels and palette in place on the UI thread, preserving open filter edits and focus.</summary>
+    public void SetPresentation(PresentationLocalization localization, NeraIconTheme iconTheme)
+    {
+        ArgumentNullException.ThrowIfNull(localization);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _shellResources.Apply(localization);
+        Localization = localization;
+        IconTheme = iconTheme;
+        NeraMauiRibbonChrome.ConfigureFilter(_sheetPanel, NeraMauiRibbonPalette.For(iconTheme));
+        SemanticProperties.SetDescription(this, Localization.Get("Bảng tính Nera có bộ lọc Table tương tác."));
+        SemanticProperties.SetHint(this, Localization.Get("Trên Windows, nhấn Alt và mũi tên xuống để mở bộ lọc của cột Table đang chọn."));
+        UpdateSheetText();
+        SemanticProperties.SetHint(_sheetPanel, Localization.Get("Tìm kiếm hoặc chọn giá trị. Escape đóng, Enter áp dụng, các phím mũi tên duyệt danh sách trên Windows."));
+        var items = _menu?.GetVisibleItems();
+        if (items is not null)
+        {
+            for (var index = 0; index < items.Count && index < _valueCheckBoxes.Count; index++)
+            {
+                var item = items[index];
+                var text = DisplayValue(item.Value);
+                SemanticProperties.SetDescription(_valueCheckBoxes[index], Localization.Format("{0}; {1:N0} dòng", text, item.Count));
+                SemanticProperties.SetHint(_valueCheckBoxes[index], Localization.Get("Chọn hoặc bỏ chọn giá trị này."));
+                if (_itemsPanel.Children[index] is HorizontalStackLayout row && row.Children[1] is Label label)
+                    label.Text = $"{text}  ({item.Count})";
+            }
+        }
+        foreach (var button in _buttons.Values)
+            if (button.CommandParameter is SpreadsheetTableFilterButtonHit hit) SetFilterButtonSemantics(button, hit);
     }
 
     private bool HandleFilterNavigation(
@@ -1003,8 +1057,8 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
 
     partial void DetachPlatformKeyboard();
 
-    private static string DisplayValue(CellValue value) =>
-        value.IsBlank ? "(Trống)" : value.ToString();
+    private string DisplayValue(CellValue value) =>
+        value.IsBlank ? Localization.Get("(Trống)") : value.ToString();
 
     private static Color ToColor(
         NeraSpreadSheet.Foundation.ColorRgba color) =>

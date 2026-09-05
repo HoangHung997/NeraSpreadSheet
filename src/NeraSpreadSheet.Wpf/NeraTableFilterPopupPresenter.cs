@@ -1,3 +1,5 @@
+using NeraSpreadSheet.Iconography;
+using NeraSpreadSheet.Commands;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -20,6 +22,12 @@ namespace NeraSpreadSheet.Wpf;
 /// </summary>
 public sealed class NeraTableFilterPopupPresenter : IDisposable
 {
+    /// <summary>Resources used when the filter surface is next opened or refreshed.</summary>
+    public PresentationLocalization Localization { get; set; } = PresentationLocalization.Default;
+
+    /// <summary>Gets or sets the palette used the next time the filter opens.</summary>
+    public NeraIconTheme IconTheme { get; set; } = NeraIconTheme.Light;
+
     private const double PopupWidth = 320d;
     private const double PopupMaximumHeight = 440d;
 
@@ -247,7 +255,7 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
         AutomationProperties.SetAutomationId(root, "NeraTableFilterPopup");
         AutomationProperties.SetName(
             root,
-            $"Lọc {menu.ColumnName} trong Table {menu.TableName}");
+            Localization.Format("Lọc {0} trong Table {1}", menu.ColumnName, menu.TableName));
         KeyboardNavigation.SetTabNavigation(
             root,
             KeyboardNavigationMode.Cycle);
@@ -276,21 +284,21 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
             Margin = new Thickness(0d, 0d, 0d, 8d),
         };
         var sortAscending = CreateCommandButton(
-            "Sắp xếp ↑",
+            Localization.Get("Sắp xếp ↑"),
             "NeraTableFilterSortAscending",
-            "Sắp xếp Table tăng dần theo cột này.");
+            Localization.Get("Sắp xếp Table tăng dần theo cột này."));
         var sortDescending = CreateCommandButton(
-            "Sắp xếp ↓",
+            Localization.Get("Sắp xếp ↓"),
             "NeraTableFilterSortDescending",
-            "Sắp xếp Table giảm dần theo cột này.");
+            Localization.Get("Sắp xếp Table giảm dần theo cột này."));
         var reapply = CreateCommandButton(
-            "Áp dụng lại",
+            Localization.Get("Áp dụng lại"),
             "NeraTableFilterReapply",
-            "Áp dụng lại thứ tự sắp xếp hiện tại.");
+            Localization.Get("Áp dụng lại thứ tự sắp xếp hiện tại."));
         var clearSort = CreateCommandButton(
-            "Xóa SX",
+            Localization.Get("Xóa SX"),
             "NeraTableFilterClearSort",
-            "Xóa trạng thái sắp xếp nhưng giữ nguyên thứ tự hàng hiện tại.");
+            Localization.Get("Xóa trạng thái sắp xếp nhưng giữ nguyên thứ tự hàng hiện tại."));
         sortCommands.Children.Add(sortAscending);
         sortCommands.Children.Add(sortDescending);
         sortCommands.Children.Add(reapply);
@@ -301,15 +309,15 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
         var search = new TextBox
         {
             Margin = new Thickness(0d, 0d, 0d, 8d),
-            ToolTip = "Tìm giá trị; nhấn mũi tên xuống để vào danh sách",
+            ToolTip = Localization.Get("Tìm giá trị; nhấn mũi tên xuống để vào danh sách"),
         };
         AutomationProperties.SetAutomationId(search, "NeraTableFilterSearch");
         AutomationProperties.SetName(
             search,
-            $"Tìm giá trị trong cột {menu.ColumnName}");
+            Localization.Format("Tìm giá trị trong cột {0}", menu.ColumnName));
         AutomationProperties.SetHelpText(
             search,
-            "Nhấn Enter để áp dụng, Escape để đóng, hoặc mũi tên xuống để duyệt giá trị.");
+            Localization.Get("Nhấn Enter để áp dụng, Escape để đóng, hoặc mũi tên xuống để duyệt giá trị."));
         _searchBox = search;
         DockPanel.SetDock(search, Dock.Top);
         panel.Children.Add(search);
@@ -319,13 +327,13 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
             Margin = new Thickness(0d, 0d, 0d, 8d),
         };
         var selectAll = CreateCommandButton(
-            "Chọn tất cả",
+            Localization.Get("Chọn tất cả"),
             "NeraTableFilterSelectAll",
-            "Chọn mọi giá trị đang hiển thị; phím tắt Ctrl+A khi con trỏ ở danh sách.");
+            Localization.Get("Chọn mọi giá trị đang hiển thị; phím tắt Ctrl+A khi con trỏ ở danh sách."));
         var selectNone = CreateCommandButton(
-            "Bỏ chọn",
+            Localization.Get("Bỏ chọn"),
             "NeraTableFilterSelectNone",
-            "Bỏ chọn mọi giá trị đang hiển thị; phím tắt Ctrl+Shift+A khi con trỏ ở danh sách.");
+            Localization.Get("Bỏ chọn mọi giá trị đang hiển thị; phím tắt Ctrl+Shift+A khi con trỏ ở danh sách."));
         commands.Children.Add(selectAll);
         commands.Children.Add(selectNone);
         DockPanel.SetDock(commands, Dock.Top);
@@ -333,7 +341,7 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
 
         var status = new TextBlock
         {
-            Foreground = Brushes.DimGray,
+
             FontSize = 11d,
             Margin = new Thickness(0d, 0d, 0d, 6d),
         };
@@ -361,17 +369,17 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
             Margin = new Thickness(0d, 8d, 0d, 0d),
         };
         var clear = CreateCommandButton(
-            "Xóa lọc",
+            Localization.Get("Xóa lọc"),
             "NeraTableFilterClear",
-            "Xóa bộ lọc hiện tại của cột này.");
+            Localization.Get("Xóa bộ lọc hiện tại của cột này."));
         var cancel = CreateCommandButton(
-            "Hủy",
+            Localization.Get("Hủy"),
             "NeraTableFilterCancel",
-            "Đóng mà không áp dụng thay đổi; phím tắt Escape.");
+            Localization.Get("Đóng mà không áp dụng thay đổi; phím tắt Escape."));
         var apply = CreateCommandButton(
-            "Áp dụng",
+            Localization.Get("Áp dụng"),
             "NeraTableFilterApply",
-            "Áp dụng các giá trị đã chọn; phím tắt Enter trong ô tìm kiếm.");
+            Localization.Get("Áp dụng các giá trị đã chọn; phím tắt Enter trong ô tìm kiếm."));
         _applyButton = apply;
         footer.Children.Add(clear);
         footer.Children.Add(cancel);
@@ -392,14 +400,14 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
                     IsChecked = item.IsSelected,
                     Content = $"{displayText}  ({item.Count})",
                     Margin = new Thickness(2d),
-                    ToolTip = "Space hoặc Enter để chọn hay bỏ chọn",
+                    ToolTip = Localization.Get("Space hoặc Enter để chọn hay bỏ chọn"),
                 };
                 AutomationProperties.SetName(
                     checkBox,
-                    $"{displayText}; {item.Count:N0} dòng");
+                    Localization.Format("{0}; {1:N0} dòng", displayText, item.Count));
                 AutomationProperties.SetHelpText(
                     checkBox,
-                    "Dùng mũi tên, Home, End, Page Up, Page Down để di chuyển; Space hoặc Enter để thay đổi lựa chọn.");
+                    Localization.Get("Dùng mũi tên, Home, End, Page Up, Page Down để di chuyển; Space hoặc Enter để thay đổi lựa chọn."));
                 checkBox.GotKeyboardFocus += (_, _) =>
                     navigator.SetActiveValue(value);
                 checkBox.Checked += (_, _) =>
@@ -411,8 +419,8 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
             }
 
             status.Text = menu.ValuesTruncated
-                ? $"Đã quét {menu.ScannedRowCount:N0} hàng; danh sách giá trị đã bị giới hạn."
-                : $"{menu.DistinctValueCount:N0} giá trị khác nhau trong {menu.ScannedRowCount:N0} hàng.";
+                ? Localization.Format("Đã quét {0:N0} hàng; danh sách giá trị đã bị giới hạn.", menu.ScannedRowCount)
+                : Localization.Format("{0:N0} giá trị khác nhau trong {1:N0} hàng.", menu.DistinctValueCount, menu.ScannedRowCount);
             AutomationProperties.SetName(status, status.Text);
             apply.IsEnabled = menu.CanApplyValueSelection;
             if (restoreValueFocus)
@@ -467,6 +475,7 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
                 RebuildItems);
 
         RebuildItems(restoreValueFocus: false);
+        NeraRibbonChrome.InstallFilter(root, IconTheme);
         return root;
     }
 
@@ -778,8 +787,8 @@ public sealed class NeraTableFilterPopupPresenter : IDisposable
         _adorner = null;
     }
 
-    private static string DisplayValue(CellValue value) =>
-        value.IsBlank ? "(Trống)" : value.ToString();
+    private string DisplayValue(CellValue value) =>
+        value.IsBlank ? Localization.Get("(Trống)") : value.ToString();
 
     private static System.Windows.Media.Color ToColor(ColorRgba color) =>
         System.Windows.Media.Color.FromArgb(

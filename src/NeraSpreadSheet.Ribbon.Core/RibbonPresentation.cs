@@ -107,6 +107,13 @@ public sealed class RibbonPresentationProjector
         _resolver = new CommandPresentationResolver(registry);
     }
 
+    /// <summary>Gets or sets resources used on the next projection.</summary>
+    public PresentationLocalization Localization
+    {
+        get => _resolver.Localization;
+        set => _resolver.Localization = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
     /// <summary>
     /// Projects the current registry state, resolving each command at most once.
     /// </summary>
@@ -159,7 +166,7 @@ public sealed class RibbonPresentationProjector
         var groups = tab.Groups
             .Select(group => ProjectGroup(group, context, cache))
             .ToArray();
-        return new RibbonTabPresentation(tab.Id, tab.Caption, groups);
+        return new RibbonTabPresentation(tab.Id, tab.CaptionResourceKey is { } key ? Localization.Get(key) : tab.Caption, groups);
     }
 
     private RibbonGroupPresentation ProjectGroup(
@@ -174,7 +181,7 @@ public sealed class RibbonPresentationProjector
             .ToArray();
         return new RibbonGroupPresentation(
             group.Id,
-            group.Caption,
+            group.CaptionResourceKey is { } key ? Localization.Get(key) : group.Caption,
             items,
             group.CollapsePriority);
     }

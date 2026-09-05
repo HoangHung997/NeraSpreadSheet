@@ -63,6 +63,9 @@ public sealed class RibbonGroupDefinition
 
     public string Caption { get; }
 
+    /// <summary>Optional SDK resource key. User captions that differ from the source caption clear this key.</summary>
+    public string? CaptionResourceKey { get; init; }
+
     public IReadOnlyList<RibbonItemDefinition> Items { get; }
 
     /// <summary>

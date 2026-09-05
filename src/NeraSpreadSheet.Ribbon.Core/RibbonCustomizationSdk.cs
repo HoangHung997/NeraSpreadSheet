@@ -141,7 +141,13 @@ public sealed record RibbonCommandCatalogEntry(
     string CategoryCaption,
     CommandId CommandId,
     string Caption,
-    string? IconKey);
+    string? IconKey)
+{
+    /// <summary>Optional SDK resource key for an opt-in host command caption.</summary>
+    public string? CaptionResourceKey { get; init; }
+    /// <summary>Optional SDK resource key for the source tab caption.</summary>
+    public string? CategoryResourceKey { get; init; }
+}
 
 /// <summary>Bounded immutable command catalog grouped for customization presenters.</summary>
 public sealed class RibbonCommandCatalog
@@ -165,6 +171,19 @@ public sealed class RibbonCommandCatalog
 
     public IReadOnlyList<RibbonCommandCatalogCategory> Categories { get; }
 
+    /// <summary>Projects captions for a host without altering catalog identities.</summary>
+    public RibbonCommandCatalog Localize(PresentationLocalization localization)
+    {
+        ArgumentNullException.ThrowIfNull(localization);
+        return new RibbonCommandCatalog(Entries.Select(entry => entry with
+        {
+            Caption = entry.CaptionResourceKey is { } captionKey ? localization.Get(captionKey)
+                : localization.CommandCaption(entry.CommandId, entry.Caption),
+            CategoryCaption = entry.CategoryResourceKey is { } categoryKey ? localization.Get(categoryKey) : entry.CategoryCaption,
+        }));
+    }
+
+
     public static RibbonCommandCatalog FromDefinition(
         RibbonDefinition definition,
         CommandRegistry registry)
@@ -181,7 +200,8 @@ public sealed class RibbonCommandCatalog
                         tab.Caption,
                         item.CommandId,
                         descriptor?.Caption ?? item.CommandId.Value,
-                        descriptor?.IconKey);
+                        descriptor?.IconKey)
+                    { CaptionResourceKey = descriptor?.CaptionResourceKey, CategoryResourceKey = tab.CaptionResourceKey };
                 })))
             .GroupBy(static entry => entry.CommandId.Value, StringComparer.OrdinalIgnoreCase)
             .Select(static group => group.First())
@@ -195,7 +215,8 @@ public sealed class RibbonCommandCatalog
                 "Lệnh khác",
                 commandId,
                 descriptor?.Caption ?? commandId.Value,
-                descriptor?.IconKey));
+                descriptor?.IconKey)
+            { CaptionResourceKey = descriptor?.CaptionResourceKey, CategoryResourceKey = "Lệnh khác" });
         }
         return new RibbonCommandCatalog(entries);
     }

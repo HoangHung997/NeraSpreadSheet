@@ -1,3 +1,4 @@
+using NeraSpreadSheet.Commands;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Forms;
@@ -15,6 +16,9 @@ public sealed class NeraWinFormsAutoFilterPagedBinding :
     IDisposable,
     IAsyncDisposable
 {
+    /// <summary>Resources used by the next published native page.</summary>
+    public PresentationLocalization Localization { get; set; } = PresentationLocalization.Default;
+
     private readonly Control _dispatcherControl;
     private readonly SpreadsheetAutoFilterPagedPresenter _presenter;
     private bool _disposed;
@@ -289,7 +293,7 @@ public sealed class NeraWinFormsAutoFilterPagedBinding :
                 Items.Clear();
                 foreach (var item in snapshot.Values)
                 {
-                    Items.Add(item);
+                    Items.Add(item.Value.IsBlank ? item with { DisplayText = Localization.Get("(Trống)") } : item);
                 }
             }
             finally
@@ -305,7 +309,11 @@ public sealed class NeraWinFormsAutoFilterPagedBinding :
             HasNextPage = snapshot.HasNextPage;
             IsSourceTruncated = snapshot.IsSourceTruncated;
             MenuKinds = snapshot.MenuKinds;
-            AccessibilityAnnouncement = snapshot.AccessibilityAnnouncement;
+            var stateKey = $"FilterState.{snapshot.Target.HeaderState}.{(snapshot.Target.SortDescending == true ? "Descending" : "Ascending")}";
+            var countKey = snapshot.IsResultCountTruncated ? "ít nhất {0:N0} kết quả" : "{0:N0} kết quả";
+            AccessibilityAnnouncement = Localization.Format("Cột {0} trong {1}, {2}, {3}.",
+                snapshot.Target.ColumnName, snapshot.Target.OwnerName, Localization.Get(stateKey),
+                Localization.Format(countKey, snapshot.ResultRowCount));
             OnPropertyChanged(nameof(Target));
         });
     }

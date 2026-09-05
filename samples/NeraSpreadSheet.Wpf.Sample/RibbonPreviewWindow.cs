@@ -14,6 +14,7 @@ namespace NeraSpreadSheet.Wpf.Sample;
 /// <summary>A runnable SDK Ribbon sample with real spreadsheet command bindings.</summary>
 public sealed partial class RibbonPreviewWindow : Window, IDisposable
 {
+    private PresentationLocalization Localization => _runtime?.Localization ?? PresentationLocalization.Default;
     private readonly PreviewDockPanel _root = new() { Background = Brushes.White };
     private readonly TextBlock _status = new() { Margin = new Thickness(12, 5, 12, 5) };
     private readonly TextBlock _address = new() { Width = 84, Margin = new Thickness(12, 6, 8, 6) };
@@ -55,7 +56,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         _session.ActiveWorksheetChanged += OnPreviewStateChanged;
         var title = new TextBlock
         {
-            Text = "NERA  /  Bảng tính bán hàng",
+            Text = Localization.Get("NERA  /  Bảng tính bán hàng"),
             FontSize = 14,
             FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(28, 91, 111)),
@@ -64,7 +65,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         var titleRow = new DockPanel();
         var worksheets = new ComboBox { ItemsSource = _session.Workbook.Worksheets, DisplayMemberPath = "Name",
             SelectedItem = _session.ActiveWorksheet, Width = 150, Margin = new Thickness(8, 6, 12, 6) };
-        System.Windows.Automation.AutomationProperties.SetName(worksheets, "Trang tính hiện tại");
+        System.Windows.Automation.AutomationProperties.SetName(worksheets, Localization.Get("Trang tính hiện tại"));
         System.Windows.Automation.AutomationProperties.SetAutomationId(worksheets, "preview-worksheet");
         worksheets.SelectionChanged += (_, _) => { if (worksheets.SelectedItem is Worksheet worksheet) _session.ActivateWorksheet(worksheet); };
         DockPanel.SetDock(worksheets, Dock.Right);
@@ -76,18 +77,18 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         _root.Children.Add(_ribbon);
         var formulaRow = new DockPanel { Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(247, 249, 250)) };
         formulaRow.Children.Add(_address);
-        formulaRow.Children.Add(new TextBlock { Text = "ƒx", Margin = new Thickness(8, 5, 8, 5), FontStyle = FontStyles.Italic });
+        formulaRow.Children.Add(new TextBlock { Text = Localization.Get("ƒx"), Margin = new Thickness(8, 5, 8, 5), FontStyle = FontStyles.Italic });
         formulaRow.Children.Add(_formula);
         DockPanel.SetDock(formulaRow, Dock.Top);
         _root.Children.Add(formulaRow);
         var footer = new DockPanel { Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(241, 245, 247)) };
         var tools = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        tools.Children.Add(ShellButton("Tùy biến Ribbon", () =>
+        tools.Children.Add(ShellButton(Localization.Get("Tùy biến Ribbon"), () =>
             new NeraRibbonCustomizationDialog(_runtime) { Owner = this, IconTheme = _ribbon.IconTheme }.ShowDialog()));
-        tools.Children.Add(ShellButton("Thu gọn / Mở rộng", () => _ribbon.IsMinimized = !_ribbon.IsMinimized));
+        tools.Children.Add(ShellButton(Localization.Get("Thu gọn / Mở rộng"), () => _ribbon.IsMinimized = !_ribbon.IsMinimized));
         var theme = new ComboBox
         {
-            ItemsSource = new[] { "Sáng", "Tối", "Tương phản sáng", "Tương phản tối" },
+            ItemsSource = new[] { Localization.Get("Sáng"), Localization.Get("Tối"), Localization.Get("Tương phản sáng"), Localization.Get("Tương phản tối") },
             SelectedIndex = 0,
             Width = 150,
             Margin = new Thickness(6, 3, 8, 3),
@@ -103,7 +104,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         Content = _root;
         Closed += (_, _) => Dispose();
         UpdateSelectionText();
-        SetStatus("Sẵn sàng · Lệnh chỉnh sửa dùng lịch sử Hoàn tác của workbook");
+        SetStatus(Localization.Get("Sẵn sàng · Lệnh chỉnh sửa dùng lịch sử Hoàn tác của workbook"));
     }
 
     public void Dispose()
@@ -129,8 +130,12 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         return button;
     }
 
-    private void SetTheme(NeraIconTheme theme) => _ribbon.IconTheme = theme;
-    private void SetStatus(string text) => _status.Text = text;
+    private void SetTheme(NeraIconTheme theme)
+    {
+        _ribbon.IconTheme = theme;
+        if (_filterPopup is not null) _filterPopup.IconTheme = theme;
+    }
+    private void SetStatus(string text) => _status.Text = Localization.Get(text);
 
     private void OnCommandActivationFailed(object? sender, NeraWpfCommandActivationFailedEventArgs e) =>
         SetStatus(DescribeTableError(e.Exception));

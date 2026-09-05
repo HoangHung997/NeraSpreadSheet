@@ -145,7 +145,8 @@ public sealed class RibbonCustomization
             tab.Id,
             customization?.Caption ?? tab.Caption,
             groups,
-            customization?.Order ?? tab.Order);
+            customization?.Order ?? tab.Order)
+        { CaptionResourceKey = customization?.Caption is null || customization.Caption == tab.Caption ? tab.CaptionResourceKey : null };
     }
 
     private static RibbonGroupDefinition ApplyGroup(
@@ -195,7 +196,8 @@ public sealed class RibbonCustomization
             customization?.Caption ?? group.Caption,
             items,
             customization?.Order ?? group.Order,
-            group.CollapsePriority);
+            group.CollapsePriority)
+        { CaptionResourceKey = customization?.Caption is null || customization.Caption == group.Caption ? group.CaptionResourceKey : null };
     }
 
     private RibbonCommandSurfaceItem[] CreateQuickAccessToolbar(RibbonDefinition definition)

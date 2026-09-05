@@ -1,3 +1,4 @@
+using NeraSpreadSheet.Commands;
 #if WINDOWS
 using Microsoft.Maui.Controls;
 using Microsoft.UI.Input;
@@ -163,7 +164,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         _values.ScrollTo(_keyboardActiveIndex, position: ScrollToPosition.MakeVisible, animate: false);
         SemanticProperties.SetHint(
             _values,
-            $"Mục {_keyboardActiveIndex + 1:N0}/{binding.Items.Count:N0}: {binding.Items[_keyboardActiveIndex].DisplayText}");
+            Localization.Format("Mục {0:N0}/{1:N0}: {2}", _keyboardActiveIndex + 1, binding.Items.Count, binding.Items[_keyboardActiveIndex].DisplayText));
     }
 
     internal static bool ShouldHandlePlatformFilterKey(

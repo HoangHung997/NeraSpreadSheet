@@ -11,6 +11,8 @@ namespace NeraSpreadSheet.WinForms;
 /// </summary>
 public sealed class NeraBarPresenter : IDisposable
 {
+    private PresentationLocalization Localization => _runtime.Localization;
+
     private readonly BarRuntimeController _runtime;
     private readonly List<IDisposable> _shortcutBindings = [];
     private Func<string, Image?>? _iconResolver;
@@ -91,6 +93,10 @@ public sealed class NeraBarPresenter : IDisposable
     public void Rebuild()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        var palette = NeraWinFormsRibbonPalette.For(IconTheme);
+        NativeControl.BackColor = palette.Surface;
+        NativeControl.ForeColor = palette.Text;
+        NativeControl.Renderer = new ToolStripProfessionalRenderer(new NeraWinFormsRibbonColorTable(palette));
         var oldItems = NativeControl.Items.Cast<ToolStripItem>().ToArray();
         NativeControl.Items.Clear();
         foreach (var item in oldItems)

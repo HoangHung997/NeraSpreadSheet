@@ -13,6 +13,8 @@ namespace NeraSpreadSheet.WinForms;
 /// </summary>
 public sealed class NeraRibbonControl : UserControl
 {
+    private PresentationLocalization Localization => _runtime.Localization;
+
     private readonly RibbonRuntimeController _runtime;
     private readonly RibbonResponsiveLayoutEngine _layoutEngine = new();
     private readonly FlowLayoutPanel _topBar = new()
@@ -48,7 +50,7 @@ public sealed class NeraRibbonControl : UserControl
     {
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         Name = "NeraRibbon";
-        AccessibleName = "Thanh Ribbon NeraSpreadSheet";
+        AccessibleName = Localization.Get("Thanh Ribbon NeraSpreadSheet");
         Font = new Font("Segoe UI", 9f);
         DoubleBuffered = true;
         _topBar.Margin = Padding.Empty;
@@ -125,15 +127,17 @@ public sealed class NeraRibbonControl : UserControl
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public RibbonLayoutSnapshot LayoutSnapshot { get; private set; } = null!;
 
+    private string? _fileCaption;
     [Localizable(true)]
     [DefaultValue("Tệp")]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
-    public string FileCaption { get; set; } = "Tệp";
+    public string FileCaption { get => _fileCaption ?? Localization.Get("Tệp"); set => _fileCaption = value; }
 
+    private string? _localizedFileAutomationName;
     [Localizable(true)]
     [DefaultValue("Mở khu vực Tệp")]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
-    public string FileAutomationName { get; set; } = "Mở khu vực Tệp";
+    public string FileAutomationName { get => _localizedFileAutomationName ?? Localization.Get("Mở khu vực Tệp"); set => _localizedFileAutomationName = value; }
 
     [DefaultValue(false)]
     public bool IsMinimized
@@ -524,7 +528,7 @@ public sealed class NeraRibbonControl : UserControl
         var rail = new FlowLayoutPanel
         {
             Name = "ribbon-backstage-navigation",
-            AccessibleName = "Điều hướng Tệp",
+            AccessibleName = Localization.Get("Điều hướng Tệp"),
             Dock = DockStyle.Left,
             Width = ScalePixel(196),
             Padding = new Padding(ScalePixel(8)),
@@ -545,7 +549,7 @@ public sealed class NeraRibbonControl : UserControl
         content.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         content.RowStyles.Add(new RowStyle(SizeType.Absolute, ScalePixel(38)));
         var title = new Label { Text = selection?.Caption ?? FileCaption, Dock = DockStyle.Fill, ForeColor = Palette.Text, Font = _backstageHeadingFont, TextAlign = ContentAlignment.MiddleLeft };
-        var detail = new Label { Text = selection is null ? "Chọn lệnh để làm việc với sổ tính." : BuildToolTip(selection), Dock = DockStyle.Fill, ForeColor = Palette.Muted };
+        var detail = new Label { Text = selection is null ? Localization.Get("Chọn lệnh để làm việc với sổ tính.") : BuildToolTip(selection), Dock = DockStyle.Fill, ForeColor = Palette.Muted };
         content.Controls.Add(title, 0, 0);
         content.Controls.Add(detail, 0, 1);
         if (selection is not null)
@@ -971,7 +975,7 @@ public sealed class NeraRibbonControl : UserControl
             0);
         var more = CreateDropDownButton(item, "▾", ScalePixel(18), "more");
         more.Dock = DockStyle.Right;
-        more.AccessibleName = $"{item.Presentation.AutomationName}, thêm lựa chọn";
+        more.AccessibleName = Localization.Format("{0}, thêm lựa chọn", item.Presentation.AutomationName);
         host.Controls.Add(panel);
         host.Controls.Add(more);
         return host;
@@ -1052,8 +1056,8 @@ public sealed class NeraRibbonControl : UserControl
         var overflow = new Button
         {
             Name = "ribbon-overflow",
-            Text = "Thêm",
-            AccessibleName = "Lệnh Ribbon bổ sung",
+            Text = Localization.Get("Thêm"),
+            AccessibleName = Localization.Get("Lệnh Ribbon bổ sung"),
             Size = new Size(ScalePixel(56), ScalePixel(76)),
             Margin = new Padding(0, ScalePixel(4), 0, 0),
         };

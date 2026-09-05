@@ -1,3 +1,4 @@
+using NeraSpreadSheet.Commands;
 using Microsoft.Maui.Controls;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
@@ -34,7 +35,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
 
         var title = new Label
         {
-            Text = "Bộ lọc bảng tính",
+            Text = Localization.Get("Bộ lọc bảng tính"),
             FontAttributes = FontAttributes.Bold,
             FontSize = 18d,
             AutomationId = "NeraAutoFilterPagedTitle",
@@ -49,13 +50,13 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             Spacing = 6d,
         };
         var sortAscending = CreateSheetButton(
-            "Sắp xếp ↑", "NeraAutoFilterSortAscending", "Sắp xếp cột tăng dần");
+            Localization.Get("Sắp xếp ↑"), "NeraAutoFilterSortAscending", Localization.Get("Sắp xếp cột tăng dần"));
         var sortDescending = CreateSheetButton(
-            "Sắp xếp ↓", "NeraAutoFilterSortDescending", "Sắp xếp cột giảm dần");
+            Localization.Get("Sắp xếp ↓"), "NeraAutoFilterSortDescending", Localization.Get("Sắp xếp cột giảm dần"));
         var reapply = CreateSheetButton(
-            "Áp dụng lại", "NeraAutoFilterReapply", "Áp dụng lại lọc và sắp xếp hiện tại");
+            Localization.Get("Áp dụng lại"), "NeraAutoFilterReapply", Localization.Get("Áp dụng lại lọc và sắp xếp hiện tại"));
         var clearSort = CreateSheetButton(
-            "Xóa sắp xếp", "NeraAutoFilterClearSort", "Xóa trạng thái sắp xếp");
+            Localization.Get("Xóa sắp xếp"), "NeraAutoFilterClearSort", Localization.Get("Xóa trạng thái sắp xếp"));
         sortCommands.Children.Add(sortAscending);
         sortCommands.Children.Add(sortDescending);
         sortCommands.Children.Add(reapply);
@@ -64,20 +65,20 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
 
         var menuKindPicker = new Picker
         {
-            Title = "Nhóm điều kiện lọc",
+            Title = Localization.Get("Nhóm điều kiện lọc"),
             AutomationId = "NeraAutoFilterPagedMenuKind",
         };
         SemanticProperties.SetDescription(
             menuKindPicker,
-            "Chọn lọc giá trị, văn bản, số, ngày, màu, biểu tượng hoặc điều kiện tùy chỉnh");
+            Localization.Get("Chọn lọc giá trị, văn bản, số, ngày, màu, biểu tượng hoặc điều kiện tùy chỉnh"));
         panel.Children.Add(menuKindPicker);
 
         var criterionInput = new Entry
         {
-            Placeholder = "Giá trị điều kiện (Top10%, Today, #RRGGBB…)",
+            Placeholder = Localization.Get("Giá trị điều kiện (Top10%, Today, #RRGGBB…)"),
             AutomationId = "NeraAutoFilterPagedCriterion",
         };
-        SemanticProperties.SetDescription(criterionInput, "Giá trị điều kiện lọc");
+        SemanticProperties.SetDescription(criterionInput, Localization.Get("Giá trị điều kiện lọc"));
         panel.Children.Add(criterionInput);
 
         var customConditions = new Grid
@@ -92,32 +93,32 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         };
         var conditionJoin = new Picker
         {
-            ItemsSource = new[] { "Và", "Hoặc" },
+            ItemsSource = new[] { Localization.Get("Và"), Localization.Get("Hoặc") },
             SelectedIndex = 0,
             AutomationId = "NeraAutoFilterPagedConditionJoin",
         };
-        SemanticProperties.SetDescription(conditionJoin, "Cách kết hợp hai điều kiện");
+        SemanticProperties.SetDescription(conditionJoin, Localization.Get("Cách kết hợp hai điều kiện"));
         var secondCriterion = new Entry
         {
-            Placeholder = "Điều kiện thứ hai",
+            Placeholder = Localization.Get("Điều kiện thứ hai"),
             AutomationId = "NeraAutoFilterPagedSecondCriterion",
         };
-        SemanticProperties.SetDescription(secondCriterion, "Điều kiện lọc thứ hai");
+        SemanticProperties.SetDescription(secondCriterion, Localization.Get("Điều kiện lọc thứ hai"));
         customConditions.Add(conditionJoin, 0, 0);
         customConditions.Add(secondCriterion, 1, 0);
         panel.Children.Add(customConditions);
 
         var search = new Entry
         {
-            Placeholder = "Tìm giá trị",
+            Placeholder = Localization.Get("Tìm giá trị"),
             AutomationId = "NeraAutoFilterPagedSearch",
             ReturnType = ReturnType.Search,
             ClearButtonVisibility = ClearButtonVisibility.WhileEditing,
         };
-        SemanticProperties.SetDescription(search, "Tìm giá trị lọc");
+        SemanticProperties.SetDescription(search, Localization.Get("Tìm giá trị lọc"));
         SemanticProperties.SetHint(
             search,
-            "Nhập từ khóa; danh sách tự tải lại từ trang đầu.");
+            Localization.Get("Nhập từ khóa; danh sách tự tải lại từ trang đầu."));
         panel.Children.Add(search);
 
         var selectionCommands = new HorizontalStackLayout
@@ -125,21 +126,21 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             Spacing = 8d,
         };
         var selectAll = CreateSheetButton(
-            "Chọn kết quả",
+            Localization.Get("Chọn kết quả"),
             "NeraAutoFilterPagedSelectAll",
-            "Chọn mọi giá trị khớp tìm kiếm");
+            Localization.Get("Chọn mọi giá trị khớp tìm kiếm"));
         var selectNone = CreateSheetButton(
-            "Bỏ chọn kết quả",
+            Localization.Get("Bỏ chọn kết quả"),
             "NeraAutoFilterPagedSelectNone",
-            "Bỏ chọn mọi giá trị khớp tìm kiếm");
+            Localization.Get("Bỏ chọn mọi giá trị khớp tìm kiếm"));
         selectionCommands.Children.Add(selectAll);
         selectionCommands.Children.Add(selectNone);
         panel.Children.Add(selectionCommands);
 
         var dateBack = CreateSheetButton(
-            "◀ Lùi một cấp ngày",
+            Localization.Get("◀ Lùi một cấp ngày"),
             "NeraAutoFilterPagedDateBack",
-            "Quay về năm hoặc danh sách năm");
+            Localization.Get("Quay về năm hoặc danh sách năm"));
         dateBack.IsVisible = false;
         dateBack.HorizontalOptions = LayoutOptions.Start;
         panel.Children.Add(dateBack);
@@ -165,7 +166,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         };
         SemanticProperties.SetDescription(
             values,
-            "Trang hiện hành của danh sách giá trị lọc");
+            Localization.Get("Trang hiện hành của danh sách giá trị lọc"));
         panel.Children.Add(values);
 
         var dateValues = new CollectionView
@@ -182,7 +183,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         };
         SemanticProperties.SetDescription(
             dateValues,
-            "Cây ngày được tải lười theo năm, tháng và ngày");
+            Localization.Get("Cây ngày được tải lười theo năm, tháng và ngày"));
         panel.Children.Add(dateValues);
 
         var paging = new HorizontalStackLayout
@@ -191,13 +192,13 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             HorizontalOptions = LayoutOptions.Center,
         };
         var previous = CreateSheetButton(
-            "◀ Trang trước",
+            Localization.Get("◀ Trang trước"),
             "NeraAutoFilterPagedPrevious",
-            "Tải trang giá trị trước");
+            Localization.Get("Tải trang giá trị trước"));
         var next = CreateSheetButton(
-            "Trang sau ▶",
+            Localization.Get("Trang sau ▶"),
             "NeraAutoFilterPagedNext",
-            "Tải trang giá trị sau");
+            Localization.Get("Tải trang giá trị sau"));
         paging.Children.Add(previous);
         paging.Children.Add(next);
         panel.Children.Add(paging);
@@ -213,17 +214,17 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             ColumnSpacing = 8d,
         };
         var clear = CreateSheetButton(
-            "Xóa lọc",
+            Localization.Get("Xóa lọc"),
             "NeraAutoFilterPagedClear",
-            "Xóa bộ lọc của cột hiện tại");
+            Localization.Get("Xóa bộ lọc của cột hiện tại"));
         var cancel = CreateSheetButton(
-            "Hủy",
+            Localization.Get("Hủy"),
             "NeraAutoFilterPagedCancel",
-            "Đóng mà không áp dụng thay đổi");
+            Localization.Get("Đóng mà không áp dụng thay đổi"));
         var apply = CreateSheetButton(
-            "Áp dụng",
+            Localization.Get("Áp dụng"),
             "NeraAutoFilterPagedApply",
-            "Áp dụng lựa chọn trên toàn danh sách phân trang");
+            Localization.Get("Áp dụng lựa chọn trên toàn danh sách phân trang"));
         footer.Add(clear, 0, 0);
         footer.Add(cancel, 1, 0);
         footer.Add(apply, 2, 0);
@@ -316,17 +317,11 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
                 CheckBox.IsCheckedProperty,
                 nameof(SpreadsheetTableFilterValueItem.IsSelected),
                 mode: BindingMode.OneWay);
-            checkBox.SetBinding(
-                SemanticProperties.DescriptionProperty,
-                nameof(SpreadsheetTableFilterValueItem.DisplayText));
             var value = new Label
             {
                 VerticalOptions = LayoutOptions.Center,
                 LineBreakMode = LineBreakMode.TailTruncation,
             };
-            value.SetBinding(
-                Label.TextProperty,
-                nameof(SpreadsheetTableFilterValueItem.DisplayText));
             var count = new Label
             {
                 VerticalOptions = LayoutOptions.Center,
@@ -353,6 +348,9 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             row.Add(value, 1, 0);
             row.Add(count, 2, 0);
             checkBox.CheckedChanged += OnValueCheckChanged;
+            NeraMauiRibbonChrome.ConfigureFilter(row, NeraMauiRibbonPalette.For(IconTheme));
+            _presentationRows.Add(new WeakReference<Grid>(row));
+            row.BindingContextChanged += (_, _) => UpdatePresentationRow(row);
             return row;
         });
 
@@ -367,26 +365,18 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
                 CheckBox.IsCheckedProperty,
                 nameof(DateItem.IsSelected),
                 mode: BindingMode.OneWay);
-            checkBox.SetBinding(
-                SemanticProperties.DescriptionProperty,
-                nameof(DateItem.DisplayText));
             var value = new Label
             {
                 VerticalOptions = LayoutOptions.Center,
                 LineBreakMode = LineBreakMode.TailTruncation,
             };
-            value.SetBinding(Label.TextProperty, nameof(DateItem.DisplayText));
             var drill = CreateSheetButton(
-                "Mở ▶",
+                Localization.Get("Mở ▶"),
                 "NeraAutoFilterPagedDateDrill",
-                "Tải lười cấp ngày con");
+                Localization.Get("Tải lười cấp ngày con"));
             drill.SetBinding(
                 VisualElement.IsVisibleProperty,
                 nameof(DateItem.HasChildren));
-            drill.SetBinding(
-                SemanticProperties.DescriptionProperty,
-                nameof(DateItem.DisplayText),
-                stringFormat: "Mở {0}");
             var row = new Grid
             {
                 ColumnDefinitions =
@@ -403,6 +393,9 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             row.Add(drill, 2, 0);
             checkBox.CheckedChanged += OnDateCheckChanged;
             drill.Clicked += OnDateDrillClicked;
+            NeraMauiRibbonChrome.ConfigureFilter(row, NeraMauiRibbonPalette.For(IconTheme));
+            _presentationRows.Add(new WeakReference<Grid>(row));
+            row.BindingContextChanged += (_, _) => UpdatePresentationRow(row);
             return row;
         });
 
@@ -446,7 +439,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         {
             _selectedDateGroups.Remove(group);
         }
-        _status.Text = $"Đã chọn {_selectedDateGroups.Count:N0} nhóm ngày.";
+        _status.Text = Localization.Format("Đã chọn {0:N0} nhóm ngày.", _selectedDateGroups.Count);
         _applyButton.IsEnabled = _selectedDateGroups.Count > 0;
     }
 
@@ -475,7 +468,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
         _rebuilding = true;
         var selectedIndex = _menuKindPicker.SelectedIndex;
         _menuKindPicker.ItemsSource = _binding.MenuKinds
-            .Select(static kind => kind.GetDefaultDisplayName())
+            .Select(kind => Localization.Get(kind.GetDefaultDisplayName()))
             .ToArray();
         _menuKindPicker.SelectedIndex = _binding.MenuKinds.Count == 0
             ? -1
@@ -502,23 +495,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
                 _selectedDateGroups.Contains(ToDateGroup(node)))).ToArray()
             : null;
 
-        var total = isDate ? _datePage?.TotalNodeCount ?? 0 : _binding.TotalItemCount;
-        var offset = isDate ? _datePage?.Offset ?? 0 : _binding.PageOffset;
-        var count = isDate ? _datePage?.Nodes.Count ?? 0 : _binding.Items.Count;
-        var first = total == 0 ? 0 : offset + 1;
-        var last = Math.Min(total, offset + count);
-        _status.Text = !isValues && !isDate
-            ? isCustom
-                ? "Nhập một hoặc hai điều kiện rồi chọn cách kết hợp."
-                : "Nhập điều kiện lọc rồi chọn Áp dụng."
-            : isDate
-            ? $"{first:N0}–{last:N0}/{total:N0} nhóm ngày; đã chọn {_selectedDateGroups.Count:N0}."
-            : _binding.IsSourceTruncated
-                ? $"{first:N0}–{last:N0}/{total:N0}; nguồn bị giới hạn, không thể áp dụng chọn giá trị."
-                : $"{first:N0}–{last:N0}/{total:N0} giá trị.";
-        SemanticProperties.SetDescription(
-            _status,
-            $"{_binding.AccessibilityAnnouncement} {_status.Text}");
+        UpdateStatusText();
         _previousButton.IsEnabled = isDate
             ? _datePage?.HasPreviousPage == true && !_binding.IsBusy
             : _binding.HasPreviousPage && !_binding.IsBusy;
@@ -529,6 +506,80 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             !_binding.IsBusy &&
             (!isDate || _selectedDateGroups.Count > 0) &&
             (!isValues || !_binding.IsSourceTruncated);
+    }
+
+    private void UpdateStatusText()
+    {
+        if (_binding is null) return;
+        var kind = GetSelectedMenuKind(_binding);
+        var isValues = kind == SpreadsheetAutoFilterMenuKind.Values;
+        var isDate = kind == SpreadsheetAutoFilterMenuKind.Date;
+        var isCustom = kind == SpreadsheetAutoFilterMenuKind.Custom;
+        var total = isDate ? _datePage?.TotalNodeCount ?? 0 : _binding.TotalItemCount;
+        var offset = isDate ? _datePage?.Offset ?? 0 : _binding.PageOffset;
+        var count = isDate ? _datePage?.Nodes.Count ?? 0 : _binding.Items.Count;
+        var first = total == 0 ? 0 : offset + 1;
+        var last = Math.Min(total, offset + count);
+        _status.Text = !isValues && !isDate
+            ? isCustom
+                ? Localization.Get("Nhập một hoặc hai điều kiện rồi chọn cách kết hợp.")
+                : Localization.Get("Nhập điều kiện lọc rồi chọn Áp dụng.")
+            : isDate
+            ? Localization.Format("{0:N0}–{1:N0}/{2:N0} nhóm ngày; đã chọn {3:N0}.", first, last, total, _selectedDateGroups.Count)
+            : _binding.IsSourceTruncated
+                ? Localization.Format("{0:N0}–{1:N0}/{2:N0}; nguồn bị giới hạn, không thể áp dụng chọn giá trị.", first, last, total)
+                : Localization.Format("{0:N0}–{1:N0}/{2:N0} giá trị.", first, last, total);
+        SemanticProperties.SetDescription(
+            _status,
+            $"{_binding.AccessibilityAnnouncement} {_status.Text}");
+
+    }
+
+    /// <summary>Updates labels and palette in place on the UI thread, retaining query, selection, focus and caret.</summary>
+    public void SetPresentation(PresentationLocalization localization, NeraSpreadSheet.Iconography.NeraIconTheme iconTheme)
+    {
+        ArgumentNullException.ThrowIfNull(localization);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _shellResources.Apply(localization);
+        Localization = localization;
+        IconTheme = iconTheme;
+        NeraMauiRibbonChrome.ConfigureFilter(_sheetPanel, NeraMauiRibbonPalette.For(iconTheme));
+        if (_binding is not null) _binding.Localization = localization;
+        _rebuilding = true;
+        try
+        {
+            var join = _conditionJoinPicker.SelectedIndex;
+            _conditionJoinPicker.ItemsSource = new[] { Localization.Get("Và"), Localization.Get("Hoặc") };
+            _conditionJoinPicker.SelectedIndex = join;
+            var selected = _menuKindPicker.SelectedIndex;
+            _menuKindPicker.ItemsSource = _binding?.MenuKinds.Select(kind => Localization.Get(kind.GetDefaultDisplayName())).ToArray();
+            _menuKindPicker.SelectedIndex = selected;
+            UpdateStatusText();
+            _presentationRows.RemoveAll(static reference => !reference.TryGetTarget(out _));
+            foreach (var reference in _presentationRows)
+                if (reference.TryGetTarget(out var row)) UpdatePresentationRow(row);
+        }
+        finally { _rebuilding = false; }
+    }
+
+    private void UpdatePresentationRow(Grid row)
+    {
+        NeraMauiRibbonChrome.ConfigureFilter(row, NeraMauiRibbonPalette.For(IconTheme));
+        var text = row.BindingContext switch
+        {
+            SpreadsheetTableFilterValueItem item => item.Value.IsBlank ? Localization.Get("(Trống)") : item.DisplayText,
+            DateItem item => DisplayDateNode(item.Node),
+            _ => null,
+        };
+        if (text is null) return;
+        if (row.Children[0] is CheckBox checkBox) SemanticProperties.SetDescription(checkBox, text);
+        if (row.Children[1] is Label label) label.Text = text;
+        if (row.Children[2] is Button drill)
+        {
+            drill.Text = Localization.Get("Mở ▶");
+            SemanticProperties.SetDescription(drill, Localization.Format("Mở {0}", text));
+            SemanticProperties.SetHint(drill, Localization.Get("Tải lười cấp ngày con"));
+        }
     }
 
     private static Button CreateSheetButton(

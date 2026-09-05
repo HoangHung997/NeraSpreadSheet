@@ -33,7 +33,7 @@ public static class RibbonProductionCommandCatalog
 
     /// <summary>Creates production placement with optional host-supplied style thumbnails.</summary>
     public static RibbonDefinition CreateDefaultDefinition(
-        Func<CommandItem, RibbonGalleryPreview?>? tableStylePreview) => new(
+        Func<CommandItem, RibbonGalleryPreview?>? tableStylePreview) => Localized(new(
         [
             CreateTab("home", "Trang đầu", "clipboard", "Bảng tạm",
                 "Edit.Paste", "Edit.Cut", "Edit.Copy", "Edit.Undo", "Edit.Redo"),
@@ -89,7 +89,14 @@ public static class RibbonProductionCommandCatalog
             new RibbonCommandSurfaceItem("Edit.Redo", "2"),
             new RibbonCommandSurfaceItem("Edit.Copy", "3"),
         ],
-        []);
+        []));
+
+    private static RibbonDefinition Localized(RibbonDefinition definition) => new(
+        definition.Tabs.Select(tab => new RibbonTabDefinition(tab.Id, tab.Caption,
+            tab.Groups.Select(group => new RibbonGroupDefinition(group.Id, group.Caption,
+                group.Items, group.Order, group.CollapsePriority) { CaptionResourceKey = group.Caption }),
+            tab.Order) { CaptionResourceKey = tab.Caption }),
+        definition.ContextualTabs, definition.QuickAccessToolbar, definition.Backstage);
 
     private static RibbonTabDefinition CreateTab(
         string tabId,

@@ -39,7 +39,8 @@ public sealed partial class RibbonPreviewWindow
             if (!_session.Commands.TryResolve(id, out var descriptor, out var handler) || descriptor is null || handler is null)
                 throw new InvalidOperationException($"Missing session command {id}.");
             _commands.Register(new CommandDescriptor(id, captions.GetValueOrDefault(id.Value, descriptor.Caption),
-                captions.GetValueOrDefault(id.Value, descriptor.Tooltip ?? descriptor.Caption), descriptor.IconKey, descriptor.Shortcut),
+                captions.GetValueOrDefault(id.Value, descriptor.Tooltip ?? descriptor.Caption), descriptor.IconKey, descriptor.Shortcut)
+                { CaptionResourceKey = captions.GetValueOrDefault(id.Value, descriptor.Caption), TooltipResourceKey = captions.GetValueOrDefault(id.Value, descriptor.Tooltip ?? descriptor.Caption) },
                 id.Value is "Edit.Undo" or "Edit.Redo" ? new LocalizedHistoryHandler(handler) : handler);
         }
         Add("Sample.Font", "Phông chữ", "font.family", value => ApplyStyle(s => s with { Font = s.Font with { Family = value! } }),
@@ -68,6 +69,8 @@ public sealed partial class RibbonPreviewWindow
         Add("Sample.Filter", "Mở bộ lọc", "data.filter", _ =>
         {
             _filterPopup ??= new NeraAutoFilterPagedPopupPresenter(_sheet);
+            _filterPopup.IconTheme = _ribbon.IconTheme;
+            _filterPopup.Localization = Localization;
             if (!_filterPopup.TryOpenForActiveCell()) SetStatus("Chọn một ô trong bảng có hàng tiêu đề để mở bộ lọc.");
         });
         Add("Sample.FilterClear", "Xóa bộ lọc", "data.filter-clear", _ =>
@@ -111,16 +114,16 @@ public sealed partial class RibbonPreviewWindow
             () => ChoiceState((_sheet.Zoom * 100).ToString(CultureInfo.InvariantCulture), "75", "100", "125", "150", "200"));
         Add("Sample.ZoomReset", "100%", "view.zoom-100", _ => _sheet.Zoom = 1);
         Add("Sample.New", "Cửa sổ mới", "file.new", _ => new RibbonPreviewWindow().Show());
-        _commands.Register(new CommandDescriptor("Sample.Open", "Mở workbook", iconKey: "file.open"), new AsyncPreviewHandler(OpenWorkbookAsync));
-        _commands.Register(new CommandDescriptor("Sample.Save", "Lưu bản sao", iconKey: "file.save-as"), new AsyncPreviewHandler(SaveWorkbookAsync));
+        _commands.Register(new CommandDescriptor("Sample.Open", "Mở workbook", iconKey: "file.open") { CaptionResourceKey = "Mở workbook" }, new AsyncPreviewHandler(OpenWorkbookAsync));
+        _commands.Register(new CommandDescriptor("Sample.Save", "Lưu bản sao", iconKey: "file.save-as") { CaptionResourceKey = "Lưu bản sao" }, new AsyncPreviewHandler(SaveWorkbookAsync));
     }
 
     private SpreadsheetTable? CurrentTable => _session.ActiveWorksheet.Tables.FirstOrDefault(table => table.Range.Contains(_session.Selection.ActiveCell));
     private void ApplyStyle(Func<CellStyle, CellStyle> transform) => _session.Styles.ApplyToSelection(transform, "Định dạng từ Ribbon");
-    private static CommandState ChoiceState(string selected, params string[] values) => new(true, null, null, selected, values.Select(value => new CommandItem(value, value)));
-    private static CommandState ColorState(ColorRgba selected) => new(true, null, null,
+    private CommandState ChoiceState(string selected, params string[] values) => new(true, null, null, selected, values.Select(value => new CommandItem(value, Localization.Get(value))));
+    private CommandState ColorState(ColorRgba selected) => new(true, null, null,
         selected.Alpha == 0 ? "#00000000" : $"#{selected.Red:X2}{selected.Green:X2}{selected.Blue:X2}",
-        [new("#00000000", "Không màu"), new("#217346", "Xanh lá"), new("#156082", "Xanh lam"), new("#FFC000", "Vàng"), new("#C00000", "Đỏ"), new("#FFFFFF", "Trắng"), new("#000000", "Đen")]);
+        [new("#00000000", Localization.Get("Không màu")), new("#217346", Localization.Get("Xanh lá")), new("#156082", Localization.Get("Xanh lam")), new("#FFC000", Localization.Get("Vàng")), new("#C00000", Localization.Get("Đỏ")), new("#FFFFFF", Localization.Get("Trắng")), new("#000000", Localization.Get("Đen"))]);
     private static ColorRgba ParseColor(string text)
     {
         var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(text);
@@ -128,7 +131,7 @@ public sealed partial class RibbonPreviewWindow
     }
 
     private void Add(string id, string caption, string icon, Action<string?> action, Func<CommandState>? state = null) =>
-        _commands.Register(new CommandDescriptor(id, caption, caption, icon), new PreviewHandler(action, state));
+        _commands.Register(new CommandDescriptor(id, caption, caption, icon) { CaptionResourceKey = caption, TooltipResourceKey = caption }, new PreviewHandler(action, state));
 
     private void SetPageSetup(Func<SpreadsheetPageSetup, SpreadsheetPageSetup> change)
     {

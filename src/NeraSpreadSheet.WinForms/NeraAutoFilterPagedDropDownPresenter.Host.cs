@@ -1,3 +1,4 @@
+using NeraSpreadSheet.Commands;
 using System.Drawing;
 using System.Windows.Forms;
 using NeraSpreadSheet.Core;
@@ -41,7 +42,7 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
                 _control.RenderTheme.TableFilterButtonGlyph);
             button.AccessibleName = GetFilterButtonAccessibleName(hit);
             button.AccessibleDescription =
-                "Mở menu lọc phân trang bằng Enter, Space hoặc Alt+mũi tên xuống.";
+                Localization.Get("Mở menu lọc phân trang bằng Enter, Space hoặc Alt+mũi tên xuống.");
             button.Visible = true;
             button.BringToFront();
         }
@@ -88,9 +89,9 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
         if (session is not null &&
             session.TryResolveAutoFilterTarget(hit.HeaderCell, out var target))
         {
-            return $"Cột {target.ColumnName} trong {target.OwnerName}, {GetHeaderStateText(target.HeaderState, target.SortDescending)}";
+            return Localization.Format("Cột {0} trong {1}, {2}", target.ColumnName, target.OwnerName, GetHeaderStateText(target.HeaderState, target.SortDescending));
         }
-        return "Mở bộ lọc bảng tính";
+        return Localization.Get("Mở bộ lọc bảng tính");
     }
 
     private static string GetFilterButtonGlyph(SpreadsheetAutoFilterButtonHit hit) =>
@@ -98,18 +99,18 @@ public sealed partial class NeraAutoFilterPagedDropDownPresenter
             hit.HeaderState,
             hit.SortDescending);
 
-    private static string GetHeaderStateText(
+    private string GetHeaderStateText(
         SpreadsheetFilterHeaderState state,
         bool? descending) => state switch
         {
-            SpreadsheetFilterHeaderState.Filtered => "đang lọc",
+            SpreadsheetFilterHeaderState.Filtered => Localization.Get("đang lọc"),
             SpreadsheetFilterHeaderState.Sorted => descending == true
-                ? "đang sắp xếp giảm dần"
-                : "đang sắp xếp tăng dần",
+                ? Localization.Get("đang sắp xếp giảm dần")
+                : Localization.Get("đang sắp xếp tăng dần"),
             SpreadsheetFilterHeaderState.FilteredAndSorted => descending == true
-                ? "đang lọc và sắp xếp giảm dần"
-                : "đang lọc và sắp xếp tăng dần",
-            _ => "chưa lọc hoặc sắp xếp",
+                ? Localization.Get("đang lọc và sắp xếp giảm dần")
+                : Localization.Get("đang lọc và sắp xếp tăng dần"),
+            _ => Localization.Get("chưa lọc hoặc sắp xếp"),
         };
 
     private void OnFilterButtonClick(object? sender, EventArgs e)

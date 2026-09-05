@@ -1,3 +1,5 @@
+using NeraSpreadSheet.Iconography;
+using NeraSpreadSheet.Commands;
 using Microsoft.Maui.Controls;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
@@ -10,6 +12,9 @@ namespace NeraSpreadSheet.Maui;
 /// </summary>
 public sealed class NeraTableFilterSheet : ContentView, IDisposable
 {
+    /// <summary>Resources used when the filter surface is next opened or refreshed.</summary>
+    public PresentationLocalization Localization { get; }
+
     private readonly SpreadsheetTablePresenterController _presenter;
     private readonly Entry _searchBox;
     private readonly Label _summary;
@@ -17,14 +22,22 @@ public sealed class NeraTableFilterSheet : ContentView, IDisposable
     private SpreadsheetTableFilterMenu? _menu;
     private bool _refreshing;
     private bool _disposed;
+    private readonly NeraIconTheme _iconTheme;
 
     public NeraTableFilterSheet(SpreadsheetSession session)
+        : this(session, PresentationLocalization.Default, NeraIconTheme.Light)
     {
+    }
+
+    /// <summary>Creates filter chrome with host-scoped resources and a shared palette.</summary>
+    public NeraTableFilterSheet(SpreadsheetSession session, PresentationLocalization localization, NeraIconTheme iconTheme)
+    {
+        Localization = localization ?? throw new ArgumentNullException(nameof(localization));
         ArgumentNullException.ThrowIfNull(session);
         _presenter = new SpreadsheetTablePresenterController(session);
         _searchBox = new Entry
         {
-            Placeholder = "Tìm giá trị",
+            Placeholder = Localization.Get("Tìm giá trị"),
             ClearButtonVisibility = ClearButtonVisibility.WhileEditing,
         };
         _searchBox.TextChanged += OnSearchChanged;
@@ -42,13 +55,13 @@ public sealed class NeraTableFilterSheet : ContentView, IDisposable
             Content = _valuesPanel,
             MaximumHeightRequest = 360d,
         };
-        var selectAll = CreateButton("Chọn tất cả", (_, _) =>
+        var selectAll = CreateButton(Localization.Get("Chọn tất cả"), (_, _) =>
             _menu?.SelectAllVisible());
-        var clearVisible = CreateButton("Bỏ chọn", (_, _) =>
+        var clearVisible = CreateButton(Localization.Get("Bỏ chọn"), (_, _) =>
             _menu?.ClearVisibleSelection());
-        var clearFilter = CreateButton("Xóa lọc", OnClearFilter);
-        var apply = CreateButton("Áp dụng", OnApply);
-        var close = CreateButton("Đóng", (_, _) => Close());
+        var clearFilter = CreateButton(Localization.Get("Xóa lọc"), OnClearFilter);
+        var apply = CreateButton(Localization.Get("Áp dụng"), OnApply);
+        var close = CreateButton(Localization.Get("Đóng"), (_, _) => Close());
         var buttons = new HorizontalStackLayout
         {
             Spacing = 6d,
@@ -61,6 +74,7 @@ public sealed class NeraTableFilterSheet : ContentView, IDisposable
                 close,
             },
         };
+        _iconTheme = iconTheme;
         Content = new Border
         {
             BackgroundColor = Colors.White,
@@ -79,13 +93,14 @@ public sealed class NeraTableFilterSheet : ContentView, IDisposable
                 },
             },
         };
+        NeraMauiRibbonChrome.ConfigureFilter(Content, NeraMauiRibbonPalette.For(_iconTheme));
         MinimumWidthRequest = 300d;
         MaximumWidthRequest = 520d;
         MaximumHeightRequest = 600d;
         IsVisible = false;
         SemanticProperties.SetDescription(
             this,
-            "Bộ lọc cột của bảng tính NeraSpreadSheet");
+            Localization.Get("Bộ lọc cột của bảng tính NeraSpreadSheet"));
     }
 
     public bool IsOpen => IsVisible && _menu is not null;
@@ -151,8 +166,8 @@ public sealed class NeraTableFilterSheet : ContentView, IDisposable
         {
             var state = _menu.Capture();
             _summary.Text = state.IsTruncated
-                ? $"Đã quét {state.ScannedRowCount}/{state.SourceRowCount} hàng; danh sách bị giới hạn."
-                : $"{state.DistinctValueCount} giá trị; {state.SourceRowCount} hàng dữ liệu.";
+                ? Localization.Format("Đã quét {0}/{1} hàng; danh sách bị giới hạn.", state.ScannedRowCount, state.SourceRowCount)
+                : Localization.Format("{0} giá trị; {1} hàng dữ liệu.", state.DistinctValueCount, state.SourceRowCount);
             _valuesPanel.Children.Clear();
             foreach (var item in state.Values)
             {
@@ -183,7 +198,8 @@ public sealed class NeraTableFilterSheet : ContentView, IDisposable
                 };
                 SemanticProperties.SetDescription(
                     row,
-                    $"{item.DisplayText}, {item.Count} lần");
+                    Localization.Format("{0}, {1} lần", item.DisplayText, item.Count));
+                NeraMauiRibbonChrome.ConfigureFilter(row, NeraMauiRibbonPalette.For(_iconTheme));
                 _valuesPanel.Children.Add(row);
             }
         }

@@ -194,6 +194,7 @@ public sealed partial class RibbonPreviewWindow
                     throw new InvalidOperationException("Ribbon modes changed at equivalent logical width and export scale.");
             }
         }
+        await CaptureLocalizationAsync(outputDirectory, images);
         var manifest = new
         {
             schemaVersion = 2, status = "success", preview = "Production Table Design commands; Nera-generated synthetic workbook",

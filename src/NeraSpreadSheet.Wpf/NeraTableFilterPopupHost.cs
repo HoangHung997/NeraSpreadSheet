@@ -1,3 +1,5 @@
+using NeraSpreadSheet.Iconography;
+using NeraSpreadSheet.Commands;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -17,6 +19,9 @@ namespace NeraSpreadSheet.Wpf;
 /// </summary>
 public sealed class NeraTableFilterPopup : IDisposable
 {
+    /// <summary>Resources used when the filter surface is next opened or refreshed.</summary>
+    public PresentationLocalization Localization { get; }
+
     private readonly SpreadsheetTablePresenterController _presenter;
     private readonly Popup _popup;
     private readonly TextBox _searchBox;
@@ -27,14 +32,21 @@ public sealed class NeraTableFilterPopup : IDisposable
     private bool _disposed;
 
     public NeraTableFilterPopup(SpreadsheetSession session)
+        : this(session, PresentationLocalization.Default, NeraIconTheme.Light)
     {
+    }
+
+    /// <summary>Creates filter chrome with host-scoped resources and a shared palette.</summary>
+    public NeraTableFilterPopup(SpreadsheetSession session, PresentationLocalization localization, NeraIconTheme iconTheme)
+    {
+        Localization = localization ?? throw new ArgumentNullException(nameof(localization));
         ArgumentNullException.ThrowIfNull(session);
         _presenter = new SpreadsheetTablePresenterController(session);
         _searchBox = new TextBox
         {
             Margin = new Thickness(0d, 0d, 0d, 6d),
             MinWidth = 240d,
-            ToolTip = "Tìm giá trị trong cột",
+            ToolTip = Localization.Get("Tìm giá trị trong cột"),
         };
         _searchBox.TextChanged += OnSearchChanged;
         _summary = new TextBlock
@@ -49,11 +61,11 @@ public sealed class NeraTableFilterPopup : IDisposable
             MaxHeight = 320d,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
-        var selectAll = CreateButton("Chọn tất cả", OnSelectAll);
-        var clearVisible = CreateButton("Bỏ chọn đang thấy", OnClearVisible);
-        var clearFilter = CreateButton("Xóa bộ lọc", OnClearFilter);
-        var apply = CreateButton("Áp dụng", OnApply);
-        var cancel = CreateButton("Đóng", (_, _) => Close());
+        var selectAll = CreateButton(Localization.Get("Chọn tất cả"), OnSelectAll);
+        var clearVisible = CreateButton(Localization.Get("Bỏ chọn đang thấy"), OnClearVisible);
+        var clearFilter = CreateButton(Localization.Get("Xóa bộ lọc"), OnClearFilter);
+        var apply = CreateButton(Localization.Get("Áp dụng"), OnApply);
+        var cancel = CreateButton(Localization.Get("Đóng"), (_, _) => Close());
         var buttons = new WrapPanel
         {
             Margin = new Thickness(0d, 8d, 0d, 0d),
@@ -78,6 +90,8 @@ public sealed class NeraTableFilterPopup : IDisposable
             Padding = new Thickness(10d),
             Child = content,
         };
+        NeraRibbonChrome.InstallFilter(border, iconTheme);
+        _summary.SetResourceReference(TextBlock.ForegroundProperty, "RibbonMuted");
         _popup = new Popup
         {
             AllowsTransparency = true,
@@ -160,8 +174,8 @@ public sealed class NeraTableFilterPopup : IDisposable
         {
             var state = _menu.Capture();
             _summary.Text = state.IsTruncated
-                ? $"Đã quét {state.ScannedRowCount}/{state.SourceRowCount} hàng; danh sách bị giới hạn."
-                : $"{state.DistinctValueCount} giá trị; {state.SourceRowCount} hàng dữ liệu.";
+                ? Localization.Format("Đã quét {0}/{1} hàng; danh sách bị giới hạn.", state.ScannedRowCount, state.SourceRowCount)
+                : Localization.Format("{0} giá trị; {1} hàng dữ liệu.", state.DistinctValueCount, state.SourceRowCount);
             _valuesPanel.Children.Clear();
             foreach (var item in state.Values)
             {
@@ -257,11 +271,17 @@ public sealed class NeraTableFilterPopupHost : IDisposable
     private bool _disposed;
 
     public NeraTableFilterPopupHost(NeraSpreadsheetControl control)
+        : this(control, PresentationLocalization.Default, NeraIconTheme.Light)
+    {
+    }
+
+    /// <summary>Attaches the existing filter presenter with host-scoped resources and palette.</summary>
+    public NeraTableFilterPopupHost(NeraSpreadsheetControl control, PresentationLocalization localization, NeraIconTheme iconTheme)
     {
         _control = control ?? throw new ArgumentNullException(nameof(control));
         _popup = new NeraTableFilterPopup(
             control.Session ?? throw new InvalidOperationException(
-                "Assign a SpreadsheetSession before enabling the Table filter popup."));
+                "Assign a SpreadsheetSession before enabling the Table filter popup."), localization, iconTheme);
         _control.PreviewMouseLeftButtonDown += OnPreviewMouseLeftButtonDown;
     }
 
