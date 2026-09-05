@@ -25,13 +25,16 @@ internal static class OpenXmlTableCodec
     internal static void ValidateWorkbookTableIds(WorkbookPart workbookPart)
     {
         var ids = new HashSet<uint>();
+        var stableIds = new HashSet<Guid>();
         var parts = new HashSet<Uri>();
-        foreach (var part in workbookPart.WorksheetParts.SelectMany(sheet => sheet.TableDefinitionParts))
+        foreach (var sheet in workbookPart.WorksheetParts)
+        foreach (var part in sheet.TableDefinitionParts)
         {
             var root = LoadPartXml(part).Root
                 ?? throw new InvalidDataException("A table definition is empty.");
             var id = ReadUIntAttribute(root, "id", 0);
-            if (id == 0 || !ids.Add(id) || !parts.Add(part.Uri))
+            if (id == 0 || !ids.Add(id) || !parts.Add(part.Uri) ||
+                !stableIds.Add(ParseTableGuid(sheet.GetIdOfPart(part), part.Uri.ToString())))
             {
                 throw new InvalidDataException("Table identifiers must be non-zero and unique across the workbook.");
             }

@@ -691,7 +691,7 @@ public static class StructuredReferenceFormulaRewriter
                 var token = expression[tokenStart..index];
                 var currentRow = token.StartsWith('@');
                 var name = currentRow ? token[1..] : token;
-                if (string.Equals(StructuredReferenceFormulaTranslator.UnescapeColumnName(name), oldName,
+                if (!name.StartsWith('#') && string.Equals(StructuredReferenceFormulaTranslator.UnescapeColumnName(name), oldName,
                         StringComparison.OrdinalIgnoreCase))
                 {
                     if (currentRow) builder.Append('@');

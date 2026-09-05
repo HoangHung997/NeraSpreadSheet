@@ -14,6 +14,10 @@ public sealed partial class SpreadsheetTableController
     public void Add(SpreadsheetTable table)
     {
         ArgumentNullException.ThrowIfNull(table);
+        if (_session.Workbook.Tables.Any(candidate => candidate.Id == table.Id))
+        {
+            throw new InvalidOperationException("Table identities must be unique across the workbook.");
+        }
         EnsureRangeCanOwnTable(table.Range, ignoredTableId: null);
         Execute(new AddTableOperation(
             _session.ActiveWorksheet,
