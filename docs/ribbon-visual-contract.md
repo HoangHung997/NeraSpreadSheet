@@ -1,0 +1,81 @@
+# RIBBON-VISUAL-011 — Visual chrome và SDK preview
+
+## Một model, ba presenter
+
+`RibbonResponsiveLayoutEngine` cung cấp bounds, row/span và caption đáy cho
+WPF, WinForms, MAUI. Các presenter dùng chung `RibbonItemDefinition` và
+`RibbonRuntimeController`; không có workbook, history hoặc model Ribbon song
+song. Hợp đồng chi tiết ở [responsive layout](ribbon-responsive-layout-contract.md)
+và [full item model](ribbon-item-model-contract.md).
+
+Button/toggle nhỏ dùng icon 16 px, command chính large dùng 32 px với caption
+tối đa hai dòng. Các control giữ loại native và automation identity ổn định.
+Chrome WPF dùng resource dictionary có phạm vi trong Ribbon/customization;
+không ghi đè resource của application. Bốn palette gồm sáng, tối, tương phản
+sáng và tương phản tối. Gallery nhận thumbnail bất biến từ host, giữ selected,
+hover và thao tác More; Ribbon không dùng thanh cuộn ngang để xử lý thiếu chỗ.
+
+QAT ưu tiên icon 16 px, giữ caption trong tooltip/automation và fallback nhìn
+thấy khi không resolve được icon. File dùng rail bên trái và content pane bên
+phải: click rail chọn nội dung, nút action trong pane thực thi command. Key tip
+trực tiếp vẫn thực thi command theo contract cũ. Không có danh sách tài liệu
+gần đây giả lập hoặc đường dẫn người dùng trong preview.
+
+## Preview dùng capability thật
+
+Chạy sample có sẵn:
+
+```powershell
+dotnet run --project samples/NeraSpreadSheet.Wpf.Sample -- --ribbon-preview
+```
+
+Sample có Trang đầu, Chèn, Bố trí trang, Công thức, Dữ liệu, Xem lại, Xem và
+Thiết kế Bảng theo selection; Tệp là Backstage. Ba mươi command đã đăng ký
+trong session được tái sử dụng với cùng handlers/identities. Các command host
+trong sample chỉ gọi API có sẵn: cell styles, print settings/preview, formula
+editing/help, filter, zoom, table rename và totals. Save ghi vào file tạm cùng
+thư mục và chỉ thay bản đích sau khi serialize thành công.
+
+`RibbonProductionCommandCatalog` vẫn là manifest của 30 command session có
+sẵn, không thêm khả năng chưa đăng ký. Factory mặc định giữ tab/command IDs
+cũ và đánh dấu năm command chính là large. Sample minh họa cách host lắp thêm
+command trong cùng public definition/runtime; không phải model hay presenter
+mới của SDK.
+
+Table Style gallery dùng `TableStylePreview.Create` và workbook theme thật.
+Chọn tile **chỉ đổi lựa chọn xem trước**, không áp dụng style cho bảng. Table
+Design mutation/catalog đầy đủ thuộc lane `TABLE-005`; tích hợp phải gắn
+thumbnail vào command của lane đó, không tạo handler mutation thứ hai. Không
+có thay đổi Table style resolver, calculation, identity hoặc OpenXML trong lane
+visual này. Không mô phỏng capability Excel chưa có trong SDK.
+
+## Chụp ảnh và regression
+
+```powershell
+./scripts/capture-ribbon-visual.ps1
+```
+
+Script build sample, chạy đúng presenter SDK với workbook sinh trong bộ nhớ,
+chụp 1536/1280/1024/820 logical px cho tám tab và Backstage trong bốn palette,
+thêm customization, popup gallery More và raster export 125/150/200% của
+Trang đầu/Thiết kế Bảng.
+Ma trận hiện tại gồm **176 ảnh** và **128 native layout snapshots**.
+Kết quả ở `artifacts/ribbon-visual-011/captures`; `manifest.json` chỉ chứa tên
+file tương đối, logical/native geometry và kết quả command smoke.
+
+Raster export DPI **không** được coi là đổi DPI của màn hình thật. Manifest
+ghi native scale riêng; Core regression kiểm tra invariant layout ở scale
+1/1.25/1.5/2, WinForms/WPF loaded tests kiểm tra native bounds tại DPI host,
+MAUI loaded smoke kiểm tra ma trận `LayoutScale` tương ứng. Regression kiểm
+tra non-overlap, caption không lấn command, overflow, lựa chọn từ popup
+gallery, command selection và focus ngoài Ribbon. Customization hỗ trợ cùng
+command xuất hiện ở nhiều tab; caption lookup khử trùng lặp theo identity và
+đóng dialog khởi tạo dở không truy cập session chưa gán. Pixel diff byte-for-byte
+không phải gate vì raster/font antialiasing thay đổi theo OS; hình ảnh luôn cần
+review cùng geometry tests. Preview mở customization theo palette đang chọn;
+host override width của color picker phải dành đủ chỗ cho cả nhãn và swatch.
+
+CI Windows chạy script và upload `ribbon-visual-matrix`. Ảnh tham chiếu Excel
+và audit local không thuộc artifact hoặc Git. Chỉ ảnh sinh từ sample SDK được
+upload. Không thay đổi đường scroll/render worksheet; benchmark đo riêng
+Ribbon layout trước/sau được ghi trong responsive contract.

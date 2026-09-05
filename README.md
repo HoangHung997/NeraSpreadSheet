@@ -26,3 +26,13 @@ dotnet build .\NeraSpreadSheet.Core.slnx -c Release --no-restore
 dotnet test .\NeraSpreadSheet.Core.slnx -c Release --no-build
 ./scripts/verify-architecture.ps1
 ```
+
+Ribbon SDK preview và bộ chụp visual regression:
+
+```powershell
+dotnet run --project samples/NeraSpreadSheet.Wpf.Sample -- --ribbon-preview
+./scripts/capture-ribbon-visual.ps1
+```
+
+Phạm vi, command thật và giới hạn Table Style preview được ghi trong
+[Ribbon visual contract](docs/ribbon-visual-contract.md).

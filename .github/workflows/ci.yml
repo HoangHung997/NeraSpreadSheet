@@ -74,6 +74,17 @@ jobs:
       - name: Windows desktop GPU runtime smoke
         run: dotnet test tests/NeraSpreadSheet.Windows.Rendering.Tests/NeraSpreadSheet.Windows.Rendering.Tests.csproj -c Release --no-build --logger "trx;LogFileName=windows-renderer-smoke.trx"
 
+      - name: Capture SDK Ribbon visual matrix
+        shell: pwsh
+        run: ./scripts/capture-ribbon-visual.ps1
+
+      - name: Upload SDK Ribbon visual matrix
+        uses: actions/upload-artifact@v4
+        with:
+          name: ribbon-visual-matrix
+          path: artifacts/ribbon-visual-011/captures/
+          if-no-files-found: error
+
   maui-windows:
     name: MAUI Windows GPU host build
     runs-on: windows-latest
