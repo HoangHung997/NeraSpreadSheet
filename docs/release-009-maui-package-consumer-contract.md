@@ -17,13 +17,19 @@ Source của checkpoint này từ baseline tích hợp `50cb357a`; chưa nhận 
 4. Consumer ngoài checkout có props/targets/CPM riêng, exact PackageReference,
    source mapping và cache mới. Assets không có project library hoặc cache ngoài;
    compile/runtime MAUI asset phải đúng platform trong package đã kiểm.
+   Explicit Microsoft.Maui.Controls dùng exact evaluated producer version; assets
+   phải khớp, không phụ thuộc default version của workload trên runner.
 5. App consumer mang source/version/feed hash/target/nonce trong assembly riêng.
    Public API smoke kiểm native handler/GPU frames, controller commit/Undo/Cancel,
    filter với 20 checkbox native đã load và resize thật. Controller test không
    được gọi native draft/editor proof. Runtime kiểm assembly provenance sau khi
    dùng các capability, loại riêng consumer assembly theo identity.
-6. Native launcher phải kiểm đúng app hash, marker schema/cohort/nonce mới,
-   target, frame count và exit code. Missing/failure marker không được PASS.
+6. Wrapper phải chạy `verify-app` ngay trước native launcher để kiểm toàn bộ app
+   payload với build manifest; sau helper chạy `verify-runtime` cho marker mới.
+   Phải kiểm schema/cohort/nonce, target, frame count và exit code khi transport
+   cung cấp được. Android `am` chỉ có explicit completed marker, không cho managed
+   process exit code; không ghi thành OS exit-code proof. Missing/failure marker
+   không được PASS.
    Shared Windows/Mac launchers vẫn thuộc B; Android/iOS extraction thuộc root.
    Chưa có wiring native ở checkpoint build này; `runtimeAcceptance=OPEN`.
 

@@ -43,6 +43,14 @@ Phép so sánh metadata chuẩn hóa spelling TFM tương đương và Boolean
 ManifestMetadata. True vẫn khác false; Boolean không hợp lệ/duplicate bị từ chối.
 Không bỏ kiểm tra metadata, payload hoặc dependency/framework groups.
 
+Consumer cần explicit `Microsoft.Maui.Controls` PackageReference và `MauiVersion`
+bằng evaluated producer version trong canonical manifest. Đây là dependency đã
+có qua SkiaSharp.Views.Maui.Controls; không thêm thư viện mới vào SDK. Dùng default
+workload 10.0.0 gây NU1605 so với Skia yêu cầu 10.0.20 trong actual CI. Resolved
+assets phải giữ exact Controls version; không suppress downgrade hoặc MA002.
+Windows smoke dùng installed .NET runtime và tắt trim/ReadyToRun riêng consumer;
+restore/publish dùng cùng configuration. Không thay production/AOT acceptance.
+
 ## Tài liệu gốc
 
 - [NuGet nuspec pack qua MSBuild](https://learn.microsoft.com/en-us/nuget/reference/msbuild-targets#packing-using-a-nuspec-file).

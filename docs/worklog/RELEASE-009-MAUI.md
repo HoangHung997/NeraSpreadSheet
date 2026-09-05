@@ -12,7 +12,7 @@ ADR0008/contract mới. Không sửa SDK csproj, production, existing workflows,
 launchers hoặc shared status/CURRENT/wave. Scope grant ở wave root 06/09.
 
 Producer/assembler commit: `feb12d5f`.
-Local: 16 in-memory package/consumer negative fixtures PASS; all three plan modes
+Local: 18 in-memory package/consumer negative fixtures PASS; all three plan modes
 and PowerShell parser PASS; architecture/packaging metadata/diff/privacy checks PASS.
 Build/publish/native chưa chạy local do disk constraint. CI exact implementation
 HEAD sẽ được ghi khi commit và run được xác minh; không dùng baseline green thay.
@@ -38,7 +38,21 @@ tắt loop khi scrolling idle), đợi completed frame sau resize và stable idl
 snapshot. Public PaintSurface thực tế được gọi sau TryCompleteFrame; source review
 này không phải native failure đã tái hiện. Kiểm chứng build/runtime còn chờ CI.
 
+Source `4415b890631e1f29da52f7d803efd4658392dfa8`, run `33986789725`: cả năm
+producers và canonical assembler SUCCESS. NuGet default normalization đã qua
+actual pack; bốn consumer build jobs đang chạy. Đã thêm `verify-app` so file set,
+size/hash với build manifest, reject missing/extra/changed/path escape trước
+launcher; build script cũng gọi guard này. Android log có cùng explicit prefix
+như console. Android transport chỉ chứng minh completed marker, không OS exit code.
+
+Consumer results4415: Android/iOS/Mac NU1605 (implicit Controls10.0.0 thấp hơn
+Skia minimum10.0.20); Windows restore/asset isolation PASS, publish NETSDK1112.
+Fix: explicit Controls/MauiVersion từ evaluated producer metadata; Windows
+framework-dependent/untrimmed smoke và cùng Configuration ở restore/publish.
+ADR giải thích dependency đã có; không suppress warnings/downgrade checks.
+Feed hash bao gồm evaluated MAUI dependency versions cùng canonical package hashes.
+
 ## Bước tiếp theo duy nhất
 
-Kiểm workflow build ở commit sau `e64367ad`, sửa lỗi consumer thực tế nếu assembler
-qua cổng; không đổi runtime OPEN thành PASS trước shared launcher evidence.
+Kiểm bốn consumer jobs của run `33986789725`, sửa lỗi build thực tế nếu có rồi
+kiểm checkpoint tiếp theo; runtime vẫn OPEN trước shared launcher evidence.

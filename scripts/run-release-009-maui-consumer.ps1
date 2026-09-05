@@ -48,6 +48,7 @@ $mauiOutput = Join-Path $mauiRoot "artifacts/release-009-maui/consumers/$Platfor
 if (Test-Path -LiteralPath $mauiOutput) { throw 'Refusing previous consumer evidence.' }
 New-Item -ItemType Directory -Path $mauiOutput | Out-Null
 $mauiProperties = @("-p:NeraPackageVersion=$($mauiCohort.version)", "-p:NeraConsumerPlatform=$Platform",
+    "-p:NeraMauiControlsVersion=$($mauiFeed.mauiDependencies.'Microsoft.Maui.Controls')", "-p:Configuration=$mauiConfiguration",
     "-p:NeraConsumerTargetFramework=$($mauiConfig.targets.$Platform)", "-p:RuntimeIdentifier=$mauiRid", '-p:RestoreFallbackFolders=')
 Push-Location $mauiConsumer
 try {
@@ -76,6 +77,8 @@ try {
         version = $mauiCohort.version; sdkVersion = $mauiCohort.sdkVersion; feedHash = $mauiFeed.feedHash
         platform = $Platform; rid = $mauiRid; configuration = $mauiConfiguration; nonce = $mauiNonce
         files = $mauiPayload; runtimeAcceptance = 'OPEN'; nativeEditorCoverage = 'OPEN' }) (Join-Path $mauiOutput 'build-manifest.json')
+    & python $mauiVerifier verify-app --app $mauiAppPath --build (Join-Path $mauiOutput 'build-manifest.json')
+    if ($LASTEXITCODE -ne 0) { throw 'Consumer app payload verification failed.' }
     # Kept exclusively in RUNNER_TEMP for the future owner-approved shared launcher.
     Write-MauiJson ([ordered]@{ appPath = $mauiAppPath; evidenceDirectory = $mauiOutput; nonce = $mauiNonce
         sourceSha = $mauiCohort.sourceSha; version = $mauiCohort.version; feedHash = $mauiFeed.feedHash

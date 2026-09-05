@@ -36,7 +36,7 @@ internal static class PackageProvenance
         if (!string.IsNullOrEmpty(path)) File.WriteAllText(path, json);
         Console.WriteLine("NERA_PACKAGED_MAUI_SMOKE:" + json);
 #if ANDROID
-        Android.Util.Log.Info("NeraPackagedMauiSmoke", json);
+        Android.Util.Log.Info("NeraPackagedMauiSmoke", "NERA_PACKAGED_MAUI_SMOKE:" + json);
 #endif
         Console.Out.Flush();
     }

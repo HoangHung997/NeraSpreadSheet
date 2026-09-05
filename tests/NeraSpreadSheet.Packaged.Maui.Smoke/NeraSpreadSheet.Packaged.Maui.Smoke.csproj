@@ -4,6 +4,7 @@
     <TargetFramework>$(NeraConsumerTargetFramework)</TargetFramework>
     <OutputType>Exe</OutputType>
     <UseMaui>true</UseMaui>
+    <MauiVersion>$(NeraMauiControlsVersion)</MauiVersion>
     <SingleProject>true</SingleProject>
     <RootNamespace>Packaged.Maui.Smoke</RootNamespace>
     <AssemblyName>NeraSpreadSheet.Packaged.Maui.Smoke</AssemblyName>
@@ -28,6 +29,11 @@
     <ApplicationManifest>Platforms/Windows/app.manifest</ApplicationManifest>
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- The hosted smoke uses the installed .NET runtime, with identical restore/publish properties. -->
+    <SelfContained>false</SelfContained>
+    <PublishSelfContained>false</PublishSelfContained>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishReadyToRun>false</PublishReadyToRun>
   </PropertyGroup>
   <PropertyGroup Condition="'$(NeraConsumerPlatform)' == 'android'">
     <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
@@ -44,8 +50,9 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="NeraSpreadSheet.Maui" Version="[$(NeraPackageVersion)]" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="[$(NeraMauiControlsVersion)]" />
   </ItemGroup>
   <Target Name="RequireIsolatedConsumer" BeforeTargets="Restore;Build">
-    <Error Condition="'$(NeraPackageVersion)' == '' Or '$(NeraConsumerTargetFramework)' == '' Or !Exists('CohortIdentity.g.cs')" Text="Use run-release-009-maui-consumer.ps1 with a verified canonical feed." />
+    <Error Condition="'$(NeraPackageVersion)' == '' Or '$(NeraMauiControlsVersion)' == '' Or '$(NeraConsumerTargetFramework)' == '' Or !Exists('CohortIdentity.g.cs')" Text="Use run-release-009-maui-consumer.ps1 with a verified canonical feed." />
   </Target>
 </Project>
