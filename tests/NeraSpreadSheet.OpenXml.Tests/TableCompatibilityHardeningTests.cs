@@ -152,6 +152,37 @@ public sealed class TableCompatibilityHardeningTests
     }
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ConvertedTableReferencesShouldKeepValuesThroughSessionRoundTrips(bool preserve)
+    {
+        using var source = await CreatePackage();
+        var session = await Load(source);
+        var sheet = session.ActiveWorksheet;
+        var table = sheet.Tables.Single();
+        session.Tables.SetCalculatedColumnFormula(table.Id, table.Columns[0].Id, "=[@Amount]*2");
+        var summary = session.Workbook.AddWorksheet("Summary");
+        summary.SetFormula(default, "=SUM(Sales[Amount])");
+        session.Recalculate();
+        using var seeded = await Save(session);
+        session = await Load(seeded, preserve);
+        Assert.IsTrue(session.Tables.ConvertToRange(table.Id));
+        Assert.IsTrue(session.Undo());
+        Assert.IsTrue(session.Redo());
+        for (var cycle = 0; cycle < 2; cycle++)
+        {
+            using var saved = await Save(session, preserve);
+            AssertSchemaValid(saved);
+            session = await Load(saved, preserve);
+            session.Recalculate();
+            Assert.AreEqual(0, session.ActiveWorksheet.TableCount);
+            Assert.AreEqual(20d, session.ActiveWorksheet.GetValue(new CellAddress(1, 0)));
+            Assert.AreEqual(40d, session.ActiveWorksheet.GetValue(new CellAddress(2, 0)));
+            Assert.AreEqual(60d, session.Workbook.Worksheets[1].GetValue(default));
+        }
+    }
+
+    [TestMethod]
     public async Task DuplicateStableTableIdentityAcrossWorksheetsShouldRejectImport()
     {
         using var source = await CreatePackage();

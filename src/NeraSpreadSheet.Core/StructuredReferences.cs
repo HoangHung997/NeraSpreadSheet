@@ -42,7 +42,22 @@ public static class StructuredReferenceFormulaTranslator
         string formula,
         Workbook workbook,
         Worksheet currentWorksheet,
-        CellAddress currentAddress)
+        CellAddress currentAddress) =>
+        TranslateCore(formula, workbook, currentWorksheet, currentAddress, null);
+
+    /// <summary>
+    /// Converts references to one Table into equivalent A1 references before its
+    /// metadata is removed. Current-row references retain relative row semantics
+    /// for calculated-column projection; other Table references stay unchanged.
+    /// </summary>
+    public static string ConvertTableReferencesToA1(
+        string formula, Workbook workbook, Worksheet currentWorksheet,
+        CellAddress currentAddress, Guid tableId) =>
+        TranslateCore(formula, workbook, currentWorksheet, currentAddress, tableId);
+
+    private static string TranslateCore(
+        string formula, Workbook workbook, Worksheet currentWorksheet,
+        CellAddress currentAddress, Guid? convertedTableId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(formula);
         ArgumentNullException.ThrowIfNull(workbook);
@@ -80,7 +95,8 @@ public static class StructuredReferenceFormulaTranslator
                         currentWorksheet,
                         currentAddress,
                         identifier,
-                        expression));
+                        expression,
+                        convertedTableId));
                     continue;
                 }
 
@@ -99,7 +115,8 @@ public static class StructuredReferenceFormulaTranslator
                     currentWorksheet,
                     currentAddress,
                     tableName: null,
-                    implicitExpression));
+                    implicitExpression,
+                    convertedTableId));
                 continue;
             }
 
@@ -114,7 +131,8 @@ public static class StructuredReferenceFormulaTranslator
         Worksheet currentWorksheet,
         CellAddress currentAddress,
         string? tableName,
-        string expression)
+        string expression,
+        Guid? convertedTableId)
     {
         Worksheet tableWorksheet;
         SpreadsheetTable table;
@@ -125,7 +143,7 @@ public static class StructuredReferenceFormulaTranslator
                     out var containingTable) ||
                 containingTable is null)
             {
-                return "#REF!";
+                return convertedTableId.HasValue ? expression : "#REF!";
             }
 
             tableWorksheet = currentWorksheet;
@@ -138,7 +156,7 @@ public static class StructuredReferenceFormulaTranslator
                  resolvedWorksheet is null ||
                  resolvedTable is null)
         {
-            return "#REF!";
+            return convertedTableId.HasValue ? tableName + expression : "#REF!";
         }
         else
         {
@@ -146,17 +164,22 @@ public static class StructuredReferenceFormulaTranslator
             table = resolvedTable;
         }
 
+        if (convertedTableId.HasValue && table.Id != convertedTableId.Value)
+        {
+            return tableName + expression;
+        }
+
         if (!StructuredReferenceSpec.TryParse(
                 expression,
                 out var spec))
         {
-            return "#REF!";
+            return UnresolvableReference(convertedTableId);
         }
 
         if (spec.Area == TableReferenceArea.ThisRow &&
             !ReferenceEquals(tableWorksheet, currentWorksheet))
         {
-            return "#REF!";
+            return UnresolvableReference(convertedTableId);
         }
 
         if (!TryResolveRange(
@@ -165,10 +188,12 @@ public static class StructuredReferenceFormulaTranslator
                 currentAddress.RowIndex,
                 out var range))
         {
-            return "#REF!";
+            return UnresolvableReference(convertedTableId);
         }
 
-        var reference = range.TopLeft == range.BottomRight
+        var reference = convertedTableId.HasValue && spec.Area == TableReferenceArea.ThisRow
+            ? range.ToString()
+            : range.TopLeft == range.BottomRight
             ? ToAbsoluteA1(range.TopLeft)
             : $"{ToAbsoluteA1(range.TopLeft)}:{ToAbsoluteA1(range.BottomRight)}";
         if (ReferenceEquals(tableWorksheet, currentWorksheet))
@@ -178,6 +203,10 @@ public static class StructuredReferenceFormulaTranslator
 
         return $"'{EscapeWorksheetName(tableWorksheet.Name)}'!{reference}";
     }
+
+    private static string UnresolvableReference(Guid? convertedTableId) => convertedTableId.HasValue
+        ? throw new InvalidOperationException("A Table reference cannot be converted to A1 without changing its meaning.")
+        : "#REF!";
 
     private static bool TryResolveRange(
         SpreadsheetTable table,

@@ -8,6 +8,84 @@ namespace NeraSpreadSheet.Editing.Tests;
 public sealed class StructuredReferenceEditingTests
 {
     [TestMethod]
+    public void ConvertShouldRejectUnsupportedTargetReferenceAndRestoreAllEarlierRewrites()
+    {
+        var session = CreateSession();
+        var sheet = session.ActiveWorksheet;
+        var table = sheet.Tables.Single();
+        sheet.SetFormula(new CellAddress(1, 0), "=[@Amount]*2");
+        var summary = session.Workbook.AddWorksheet("Summary");
+        summary.SetFormula(default, "=SUM(Sales[[#Headers],[#Totals]])");
+        var cells = sheet.EnumerateUsedCells().ToArray();
+        var summaryCells = summary.EnumerateUsedCells().ToArray();
+        Assert.ThrowsExactly<InvalidOperationException>(() => session.Tables.ConvertToRange(table.Id));
+        CollectionAssert.AreEqual(cells, sheet.EnumerateUsedCells().ToArray());
+        CollectionAssert.AreEqual(summaryCells, summary.EnumerateUsedCells().ToArray());
+        Assert.AreEqual(table.Id, sheet.Tables.Single().Id);
+        Assert.AreEqual(0, session.History.UndoCount);
+    }
+
+    [TestMethod]
+    public void ConvertShouldPreserveOtherTableCalculatedColumnRowIdentity()
+    {
+        var session = CreateSession();
+        var sheet = session.ActiveWorksheet;
+        var table = sheet.Tables.Single();
+        var other = new SpreadsheetTable(Guid.NewGuid(), "Other",
+            new CellRange(new CellAddress(0, 3), new CellAddress(3, 3)),
+            [new SpreadsheetTableColumn(Guid.NewGuid(), "Value", calculatedColumnFormula: "=Sales[@Amount]")]);
+        sheet.AddTable(other);
+        var summary = session.Workbook.AddWorksheet("Summary");
+        summary.SetFormula(default, "=SUM(Other[Value])");
+        session.Recalculate();
+
+        session.Tables.ConvertToRange(table.Id);
+
+        Assert.AreEqual(other.Id, sheet.Tables.Single().Id);
+        Assert.AreEqual("=B2", sheet.Tables.Single().Columns[0].CalculatedColumnFormula);
+        Assert.AreEqual("=B3", sheet.GetFormula(new CellAddress(2, 3)));
+        Assert.AreEqual("=SUM(Other[Value])", summary.GetFormula(default));
+        Assert.AreEqual(60d, summary.GetValue(default));
+        Assert.IsTrue(session.Undo());
+        Assert.IsTrue(session.Redo());
+        session.SetValue(new CellAddress(2, 1), 50d);
+        Assert.AreEqual(50d, sheet.GetValue(new CellAddress(2, 3)));
+        Assert.AreEqual(90d, summary.GetValue(default));
+    }
+
+    [TestMethod]
+    public void ConvertToRangeShouldKeepCalculatedValuesAndExternalReferencesAcrossHistory()
+    {
+        var session = CreateSession();
+        var sheet = session.ActiveWorksheet;
+        var table = sheet.Tables.Single();
+        sheet.SetFormula(new CellAddress(1, 0), "=[@Amount]*2");
+        var summary = session.Workbook.AddWorksheet("Summary");
+        summary.SetFormula(default, "=SUM(Sales[Amount])");
+        summary.SetFormula(new CellAddress(1, 0), "=SUM(Sales[Amount])+'Sheet1'!B2");
+        session.Recalculate();
+        Assert.AreEqual(20d, sheet.GetValue(new CellAddress(1, 0)));
+        Assert.AreEqual(60d, summary.GetValue(default));
+
+        Assert.IsTrue(session.Tables.ConvertToRange(table.Id));
+
+        Assert.AreEqual(20d, sheet.GetValue(new CellAddress(1, 0)));
+        Assert.AreEqual(60d, summary.GetValue(default));
+        Assert.AreEqual("=B2*2", sheet.GetFormula(new CellAddress(1, 0)));
+        Assert.AreEqual("=SUM('Sheet1'!$B$2:$B$4)", summary.GetFormula(default));
+        Assert.AreEqual("=SUM('Sheet1'!$B$2:$B$4)+'Sheet1'!B2", summary.GetFormula(new CellAddress(1, 0)));
+        Assert.AreEqual(70d, summary.GetValue(new CellAddress(1, 0)));
+        Assert.AreEqual(1, session.History.UndoCount);
+        Assert.IsTrue(session.Undo());
+        Assert.AreEqual("=[@Amount]*2", sheet.GetFormula(new CellAddress(1, 0)));
+        Assert.AreEqual("=SUM(Sales[Amount])", summary.GetFormula(default));
+        Assert.AreEqual(table.Id, sheet.Tables.Single().Id);
+        Assert.IsTrue(session.Redo());
+        Assert.AreEqual(20d, sheet.GetValue(new CellAddress(1, 0)));
+        Assert.AreEqual(60d, summary.GetValue(default));
+    }
+
+    [TestMethod]
     public void CompletionBeforeClosingBracketShouldReplaceTheWholeFragment()
     {
         var session = CreateSession();
