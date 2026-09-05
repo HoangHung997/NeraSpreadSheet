@@ -5,6 +5,7 @@
 - Branch: `feature/table-006-native-compat`.
 - Base sạch: `2bc00eb667da2f2c5afda1024ab753ac638d85d4`.
 - Implementation: `7ff66bfd2b983d05ca595e9e07c8de2a239c17d1`.
+- Review fix: `30c2564dd2870e0ca521a24f04f99091998b5dcc`.
 - PR #1 giữ Draft/open/unmerged; chỉ bàn giao delta sau base.
 - Baseline CI: full `33954450148`, iOS `33954450152`, Q003C `33954450150`.
   Không dùng baseline làm bằng chứng CI cho delta mới.
@@ -87,10 +88,12 @@ ignored `artifacts/table-006-native`; không commit raw logs.
 | Core và full desktop solution build | 0 warnings, 0 errors |
 | Full Core | **1497/1497** |
 | OpenXml / Editing trong full Core | **153/153**, **283/283** |
-| Tests mới | 7 Editing, 20 OpenXml, 19 Windows editor cases |
-| Targeted loaded WPF/WinForms editor | **19/19** |
-| Full Windows rendering/runtime | **95/96**, không skip |
+| Tests mới sau review fix | 7 Editing, 20 OpenXml, 24 Windows editor cases |
+| Targeted loaded WPF/WinForms editor trước review | **19/19** |
+| Full Windows trước review fix | **95/96**, không skip |
 | Rerun riêng WPF activation smoke | **0/1**, cùng assertion |
+| Multiline caret regression trước fix | **0/5**, tái hiện đủ 5 cases |
+| Toàn bộ WinForms editor sau review fix | **14/14** |
 | Architecture / packaging SDK / diff whitespace | Passed |
 
 Windows failure duy nhất:
@@ -139,10 +142,43 @@ input/render latency evidence. Không thay render/scroll algorithm.
 - Coordinator nhập integration và cập nhật CURRENT/status/board. Sau handoff,
   A ngừng ghi owned files đến khi có yêu cầu mới.
 
-Rollback: revert hai commit implementation/documentation của delta sau
-`2bc00eb6`; không migration hoặc package dependency mới.
+Rollback: revert bốn commit implementation/documentation/review fix của delta
+sau `2bc00eb6`; không migration hoặc package dependency mới.
 
 ## Bước tiếp theo duy nhất
 
 Push source branch chứa cả tài liệu, dispatch và xác minh đủ ba workflow/bảy
 jobs tại final HEAD, rồi gửi coordinator base/delta/SHA/URLs và giới hạn trên.
+
+## Review follow-up: WinForms caret và provisional span
+
+Coordinator phát hiện Up/Down/PageUp/PageDown và programmatic Select có thể
+đổi caret mà giữ span cũ trong multiline editor. Regression mới kiểm tra chèn
+ở caret mới, giữ reference trước, repeated drag vẫn replace, không history/
+recalculate. Candidate `82c21e17` không được dùng để đóng finding này.
+
+Trước local test, coordinator **APPROVED DESKTOP TRANSFER B → A**: B xác nhận
+đã dừng toàn bộ native UI. A chỉ chạy targeted synthetic WinForms regression
+red-before-fix/green-after-fix; không chạy full suite hoặc sửa activation smoke,
+không thao tác workbook cá nhân. Phải báo RELEASE sau khi mọi test/UI dừng.
+
+Đã tái hiện **5/5 failures** với Up/Down/PageUp/PageDown/programmatic Select:
+expected `=SUM(A5\r\nB2:B3`, actual `=SUM(\r\nA5`. Fix kiểm tra caret/selection
+ở KeyUp và insertion boundary, clear span khi caret không còn span.End hoặc
+selection không rỗng. Repeated drag ở cuối span vẫn replace đúng reference.
+Test giữ history=0 và cached sentinel=999 để phát hiện tính lại không mong muốn.
+
+Sau fix build Windows test project 0 warnings/errors; targeted toàn bộ
+WinForms editor **14/14 passed**. Architecture/packaging/diff-check xanh lại.
+Không chạy lại full desktop suite hoặc baseline activation test. Commands:
+
+```powershell
+dotnet test tests/NeraSpreadSheet.Windows.Rendering.Tests/NeraSpreadSheet.Windows.Rendering.Tests.csproj -c Release --no-build --filter FullyQualifiedName~PointModeShouldInsertAtMovedMultilineCaretAndKeepPreviousReference
+dotnet test tests/NeraSpreadSheet.Windows.Rendering.Tests/NeraSpreadSheet.Windows.Rendering.Tests.csproj -c Release --no-build --filter FullyQualifiedName~WinFormsStructuredReferenceEditorTests
+```
+
+Mọi targeted process đã exit; fresh Computer Use inventory không còn cửa sổ
+Nera/smoke/Book2. A đã báo **RELEASE DESKTOP** lại cho coordinator; không dùng
+desktop đến khi được transfer mới. Candidate cũ `82c21e17` có runs full
+`33958088560`, iOS `33958089562`, Q003C `33958090512`; chúng chỉ là checkpoint,
+không thay final-HEAD verification sau review fix và tài liệu này.
