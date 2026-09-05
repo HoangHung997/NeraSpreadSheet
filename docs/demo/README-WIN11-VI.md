@@ -5,6 +5,9 @@ Giải nén toàn bộ artifact vào một thư mục mới, rồi mở
 bản self-contained đi kèm .NET, không cần cài runtime riêng. Mã nguồn/version/
 SHA-256 của từng file nằm trong `demo-manifest.json`.
 
+Xem [phạm vi lệnh và giới hạn](COMMANDS.md) để phân biệt 49 lệnh session SDK
+với 36 action của app mẫu; có nút trên Ribbon không đồng nghĩa đầy đủ Excel.
+
 Đây là bản thử nghiệm chưa ký số, không phải bản phát hành production.
 Không thay đổi thiết lập bảo mật Windows để chạy app. Hãy dùng bản sao file
 Excel khi thử; lệnh Tệp → Lưu bản sao cho phép chọn file đích và chỉ thay file

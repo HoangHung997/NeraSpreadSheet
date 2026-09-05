@@ -87,6 +87,11 @@ foreach ($entry in $demoManifest.images) {
     }
 }
 Copy-Item -LiteralPath (Join-Path $demoRoot 'docs/demo/README-WIN11-VI.md') -Destination (Join-Path $demoOutput 'README.md')
+Copy-Item -LiteralPath (Join-Path $demoRoot 'docs/demo/COMMANDS-WIN11-VI.md') -Destination (Join-Path $demoOutput 'COMMANDS.md')
+$demoDocuments = @('README.md', 'COMMANDS.md') | ForEach-Object {
+    $document = Get-Item -LiteralPath (Join-Path $demoOutput $_)
+    [ordered]@{ file = $_; bytes = $document.Length; sha256 = (Get-FileHash -LiteralPath $document.FullName -Algorithm SHA256).Hash }
+}
 $demoFiles = @(Get-ChildItem -LiteralPath $demoApplication -File -Recurse | Sort-Object FullName | ForEach-Object {
     [ordered]@{
         file = [IO.Path]::GetRelativePath($demoOutput, $_.FullName).Replace('\', '/')
@@ -99,6 +104,6 @@ $demoFiles = @(Get-ChildItem -LiteralPath $demoApplication -File -Recurse | Sort
     target = 'win-x64'; selfContained = $true; defaultRibbonShell = $true
     captureImages = $demoManifest.images.Count; nativeLayoutSnapshots = $demoManifest.layouts.Count
     limitation = 'Experimental WPF demo; this does not close combined UX/Table, physical-device, MAUI, GPU or full Excel acceptance.'
-    sdkAssemblies = $demoAssemblies; files = $demoFiles
+    sdkAssemblies = $demoAssemblies; files = $demoFiles; documents = @($demoDocuments)
 } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $demoOutput 'demo-manifest.json') -Encoding utf8
 Write-Output "Experimental published demo passed at $demoSha; $($demoManifest.images.Count) captures, $($demoManifest.layouts.Count) layouts."

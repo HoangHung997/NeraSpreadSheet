@@ -1,5 +1,30 @@
 # Current Work Handoff
 
+## Tiếp tục — baseline 50cb357a xanh đủ năm workflow
+
+- Implementation `50cb357a00d6bb8a6b134cdeebce624a09bd1b21` đã success:
+  full `33984177819`, iOS `33984177815`, Q003C `33984177818`, isolated Windows
+  package consumer `33984174136`, published Win11 demo `33984234305`.
+  Không lấy baseline này thay CI của commit hoặc whole B tiếp theo.
+- A/C đã hoàn tất read-only audits. Root chuyển quyền theo mục mới nhất trong
+  [wave](UX_TABLE_COMPLETION_WAVE_20260905.md): A làm navigation/loaded split
+  shell, C làm MAUI canonical package/isolated consumer matrix; tái sử dụng
+  worktree/task với nhánh mới từ exact green baseline, không tạo thêm task.
+- B `cc7596e7` đang bounded native probe. Android frame sequencing ở `0ebd18bd`
+  đã native PASS; Mac còn FAIL, Windows intermittent chưa xác định là fixed.
+  Formula bar cần canonical draft/caret bridge B, không làm editor thứ hai.
+- Root giữ R1 command audit/shared docs/existing CI, chỉ ghép source được
+  review và release; WPF49/WinForms64 source/test đã nhận, docs B chưa nhận.
+- Root thêm `Release009RibbonCommandSmokeTests.cs` và command guide đi kèm
+  published demo: 49 SDK + 36 host IDs, actual style/print/editor/view dispatch
+  cùng Undo/Cancel/disabled checks. Native CI tại source mới còn pending;
+  local chỉ architecture/packaging/parser/diff, không gọi tests mới là PASS.
+- Không build/publish nặng hoặc chạy desktop local; không xóa user artifacts.
+  PR #1 vẫn Draft/open/unmerged; full Table/Filter/Ribbon/UX chưa đạt 100%.
+- A/C đã nhận quyền và bắt đầu nhánh mới. Bước tiếp theo duy nhất: verify
+  exact-head CI của R1 test/guide checkpoint, rồi nhận source A/C/B đã release;
+  final combined CI/perf/demo và các gate OPEN vẫn bắt buộc.
+
 ## Mới nhất — UX-007 đã ghép; WPF/WinForms cancellation slices đã nhận
 
 - Branch feature/bootstrap-architecture-v0.1, PR #1 Draft/open/unmerged.

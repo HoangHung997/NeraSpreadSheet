@@ -23,6 +23,11 @@ README giới hạn và relative-path/hash manifest. Không upload runtime stder
 hoặc đường dẫn máy; không dùng workbook thật. Không public release/feed,
 installer, registry/file association hoặc OS/security setting changes.
 
+Artifact còn kèm `COMMANDS.md`: phân loại 49 session IDs và 36 host actions,
+behavior/disabled conditions và gaps thực tế. Manifest có hashes riêng cho
+README/COMMANDS; danh sách này là tài liệu đối chiếu actual registry, không
+phải runtime command model hoặc tuyên bố toàn bộ public SDK đã có UI.
+
 Đây là phần R2 nghiệm thu executable, không thay R1 command coverage, R3
 isolated PackageReference consumer, final combined A+B CI/performance hoặc
 physical-device gates. Snapshot demo trước A/B final phải ghi là thử nghiệm,

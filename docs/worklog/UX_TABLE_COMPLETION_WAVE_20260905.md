@@ -1,5 +1,86 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## Chuyển quyền tiếp tục tại baseline tích hợp 50cb357a — 06/09
+
+Mục này thay thế quyền sửa lịch sử của A/C bên dưới. Root đã xác minh đủ
+năm workflow **success** tại `50cb357a00d6bb8a6b134cdeebce624a09bd1b21`:
+full `33984177819`, iOS `33984177815`, Q003C `33984177818`, Windows packages
+`33984174136`, published demo `33984234305`. Đây chưa phải whole B acceptance.
+
+Tái sử dụng ba task/worktree hiện hữu, giữ GPT-6 Astra / xhigh. A và C tạo
+nhánh mới từ đúng baseline trên sau khi kiểm tra clean tracked tree; giữ
+nguyên nhánh đã bàn giao, không reset/rebase hoặc xóa artifacts. Không tạo
+thêm task/worktree. Không local heavy build/native lease khi đĩa C gần đầy.
+
+### A — RELEASE-009 navigation shell
+
+- Nhánh mới `feature/release-009-navigation-shell`.
+- Writer duy nhất trong WPF sample: `RibbonPreviewWindow.cs`,
+  `RibbonPreviewWindow.WorksheetTabs.cs`, `RibbonPreviewWindow.Capture.cs`,
+  các partial mới `RibbonPreviewWindow.Navigation.cs` và
+  `RibbonPreviewWindow.SplitShell.cs`.
+- Tests: `RibbonLoadedWorkbookSmokeTests.cs` và mới
+  `RibbonWorksheetNavigationSmokeTests.cs` trong Windows.Rendering.Tests.
+- Tài liệu riêng: `docs/release-009-navigation-shell-contract.md` và
+  `docs/worklog/RELEASE-009-NAVIGATION.md`.
+- Gắn hai standalone worksheet scrollbars bằng API/extent hiện có, coalesce
+  thumb input theo frame, giữ fractional offsets và adaptive extent floor.
+  Loaded split dùng đúng session/stored topology, không force Both hoặc ghi
+  far cells; chỉ một input host/scrollbar topology hoạt động tại một thời điểm.
+- Không sửa SDK/Scrolling/Viewport/Editing hoặc existing CI/shared docs. Formula
+  bar chờ public draft/caret bridge B; không dựng editor model trong sample.
+  Lifecycle split cần B release trước khi gọi full editor acceptance hoàn tất.
+- Existing regression + actual loaded shell native CI/captures bắt buộc; không
+  lấy headless tests làm native proof hoặc chạy heavy builds ở local.
+
+### C — RELEASE-009 MAUI package matrix
+
+- Nhánh mới `feature/release-009-maui-packages`.
+- Writer cho workflow mới `release-009-maui-packages.yml`; scripts mới
+  `build-release-009-maui-shard.ps1`, `assemble-release-009-maui-packages.ps1`,
+  `run-release-009-maui-consumer.ps1`, các fixture tests tên RELEASE-009 MAUI;
+  `eng/release-009-maui/` và `tests/NeraSpreadSheet.Packaged.Maui.Smoke/`.
+- Reserve ADR `docs/adr/0008-maui-cross-host-package-assembly.md`; contract riêng
+  `docs/release-009-maui-package-consumer-contract.md`, worklog riêng
+  `docs/worklog/RELEASE-009-MAUI.md`.
+- Một exact source/version/toolchain cohort, neutral packages và bốn TFM
+  producers, assemble canonical MAUI package qua NuGet pack; kiểm payload và
+  dependency groups, không đưa bốn partial cùng ID/version vào consumer feed.
+  Consumer public API, ngoài checkout, PackageReference-only/cache cô lập;
+  mỗi platform phải chạy đúng package/app hash và fresh runtime marker.
+- Không sửa production/csproj SDK, existing workflows hoặc runner scripts B
+  đang giữ. Có thể chuẩn bị và kiểm assembler/consumer/build matrix song song;
+  đề xuất exact launcher parameterization riêng để root chuyển quyền sau B,
+  không copy runner rồi âm thầm chạy source smoke cũ hoặc bỏ runtime gates.
+- Không public feed; Windows-only pack không phải multi-target proof. Source
+  matrix và final combined whole-B matrix là hai checkpoint khác nhau. P3 vẫn
+  chờ full B, không đổi perf protocol hoặc lấy package build làm performance.
+
+### B và root
+
+B tiếp tục native/editor/corpus. Sau current bounded Mac probe, B được nhận
+lại WPF `NeraSpreadsheetControl.cs` (slice 49 đã tích hợp), cùng các owned
+formula/split files để bổ sung public bridge draft/caret/notifications và
+Begin/Commit/Cancel trên chính editor hiện hữu. API phải có tests/docs, giữ
+validation, một Undo, focus/caret và cleanup khi canonical editor đã hủy.
+Chưa thay scheduler từ giả thuyết; numeric stderr counts và callback activation
+isolation chỉ là diagnostic, không phải production fix hoặc runtime proof.
+MAUI external-cancel cleanup và split cleanup cần native regressions riêng.
+
+Cho B một biến thể diagnostic riêng trong Mac paired job sau candidate gốc:
+checkout cùng source ở thư mục tạm riêng của run, chỉ bỏ registration của
+`NeraCellEditorHandler` để dùng default handler, không sửa tracked candidate.
+Giữ toàn bộ editor/analytics assertions và runtime timeouts; ghi rõ variant
+không phải acceptance. Baseline/candidate gốc vẫn chạy và failure vẫn làm job
+fail dù variant tiến xa hơn hoặc success. Không upload/publish variant package
+hoặc gọi đó là production fix. Báo exact source delta và entry stages để root
+quyết định bước tiếp, không mở nhiều biến thể hoặc rerun-until-green.
+
+Root giữ sample Commands/command audit, tất cả shared docs/CI ngoài các quyền
+mới ghi rõ, review và tích hợp tuần tự. A/C báo đường dẫn cần thêm trước sửa;
+không ghi cùng CURRENT hoặc worklog của lane khác. CI đúng HEAD cuối và tất cả
+acceptance OPEN dưới đây vẫn giữ nguyên, không tự giảm phạm vi để báo 100%.
+
 ## Phạm vi và mốc xuất phát
 
 Người dùng yêu cầu chia worktree tiếp tục đến khi hoàn thành. Đợt này thay thế

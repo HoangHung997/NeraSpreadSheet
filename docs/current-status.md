@@ -1,5 +1,15 @@
 # NeraSpreadSheet current implementation status
 
+## CẬP NHẬT 06/09 — BẢN TÍCH HỢP 50cb357a ĐÃ XANH; TIẾP TỤC R2/R3
+
+Exact source `50cb357a` đã success đủ full/iOS/Q003C, Windows NuGet consumer
+và published Win11 x64 demo. A tiếp tục thanh cuộn worksheet/loaded split;
+C chuẩn bị canonical MAUI package và consumer bốn nền tảng trong worktree riêng.
+B còn xử lý native/editor/corpus; chưa ghép toàn lane hoặc đóng final combined
+performance. Thanh công thức chỉnh sửa cần bridge tới editor SDK hiện hữu.
+Ownership và gates được giữ trong [wave](worklog/UX_TABLE_COMPLETION_WAVE_20260905.md).
+Không đồng nghĩa toàn bộ Table/Filter/Ribbon/UX hoặc toàn SDK đạt 100%.
+
 ## CẬP NHẬT 06/09/2026 — UX-007 ĐÃ GHÉP, DESKTOP LIFECYCLE ĐÃ NHẬN
 
 Root đã ghép7commits A final24d130c6 (source đủ7jobs xanh, native13ảnh đã

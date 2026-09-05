@@ -1,5 +1,25 @@
 # RELEASE-009 — Kiểm tra command surface trước bản demo
 
+## 06/09 — Audit toàn registry và bổ sung runtime regression
+
+Baseline `50cb357a` đã xanh full `33984177819`, iOS `33984177815`, Q003C
+`33984177818`, packages `33984174136` và demo `33984234305`. Đọc lại actual
+sample Commands/Definition và production catalog cho thấy 49 SDK IDs + 36
+Sample IDs, không phải mọi public API đã có UI. Bảng đầy đủ và giới hạn được
+đóng kèm demo trong [COMMANDS](../demo/COMMANDS-WIN11-VI.md), có SHA-256 riêng.
+
+Root thêm `Release009RibbonCommandSmokeTests`: exact session catalog và actual
+host reachability, contextual disabled/no-op, 15 style mutations/one Undo,
+5 print setting mutations/one Undo, 4 formula drafts/native editor/Cancel và
+4 view commands/no workbook history. Đây là test mới, CI chưa chạy tại lúc
+ghi source; không lấy baseline green làm proof. Không sửa sample/SDK A/B giữ.
+
+Static audit còn phát hiện giới hạn cần nêu rõ: Print Preview fallback A1:E33
+khi không có print area, Help chỉ SUM, formula buttons không tự suy AutoSum
+range, Decimal đặt cố định hai chữ số, New tạo fixture, Save chỉ bản sao.
+R1 vẫn OPEN cho toàn surface native walkthrough/lý do disabled và active split
+command routing sau B bridge. Source tests không gọi đây là full Excel parity.
+
 ## Checkpoint sơ bộ 05/09/2026
 
 Coordinator audit code tại `847ff4beec70a05ab4f4f15be9e4d52e82ae7ac7`,
