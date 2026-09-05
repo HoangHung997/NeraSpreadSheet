@@ -49,7 +49,10 @@ aggregate validation và tài liệu handoff.
 - `621fb1ec`: dark checkbox foreground và regression effective brush color.
 - `ee7df1ebeba207c3b0488604abf8d578199bbdd5`: runnable SDK preview, capture
   matrix/CI artifact, README và visual contract. Checkpoint tài liệu đứng ngay
-  sau commit này; chưa có exact-head CI cho lane mới.
+  sau commit này là `8a3175510ed1281545335a5fd59f172d5df4edec`.
+- `29bceded702ff31822b1e40f14d4f59a267436bb`: MAUI chỉ rebuild do resize
+  khi width/scale khác snapshot; loaded smoke dùng visible stage/native-frame
+  readiness và kiểm tra height-only identity, bounds và popup persistence.
 - Core: `RibbonResponsiveLayout.cs`, `RibbonGalleryPreview.cs`,
   `RibbonProductionCommandCatalog.cs`.
 - Native: `NeraRibbonControl.cs` ở WPF/WinForms, `NeraMauiRibbonView.cs`,
@@ -89,8 +92,22 @@ aggregate validation và tài liệu handoff.
   **400,18–415,72 KiB** so với trước **439,40–454,30 KiB**. Short run ba
   iterations có nhiễu, không suy diễn thành worksheet performance hay release
   threshold. Số liệu đầy đủ và lệnh chạy nằm trong responsive contract.
-- Exact-head full CI, iOS và Q003C/OpenXML: chưa dispatch; không dùng CI của
-  commit cha làm evidence cho implementation mới.
+- CI checkpoint `8a3175510ed1281545335a5fd59f172d5df4edec`:
+  full CI #1322 / `33944196848` đỏ duy nhất ở loaded MAUI Windows Ribbon
+  geometry (`A MAUI group caption overlaps its packed commands`). Core,
+  Windows desktop **75/75**, capture **176/128**, Android và Apple jobs xanh.
+  iOS #143 / `33944198191` và Q003C #140 / `33944199269` success.
+  Đây chưa phải evidence DONE. Local regression đã tái hiện việc height-only
+  resize thay snapshot/control thừa trên MAUI; khi arrange hoàn tất, caption
+  Y=80 và command bottom=80 đúng contract. Fixture cũ cũng đo control nằm
+  ngoài viewport sau delay 50 ms; fix guard resize và visible native stage/frame
+  readiness đã triển khai, giữ và tăng kiểm tra actual bounds/overlap/focus.
+  Nguyên nhân chính xác của caption CI cũ thiếu metrics nên không khẳng định
+  tuyệt đối; redundant height-only rebuild đã được tái hiện bằng regression.
+- Sau fix `29bceded`: MAUI build **0 warning/error**, tests **41/41** và loaded
+  Ribbon smoke **3 lần liên tiếp success**, bao gồm dropdown giữ mở và choice
+  thực thi đúng một lần sau height layout. Architecture/packaging verifier pass.
+  Bộ ba CI của HEAD mới vẫn phải xanh trước khi đóng checkpoint.
 
 ## Giới hạn và rollback
 
@@ -111,6 +128,5 @@ dụng item sizing/preview vào cùng definition. Không tạo Table mutation th
 
 ## Bước tiếp theo duy nhất
 
-Push các commit của `feature/ribbon-visual-011`, dispatch full CI, iOS và
-Q003C/OpenXML tại cùng HEAD, xử lý failure nếu có rồi ghi exact-SHA/run IDs
-vào handoff trước khi bàn giao chuỗi cherry-pick cho nhánh tích hợp.
+Push fix `29bceded` cùng checkpoint tài liệu, dispatch ba workflow tại cùng
+HEAD và ghi exact-SHA/run IDs xanh trước khi bàn giao chuỗi cherry-pick.

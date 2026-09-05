@@ -6,7 +6,16 @@
   `284ccb76e5f69e170356ffc66915dd6e290b68fb`.
 - Implementation commit: `ee7df1ebeba207c3b0488604abf8d578199bbdd5`;
   chuỗi trước đó: `1d0ad498`, `88ef9c03`, `a24cbcd0`, `621fb1ec`.
-  Checkpoint tài liệu này đứng ngay sau implementation; exact-head CI chưa chạy.
+  HEAD đã push: `8a3175510ed1281545335a5fd59f172d5df4edec`.
+  Full CI #1322 / `33944196848` thất bại ở loaded MAUI Windows Ribbon geometry;
+  iOS #143 / `33944198191`, Q003C #140 / `33944199269` đã xanh tại cùng SHA.
+  Core, Windows desktop **75/75** + capture **176/128**, Android và Apple jobs
+  của full CI đều xanh. Chưa được coi là checkpoint DONE.
+- Fix sau CI: `29bceded702ff31822b1e40f14d4f59a267436bb` chặn MAUI
+  height-only/stale resize rebuild; smoke dùng visible stage và chờ native
+  arrange, thêm popup persistence/native bounds diagnostics. Build 0/0,
+  MAUI **41/41**, loaded smoke **3 lần liên tiếp success**. Regression mới
+  đã tái hiện lỗi thay snapshot trên mã cũ trước khi bật guard.
 - PR #1 vẫn Draft/unmerged; lane này không merge hoặc thay trạng thái PR.
 - Shared dense layout ba hàng, bốn palette, caption đáy, QAT, gallery và
   Backstage/customization đã triển khai trên ba presenter. Preview dùng command
@@ -23,9 +32,9 @@
 - File trọng tâm, benchmark trước/sau và giới hạn: xem
   [`RIBBON-VISUAL-011.md`](RIBBON-VISUAL-011.md) và
   [`ribbon-visual-contract.md`](../ribbon-visual-contract.md).
-- Bước tiếp theo duy nhất: push nhánh và dispatch full CI, iOS, Q003C/OpenXML
-  tại đúng HEAD này; chỉ bàn giao sau khi cả ba xanh, ghi run IDs vào handoff
-  rồi kiểm tra lại cả commit tài liệu cuối. Không merge PR #1.
+- Bước tiếp theo duy nhất: push fix và checkpoint tài liệu này, chạy lại full CI,
+  iOS, Q003C/OpenXML tại cùng HEAD; ghi evidence xanh trước khi bàn giao.
+  Không merge PR #1.
 
 ## Integration history (checkpoint before this isolated lane)
 
