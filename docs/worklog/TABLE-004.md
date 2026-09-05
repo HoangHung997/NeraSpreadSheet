@@ -7,6 +7,7 @@
 - Branch: `feature/table-004-style-engine`.
 - Base integration SHA: `f75e2f103598cbbe7b5c22f92c3ab8dd755ef8c3`.
 - Implementation SHA: `3a459320ef7192f5843dcd6d3bfb0a56ae7698ea`.
+- Handoff evidence SHA: `cffdc9d8f05c50dafc7a875910d2f0c6b4851416`.
 - PR: chưa tạo; PR #1 không bị sửa hoặc merge.
 - Baseline CI được giao: full CI #1312 / run 33931524467; iOS #133 /
   run 33931524461; Q003C/OpenXML #130 / run 33931524543.
@@ -68,6 +69,12 @@ OpenXML round-trip/preservation, tests, loaded smoke và benchmark đã hoàn t�
 - `git diff --check`: passed.
 - Scan toàn bộ changed files cho secret, token và đường dẫn máy cá nhân: passed.
 - Không có file Ribbon hoặc ba shared status/worklog bị thay đổi.
+
+Exact-head Actions trên handoff evidence SHA đều xanh:
+
+- `ci`: run 33934644386.
+- `iOS analytics accessibility gate`: run 33934646161.
+- `Q003C analytics OpenXML gate`: run 33934647369.
 
 ## Benchmark
 
