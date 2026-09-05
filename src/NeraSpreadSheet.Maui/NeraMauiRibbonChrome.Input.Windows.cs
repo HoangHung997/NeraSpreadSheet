@@ -12,22 +12,33 @@ internal static partial class NeraMauiRibbonChrome
         "InputPalette", typeof(NeraMauiRibbonPalette), typeof(NeraMauiRibbonChrome), null,
         propertyChanged: static (target, _, _) => ConfigureNativeInputPalette(target, EventArgs.Empty));
 
-    private static readonly ConditionalWeakTable<NativeControl, Dictionary<string, SolidColorBrush>> InputBrushes = new();
+    private static readonly ConditionalWeakTable<NativeControl, NativeInputResources> InputResources = new();
+
+    private sealed class NativeInputResources
+    {
+        internal Microsoft.UI.Xaml.ResourceDictionary Dictionary { get; } = new();
+        internal Dictionary<string, SolidColorBrush> Brushes { get; } = new(StringComparer.Ordinal);
+        internal bool IsAttached { get; set; }
+    }
 
     private static void ConfigureNativeInputPalette(object? sender, EventArgs args)
     {
         if (sender is not VisualElement { Handler.PlatformView: NativeControl native } element ||
             element.GetValue(InputPaletteProperty) is not NeraMauiRibbonPalette palette) return;
 
-        var brushes = InputBrushes.GetOrCreateValue(native);
+        var resources = InputResources.GetOrCreateValue(native);
+        var brushes = resources.Brushes;
         SolidColorBrush Set(string key, Color color)
         {
-            if (!brushes.TryGetValue(key, out var brush)) brushes.Add(key, brush = new SolidColorBrush());
+            if (!brushes.TryGetValue(key, out var brush))
+            {
+                brushes.Add(key, brush = new SolidColorBrush());
+                resources.Dictionary.Add(key, brush);
+            }
             // Mutate only brushes owned by this control. Existing ThemeResource references
             // must update even when Dark -> HighContrastDark leaves RequestedTheme unchanged.
             brush.Color = global::Windows.UI.Color.FromArgb(255,
                 (byte)(color.Red * 255), (byte)(color.Green * 255), (byte)(color.Blue * 255));
-            native.Resources[key] = brush;
             return brush;
         }
 
@@ -74,11 +85,19 @@ internal static partial class NeraMauiRibbonChrome
             }
             Set("TextControlElevationBorderBrush", palette.Separator);
             Set("TextControlElevationBorderFocusedBrush", palette.Accent);
-            // A dark palette has a light accent and needs dark selected text.
-            Set("TextControlHighlighterForeground", palette.Surface.Red < 0.5f ? Colors.Black : Colors.White);
-            Set("TextControlHighlighterBackground", palette.Accent);
-            textBox.SelectionHighlightColor = Set("TextControlSelectionHighlightColor", palette.Accent);
+            // WinUI TextServicesHost fixes selected text to white outside OS high
+            // contrast. Dark palettes therefore need a dark selection fill, even
+            // though their focus/popup accent is light.
+            textBox.SelectionHighlightColor = Set("TextControlSelectionHighlightColor",
+                palette.Surface.Red < 0.5f ? palette.Pressed : palette.Accent);
             native.BorderBrush = brushes["TextControlBorderBrush"];
+        }
+        if (!resources.IsAttached)
+        {
+            // Keep MAUI's local resource keys intact. Re-inserting those keys in the
+            // native dictionary can conflict with MAUI's own deferred resources.
+            native.Resources.MergedDictionaries.Add(resources.Dictionary);
+            resources.IsAttached = true;
         }
         native.RequestedTheme = palette.Surface.Red < 0.5f
             ? Microsoft.UI.Xaml.ElementTheme.Dark : Microsoft.UI.Xaml.ElementTheme.Light;
