@@ -67,6 +67,18 @@ Root iOS parser chỉ đối chiếu fragment với exact prefix của full cons
 emit trước frameCount; own verify-runtime tiếp tục kiểm tất cả cohort/postconditions.
 Windows/Mac native và native editor vẫn OPEN; iOS còn cần actual consumer CI riêng.
 
+Actual iOS consumer source686 build0warning/0error nhưng native transport từ chối
+marker malformed dài987 ký tự. Chưa xác định được stream nào bị lỗi; không coi
+prefix fragment là full evidence hoặc bỏ trường provenance để giảm kích thước.
+Root và C thống nhất opt-in `app-file-v1`: launcher sở hữu fresh simulator-container
+path/transport nonce và strict parser, consumer giữ nguyên full JSON trong file
+CreateNew, flush/close rồi mới emit compact envelope ràng buộc SHA256/full bytes.
+Envelope không có đường dẫn hoặc dữ liệu workbook. Default transport vẫn dùng
+full marker; chỉ wrapper iOS chọn protocol mới. File đơn lẻ không đủ nghiệm thu;
+full result sau shared validation vẫn qua own cohort/public postcondition gate >=3.
+Console fixture hosted-only link actual emitter để kiểm protocol, không thêm package
+hoặc workload local. Acceptance mới vẫn OPEN tới exact-source native consumer CI.
+
 ## Tài liệu gốc
 
 - [NuGet nuspec pack qua MSBuild](https://learn.microsoft.com/en-us/nuget/reference/msbuild-targets#packing-using-a-nuspec-file).

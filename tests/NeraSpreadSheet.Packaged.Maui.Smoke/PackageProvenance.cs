@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace Packaged.Maui.Smoke;
@@ -25,15 +27,40 @@ internal static class PackageProvenance
 
     public static void Emit(string status, int frameCount, object details)
     {
-        var json = JsonSerializer.Serialize(new
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(new
         {
             schema = "release009-maui-consumer-v1", status, sourceSha = CohortIdentity.SourceSha,
             packageVersion = CohortIdentity.Version, feedHash = CohortIdentity.FeedHash,
             nonce = CohortIdentity.Nonce, target = CohortIdentity.Platform, frameCount, details,
             nativeEditorCoverage = "OPEN: requires the released TABLE-007 public editor bridge",
         });
-        var path = Environment.GetEnvironmentVariable("NERA_MAUI_SMOKE_RESULT");
-        if (!string.IsNullOrEmpty(path)) File.WriteAllText(path, json);
+        var path = Environment.GetEnvironmentVariable("NERA_MAUI_SMOKE_RESULT") ?? string.Empty;
+        var protocol = Environment.GetEnvironmentVariable("NERA_MAUI_SMOKE_PROTOCOL");
+        string json;
+        if (protocol is not null)
+        {
+            Require(protocol == "native-result-file-v1", "Unknown native result protocol.");
+            var transportNonce = Environment.GetEnvironmentVariable("NERA_MAUI_SMOKE_NONCE") ?? string.Empty;
+            Require(transportNonce.Length == 32 && transportNonce.All(character =>
+                character is >= '0' and <= '9' or >= 'a' and <= 'f'), "Invalid native transport nonce.");
+            Require(Path.IsPathFullyQualified(path), "Native result file requires an absolute path.");
+            // The launcher owns the fresh container path. Publish the envelope only after durable close.
+            using (var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+            json = JsonSerializer.Serialize(new
+            {
+                schema = protocol, status, frameCount, transportNonce,
+                sha256 = Convert.ToHexStringLower(SHA256.HashData(bytes)),
+            });
+        }
+        else
+        {
+            json = Encoding.UTF8.GetString(bytes);
+            if (!string.IsNullOrEmpty(path)) File.WriteAllText(path, json);
+        }
         Console.WriteLine("NERA_PACKAGED_MAUI_SMOKE:" + json);
 #if ANDROID
         Android.Util.Log.Info("NeraPackagedMauiSmoke", "NERA_PACKAGED_MAUI_SMOKE:" + json);

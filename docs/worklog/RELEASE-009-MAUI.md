@@ -21,6 +21,30 @@
   tới run mới. Windows/Mac native, native editor/fullB/P3 vẫn OPEN.
 - Local23 package/scanner và20shared parser fixtures PASS,0skip; plan/parser,
   architecture/packaging/diff PASS. Không heavy local build/native hoặc public publish.
+- Source wiring `6864459e3f0223096397f856c116ed574396301e`: full33989993991,
+  legacy iOS33989995306, Q33989996719, Windows packages33989998295 và demo33989999418
+  SUCCESS. MAUI33989937858 FAIL tại iOS consumer101370724447: build0warning/0error,
+  native parser báo malformed-marker chars987/json-offset976/ends-object0. Năm
+  producers, assembler và ba consumer còn lại SUCCESS, gồm actual Android native.
+  Stream bị lỗi và việc console có full JSON hay không vẫn UNKNOWN; không có raw
+  stream artifact để kết luận. Giữ nguyên failure, chưa release iOS delta.
+- Đã nhận grant triển khai root-owned opt-in `app-file-v1`: fresh simulator container
+  file giữ full consumer JSON, compact marker ràng buộc transport nonce và SHA256.
+  Default legacy transport và own cohort/postcondition checks giữ nguyên. Owned
+  Emit dùng full UTF8 bytes/CreateNew/Flush(true)/close rồi compact5fields; wrapper
+  thêm fiftharg chỉ iOS. Hosted console fixture link actual Emit và synthetic cohort,
+  không thêm package. Nhận test release466 trong import-only `332a79a8` (root bỏ
+  qua khi tích hợp); ba blobs khớp grant và32fixtures PASS0skip. Rà soát actualCLI
+  tái hiện file-mode chấp nhận compact unified fragment khi console đầy đủ:
+  full196/fragment88/header-complete/exit0. Đã báo root sửa riêng file-mode trước CI;
+  không sửa shared files ở C, không nhận đây là native acceptance.
+- Root sửa tại `30e74befa9984c5fb4ac1ea00701dff85fe6c533`; nhận nguyên trạng
+  trong import-only `e17242d0` (root cũng bỏ qua). Helper blob60420f42 không đổi;
+  parser721b09db/test5bd85f0f tắt fragment reconciliation riêng file-mode.
+  Local33 shared fixtures PASS0skip, gồm actualCLI regression từ chối compact
+  fragment dù console/file hợp lệ. Default legacy vẫn giữ contract trước đó.
+  Owned console fixture kiểm actual Emit và roundtrip qua chính shared Python CLI
+  với private synthetic context; build/execution fixture này chờ hosted CI.
 
 ## Checkpoint package đã release — lịch sử
 
@@ -137,5 +161,5 @@ resolved/checked fixture directory. Shared imported223 blobs không đổi.
 
 ## Bước tiếp theo duy nhất
 
-Push/check iOS consumer owned wiring sau import9fe; xác minh Android/iOS native,
-bốn consumer builds và năm existing gates ở đúng final HEAD trước release delta.
+Push owned app-file implementation/fixture và chạy lại toàn cohort cùng sáu gates
+tại final HEAD; chỉ bàn giao sau actual Android/iOS package native đều PASS.

@@ -35,9 +35,19 @@ Source của checkpoint này từ baseline tích hợp `50cb357a`; chưa nhận 
    tối thiểu 3 completed frames và toàn bộ public postconditions. Result được ghi
    riêng `runtime-verification.json` chỉ sau khi verifier PASS. Android đã PASS
    ở source8b; iOS giữ OPEN tới actual native CI mới. Windows/Mac chưa có wiring native.
-   iOS đòi simctl launch status0 và explicit marker; full console phải qua strict
-   parser trước khi đối chiếu exact-prefix unified fragment, không suy từ fragment
-   thành native proof. Own verifier vẫn kiểm source/version/feed/nonce/target/frames.
+   iOS đòi simctl launch status0 và explicit marker. Consumer chọn transport
+   `app-file-v1` bằng argument thứ năm của shared helper; default legacy không đổi.
+   Launcher tạo fresh path trong data container thực của simulator và truyền
+   `NERA_MAUI_SMOKE_PROTOCOL=native-result-file-v1`, `NERA_MAUI_SMOKE_RESULT`
+   và `NERA_MAUI_SMOKE_NONCE` (32 ký tự lower-hex). Consumer serialize full JSON
+   thành UTF8 bytes một lần, CreateNew/Flush(true)/close trước khi emit duy nhất
+   compact marker có đúng schema/status/frameCount/transportNonce/sha256.
+   SHA256 lower-hex ràng buộc toàn bộ bytes; transport nonce riêng với cohort nonce.
+   Shared verifier phải kiểm full strict JSON và compact marker/nonce/hash/header;
+   file đơn lẻ, fragment, conflict/failure, stale/missing/oversized/symlink evidence
+   đều không thành native proof. Own verifier vẫn kiểm toàn bộ source/version/feed,
+   cohort nonce/target/required assembly versions/public postconditions và >=3 frames.
+   Full JSON không bị cắt bớt; raw logs và đường dẫn container không được upload.
 
 ## Matrix và giới hạn
 
@@ -71,5 +81,12 @@ absolute path chỉ ở RUNNER_TEMP. Source package/output debug symbols bị lo
 Không dùng workbook thật, không publish feed công khai, không local heavy build.
 
 Local chỉ chạy `-PlanOnly`, PowerShell parser và tiny synthetic negative fixtures
-`eng/release-009-maui/test_package_matrix.py`. Rollback bằng revert các file mới,
+`eng/release-009-maui/test_package_matrix.py`. Hosted fixtures dùng SDK10.0.302
+để chạy console project `eng/release-009-maui/emission-fixture`, link trực tiếp mã
+PackageProvenance.Emit với cohort giả: default full marker, payload Unicode lớn,
+hash/full file/compact envelope, existing/second write, cấu hình invalid và failure.
+Fixture cũng đưa output thật của Emit qua shared Python CLI và đối chiếu full
+consumer payload trả về; chỉ dùng private synthetic context, không thêm parser riêng.
+Không dùng fixture làm runtime acceptance hoặc thêm package dependency.
+Rollback bằng revert các file mới,
 không sửa shared source/launchers hoặc migration dữ liệu.

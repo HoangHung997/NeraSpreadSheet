@@ -13,6 +13,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.302'
+      - name: Validate actual consumer emission with the exact cohort SDK
+        shell: pwsh
+        run: |
+          . ./eng/release-009-maui/Common.ps1
+          $cohort = Get-MauiCohort $env:GITHUB_WORKSPACE
+          $scratch = New-MauiScratch $cohort
+          Push-Location $scratch
+          try {
+            Assert-MauiSdk $cohort
+            Invoke-MauiDotnet @('run', '--project', (Join-Path $env:GITHUB_WORKSPACE 'eng/release-009-maui/emission-fixture/EmissionFixture.csproj'), '-c', 'Release')
+          } finally { Pop-Location }
       - name: Validate assembler negative fixtures
         run: python -B eng/release-009-maui/test_package_matrix.py
       - name: Validate released native result transport fixtures
