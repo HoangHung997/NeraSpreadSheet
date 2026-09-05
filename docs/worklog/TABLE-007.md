@@ -233,6 +233,19 @@
   requested .302 + latestFeature có thể chọn .400), không suy ra từ config.
 - Rollback: revert các commit lane sau base; không migration/package mới.
 - File/desktop release: source còn active; desktop không giữ lease.
-- Bước tiếp theo: đọc exact-head paired native diagnostic của followup callback/
-  stderr-shape, đối chiếu entry và native method frames để chọn một sửa lỗi có
-  evidence; không release whole lane trước full/iOS/Q003C/diagnostic final green.
+- Probe cc7596e7 `33984604032`: Mac baseline PASS/candidate FAIL trước cả
+  tiny Action callback entry; captured stderr đúng identity có664bytes/5lines,
+  không native/managed header hoặc address-frame lines, không matching IPS.
+  Windows cùng lượt baseline PASS/candidate FAIL. Chưa xác định native cause.
+- Root cấp đúng một transient Mac variant: checkout cùng github.sha sau hai
+  cohorts gốc, chỉ bỏ Apple editor handler registration block; in exact diff,
+  giữ original assertions/toolchain/timeout/current runner. Candidate tracked
+  không đổi; failure gốc giữ job FAIL bất kể variant outcome. Không dùng variant
+  làm acceptance, publish artifact hoặc production fallback. Workflow/log freeze
+  trước product cleanup/API để giữ experiment inputs cùng source.
+- Root cấp tiếp WPF public draft/caret bridge và idempotent split/MAUI cleanup;
+  standalone WPF main writer mở lại. A dùng API qua cùng control cho formula bar,
+  không SetFormula trực tiếp/repeated BeginEdit. Các delta này chưa triển khai.
+- Bước tiếp theo: đọc bounded registration-variant outcome/stages tại exact
+  source, đồng thời triển khai WPF draft API và split/MAUI cleanup đã được cấp;
+  không release whole lane trước full/iOS/Q003C/diagnostic final green.
