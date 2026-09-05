@@ -44,6 +44,11 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
 - `tests/NeraSpreadSheet.Maui.Windows.RibbonSmoke/SmokePage.cs` và
   `tests/NeraSpreadSheet.Maui.Windows.TableFilterSmoke/SmokePage.cs` thuộc A;
   không sửa generic Windows.Smoke editor page dự kiến dành B.
+- Ngoại lệ chuyển quyền **A là writer duy nhất `.github/workflows/ci.yml`**
+  đến handoff/release, chỉ thêm upload `maui-windows-ribbon-ux007` cho
+  `artifacts/maui-windows-ribbon-smoke/ux007-*.png` sau loaded Ribbon smoke,
+  `if: always()` / `if-no-files-found: error`. Commit cùng producer 9 captures;
+  không đổi triggers/SDK/jobs/gates khác. Root không sửa file này khi A giữ.
 - Contract riêng `docs/ux-007-keyboard-accessibility-contract.md`, worklog
   `docs/worklog/UX-007.md`; có thể cập nhật contract UX-006/keyboard liên quan.
 - **A giữ duy nhất desktop lease** cho synthetic native UI smoke/capture.
@@ -69,6 +74,28 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
   và helper mới `Table007EditorSmoke.cs` trong cùng project: bọc view bằng host
   dùng canonical session.Editor, chạy editor regression trước runtime stress cũ.
   Không bỏ gates cũ/csproj; không dùng chung RibbonSmoke/TableFilterSmoke page A.
+- Đã chuyển B độc quyền
+  `src/NeraSpreadSheet.Maui/NeraSpreadSheetMauiAppBuilderExtensions.cs` chỉ để
+  register internal reused cell-editor handler. Giữ UseSkiaSharp và existing
+  Mac Catalyst SKGLView handler workaround; A không sửa registration file này.
+  Native Apple key handling phải giữ IME/composition và delegate unhandled keys;
+  Apple build không thay native editor keyboard smoke.
+- Đã chuyển B ba native hooks: `SmokePage.cs` trong
+  `tests/NeraSpreadSheet.Maui.Android.AnalyticsSmoke`,
+  `tests/NeraSpreadSheet.Maui.iOS.AnalyticsSmoke`,
+  `tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke`; mỗi project thêm
+  `Table007EditorSmoke.cs`. Chỉ thêm editor phase/result evidence, restore
+  focus/layout/selection và giữ mọi analytics assertion/gate cũ. Không đổi
+  workflow/csproj, không nới timeout để né lỗi. Editor fail phải fail smoke.
+  Native InsertText/MarkedText không thay Apple hardware OS-keyboard evidence.
+- B được chuyển `src/NeraSpreadSheet.Viewport/SpreadsheetViewportEngine.cs`
+  chỉ extract layout computation dùng chung Compose/public ComputeLayout và
+  test mới `tests/NeraSpreadSheet.Viewport.Tests/Table007EditorGeometryTests.cs`.
+  Không đổi scroll/cache/composition hoặc duplicate metrics. Layout-only không
+  tạo display list/recalculate, nhưng `EnsureMetrics` hiện có thể capture
+  snapshot khi active Table filters; không hứa snapshot-free cho filtered sheet.
+  Giữ visibility/freeze/merge/fractional geometry và snapshot reuse, test với
+  Compose.Layout; MAUI fallback theo real host size/zoom không giả GPU thành công.
 
 ### Quyền sửa C
 
@@ -90,12 +117,51 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
 - Audit C ghi nhận cache hiện giữ requested pages, chưa eviction: phải đo và
   nêu source/default distinct cap, số trang và memory/disposal; không gọi cache
   constant-bounded khi chỉ native UI page đang bounded.
+- C preflight run `33971846930` tại `413ab07a` dừng trước đo vì actual SDK
+  resolve 10.0.400 thay vì exact 10.0.302 của harness. Không có statistical
+  samples và không phải production regression. C isolate DOTNET_INSTALL_DIR
+  trong workflow riêng; không đổi global.json hoặc existing CI.
+- C complete run `33972169896` tại `2c8c4e2c`: source report native 2/2 PASS,
+  paired 10/11 PASS, completion tiny-batch baseline noise INCONCLUSIVE. Artifact
+  `9971302162` giữ đầy đủ; không gọi INCONCLUSIVE là no-regression acceptance.
+- Root chấp thuận một protocol correction trước baseline mới: toggle4096 ops/
+  warmup128, completion32768/1024, cachedPage262144/4096, target batch khoảng
+  20ms trở lên để giảm timer/scheduling noise; Ribbon/open/search giữ nguyên.
+  Giữ nguyên thresholds/statistics/datasets; freeze revision rồi chạy lại TOÀN
+  A/A và AB/BA, không ghép/chọn samples. Run cũ không xóa; P1/P3 vẫn OPEN.
+
+## Checkpoint vận hành
+
+- Coordination commit `847ff4beec70a05ab4f4f15be9e4d52e82ae7ac7` đã xanh ba
+  workflows: full `33971257042`, iOS `33971257063`, Q003C `33971256987`.
+  Đây là docs-only code-equivalent baseline, chưa tích hợp implementation mới.
+- B producer run `33971871140` tại `acee9aba` success; actual LibreOffice 24.2.7
+  theo source handoff. Corpus compatibility/privacy còn được B kiểm thử, không
+  đóng T3 chỉ vì producer chạy được.
+- B đã nhận actual producer artifact `9971160827` và verify hash. Calc bỏ
+  calculated-column/totals/style metadata, cần ghi producer difference thật.
+  Empty AutoFilter full Table range gồm totals row đang bị importer reject;
+  B làm narrow normalization có regression/negative tests, không nới predicate/
+  sort/opaque-content validation hoặc dựng metadata để giả parity.
+- B source checkpoint `cf680688741addd7675ae1a4320c07125df0a5e4` đã push:
+  báo Core 1522/1522, desktop builds 0/0; source chưa release, B tiếp tục
+  negative/lifecycle/native runtime hooks. Root đã dispatch full/iOS/Q003C
+  bằng configured Git authentication và REST, không cài gh/đổi triggers;
+  checkpoint CI không thay final source hoặc combined acceptance.
+- SDK version trong global.json là 10.0.302 với `rollForward: latestFeature`.
+  Không suy ra actual SDK của existing CI từ requested version; các lane ghi
+  actual version trong logs. Controlled performance dùng exact isolated SDK.
+- Root đã audit sơ bộ command/demo: 49 session commands, 35/35 headless
+  catalog/Table/Ribbon tests PASS; R1/R2 vẫn OPEN. Preview Open hiện mở một grid
+  window không có full shell và worksheet selector là ComboBox, cần xử lý sau
+  A release sample ownership. Xem [release audit](RELEASE-009_COMMAND_AUDIT.md).
 
 ## Single writer và tích hợp
 
 - Root coordinator sở hữu CURRENT, current-status, AI_COORDINATION, delivery
   plan, file wave này; existing CI workflows, solution/shared props/project files
-  và `TableRibbonIntegrationTests.cs`. Các lane không ghi các file đó.
+  và `TableRibbonIntegrationTests.cs`. Ngoại lệ ci.yml đã chuyển riêng cho A ở
+  trên; các lane không ghi file root sở hữu hoặc file lane khác đang giữ.
 - Mỗi file chỉ một writer. Không tự cherry-pick/merge/rebase lane bên cạnh; chỉ
   commit/push nhánh của mình. Không force-push, không merge PR #1/main/develop.
 - Cần file ngoài phạm vi: báo exact paths + lý do, tiếp tục phần không vướng;

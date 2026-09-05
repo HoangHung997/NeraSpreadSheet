@@ -15,14 +15,25 @@
   B sở hữu formula editor/split/MAUI overlay và LibreOffice corpus; C sở hữu
   performance harness/workflow riêng, không sửa production trong wave này.
 - **Chỉ A được dùng desktop local** cho synthetic UI tests. B/C dùng headless/CI
-  hoặc xin chuyển lease. Root giữ shared docs/existing workflows/project files
-  và tích hợp; lane chỉ ghi worklog riêng, không concurrent-write cùng MD.
+  hoặc xin chuyển lease. Root giữ shared docs/project files và tích hợp; ci.yml
+  tạm chuyển A chỉ để upload UX007 captures, các existing workflows khác root
+  giữ. Lane chỉ ghi worklog riêng, không concurrent-write cùng MD.
 - Contract/ownership/checklist/chuỗi tiếp tục:
   [UX_TABLE_COMPLETION_WAVE_20260905.md](UX_TABLE_COMPLETION_WAVE_20260905.md).
   Whole acceptance còn OPEN: U1–U5, T1–T3, P1–P3, R1–R4; không báo 100%
   khi còn native/hardware/performance/release gate chưa chứng minh.
-- Bước tiếp theo duy nhất: push coordination checkpoint và nhận checkpoint
-  từng lane để review/tích hợp tuần tự; không merge PR hoặc publish feed công khai.
+- Coordination docs đã push `847ff4be`, xanh full `33971257042`, iOS
+  `33971257063`, Q003C `33971256987`. Chưa ghép implementation mới.
+  Các transfer editor registration/MAUI smoke và preflight SDK thực được cập
+  nhật trong wave; actual SDK không được suy ra từ global.json latestFeature.
+- B checkpoint `cf680688` đang source CI full `33973005182`, iOS
+  `33973006560`, Q003C `33973008084`; chưa release. Apple nullable signature
+  failure đang được B sửa, không bỏ gate. B được cấp bounded layout extraction
+  và native editor hooks theo wave. C giữ INCONCLUSIVE run cũ, chạy lại protocol
+  với longer batches nhưng không nới thresholds. Root audit demo còn R1/R2 OPEN:
+  [RELEASE-009_COMMAND_AUDIT.md](RELEASE-009_COMMAND_AUDIT.md).
+- Bước tiếp theo duy nhất: nhận source final/tests/CI từ từng lane, review và
+  tích hợp tuần tự cùng coordination notes; không merge PR hoặc publish feed.
 
 ## Historical integration — native Table + UX-006, before final CI
 
