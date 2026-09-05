@@ -12,6 +12,29 @@ namespace NeraSpreadSheet.Windows.Rendering.Tests;
 public sealed class WinFormsStructuredReferenceEditorTests
 {
     [TestMethod]
+    [Timeout(60_000)]
+    public void PointModeMouseDownShouldKeepDraftWhenCaretMovedIntoLiteralWithoutKeyEvent()
+    {
+        RunLoaded((control, session, editor) =>
+        {
+            session.ActiveWorksheet.SetCell(new CellAddress(20, 0), new CellData(CellValue.FromNumber(999d), "=1+1"));
+            var cells = session.ActiveWorksheet.EnumerateUsedCells().ToArray();
+            control.BeginEdit("=SUM(\"text\"," + Environment.NewLine);
+            Assert.IsTrue(control.InsertFormulaReference(new CellRange(new CellAddress(1, 1), new CellAddress(2, 1))));
+            var draft = control.CurrentEditText;
+            var activeCell = session.Selection.ActiveCell;
+            editor.Select(7, 0);
+            Raise(control, "OnMouseDown", new MouseEventArgs(MouseButtons.Left, 1, 250, 100, 0));
+            Assert.IsTrue(control.IsEditing);
+            Assert.AreEqual(draft, control.CurrentEditText);
+            Assert.AreEqual(activeCell, session.Selection.ActiveCell);
+            Assert.IsFalse(control.InsertFormulaReference(new CellRange(default, default)));
+            Assert.AreEqual(0, session.History.UndoCount);
+            CollectionAssert.AreEqual(cells, session.ActiveWorksheet.EnumerateUsedCells().ToArray());
+        });
+    }
+
+    [TestMethod]
     [DataRow(Keys.Up)]
     [DataRow(Keys.Down)]
     [DataRow(Keys.PageUp)]

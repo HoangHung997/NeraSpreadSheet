@@ -6,6 +6,8 @@
 - Base sạch: `2bc00eb667da2f2c5afda1024ab753ac638d85d4`.
 - Implementation: `7ff66bfd2b983d05ca595e9e07c8de2a239c17d1`.
 - Review fix: `30c2564dd2870e0ca521a24f04f99091998b5dcc`.
+- Pointer follow-up nằm trong commit chứa bản worklog này; final SHA và
+  exact-HEAD CI URLs được gửi trong handoff sau khi kiểm chứng.
 - PR #1 giữ Draft/open/unmerged; chỉ bàn giao delta sau base.
 - Baseline CI: full `33954450148`, iOS `33954450152`, Q003C `33954450150`.
   Không dùng baseline làm bằng chứng CI cho delta mới.
@@ -88,12 +90,13 @@ ignored `artifacts/table-006-native`; không commit raw logs.
 | Core và full desktop solution build | 0 warnings, 0 errors |
 | Full Core | **1497/1497** |
 | OpenXml / Editing trong full Core | **153/153**, **283/283** |
-| Tests mới sau review fix | 7 Editing, 20 OpenXml, 24 Windows editor cases |
+| Tests mới sau review fix | 7 Editing, 20 OpenXml, 25 Windows editor cases |
 | Targeted loaded WPF/WinForms editor trước review | **19/19** |
 | Full Windows trước review fix | **95/96**, không skip |
 | Rerun riêng WPF activation smoke | **0/1**, cùng assertion |
 | Multiline caret regression trước fix | **0/5**, tái hiện đủ 5 cases |
 | Toàn bộ WinForms editor sau review fix | **14/14** |
+| Pointer precheck trước fix / toàn WinForms sau fix | **0/1**, **15/15** |
 | Architecture / packaging SDK / diff whitespace | Passed |
 
 Windows failure duy nhất:
@@ -142,7 +145,7 @@ input/render latency evidence. Không thay render/scroll algorithm.
 - Coordinator nhập integration và cập nhật CURRENT/status/board. Sau handoff,
   A ngừng ghi owned files đến khi có yêu cầu mới.
 
-Rollback: revert bốn commit implementation/documentation/review fix của delta
+Rollback: revert năm commit implementation/documentation/review fix của delta
 sau `2bc00eb6`; không migration hoặc package dependency mới.
 
 ## Bước tiếp theo duy nhất
@@ -182,3 +185,27 @@ Nera/smoke/Book2. A đã báo **RELEASE DESKTOP** lại cho coordinator; không 
 desktop đến khi được transfer mới. Candidate cũ `82c21e17` có runs full
 `33958088560`, iOS `33958089562`, Q003C `33958090512`; chúng chỉ là checkpoint,
 không thay final-HEAD verification sau review fix và tài liệu này.
+
+Pointer follow-up trước thao tác: coordinator **APPROVED DESKTOP TRANSFER B → A**
+lần nữa cho targeted quoted-literal precheck red/green. B xác nhận chưa launch
+native UI và đã RELEASE. A chỉ dùng synthetic test qua control OnMouseDown,
+không full suite hoặc workbook/app cá nhân, rồi báo RELEASE khi process/UI dừng.
+
+Pointer regression đã tái hiện **1/1 failure**: sau programmatic Select vào
+quoted literal, control OnMouseDown dùng stale span ở precheck và rơi xuống
+commit; `IsEditing` thành false. Fix một dòng đồng bộ span trước precheck, giữ
+guard ở insertion boundary. Sau fix build test project 0 warnings/errors và
+toàn bộ WinForms editor **15/15 passed**: draft, active selection, history và
+cached cells giữ nguyên; direct insertion ở literal bị reject; valid repeated
+drag vẫn replace. Architecture/packaging/diff-check xanh lại.
+
+```powershell
+dotnet test tests/NeraSpreadSheet.Windows.Rendering.Tests/NeraSpreadSheet.Windows.Rendering.Tests.csproj -c Release --no-build --filter FullyQualifiedName~PointModeMouseDownShouldKeepDraftWhenCaretMovedIntoLiteralWithoutKeyEvent
+dotnet test tests/NeraSpreadSheet.Windows.Rendering.Tests/NeraSpreadSheet.Windows.Rendering.Tests.csproj -c Release --no-build --filter FullyQualifiedName~WinFormsStructuredReferenceEditorTests
+```
+
+Tất cả targeted processes đã exit, fresh Computer Use inventory không còn
+Nera/smoke/Book2; A đã báo **RELEASE DESKTOP** lại. Không chạy full suite hoặc
+đụng baseline activation/workbook cá nhân. Candidate `2056c438` và runs full
+`33958540125`, iOS `33958541215`, Q003C `33958542302` đã bị supersede; phải
+dispatch lại đủ ba workflows tại commit chứa pointer fix và tài liệu này.
