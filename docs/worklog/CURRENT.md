@@ -10,7 +10,12 @@ qua resize và các tests khác đã qua. WPF queues scroll commands cho layout:
 test sửa bằng flush LayoutUpdated trước đọc offset, thêm assertion fixture
 ExtentHeight > ViewportHeight; giữ nguyên yêu cầu phải cuộn và không sửa dữ
 liệu. Không sửa product hoặc bỏ assertion để nhận xanh. New HEAD cần CI riêng.
-iOS33987765551 đang chạy tại checkpoint;479 iOS malformed-marker vẫn giữ FAIL.
+iOS33987765551 đã FAIL: job101364379019 xác định stream1 unified compact log
+có payload1116chars, decodeoffset282, thiếu closing brace; console không reject.
+`c0e0c1e9` đã push test timing correction, CI pending. Root tiếp tục chuyển
+unified output sang structured JSON/eventMessage, giữ combined failure checks
+và malformed rejection, không bỏ stream hỏng để nhận console success. Local
+15 parser tests và bash syntax PASS; native format mới chưa được kiểm chứng.
 
 C được partial receive ba Android transport blobs source223 và wire actual
 Android PackageReference runtime theo wave (verify-app trước install, strict

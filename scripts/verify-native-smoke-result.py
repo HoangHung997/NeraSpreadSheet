@@ -71,15 +71,38 @@ def parse_result(text, prefix, minimum_frames=2):
     return results[0]
 
 
-def read_result(paths, prefix, minimum_frames=2):
+def extract_unified_messages(text, prefix):
+    """Decode eventMessage values, without treating compact log formatting as JSON."""
+    if not text.strip():
+        return ""
+    try:
+        events = json.loads(text, object_pairs_hook=unique_object, parse_constant=reject_nonfinite)
+    except NativeResultError:
+        raise
+    except json.JSONDecodeError as error:
+        raise NativeResultError("malformed-unified-log") from error
+    if not isinstance(events, list):
+        raise NativeResultError("invalid-unified-log-shape")
+    messages = []
+    for event in events:
+        if not isinstance(event, dict) or not isinstance(event.get("eventMessage"), str):
+            raise NativeResultError("invalid-unified-event-shape")
+        message = event["eventMessage"]
+        if prefix in message:
+            messages.append(message)
+    return "\n".join(messages)
+
+
+def read_result(paths, prefix, minimum_frames=2, json_paths=()):
     texts = []
-    for path in paths:
+    for path, is_json in [(path, False) for path in paths] + [(path, True) for path in json_paths]:
         source = Path(path)
         if not source.is_file():
             continue
         if source.stat().st_size > MAX_LOG_BYTES:
             raise NativeResultError("oversized-log")
-        texts.append(source.read_text(encoding="utf-8", errors="replace"))
+        text = source.read_text(encoding="utf-8", errors="replace")
+        texts.append(extract_unified_messages(text, prefix) if is_json else text)
     # Report the failing stream index, not its filesystem path. The final
     # combined pass still rejects contradictory markers across streams.
     for index, text in enumerate(texts):
@@ -93,12 +116,13 @@ def read_result(paths, prefix, minimum_frames=2):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--log", action="append", required=True)
+    parser.add_argument("--json-log", action="append", default=[])
     parser.add_argument("--prefix", default="")
     parser.add_argument("--output", required=True)
     parser.add_argument("--minimum-frames", type=int, default=2)
     args = parser.parse_args()
     try:
-        result = read_result(args.log, args.prefix, args.minimum_frames)
+        result = read_result(args.log, args.prefix, args.minimum_frames, args.json_log)
         if result is None:
             return 2  # Pending, not a successful result or a retry of the app.
         output = Path(args.output)

@@ -13,7 +13,7 @@ PREFIX="${3:-NERA_IOS_ANALYTICS_SMOKE:}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="$(mktemp -d "$RUNNER_TEMP/nera-ios-launch-XXXXXX")"
 LOG="$WORK_DIR/console.log"
-UNIFIED_LOG="$WORK_DIR/unified.log"
+UNIFIED_LOG="$WORK_DIR/unified.json"
 RESULT="${4:-$WORK_DIR/result.json}"
 UDID=""
 if [ ! -d "$APP" ] || [ ! -f "$APP/Info.plist" ] || [ -e "$RESULT" ]; then
@@ -76,14 +76,14 @@ if [ "$LAUNCH_STATUS" -ne 0 ]; then
   exit 1
 fi
 poll_result() {
-  python3 "$SCRIPT_DIR/verify-native-smoke-result.py" --log "$LOG" --log "$UNIFIED_LOG" \
+  python3 "$SCRIPT_DIR/verify-native-smoke-result.py" --log "$LOG" --json-log "$UNIFIED_LOG" \
     --prefix "$PREFIX" --output "$RESULT"
 }
 # The existing bounded unified-log fallback is retained. Combine both streams
 # before accepting; a failure in either stream wins over a success marker.
 for attempt in $(seq 1 12); do
-  xcrun simctl spawn "$UDID" log show --start "$SMOKE_STARTED_AT" --style compact \
-    --predicate "eventMessage CONTAINS \"${PREFIX%:}\"" >"$UNIFIED_LOG" 2>&1 || true
+  xcrun simctl spawn "$UDID" log show --start "$SMOKE_STARTED_AT" --style json \
+    --predicate "eventMessage CONTAINS \"${PREFIX%:}\"" >"$UNIFIED_LOG" 2>"$WORK_DIR/unified-error.log" || true
   set +e
   poll_result
   RESULT_STATUS=$?

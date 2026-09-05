@@ -51,7 +51,7 @@ fresh nonce and all public-consumer runtime postconditions. C's MAUI package
 matrix remains native OPEN until that wrapper is wired and all targets run.
 The old analytics apps do not retroactively claim nonce-based provenance.
 
-Twelve in-memory parser regressions cover raw/prefixed/duplicate/missing/malformed/
+Fifteen in-memory parser regressions cover raw/prefixed/duplicate/missing/malformed/
 conflicting/failure/frame/duplicate-field cases. Syntax checks are not native
 proof: the existing full Android and separate iOS runtime jobs must pass at
 the exact extraction HEAD. SDK/render/input code is unchanged by this slice,
@@ -66,3 +66,14 @@ The iOS rejection reason was not captured by the initial coarse diagnostic;
 do not assert the same cause without a new exact-head runtime result. Rejections
 now expose a fixed reason code only, never raw app output. Non-finite JSON
 numbers are rejected as well. New native CI remains mandatory.
+
+At combined223 iOS job101364379019, numeric diagnostics isolated rejection to
+stream1 (unified compact log): object-starting payload, 1116 characters, decoder
+offset282, no closing object. The console stream did not reject. The launcher
+now requests structured unified JSON and decodes eventMessage values before
+marker validation, keeping stdout and command stderr separate. It still rejects
+malformed event JSON, malformed markers and any failure across both streams;
+it does not discard a broken unified result just because console reports success.
+Synthetic tests cover escaped/multiline/long messages, unrelated metadata,
+mixed failure and malformed structured transport. Native CI must verify that
+the actual platform delivers complete messages in this format.

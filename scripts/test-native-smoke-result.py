@@ -22,6 +22,27 @@ class NativeResultTests(unittest.TestCase):
         value = self.marker(nonce="same-run")
         self.assertEqual(json.loads(value), MODULE.parse_result("TEST:" + value + "\n2026 app TEST:" + value, "TEST:"))
 
+    def testUnifiedJsonPreservesEscapedMessageFraming(self):
+        value = self.marker(description='Nội dung "được giữ"\ntrong JSON', details="x" * 2000)
+        events = json.dumps([
+            {"eventMessage": "unrelated log", "processImagePath": "/private/not-exported"},
+            {"eventMessage": "TEST:" + value},
+        ], ensure_ascii=False)
+        messages = MODULE.extract_unified_messages(events, "TEST:")
+        self.assertNotIn("not-exported", messages)
+        self.assertEqual(json.loads(value), MODULE.parse_result("TEST:" + value + "\n" + messages, "TEST:"))
+
+    def testUnifiedFailureCannotBeHiddenByConsoleSuccess(self):
+        events = json.dumps([{"eventMessage": "TEST:" + self.marker(status="failure")}])
+        with self.assertRaisesRegex(MODULE.NativeResultError, "failure-or-unknown-status"):
+            MODULE.parse_result("TEST:" + self.marker() + "\n" + MODULE.extract_unified_messages(events, "TEST:"), "TEST:")
+
+    def testMalformedUnifiedTransportFailsClosedAndEmptyStaysPending(self):
+        for value in ('[{"eventMessage":', '{}', '[{}]', '[{"eventMessage":false}]'):
+            with self.subTest(value=value), self.assertRaises(MODULE.NativeResultError):
+                MODULE.extract_unified_messages(value, "TEST:")
+        self.assertIsNone(MODULE.parse_result(MODULE.extract_unified_messages("[]", "TEST:"), "TEST:"))
+
     def testMissingAndWrongPrefixStayPending(self):
         self.assertIsNone(MODULE.parse_result("other:" + self.marker(), "TEST:"))
         self.assertIsNone(MODULE.parse_result("runtime has not finished", ""))
