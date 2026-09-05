@@ -18,21 +18,9 @@ internal sealed record NeraMauiRibbonPalette(
     };
 }
 
-internal static class NeraMauiRibbonChrome
+internal static partial class NeraMauiRibbonChrome
 {
 #if WINDOWS
-    private static readonly BindableProperty FilterPickerDarkThemeProperty = BindableProperty.CreateAttached(
-        "FilterPickerDarkTheme", typeof(bool), typeof(NeraMauiRibbonChrome), false,
-        propertyChanged: static (target, _, _) => ConfigureNativePickerTheme(target, EventArgs.Empty));
-
-    private static void ConfigureNativePickerTheme(object? sender, EventArgs args)
-    {
-        if (sender is not VisualElement { Handler.PlatformView: Microsoft.UI.Xaml.Controls.Control native } element) return;
-        // TextColor does not style native borders, selection, chevrons or popup surfaces.
-        native.RequestedTheme = (bool)element.GetValue(FilterPickerDarkThemeProperty)
-            ? Microsoft.UI.Xaml.ElementTheme.Dark : Microsoft.UI.Xaml.ElementTheme.Light;
-    }
-
     private static readonly BindableProperty FilterCheckGlyphProperty = BindableProperty.CreateAttached(
         "FilterCheckGlyph", typeof(Color), typeof(NeraMauiRibbonChrome), Colors.White,
         propertyChanged: static (target, _, _) => ConfigureNativeCheckGlyph(target, EventArgs.Empty));
@@ -103,10 +91,10 @@ internal static class NeraMauiRibbonChrome
     private static void ConfigureInputTheme(VisualElement element, NeraMauiRibbonPalette palette)
     {
 #if WINDOWS
-        element.SetValue(FilterPickerDarkThemeProperty, palette.Surface.Red < 0.5f);
-        element.HandlerChanged -= ConfigureNativePickerTheme;
-        element.HandlerChanged += ConfigureNativePickerTheme;
-        ConfigureNativePickerTheme(element, EventArgs.Empty);
+        element.SetValue(InputPaletteProperty, palette);
+        element.HandlerChanged -= ConfigureNativeInputPalette;
+        element.HandlerChanged += ConfigureNativeInputPalette;
+        ConfigureNativeInputPalette(element, EventArgs.Empty);
 #endif
     }
 
