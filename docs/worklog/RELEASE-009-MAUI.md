@@ -52,7 +52,15 @@ framework-dependent/untrimmed smoke và cùng Configuration ở restore/publish.
 ADR giải thích dependency đã có; không suppress warnings/downgrade checks.
 Feed hash bao gồm evaluated MAUI dependency versions cùng canonical package hashes.
 
+Source `823e913e8581e5062a8e37e322c95c4565f6f11a`, run `33987175419`: năm
+producers/canonical assembler SUCCESS. Windows consumer `101363202376` SUCCESS,
+kể cả isolated assets/publish/app hash. Apple restore/public consumer compilation
+tới analyzer, CA1711 cho AppDelegate: đổi managed type thành PlatformApplication,
+giữ native Register name. Android build SUCCESS nhưng script gặp scalar Count
+khi chỉ có một APK: bọc toàn if-expression trong array để giữ 0/1/many semantics.
+Không sửa SDK hoặc bỏ analyzers; runtime vẫn OPEN.
+
 ## Bước tiếp theo duy nhất
 
-Kiểm bốn consumer jobs của run `33986789725`, sửa lỗi build thực tế nếu có rồi
-kiểm checkpoint tiếp theo; runtime vẫn OPEN trước shared launcher evidence.
+Push/check cohort sau `823e913e` với hai fixes Apple naming/PowerShell collection;
+chỉ nối launcher sau root release và giữ runtime OPEN tới actual evidence.

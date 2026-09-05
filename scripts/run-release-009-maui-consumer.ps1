@@ -61,9 +61,9 @@ try {
         $mauiAppPath = Join-Path $mauiScratch 'app/NeraSpreadSheet.Packaged.Maui.Smoke.exe'
     } else {
         Invoke-MauiDotnet (@('build', '-c', $mauiConfiguration, '--no-restore', '-m:1', '/nodeReuse:false') + $mauiProperties)
-        $mauiCandidates = if ($Platform -eq 'android') {
-            @(Get-ChildItem -LiteralPath (Join-Path $mauiConsumer 'bin') -Recurse -Filter '*-Signed.apk' -File)
-        } else { @(Get-ChildItem -LiteralPath (Join-Path $mauiConsumer 'bin') -Recurse -Filter 'NeraSpreadSheet.Packaged.Maui.Smoke.app' -Directory) }
+        $mauiCandidates = @(if ($Platform -eq 'android') {
+            Get-ChildItem -LiteralPath (Join-Path $mauiConsumer 'bin') -Recurse -Filter '*-Signed.apk' -File
+        } else { Get-ChildItem -LiteralPath (Join-Path $mauiConsumer 'bin') -Recurse -Filter 'NeraSpreadSheet.Packaged.Maui.Smoke.app' -Directory })
         if ($mauiCandidates.Count -ne 1) { throw 'Consumer output is missing or ambiguous.' }
         $mauiAppPath = $mauiCandidates[0].FullName
     }
