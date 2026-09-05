@@ -265,6 +265,14 @@ def prepare(source, output, sha, version, sdk):
     })
 
 
+def feed_identity(records, maui_dependencies):
+    require("Microsoft.Maui.Controls" in maui_dependencies and all(
+        name.startswith("Microsoft.Maui.") and re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?", version)
+        for name, version in maui_dependencies.items()), "Invalid evaluated MAUI dependency cohort")
+    return digest(json.dumps({"packages": records, "mauiDependencies": maui_dependencies},
+                             sort_keys=True, separators=(",", ":")).encode())
+
+
 def finalize(output):
     output = Path(output)
     inputs = read_json(output / "assembly-inputs.json")
@@ -295,11 +303,12 @@ def finalize(output):
                         "frameworks": sorted(package["groups"])})
     require(identities == NEUTRAL_IDS | {MAUI_ID}, "Missing canonical SDK identity")
     # Stable feed identity includes package bytes, not ZIP timestamps or directory paths.
-    feed_hash = digest(json.dumps(records, sort_keys=True, separators=(",", ":")).encode())
+    feed_hash = feed_identity(records, inputs["mauiDependencies"])
     write_json(output / "feed-manifest.json", {
         "schemaVersion": 1, "status": "package-verified-runtime-open",
         "sourceSha": inputs["sourceSha"], "version": inputs["version"], "sdkVersion": inputs["sdkVersion"],
         "feedHash": feed_hash, "packages": records, "targetFrameworks": inputs["targetFrameworks"],
+        "mauiDependencies": inputs["mauiDependencies"],
         "producerManifestHashes": inputs["producerManifestHashes"], "runtimeAcceptance": "OPEN",
     })
 
@@ -312,7 +321,7 @@ def verify_feed(source, sha, version):
     records = manifest["packages"]
     require(len(records) == 16 and {record["id"] for record in records} == NEUTRAL_IDS | {MAUI_ID},
             "Incomplete canonical feed")
-    require(digest(json.dumps(records, sort_keys=True, separators=(",", ":")).encode()) == manifest["feedHash"],
+    require(feed_identity(records, manifest["mauiDependencies"]) == manifest["feedHash"],
             "Canonical feed identity mismatch")
     for record in records:
         name = safe_path(record["file"])
@@ -338,6 +347,8 @@ def verify_assets(assets, manifest, cache, platform, rid):
     sdk_libraries = {identity for identity in assets["libraries"] if identity.startswith("NeraSpreadSheet.")}
     require(sdk_libraries == {record["id"] + "/" + version for record in manifest["packages"]},
             "Consumer resolved a foreign or incomplete SDK closure")
+    require("Microsoft.Maui.Controls/" + manifest["mauiDependencies"]["Microsoft.Maui.Controls"] in assets["libraries"],
+            "Consumer MAUI Controls differs from the producer cohort")
     rid_targets = [(target, libraries) for target, libraries in assets["targets"].items() if target.endswith("/" + rid)]
     require(len(rid_targets) == 1, "Missing or ambiguous consumer RID target")
     target, libraries = rid_targets[0]
@@ -359,6 +370,43 @@ def inspect_consumer(source, assets, cache, platform, rid, sha, version, output)
     summary = verify_assets(read_json(assets), manifest, cache, platform, rid)
     write_json(output, {"schemaVersion": 1, "sourceSha": sha, "version": version,
                        "feedHash": manifest["feedHash"], "platform": platform, "resolved": summary})
+
+
+def verify_app_payload(actual, build):
+    require(build.get("schemaVersion") == 1 and build.get("platform") in PLATFORMS,
+            "Unexpected consumer build schema/platform")
+    expected = build["files"]
+    for records in (expected, actual):
+        require(records, "Empty consumer app payload")
+        names = [safe_path(record["file"]) for record in records]
+        require(len({name.casefold() for name in names}) == len(names), "Duplicate consumer app path")
+        require(all(type(record["bytes"]) is int and record["bytes"] >= 0 and
+                    re.fullmatch(r"[a-f0-9]{64}", record["sha256"]) for record in records),
+                "Invalid consumer app file identity")
+    def identity(records):
+        return {record["file"]: (record["bytes"], record["sha256"]) for record in records}
+    require(identity(actual) == identity(expected), "Consumer app payload differs from the verified build")
+
+
+def verify_app(app, build):
+    path = Path(app)
+    platform = build["platform"]
+    if platform in ("ios", "maccatalyst"):
+        require(path.is_dir() and path.suffix == ".app", "Missing consumer app bundle")
+        root = path
+        paths = list(root.rglob("*"))
+    else:
+        require(path.is_file() and path.suffix == (".apk" if platform == "android" else ".exe"),
+                "Missing consumer application")
+        root = path.parent
+        paths = [path] if platform == "android" else list(root.rglob("*"))
+    actual = []
+    for item in paths:
+        require(item.resolve().is_relative_to(root.resolve()), "Consumer app file escapes its root")
+        if item.is_file():
+            actual.append({"file": item.relative_to(root).as_posix(), "bytes": item.stat().st_size,
+                           "sha256": digest(item.read_bytes())})
+    verify_app_payload(actual, build)
 
 
 def verify_runtime(result, build):
@@ -401,6 +449,9 @@ if __name__ == "__main__":
     runtime_parser = sub.add_parser("verify-runtime")
     runtime_parser.add_argument("--result", required=True)
     runtime_parser.add_argument("--build", required=True)
+    app_parser = sub.add_parser("verify-app")
+    app_parser.add_argument("--app", required=True)
+    app_parser.add_argument("--build", required=True)
     args = vars(parser.parse_args())
     command = args.pop("command")
     if command == "prepare":
@@ -411,5 +462,7 @@ if __name__ == "__main__":
         verify_feed(**args)
     elif command == "inspect-consumer":
         inspect_consumer(**args)
+    elif command == "verify-app":
+        verify_app(args["app"], read_json(args["build"]))
     else:
         verify_runtime(read_json(args["result"]), read_json(args["build"]))

@@ -31,6 +31,15 @@ def archive(platform="windows", version=VERSION, sha=SHA, extra=None, dependency
 
 
 class PackageMatrixTests(unittest.TestCase):
+    def testFeedIdentityShouldBindEvaluatedMauiDependencies(self):
+        packages = [{"id": "NeraSpreadSheet.Maui", "sha256": "a" * 64}]
+        dependencies = {"Microsoft.Maui.Controls": "10.0.20"}
+        self.assertNotEqual(matrix.feed_identity(packages, dependencies),
+                            matrix.feed_identity(packages, {"Microsoft.Maui.Controls": "10.0.0"}))
+        for invalid in ({}, {"Microsoft.Maui.Controls": "10.0.20;InvalidProperty=true"}):
+            with self.assertRaises(ValueError):
+                matrix.feed_identity(packages, invalid)
+
     def testFourTargetsShouldPreserveEveryAssemblyAndDependencyGroup(self):
         packages = {p: matrix.inspect_package(archive(p), VERSION, SHA) for p in TFMS}
         metadata, payload = matrix.merge_maui(packages)
@@ -137,8 +146,9 @@ class PackageMatrixTests(unittest.TestCase):
 
     def testConsumerAssetsShouldRejectSourceCacheAndFrameworkBypasses(self):
         manifest = {"version": VERSION, "packages": [{"id": name} for name in matrix.NEUTRAL_IDS | {matrix.MAUI_ID}],
-                    "targetFrameworks": list(TFMS.values())}
+                    "targetFrameworks": list(TFMS.values()), "mauiDependencies": {"Microsoft.Maui.Controls": "10.0.20"}}
         libraries = {record["id"] + "/" + VERSION: {"type": "package"} for record in manifest["packages"]}
+        libraries["Microsoft.Maui.Controls/10.0.20"] = {"type": "package"}
         maui = {"compile": {f"lib/{TFMS['windows']}/NeraSpreadSheet.Maui.dll": {}},
                 "runtime": {f"lib/{TFMS['windows']}/NeraSpreadSheet.Maui.dll": {}}}
         assets = {"libraries": libraries, "packageFolders": {"synthetic-cache": {}},
@@ -155,6 +165,9 @@ class PackageMatrixTests(unittest.TestCase):
         framework["targets"][TFMS["windows"] + "/win-x64"][matrix.MAUI_ID + "/" + VERSION]["compile"] = {
             f"lib/{TFMS['android']}/NeraSpreadSheet.Maui.dll": {}}
         variants.append(framework)
+        controls = copy.deepcopy(assets)
+        controls["libraries"]["Microsoft.Maui.Controls/10.0.0"] = controls["libraries"].pop("Microsoft.Maui.Controls/10.0.20")
+        variants.append(controls)
         for variant in variants:
             with self.assertRaises(ValueError):
                 matrix.verify_assets(variant, manifest, "synthetic-cache", "windows", "win-x64")
@@ -174,6 +187,19 @@ class PackageMatrixTests(unittest.TestCase):
             changed[key] = value
             with self.assertRaises(ValueError):
                 matrix.verify_runtime(changed, build)
+
+    def testConsumerAppPayloadShouldRejectChangedMissingAndExtraFiles(self):
+        files = [{"file": "Synthetic.exe", "bytes": 2, "sha256": "a" * 64},
+                 {"file": "lib/Synthetic.dll", "bytes": 3, "sha256": "b" * 64}]
+        build = {"schemaVersion": 1, "platform": "windows", "files": files}
+        matrix.verify_app_payload(list(reversed(files)), build)
+        variants = [[], files[:1], files + [{**files[0], "file": "Extra.dll"}],
+                    files + [{**files[0], "file": "synthetic.exe"}]]
+        for field, value in (("file", "../Synthetic.exe"), ("bytes", 4), ("sha256", "c" * 64)):
+            variants.append([{**files[0], field: value}, files[1]])
+        for variant in variants:
+            with self.assertRaises(ValueError):
+                matrix.verify_app_payload(variant, build)
 
 
 if __name__ == "__main__":
