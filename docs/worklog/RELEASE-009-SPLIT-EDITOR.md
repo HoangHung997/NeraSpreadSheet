@@ -1,5 +1,19 @@
 # RELEASE-009 Split Editor — Handoff lane A
 
+## Bổ sung grant — giữ direction khi echo bản nháp nguyên trạng
+
+- Root cấp thêm riêng Control.EditorDraft.cs và SplitAdorner.EditorDraft.cs.
+  Guard native Select bằng actual selection start/length sau text update; không
+  normalize selection đã đúng. Giữ validation-before-mutation, notification
+  de-duplication, focus/history/canonical controller. Không thêm direction API.
+- Regression backward selection nay yêu cầu Shift+Left mở rộng selection sau
+  identical echo; changed range vẫn phải áp dụng. CaretIndex là WPF public caret,
+  không phải contract moving edge. Chưa khẳng định arbitrary direction transfer.
+- Split/standalone dùng cùng existing Vietnamese help formatter trong owner
+  FormulaEditing partial; không thêm resource key hoặc hai bản chuỗi khác nhau.
+- Source47faa24c đã dispatch follow-up build/test alias fix; source kế tiếp chứa
+  grant này vẫn cần đủ năm workflows riêng và native screenshots được review.
+
 ## Checkpoint implementation 7950acb9
 
 - Source `7950acb90714e7e3789ea4be70b56bc386074fdb` đã push và dispatch

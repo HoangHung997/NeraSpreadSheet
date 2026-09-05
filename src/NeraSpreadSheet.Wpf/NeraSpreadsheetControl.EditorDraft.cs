@@ -44,7 +44,8 @@ public sealed partial class NeraSpreadsheetControl
         {
             ResetFormulaEditingUi();
             if (_editor.Text != text) _editor.Text = text;
-            _editor.Select(selectionStart, selectionLength);
+            if (_editor.SelectionStart != selectionStart || _editor.SelectionLength != selectionLength)
+                _editor.Select(selectionStart, selectionLength);
             UpdateFormulaSuggestions();
         }
         finally { _changingEditorDraft = false; }
