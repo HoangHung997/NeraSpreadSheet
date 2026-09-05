@@ -299,6 +299,10 @@ public sealed class Release009FormulaBarSmokeTests
             Pump(host.Window);
             Assert.IsNull(host.Grid.CurrentEditorDraft);
             Assert.AreEqual("latest raw value", host.Bar.Text);
+            Assert.IsTrue(host.Bar.Focus());
+            host.Bar.SelectAll();
+            host.Bar.SelectedText = "discard on dispose";
+            Assert.IsTrue(host.Session.Editor.IsEditing);
             host.Session.Selection.SetActiveCell(new CellAddress(1, 1));
             host.Window.Dispose();
             host.Bar.Text = "detached view";

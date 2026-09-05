@@ -73,7 +73,7 @@ public sealed partial class RibbonPreviewWindow
 
     private DockPanel CreateFormulaBar()
     {
-        var row = new DockPanel { Background = new SolidColorBrush(Color.FromRgb(247, 249, 250)) };
+        var row = new DockPanel { Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(247, 249, 250)) };
         row.Children.Add(_address);
         row.Children.Add(_formulaHelpButton);
         row.Children.Add(_formulaCancel);
@@ -97,6 +97,9 @@ public sealed partial class RibbonPreviewWindow
         _formulaCancel.Click -= OnFormulaCancelClick;
         _formulaInCell.Click -= OnFormulaInCellClick;
         _formulaHelpButton.Click -= OnFormulaHelpClick;
+        // Cancel only this host's native draft while the SDK's lifecycle listener is
+        // still attached. Canonical cancellation cleans the overlay without refocusing it.
+        if (_sheet.CurrentEditorDraft is not null) _session.Editor.Cancel();
         if (_formulaBarHelpPopup is { } popup) { popup.IsOpen = false; popup.Child = null; }
         _formulaBarHelpPopup = null;
     }
