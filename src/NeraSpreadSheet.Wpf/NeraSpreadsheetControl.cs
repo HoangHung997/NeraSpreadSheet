@@ -841,6 +841,10 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
     public bool ScrollCellIntoView(CellAddress address)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (this.TryGetSplitPaneController(out var split) && split is not null)
+        {
+            return split.ScrollCellIntoView(address);
+        }
         if (_session is null || _viewport is null)
         {
             return false;

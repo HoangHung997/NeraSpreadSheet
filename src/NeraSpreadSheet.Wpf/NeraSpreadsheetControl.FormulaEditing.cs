@@ -48,17 +48,20 @@ public sealed partial class NeraSpreadsheetControl
     /// Gets the completion candidates currently shown for the in-cell editor.
     /// </summary>
     public IReadOnlyList<FormulaFunctionSuggestion> CurrentFormulaSuggestions =>
-        _formulaSuggestions;
+        this.TryGetSplitPaneController(out var split) && split is not null
+            ? split.CurrentFormulaSuggestions : _formulaSuggestions;
 
     /// <summary>Gets the bounded Table/column candidates in the active editor popup.</summary>
     public IReadOnlyList<FormulaStructuredReferenceSuggestion> CurrentStructuredReferenceSuggestions =>
-        _structuredReferenceSuggestions;
+        this.TryGetSplitPaneController(out var split) && split is not null
+            ? split.CurrentStructuredReferenceSuggestions : _structuredReferenceSuggestions;
 
     /// <summary>
     /// Gets help for the innermost function invocation at the editor caret.
     /// </summary>
     public FormulaFunctionHelpContext? CurrentFormulaHelp =>
-        _formulaHelpContext;
+        this.TryGetSplitPaneController(out var split) && split is not null
+            ? split.CurrentFormulaHelp : _formulaHelpContext;
 
     /// <summary>
     /// Gets the current in-cell edit text, or <see langword="null"/> when the
@@ -71,7 +74,9 @@ public sealed partial class NeraSpreadsheetControl
     /// is selected or currently being edited.
     /// </summary>
     public IReadOnlyList<SpreadsheetFormulaReferenceHighlight>
-        CurrentFormulaReferenceHighlights => GetFormulaReferenceHighlights();
+        CurrentFormulaReferenceHighlights =>
+        this.TryGetSplitPaneController(out var split) && split is not null
+            ? split.CurrentFormulaReferenceHighlights : GetFormulaReferenceHighlights();
 
     private void InitializeFormulaEditingUi()
     {
