@@ -1,5 +1,23 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## B chuyển từ diagnostic sang actual Mac smoke orchestration
+
+Completed-await1ff narrow33991085641: baselinePASS10, originalcandidateFAIL,
+noeditor variantPASS10, WindowscandidatePASS62/3recreation. Giữ failures cũ;
+không coi async/Dispatcher/renderer là root cause đã chứng minh. Đóng one-off.
+B được writer CHỈ MacCatalyst.AnalyticsSmoke/SmokePage.cs để bắt đầu true
+editor/analytics phase từ page Loaded + actual frame/layout readiness ngoài
+PaintSurface (trước đây child Loaded→InvalidateSurface→Paint khởi tạo phase
+trước page Loaded). Giữ true Table007EditorSmoke và mọi native assertions/
+disposal/recreation; không SDK/renderer/handler edit, fixed sleep, retry, flags
+hoặc linking workaround. Chạy paired baseline/truecandidate narrow, sau đó
+full source gates/corpus nếu đạt. Helper/path ngoài scope phải xin grant trước.
+
+C review4660 tìm counterexample truncated compact duplicate accepted; root
+hardening file-mode đọc từng complete compact marker, không legacy truncated
+reconciliation. Shared source vẫn root-owned; C nhận immutable update riêng,
+không nới own full-cohort/>=3/nativepostconditions hoặc tự sửa parser.
+
 ## Grant tiếp sau nhận A finaleea6 — sample bar / full result protocol
 
 A released11paths đã nhận root8eb622b5..37a55b05, skip257611. A tái dùng worktree

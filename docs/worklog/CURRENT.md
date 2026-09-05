@@ -1,5 +1,23 @@
 # Current Work Handoff
 
+## Hardening opt-in protocol sau review C
+
+Root implementation `4660deec903a930c6ff64d706b24525e1106f86d` đã push,
+combined CI còn chạy. C nhận3sharedblobs ở import-only332a79a8 nhưng phát hiện
+actual CLI chấp nhận truncated compact unified envelope nếu console/fullfile
+đầy đủ. Root sửa riêng file-mode: không reconcile truncated duplicates; mọi
+compact record phải complete. Legacy default giữ nguyên. 33 parser/CLI/
+filesystem fixtures PASS, có exact counterexample và legacy compatibility.
+C giữ owned emitter/fixture ready, chờ updated immutable parser/tests trước
+push6gates; không ghi shared source. Opt-in actual native vẫn OPEN.
+
+B đã được grant sửa CHÍNH Mac SmokePage orchestration từ page Loaded và frame
+readiness ngoài PaintSurface, giữ toàn bộ true editor/analytics assertions;
+không SDK/renderer/handler changes, không retry. One-off1ff đã PASS10 chỉ là
+diagnostic/noeditor; Windows latestPASS62 không xóa historical reattach risk.
+Bước tiếp theo duy nhất: gửi immutable hardening source cho C rồi verify new
+exact-root6gates và C actual opt-in iOS, không lấy commit cha thay final source.
+
 ## Mới nhất — nhận split editor routing, chuẩn bị full-result iOS consumer
 
 Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.

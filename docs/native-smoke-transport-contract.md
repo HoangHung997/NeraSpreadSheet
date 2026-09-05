@@ -51,7 +51,7 @@ fresh nonce and all public-consumer runtime postconditions. C's MAUI package
 matrix remains native OPEN until that wrapper is wired and all targets run.
 The old analytics apps do not retroactively claim nonce-based provenance.
 
-Thirty-two bounded synthetic parser/CLI/filesystem regressions cover raw/prefixed/duplicate/missing/malformed/
+Thirty-three bounded synthetic parser/CLI/filesystem regressions cover raw/prefixed/duplicate/missing/malformed/
 conflicting/failure/frame/duplicate-field cases. Syntax checks are not native
 proof: the existing full Android and separate iOS runtime jobs must pass at
 the exact extraction HEAD. SDK/render/input code is unchanged by this slice,
@@ -127,7 +127,10 @@ Default app emission on other platforms is unchanged. A second emission/file
 write or unsupported protocol must fail closed, not overwrite evidence.
 
 The shared verifier first validates console/unified marker agreement with its
-unchanged failure/conflict rules. It then verifies private context schema,
+failure/conflict rules. In file mode EVERY compact marker must be complete:
+legacy truncated-duplicate reconciliation is disabled, even when a complete
+console envelope and matching full file exist. Legacy default retains that
+separate behavior. It then verifies private context schema,
 absolute canonical file parent, bounded regular non-symlink files (2 MiB for
 result, 4 KiB for context), strict UTF-8/one complete JSON document, duplicate
 and nonfinite rejection, fresh nonce, exact byte hash and matching successful
@@ -136,9 +139,11 @@ cannot pass; a marker without its file fails. Output still uses create-new.
 The caller then verifies full package cohort/provenance and >=3 frames exactly
 as before. No assembly list, postcondition, timeout or application retry is removed.
 
-Thirty-two tests include large Unicode payload, altered/truncated/oversized
+Thirty-three tests include large Unicode payload, altered/truncated/oversized
 bytes, stale nonce, malformed/duplicate/nonfinite JSON, status/frame mismatch,
 missing file/marker, symbolic link rejection and actual CLI non-overwrite.
+An actual CLI regression rejects a truncated compact unified duplicate with
+complete status/frame header despite a valid console envelope and full file.
 Opt-in transport is released only for C's isolated consumer experiment until
 actual iOS consumer CI passes; ordinary root CI exercises the legacy default.
 Rollback removes the opt-in caller flag/emitter and this optional shared path,

@@ -184,6 +184,30 @@ class FileResultTests(unittest.TestCase):
                     self.assertEqual(2 if kind == "missing-marker" else 1, MODULE.main())
                 self.assertFalse(output.exists())
 
+    def testFileModeCliRejectsTruncatedCompactDuplicateDespiteValidFileAndConsole(self):
+        with private_fixture() as directory:
+            data = self.result(details="full result" * 200)
+            payload = directory / "result.json"
+            payload.write_bytes(data)
+            context = directory / "context.json"
+            context.write_text(json.dumps({"schema": MODULE.FILE_CONTEXT_PROTOCOL,
+                "path": str(payload), "transportNonce": self.nonce}), encoding="utf-8")
+            full = json.dumps(self.envelope(data), separators=(",", ":"))
+            fragment = full[:full.index('"transportNonce"')]
+            self.assertTrue(MODULE.has_complete_success_header(fragment, self.envelope(data)))
+            log = directory / "console.log"
+            log.write_text("TEST:" + full, encoding="utf-8")
+            unified = directory / "unified.json"
+            unified.write_text(json.dumps([{"eventMessage": "TEST:" + fragment}]), encoding="utf-8")
+            # Legacy reconciliation is intentionally still available without file mode.
+            self.assertEqual(self.envelope(data), MODULE.read_result([log], "TEST:", json_paths=[unified]))
+            output = directory / "verified.json"
+            arguments = ["verifier", "--log", str(log), "--json-log", str(unified), "--prefix", "TEST:",
+                         "--file-context", str(context), "--output", str(output)]
+            with patch.object(MODULE.sys, "argv", arguments), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(1, MODULE.main())
+            self.assertFalse(output.exists())
+
 
 class NativeResultTests(unittest.TestCase):
     def marker(self, status="success", frames=3, **extra):
