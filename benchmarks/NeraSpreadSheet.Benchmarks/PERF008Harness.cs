@@ -24,6 +24,7 @@ internal static class PERF008Harness
         }
         CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("vi-VN");
+        VerifyOutputGuard();
         var measurements = new List<Measurement>();
         foreach (var width in new[] { 1536d, 1280d, 1024d, 820d })
         {
@@ -31,9 +32,13 @@ internal static class PERF008Harness
             benchmark.Setup();
             var input = typeof(RibbonLayoutBenchmarks).GetField("_presentation", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .GetValue(benchmark)!;
-            var output = benchmark.PackAndCollapseSevenHundredTwentyCommands();
+            var lastLayout = benchmark.PackAndCollapseSevenHundredTwentyCommands();
             measurements.Add(Measure($"ribbon.pack.{width}", 128, 32,
-                () => GC.KeepAlive(benchmark.PackAndCollapseSevenHundredTwentyCommands()), input, output));
+                () =>
+                {
+                    lastLayout = benchmark.PackAndCollapseSevenHundredTwentyCommands();
+                    GC.KeepAlive(lastLayout);
+                }, input, () => lastLayout));
         }
         foreach (var unrelated in new[] { 0, 100_000 })
         {
@@ -43,17 +48,25 @@ internal static class PERF008Harness
                 .GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(benchmark)!;
             benchmark.FilterButtonToggleAndUndo();
             Require(session.History.UndoCount == 0, "Table toggle/undo did not restore history.");
-            var table = session.ActiveWorksheet.Tables.Single();
+            object CaptureTable()
+            {
+                var table = session.ActiveWorksheet.Tables.Single();
+                return new { table.Name, table.Range, table.ShowFilterButtons,
+                    columns = table.Columns.Select(column => column.Name).ToArray(), session.History.UndoCount };
+            }
             var input = new { unrelated, rows = 10, columns = new[] { "Item", "Amount" }, formula = "=Sales[Am" };
             measurements.Add(Measure($"table.toggleUndo.{unrelated}", 4_096, 128,
-                benchmark.FilterButtonToggleAndUndo, input, new { table.Name, table.Range, table.ShowFilterButtons,
-                    columns = table.Columns.Select(column => column.Name).ToArray(), session.History.UndoCount }));
+                benchmark.FilterButtonToggleAndUndo, input, CaptureTable));
             Require(session.History.UndoCount == 0, "Measured Table toggle/undo did not restore history.");
             Require(session.ActiveWorksheet.Tables.Single().ShowFilterButtons, "Measured Table toggle/undo did not restore filter buttons.");
             var suggestions = benchmark.ColumnCompletion();
             Require(suggestions > 0, "The Table completion fixture no longer returns suggestions.");
             measurements.Add(Measure($"table.completion.{unrelated}", 32_768, 1_024,
-                () => GC.KeepAlive(benchmark.ColumnCompletion()), input, suggestions));
+                () =>
+                {
+                    suggestions = benchmark.ColumnCompletion();
+                    GC.KeepAlive(suggestions);
+                }, input, () => suggestions));
         }
         var filter = CreateFilterFixture();
         using var view = NewView(filter);
@@ -63,18 +76,34 @@ internal static class PERF008Harness
             "The large filter fixture must publish a bounded, explicitly truncated source.");
         var filterInput = new { rows = 100_000, distinct = 100_000, pageSize = 100, sourceCap = 10_000,
             generator = "Value{row:D6}, rows 1..100000, table Values, column Code" };
-        measurements.Add(Measure("filter.open.100000", 2, 2, () =>
+        SpreadsheetAutoFilterPagedView? lastOpenedView = null;
+        void ReplaceOpenView()
         {
-            using var opened = NewView(filter);
-            opened.InitializeAsync().GetAwaiter().GetResult();
-        }, filterInput, PageEvidence(first)));
+            lastOpenedView?.Dispose();
+            lastOpenedView = NewView(filter);
+            lastOpenedView.InitializeAsync().GetAwaiter().GetResult();
+        }
+        try
+        {
+            ReplaceOpenView();
+            // Each timed iteration disposes the previous view and opens the next.
+            // Keep the final measured view alive until its output is verified.
+            measurements.Add(Measure("filter.open.100000", 2, 2, ReplaceOpenView,
+                filterInput, () => CurrentFilterEvidence(lastOpenedView!)));
+        }
+        finally { lastOpenedView?.Dispose(); }
+        var lastCachedPage = first;
         measurements.Add(Measure("filter.cachedPage.100000", 262_144, 4_096,
-            () => GC.KeepAlive(view.GetPageAsync(0).GetAwaiter().GetResult()), filterInput, PageEvidence(first)));
+            () =>
+            {
+                lastCachedPage = view.GetPageAsync(0).GetAwaiter().GetResult();
+                GC.KeepAlive(lastCachedPage);
+            }, filterInput, () => new { current = CurrentFilterEvidence(view), returned = PageEvidence(lastCachedPage) }));
         measurements.Add(Measure("filter.searchCycle.100000", 4, 2, () =>
         {
             view.SetSearchTextAsync("0001").GetAwaiter().GetResult();
             view.SetSearchTextAsync(string.Empty).GetAwaiter().GetResult();
-        }, filterInput, PageEvidence(first)));
+        }, filterInput, () => CurrentFilterEvidence(view)));
         var stress = args[0] == "verify" ? await PERF008Stress.VerifyAsync(filter.Session, filter.Target) : null;
         var report = new
         {
@@ -85,13 +114,15 @@ internal static class PERF008Harness
             tieredCompilation = Environment.GetEnvironmentVariable("DOTNET_TieredCompilation"),
             serverGc = System.Runtime.GCSettings.IsServerGC, stopwatchFrequency = Stopwatch.Frequency,
             allocationScope = "GC.GetTotalAllocatedBytes(precise:true), process-wide, includes async worker allocations",
+            outputValidation = "pre-warmup/post-batch-factory-v1", outputGuardSelfTestsPassed = 2,
             measurements, stress,
         };
         await File.WriteAllTextAsync(args[1], JsonSerializer.Serialize(report, JsonOptions));
     }
 
-    private static Measurement Measure(string name, int operations, int warmup, Action action, object input, object output)
+    private static Measurement Measure(string name, int operations, int warmup, Action action, object input, Func<object> captureOutput)
     {
+        var expectedOutputHash = Hash(captureOutput());
         for (var i = 0; i < warmup; i++) action();
         GC.Collect();
         GC.WaitForPendingFinalizers();
@@ -104,11 +135,43 @@ internal static class PERF008Harness
         for (var i = 0; i < operations; i++) action();
         var elapsed = Stopwatch.GetTimestamp() - start;
         var bytes = GC.GetTotalAllocatedBytes(precise: true) - allocated;
+        var collections0 = GC.CollectionCount(0) - gen0;
+        var collections1 = GC.CollectionCount(1) - gen1;
+        var collections2 = GC.CollectionCount(2) - gen2;
+        // Capture and validate the actual post-batch result after closing both
+        // measurement windows. Never validate a saved pre-warmup output object.
+        var output = captureOutput();
+        var actualOutputHash = Hash(output);
+        Require(expectedOutputHash == actualOutputHash, $"Output fingerprint changed after warmup/batch: {name}.");
         return new Measurement(name, operations, warmup, elapsed, bytes,
             elapsed * 1_000_000d / Stopwatch.Frequency / operations, bytes / (double)operations,
-            GC.CollectionCount(0) - gen0, GC.CollectionCount(1) - gen1, GC.CollectionCount(2) - gen2,
-            Hash(input), Hash(output), JsonSerializer.SerializeToElement(input, input.GetType()),
+            collections0, collections1, collections2,
+            Hash(input), actualOutputHash, expectedOutputHash, JsonSerializer.SerializeToElement(input, input.GetType()),
             JsonSerializer.SerializeToElement(output, output.GetType()));
+    }
+
+    private static void VerifyOutputGuard()
+    {
+        foreach (var driftAfter in new[] { 0, 2 })
+        {
+            var calls = 0;
+            var actual = 0;
+            var rejected = false;
+            try
+            {
+                Measure("output-guard-negative-test", 4, 2, () =>
+                {
+                    calls++;
+                    if (calls > driftAfter) actual = 1;
+                }, new { expected = 0 }, () => actual);
+            }
+            catch (InvalidOperationException exception) when (exception.Message.StartsWith(
+                "Output fingerprint changed after warmup/batch:", StringComparison.Ordinal))
+            {
+                rejected = true;
+            }
+            Require(rejected, "Output guard failed to reject deterministic post-initial or post-warmup drift.");
+        }
     }
 
     internal static string Hash(object value) => Convert.ToHexString(SHA256.HashData(
@@ -124,6 +187,13 @@ internal static class PERF008Harness
         page.Offset, page.PageSize, page.TotalVisibleValueCount, page.IsSourceTruncated,
         values = page.Values.Select(item => new { item.DisplayText, item.IsSelected }).ToArray(),
     };
+
+    private static object CurrentFilterEvidence(SpreadsheetAutoFilterPagedView view)
+    {
+        var snapshot = view.Capture();
+        var page = view.GetPageAsync(0).GetAwaiter().GetResult();
+        return new { snapshot.SearchText, snapshot.IsInitialized, snapshot.LoadedItemCount, page = PageEvidence(page) };
+    }
 
     private static SpreadsheetAutoFilterPagedView NewView(FilterFixture fixture) => new(
         SpreadsheetAutoFilterPagedSessionFactory.Create(fixture.Session, fixture.Target), pageSize: 100);
@@ -145,5 +215,5 @@ internal static class PERF008Harness
     private sealed record FilterFixture(SpreadsheetSession Session, SpreadsheetAutoFilterTarget Target);
     private sealed record Measurement(string Name, int Operations, int Warmup, long ElapsedTicks, long AllocatedBytes,
         double MicrosecondsPerOperation, double BytesPerOperation, int Gen0, int Gen1, int Gen2,
-        string InputHash, string OutputHash, JsonElement Input, JsonElement Output);
+        string InputHash, string OutputHash, string OutputBeforeHash, JsonElement Input, JsonElement Output);
 }

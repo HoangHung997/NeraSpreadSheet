@@ -34,6 +34,17 @@ raw ticks, số operations, bytes process-wide, GC counts và input/output snaps
 JSON + SHA-256 được upload kể cả run FAIL/INCONCLUSIVE. Process allocations bao
 gồm Task.Run của filter; không gắn nhãn thread allocation cho async work.
 
+Output guard dùng factory đọc actual result trước warmup và **sau batch**;
+capture/hash ngoài stopwatch/allocation/GC counter windows, không hash từng
+iteration. `OutputBeforeHash` phải bằng actual post-batch `OutputHash`. Ribbon,
+completion và cache giữ last result trả từ operation thật; Table/search đọc
+state của chính fixture đã đo. Filter-open giữ last initialized view để capture
+sau batch, mỗi iteration dispose view trước rồi mở view tiếp; final view chỉ
+dispose sau kiểm hash. Không tạo replacement fixture để trả expected output.
+Hai negative self-tests gây drift sau initial sample và sau warmup phải reject;
+analyzer reject thiếu guard marker hoặc pre/post hash mismatch. Correction này
+giữ timing counts/policy v3; raw cũ chưa chứng minh post-batch output stability.
+
 | Workload | Kích thước; operations/warmup mỗi process |
 | --- | --- |
 | Ribbon packing/collapse | Fixture gốc 9 tabs × 8 groups × 10 commands; widths 1536/1280/1024/820, scale 1; 128/32 |
@@ -76,6 +87,11 @@ dưới đây là chính sách quyết định, không phải số đo hiệu n�
    Fingerprint khác là workload/correctness mismatch, không tự chấp nhận vì nhanh.
 6. Không ghi đè frozen budget. Lưu nguyên run nếu nhiễu; rerun đầy đủ, nêu tất cả
    kết quả. Đổi phương pháp cần decision và baseline mới trước đo candidate mới.
+
+Sau correctness correction, nếu HEAD mới INCONCLUSIVE mặc dù guard/tests đúng,
+coordinator cho tối đa **một** full exact-HEAD retest trên hosted runner mới,
+không đổi code/counts/policy giữa attempts và giữ raw riêng. Nếu vẫn noisy,
+P1/P3 acceptance OPEN, cần controlled runner; không rerun đến khi xanh.
 
 Workflow thất bại nếu regression, inconclusive hoặc correctness gate đỏ. Pass
 chỉ chứng minh giới hạn workload/môi trường của report. CI full/iOS/Q003C vẫn
