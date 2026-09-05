@@ -1396,4 +1396,13 @@ Chọn một mục bên phải để đổi hiển thị hoặc kích thước.<
   <data name="Cuộn dọc trang tính" xml:space="preserve">
     <value>Cuộn dọc trang tính</value>
   </data>
+  <data name="Thanh công thức" xml:space="preserve"><value>Thanh công thức</value></data>
+  <data name="Enter: xác nhận · Alt+Enter: xuống dòng · Esc: hủy · Tab/F2: sửa trong ô" xml:space="preserve"><value>Enter: xác nhận · Alt+Enter: xuống dòng · Esc: hủy · Tab/F2: sửa trong ô</value></data>
+  <data name="Xác nhận công thức" xml:space="preserve"><value>Xác nhận công thức</value></data>
+  <data name="Hủy chỉnh sửa công thức" xml:space="preserve"><value>Hủy chỉnh sửa công thức</value></data>
+  <data name="Sửa trong ô và chọn gợi ý (F2)" xml:space="preserve"><value>Sửa trong ô và chọn gợi ý (F2)</value></data>
+  <data name="Trợ giúp công thức đang nhập" xml:space="preserve"><value>Trợ giúp công thức đang nhập</value></data>
+  <data name="Nội dung chưa hợp lệ. Kiểm tra lại ô đang sửa." xml:space="preserve"><value>Nội dung chưa hợp lệ. Kiểm tra lại ô đang sửa.</value></data>
+  <data name="Đặt con trỏ trong lời gọi hàm đang nhập để xem trợ giúp đối số." xml:space="preserve"><value>Đặt con trỏ trong lời gọi hàm đang nhập để xem trợ giúp đối số.</value></data>
+  <data name="Đối số {0}: {1} — {2}" xml:space="preserve"><value>Đối số {0}: {1} — {2}</value></data>
 </root>

@@ -83,10 +83,10 @@ public sealed partial class RibbonPreviewWindow
             if (_session.TryResolveActiveAutoFilterTarget(out var target)) _session.Sort.ReapplyAutoFilter(target);
         }, () => new CommandState(_session.TryResolveActiveAutoFilterTarget(out _)));
         Add("Sample.FormulaHelp", "Trợ giúp hàm", "formula.insert", _ => ShowFormulaHelp());
-        Add("Sample.FormulaSum", "Chèn hàm SUM", "formula.autosum", _ => _sheet.BeginEdit("=SUM("));
-        Add("Sample.FormulaAverage", "Chèn AVERAGE", "formula.statistical", _ => _sheet.BeginEdit("=AVERAGE("));
-        Add("Sample.FormulaIf", "Chèn hàm IF", "formula.logical", _ => _sheet.BeginEdit("=IF("));
-        Add("Sample.FormulaLookup", "Chèn XLOOKUP", "formula.lookup", _ => _sheet.BeginEdit("=XLOOKUP("));
+        Add("Sample.FormulaSum", "Chèn hàm SUM", "formula.autosum", _ => StartFormulaTemplate("=SUM("));
+        Add("Sample.FormulaAverage", "Chèn AVERAGE", "formula.statistical", _ => StartFormulaTemplate("=AVERAGE("));
+        Add("Sample.FormulaIf", "Chèn hàm IF", "formula.logical", _ => StartFormulaTemplate("=IF("));
+        Add("Sample.FormulaLookup", "Chèn XLOOKUP", "formula.lookup", _ => StartFormulaTemplate("=XLOOKUP("));
         Add("Sample.Orientation", "Hướng giấy", "page.orientation", value => SetPageSetup(setup => setup with
             { Orientation = value == "landscape" ? SpreadsheetPageOrientation.Landscape : SpreadsheetPageOrientation.Portrait }),
             () => new CommandState(true, null, null, _session.ActiveWorksheet.GetPrintSettings().PageSetup.Orientation == SpreadsheetPageOrientation.Landscape ? "landscape" : "portrait",
@@ -151,12 +151,7 @@ public sealed partial class RibbonPreviewWindow
             Content = new NeraPrintPreviewControl { Session = new SpreadsheetPrintPreviewSession(snapshot, plan, _session.Workbook.Styles) } }.Show();
     }
 
-    private void ShowFormulaHelp()
-    {
-        var help = _session.FormulaEditing.GetFunctionHelp("=SUM(", 5)?.Function;
-        MessageBox.Show(this, help is null ? "Nhập dấu = trong ô để mở gợi ý hàm và đối số." :
-            $"{help.Signature}\n\n{help.Description}\n\n{string.Join(Environment.NewLine, help.Arguments.Select(argument => $"{argument.Name}: {argument.Description}"))}", "Trợ giúp công thức");
-    }
+    private void ShowFormulaHelp() => ShowFormulaBarHelp();
     private void ShowStatistics() => MessageBox.Show(this,
         $"Trang tính: {_session.Workbook.Worksheets.Count}\nÔ có dữ liệu: {_session.ActiveWorksheet.EnumerateUsedCells().Count()}\nBảng: {_session.ActiveWorksheet.Tables.Count}", "Thống kê workbook");
     private void ShowCellErrors() => MessageBox.Show(this,

@@ -34,7 +34,7 @@ của host như app mẫu. Chúng không tự được thêm vào app chỉ vì 
 | Font/màu/căn chỉnh (10) | `Sample.Font`, `FontSize`, `Underline`, `Fill`, `FontColor`, `Align.Left/Center/Right`, `Wrap`, `Borders`: thay style của selection; Borders hiện chỉ viền mảnh bốn cạnh, không phải hộp Format Cells đầy đủ |
 | Số (3) | `Sample.Number`, `Percent`, `Decimal`: Number có General, số nguyên, hai số thập phân, phần trăm, `dd/mm/yyyy`; Decimal đặt hai số thập phân, không tăng từng bậc |
 | Bộ lọc (3) | `Sample.Filter`, `FilterClear`, `FilterReapply`: mở presenter SDK hoặc gọi Table/worksheet filter thật; cần target hợp lệ |
-| Công thức (5) | `Sample.FormulaHelp`, `FormulaSum`, `FormulaAverage`, `FormulaIf`, `FormulaLookup`: Help hiện mở hướng dẫn SUM; bốn nút còn lại bắt đầu draft trong editor, không tự suy vùng dữ liệu như AutoSum Excel |
+| Công thức (5) | `Sample.FormulaHelp`, `FormulaSum`, `FormulaAverage`, `FormulaIf`, `FormulaLookup`: Help theo hàm/đối số tại con trỏ của draft; bốn nút thay prefix trên draft đang có, giữ ô đích và phiên sửa, hoặc bắt đầu một draft nếu chưa sửa; không tự suy vùng dữ liệu như AutoSum Excel |
 | In (6) | `Sample.Orientation`, `Paper`, `Margins`, `PrintGrid`, `PrintHeadings`, `PrintPreview`: demo có A4/A3, lề thường/hẹp; preview dùng print area nếu có, nếu chưa đặt thì fallback **A1:E33**, chưa phải tự chọn toàn used range hoặc hộp thoại in máy in |
 | Kiểm tra (2) | `Sample.Statistics`, `Errors`: thống kê sheet đang active và tối đa 100 ô lỗi; không phải kiểm định toàn workbook hoặc formula auditing Excel |
 | Hiển thị (4) | `Sample.Gridlines`, `Headers`, `Zoom`, `ZoomReset`: thay presentation của host, không thêm workbook Undo |
@@ -42,6 +42,20 @@ của host như app mẫu. Chúng không tự được thêm vào app chỉ vì 
 
 Tên viết rút gọn trong bảng vẫn có tiền tố `Sample.`. Ví dụ `FontSize` là
 `Sample.FontSize`; `Align.Left/Center/Right` là ba định danh riêng.
+
+## Thanh công thức
+
+Thanh công thức sửa cùng bản nháp với editor trong ô, hỗ trợ nhiều dòng và cả
+split view. Enter xác nhận rồi đi xuống; Alt+Enter xuống dòng; Esc hủy. Nếu dữ
+liệu không qua validation, giữ nội dung, vùng chọn và focus để sửa tiếp. Chuyển
+focus giữa bar, Ribbon và ô không tự commit. Ctrl+Z/Y/C/X/V khi focus bar dùng
+undo/clipboard văn bản; workbook Undo chỉ ghi khi commit thành công.
+
+Tab/F2 đưa focus về editor trong ô để dùng gợi ý hàm; Tab tại editor nhận gợi ý
+theo SDK. Bar chưa tự nhận completion hoặc chuyển toàn text-undo/direction giữa
+hai control. Địa chỉ trên bar là ô đang sửa dù point-mode đang trỏ sang ô khác.
+Help mở popup tại công thức hiện tại, không lấy SUM làm ví dụ cố định.
+[Contract](../release-009-formula-bar-contract.md) ghi scope và cổng kiểm chứng.
 
 ## Vì sao có lệnh bị ẩn hoặc không bấm được?
 
@@ -69,7 +83,7 @@ Chỉ được gọi các test này là PASS khi CI tại đúng source của ar
 mọi nút; Table dialogs/gallery/filter có các native regression riêng.
 
 R1 vẫn mở cho walkthrough toàn surface, lý do disabled và các kết nối tới
-active split editor/filter. R2 còn editable formula bar, worksheet scrollbars,
+active split editor/filter. Thanh công thức theo contract riêng ở trên; R2 còn worksheet scrollbars,
 loaded split và hoàn thiện đóng gói tại source kết hợp. Bản thân preview chưa
 có nút thêm/đổi tên/xóa sheet, toàn bộ Format Cells hoặc mọi public API SDK.
 Không coi icon/caption, registered handler, source build hoặc ảnh capture là
