@@ -1,6 +1,18 @@
 # NeraSpreadSheet current implementation status
 
-## RIBBON-VISUAL-011 — IMPLEMENTATION VALIDATED
+## RIBBON-VISUAL-011 — INTEGRATED, IMPLEMENTATION VALIDATED
+
+Ngày 05/09/2026, nhánh `feature/bootstrap-architecture-v0.1` đã nhận nguyên
+chín commit của lane bằng fast-forward đến
+`7cfcfdfc6f337da1b37ca05b9254b903a33f32d2`, không conflict. Tại đúng SHA
+này, full CI **#1324 / 33945704736**, iOS **#145 / 33945705984** và
+Q003C **#142 / 33945707221** đều success. Kiểm tra lại trên checkout tích hợp:
+Core **1386/1386**, MAUI **41/41**, Windows **74/75** (duy nhất hạn chế
+foreground cũ), build 0/0, architecture/packaging pass, **18 nupkg**, runtime
+capture **176 ảnh / 128 snapshots**. Commit đồng bộ tài liệu cũng phải qua
+ba cổng ở đúng HEAD cuối trước khi bàn giao. `TABLE-005` vẫn ở nhánh riêng;
+PR #1 giữ Draft/unmerged. Xem
+[hồ sơ tích hợp](worklog/RIBBON_VISUAL_INTEGRATION_20260905.md).
 
 Branch `feature/ribbon-visual-011` triển khai dense layout ba hàng dùng chung
 cho WPF/WinForms/MAUI, caption nhóm ở đáy, bốn palette, icon QAT, Backstage

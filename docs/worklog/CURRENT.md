@@ -1,6 +1,35 @@
 # Current Work Handoff
 
-## CI-validated isolated implementation — RIBBON-VISUAL-011
+## Current integration — RIBBON-VISUAL-011
+
+- Branch hiện tại: `feature/bootstrap-architecture-v0.1`; PR #1 vẫn
+  **Draft, open, unmerged**, base `develop`.
+- Đã tích hợp fast-forward đúng chín commit từ `feature/ribbon-visual-011`,
+  từ `284ccb76e5f69e170356ffc66915dd6e290b68fb` đến
+  `7cfcfdfc6f337da1b37ca05b9254b903a33f32d2`; không conflict, không đổi SHA
+  hoặc viết lại production code. Nhánh `TABLE-005` chưa được tích hợp.
+- Exact-head implementation checkpoint đã kiểm tra trực tiếp trên GitHub:
+  **full CI #1324 / 33945704736, iOS #145 / 33945705984,
+  Q003C #142 / 33945707221 đều success** tại `7cfcfdfc`.
+- Kiểm tra lại trên checkout tích hợp: full solution và WPF preview build
+  **0 warning / 0 error**; Core **1386/1386**, MAUI **41/41**,
+  Windows **74/75**. Test duy nhất đỏ dừng tại `window.Activate()` trước khi
+  chạy SDK behavior, khớp giới hạn foreground đã có; không bỏ hoặc nới test.
+- Architecture và SDK packaging verifier **pass**; pack tạo **18 nupkg**;
+  runtime capture **176 ảnh / 128 native layout snapshots**, status success.
+- Giới hạn: Table Style trong preview chỉ xem trước; nối callback vào handler
+  của TABLE-005 khi tích hợp lane đó. Ma trận raster chưa thay thế kiểm tra
+  physical multi-monitor DPI. Không cập nhật app demo đóng gói ngoài repository.
+- Hồ sơ tích hợp, file trọng tâm và rollback:
+  [`RIBBON_VISUAL_INTEGRATION_20260905.md`](RIBBON_VISUAL_INTEGRATION_20260905.md).
+- Commit đồng bộ tài liệu sau checkpoint trên vẫn phải qua đủ ba workflow tại
+  chính HEAD cuối; kiểm tra bằng `git rev-parse HEAD` và `head_sha` của run.
+  Kết quả bàn giao cuối được ghi trên PR #1, không dùng run của commit cha.
+- Bước tiếp theo duy nhất sau khi HEAD cuối xanh: đọc và review handoff của
+  `TABLE-005 — Contextual Table Design` trước khi tích hợp, giữ nguyên command
+  identities/handlers và gắn gallery preview vào cùng đường dispatch.
+
+## Historical isolated implementation — RIBBON-VISUAL-011
 
 - Branch hiện tại: `feature/ribbon-visual-011`; base SHA:
   `284ccb76e5f69e170356ffc66915dd6e290b68fb`.
@@ -351,7 +380,7 @@ For `RIBBON-ICONOGRAPHY-006` local validation:
 - GitHub `sdk-packages` artifact: `9935206623`, digest
   `sha256:5f852ced9c8c5fe5a12862c06f82eb42201cd3bd3df5d34dbc80408a3f91a8d1`.
 
-## Next step
+## Historical next step before Ribbon visual integration
 
 Monitor the isolated `TABLE-005 — Contextual Table Design` worktree. Review its
 pushed handoff, integrate only its approved commit chain, then require full CI,

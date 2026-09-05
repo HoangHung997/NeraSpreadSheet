@@ -23,12 +23,13 @@ Task owners write their own `docs/worklog/<CHECKPOINT>.md` handoff.
 | 6 | `FILTER-007` | B | `DONE` | Codex task `FILTER-007 Sort Reapply Accessibility` (`client-new-thread:15e93970-66ea-4bdc-b34d-5e143f3c7c1c`) | `feature/filter-007-sort-accessibility` | `FILTER-006` | integrated/green 05/09 |
 | 7 | `RIBBON-010` | A | `DONE` | Codex task `RIBBON-010 Customization SDK` (`client-new-thread:5d0abfeb-94ff-4b03-ab7a-3bd7236347bb`) | `feature/ribbon-010-customization` | `RIBBON-009` | integrated/green 05/09 |
 | 8 | `TABLE-004` | B | `DONE` | Codex task `TABLE-004 Table Style Engine` (`client-new-thread:9d15985f-554c-49df-be81-30fc4ebc2ef4`) | `feature/table-004-style-engine` | `FILTER-007` | integrated/green 05/09 |
-| 9 | `TABLE-005` | B | `ACTIVE` | Codex task `TABLE-005 — Contextual Table Design` (`client-new-thread:c583141a-9f25-498d-9820-db20707d0f05`, `thinking: high`) | `feature/table-005-contextual-design` | `TABLE-004`; integration waits for `RIBBON-009` | started early 05/09 |
-| 10 | `TABLE-006` | B | `BACKLOG` | Unclaimed | `feature/table-006-compat-hardening` | `TABLE-005` | 07–09/10 |
-| 11 | `UX-006` | Integration | `BACKLOG` | Integration owner | `feature/ux-006-visual-localization` | both lanes | 12–15/10 |
-| 12 | `UX-007` | Integration | `BACKLOG` | Integration owner | `feature/ux-007-keyboard-a11y` | `UX-006` | 16–21/10 |
-| 13 | `PERF-008` | Integration | `BACKLOG` | Integration owner | `feature/perf-008-ribbon-filter` | `UX-007` | 22–26/10 |
-| 14 | `RELEASE-009` | Integration | `BACKLOG` | Integration owner | `release/0.2.0-rc1` | `PERF-008` | 27–28/10 |
+| 9 | `RIBBON-VISUAL-011` | A | `DONE` | Codex task `RIBBON-VISUAL-011 — Excel-density adaptive layout` | `feature/ribbon-visual-011` | `RIBBON-010` | integrated/green implementation 05/09 |
+| 10 | `TABLE-005` | B | `ACTIVE` | Codex task `TABLE-005 — Contextual Table Design` (`client-new-thread:c583141a-9f25-498d-9820-db20707d0f05`, `thinking: high`) | `feature/table-005-contextual-design` | `TABLE-004`; integration waits for `RIBBON-009` | started early 05/09 |
+| 11 | `TABLE-006` | B | `BACKLOG` | Unclaimed | `feature/table-006-compat-hardening` | `TABLE-005` | 07–09/10 |
+| 12 | `UX-006` | Integration | `BACKLOG` | Integration owner | `feature/ux-006-visual-localization` | both lanes | 12–15/10 |
+| 13 | `UX-007` | Integration | `BACKLOG` | Integration owner | `feature/ux-007-keyboard-a11y` | `UX-006` | 16–21/10 |
+| 14 | `PERF-008` | Integration | `BACKLOG` | Integration owner | `feature/perf-008-ribbon-filter` | `UX-007` | 22–26/10 |
+| 15 | `RELEASE-009` | Integration | `BACKLOG` | Integration owner | `release/0.2.0-rc1` | `PERF-008` | 27–28/10 |
 
 ## Claim protocol
 
@@ -62,6 +63,7 @@ waits.
 | `FILTER-007` | `6510923` + `a6eddd96ab4f61b46bee243c74b9defb3c2eacf1` + `022cfd8f0a63f02377d3365e91c54e0ae52a4de2` | `f75e2f103598cbbe7b5c22f92c3ab8dd755ef8c3` | full #1312; iOS #133; Q003C #130 | Green |
 | `RIBBON-010` | `eb08b0f95176b1a23e01ccf0b09a112bdc562dac` + `9aeed672cea94db3d4c2d0ecb4a4f55a85e1dbaf` | `57a8c0c0fe8eb452bcb054432d2d37b9e9807e73` | full #1318; iOS #139; Q003C #136 | Green |
 | `TABLE-004` | `3a459320ef7192f5843dcd6d3bfb0a56ae7698ea` + `cffdc9d8f05c50dafc7a875910d2f0c6b4851416` + `ed01ed6b1243ea41490dc4ac3b4d38411dcc0892` | `57a8c0c0fe8eb452bcb054432d2d37b9e9807e73` | full #1318; iOS #139; Q003C #136 | Green |
+| `RIBBON-VISUAL-011` | nine-commit lane ending at `7cfcfdfc6f337da1b37ca05b9254b903a33f32d2` | `7cfcfdfc6f337da1b37ca05b9254b903a33f32d2` (fast-forward) | full #1324; iOS #145; Q003C #142 | Green; documentation descendant requires exact-head gates |
 
 Append one row only after exact-head CI completes. Never mark a checkpoint
 `DONE` using a green run from a parent commit.
@@ -92,3 +94,9 @@ Append one row only after exact-head CI completes. Never mark a checkpoint
   `57a8c0c0fe8eb452bcb054432d2d37b9e9807e73` passed full CI #1318, iOS #139
   and Q003C/OpenXML #136. The next dependency-valid checkpoint, `TABLE-005`,
   was immediately dispatched from that exact green branch with high reasoning.
+- 05/09/2026: `RIBBON-VISUAL-011` was reviewed and fast-forwarded without
+  conflict, preserving all nine commit identities. Local integration validation
+  passed Core 1386/1386, MAUI 41/41, architecture/packaging and the 176-image /
+  128-layout runtime capture. Windows local 74/75 retains the baseline
+  foreground-activation limitation; exact-head Windows CI at `7cfcfdfc` passes
+  75/75. TABLE-005 remains isolated and no successor task was dispatched.
