@@ -315,7 +315,10 @@ internal static class OpenXmlTableCodec
                 style,
                 "showColumnStripes",
                 false),
-            autoFilter);
+            autoFilter,
+            showFilterButtons: ReadFilterButtonVisibility(
+                root,
+                columns.Length));
     }
 
     private static TableAutoFilter? ReadAutoFilter(
@@ -383,6 +386,11 @@ internal static class OpenXmlTableCodec
             {
                 throw new InvalidDataException(
                     "An AutoFilter column index is invalid or duplicated.");
+            }
+            if (!filterColumn.Elements().Any(element =>
+                    element.Name != SpreadsheetNamespace + "extLst"))
+            {
+                continue;
             }
             try
             {
@@ -473,7 +481,7 @@ internal static class OpenXmlTableCodec
             new XAttribute("totalsRowCount", table.HasTotalsRow ? 1 : 0),
             new XAttribute("totalsRowShown", table.HasTotalsRow ? 1 : 0));
 
-        if (table.AutoFilter is { })
+        if (table.ShowFilterButtons || table.AutoFilter is { })
         {
             root.Add(BuildAutoFilter(table, worksheet, exportPlan));
         }
@@ -542,26 +550,62 @@ internal static class OpenXmlTableCodec
                 ToA1Range(new CellRange(
                     table.Range.TopLeft,
                     new CellAddress(bottom, table.Range.Right)))));
-        foreach (var filter in table.AutoFilter!.Columns)
+        var filters = (table.AutoFilter?.Columns ?? [])
+            .ToDictionary(filter => table.GetColumnIndex(filter.ColumnId));
+        var columnIndexes = table.ShowFilterButtons
+            ? filters.Keys.Order().ToArray()
+            : Enumerable.Range(0, table.Columns.Count).ToArray();
+        foreach (var columnIndex in columnIndexes)
         {
-            var columnIndex = table.GetColumnIndex(filter.ColumnId);
             var filterColumn = new XElement(
                 SpreadsheetNamespace + "filterColumn",
                 new XAttribute("colId", columnIndex));
-            filterColumn.Add(OpenXmlAutoFilterCriteriaCodec.Build(
-                filter,
-                color => exportPlan.GetColorStyleId(worksheet, color)));
+            if (!table.ShowFilterButtons)
+            {
+                filterColumn.SetAttributeValue("showButton", 0);
+            }
+            if (filters.TryGetValue(columnIndex, out var filter))
+            {
+                filterColumn.Add(OpenXmlAutoFilterCriteriaCodec.Build(
+                    filter,
+                    color => exportPlan.GetColorStyleId(worksheet, color)));
+            }
             element.Add(filterColumn);
         }
         var dataRange = table.DataRange ?? new CellRange(
             new CellAddress(table.Range.Top, table.Range.Left),
             new CellAddress(bottom, table.Range.Right));
         var sortState = OpenXmlAutoFilterCriteriaCodec.BuildSortState(
-            table.AutoFilter.SortState,
+            table.AutoFilter?.SortState,
             dataRange,
             color => exportPlan.GetColorStyleId(worksheet, color));
         if (sortState is not null) element.Add(sortState);
         return element;
+    }
+
+    private static bool ReadFilterButtonVisibility(
+        XElement tableRoot,
+        int columnCount)
+    {
+        var autoFilter = tableRoot.Element(
+            SpreadsheetNamespace + "autoFilter");
+        if (autoFilter is null)
+        {
+            return false;
+        }
+        var hiddenColumns = autoFilter.Elements(
+                SpreadsheetNamespace + "filterColumn")
+            .Where(column =>
+                !ReadBooleanAttribute(column, "showButton", true) ||
+                ReadBooleanAttribute(column, "hiddenButton", false))
+            .Select(column => ReadUIntAttribute(
+                column,
+                "colId",
+                uint.MaxValue))
+            .Where(index => index < columnCount)
+            .Distinct()
+            .Count();
+        return hiddenColumns < columnCount;
     }
 
     private static SpreadsheetColorFilter ResolveColor(

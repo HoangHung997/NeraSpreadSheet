@@ -6,6 +6,25 @@ namespace NeraSpreadSheet.Core.Tests;
 public sealed class SpreadsheetTableCoreTests
 {
     [TestMethod]
+    public void FilterButtonVisibilityShouldSurviveImmutableTableCopies()
+    {
+        var table = new SpreadsheetTable(
+            Guid.NewGuid(),
+            "Sales",
+            new CellRange(default, new CellAddress(2, 0)),
+            [new SpreadsheetTableColumn(Guid.NewGuid(), "Item")],
+            showFilterButtons: false);
+
+        var copy = table.Copy();
+        var renamed = table.Rename("Revenue");
+        var filtered = table.WithAutoFilter(new TableAutoFilter([]));
+
+        Assert.IsFalse(copy.ShowFilterButtons);
+        Assert.IsFalse(renamed.ShowFilterButtons);
+        Assert.IsFalse(filtered.ShowFilterButtons);
+    }
+
+    [TestMethod]
     public void WorkbookRejectsDuplicateAndOverlappingTables()
     {
         var workbook = new Workbook();

@@ -10,6 +10,40 @@ namespace NeraSpreadSheet.Viewport.Tests;
 public sealed class SpreadsheetViewportEngineTests
 {
     [TestMethod]
+    public void TableResizeShouldRefreshAdaptiveExtentWithoutMaterializingCells()
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        var table = new SpreadsheetTable(
+            Guid.NewGuid(),
+            "Sales",
+            new CellRange(default, new CellAddress(100, 0)),
+            [new SpreadsheetTableColumn(Guid.NewGuid(), "Item")]);
+        worksheet.AddTable(table);
+        var session = new SpreadsheetSession(workbook);
+        var engine = new SpreadsheetViewportEngine(session);
+        var before = engine.GetAdaptiveNavigationExtent(
+            default,
+            default,
+            default,
+            trailingRowCount: 0,
+            trailingColumnCount: 0);
+
+        session.Tables.Resize(
+            table.Id,
+            new CellRange(default, new CellAddress(3, 0)));
+        var after = engine.GetAdaptiveNavigationExtent(
+            default,
+            default,
+            default,
+            trailingRowCount: 0,
+            trailingColumnCount: 0);
+
+        Assert.IsGreaterThan(after.Height, before.Height);
+        Assert.AreEqual(0, worksheet.UsedCellCount);
+    }
+
+    [TestMethod]
     public void ComposePreservesFractionalPixelOffset()
     {
         var workbook = new Workbook();

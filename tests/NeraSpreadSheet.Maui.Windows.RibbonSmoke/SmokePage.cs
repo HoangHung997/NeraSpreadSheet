@@ -2,6 +2,8 @@ using System.Text.Json;
 using Microsoft.Maui.Controls;
 using NeraSpreadSheet.Bars.Core;
 using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Maui;
 using NeraSpreadSheet.Ribbon.Core;
 
@@ -70,6 +72,14 @@ internal sealed class SmokePage : ContentPage
             var ribbonRuntime = new RibbonRuntimeController(
                 CreateRibbonDefinition(),
                 registry);
+            var tableWorkbook = new Workbook();
+            tableWorkbook.Worksheets[0].AddTable(new SpreadsheetTable(
+                Guid.NewGuid(),
+                "Sales",
+                new CellRange(default, new CellAddress(2, 0)),
+                [new SpreadsheetTableColumn(Guid.NewGuid(), "Item")]));
+            var tableSession = new SpreadsheetSession(tableWorkbook);
+            tableSession.Selection.SetActiveCell(new CellAddress(4, 4));
             var barRuntime = new BarRuntimeController(
                 CreateBarDefinition(),
                 registry);
@@ -180,6 +190,7 @@ internal sealed class SmokePage : ContentPage
                 HorizontalOptions = LayoutOptions.Start,
             };
             using var ribbonShortcut = ribbon.BindShortcuts(ribbonShortcutSource);
+            using var tableDesignBinding = ribbon.BindTableDesign(tableSession);
             using var barShortcut = bar.BindShortcuts(barShortcutSource);
             var focusOrigin = new Button
             {
@@ -203,10 +214,16 @@ internal sealed class SmokePage : ContentPage
             Require(ribbon.LayoutSnapshot.SelectedTabId == "view" &&
                     ribbon.LayoutSnapshot.Tabs.Count == 1,
                 "The MAUI Ribbon did not consume the shared responsive layout snapshot.");
-            ribbonRuntime.SetSelectionContext(new RibbonSelectionContext(true, true));
+            tableSession.Selection.SetActiveCell(new CellAddress(1, 0));
             await Task.Delay(100).ConfigureAwait(true);
             Require(ribbon.LayoutSnapshot.Tabs.Count == 2,
                 "The MAUI contextual Table Design tab did not follow table selection state.");
+            tableSession.Selection.SetActiveCell(new CellAddress(4, 4));
+            await Task.Delay(100).ConfigureAwait(true);
+            Require(ribbon.LayoutSnapshot.Tabs.Count == 1,
+                "The MAUI contextual Table Design tab did not hide outside the Table.");
+            tableSession.Selection.SetActiveCell(new CellAddress(1, 0));
+            await Task.Delay(100).ConfigureAwait(true);
             Require(((Grid)ribbon.Content).Children.OfType<HorizontalStackLayout>()
                     .SelectMany(static layout => layout.Children.OfType<Button>())
                     .Any(static button => button.AutomationId == "ribbon-qat-view.gridlines"),
@@ -477,6 +494,7 @@ internal sealed class SmokePage : ContentPage
             overflow = "bounded-scroll",
             complexItems = "all-kinds-selection",
             visualLayout = "packed-rows-bottom-captions-1536-1280-1024-820-dpi100-125-150-200",
+            tableDesign = "selection-context-binding",
         });
         Environment.Exit(0);
     }

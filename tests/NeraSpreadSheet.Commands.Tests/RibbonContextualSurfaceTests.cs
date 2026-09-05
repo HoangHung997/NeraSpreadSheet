@@ -256,7 +256,9 @@ public sealed class RibbonContextualSurfaceTests
     public void ProductionCatalogShouldContainEveryRegisteredSessionCapabilityOnce()
     {
         Assert.IsGreaterThan(0, RibbonProductionCommandCatalog.CommandIds.Count);
-        Assert.AreEqual(30, RibbonProductionCommandCatalog.CommandIds.Distinct().Count());
+        Assert.AreEqual(
+            RibbonProductionCommandCatalog.CommandIds.Count,
+            RibbonProductionCommandCatalog.CommandIds.Distinct().Count());
         var session = new SpreadsheetSession(new Workbook());
 
         RibbonCommandCatalogAudit.ValidateExact(

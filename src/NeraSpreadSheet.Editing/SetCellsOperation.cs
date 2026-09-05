@@ -16,6 +16,11 @@ internal interface IIncrementalCalculationOperation
 {
 }
 
+internal interface IDependencyGraphRebuildOperation
+    : IIncrementalCalculationOperation
+{
+}
+
 public sealed class SetCellsOperation : ISpreadsheetEditOperation
 {
     private readonly KeyValuePair<CellAddress, CellData>[] _updates;

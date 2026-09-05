@@ -19,7 +19,13 @@ public static class RibbonProductionCommandCatalog
         "Structure.Column.Hide", "Structure.Column.Unhide",
         "View.FreezePanes", "View.UnfreezePanes", "View.Split.Undo", "View.Split.Redo",
         "Insert.Chart.Column", "Insert.Chart.Bar", "Insert.Chart.Line",
-        "Insert.Chart.Pie", "Insert.Pivot.Sum",
+        "Insert.Chart.Pie", "Insert.Pivot.Sum", "Table.Create", "Table.Rename",
+        "Table.Resize", "Table.HeaderRow", "Table.TotalsRow", "Table.FirstColumn",
+        "Table.LastColumn", "Table.BandedRows", "Table.BandedColumns",
+        "Table.FilterButtons", "Table.Style", "Table.CalculatedColumn",
+        "Table.TotalsFunction", "Table.Row.Insert", "Table.Row.Delete",
+        "Table.Column.Insert", "Table.Column.Delete", "Table.RemoveDuplicates",
+        "Table.ConvertToRange",
     ]);
 
     /// <summary>Creates the complete built-in command placement used for audit and host bootstrap.</summary>
@@ -32,7 +38,7 @@ public static class RibbonProductionCommandCatalog
                 "Cell.Merge", "Cell.Unmerge"),
             CreateTab("insert", "Chèn", "analytics", "Phân tích",
                 "Insert.Chart.Column", "Insert.Chart.Bar", "Insert.Chart.Line",
-                "Insert.Chart.Pie", "Insert.Pivot.Sum"),
+                "Insert.Chart.Pie", "Insert.Pivot.Sum", "Table.Create"),
             CreateTab("data", "Dữ liệu", "data-tools", "Công cụ dữ liệu",
                 "Data.SortAscending", "Data.SortDescending", "Formula.RecalculateWorkbook"),
             CreateTab("structure", "Cấu trúc", "axes", "Hàng và cột",
@@ -42,7 +48,36 @@ public static class RibbonProductionCommandCatalog
             CreateTab("view", "Xem", "window", "Cửa sổ",
                 "View.FreezePanes", "View.UnfreezePanes", "View.Split.Undo",
                 "View.Split.Redo"),
-            new RibbonTabDefinition("table-design", "Thiết kế Bảng", []),
+            new RibbonTabDefinition("table-design", "Thiết kế Bảng", [
+                new RibbonGroupDefinition("table-properties", "Thuộc tính", [
+                    Large("Table.Rename"),
+                    Item("Table.Resize"),
+                    Item("Table.ConvertToRange")]),
+                new RibbonGroupDefinition("table-options", "Tùy chọn kiểu Bảng", [
+                    Toggle("Table.HeaderRow"),
+                    Toggle("Table.TotalsRow"),
+                    Toggle("Table.FirstColumn"),
+                    Toggle("Table.LastColumn"),
+                    Toggle("Table.BandedRows"),
+                    Toggle("Table.BandedColumns"),
+                    Toggle("Table.FilterButtons")]),
+                new RibbonGroupDefinition("table-styles", "Kiểu Bảng", [
+                    new RibbonItemDefinition(
+                        "Table.Style",
+                        RibbonItemKind.Gallery,
+                        isLarge: true)]),
+                new RibbonGroupDefinition("table-formulas", "Công thức", [
+                    Item("Table.CalculatedColumn"),
+                    new RibbonItemDefinition(
+                        "Table.TotalsFunction",
+                        RibbonItemKind.ComboBox)]),
+                new RibbonGroupDefinition("table-structure", "Hàng và cột", [
+                    Item("Table.Row.Insert"),
+                    Item("Table.Row.Delete"),
+                    Item("Table.Column.Insert"),
+                    Item("Table.Column.Delete"),
+                    Item("Table.RemoveDuplicates")]),
+            ]),
         ],
         [new RibbonContextualTabRule("table-design", RibbonContextRequirement.Table, "TB")],
         [
@@ -64,4 +99,13 @@ public static class RibbonProductionCommandCatalog
             commandIds.Select(static commandId => new RibbonItemDefinition(commandId,
                 IsLarge: commandId is "Edit.Paste" or "Insert.Chart.Column" or "Insert.Pivot.Sum" or
                     "Formula.RecalculateWorkbook" or "View.FreezePanes"))) ]);
+
+    private static RibbonItemDefinition Item(string commandId) =>
+        new(commandId, RibbonItemKind.Button);
+
+    private static RibbonItemDefinition Large(string commandId) =>
+        new(commandId, RibbonItemKind.Button, isLarge: true);
+
+    private static RibbonItemDefinition Toggle(string commandId) =>
+        new(commandId, RibbonItemKind.Toggle);
 }
