@@ -8,12 +8,12 @@ namespace NeraSpreadSheet.Maui.Windows.RibbonSmoke;
 
 internal sealed partial class SmokePage
 {
-    private static (NativeColor Surface, NativeColor Border, NativeColor Selected, NativeColor Accent) CustomizationColors(NeraIconTheme theme) => theme switch
+    private static (NativeColor Surface, NativeColor Border, NativeColor Selected, NativeColor Accent, NativeColor TextSelection) CustomizationColors(NeraIconTheme theme) => theme switch
     {
-        NeraIconTheme.HighContrastDark => (Rgb(0, 0, 0), Rgb(255, 255, 255), Rgb(58, 58, 58), Rgb(255, 239, 0)),
-        NeraIconTheme.HighContrastLight => (Rgb(255, 255, 255), Rgb(0, 0, 0), Rgb(217, 229, 255), Rgb(0, 53, 178)),
-        NeraIconTheme.Dark => (Rgb(37, 37, 37), Rgb(73, 73, 73), Rgb(53, 77, 64), Rgb(105, 213, 160)),
-        _ => (Rgb(255, 255, 255), Rgb(222, 227, 224), Rgb(221, 239, 228), Rgb(24, 115, 74)),
+        NeraIconTheme.HighContrastDark => (Rgb(0, 0, 0), Rgb(255, 255, 255), Rgb(58, 58, 58), Rgb(255, 239, 0), Rgb(85, 85, 85)),
+        NeraIconTheme.HighContrastLight => (Rgb(255, 255, 255), Rgb(0, 0, 0), Rgb(217, 229, 255), Rgb(0, 53, 178), Rgb(0, 53, 178)),
+        NeraIconTheme.Dark => (Rgb(37, 37, 37), Rgb(73, 73, 73), Rgb(53, 77, 64), Rgb(105, 213, 160), Rgb(73, 96, 82)),
+        _ => (Rgb(255, 255, 255), Rgb(222, 227, 224), Rgb(221, 239, 228), Rgb(24, 115, 74), Rgb(24, 115, 74)),
     };
 
     private static NativeColor Rgb(byte red, byte green, byte blue) => NativeColor.FromArgb(255, red, green, blue);
@@ -29,8 +29,8 @@ internal sealed partial class SmokePage
             Require(native.FocusVisualPrimaryBrush is SolidColorBrush focus && focus.Color == colors.Accent,
                 $"{theme} {control.AutomationId} did not receive its scoped focus accent.");
             if (native is Microsoft.UI.Xaml.Controls.TextBox text)
-                Require(text.SelectionHighlightColor is SolidColorBrush selection && selection.Color == colors.Accent,
-                    $"{theme} text selection retained the system accent.");
+                Require(text.SelectionHighlightColor is SolidColorBrush selection && selection.Color == colors.TextSelection,
+                    $"{theme} text selection did not receive its contrasting native fill.");
         }
 
         if (theme is not (NeraIconTheme.HighContrastDark or NeraIconTheme.HighContrastLight)) return;

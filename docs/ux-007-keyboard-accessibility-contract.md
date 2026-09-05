@@ -46,6 +46,9 @@ selection và popup. HighContrastDark dùng nền đen/viền trắng/accent và
 HighContrastLight dùng nền trắng/viền đen/accent xanh. Brush được cập nhật tại
 chỗ để đổi palette trong cùng RequestedTheme vẫn có hiệu lực trên template đã
 load; không sửa brush mặc định dùng chung của Windows hoặc resource của host.
+Dictionary bổ sung được merge riêng trong control, không ghi đè key local do MAUI
+quản lý. TextBox selection dùng nền đậm ở Dark/HCD vì WinUI giữ chữ đang chọn
+màu trắng; accent sáng vẫn dùng cho focus và dấu chọn popup.
 English phủ đủ 461 neutral keys, không dịch tên/caption riêng hoặc workbook values.
 
 WPF/WinForms dialog dùng native cancel action cho Escape. WPF catalog item
