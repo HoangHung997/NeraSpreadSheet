@@ -845,8 +845,8 @@ public sealed partial class NeraSpreadsheetTableHost : Grid, IDisposable
                 InputTransparent = true,
             });
             _valueCheckBoxes.Add(checkBox);
-            _itemsPanel.Children.Add(row);
             NeraMauiRibbonChrome.ConfigureFilter(row, NeraMauiRibbonPalette.For(IconTheme));
+            _itemsPanel.Children.Add(row);
         }
 
         UpdateSheetText();

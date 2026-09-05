@@ -22,6 +22,7 @@ public sealed partial class RibbonPreviewWindow
             _session.Selection.SetActiveCell(new CellAddress(1, 0));
             foreach (var theme in Enum.GetValues<NeraIconTheme>())
             {
+                Console.Error.WriteLine($"Capture: localization {theme}.");
                 SetTheme(theme);
                 foreach (var width in new[] { 1024, 1920 })
                 {
@@ -42,6 +43,7 @@ public sealed partial class RibbonPreviewWindow
                     }
                 }
                 _runtime.SetLocalization(resources);
+                Console.Error.WriteLine($"Capture: Filter {theme}.");
                 _filterPopup ??= new NeraAutoFilterPagedPopupPresenter(_sheet);
                 _filterPopup.Localization = resources;
                 _filterPopup.IconTheme = theme;

@@ -20,9 +20,29 @@ internal sealed record NeraMauiRibbonPalette(
 
 internal static class NeraMauiRibbonChrome
 {
+#if WINDOWS
+    private static readonly BindableProperty FilterCheckGlyphProperty = BindableProperty.CreateAttached(
+        "FilterCheckGlyph", typeof(Color), typeof(NeraMauiRibbonChrome), Colors.White,
+        propertyChanged: static (target, _, _) => ConfigureNativeCheckGlyph(target, EventArgs.Empty));
+
+    private static void ConfigureNativeCheckGlyph(object? sender, EventArgs args)
+    {
+        if (sender is not CheckBox { Handler.PlatformView: Microsoft.UI.Xaml.Controls.CheckBox native } checkBox) return;
+        var color = (Color)checkBox.GetValue(FilterCheckGlyphProperty);
+        var brush = new Microsoft.UI.Xaml.Media.SolidColorBrush(global::Windows.UI.Color.FromArgb(
+            255, (byte)(color.Red * 255), (byte)(color.Green * 255), (byte)(color.Blue * 255)));
+        foreach (var state in new[] { "Checked", "CheckedPointerOver", "CheckedPressed", "CheckedDisabled",
+            "Indeterminate", "IndeterminatePointerOver", "IndeterminatePressed", "IndeterminateDisabled" })
+            native.Resources["CheckBoxCheckGlyphForeground" + state] = brush;
+        native.RequestedTheme = color == Colors.Black ? Microsoft.UI.Xaml.ElementTheme.Dark : Microsoft.UI.Xaml.ElementTheme.Light;
+    }
+#endif
+
     internal static void ConfigureFilter(VisualElement root, NeraMauiRibbonPalette palette)
     {
-        root.BackgroundColor = palette.Surface;
+        // A loaded WinUI Label cannot acquire a new background container without
+        // reparenting its TextBlock. Text inherits the existing sheet/row surface.
+        if (root is not Label and not CheckBox) root.BackgroundColor = palette.Surface;
         switch (root)
         {
             case Button button:
@@ -38,7 +58,17 @@ internal static class NeraMauiRibbonChrome
                 picker.TextColor = palette.Text;
                 picker.TitleColor = palette.Muted;
                 break;
-            case CheckBox checkBox: checkBox.Color = palette.Accent; break;
+            case CheckBox checkBox:
+                checkBox.Color = palette.Accent;
+#if WINDOWS
+                // The dark palettes use a light accent; keep the native check glyph
+                // legible without changing selection or application theme resources.
+                checkBox.SetValue(FilterCheckGlyphProperty, palette.Surface.Red < 0.5f ? Colors.Black : Colors.White);
+                checkBox.HandlerChanged -= ConfigureNativeCheckGlyph;
+                checkBox.HandlerChanged += ConfigureNativeCheckGlyph;
+                ConfigureNativeCheckGlyph(checkBox, EventArgs.Empty);
+#endif
+                break;
         }
         IEnumerable<VisualElement> children = root switch
         {
@@ -53,16 +83,14 @@ internal static class NeraMauiRibbonChrome
 
     internal static void Configure(Button button, NeraMauiRibbonPalette palette, bool isChecked)
     {
+        var previousState = VisualStateManager.GetVisualStateGroups(button)
+            .FirstOrDefault(static group => group.Name == "CommonStates")?.CurrentState?.Name;
         button.FontFamily = "Segoe UI";
         button.FontSize = 12d;
         button.Padding = new Thickness(3d, 0d);
         button.MinimumHeightRequest = 0d;
         button.MinimumWidthRequest = 0d;
         button.CornerRadius = 3;
-        button.TextColor = palette.Text;
-        button.BackgroundColor = isChecked ? palette.Checked : palette.Surface;
-        button.BorderColor = palette.Accent;
-        button.BorderWidth = isChecked ? 1d : 0d;
         var states = new VisualStateGroup { Name = "CommonStates" };
         AddState(states, "Normal", isChecked ? palette.Checked : palette.Surface, palette.Text, isChecked ? 1d : 0d);
         AddState(states, "PointerOver", palette.Hover, palette.Text, 1d);
@@ -73,6 +101,14 @@ internal static class NeraMauiRibbonChrome
         focused.Setters.Add(new Setter { Property = Button.BorderColorProperty, Value = palette.Accent });
         states.States.Add(focused);
         VisualStateManager.SetVisualStateGroups(button, [states]);
+        // Replacing groups restores old state setters. Apply the new base colors
+        // afterwards, then restore the current native interaction state.
+        button.TextColor = palette.Text;
+        button.BackgroundColor = isChecked ? palette.Checked : palette.Surface;
+        button.BorderColor = palette.Accent;
+        button.BorderWidth = isChecked ? 1d : 0d;
+        VisualStateManager.GoToState(button, !button.IsEnabled ? "Disabled" :
+            button.IsFocused ? "Focused" : previousState ?? "Normal");
         RemoveNativeMinimums(button);
         button.Loaded -= ConfigureNativeCaption;
         button.Loaded += ConfigureNativeCaption;

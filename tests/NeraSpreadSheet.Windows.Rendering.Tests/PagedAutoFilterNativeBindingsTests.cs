@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
+using NeraSpreadSheet.Rendering.Spreadsheet;
 using NeraSpreadSheet.WinForms;
 using NeraSpreadSheet.Wpf;
 
@@ -12,6 +13,120 @@ namespace NeraSpreadSheet.Windows.Rendering.Tests;
 [TestClass]
 public sealed class PagedAutoFilterNativeBindingsTests
 {
+    [TestMethod]
+    [Timeout(60_000)]
+    public async Task LoadedWpfFilterAdornerShouldReachIdleAndTrackGeometryStateAndLifecycle()
+    {
+        await RunOnWpfDispatcherAsync(async () =>
+        {
+            var fixture = CreateFixture();
+            var session = fixture.Session;
+            var worksheet = session.ActiveWorksheet;
+            var tableId = worksheet.Tables.Single().Id;
+            using var control = new NeraSpreadSheet.Wpf.NeraSpreadsheetControl { Session = session };
+            var decorator = new System.Windows.Documents.AdornerDecorator { Child = control };
+            var window = new System.Windows.Window
+            {
+                Width = 560, Height = 340, Left = -32000, Top = -32000,
+                ShowInTaskbar = false, Content = decorator,
+            };
+            using var presenter = new NeraAutoFilterPagedPopupPresenter(control);
+            var layoutEvents = 0;
+            control.LayoutUpdated += (_, _) => layoutEvents++;
+            async Task<SpreadsheetAutoFilterButtonHit[]> SettleAsync()
+            {
+                window.UpdateLayout();
+                await Dispatcher.CurrentDispatcher.InvokeAsync(static () => { }, DispatcherPriority.ApplicationIdle)
+                    .Task.WaitAsync(TimeSpan.FromSeconds(2));
+                var adorner = GetPrivateField<System.Windows.Documents.Adorner>(presenter, "_adorner");
+                var cached = GetPrivateField<SpreadsheetAutoFilterButtonHit[]>(adorner, "_buttons");
+                var expected = (SpreadsheetAutoFilterButtonHit[])typeof(NeraAutoFilterPagedPopupPresenter)
+                    .GetMethod("GetVisibleButtons", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(presenter, null)!;
+                CollectionAssert.AreEqual(expected, cached, "Paint and hit-test inputs must agree after each transition.");
+                return cached;
+            }
+            try
+            {
+                window.Show();
+                Assert.HasCount(1, await SettleAsync());
+                var settled = layoutEvents;
+                await Task.Delay(50);
+                await SettleAsync();
+                Assert.IsLessThan(20, layoutEvents - settled, "An unchanged adorner must not continuously invalidate arrange.");
+                presenter.IconTheme = NeraSpreadSheet.Iconography.NeraIconTheme.HighContrastDark;
+                Assert.IsTrue(presenter.TryOpenForActiveCell());
+                await GetPrivateField<Task>(presenter, "_operationTail");
+                await SettleAsync();
+                var choices = GetPrivateField<List<System.Windows.Controls.CheckBox>>(presenter, "_valueCheckBoxes");
+                Assert.HasCount(5, choices);
+                foreach (var choice in choices)
+                {
+                    Assert.AreEqual(System.Windows.Media.Colors.White, ((System.Windows.Media.SolidColorBrush)choice.Foreground).Color);
+                    Assert.IsFalse(string.IsNullOrWhiteSpace(choice.Content?.ToString()));
+                }
+                presenter.Close();
+                control.ScrollTo(0, 100);
+                await Task.Delay(50);
+                Assert.HasCount(0, await SettleAsync());
+                control.ScrollTo(0, 0);
+                await Task.Delay(50);
+                Assert.HasCount(1, await SettleAsync());
+                control.Zoom = 1.5;
+                window.Width = 420;
+                Assert.HasCount(1, await SettleAsync());
+                worksheet.Dimensions.HideColumns(0);
+                Assert.HasCount(0, await SettleAsync());
+                worksheet.Dimensions.UnhideColumns(0);
+                Assert.HasCount(1, await SettleAsync());
+                session.Tables.SetHeaderRow(tableId, false);
+                Assert.HasCount(0, await SettleAsync());
+                Assert.IsTrue(session.Undo());
+                Assert.HasCount(1, await SettleAsync());
+                session.Tables.SetFilterButtons(tableId, false);
+                Assert.HasCount(0, await SettleAsync());
+                Assert.IsTrue(session.Undo());
+                Assert.HasCount(1, await SettleAsync());
+                Assert.IsTrue(presenter.TryOpenForActiveCell());
+                await GetPrivateField<Task>(presenter, "_operationTail");
+                await presenter.ApplyRichFilterAsync(new SpreadsheetAutoFilterRichCriterion(
+                    topBottom: new SpreadsheetTopBottomFilter(true, false, 2)));
+                Assert.IsTrue((await SettleAsync()).Single().IsFiltered);
+                Assert.IsTrue(session.Undo());
+                session.Sort.SortAutoFilter(fixture.Target, new SpreadsheetFilterSortState([
+                    new SpreadsheetFilterSortCondition(0, true),
+                ]));
+                Assert.IsTrue((await SettleAsync()).Single().IsSorted);
+                Assert.IsTrue((await SettleAsync()).Single().SortDescending);
+                Assert.IsTrue(session.Undo());
+                control.RenderTheme = control.RenderTheme with
+                {
+                    TableFilterButtonExtent = 18,
+                    TableFilterButtonGlyph = new NeraSpreadSheet.Foundation.ColorRgba(200, 0, 0),
+                };
+                control.InvalidateVisual();
+                await SettleAsync();
+                var adorner = GetPrivateField<System.Windows.Documents.Adorner>(presenter, "_adorner");
+                Assert.AreSame(control.RenderTheme, GetPrivateField<SpreadsheetRenderTheme>(adorner, "_theme"));
+                var other = session.Workbook.AddWorksheet("Other");
+                session.ActivateWorksheet(other);
+                Assert.HasCount(0, await SettleAsync());
+                session.ActivateWorksheet(worksheet);
+                Assert.HasCount(1, await SettleAsync());
+                control.Workbook = new Workbook();
+                Assert.HasCount(0, await SettleAsync());
+                control.Session = session;
+                Assert.HasCount(1, await SettleAsync());
+                decorator.Child = null;
+                window.UpdateLayout();
+                await Task.Delay(30);
+                decorator.Child = control;
+                Assert.HasCount(1, await SettleAsync());
+                Console.WriteLine($"Filter transitions reached dispatcher idle; LayoutUpdated events: {layoutEvents}.");
+            }
+            finally { presenter.Close(); window.Close(); }
+        });
+    }
+
     [TestMethod]
     [Timeout(60_000)]
     public async Task WpfBindingPublishesOnlyTheCurrentPage()

@@ -55,6 +55,21 @@ control. WPF không ghi vào Application.Resources. Focus có viền; WPF comman
 có nét đứt ở phía trong, pressed có viền dày hơn. Checked vẫn có native state,
 viền/glyph hoặc chữ trạng thái; disabled vẫn có trạng thái native IsEnabled.
 
+WPF Filter adorner chỉ invalidate khi immutable theme reference hoặc các visible
+hit records thay đổi; paint dùng cùng snapshot đã so sánh. Không invalidate lại
+ở LayoutUpdated khi inputs bằng nhau, vì InvalidateVisual cũng invalidates arrange.
+Thay theme chưa biết hoặc thay bất kỳ geometry/state/identity trong hits đều redraw.
+Không đổi shared viewport/model hoặc frame scheduler. Loaded regression kiểm tra
+idle, scroll/zoom/resize, hide/unhide, header/filter/sort, workbook/worksheet switch
+và unload/reload; hit-test và paint snapshot phải khớp.
+
+MAUI Label dùng nền container hiện hữu để tránh WinUI reparent khi đổi theme.
+Thay visual-state groups phải đặt lại base colors rồi phục hồi interaction state;
+không để setters cũ phục hồi màu trắng trên nền đen. Glyph checkbox WinUI dùng
+resources ở chính native checkbox (đen trên accent sáng, trắng trên accent tối),
+không thay application resources hoặc checked value. WPF checkbox foreground
+nhận palette trong scope popup để giá trị workbook vẫn đọc được trên nền tối.
+
 Giữ engine dense ba hàng, caption đáy, responsive collapse/overflow và override
 measurement của host. Không đổi viewport/scroll/render algorithm. Nhãn dài phải
 còn truy cập qua overflow/tooltip/automation. Hàng 24 logical px mặc định là UI
@@ -68,8 +83,9 @@ Table totals/Undo và localized layout trên width/scale matrix. Audit nguồn k
 resource keys dùng bởi native presenters. MAUI binding kiểm tra blank label,
 user value không bị dịch và culture switch không tăng history.
 
-Desktop native tests và sample captures **chỉ chạy trên GitHub runner** trong
-wave này. Capture bổ sung nhãn dài ở 1024/1920 và Filter trong bốn palette,
+Desktop native tests và sample captures chạy trên GitHub runner; lane đã chạy
+targeted regression và full capture synthetic local trong thời gian được
+coordinator transfer desktop. Capture bổ sung nhãn dài ở 1024/1920 và Filter trong bốn palette,
 scale 1/1,25/1,5/2, có kiểm tra Cancel/history. Bộ command smoke Table.Style,
 totals, dialogs/validation, Convert/Undo hiện hữu được giữ nguyên.
 

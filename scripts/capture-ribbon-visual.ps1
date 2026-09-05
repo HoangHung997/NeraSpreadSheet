@@ -21,6 +21,8 @@ if ($TableDesignOnly) { $captureArguments += '--table-design-only' }
 $captureProcess = Start-Process -FilePath $DotNetPath -ArgumentList $captureArguments -WindowStyle Hidden -RedirectStandardError $captureError -PassThru
 if (-not $captureProcess.WaitForExit(180000)) {
     $captureProcess.Kill()
+    Get-Content -LiteralPath $captureError | Write-Output
+    Write-Output "Completed image count: $(@(Get-ChildItem -LiteralPath $outputPath -Filter '*.png').Count)"
     throw "Ribbon preview capture timed out."
 }
 if ($captureProcess.ExitCode -ne 0) {
