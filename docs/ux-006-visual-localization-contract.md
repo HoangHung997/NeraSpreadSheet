@@ -1,6 +1,6 @@
 # UX-006 — Resource localization và visual chrome
 
-## Phạm vi đang triển khai
+## Phạm vi và contract
 
 Lane bắt đầu ở `2bc00eb667da2f2c5afda1024ab753ac638d85d4`. Chỉ thay presentation
 của Ribbon/Bars/Table Design/Filter. Không đổi workbook, formula, Table mutation,
