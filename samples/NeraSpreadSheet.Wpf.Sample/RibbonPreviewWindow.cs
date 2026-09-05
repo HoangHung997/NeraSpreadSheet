@@ -100,7 +100,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         _worksheetTabs = CreateWorksheetTabs();
         DockPanel.SetDock(_worksheetTabs, Dock.Bottom);
         _root.Children.Add(_worksheetTabs);
-        _root.Children.Add(new System.Windows.Documents.AdornerDecorator { Child = _sheet });
+        _root.Children.Add(CreateWorksheetNavigation());
         Content = _root;
         Closed += (_, _) => Dispose();
         UpdateSelectionText();
@@ -118,6 +118,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         _ribbon.CommandActivationFailed -= OnCommandActivationFailed;
         _worksheetTabs.SelectionChanged -= OnWorksheetTabSelectionChanged;
         _worksheetTabs.SizeChanged -= OnWorksheetTabsSizeChanged;
+        DisposeWorksheetNavigation();
         _filterPopup?.Dispose();
         _shortcuts.Dispose();
         _ribbon.Dispose();
