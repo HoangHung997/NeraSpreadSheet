@@ -97,6 +97,18 @@ public sealed class TableStyleRoundTripTests
     }
 
     [TestMethod]
+    public async Task UnsupportedCustomStyleShouldRejectStrictImportWithoutChangingSource()
+    {
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        using var source = new MemoryStream();
+        await serializer.SaveAsync(CreateWorkbook("VendorStyle"), source, new OpenXmlExportOptions());
+        AddUnsupportedCustomStyle(source);
+        var bytes = source.ToArray();
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => serializer.LoadAsync(source, new OpenXmlImportOptions()));
+        CollectionAssert.AreEqual(bytes, source.ToArray());
+    }
+
+    [TestMethod]
     public async Task PreservedUnsupportedCustomStyleShouldRemainUntouchedAcrossRepeatedSave()
     {
         var serializer = new NeraOpenXmlWorkbookSerializer();

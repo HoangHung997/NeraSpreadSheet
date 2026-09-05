@@ -4,6 +4,40 @@ namespace NeraSpreadSheet.Core;
 
 public static class StructuredReferenceFormulaTranslator
 {
+    /// <summary>Replaces structured references with scalar placeholders for syntactic A1-only analysis.</summary>
+    public static string MaskReferences(string formula)
+    {
+        ArgumentNullException.ThrowIfNull(formula);
+        return StructuredReferenceFormulaRewriter.Rewrite(formula, static (_, _) => "0");
+    }
+    /// <summary>Escapes a column name for an Excel structured-reference column specifier.</summary>
+    public static string EscapeColumnName(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        var builder = new StringBuilder(name.Length);
+        foreach (var character in name)
+        {
+            if (character is '[' or ']' or '#' or '\'' or '@') builder.Append('\'');
+            builder.Append(character);
+        }
+        return builder.ToString();
+    }
+
+    internal static string UnescapeColumnName(string name)
+    {
+        var builder = new StringBuilder(name.Length);
+        for (var index = 0; index < name.Length; index++)
+        {
+            if (IsColumnEscape(name, index)) index++;
+            builder.Append(name[index]);
+        }
+        return builder.ToString();
+    }
+
+    internal static bool IsColumnEscape(string text, int index) =>
+        text[index] == '\'' && index + 1 < text.Length &&
+        text[index + 1] is '[' or ']' or '#' or '\'' or '@';
+
     public static string Translate(
         string formula,
         Workbook workbook,
@@ -114,8 +148,13 @@ public static class StructuredReferenceFormulaTranslator
 
         if (!StructuredReferenceSpec.TryParse(
                 expression,
-                tableName is null,
                 out var spec))
+        {
+            return "#REF!";
+        }
+
+        if (spec.Area == TableReferenceArea.ThisRow &&
+            !ReferenceEquals(tableWorksheet, currentWorksheet))
         {
             return "#REF!";
         }
@@ -253,6 +292,11 @@ public static class StructuredReferenceFormulaTranslator
         var depth = 0;
         while (index < formula.Length)
         {
+            if (IsColumnEscape(formula, index))
+            {
+                index += 2;
+                continue;
+            }
             var character = formula[index++];
             if (character == '[')
             {
@@ -328,7 +372,6 @@ public static class StructuredReferenceFormulaTranslator
     {
         public static bool TryParse(
             string expression,
-            bool isImplicit,
             out StructuredReferenceSpec spec)
         {
             if (expression.Length < 2 ||
@@ -346,28 +389,40 @@ public static class StructuredReferenceFormulaTranslator
                 return false;
             }
 
-            var area = isImplicit
-                ? TableReferenceArea.ThisRow
-                : TableReferenceArea.Data;
+            var area = TableReferenceArea.Data;
             string? firstColumn = null;
             string? lastColumn = null;
+            var hasArea = false;
             var tokens = Tokenize(inner);
             foreach (var token in tokens)
             {
                 var normalized = NormalizeToken(token.Text);
                 if (normalized.Length == 0)
                 {
-                    continue;
+                    spec = null!;
+                    return false;
                 }
 
                 if (TryParseArea(normalized, out var parsedArea))
                 {
+                    if (hasArea || firstColumn is not null || token.Separator == ':')
+                    {
+                        spec = null!;
+                        return false;
+                    }
+                    hasArea = true;
                     area = parsedArea;
                     continue;
                 }
 
                 if (normalized[0] == '@')
                 {
+                    if (hasArea || firstColumn is not null)
+                    {
+                        spec = null!;
+                        return false;
+                    }
+                    hasArea = true;
                     area = TableReferenceArea.ThisRow;
                     normalized = NormalizeToken(normalized[1..]);
                     if (normalized.Length == 0)
@@ -380,8 +435,7 @@ public static class StructuredReferenceFormulaTranslator
                 {
                     firstColumn = UnescapeColumnName(normalized);
                 }
-                else if (token.Separator == ':' ||
-                         lastColumn is null)
+                else if (token.Separator == ':' && lastColumn is null)
                 {
                     lastColumn = UnescapeColumnName(normalized);
                 }
@@ -409,6 +463,11 @@ public static class StructuredReferenceFormulaTranslator
             {
                 var atEnd = index == expression.Length;
                 var character = atEnd ? '\0' : expression[index];
+                if (!atEnd && IsColumnEscape(expression, index))
+                {
+                    index++;
+                    continue;
+                }
                 if (!atEnd && character == '[')
                 {
                     depth++;
@@ -500,9 +559,6 @@ public static class StructuredReferenceFormulaTranslator
             return false;
         }
 
-        private static string UnescapeColumnName(string name) =>
-            name.Replace("]]", "]", StringComparison.Ordinal);
-
         private readonly record struct ReferenceToken(
             string Text,
             char Separator);
@@ -554,7 +610,7 @@ public static class StructuredReferenceFormulaRewriter
         });
     }
 
-    private static string Rewrite(
+    internal static string Rewrite(
         string formula,
         Func<string, string, string> replacement)
     {
@@ -616,54 +672,41 @@ public static class StructuredReferenceFormulaRewriter
         string oldName,
         string newName)
     {
-        var escapedOld = oldName.Replace("]", "]]", StringComparison.Ordinal);
-        var escapedNew = newName.Replace("]", "]]", StringComparison.Ordinal);
-        var result = ReplaceOrdinalIgnoreCase(
-            expression,
-            $"[{escapedOld}]",
-            $"[{escapedNew}]");
-        if (string.Equals(
-                result,
-                $"[{escapedOld}]",
-                StringComparison.OrdinalIgnoreCase))
+        var builder = new StringBuilder(expression.Length);
+        var tokenStart = 0;
+        for (var index = 0; index < expression.Length; index++)
         {
-            return $"[{escapedNew}]";
-        }
-
-        result = ReplaceOrdinalIgnoreCase(
-            result,
-            $"@{escapedOld}",
-            $"@{escapedNew}");
-        return result;
-    }
-
-    private static string ReplaceOrdinalIgnoreCase(
-        string source,
-        string oldValue,
-        string newValue)
-    {
-        var builder = new StringBuilder(source.Length);
-        var searchStart = 0;
-        while (searchStart < source.Length)
-        {
-            var index = source.IndexOf(
-                oldValue,
-                searchStart,
-                StringComparison.OrdinalIgnoreCase);
-            if (index < 0)
+            if (StructuredReferenceFormulaTranslator.IsColumnEscape(expression, index))
             {
-                builder.Append(source.AsSpan(searchStart));
-                break;
+                index++;
+                continue;
             }
-
-            builder.Append(source.AsSpan(searchStart, index - searchStart));
-            builder.Append(newValue);
-            searchStart = index + oldValue.Length;
+            if (expression[index] == '[')
+            {
+                builder.Append(expression.AsSpan(tokenStart, index + 1 - tokenStart));
+                tokenStart = index + 1;
+            }
+            else if (expression[index] == ']')
+            {
+                var token = expression[tokenStart..index];
+                var currentRow = token.StartsWith('@');
+                var name = currentRow ? token[1..] : token;
+                if (string.Equals(StructuredReferenceFormulaTranslator.UnescapeColumnName(name), oldName,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    if (currentRow) builder.Append('@');
+                    var needsBrackets = tokenStart == 1 && newName.IndexOfAny([',', ':']) >= 0;
+                    if (needsBrackets) builder.Append('[');
+                    builder.Append(StructuredReferenceFormulaTranslator.EscapeColumnName(newName));
+                    if (needsBrackets) builder.Append(']');
+                }
+                else builder.Append(token);
+                builder.Append(']');
+                tokenStart = index + 1;
+            }
         }
-
-        return builder.Length == 0 && source.Length == 0
-            ? source
-            : builder.ToString();
+        builder.Append(expression.AsSpan(tokenStart));
+        return builder.ToString();
     }
 
     private static bool TryReadBracketExpression(
@@ -675,6 +718,11 @@ public static class StructuredReferenceFormulaRewriter
         var depth = 0;
         while (index < formula.Length)
         {
+            if (StructuredReferenceFormulaTranslator.IsColumnEscape(formula, index))
+            {
+                index += 2;
+                continue;
+            }
             var character = formula[index++];
             if (character == '[')
             {

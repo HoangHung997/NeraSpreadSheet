@@ -169,7 +169,7 @@ public sealed partial class SpreadsheetTableController
         {
             return;
         }
-        ReplaceMetadata(table, CopyTable(table, styleName: styleName, replaceStyle: true),
+        ReplaceVisualMetadata(table, CopyTable(table, styleName: styleName, replaceStyle: true),
             "Set table style");
     }
 
@@ -448,14 +448,14 @@ public sealed partial class SpreadsheetTableController
         {
             return;
         }
-        ReplaceMetadata(table, replacement, description);
+        ReplaceVisualMetadata(table, replacement, description);
     }
 
-    private void ReplaceMetadata(
+    private void ReplaceVisualMetadata(
         SpreadsheetTable previous,
         SpreadsheetTable next,
         string description) =>
-        ExecuteIncremental(new UpdateTableMetadataOperation(
+        _session.Execute(new UpdateTableVisualMetadataOperation(
             _session.ActiveWorksheet,
             previous,
             next,
@@ -469,6 +469,25 @@ public sealed partial class SpreadsheetTableController
             _session.Workbook,
             operation.Worksheet,
             operation.AffectedRange);
+    }
+
+    private sealed class UpdateTableVisualMetadataOperation(
+        Worksheet worksheet, SpreadsheetTable previous, SpreadsheetTable next, string description)
+        : TableOperationBase(worksheet, previous.Range)
+    {
+        public override string Description => description;
+
+        public override bool AffectsCalculation => false;
+
+        protected override void CaptureBeforeState() { }
+
+        protected override void RestoreBeforeState() => Replace(previous);
+
+        protected override void Apply() => Replace(next);
+
+        private void Replace(SpreadsheetTable table) => Worksheet.RestoreTables(
+            Worksheet.Tables.Select(candidate => candidate.Id == table.Id ? table : candidate),
+            table.Range);
     }
 
     private SpreadsheetTableColumn[] CreateColumns(CellRange range, bool hasHeaders)
@@ -723,11 +742,33 @@ public sealed partial class SpreadsheetTableController
 
     private void EnsureDestinationIsEmpty(CellRange range)
     {
-        if (_session.ActiveWorksheet.EnumerateUsedCells().Any(pair =>
-                range.Contains(pair.Key)))
+        if (EnumerateTableCells(_session.ActiveWorksheet, range).Any())
         {
             throw new InvalidOperationException(
                 "The Table cannot grow because destination cells contain data.");
+        }
+    }
+
+    private static IEnumerable<KeyValuePair<CellAddress, CellData>> EnumerateTableCells(Worksheet worksheet, CellRange range)
+    {
+        var area = (long)range.RowCount * range.ColumnCount;
+        if (area <= Math.Min(worksheet.UsedCellCount, 100_000))
+        {
+            for (var row = range.Top; row <= range.Bottom; row++)
+            {
+                for (var column = range.Left; column <= range.Right; column++)
+                {
+                    var address = new CellAddress(row, column);
+                    if (worksheet.TryGetCell(address, out var cell)) yield return new(address, cell);
+                }
+            }
+        }
+        else
+        {
+            foreach (var pair in worksheet.EnumerateUsedCells())
+            {
+                if (range.Contains(pair.Key)) yield return pair;
+            }
         }
     }
 
@@ -947,8 +988,7 @@ public sealed partial class SpreadsheetTableController
             CellRange range,
             Func<CellAddress, CellAddress?> map)
         {
-            var source = worksheet.EnumerateUsedCells()
-                .Where(pair => range.Contains(pair.Key))
+            var source = EnumerateTableCells(worksheet, range)
                 .ToArray();
             var updates = source.ToDictionary(
                 static pair => pair.Key,
@@ -1092,8 +1132,7 @@ public sealed partial class SpreadsheetTableController
                 var oldTotals = new CellRange(
                     new CellAddress(_previous.Range.Bottom, _previous.Range.Left),
                     new CellAddress(_previous.Range.Bottom, _previous.Range.Right));
-                var updates = Worksheet.EnumerateUsedCells()
-                    .Where(pair => oldTotals.Contains(pair.Key))
+                var updates = EnumerateTableCells(Worksheet, oldTotals)
                     .Select(static pair => new KeyValuePair<CellAddress, CellData>(
                         pair.Key,
                         CellData.Empty));

@@ -14,6 +14,7 @@ public sealed partial class SpreadsheetTableController
     public void Add(SpreadsheetTable table)
     {
         ArgumentNullException.ThrowIfNull(table);
+        EnsureRangeCanOwnTable(table.Range, ignoredTableId: null);
         Execute(new AddTableOperation(
             _session.ActiveWorksheet,
             table));
@@ -247,6 +248,8 @@ public sealed partial class SpreadsheetTableController
 
         public abstract string Description { get; }
 
+        public virtual bool AffectsCalculation => true;
+
         public Worksheet Worksheet { get; }
 
         public CellRange AffectedRange { get; }
@@ -274,8 +277,7 @@ public sealed partial class SpreadsheetTableController
             _tablesBefore ??= Worksheet.Tables
                 .Select(static table => table.Copy())
                 .ToArray();
-            _cellsBefore ??= Worksheet.EnumerateUsedCells()
-                .Where(pair => AffectedRange.Contains(pair.Key))
+            _cellsBefore ??= EnumerateTableCells(Worksheet, AffectedRange)
                 .ToArray();
         }
 
@@ -291,8 +293,7 @@ public sealed partial class SpreadsheetTableController
             Worksheet.RestoreTables(
                 _tablesBefore,
                 AffectedRange);
-            var updates = Worksheet.EnumerateUsedCells()
-                .Where(pair => AffectedRange.Contains(pair.Key))
+            var updates = EnumerateTableCells(Worksheet, AffectedRange)
                 .ToDictionary(
                     static pair => pair.Key,
                     static _ => CellData.Empty);

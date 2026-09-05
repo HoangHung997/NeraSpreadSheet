@@ -22,6 +22,22 @@ internal static class OpenXmlTableCodec
     private static readonly XNamespace SpreadsheetNamespace =
         "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 
+    internal static void ValidateWorkbookTableIds(WorkbookPart workbookPart)
+    {
+        var ids = new HashSet<uint>();
+        var parts = new HashSet<Uri>();
+        foreach (var part in workbookPart.WorksheetParts.SelectMany(sheet => sheet.TableDefinitionParts))
+        {
+            var root = LoadPartXml(part).Root
+                ?? throw new InvalidDataException("A table definition is empty.");
+            var id = ReadUIntAttribute(root, "id", 0);
+            if (id == 0 || !ids.Add(id) || !parts.Add(part.Uri))
+            {
+                throw new InvalidDataException("Table identifiers must be non-zero and unique across the workbook.");
+            }
+        }
+    }
+
     public static void ReadWorksheetTables(
         WorksheetPart worksheetPart,
         NeraWorksheet worksheet,
@@ -98,11 +114,18 @@ internal static class OpenXmlTableCodec
                     exception);
             }
 
-            worksheet.AddTable(ReadTableDefinition(
-                tablePart,
-                relationshipId,
-                differentialStyles,
-                preserveUnsupportedMarkup));
+            try
+            {
+                worksheet.AddTable(ReadTableDefinition(
+                    tablePart,
+                    relationshipId,
+                    differentialStyles,
+                    preserveUnsupportedMarkup));
+            }
+            catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or FormatException)
+            {
+                throw new InvalidDataException("The table definition violates workbook metadata constraints.", exception);
+            }
         }
 
         if (worksheetPart.TableDefinitionParts.Count() != references.Length)
@@ -204,11 +227,18 @@ internal static class OpenXmlTableCodec
             throw new InvalidDataException(
                 "Only zero or one table totals row is supported.");
         }
-        var totalsRowShown = ReadBooleanAttribute(
+        _ = ReadBooleanAttribute(
             root,
             "totalsRowShown",
             defaultValue: false);
-        var hasTotalsRow = totalsRowCount == 1U || totalsRowShown;
+        // totalsRowShown records whether totals have ever been shown, not the current geometry.
+        var hasTotalsRow = totalsRowCount == 1U;
+        ValidateAttributes(root, preserveUnsupportedMarkup,
+            "id", "name", "displayName", "ref", "headerRowCount", "totalsRowCount", "totalsRowShown");
+        if (root.Attribute("tableType") is { Value: not "worksheet" })
+        {
+            throw new InvalidDataException("Query and XML-mapped tables are not semantically supported.");
+        }
 
         var tableColumnsElements = root
             .Elements(SpreadsheetNamespace + "tableColumns")
@@ -261,6 +291,13 @@ internal static class OpenXmlTableCodec
             }
 
             ValidateColumnChildren(element);
+            ValidateAttributes(element, preserveUnsupportedMarkup,
+                "id", "name", "uniqueName", "totalsRowLabel", "totalsRowFunction");
+            var totalsFormula = ReadTotalsFormula(element, name);
+            if (totalsFormula is not null && element.Attribute("totalsRowLabel") is not null)
+            {
+                throw new InvalidDataException("A table column cannot define both a totals formula and label.");
+            }
             columns[index] = new SpreadsheetTableColumn(
                 ParseColumnGuid(
                     (string?)element.Attribute("uniqueName"),
@@ -269,8 +306,7 @@ internal static class OpenXmlTableCodec
                 RequiredAttribute(element, "name"),
                 NormalizeImportedFormula(element.Element(
                     SpreadsheetNamespace + "calculatedColumnFormula")?.Value),
-                NormalizeImportedFormula(element.Element(
-                    SpreadsheetNamespace + "totalsRowFormula")?.Value),
+                totalsFormula,
                 (string?)element.Attribute("totalsRowLabel"));
         }
 
@@ -337,12 +373,11 @@ internal static class OpenXmlTableCodec
             throw new InvalidDataException(
                 "A table cannot contain multiple autoFilter elements.");
         }
-        if (elements.Length == 0)
+        if (elements.Length == 0 && tableRoot.Element(SpreadsheetNamespace + "sortState") is null)
         {
             return null;
         }
-
-        var autoFilter = elements[0];
+        var autoFilter = elements.SingleOrDefault() ?? new XElement(SpreadsheetNamespace + "autoFilter");
         var expectedBottom = tableRange.Bottom -
                              (hasTotalsRow ? 1 : 0);
         if (expectedBottom < tableRange.Top)
@@ -353,6 +388,13 @@ internal static class OpenXmlTableCodec
         var expectedRange = new CellRange(
             tableRange.TopLeft,
             new CellAddress(expectedBottom, tableRange.Right));
+        ValidateSortGeometry(tableRoot, expectedRange);
+        ValidateSortGeometry(autoFilter, expectedRange);
+        if (tableRoot.Element(SpreadsheetNamespace + "sortState") is not null &&
+            autoFilter.Element(SpreadsheetNamespace + "sortState") is not null)
+        {
+            throw new InvalidDataException("A Table cannot define competing sort states.");
+        }
         var declaredReference = (string?)autoFilter.Attribute("ref");
         if (declaredReference is not null &&
             ParseRange(declaredReference) != expectedRange)
@@ -409,7 +451,7 @@ internal static class OpenXmlTableCodec
         try
         {
             sortState = OpenXmlAutoFilterCriteriaCodec.ParseSortState(
-                autoFilter,
+                tableRoot.Element(SpreadsheetNamespace + "sortState") is not null ? tableRoot : autoFilter,
                 expectedRange,
                 (id, cellColor) => ResolveColor(differentialStyles, id, cellColor));
         }
@@ -608,7 +650,7 @@ internal static class OpenXmlTableCodec
         return hiddenColumns < columnCount;
     }
 
-    private static SpreadsheetColorFilter ResolveColor(
+    internal static SpreadsheetColorFilter ResolveColor(
         IReadOnlyList<CellStylePatch> differentialStyles,
         uint id,
         bool cellColor)
@@ -654,6 +696,7 @@ internal static class OpenXmlTableCodec
     {
         var unsupported = root.Elements().FirstOrDefault(element =>
             element.Name != SpreadsheetNamespace + "autoFilter" &&
+            element.Name != SpreadsheetNamespace + "sortState" &&
             element.Name != SpreadsheetNamespace + "tableColumns" &&
             element.Name != SpreadsheetNamespace + "tableStyleInfo" &&
             element.Name != SpreadsheetNamespace + "extLst");
@@ -661,6 +704,21 @@ internal static class OpenXmlTableCodec
         {
             throw new InvalidDataException(
                 $"Unsupported table element '{unsupported.Name.LocalName}'.");
+        }
+    }
+
+    private static void ValidateSortGeometry(XElement parent, CellRange owner)
+    {
+        var states = parent.Elements(SpreadsheetNamespace + "sortState").ToArray();
+        if (states.Length > 1) throw new InvalidDataException("A Table contains duplicate sortState elements.");
+        foreach (var state in states)
+        {
+            foreach (var element in state.Elements(SpreadsheetNamespace + "sortCondition").Prepend(state))
+            {
+                var range = ParseRange(RequiredAttribute(element, "ref"));
+                if (!owner.Contains(range.TopLeft) || !owner.Contains(range.BottomRight))
+                    throw new InvalidDataException("A Table sort range must remain inside its owner range.");
+            }
         }
     }
 
@@ -683,23 +741,77 @@ internal static class OpenXmlTableCodec
             throw new InvalidDataException(
                 "A table column contains duplicate formula elements.");
         }
+        foreach (var formula in element.Elements().Where(child =>
+                     child.Name == SpreadsheetNamespace + "calculatedColumnFormula" ||
+                     child.Name == SpreadsheetNamespace + "totalsRowFormula"))
+        {
+            if (ReadBooleanAttribute(formula, "array", false) ||
+                formula.HasElements || string.IsNullOrWhiteSpace(formula.Value))
+            {
+                throw new InvalidDataException("Array or empty Table formula metadata is not supported.");
+            }
+            ValidateAttributes(formula, false, "array");
+        }
+    }
+
+    private static string? ReadTotalsFormula(XElement column, string tableName)
+    {
+        var formula = NormalizeImportedFormula(column.Element(SpreadsheetNamespace + "totalsRowFormula")?.Value);
+        var function = (string?)column.Attribute("totalsRowFunction");
+        var number = function switch
+        {
+            null or "none" or "custom" => 0,
+            "average" => 101,
+            "countNums" => 102,
+            "count" => 103,
+            "max" => 104,
+            "min" => 105,
+            "sum" => 109,
+            _ => throw new InvalidDataException($"Unsupported Table totals function '{function}'."),
+        };
+        if (function == "custom" && formula is null)
+        {
+            throw new InvalidDataException("A custom totals function requires a formula.");
+        }
+        if (number == 0) return formula;
+        if (formula is not null)
+        {
+            throw new InvalidDataException("A built-in totals function cannot also define a custom formula.");
+        }
+        var name = RequiredAttribute(column, "name");
+        var escaped = StructuredReferenceFormulaTranslator.EscapeColumnName(name);
+        if (name.IndexOfAny([',', ':']) >= 0) escaped = $"[{escaped}]";
+        return $"=SUBTOTAL({number},{tableName}[{escaped}])";
+    }
+
+    private static void ValidateAttributes(XElement element, bool preserve, params string[] owned)
+    {
+        if (preserve) return;
+        var unsupported = element.Attributes().FirstOrDefault(attribute =>
+            !attribute.IsNamespaceDeclaration && attribute.Name.Namespace == XNamespace.None &&
+            !owned.Contains(attribute.Name.LocalName, StringComparer.Ordinal));
+        if (unsupported is not null)
+        {
+            throw new InvalidDataException($"Unsupported Table attribute '{unsupported.Name}'.");
+        }
     }
 
     private static string CreateRelationshipId(Guid tableId) =>
         RelationshipIdPrefix + tableId.ToString("N");
 
-    private static Guid ParseTableGuid(
+    internal static Guid ParseTableGuid(
         string relationshipId,
         string partUri)
     {
         if (relationshipId.StartsWith(
                 RelationshipIdPrefix,
-                StringComparison.Ordinal) &&
-            Guid.TryParseExact(
+                StringComparison.Ordinal))
+        {
+            if (!Guid.TryParseExact(
                 relationshipId[RelationshipIdPrefix.Length..],
                 "N",
-                out var parsed))
-        {
+                out var parsed) || parsed == Guid.Empty)
+                throw new InvalidDataException("A Nera Table relationship contains an invalid stable identity.");
             return parsed;
         }
         return CreateDeterministicGuid(
@@ -708,7 +820,7 @@ internal static class OpenXmlTableCodec
                 $"table|{partUri}|{relationshipId}"));
     }
 
-    private static Guid ParseColumnGuid(
+    internal static Guid ParseColumnGuid(
         string? uniqueName,
         Guid tableId,
         uint numericId)
@@ -716,12 +828,13 @@ internal static class OpenXmlTableCodec
         if (uniqueName is not null &&
             uniqueName.StartsWith(
                 ColumnUniqueNamePrefix,
-                StringComparison.Ordinal) &&
-            Guid.TryParseExact(
+                StringComparison.Ordinal))
+        {
+            if (!Guid.TryParseExact(
                 uniqueName[ColumnUniqueNamePrefix.Length..],
                 "N",
-                out var parsed))
-        {
+                out var parsed) || parsed == Guid.Empty)
+                throw new InvalidDataException("A Nera Table column contains an invalid stable identity.");
             return parsed;
         }
         return CreateDeterministicGuid(
@@ -740,7 +853,7 @@ internal static class OpenXmlTableCodec
         return new Guid(guidBytes);
     }
 
-    private static CellRange ParseRange(string reference)
+    internal static CellRange ParseRange(string reference)
     {
         var separator = reference.IndexOf(':');
         if (separator < 0)

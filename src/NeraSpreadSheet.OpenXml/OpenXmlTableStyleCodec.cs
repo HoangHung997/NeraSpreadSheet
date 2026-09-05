@@ -15,7 +15,7 @@ internal static class OpenXmlTableStyleCodec
     private static readonly XNamespace SpreadsheetNamespace =
         "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 
-    public static void Read(WorkbookPart workbookPart, Workbook workbook)
+    public static void Read(WorkbookPart workbookPart, Workbook workbook, bool preserveUnsupportedMarkup)
     {
         ArgumentNullException.ThrowIfNull(workbookPart);
         ArgumentNullException.ThrowIfNull(workbook);
@@ -49,8 +49,13 @@ internal static class OpenXmlTableStyleCodec
                 $"The XLSX style table exceeds the custom Table style limit of {MaximumCustomStyles}.");
         }
 
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var styleElement in styleElements)
         {
+            if (!names.Add(RequiredAttribute(styleElement, "name")))
+            {
+                throw new InvalidDataException("Custom Table style names must be unique.");
+            }
             if (!ReadBoolean(styleElement, "table", defaultValue: true))
             {
                 continue;
@@ -67,8 +72,12 @@ internal static class OpenXmlTableStyleCodec
                     name,
                     elements));
             }
-            catch (UnsupportedTableStyleException)
+            catch (UnsupportedTableStyleException exception)
             {
+                if (!preserveUnsupportedMarkup)
+                {
+                    throw new InvalidDataException("Unsupported custom Table styles require package preservation.", exception);
+                }
                 // The package-preservation path retains producer-owned markup.
             }
         }

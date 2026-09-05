@@ -52,7 +52,7 @@ public sealed record FormulaTextEditResult(
 /// Native hosts remain responsible for presenting suggestions and mapping a
 /// pointer drag to a <see cref="CellRange"/>.
 /// </summary>
-public sealed class SpreadsheetFormulaEditingAssistant
+public sealed partial class SpreadsheetFormulaEditingAssistant
 {
     private readonly FormulaFunctionSuggestion[] _catalog;
     private readonly Dictionary<string, FormulaFunctionHelp> _helpByName;
@@ -122,7 +122,7 @@ public sealed class SpreadsheetFormulaEditingAssistant
         ArgumentNullException.ThrowIfNull(text);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumResults);
         ValidateCaret(text, caretIndex);
-        if (!text.StartsWith('=') || caretIndex <= 1)
+        if (!text.StartsWith('=') || caretIndex <= 1 || !IsOutsideLiteralAndReference(text, caretIndex))
         {
             return Array.Empty<FormulaFunctionSuggestion>();
         }
@@ -198,6 +198,11 @@ public sealed class SpreadsheetFormulaEditingAssistant
                 continue;
             }
 
+            if (bracketDepth > 0 && character == '\'' && index + 1 < caretIndex)
+            {
+                index++;
+                continue;
+            }
             switch (character)
             {
                 case '"':
