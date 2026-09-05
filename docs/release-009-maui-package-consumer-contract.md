@@ -4,6 +4,13 @@ Phạm vi: một bộ 15 neutral packages + một MAUI package chứa Windows, A
 iOS và Mac Catalyst. Existing Windows desktop/OpenXml consumer không bị đổi.
 Source của checkpoint này từ baseline tích hợp `50cb357a`; chưa nhận whole B.
 
+Checkpoint đã xác minh: source `8b7781ca` đủ sáu workflow SUCCESS, canonical
+matrix `33988945365` đủ 11 jobs; Android consumer thật đạt 10 frames. Root nhận
+28 owned paths thành `e3c0e1c7..f62ea0dd`, không nhận import-only transport cũ.
+Các mô tả OPEN trước khi chạy trong gate bên dưới là điều kiện thiết kế;
+Android source đã đạt, Windows/iOS/Mac native và combined HEAD chưa được thay
+bằng source green. [Hồ sơ tích hợp](worklog/RELEASE-009_MAUI_INTEGRATION_20260906.md).
+
 ## Gates
 
 1. SHA checkout bằng workflow HEAD; version gồm run/attempt/SHA. Mọi producer

@@ -1,5 +1,17 @@
 # NeraSpreadSheet current implementation status
 
+## CẬP NHẬT 06/09 — NHẬN CANONICAL MAUI PACKAGES; NATIVE iOS TRANSPORT ĐÃ QUA
+
+Root f344 full/iOS/Q/Windows packages xanh; desktop navigation/editor trước đó
+được giữ. Đã ghép 28 C-owned paths từ source8b (sáu workflows xanh, Android
+PackageReference consumer thật10frames) thành e3c0e1c7..f62ea0dd. Consumer build
+đủ bốn MAUI targets qua một canonical feed16packages; Windows/iOS/Mac package
+native chưa nghiệm thu. Bản kết hợp mới cần CI riêng, không kế thừa sourcegreen.
+A tiếp tục split editor routing/help/selection, C nối iOS package runtime, B
+khoanh vùng Mac startup và Windows reattach. Whole B, bar/filter integration,
+final performance/hardware còn OPEN; chưa đạt100% Table/Filter/Ribbon/UX.
+[Chi tiết hiện hành](worklog/CURRENT.md).
+
 ## CẬP NHẬT 06/09 — ĐÃ GHÉP NAVIGATION VÀ DESKTOP EDITOR, CHỜ CI KẾT HỢP
 
 Root đã nhận A navigation/split shell finalbed515b7 (năm source workflows

@@ -2,7 +2,7 @@ name: RELEASE-009 MAUI canonical packages (Android native, other native OPEN)
 
 on:
   push:
-    branches: ['feature/release-009-maui-packages']
+    branches: ['feature/release-009-maui-packages', 'feature/bootstrap-architecture-v0.1']
   workflow_dispatch:
 
 permissions:

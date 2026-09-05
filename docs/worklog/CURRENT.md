@@ -1,5 +1,30 @@
 # Current Work Handoff
 
+## Mới nhất — nhận canonical MAUI packages, tiếp tục ba nhánh
+
+Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+Root nhận C final `8b7781ca` thành `e3c0e1c7..f62ea0dd`: 28 final paths
+exact blobs, skip import-only dfd31, giữ root f344 transport. Source C đủ sáu
+workflow xanh, canonical matrix33988945365 đủ11jobs, Android native10frames.
+[Hồ sơ](RELEASE-009_MAUI_INTEGRATION_20260906.md) ghi mapping, gates/giới hạn.
+Local combined23 package +20 transport fixtures PASS, 0skip, PlanOnly và
+architecture/packaging checks PASS. New combined build/native CI còn chờ.
+
+Root f344 full33988991344/iOS33988991332/Q33988991326/packages33988988456
+đã SUCCESS, sửa truncated duplicate transport được actual iOS xác minh.
+Không dùng demo7a cho f344; sẽ chạy published demo ở final combined mới.
+A nhận immutable3 iOS transport files từ f344 trong import-only commit, đồng
+thời giữ grant11ownedpaths split/editor routing. Extra hai EditorDraft paths
+chỉ tránh Select khi native range không đổi, giữ backward selection direction.
+C đã được grant branch `feature/release-009-maui-ios-consumer` từ frozen8b,
+nhận cùng3 immutable files, chỉ nối own package workflow/wrapper. Root bỏ
+import-only commits khi nhận A/C. B được một dispatcher-only Mac page partition
+theo exact hash trong wave; baseline-page7fa đã PASS nhưng không chạy editor.
+Original Mac candidate và Windows reattach vẫn FAIL, whole B/P3 chưa nhận.
+
+Bước tiếp theo duy nhất: push và xác minh sáu workflow ở HEAD kết hợp mới,
+giữ A/B/C theo grant hiện hành; không báo 100% hoặc merge PR khi còn gate OPEN.
+
 ## Native iOS transport correction — đang chờ chạy thật
 
 7a iOS job101365914743 FAIL vì structured eventMessage cũng bị cắt ở990chars

@@ -1,5 +1,41 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## Grant bổ sung sau f344 actual native PASS / nhận C8b
+
+Root f344 full33988991344 và iOS33988991332 SUCCESS. A/C được import đúng
+ba immutable root blobs trong commit import-only riêng, không sửa implementation:
+
+- scripts/run-maui-ios-smoke.sh: `41b8d02bad14c812fffcda562b63c17c02336682`.
+- scripts/verify-native-smoke-result.py: `5fd92e2866fc7231c44c81feda3dd4dcc8c43788`.
+- scripts/test-native-smoke-result.py: `cf540735e2a20faa72be3a842338b4a4638d49b7`.
+
+Khi nhận source A/C, root SKIP import-only để không ghi đè shared transport.
+A thêm đúng hai writer paths NeraSpreadsheetControl.EditorDraft.cs và
+NeraSpreadsheetSplitAdorner.EditorDraft.cs: sau text update chỉ Select nếu
+native SelectionStart/SelectionLength khác requested range. Không đổi public
+API hoặc suy CaretIndex thành moving edge của nonempty WPF selection. Native
+test unchanged echo giữ backward direction, changed range vẫn áp dụng một lần.
+Các grant WPF trước giữ nguyên; sample bar/filter/resources vẫn chưa được giao.
+
+C frozen8b đã release/nhận28paths; root thêm integration push trigger workflow
+mới và giữ shared status. C tiếp tục branch feature/release-009-maui-ios-consumer
+từ8b, nhận ba f344 files nguyên trạng và chỉ wire iOS trong owned wrapper/
+workflow. verify-app ngay trước launcher, own verify-runtime cohort/nonce/feed/
+target/version/source, >=3frames và public postconditions sau launch bắt buộc.
+Không lấy legacy min2 thay consumer gate; final source sáu workflows phải xanh.
+
+B baseline-page7fa run33988816930: baseline PASS10, original candidate FAIL,
+exact baseline-page variant PASS10; generated CellTextView vẫn có, targeted
+class metadata trùng nhưng không khẳng định toàn registrar.mm trùng. Windows
+candidate vẫn FAIL ở first reinsert. Đóng variant cũ; grant DUY NHẤT one-page
+baseline-dispatch partition mới, before89bc459fa5c86b523e96bcd22f19a496e2151df6
+→ after0ff170b2483d5137b7e8518fdbb3e2d59d2f42c5, patch SHA256
+`6996d3c42d01f96423698ece2b03c4f9ae123c188036eb41b190357698eb01e5`.
+So passing baseline page chỉ thêm awaited Dispatcher Action marker và async
+caller adaptation; không editor/fd2 hook/production delta. Original failures
+giữ FAIL, không đổi timeout/retry/linking/flags. Variant không phải TABLE007
+acceptance; beforeblob đổi phải xin lại phạm vi. B pusha3b7a4df để chạy narrow CI.
+
 ## A tiếp tục SDK split editor routing từ7a378ca1 — grant hiện hành
 
 Root7a desktop job101365914847 đã SUCCESS, cùng Core/Q/packages33988335138
