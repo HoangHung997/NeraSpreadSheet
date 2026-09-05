@@ -21,6 +21,18 @@ internal sealed record NeraMauiRibbonPalette(
 internal static class NeraMauiRibbonChrome
 {
 #if WINDOWS
+    private static readonly BindableProperty FilterPickerDarkThemeProperty = BindableProperty.CreateAttached(
+        "FilterPickerDarkTheme", typeof(bool), typeof(NeraMauiRibbonChrome), false,
+        propertyChanged: static (target, _, _) => ConfigureNativePickerTheme(target, EventArgs.Empty));
+
+    private static void ConfigureNativePickerTheme(object? sender, EventArgs args)
+    {
+        if (sender is not Picker { Handler.PlatformView: Microsoft.UI.Xaml.Controls.ComboBox native } picker) return;
+        // TextColor does not style the native chevron or dropdown surface.
+        native.RequestedTheme = (bool)picker.GetValue(FilterPickerDarkThemeProperty)
+            ? Microsoft.UI.Xaml.ElementTheme.Dark : Microsoft.UI.Xaml.ElementTheme.Light;
+    }
+
     private static readonly BindableProperty FilterCheckGlyphProperty = BindableProperty.CreateAttached(
         "FilterCheckGlyph", typeof(Color), typeof(NeraMauiRibbonChrome), Colors.White,
         propertyChanged: static (target, _, _) => ConfigureNativeCheckGlyph(target, EventArgs.Empty));
@@ -57,6 +69,12 @@ internal static class NeraMauiRibbonChrome
             case Picker picker:
                 picker.TextColor = palette.Text;
                 picker.TitleColor = palette.Muted;
+#if WINDOWS
+                picker.SetValue(FilterPickerDarkThemeProperty, palette.Surface.Red < 0.5f);
+                picker.HandlerChanged -= ConfigureNativePickerTheme;
+                picker.HandlerChanged += ConfigureNativePickerTheme;
+                ConfigureNativePickerTheme(picker, EventArgs.Empty);
+#endif
                 break;
             case CheckBox checkBox:
                 checkBox.Color = palette.Accent;
