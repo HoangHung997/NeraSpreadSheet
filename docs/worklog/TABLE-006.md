@@ -4,6 +4,8 @@
   TABLE-006 vì thiếu native producer corpus và native point-mode wiring.
 - Branch: `feature/table-006-compat-hardening`.
 - Base: `cf923db2bf88d9f67f980b4f78a3364bcfddbe47` (TABLE-005 source xanh).
+- Implementation chính: `79f7296895f2ad01d7ab3a10260134a0b841e0ad`;
+  commit kế tiếp chứa edge hardening và tài liệu handoff này.
 - Chỉ bàn giao delta `cf923db2..HEAD`; ba commit TABLE-005 không nhập lại.
 - Owner: lane B, headless Core/Editing/Formulas/OpenXml và tests Table.
 - Không sửa UI, Commands/Ribbon, project/CI, sample hay tài liệu điều phối.
@@ -58,13 +60,17 @@ Table được thay đổi; không đổi serializer ngoài Table. Không còn W
 
 - SDK .NET **10.0.302** có sẵn; không cài SDK/workload/package mới.
 - Core solution Release build/analyzers: **0 warnings / 0 errors**.
-- Full Core solution: **1440 passed, 0 failed, 0 skipped** (baseline 1388).
-- Core **134**, Editing **271**, Formulas **534**, OpenXML **129**, Commands
+- Full Core solution: **1445 passed, 0 failed, 0 skipped** (baseline 1388).
+- Core **134**, Editing **273**, Formulas **535**, OpenXML **131**, Commands
   **102**, Rendering.Spreadsheet **128**, Skia **15**, Viewport **61**; các
   Foundation/Interaction/Layout/Scrolling/Export/Iconography suite còn lại xanh.
-- Corpus TableCompatibilityHardeningTests **32/32**; structured hardening
-  **8/8**; new Editing structured/reference/safety/perf regressions **11/11**;
-  strict-style regression **1/1**. Tổng tăng **52 tests**.
+- Corpus TableCompatibilityHardeningTests **34/34**; structured hardening
+  **9/9**; new Editing structured/reference/safety/perf regressions **13/13**;
+  strict-style regression **1/1**. Tổng tăng **57 tests**.
+- Final edge review: reserved column name `#Data` không đổi area selector;
+  completion trước closing bracket replace toàn fragment; Add/import từ chối
+  duplicate Table GUID toàn workbook; unsupported sort geometry rewrite bị
+  từ chối trước khi ghi destination (old bytes giữ nguyên).
 - In-memory session smoke: **20 loại mutation**, mỗi loại đúng một history
   entry, Undo/Redo/cell values/formulas/metadata và Save -> Load -> Save, ở cả
   strict và preserve. Kiểm tra schema, stable table/column IDs, style/options,
@@ -109,8 +115,13 @@ visual metadata và completion được chứng minh độc lập unrelated cell
 - Handoff chỉ gồm delta **`cf923db2..HEAD`** trên nhánh riêng. Không lấy lại
   `c8793a4f`, `0c2c64f6`, `cf923db2` và không mang docs/status từ TABLE-005 vào
   integration. Coordinator nhập sau lane A và kiểm chứng combined HEAD.
-- Implementation/final SHA và exact-head run URLs sẽ được ghi trong handoff
-  sau khi push và verify đủ ba workflow; chưa tuyên bố CI xanh ở bước này.
+- Full CI/iOS/Q003C đã dispatch ở implementation chính: runs `33951954012`,
+  `33951955611`, `33951956776`. Đây chỉ là checkpoint trước edge hardening;
+  không dùng chúng để tuyên bố final HEAD xanh.
+- Final SHA và exact-head run URLs được gửi trong handoff về coordinator sau
+  commit này, khi verify đủ ba workflow cùng toàn bộ jobs. Bản ghi trong Git
+  phản ánh thời điểm viết trước CI; worker phải dispatch lại trên commit chứa
+  tài liệu này và chờ xanh trước khi kết thúc task.
 - Corpus chỉ Nera/OpenXML synthetic. **Chưa có native Excel/LibreOffice
   provenance**, chưa live-test Excel, chưa có native point-mode/completion
   wiring. Các gap này giữ toàn TABLE-006 ở trạng thái chưa đóng.

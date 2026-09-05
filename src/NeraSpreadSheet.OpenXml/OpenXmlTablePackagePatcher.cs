@@ -360,6 +360,25 @@ internal static class OpenXmlTablePackagePatcher
         var generatedFilter = generatedRoot.Element(SpreadsheetNamespace + "autoFilter");
         if (preservedFilter is not null && generatedFilter is not null)
         {
+            if (preservedFilter.Element(SpreadsheetNamespace + "sortState") is not null &&
+                generatedFilter.Element(SpreadsheetNamespace + "sortState") is null)
+            {
+                try
+                {
+                    _ = OpenXmlAutoFilterCriteriaCodec.ParseSortState(preservedFilter,
+                        OpenXmlTableCodec.ParseRange((string)preservedFilter.Attribute("ref")!),
+                        (id, cellColor) => OpenXmlTableCodec.ResolveColor(differentialStyles, id, cellColor));
+                }
+                catch (InvalidDataException exception)
+                {
+                    if ((string?)preservedRoot.Attribute("ref") != (string?)generatedRoot.Attribute("ref") ||
+                        oldColumns.Length != newColumns.Length || retainedOffsets.Any(pair => pair.Key != pair.Value))
+                    {
+                        throw new InvalidOperationException(
+                            "Cannot preserve unsupported Table sort references after changing Table geometry or column identity.", exception);
+                    }
+                }
+            }
             // Only opaque criteria are restored; supported criteria that the user cleared stay cleared.
             var remapped = new XElement(preservedFilter);
             foreach (var column in remapped.Elements(SpreadsheetNamespace + "filterColumn").ToArray())

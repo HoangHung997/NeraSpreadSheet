@@ -49,7 +49,8 @@ public sealed partial class SpreadsheetFormulaEditingAssistant
                      area == TableReferenceArea.ThisRow && !ReferenceEquals(owner, worksheet)) return [];
             if (table is null || area == TableReferenceArea.ThisRow &&
                 table.DataRange?.Contains(formulaAddress) != true) return [];
-            var span = new FormulaTextSpan(start, caretIndex - start);
+            var span = new FormulaTextSpan(start, caretIndex - start +
+                (caretIndex < text.Length && text[caretIndex] == ']' ? 1 : 0));
             return table.Columns.Where(column => column.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 .Take(maximumResults).Select(column => new FormulaStructuredReferenceSuggestion(
                     table.Id, column.Id, area, column.Name, span, text)).ToArray();

@@ -7,6 +7,14 @@ namespace NeraSpreadSheet.Formulas.Tests;
 public sealed class StructuredReferenceHardeningTests
 {
     [TestMethod]
+    public void RenameReservedColumnNameShouldNotChangeAreaSelectors()
+    {
+        Assert.AreEqual("=SUM(Sales[#Data])+Sales[Net]",
+            StructuredReferenceFormulaRewriter.RenameColumn("=SUM(Sales[#Data])+Sales['#Data]",
+                "Sales", "#Data", "Net", false));
+    }
+
+    [TestMethod]
     public void RenameShouldMatchWholeColumnTokenAndIgnoreLiterals()
     {
         const string formula = "=[@Amount]+[@AmountTax]+Sales[[#Data],[Amount]]+\"[@Amount]\"";

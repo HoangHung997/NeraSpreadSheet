@@ -8,6 +8,31 @@ namespace NeraSpreadSheet.Editing.Tests;
 public sealed class StructuredReferenceEditingTests
 {
     [TestMethod]
+    public void CompletionBeforeClosingBracketShouldReplaceTheWholeFragment()
+    {
+        var session = CreateSession();
+        const string text = "=SUM(Sales[Am])";
+        var item = SpreadsheetFormulaEditingAssistant.GetStructuredReferenceSuggestions(text, 13,
+            session.Workbook, session.ActiveWorksheet, default).Single();
+        var result = SpreadsheetFormulaEditingAssistant.ApplyStructuredReferenceSuggestion(text,
+            session.Workbook, session.ActiveWorksheet, default, item);
+        Assert.AreEqual("=SUM(Sales[[#Data],[Amount]])", result.Text);
+    }
+
+    [TestMethod]
+    public void AddShouldRejectWorkbookDuplicateTableIdentity()
+    {
+        var session = CreateSession();
+        var table = session.ActiveWorksheet.Tables.Single();
+        var other = session.Workbook.AddWorksheet("Other");
+        var otherSession = new SpreadsheetSession(session.Workbook, other);
+        Assert.ThrowsExactly<InvalidOperationException>(() => otherSession.Tables.Add(new SpreadsheetTable(
+            table.Id, "OtherTable", table.Range, table.Columns)));
+        Assert.AreEqual(0, other.TableCount);
+        Assert.AreEqual(0, otherSession.History.UndoCount);
+    }
+
+    [TestMethod]
     public void VisualTableChangesAndHistoryShouldNotRecalculateOrProjectCells()
     {
         var session = CreateSession();

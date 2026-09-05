@@ -46,6 +46,8 @@ và [structured references của Microsoft](https://support.microsoft.com/en-us/
   ghép theo offset cũ. Criteria được hỗ trợ mà người dùng Clear không được
   resurrection từ envelope. Table-wide button visibility vẫn là giới hạn
   TABLE-005; không tuyên bố giữ semantic per-column visibility.
+- Unsupported sort không thể tự rewrite reference khi đổi geometry/column
+  identity: preserved save bị từ chối trước ghi destination, giữ bytes cũ.
 
 ## Rejection và transaction
 

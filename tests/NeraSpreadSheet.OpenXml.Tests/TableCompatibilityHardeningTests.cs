@@ -152,6 +152,37 @@ public sealed class TableCompatibilityHardeningTests
     }
 
     [TestMethod]
+    public async Task DuplicateStableTableIdentityAcrossWorksheetsShouldRejectImport()
+    {
+        using var source = await CreatePackage();
+        var session = await Load(source);
+        var table = session.ActiveWorksheet.Tables.Single();
+        session.Workbook.AddWorksheet("Other").AddTable(new SpreadsheetTable(table.Id, "OtherTable", table.Range, table.Columns));
+        using var malformed = await Save(session);
+        var bytes = malformed.ToArray();
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => Load(malformed));
+        CollectionAssert.AreEqual(bytes, malformed.ToArray());
+    }
+
+    [TestMethod]
+    public async Task UnsupportedSortShouldRejectGeometryRewriteBeforeWritingDestination()
+    {
+        using var source = await CreatePackage();
+        Mutate(source, root => root.Element(S + "autoFilter")!.Add(new XElement(S + "sortState",
+            new XAttribute("ref", "A2:B4"), new XAttribute("columnSort", 1),
+            new XElement(S + "sortCondition", new XAttribute("ref", "A2:B2")))));
+        var session = await Load(source, true);
+        session.Tables.InsertColumn(session.ActiveWorksheet.Tables.Single().Id, 0, "New");
+        using var destination = new MemoryStream();
+        destination.Write([1, 2, 3, 4]);
+        var bytes = destination.ToArray();
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            new NeraOpenXmlSpreadsheetSessionSerializer().SaveSessionAsync(session, destination,
+                new OpenXmlExportOptions { PreserveUnknownParts = true }));
+        CollectionAssert.AreEqual(bytes, destination.ToArray());
+    }
+
+    [TestMethod]
     public async Task StandardTableLevelSortStateShouldRoundTripAndClear()
     {
         using var source = await CreatePackage();
