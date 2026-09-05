@@ -46,9 +46,13 @@ Source của checkpoint này từ baseline tích hợp `50cb357a`; chưa nhận 
 | Mac Catalyst | macOS, maui-maccatalyst, Xcode | App bundle theo kiến trúc runner |
 
 Apple bundle được chọn duy nhất bằng CFBundleIdentifier trong compiled Info.plist.
-Một Python scanner chung chụp/kiểm app inventory, gồm hidden files và resolved
-internal links; link ra ngoài app root bị từ chối. Manifest giữ appName/size/hash,
-marker runtime phải được tạo mới từ chính build đó.
+Một Python scanner chung chụp/kiểm app inventory, gồm hidden files và explicit
+internal links. Link entries giữ kind, relative linkTarget/resolvedTarget; directory
+alias không flatten descendants. Escape, absolute links, symbolic/directory cycles
+và duplicate/case-colliding logical paths bị từ chối. Retarget tới bytes giống hệt
+vẫn làm manifest mismatch. Manifest giữ appName/size/hash; marker runtime phải
+được tạo mới từ chính build đó. Fixtures dùng thư mục synthetic vài byte riêng,
+kiểm content change, hidden add/remove và actual link retarget/escape/cycles.
 
 Android host probe giữ AOT-disabled như source gate hiện hữu. Simulator/debug
 không thay device/AOT/signing/hardware acceptance. Native editor bridge chờ B

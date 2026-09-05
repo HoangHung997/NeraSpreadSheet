@@ -1,6 +1,10 @@
 """Small in-memory negative fixtures; no SDK, workload, build, or native process."""
 import copy
+import contextlib
 import io
+import os
+from pathlib import Path
+import tempfile
 import unittest
 import zipfile
 import xml.etree.ElementTree as ET
@@ -11,6 +15,119 @@ SHA = "a" * 40
 VERSION = "0.1.0-ci.123.1.g" + SHA[:12]
 TFMS = {"windows": "net10.0-windows10.0.19041.0", "android": "net10.0-android36.0",
         "ios": "net10.0-ios18.7", "maccatalyst": "net10.0-maccatalyst18.7"}
+
+
+@contextlib.contextmanager
+def app_fixture():
+    base = Path(tempfile.gettempdir()).resolve()
+    workspace = tempfile.TemporaryDirectory(prefix="nera-r009-fixture-")
+    sandbox = Path(workspace.name).resolve()
+    try:
+        root = sandbox / "app"
+        root.mkdir()
+        executable = root / "Fixture.exe"
+        executable.write_bytes(b"synthetic executable")
+        yield executable
+    finally:
+        matrix.require(Path(workspace.name).resolve() == sandbox and sandbox.parent == base and
+                       sandbox.name.startswith("nera-r009-fixture-"), "Unsafe fixture cleanup path")
+        workspace.cleanup()
+
+
+class AppInventoryTests(unittest.TestCase):
+    def createLink(self, path, target, directory=False):
+        try:
+            path.symlink_to(target, target_is_directory=directory)
+        except OSError as error:
+            if os.name == "nt" and error.winerror == 1314:
+                self.skipTest("Windows has no symlink privilege; these actual-filesystem cases run in Linux CI.")
+            raise
+
+    def buildManifest(self, executable):
+        return {"schemaVersion": 1, "platform": "windows", "appName": executable.name,
+                "files": matrix.capture_app_payload(executable, "windows")}
+
+    def testScannerShouldIncludeAndVerifyHiddenFileContents(self):
+        for change in ("change-content", "add-hidden", "remove-hidden"):
+            with self.subTest(change=change), app_fixture() as executable:
+                hidden = executable.parent / ".payload"
+                hidden.write_bytes(b"first")
+                build = self.buildManifest(executable)
+                self.assertEqual({"Fixture.exe", ".payload"}, {record["file"] for record in build["files"]})
+                matrix.verify_app(executable, build)
+                if change == "change-content":
+                    hidden.write_bytes(b"other")  # Same length; the content hash must detect this.
+                elif change == "add-hidden":
+                    (executable.parent / ".added").write_bytes(b"extra")
+                else:
+                    hidden.unlink()
+                with self.assertRaisesRegex(ValueError, "payload differs"), contextlib.redirect_stdout(io.StringIO()):
+                    matrix.verify_app(executable, build)
+
+    def testFileLinkRetargetingShouldFailEvenForIdenticalContents(self):
+        with app_fixture() as executable:
+            root = executable.parent
+            (root / "first.bin").write_bytes(b"same")
+            (root / "second.bin").write_bytes(b"same")
+            link = root / "alias.bin"
+            self.createLink(link, "first.bin")
+            build = self.buildManifest(executable)
+            record = next(record for record in build["files"] if record["file"] == "alias.bin")
+            self.assertEqual(("symlink-file", "first.bin", "first.bin"),
+                             (record["kind"], record["linkTarget"], record["resolvedTarget"]))
+            matrix.verify_app(executable, build)
+            link.unlink()
+            self.createLink(link, "second.bin")
+            with self.assertRaisesRegex(ValueError, "payload differs"), contextlib.redirect_stdout(io.StringIO()):
+                matrix.verify_app(executable, build)
+
+    def testInternalDirectoryLinkShouldRemainExplicitWithoutFlattening(self):
+        with app_fixture() as executable:
+            root = executable.parent
+            directory = root / "Resources"
+            directory.mkdir()
+            (directory / ".hidden").write_bytes(b"resource")
+            (root / "Other").mkdir()
+            (root / "Other/.hidden").write_bytes(b"resource")
+            self.createLink(root / "Alias", "Resources", directory=True)
+            build = self.buildManifest(executable)
+            records = {record["file"]: record for record in build["files"]}
+            self.assertEqual({"Fixture.exe", "Resources/.hidden", "Other/.hidden", "Alias"}, set(records))
+            self.assertEqual("symlink-directory", records["Alias"]["kind"])
+            self.assertEqual("Resources", records["Alias"]["resolvedTarget"])
+            matrix.verify_app(executable, build)
+            (root / "Alias").unlink()
+            self.createLink(root / "Alias", "Other", directory=True)
+            with self.assertRaisesRegex(ValueError, "payload differs"), contextlib.redirect_stdout(io.StringIO()):
+                matrix.verify_app(executable, build)
+
+    def testEscapingAndCyclicLinksShouldBeRejected(self):
+        for case in ("escape", "absolute-internal", "symbolic-cycle", "directory-cycle"):
+            with self.subTest(case=case), app_fixture() as executable:
+                root = executable.parent
+                if case == "escape":
+                    (root.parent / "outside.bin").write_bytes(b"outside app")
+                    self.createLink(root / "alias", "../outside.bin")
+                elif case == "absolute-internal":
+                    self.createLink(root / "alias", executable)
+                elif case == "symbolic-cycle":
+                    self.createLink(root / "first", "second")
+                    self.createLink(root / "second", "first")
+                else:
+                    (root / "First").mkdir()
+                    (root / "Second").mkdir()
+                    self.createLink(root / "First/to-second", "../Second", directory=True)
+                    self.createLink(root / "Second/to-first", "../First", directory=True)
+                with self.assertRaisesRegex(ValueError, "escapes|cyclic|Cyclic|Non-relative"):
+                    self.buildManifest(executable)
+
+    def testAppEntryNameShouldMatchBeforeScanning(self):
+        with app_fixture() as executable:
+            build = self.buildManifest(executable)
+            other = executable.parent / "Other.exe"
+            other.write_bytes(executable.read_bytes())
+            with self.assertRaisesRegex(ValueError, "entry differs"):
+                matrix.verify_app(other, build)
 
 
 def archive(platform="windows", version=VERSION, sha=SHA, extra=None, dependency_version=VERSION):
@@ -198,7 +315,7 @@ class PackageMatrixTests(unittest.TestCase):
         for field, value in (("file", "../Synthetic.exe"), ("bytes", 4), ("sha256", "c" * 64)):
             variants.append([{**files[0], field: value}, files[1]])
         for variant in variants:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ValueError), contextlib.redirect_stdout(io.StringIO()):
                 matrix.verify_app_payload(variant, build)
 
 

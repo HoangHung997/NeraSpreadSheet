@@ -6,6 +6,7 @@ import copy
 import hashlib
 import io
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import xml.etree.ElementTree as ET
@@ -383,8 +384,17 @@ def verify_app_payload(actual, build):
         require(all(type(record["bytes"]) is int and record["bytes"] >= 0 and
                     re.fullmatch(r"[a-f0-9]{64}", record["sha256"]) for record in records),
                 "Invalid consumer app file identity")
+        for record in records:
+            kind = record.get("kind", "file")
+            require(kind in ("file", "symlink-file", "symlink-directory"), "Unknown consumer app entry kind")
+            if kind != "file":
+                target = record.get("linkTarget", "")
+                require(target and not PurePosixPath(target).is_absolute() and ":" not in target and "\\" not in target,
+                        "Non-relative consumer app link")
+                if record.get("resolvedTarget") != ".":
+                    safe_path(record.get("resolvedTarget"))
     def identity(records):
-        return {record["file"]: (record["bytes"], record["sha256"]) for record in records}
+        return {record["file"]: json.dumps(record, sort_keys=True) for record in records}
     actual_identity, expected_identity = identity(actual), identity(expected)
     if actual_identity != expected_identity:
         print(json.dumps({"missingFiles": sorted(expected_identity.keys() - actual_identity.keys())[:8],
@@ -400,18 +410,61 @@ def capture_app_payload(app, platform):
     if platform in ("ios", "maccatalyst"):
         require(path.is_dir() and path.suffix == ".app", "Missing consumer app bundle")
         root = path
-        paths = list(root.rglob("*"))
     else:
         require(path.is_file() and path.suffix == (".apk" if platform == "android" else ".exe"),
                 "Missing consumer application")
         root = path.parent
-        paths = [path] if platform == "android" else list(root.rglob("*"))
+    root = root.resolve(strict=True)
     actual = []
-    for item in paths:
-        require(item.resolve().is_relative_to(root.resolve()), "Consumer app file escapes its root")
-        if item.is_file():
-            actual.append({"file": item.relative_to(root).as_posix(), "bytes": item.stat().st_size,
-                           "sha256": digest(item.read_bytes())})
+    seen = set()
+    directory_edges = {}
+
+    def visit(item):
+        relative = safe_path(item.relative_to(root).as_posix())
+        require(relative.casefold() not in seen, "Ambiguous consumer app path alias")
+        seen.add(relative.casefold())
+        try:
+            resolved = item.resolve(strict=True)
+        except (OSError, RuntimeError) as error:
+            raise ValueError("Unresolvable or cyclic consumer app link") from error
+        require(resolved.is_relative_to(root), "Consumer app file escapes its root")
+        if item.is_symlink():
+            target = os.readlink(item).replace(os.sep, "/")
+            require(target and not PurePosixPath(target).is_absolute() and ":" not in target and "\\" not in target,
+                    "Non-relative consumer app link")
+            is_directory = resolved.is_dir()
+            require(is_directory or resolved.is_file(), "Unsupported consumer app link target")
+            content = target.encode() if is_directory else resolved.read_bytes()
+            actual.append({"file": relative, "kind": "symlink-directory" if is_directory else "symlink-file",
+                           "linkTarget": target, "resolvedTarget": resolved.relative_to(root).as_posix(),
+                           "bytes": 0 if is_directory else len(content), "sha256": digest(content)})
+            if is_directory:
+                directory_edges.setdefault(item.parent, []).append(resolved)
+            return  # Preserve directory aliases as links, never duplicate their descendants.
+        if item.is_dir():
+            directory_edges.setdefault(item.parent, []).append(item)
+            for entry in sorted(item.iterdir()):
+                visit(entry)
+        else:
+            require(item.is_file(), "Unsupported consumer app entry")
+            content = item.read_bytes()
+            actual.append({"file": relative, "kind": "file", "bytes": len(content), "sha256": digest(content)})
+
+    for item in ([root / path.name] if platform == "android" else sorted(root.iterdir())):
+        visit(item)
+    active, visited = set(), set()
+
+    def check_directory_cycles(directory):
+        require(directory not in active, "Cyclic consumer app directory alias")
+        if directory in visited:
+            return
+        active.add(directory)
+        for target in directory_edges.get(directory, []):
+            check_directory_cycles(target)
+        active.remove(directory)
+        visited.add(directory)
+
+    check_directory_cycles(root)
     return sorted(actual, key=lambda record: record["file"])
 
 
