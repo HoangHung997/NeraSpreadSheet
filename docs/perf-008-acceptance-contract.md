@@ -38,9 +38,9 @@ gồm Task.Run của filter; không gắn nhãn thread allocation cho async work
 | --- | --- |
 | Ribbon packing/collapse | Fixture gốc 9 tabs × 8 groups × 10 commands; widths 1536/1280/1024/820, scale 1; 128/32 |
 | Table filter-button toggle/Undo | Table 10 rows/2 columns, unrelated occupancy 0 hoặc 100.000 cells; 64/8 |
-| Table structured completion | Cùng fixture, `=Sales[Am`; 256/32 |
+| Table structured completion | Cùng fixture, `=Sales[Am`; 32768/1024 (v2) |
 | Filter mở catalog | 100.000 rows/unique values, source cap 10.000, page 100; 2/2 |
-| Filter cache hit | Trang đầu đã load; 512/64 |
+| Filter cache hit | Trang đầu đã load; 32768/1024 (v2) |
 | Filter search cycle | Search `0001` rồi clear; 4/2 |
 
 Packing không bao gồm Setup/projection/localization. Filter open bao gồm snapshot
@@ -51,7 +51,11 @@ present. Không dùng kết quả local khi A/B build để chấp nhận latenc
 
 ## Quy tắc budget khóa trước candidate
 
-Rule version `perf008-v1` được commit trước lần đo acceptance đầu tiên. Các tỷ lệ
+Rule version `perf008-v1` được commit trước lần đo đầu tiên. Revision `perf008-v2`
+chỉ tăng completion/cached-page operations và warmup theo quyết định coordinator
+sau baseline v1 không ổn định; thresholds bên dưới giữ nguyên. V1/raw/run
+`33972169896` vẫn INCONCLUSIVE; không trộn vào v2. V2 được commit trước baseline
+A/A mới và chạy lại toàn ma trận, không chọn một workload/sample có lợi. Các tỷ lệ
 dưới đây là chính sách quyết định, không phải số đo hiệu năng giả:
 
 1. Mỗi workload lấy baseline A/A log-ratios `log(second/first)`. Robust sigma là

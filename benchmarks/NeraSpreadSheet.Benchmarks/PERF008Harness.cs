@@ -52,7 +52,7 @@ internal static class PERF008Harness
             Require(session.ActiveWorksheet.Tables.Single().ShowFilterButtons, "Measured Table toggle/undo did not restore filter buttons.");
             var suggestions = benchmark.ColumnCompletion();
             Require(suggestions > 0, "The Table completion fixture no longer returns suggestions.");
-            measurements.Add(Measure($"table.completion.{unrelated}", 256, 32,
+            measurements.Add(Measure($"table.completion.{unrelated}", 32_768, 1_024,
                 () => GC.KeepAlive(benchmark.ColumnCompletion()), input, suggestions));
         }
         var filter = CreateFilterFixture();
@@ -68,7 +68,7 @@ internal static class PERF008Harness
             using var opened = NewView(filter);
             opened.InitializeAsync().GetAwaiter().GetResult();
         }, filterInput, PageEvidence(first)));
-        measurements.Add(Measure("filter.cachedPage.100000", 512, 64,
+        measurements.Add(Measure("filter.cachedPage.100000", 32_768, 1_024,
             () => GC.KeepAlive(view.GetPageAsync(0).GetAwaiter().GetResult()), filterInput, PageEvidence(first)));
         measurements.Add(Measure("filter.searchCycle.100000", 4, 2, () =>
         {

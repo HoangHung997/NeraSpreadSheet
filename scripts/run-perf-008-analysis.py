@@ -8,7 +8,8 @@ import statistics as stats
 import sys
 from pathlib import Path
 
-RULE = "perf008-v1:6-aa;12-abba;mad3;floor5pct;noise10pct;bootstrap95;alloc1pct-or1B"
+RULE = "perf008-v2:6-aa;12-abba;mad3;floor5pct;noise10pct;bootstrap95;alloc1pct-or1B;completion-cache32768-warm1024"
+ENVIRONMENT_KEYS = ("runtime", "framework", "os", "architecture", "processors", "configuration", "tieredCompilation", "serverGc")
 
 
 def digest(path):
@@ -39,6 +40,7 @@ def interval(values):
 
 def load_pairs(root, phase, count):
     pairs = []
+    expected_environment = None
     for index in range(count):
         pair = []
         for side in ("baseline", "candidate"):
@@ -47,7 +49,12 @@ def load_pairs(root, phase, count):
             assert document["configuration"] == "Release" and document["tieredCompilation"] == "0"
             assert not document["serverGc"]
             assert len(document["measurements"]) == 11, "Missing workload"
+            environment = {key: document[key] for key in ENVIRONMENT_KEYS}
+            if expected_environment is None:
+                expected_environment = environment
+            assert environment == expected_environment, "Worker environment changed"
             pair.append({item["Name"]: item for item in document["measurements"]})
+            assert len(pair[-1]) == 11, "Duplicate workload name"
         assert pair[0].keys() == pair[1].keys(), "Workload mismatch"
         pairs.append(pair)
     return pairs
@@ -81,13 +88,17 @@ def calibrate(root):
                              medianBytes=median(allocations),
                              quality="stable" if max(dispersion, pair_noise) <= .10 else "inconclusive-noise")
     files = {path.name: digest(path) for path in sorted(root.glob("calibration-*.json"))}
-    return dict(rule=RULE, calibrationFiles=files, budgets=budgets)
+    first = json.loads((root / "calibration-00-baseline.json").read_text(encoding="utf-8-sig"))
+    return dict(rule=RULE, calibrationFiles=files, budgets=budgets,
+                environment={key: first[key] for key in ENVIRONMENT_KEYS})
 
 
 def evaluate(root, budget):
     assert budget["rule"] == RULE
     assert all(digest(root / name) == hash_value for name, hash_value in budget["calibrationFiles"].items()), "Calibration changed"
     pairs = load_pairs(root, "paired", 12)
+    first = json.loads((root / "paired-00-baseline.json").read_text(encoding="utf-8-sig"))
+    assert {key: first[key] for key in ENVIRONMENT_KEYS} == budget["environment"], "Environment changed after calibration"
     assert pairs[0][0].keys() == budget["budgets"].keys(), "Budget workload mismatch"
     results = {}
     for name, limits in budget["budgets"].items():
@@ -129,7 +140,8 @@ def self_test():
                             scale = (1.5 if index % 2 else .5) if noise else 1.
                             item = dict(Name="metric", InputHash="bad" if tamper and side == "candidate" else "input", OutputHash="output",
                                         Operations=100, Warmup=20, MicrosecondsPerOperation=100 * scale * (ratio if side == "candidate" else 1), BytesPerOperation=200)
-                            data = dict(schema="perf008-worker-v1", mode="measure", configuration="Release", tieredCompilation="0", serverGc=False,
+                            data = dict(schema="perf008-worker-v1", mode="measure", runtime="test", framework="test", os="test", architecture="test", processors=2,
+                                        configuration="Release", tieredCompilation="0", serverGc=False,
                                         measurements=[dict(item, Name=f"metric{n}") for n in range(11)])
                             (root / f"{phase}-{index:02}-{side}.json").write_text(json.dumps(data))
                 write("calibration", 6)
@@ -139,6 +151,12 @@ def self_test():
                 write("paired", 12, ratio=1.2)
                 self.assertEqual("regression", evaluate(root, budget)["status"])
                 write("paired", 12, tamper=True)
+                self.assertRaises(AssertionError, evaluate, root, budget)
+                write("paired", 12)
+                changed_path = root / "paired-11-candidate.json"
+                changed = json.loads(changed_path.read_text())
+                changed["runtime"] = "different-runtime"
+                changed_path.write_text(json.dumps(changed))
                 self.assertRaises(AssertionError, evaluate, root, budget)
                 write("calibration", 6, noise=True)
                 budget = calibrate(root)
