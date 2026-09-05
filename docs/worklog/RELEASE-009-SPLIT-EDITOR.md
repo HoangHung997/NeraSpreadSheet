@@ -1,5 +1,18 @@
 # RELEASE-009 Split Editor — Handoff lane A
 
+## Checkpoint implementation 7950acb9
+
+- Source `7950acb90714e7e3789ea4be70b56bc386074fdb` đã push và dispatch
+  full33989178209, iOS33989179836, Q003C33989181142, packages33989182733,
+  demo33989184174. Q003C/packages đã success; các run còn lại chưa xác nhận xanh.
+- Windows job101368191810 dừng tại build do `KeyEventArgs` ambiguous giữa WPF và
+  WinForms trong test mới. Follow-up thêm explicit WPF alias; không sửa product,
+  nới analyzer hoặc bỏ test. Native7950 chưa chạy.
+- Primary WPF TextBox source xác nhận CaretIndex getter là SelectionStart.
+  Backward regression dùng native Shift+Left sau round-trip để quan sát direction;
+  snapshot range/text/caret giống nhau không chứng minh moving edge được giữ.
+  Root đã nhận báo cáo gap; không thêm API hoặc sửa ngoài granted files.
+
 - Branch `feature/release-009-split-editor-routing`, base chính xác
   `7a378ca133a517820a3e9425423e841513e8d07d`. PR #1 Draft/open/unmerged;
   slice chưa release hoặc được tích hợp. Commit implementation là HEAD chứa

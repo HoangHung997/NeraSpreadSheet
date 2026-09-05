@@ -158,7 +158,7 @@ public sealed class Table007WpfEditorDraftSmokeTests
     [DataRow(false)]
     [DataRow(true)]
     [Timeout(60_000)]
-    public void DraftRoundTripShouldRetainBackwardSelectedTextWhileExposingCaretNormalization(bool useSplit)
+    public void DraftRoundTripShouldRetainBackwardSelectedTextWhileExposingUnrepresentedDirection(bool useSplit)
     {
         RunLoaded(useSplit, (control, _, editor, formulaBar, session) =>
         {
@@ -177,14 +177,18 @@ public sealed class Table007WpfEditorDraftSmokeTests
             Assert.AreEqual(backward.Text, restored.Text);
             Assert.AreEqual(backward.SelectionStart, restored.SelectionStart);
             Assert.AreEqual(backward.SelectionLength, restored.SelectionLength);
-            // The current three-argument bridge describes a range, not its direction.
-            // Record this limitation explicitly before adding a separate caret contract.
-            Assert.AreEqual(4, restored.CaretIndex);
+            // WPF TextBox.CaretIndex reports SelectionStart for either direction.
+            // The immutable snapshot therefore cannot distinguish the moving edge.
+            Assert.AreEqual(backward.CaretIndex, restored.CaretIndex);
             Assert.AreSame(formulaBar, Keyboard.FocusedElement);
             Assert.AreSame(canonical, session.Editor.State);
             Assert.AreEqual(0, session.History.UndoCount);
             Assert.IsTrue(control.FocusEditor());
             Assert.AreEqual(restored, control.CurrentEditorDraft);
+            EditingCommands.SelectLeftByCharacter.Execute(null, editor);
+            Assert.AreEqual(2, editor.SelectionStart);
+            Assert.AreEqual(1, editor.SelectionLength,
+                "Select(start, length) normalizes direction: Shift+Left contracts instead of extending a backward selection.");
             Assert.IsTrue(control.CancelEditor());
         });
     }
