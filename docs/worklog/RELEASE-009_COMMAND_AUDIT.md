@@ -81,6 +81,14 @@ artifact `9973045882` đã root verify ZIP SHA và thấy mọi SDK DLL đúng v
 source. Sửa loại trừ duy nhất assembly consumer theo identity, giữ SDK/satellite
 provenance và thêm diagnostic từng assembly. Cần CI trên source sửa, chưa PASS.
 
+Follow-up `4534e231`: run `33979253272` **SUCCESS**, artifact `9973277152`
+root verify ZIP digest, manifest 18 packages và 18 resolved SDK dependencies,
+17 loaded SDK assemblies đúng version/SHA. Actual popup tải đủ 50 values,
+native changed drafts/commit/Undo/Cancel và width-matched resize đã PASS.
+Source review C không còn actionable blocker trong gate. R3 Windows checkpoint
+đạt; MAUI và final A+B combined vẫn OPEN. Workflow chạy mọi push integration
+branch để không bỏ final docs/source revision sau ghép.
+
 ### Bước tiếp theo duy nhất
 
 Sau khi A release source/sample ownership, coordinator tích hợp và bổ sung

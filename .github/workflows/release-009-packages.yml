@@ -3,10 +3,6 @@ name: RELEASE-009 packaged Windows SDK consumer
 on:
   push:
     branches: ['feature/bootstrap-architecture-v0.1']
-    paths:
-      - '.github/workflows/release-009-packages.yml'
-      - 'scripts/run-release-009-packages.ps1'
-      - 'tests/NeraSpreadSheet.Packaged.Windows.Smoke/**'
   workflow_dispatch:
 
 permissions:

@@ -154,6 +154,15 @@ Không tự tạo thêm agent/task. Đã xác minh cả ba task chạy đúng ba
 
 ## Checkpoint vận hành
 
+- 06/09: R3 Windows source `4534e231` đã PASS run `33979253272`, artifact
+  `9973277152` root verify. A/B chưa integrated, MAUI/combined R3 vẫn OPEN.
+  A release desktop sau local native capture AccessDenied; final producer
+  chuyển CI, không đổi quyền/né lỗi. B checkpoint `ee675078` đang exact gates.
+- A/B có thể tự dispatch existing workflows trên nhánh mình bằng configured
+  Git authentication, giữ secret trong memory, kiểm remote SHA và duplicate
+  runs; báo IDs/exact-head evidence. Không cần chờ root cho mỗi checkpoint,
+  không thay đổi workflow triggers hoặc tự tạo credential.
+
 - C final `fe015864` đã được root xác minh bốn workflow đúng SHA xanh, review
   corrected output guards và ghép bảy commits sạch thành `4e42a584`.
   [Integration/evidence](PERF_008_INTEGRATION_20260905.md); P3 chưa chạy combined.

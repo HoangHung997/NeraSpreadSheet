@@ -1,5 +1,42 @@
 # Current Work Handoff
 
+## Handoff mới nhất — 06/09/2026, Windows package gate đã xanh
+
+- Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+  Implementation mới nhất `4534e231191d8f138dd840f9b47485ea9942f3b2` gồm
+  C harness đã tích hợp và RELEASE-009 consumer; A/B chưa ghép.
+- Windows package run `33979253272` SUCCESS đúng SHA trên. Root verify artifact
+  `9973277152`, 2,891,329 bytes, ZIP SHA-256
+  `70d28e68f7ab6f04612ccc4ebcf2d7b389fb76ac91686f5c1b107c8d3c2026fd`.
+  Manifest 18 desktop/OpenXml packages và assets resolve đúng 18; loaded evidence
+  17 SDK assemblies đúng version/source, WPF/WinForms, 50 filter values, native
+  commit/cancel/Undo, resize và synthetic XLSX roundtrip PASS. Đây không phải
+  18 core packages cũ, không MAUI/mọi GPU consumer hoặc whole SDK acceptance.
+- Review độc lập C xác nhận bốn findings đã sửa; architecture/package metadata,
+  diff check và analyzer self-test local PASS. Không build/native nặng local.
+  Source full `33979255201` còn MAUI Windows tại checkpoint; Core/Windows/
+  Android/Apple đã xanh. iOS `33979255198`, Q003C `33979255193` success.
+  Commit handoff theo sau vẫn cần CI exact-HEAD riêng, không lấy parent thay thế.
+- Workflow RELEASE-009 nay chạy mỗi push integration branch, kể cả docs và
+  A/B source sau ghép; không bỏ package gate do path filter hoặc phải đổi script
+  giả để kích hoạt. Không tự publish feed; artifacts chỉ để thử nghiệm.
+- A implementation `1c855249` đã xanh bảy job, nhưng producer native Picker
+  còn final CI. A báo BitBlt AccessDenied trong lượt local cuối, đã dừng local
+  capture và release desktop; không đổi quyền/né lỗi. A tự dispatch checkpoint
+  sửa capture, giữ production/ci.yml đến final release; sample files root giữ.
+- B `ee6750787a63846fe38972e4ae8094c4fe6b773b` đang full `33979429092`,
+  iOS `33979430234`, Q003C `33979431250`, root verify exact SHA. Mac marked-text
+  probe/Windows clip-startup failure chưa nghiệm thu; script diagnostics đã
+  chuyển B theo wave. A/B được tự dispatch existing workflows của nhánh mình
+  với configured auth, exact-head/duplicate checks và không lộ credential.
+- Root đã cập nhật lịch heartbeat 15 phút trong task này; dùng ba task/model cũ,
+  quiet khi không có thay đổi; không tạo task trùng hoặc đổi model. User đã được
+  báo cần giải phóng vài GB ổ C trước đóng gói demo; không xóa dữ liệu/artefacts.
+  U/T/P/R combined, MAUI package, demo và actual hardware gates còn OPEN.
+- Bước tiếp theo duy nhất: xác minh CI ở HEAD handoff mới, nhận final A/B đã
+  release và review/tích hợp tuần tự; sau đó giao C đo P3 trên exact combined SHA.
+  Full-shell demo OpenWorkbook/sheet tabs còn trong RELEASE-009 audit, chưa sửa.
+
 ## Current checkpoint — PERF-008 integrated; UX/Table native fixes; R3 Windows gate
 
 - Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.

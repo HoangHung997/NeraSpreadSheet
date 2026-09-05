@@ -1,5 +1,20 @@
 # NeraSpreadSheet current implementation status
 
+## CẬP NHẬT 06/09/2026 — HARNESS ĐÃ GHÉP, WINDOWS NUGET CONSUMER ĐÃ PASS
+
+Root đã ghép source PERF-008 `fe015864` (bốn workflow exact-source xanh),
+giữ P3 chờ combined UX-007/TABLE-007. Implementation `4534e231` thêm package
+gate cô lập: 18 gói desktop/OpenXml có WPF/WinForms/Direct2D, loaded consumer
+chỉ dùng PackageReference đã PASS run `33979253272`, artifact `9973277152`
+được root verify digest và manifest/runtime evidence. Không phải full MAUI/
+GPU package acceptance hoặc bản demo hoàn chỉnh. C source review đã giúp sửa
+provenance và postcondition gaps trước khi nhận package smoke xanh.
+
+A đang chốt producer ảnh native Picker; B đang sửa Apple editor/Windows startup
+runtime. Chưa tích hợp hai lane này hoặc báo 100%. Root giữ shared docs, A/B
+chỉ ghi owned files; trạng thái mới nhất và exact-head gates được ghi trong
+[CURRENT](worklog/CURRENT.md). Các mục dưới đây là checkpoint/lịch sử.
+
 ## HIỆN HÀNH — BASELINE ĐÃ XANH; MỞ BA LANE HOÀN THIỆN
 
 Final combined **`2e8482c25a44797a479b276ae26f472811a0a81e`** đã xanh đủ
