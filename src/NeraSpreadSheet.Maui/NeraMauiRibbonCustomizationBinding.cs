@@ -33,6 +33,16 @@ public sealed class NeraMauiRibbonCustomizationBinding
 
     public IReadOnlyList<RibbonCustomizationEntry> Entries => _session.GetLocalizedEntries(_runtime.Localization);
 
+    /// <summary>Gets the current localized command catalog, including commands without a Ribbon placement.</summary>
+    public RibbonCommandCatalog CommandCatalog => _runtime.CommandCatalog;
+
+    /// <summary>Gets the working QAT order without committing or changing the runtime.</summary>
+    public IReadOnlyList<CommandId> QuickAccessToolbar => _session.QuickAccessToolbar;
+
+    /// <summary>Adds a catalog command to a working group using the shared placement contract.</summary>
+    public RibbonCustomizationTarget AddCommand(CommandId commandId, string tabId, string groupId, bool isLarge = false) =>
+        _session.AddCommand(commandId, tabId, groupId, isLarge);
+
     public RibbonCustomization CreateCustomization() =>
         _session.CreateCustomization();
 
@@ -44,7 +54,8 @@ public sealed class NeraMauiRibbonCustomizationBinding
 
     public void Apply(CommandContext context = default)
     {
-        _runtime.SetCustomization(_session.Commit(), context);
+        _runtime.SetCustomization(_session.CreateCustomization(), context);
+        _session.Commit();
         Changed?.Invoke(this, EventArgs.Empty);
     }
 

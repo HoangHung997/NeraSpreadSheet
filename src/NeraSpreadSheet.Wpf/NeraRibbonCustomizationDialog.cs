@@ -25,7 +25,6 @@ public sealed class NeraRibbonCustomizationDialog : Window
     private readonly TextBox _search = new();
     private readonly TextBlock _selectionCaption = new();
     private bool _refreshing;
-    private bool _accepted;
     private bool _initialized;
     private NeraIconTheme _iconTheme;
 
@@ -108,8 +107,8 @@ public sealed class NeraRibbonCustomizationDialog : Window
 
     public void ApplyCustomization()
     {
-        _runtime.SetCustomization(Session.Commit());
-        _accepted = true;
+        _runtime.SetCustomization(Session.CreateCustomization());
+        Session.Commit();
         CustomizationApplied?.Invoke(this, EventArgs.Empty);
     }
 
@@ -117,7 +116,6 @@ public sealed class NeraRibbonCustomizationDialog : Window
     {
         Session.Cancel();
         _runtime.SetCustomization(Session.CreateCustomization());
-        _accepted = true;
     }
 
     public RibbonCustomizationTarget AddCustomTab(string tabId, string caption) => Session.AddTab(tabId, caption);
@@ -201,7 +199,9 @@ public sealed class NeraRibbonCustomizationDialog : Window
         apply.SetResourceReference(Control.BackgroundProperty, "RibbonChecked");
         apply.SetResourceReference(Control.BorderBrushProperty, "RibbonAccent");
         footer.Children.Add(apply);
-        footer.Children.Add(CreateButton(Localization.Get("Hủy"), "Cancel", () => { CancelCustomization(); Close(); }));
+        var cancel = CreateButton(Localization.Get("Hủy"), "Cancel", () => { CancelCustomization(); Close(); });
+        cancel.IsCancel = true;
+        footer.Children.Add(cancel);
         DockPanel.SetDock(footer, Dock.Bottom);
         root.Children.Add(footer);
 
@@ -276,6 +276,7 @@ public sealed class NeraRibbonCustomizationDialog : Window
         var style = new Style(typeof(ListBoxItem), (Style)FindResource(typeof(ListBoxItem)));
         style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(8d, 6d, 8d, 6d)));
         style.Setters.Add(new Setter(FrameworkElement.ToolTipProperty, new Binding(nameof(RibbonCommandCatalogEntry.CategoryCaption))));
+        style.Setters.Add(new Setter(AutomationProperties.NameProperty, new Binding(nameof(RibbonCommandCatalogEntry.Caption))));
         return style;
     }
 
@@ -354,7 +355,7 @@ public sealed class NeraRibbonCustomizationDialog : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        if (_initialized && !_accepted) CancelCustomization();
+        if (_initialized) CancelCustomization();
         base.OnClosed(e);
     }
 

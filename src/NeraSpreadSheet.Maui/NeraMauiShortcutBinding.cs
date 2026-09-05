@@ -76,7 +76,7 @@ public sealed class NeraMauiShortcutBinding : IDisposable
         object? sender,
         NeraMauiShortcutEventArgs e)
     {
-        if (_disposed)
+        if (_disposed || e.Handled)
         {
             return;
         }

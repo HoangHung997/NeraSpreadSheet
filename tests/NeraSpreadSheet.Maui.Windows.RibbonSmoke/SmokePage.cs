@@ -10,7 +10,7 @@ using NeraSpreadSheet.Ribbon.Core;
 
 namespace NeraSpreadSheet.Maui.Windows.RibbonSmoke;
 
-internal sealed class SmokePage : ContentPage
+internal sealed partial class SmokePage : ContentPage
 {
     private static readonly JsonSerializerOptions ResultJsonOptions = new()
     {
@@ -478,6 +478,7 @@ internal sealed class SmokePage : ContentPage
             Require(focusOrigin.IsFocused, "Culture switch stole focus from the sibling control.");
             complexRuntime.SetLocalization(PresentationLocalization.Default);
 
+            await VerifyCustomizationShellAsync().ConfigureAwait(true);
             CompleteSuccessfully();
         }
         catch (Exception exception)
@@ -501,6 +502,7 @@ internal sealed class SmokePage : ContentPage
             barCommand = "file.save",
             shortcut = "Ctrl+S",
             customization = "structural-preview-cancel-hide-reset",
+            customizationShell = "native-roles-add-remove-qat-reorder-apply-cancel-json-draft-caret-full-narrow-9-captures",
             overflow = "bounded-scroll",
             complexItems = "all-kinds-selection",
             visualLayout = "packed-rows-bottom-captions-1536-1280-1024-820-dpi100-125-150-200",

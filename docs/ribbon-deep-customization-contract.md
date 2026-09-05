@@ -23,6 +23,10 @@ rollback point; `Reset` xóa override có chủ ý. Dialog WPF/WinForms và bind
 dùng cùng semantics. Preview có thể dựng lại cây Ribbon nhỏ nhưng không nằm trên
 worksheet scroll/render frame và không tạo control theo ô.
 
+UX-007: Apply chỉ nâng rollback point sau khi runtime publish thành công. Đóng
+dialog hoặc Cancel luôn bỏ mọi preview sau lần Apply thành công gần nhất, kể cả
+khi dialog còn mở để chỉnh tiếp. Lỗi publish không tự commit working profile.
+
 `RibbonCustomizationPolicy` do ứng dụng sở hữu khóa tab, group, command, QAT,
 import/reset hoặc việc tạo tab/group. Policy được kiểm tra trước mutation. Import
 được kiểm tra toàn profile trước khi thay working state, nên lỗi policy không để
@@ -48,9 +52,12 @@ tip mới dùng allocator deterministic tối đa bốn ký tự và kiểm tra 
 
 WPF/WinForms dialog có nút **Áp dụng** và **Hủy** với automation ID ổn định; danh
 sách, tùy chọn visibility/size, nút sắp xếp và reset tiếp tục dùng keyboard native.
-MAUI cung cấp cùng public operations qua
-`NeraMauiRibbonCustomizationBinding`; ứng dụng có thể ánh xạ chúng vào visual shell
-phù hợp từng form factor. Ribbon sau preview/apply tiếp tục dùng stable key tips,
+MAUI cung cấp cùng public operations qua `NeraMauiRibbonCustomizationBinding` và
+shell nhúng `NeraMauiRibbonCustomizationView` từ UX-007. Shell có native controls,
+full/narrow layout, Apply/Cancel, catalog/QAT và JSON import/export; host sở hữu
+window và lưu file. Windows Escape nhường cho Picker đang mở trước khi Cancel
+shell. Native keyboard/assistive acceptance trên Apple/Android vẫn cần chạy riêng.
+Ribbon sau preview/apply tiếp tục dùng stable key tips,
 focus restoration và automation identity của RIBBON-009.
 
 Rollback tích hợp: revert commit RIBBON-010. Profile v1 vẫn đọc bằng stack cũ;

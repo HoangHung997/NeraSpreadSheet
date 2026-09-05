@@ -12,6 +12,29 @@ namespace NeraSpreadSheet.Commands.Tests;
 public sealed class PresentationLocalizationTests
 {
     [TestMethod]
+    public void EnglishResourcesShouldCoverEveryNeutralKeyAndPreserveFormatArguments()
+    {
+        var resources = new System.Resources.ResourceManager(
+            "NeraSpreadSheet.Commands.PresentationStrings", typeof(PresentationLocalization).Assembly);
+        var neutral = resources.GetResourceSet(CultureInfo.InvariantCulture, true, false)!;
+        var english = resources.GetResourceSet(CultureInfo.GetCultureInfo("en"), true, false)!;
+        foreach (System.Collections.DictionaryEntry entry in neutral)
+        {
+            var key = (string)entry.Key;
+            var translated = english.GetString(key);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(translated), key);
+            var sourceFormat = System.Text.CompositeFormat.Parse((string)entry.Value!);
+            var targetFormat = System.Text.CompositeFormat.Parse(translated);
+            Assert.AreEqual(sourceFormat.MinimumArgumentCount, targetFormat.MinimumArgumentCount, key);
+            var sourceArguments = System.Text.RegularExpressions.Regex.Matches((string)entry.Value!, @"\{[0-9]+[^}]*\}")
+                .Select(static match => match.Value).Order(StringComparer.Ordinal).ToArray();
+            var targetArguments = System.Text.RegularExpressions.Regex.Matches(translated, @"\{[0-9]+[^}]*\}")
+                .Select(static match => match.Value).Order(StringComparer.Ordinal).ToArray();
+            CollectionAssert.AreEqual(sourceArguments, targetArguments, key);
+        }
+    }
+
+    [TestMethod]
     public void ThrowingHostResourceShouldLeaveThePreviousRuntimeSnapshotAndCultureIntact()
     {
         var session = new SpreadsheetSession(new Workbook());

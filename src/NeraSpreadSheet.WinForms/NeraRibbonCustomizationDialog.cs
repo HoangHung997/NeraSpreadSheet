@@ -22,7 +22,6 @@ public sealed class NeraRibbonCustomizationDialog : Form
     private readonly TextBox _search = new() { Dock = DockStyle.Fill, Name = "RibbonCustomizationSearch" };
     private readonly Label _selectionDetails = new() { AutoSize = true, ForeColor = Color.FromArgb(98, 109, 119), Padding = new Padding(0, 6, 0, 6) };
     private bool _refreshing;
-    private bool _accepted;
     private bool _initialized;
     private NeraIconTheme _iconTheme;
 
@@ -109,8 +108,8 @@ public sealed class NeraRibbonCustomizationDialog : Form
 
     public void ApplyCustomization()
     {
-        _runtime.SetCustomization(Session.Commit());
-        _accepted = true;
+        _runtime.SetCustomization(Session.CreateCustomization());
+        Session.Commit();
         CustomizationApplied?.Invoke(this, EventArgs.Empty);
     }
 
@@ -118,7 +117,6 @@ public sealed class NeraRibbonCustomizationDialog : Form
     {
         Session.Cancel();
         _runtime.SetCustomization(Session.CreateCustomization());
-        _accepted = true;
     }
 
     public RibbonCustomizationTarget AddCustomTab(string tabId, string caption) => Session.AddTab(tabId, caption);
@@ -240,7 +238,9 @@ public sealed class NeraRibbonCustomizationDialog : Form
             Padding = new Padding(0, 8, 0, 0),
         };
         buttons.Controls.Add(CreateButton(Localization.Get("Áp dụng"), "RibbonCustomizationApply", ApplyCustomization));
-        buttons.Controls.Add(CreateButton(Localization.Get("Hủy"), "RibbonCustomizationCancel", () => { CancelCustomization(); Close(); }));
+        var cancel = CreateButton(Localization.Get("Hủy"), "RibbonCustomizationCancel", () => { CancelCustomization(); Close(); });
+        buttons.Controls.Add(cancel);
+        CancelButton = cancel;
         buttons.Controls.Add(CreateButton(
             Localization.Get("Mặc định"),
             "RibbonCustomizationReset",
@@ -283,7 +283,7 @@ public sealed class NeraRibbonCustomizationDialog : Form
 
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
-        if (_initialized && !_accepted) CancelCustomization();
+        if (_initialized) CancelCustomization();
         base.OnFormClosed(e);
     }
 

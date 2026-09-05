@@ -30,9 +30,17 @@ disabled không chạy. Execution thành công refresh snapshot như click chu�
 
 `BindShortcuts` nhận input root do ứng dụng sở hữu (thường là `Window` WPF hoặc
 `Form` WinForms) và trả về `IDisposable`. Dispose presenter/control cũng tháo mọi
-binding đã tạo. WinForms tạm bật `Form.KeyPreview` và khôi phục giá trị cũ khi binding
-được dispose. Lỗi activation đi qua cùng event boundary với click.
+binding đã tạo. WinForms tạm bật `Form.KeyPreview`; các binding cùng Form chia sẻ
+reference count và chỉ khôi phục giá trị ban đầu khi binding cuối được dispose.
+Lỗi activation đi qua cùng event boundary với click.
+
+WPF/WinForms/MAUI bỏ qua event đã Handled; binding nhận chord phải claim trước
+await activation để multicast không chạy command hai lần. Disabled command đã
+resolve vẫn được claim. Bar binding không hỗ trợ KeyTips phải nhường Alt cho
+Ribbon; Ctrl+Alt không được dùng làm tín hiệu mở KeyTips. Escape theo từng scope
+và focus restoration của presenter hiện hữu vẫn được giữ.
 
 Không có global OS hotkey, không hook bàn phím ngoài process và không chiếm chord
-không thuộc surface. MAUI keyboard mapping thuộc `RIBBON-MAUI` sau khi vùng Apple được
-giải phóng.
+không thuộc surface. MAUI dùng `INeraMauiShortcutSource`/`NeraMauiShortcutBinding`
+hiện hữu. Native role/focus tests và synthetic key input được phân biệt với
+screen-reader hoặc hardware acceptance trong [UX-007](ux-007-keyboard-accessibility-contract.md).

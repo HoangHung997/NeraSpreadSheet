@@ -27,9 +27,9 @@ internal static class NeraMauiRibbonChrome
 
     private static void ConfigureNativePickerTheme(object? sender, EventArgs args)
     {
-        if (sender is not Picker { Handler.PlatformView: Microsoft.UI.Xaml.Controls.ComboBox native } picker) return;
-        // TextColor does not style the native chevron or dropdown surface.
-        native.RequestedTheme = (bool)picker.GetValue(FilterPickerDarkThemeProperty)
+        if (sender is not VisualElement { Handler.PlatformView: Microsoft.UI.Xaml.Controls.Control native } element) return;
+        // TextColor does not style native borders, selection, chevrons or popup surfaces.
+        native.RequestedTheme = (bool)element.GetValue(FilterPickerDarkThemeProperty)
             ? Microsoft.UI.Xaml.ElementTheme.Dark : Microsoft.UI.Xaml.ElementTheme.Light;
     }
 
@@ -65,16 +65,17 @@ internal static class NeraMauiRibbonChrome
             case Entry entry:
                 entry.TextColor = palette.Text;
                 entry.PlaceholderColor = palette.Muted;
+                ConfigureInputTheme(entry, palette);
+                break;
+            case Editor editor:
+                editor.TextColor = palette.Text;
+                editor.PlaceholderColor = palette.Muted;
+                ConfigureInputTheme(editor, palette);
                 break;
             case Picker picker:
                 picker.TextColor = palette.Text;
                 picker.TitleColor = palette.Muted;
-#if WINDOWS
-                picker.SetValue(FilterPickerDarkThemeProperty, palette.Surface.Red < 0.5f);
-                picker.HandlerChanged -= ConfigureNativePickerTheme;
-                picker.HandlerChanged += ConfigureNativePickerTheme;
-                ConfigureNativePickerTheme(picker, EventArgs.Empty);
-#endif
+                ConfigureInputTheme(picker, palette);
                 break;
             case CheckBox checkBox:
                 checkBox.Color = palette.Accent;
@@ -99,7 +100,17 @@ internal static class NeraMauiRibbonChrome
         foreach (var child in children) ConfigureFilter(child, palette);
     }
 
-    internal static void Configure(Button button, NeraMauiRibbonPalette palette, bool isChecked)
+    private static void ConfigureInputTheme(VisualElement element, NeraMauiRibbonPalette palette)
+    {
+#if WINDOWS
+        element.SetValue(FilterPickerDarkThemeProperty, palette.Surface.Red < 0.5f);
+        element.HandlerChanged -= ConfigureNativePickerTheme;
+        element.HandlerChanged += ConfigureNativePickerTheme;
+        ConfigureNativePickerTheme(element, EventArgs.Empty);
+#endif
+    }
+
+    internal static void Configure(Button button, NeraMauiRibbonPalette palette, bool isChecked, double borderWidth = 0d)
     {
         var previousState = VisualStateManager.GetVisualStateGroups(button)
             .FirstOrDefault(static group => group.Name == "CommonStates")?.CurrentState?.Name;
@@ -110,10 +121,10 @@ internal static class NeraMauiRibbonChrome
         button.MinimumWidthRequest = 0d;
         button.CornerRadius = 3;
         var states = new VisualStateGroup { Name = "CommonStates" };
-        AddState(states, "Normal", isChecked ? palette.Checked : palette.Surface, palette.Text, isChecked ? 1d : 0d);
+        AddState(states, "Normal", isChecked ? palette.Checked : palette.Surface, palette.Text, isChecked ? 1d : borderWidth);
         AddState(states, "PointerOver", palette.Hover, palette.Text, 1d);
         AddState(states, "Pressed", palette.Pressed, palette.Text, 2d);
-        AddState(states, "Disabled", palette.Surface, palette.Muted);
+        AddState(states, "Disabled", palette.Surface, palette.Muted, borderWidth);
         var focused = new VisualState { Name = "Focused" };
         focused.Setters.Add(new Setter { Property = Button.BorderWidthProperty, Value = 2d });
         focused.Setters.Add(new Setter { Property = Button.BorderColorProperty, Value = palette.Accent });
@@ -124,7 +135,7 @@ internal static class NeraMauiRibbonChrome
         button.TextColor = palette.Text;
         button.BackgroundColor = isChecked ? palette.Checked : palette.Surface;
         button.BorderColor = palette.Accent;
-        button.BorderWidth = isChecked ? 1d : 0d;
+        button.BorderWidth = isChecked ? 1d : borderWidth;
         VisualStateManager.GoToState(button, !button.IsEnabled ? "Disabled" :
             button.IsFocused ? "Focused" : previousState ?? "Normal");
         RemoveNativeMinimums(button);

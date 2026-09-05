@@ -14,6 +14,56 @@ public sealed class DesktopRibbonCustomizationDialogSmokeTests
 
     [TestMethod]
     [Timeout(120_000)]
+    public void ClosingDesktopDialogsShouldDiscardPreviewAfterTheLastApply()
+    {
+        RunInSta(() =>
+        {
+            var target = RibbonCustomizationTarget.Tab("home");
+            var wpfRuntime = CreateSharedCommandRuntime();
+            var wpf = new NeraSpreadSheet.Wpf.NeraRibbonCustomizationDialog(wpfRuntime)
+            { ShowInTaskbar = false, Left = -32_000d, Top = -32_000d };
+            wpf.Show();
+            wpf.UpdateLayout();
+            var catalog = FindWpfElements(wpf).OfType<System.Windows.Controls.ListBox>()
+                .Single(list => System.Windows.Automation.AutomationProperties.GetAutomationId(list) == "RibbonCustomizationCatalog");
+            var catalogItem = (System.Windows.Controls.ListBoxItem)catalog.ItemContainerGenerator.ContainerFromIndex(0);
+            var peer = System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(catalogItem);
+            Assert.AreEqual(((RibbonCommandCatalogEntry)catalog.Items[0]).Caption, peer.GetName(),
+                "Screen readers need the command caption, without the record's technical ToString output.");
+            Assert.IsTrue(FindWpfElements(wpf).OfType<System.Windows.Controls.Button>().Single(button =>
+                System.Windows.Automation.AutomationProperties.GetAutomationId(button) == "RibbonCustomizationCancel").IsCancel);
+            wpf.Session.Rename(target, "Đã áp dụng");
+            wpf.ApplyCustomization();
+            wpf.Session.Rename(target, "Chưa áp dụng");
+            wpf.PreviewCustomization();
+            Assert.AreEqual("Chưa áp dụng", wpfRuntime.Snapshot.Tabs[0].Caption);
+            wpf.Close();
+            Assert.AreEqual("Đã áp dụng", wpfRuntime.Snapshot.Tabs[0].Caption);
+
+            var winRuntime = CreateSharedCommandRuntime();
+            using var win = new NeraSpreadSheet.WinForms.NeraRibbonCustomizationDialog(winRuntime)
+            { ShowInTaskbar = false, StartPosition = System.Windows.Forms.FormStartPosition.Manual, Location = new System.Drawing.Point(-32_000, -32_000) };
+            win.Show();
+            Assert.IsNotNull(win.CancelButton, "Escape must use the native cancel button.");
+            win.Session.Rename(target, "Đã áp dụng");
+            win.ApplyCustomization();
+            win.Session.Rename(target, "Chưa áp dụng");
+            win.PreviewCustomization();
+            Assert.AreEqual("Chưa áp dụng", winRuntime.Snapshot.Tabs[0].Caption);
+            win.Close();
+            Assert.AreEqual("Đã áp dụng", winRuntime.Snapshot.Tabs[0].Caption);
+        });
+    }
+
+    private static IEnumerable<System.Windows.DependencyObject> FindWpfElements(System.Windows.DependencyObject root)
+    {
+        yield return root;
+        for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); index++)
+            foreach (var child in FindWpfElements(System.Windows.Media.VisualTreeHelper.GetChild(root, index))) yield return child;
+    }
+
+    [TestMethod]
+    [Timeout(120_000)]
     public void ThemedDesktopDialogsShouldApplyAndCancelCommandsSharedAcrossTabs()
     {
         RunInSta(() =>
