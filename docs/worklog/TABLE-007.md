@@ -283,6 +283,19 @@
   JSON output<=32KiB, không raw file/binlog/path/UUID upload. Synthetic parser
   audit signatures/type allowlist/privacy/flags/output bound PASS; architecture
   và whitespace PASS. Hosted metadata collection còn đợi lượt mới.
-- Bước tiếp theo: đọc bounded registration-variant outcome/stages tại exact
-  source, đồng thời triển khai WPF draft API và split/MAUI cleanup đã được cấp;
-  không release whole lane trước full/iOS/Q003C/diagnostic final green.
+- Generated audit d1e19023 `33986427219`, Mac job101360705616: baselinePASS,
+  candidateFAIL, metadata stepPASS. SDK10.0.400/arm64/target26.0/min15.0 giống;
+  evaluated TrimMode=partial, workload10.0.0/10.0.100, không có effective registrar
+  flags/rsp/linker root graph. Không đồng nhất workload version với resolved NuGet.
+  registrar.h cùng135 declarations; shared MauiTextView:UITextView có19 signatures
+  giống nhau. registrar.mm114→115 thêm CellTextView:MauiTextView với insertText:
+  và pressesBegan:withEvent: đúng shape; không thấy wrong base/selector từ đó.
+  Windows job101360705755 baselinePASS/candidateFAIL cả2attempts sau first
+  reinsert; product giống9bf từngPASS, intermittent lifetime failure vẫn OPEN.
+- Followup cùng read-only grant lấy targeted implementation/runtime-call names,
+  class-map metadata type tokens/flags và resolved package names/versions; không
+  in method body, assembly UUID, source path hoặc raw metadata. Không sửa native
+  registration/renderer/keyboard/timeout dựa vào type-count difference đơn lẻ.
+- Bước tiếp theo duy nhất: đọc targeted generated implementation/class-map audit
+  của checkpoint kế tiếp, đối chiếu shared type và subclass để chốt một thay đổi
+  có bằng chứng với root; giữ21 desktop paths đã release và wholeB HOLD.

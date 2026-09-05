@@ -20,6 +20,7 @@ PROPERTIES = (
     "MtouchInterpreter", "EnableAssemblyILStripping", "MauiVersion",
 )
 CLASS = re.compile(r"@interface\s+([A-Za-z_][A-Za-z_0-9]*)\s*:\s*([A-Za-z_][A-Za-z_0-9]*)\b([^@]*?)@end", re.S)
+IMPLEMENTATION = re.compile(r"@implementation\s+([A-Za-z_][A-Za-z_0-9]*)\b(.*?)@end", re.S)
 RELEVANT = re.compile(r"(?:Nera[A-Za-z_0-9]*CellTextView|(?:Microsoft_Maui_Platform_)?MauiTextView|UITextView|NSTextInputContext)\Z")
 SIGNATURE = re.compile(r"[+-]\s*\([A-Za-z_][A-Za-z_0-9 <>*]*\)\s*[A-Za-z_][A-Za-z_0-9\s:()<>*]*;\Z")
 SAFE_VALUE = re.compile(r"[A-Za-z0-9_.+;,*=-]{1,160}\Z")
@@ -40,7 +41,30 @@ def generated_metadata(raw):
             if len(line) <= 400 and SIGNATURE.fullmatch(line):
                 methods.append(" ".join(line.split()))
         classes.append({"name": name, "base": base, "signatures": methods[:24]})
-    return {"classDeclarationCount": len(declarations), "classes": classes[:16]}
+    implementations = []
+    for match in IMPLEMENTATION.finditer(text):
+        name, body = match.groups()
+        if not RELEVANT.fullmatch(name):
+            continue
+        signatures = []
+        for line in body.splitlines():
+            line = line.strip()
+            if len(line) <= 400 and SIGNATURE.fullmatch(line + ";"):
+                signatures.append(" ".join(line.split()))
+        calls = sorted(set(re.findall(
+            r"\b((?:xamarin_|mono_|native_to_managed_trampoline_)[A-Za-z_0-9]*)\s*\(", body)))
+        implementations.append({"name": name, "signatures": signatures[:24], "runtimeCalls": calls[:32],
+                                "sha256": hashlib.sha256(body.encode("utf-8")).hexdigest()})
+    maps = []
+    for line in text.splitlines():
+        entry = re.search(r"\{\s*NULL,\s*(0x[0-9A-Fa-f]+)\s*/\*\s*#(\d+)\s*'([A-Za-z_][A-Za-z_0-9]*)'", line)
+        flags = re.search(r"\(MTTypeFlags\)\s*\((\d+)\)\s*/\*\s*([A-Za-z_ ,]+)\s*\*/", line)
+        if entry and flags and RELEVANT.fullmatch(entry[3]):
+            maps.append({"name": entry[3], "metadataTypeToken": int(entry[1], 16),
+                         "classMapIndex": int(entry[2]), "flagsValue": int(flags[1]),
+                         "flags": flags[2].strip()})
+    return {"classDeclarationCount": len(declarations), "classes": classes[:16],
+            "implementations": implementations[:16], "classMapEntries": maps[:16]}
 
 
 def response_flags(raw):
@@ -121,6 +145,15 @@ def cohort_report(checkout, rid):
             if report.get("scanTruncated"):
                 break
     report["generatedFiles"] = files
+    assets = obj / "project.assets.json"
+    report["resolvedPackages"] = "unavailable"
+    if assets.is_file() and not assets.is_symlink() and assets.stat().st_size <= MAX_FILE_BYTES:
+        try:
+            data = json.loads(assets.read_bytes())
+            report["resolvedPackages"] = sorted(name for name in data.get("libraries", {})
+                if re.fullmatch(r"(?:Microsoft\.Maui\.(?:Core|Controls|Controls\.Core)|SkiaSharp\.Views\.Maui\.Controls)/[0-9][A-Za-z0-9_.+-]*", name)) or "unavailable"
+        except (ValueError, AttributeError):
+            pass
     report["effectiveModeEvidence"] = (
         "Only generated flags are effective build evidence; evaluated or absent properties do not prove a mode.")
     return report
