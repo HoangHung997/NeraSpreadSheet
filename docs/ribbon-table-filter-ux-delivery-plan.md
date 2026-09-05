@@ -285,6 +285,15 @@ không đặt con số giả trước khi có benchmark ổn định trên runne
 
 ## 7. Quy tắc hai tác nhân không đè nhau
 
+Điều chỉnh được coordinator chốt ngày 05/09/2026 theo yêu cầu mở hai worktree
+`gpt-6-astra / xhigh`: TABLE-RIBBON-012 nhập source TABLE-005 vào Ribbon mới;
+TABLE-006 được làm phần headless từ source TABLE-005 có exact-head CI xanh,
+không phải đợi ghép UI. Lane A giữ Ribbon/host và được ủy quyền riêng WPF
+sample/capture; lane B giữ Table/Core/Editing/OpenXml/Formulas. Ngoại lệ này
+chỉ cho phép bắt đầu công việc độc lập, không bỏ cổng integration CI trước
+checkpoint phụ thuộc tiếp theo. Chi tiết khóa file và chỉ lấy delta B sau
+base source tại [wave contract](worklog/TABLE_RIBBON_WAVE_20260905.md).
+
 1. Mỗi checkpoint có đúng một owner và một branch
    `feature/<checkpoint>-<slug>`.
 2. Owner phải ghi base SHA trước khi sửa. Không dùng một working tree chung cho

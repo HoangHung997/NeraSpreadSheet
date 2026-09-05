@@ -1,5 +1,17 @@
 # NeraSpreadSheet current implementation status
 
+## Đợt Table/Ribbon tiếp theo — DISPATCH
+
+Ribbon integration final HEAD `488c61ea75ea6c8f7a6ceb480035a341f24c6c19`
+đã xanh full CI `33949294692`, iOS `33949294721`, Q003C `33949294687`.
+TABLE-005 đã hoàn thành ở nhánh riêng tại `cf923db2` và cũng có đủ ba cổng
+xanh tại exact HEAD, nhưng chưa tích hợp. Theo yêu cầu người dùng, hai task
+worktree mới được giao `gpt-6-astra` / `xhigh`: TABLE-RIBBON-012 ghép contextual
+Table Design vào dense Ribbon; TABLE-006 làm compatibility/hardening headless
+trên source Table đã xanh. Xem [phân quyền và thứ tự tích hợp](worklog/TABLE_RIBBON_WAVE_20260905.md).
+Không mở Avalonia, không tự merge PR #1, không coi hai lane riêng là combined
+checkpoint đã hoàn thành.
+
 ## RIBBON-VISUAL-011 — INTEGRATED, IMPLEMENTATION VALIDATED
 
 Ngày 05/09/2026, nhánh `feature/bootstrap-architecture-v0.1` đã nhận nguyên

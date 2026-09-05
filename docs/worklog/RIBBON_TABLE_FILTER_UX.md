@@ -24,12 +24,13 @@ Task owners write their own `docs/worklog/<CHECKPOINT>.md` handoff.
 | 7 | `RIBBON-010` | A | `DONE` | Codex task `RIBBON-010 Customization SDK` (`client-new-thread:5d0abfeb-94ff-4b03-ab7a-3bd7236347bb`) | `feature/ribbon-010-customization` | `RIBBON-009` | integrated/green 05/09 |
 | 8 | `TABLE-004` | B | `DONE` | Codex task `TABLE-004 Table Style Engine` (`client-new-thread:9d15985f-554c-49df-be81-30fc4ebc2ef4`) | `feature/table-004-style-engine` | `FILTER-007` | integrated/green 05/09 |
 | 9 | `RIBBON-VISUAL-011` | A | `DONE` | Codex task `RIBBON-VISUAL-011 — Excel-density adaptive layout` | `feature/ribbon-visual-011` | `RIBBON-010` | integrated/green implementation 05/09 |
-| 10 | `TABLE-005` | B | `ACTIVE` | Codex task `TABLE-005 — Contextual Table Design` (`client-new-thread:c583141a-9f25-498d-9820-db20707d0f05`, `thinking: high`) | `feature/table-005-contextual-design` | `TABLE-004`; integration waits for `RIBBON-009` | started early 05/09 |
-| 11 | `TABLE-006` | B | `BACKLOG` | Unclaimed | `feature/table-006-compat-hardening` | `TABLE-005` | 07–09/10 |
-| 12 | `UX-006` | Integration | `BACKLOG` | Integration owner | `feature/ux-006-visual-localization` | both lanes | 12–15/10 |
-| 13 | `UX-007` | Integration | `BACKLOG` | Integration owner | `feature/ux-007-keyboard-a11y` | `UX-006` | 16–21/10 |
-| 14 | `PERF-008` | Integration | `BACKLOG` | Integration owner | `feature/perf-008-ribbon-filter` | `UX-007` | 22–26/10 |
-| 15 | `RELEASE-009` | Integration | `BACKLOG` | Integration owner | `release/0.2.0-rc1` | `PERF-008` | 27–28/10 |
+| 10 | `TABLE-005` | Source | `INTEGRATING` | Source complete at `cf923db2`; integration delegated to lane A below | `feature/table-005-contextual-design` | `TABLE-004`; source final CI green | source green 05/09, not yet integrated |
+| 11 | `TABLE-RIBBON-012` | A | `ACTIVE` | Task `01a0704c-1f36-7232-a54f-bc67c965e89c`, `gpt-6-astra / xhigh` | `feature/table-ribbon-012-integration` | `488c61ea` + immutable TABLE-005 source | started early 05/09 |
+| 12 | `TABLE-006` | B | `ACTIVE` | Task `01a0704c-92f9-7990-b266-066ba4580db6`, `gpt-6-astra / xhigh` | `feature/table-006-compat-hardening` | source `cf923db2`; merge waits for lane A | headless work started early 05/09 |
+| 13 | `UX-006` | Integration | `BACKLOG` | Integration owner | `feature/ux-006-visual-localization` | both lanes | 12–15/10 |
+| 14 | `UX-007` | Integration | `BACKLOG` | Integration owner | `feature/ux-007-keyboard-a11y` | `UX-006` | 16–21/10 |
+| 15 | `PERF-008` | Integration | `BACKLOG` | Integration owner | `feature/perf-008-ribbon-filter` | `UX-007` | 22–26/10 |
+| 16 | `RELEASE-009` | Integration | `BACKLOG` | Integration owner | `release/0.2.0-rc1` | `PERF-008` | 27–28/10 |
 
 ## Claim protocol
 
@@ -64,6 +65,7 @@ waits.
 | `RIBBON-010` | `eb08b0f95176b1a23e01ccf0b09a112bdc562dac` + `9aeed672cea94db3d4c2d0ecb4a4f55a85e1dbaf` | `57a8c0c0fe8eb452bcb054432d2d37b9e9807e73` | full #1318; iOS #139; Q003C #136 | Green |
 | `TABLE-004` | `3a459320ef7192f5843dcd6d3bfb0a56ae7698ea` + `cffdc9d8f05c50dafc7a875910d2f0c6b4851416` + `ed01ed6b1243ea41490dc4ac3b4d38411dcc0892` | `57a8c0c0fe8eb452bcb054432d2d37b9e9807e73` | full #1318; iOS #139; Q003C #136 | Green |
 | `RIBBON-VISUAL-011` | nine-commit lane ending at `7cfcfdfc6f337da1b37ca05b9254b903a33f32d2` | `7cfcfdfc6f337da1b37ca05b9254b903a33f32d2` (fast-forward) | full #1324; iOS #145; Q003C #142 | Green; documentation descendant requires exact-head gates |
+| Ribbon integration documentation | `488c61ea75ea6c8f7a6ceb480035a341f24c6c19` | `488c61ea75ea6c8f7a6ceb480035a341f24c6c19` | full #1325 / 33949294692; iOS #146 / 33949294721; Q003C #143 / 33949294687 | Green at final integration HEAD |
 
 Append one row only after exact-head CI completes. Never mark a checkpoint
 `DONE` using a green run from a parent commit.
@@ -100,3 +102,10 @@ Append one row only after exact-head CI completes. Never mark a checkpoint
   128-layout runtime capture. Windows local 74/75 retains the baseline
   foreground-activation limitation; exact-head Windows CI at `7cfcfdfc` passes
   75/75. TABLE-005 remains isolated and no successor task was dispatched.
+- 05/09/2026, next wave: final Ribbon integration `488c61ea` and TABLE-005
+  source `cf923db2` were both verified green in all three workflows. The user
+  requested two new worktrees with `gpt-6-astra / xhigh`; TABLE-RIBBON-012 and
+  TABLE-006 are now active. This bounded acceleration permits headless work
+  from the green source while the first lane reconciles its UI with the new
+  Ribbon. Ownership, file-transfer locking and A-then-B-delta integration are
+  fixed in [`TABLE_RIBBON_WAVE_20260905.md`](TABLE_RIBBON_WAVE_20260905.md).

@@ -1,5 +1,28 @@
 # Current Work Handoff
 
+## Current dispatch — TABLE-RIBBON-012 / TABLE-006
+
+- Integration branch vẫn `feature/bootstrap-architecture-v0.1`; PR #1
+  Draft/open/unmerged. Checkpoint tích hợp cuối đã xanh tại
+  `488c61ea75ea6c8f7a6ceb480035a341f24c6c19`: full CI `33949294692`,
+  iOS `33949294721`, Q003C `33949294687` đều success.
+- TABLE-005 source hoàn thành tại `cf923db2bf88d9f67f980b4f78a3364bcfddbe47`,
+  ba workflow `33940937260` / `33940938443` / `33940939892` đều success;
+  source này chưa tích hợp vào branch chính của công việc.
+- Đã gửi tạo đúng hai task worktree dùng `gpt-6-astra` / `xhigh`:
+  TABLE-RIBBON-012 ghép Table Design vào Ribbon mới từ `488c61ea`;
+  TABLE-006 làm Table/XLSX headless hardening từ source xanh `cf923db2`.
+  Hai task đã ACTIVE: A `01a0704c-1f36-7232-a54f-bc67c965e89c`,
+  B `01a0704c-92f9-7990-b266-066ba4580db6`.
+- Quyền ghi độc quyền, ngoại lệ khởi động sớm, cổng và thứ tự lấy commit:
+  [`TABLE_RIBBON_WAVE_20260905.md`](TABLE_RIBBON_WAVE_20260905.md).
+- Coordinator chỉ thay tài liệu điều phối trong đợt dispatch; không đổi
+  production code, không đóng gói lại demo ngoài repository. Không cần
+  regression/runtime local mới cho Markdown; kiểm tra diff, architecture,
+  packaging và exact-head GitHub gates cho commit tài liệu.
+- Bước tiếp theo duy nhất: kiểm tra handoff lane A trước và chỉ delta sau
+  `cf923db2` của lane B sau; xác minh combined HEAD trước checkpoint kế tiếp.
+
 ## Current integration — RIBBON-VISUAL-011
 
 - Branch hiện tại: `feature/bootstrap-architecture-v0.1`; PR #1 vẫn
