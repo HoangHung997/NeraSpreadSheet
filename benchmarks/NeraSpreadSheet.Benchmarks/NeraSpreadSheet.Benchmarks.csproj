@@ -11,5 +11,6 @@
     <ProjectReference Include="../../src/NeraSpreadSheet.Layout/NeraSpreadSheet.Layout.csproj" />
     <ProjectReference Include="../../src/NeraSpreadSheet.Scrolling/NeraSpreadSheet.Scrolling.csproj" />
     <ProjectReference Include="../../src/NeraSpreadSheet.Viewport/NeraSpreadSheet.Viewport.csproj" />
+    <ProjectReference Include="../../src/NeraSpreadSheet.Ribbon.Core/NeraSpreadSheet.Ribbon.Core.csproj" />
   </ItemGroup>
 </Project>

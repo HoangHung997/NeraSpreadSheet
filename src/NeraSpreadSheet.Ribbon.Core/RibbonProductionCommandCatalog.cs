@@ -61,5 +61,7 @@ public static class RibbonProductionCommandCatalog
         new(tabId, tabCaption, [new RibbonGroupDefinition(
             groupId,
             groupCaption,
-            commandIds.Select(static commandId => new RibbonItemDefinition(commandId))) ]);
+            commandIds.Select(static commandId => new RibbonItemDefinition(commandId,
+                IsLarge: commandId is "Edit.Paste" or "Insert.Chart.Column" or "Insert.Pivot.Sum" or
+                    "Formula.RecalculateWorkbook" or "View.FreezePanes"))) ]);
 }

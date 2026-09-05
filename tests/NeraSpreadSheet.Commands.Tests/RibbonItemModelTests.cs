@@ -145,7 +145,7 @@ public sealed class RibbonItemModelTests
 
         var layout = new RibbonResponsiveLayoutEngine().Layout(
             presentation,
-            new RibbonLayoutRequest(169d));
+            new RibbonLayoutRequest(157d));
 
         Assert.AreEqual(RibbonItemSize.Small, layout.Tabs[0].Groups[0].Items[0].Size);
         Assert.AreEqual(90d, layout.Tabs[0].Groups[0].Items[0].Width);
@@ -163,12 +163,14 @@ public sealed class RibbonItemModelTests
 
         var layout = new RibbonResponsiveLayoutEngine().Layout(
             snapshot,
-            new RibbonLayoutRequest(28d));
+            new RibbonLayoutRequest(30.5d));
 
         var group = layout.Tabs[0].Groups[0];
         Assert.AreEqual(RibbonGroupLayoutMode.Expanded, group.Mode);
-        Assert.AreEqual(28d, group.Width);
+        Assert.AreEqual(30.5d, group.Width);
         Assert.AreEqual(8d, group.Items[0].Width);
+        Assert.AreEqual(3, group.Items[0].RowSpan);
+        Assert.IsFalse(group.Items[0].CaptionVisible);
     }
 
     [TestMethod]

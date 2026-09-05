@@ -47,6 +47,27 @@ Overflow giữ action chính hoặc toàn bộ selectable values; separator gi�
 phân cách. Focus identity tiếp tục dùng stable command ID qua rebuild/resize trên
 ba host.
 
+## Gallery thumbnail RIBBON-VISUAL-011
+
+`RibbonItemDefinition.GalleryPreview` là callback tùy chọn nhận `CommandItem`
+và trả về `RibbonGalleryPreview` hoặc null. Preview là lưới màu row-major bất
+biến, 1–16 hàng và 1–16 cột; mỗi `RibbonGalleryPreviewCell` chứa background và
+foreground theo ARGB. Constructor sao chép đúng số cell cần thiết, từ chối
+thiếu/thừa dữ liệu và chỉ đọc tối đa `rows * columns + 1` phần tử kể cả nguồn
+vô hạn. Không chứa ảnh native, table model hay state workbook.
+
+Ứng dụng dùng callback để chuyển resolved style hiện có thành thumbnail nhẹ.
+Presenter vẽ các ô màu và nét chữ đại diện; callback null giữ icon/caption
+fallback. Caption đầy đủ vẫn là tooltip và automation name của tile. Hover,
+selected, scroll và More thuộc chrome presenter; selection vẫn đi qua
+`TryActivateItemAsync`, không tạo đường mutation riêng.
+
+Callback không được sửa command/workbook state và không nằm trong layout,
+worksheet scroll hoặc persistence. Customization giữ nguyên delegate khi đổi
+large/small hoặc order, còn JSON profile chỉ lưu lựa chọn người dùng như contract
+hiện có. Positional constructor ba tham số của definition và các constructor
+layout cũ giữ nguyên để tương thích source/binary.
+
 ## Ranh giới
 
 - Ribbon.Core không reference type WPF, WinForms hoặc MAUI.

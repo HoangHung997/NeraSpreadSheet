@@ -78,6 +78,13 @@ public sealed record RibbonItemDefinition(
 
     public RibbonItemMeasurementCallback? Measurement { get; private init; }
 
+    /// <summary>
+    /// Gets an optional lightweight visual preview for a selectable gallery value.
+    /// The callback must not mutate command or workbook state. Returning null uses
+    /// the item's icon and caption fallback. It is never invoked by layout.
+    /// </summary>
+    public Func<CommandItem, RibbonGalleryPreview?>? GalleryPreview { get; init; }
+
     internal bool UsesLegacyAutomaticToggle { get; private init; } = true;
 
     /// <summary>Creates a non-command separator with stable identity.</summary>

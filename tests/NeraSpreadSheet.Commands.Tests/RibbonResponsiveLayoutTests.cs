@@ -13,18 +13,26 @@ public sealed class RibbonResponsiveLayoutTests
         var snapshot = CreatePresentation();
         var engine = new RibbonResponsiveLayoutEngine();
 
-        var layout = engine.Layout(snapshot, new RibbonLayoutRequest(260d));
+        var layout = engine.Layout(snapshot, new RibbonLayoutRequest(200d));
 
         CollectionAssert.AreEqual(
             new[]
             {
-                RibbonGroupLayoutMode.Expanded,
                 RibbonGroupLayoutMode.Compact,
-                RibbonGroupLayoutMode.Overflow,
+                RibbonGroupLayoutMode.Compact,
+                RibbonGroupLayoutMode.Compact,
             },
             layout.Tabs[0].Groups.Select(static group => group.Mode).ToArray());
-        Assert.IsTrue(layout.Tabs[0].HasOverflow);
-        Assert.IsLessThanOrEqualTo(260d, layout.Tabs[0].InlineWidth);
+        CollectionAssert.AreEqual(
+            new[] { RibbonItemSize.Small, RibbonItemSize.Small, RibbonItemSize.Compact },
+            layout.Tabs[0].Groups.Select(static group => group.Items[0].Size).ToArray());
+        Assert.IsFalse(layout.Tabs[0].HasOverflow);
+        Assert.IsLessThanOrEqualTo(200d, layout.Tabs[0].InlineWidth);
+
+        var overflow = engine.Layout(snapshot, new RibbonLayoutRequest(110d));
+        CollectionAssert.AreEqual(
+            new[] { RibbonGroupLayoutMode.Compact, RibbonGroupLayoutMode.Overflow, RibbonGroupLayoutMode.Overflow },
+            overflow.Tabs[0].Groups.Select(static group => group.Mode).ToArray());
     }
 
     [TestMethod]
@@ -52,8 +60,8 @@ public sealed class RibbonResponsiveLayoutTests
     public void LayoutShouldSelectLargeSmallCompactAndOverflowAtThresholds()
     {
         var registry = new CommandRegistry();
-        registry.Register(new CommandDescriptor("one", "Một"), new EnabledHandler());
-        registry.Register(new CommandDescriptor("two", "Hai"), new EnabledHandler());
+        registry.Register(new CommandDescriptor("one", "Một", iconKey: "edit.copy"), new EnabledHandler());
+        registry.Register(new CommandDescriptor("two", "Hai", iconKey: "edit.paste"), new EnabledHandler());
         var presentation = new RibbonPresentationProjector(registry).Project(
             new RibbonDefinition(
             [
@@ -72,10 +80,10 @@ public sealed class RibbonResponsiveLayoutTests
             ]));
         var engine = new RibbonResponsiveLayoutEngine();
 
-        var expanded = engine.Layout(presentation, new RibbonLayoutRequest(184d));
-        var small = engine.Layout(presentation, new RibbonLayoutRequest(175d));
-        var compact = engine.Layout(presentation, new RibbonLayoutRequest(108d));
-        var overflow = engine.Layout(presentation, new RibbonLayoutRequest(60d));
+        var expanded = engine.Layout(presentation, new RibbonLayoutRequest(138d));
+        var small = engine.Layout(presentation, new RibbonLayoutRequest(72d));
+        var compact = engine.Layout(presentation, new RibbonLayoutRequest(40d));
+        var overflow = engine.Layout(presentation, new RibbonLayoutRequest(30d));
 
         CollectionAssert.AreEqual(
             new[] { RibbonItemSize.Large, RibbonItemSize.Small },
@@ -159,7 +167,7 @@ public sealed class RibbonResponsiveLayoutTests
         var registry = new CommandRegistry();
         foreach (var id in new[] { "home.high", "home.tie-left", "home.low" })
         {
-            registry.Register(new CommandDescriptor(id, id), new EnabledHandler());
+            registry.Register(new CommandDescriptor(id, "Lệnh", iconKey: "edit.copy"), new EnabledHandler());
         }
         return new RibbonPresentationProjector(registry).Project(new RibbonDefinition(
         [
@@ -169,22 +177,34 @@ public sealed class RibbonResponsiveLayoutTests
                 [
                     new RibbonGroupDefinition(
                         "high",
-                        "Quan trọng",
-                        [new RibbonItemDefinition("home.high", IsLarge: true)],
+                        "A",
+                        [MeasuredItem("home.high")],
                         order: 0,
                         collapsePriority: 10),
                     new RibbonGroupDefinition(
                         "tie-left",
-                        "Trái",
-                        [new RibbonItemDefinition("home.tie-left", IsLarge: true)]),
+                        "B",
+                        [MeasuredItem("home.tie-left")]),
                     new RibbonGroupDefinition(
                         "low",
-                        "Phải",
-                        [new RibbonItemDefinition("home.low", IsLarge: true)]),
+                        "C",
+                        [MeasuredItem("home.low")]),
                 ]),
             new RibbonTabDefinition("insert", "Chèn", []),
         ]));
     }
+
+    private static RibbonItemDefinition MeasuredItem(string id) => new(
+        id,
+        RibbonItemKind.Button,
+        isLarge: true,
+        measurement: context => context.Size switch
+        {
+            RibbonItemSize.Large => 80d,
+            RibbonItemSize.Small => 60d,
+            RibbonItemSize.Compact => 30d,
+            _ => throw new ArgumentOutOfRangeException(nameof(context)),
+        });
 
     private sealed class EnabledHandler : ICommandHandler
     {
