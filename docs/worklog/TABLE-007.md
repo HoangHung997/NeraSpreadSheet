@@ -4,9 +4,10 @@
 - Base clean đã xác minh: `2e8482c25a44797a479b276ae26f472811a0a81e`.
 - Product checkpoint đã push: `9bf24af9a44ce25da4826edb2f6039203f5416f1`;
   desktop21-path slice đã partial release, wholeB vẫn HOLD. Diagnostic checkpoint
-  `7fa83d27813c9620f6394dc7c099b88c71281c2d` có completed baseline-page partition:
-  variant analytics PASS, original native gates đỏ. One-off variant đã đóng;
-  historical commit giữ exact patch và evidence. Không có active variant mới.
+  `a3b7a4df27e559c3cc4acb9293fee07ec04090e2` có completed dispatcher partition:
+  Mac variant FAIL, Windows native PASS; original Mac gate đỏ. One-off đã đóng;
+  historical commit giữ exact patch và evidence. Completed-await variant mới
+  đã được cấp; chưa có runtime result.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
 - Root cho phép riêng workflow `table-007-libreoffice.yml` và producer script;
@@ -415,6 +416,47 @@
   [Apple Dispatcher](https://raw.githubusercontent.com/dotnet/maui/10.0.20/src/Core/src/Dispatching/Dispatcher.iOS.cs)
   enqueue qua CoreFoundation DispatchQueue.DispatchAsync. Đây là implementation
   context cho partition, không phải bằng chứng nguyên nhân native failure.
-- Bước tiếp theo duy nhất: chạy approved dispatcher-only partition trong narrow
-  native CI và đọc entry marker/generated metadata/runtime outcomes; giữ21 desktop
-  paths frozen và wholeB HOLD, không tự mở thêm variant hoặc bật runtime flags.
+- Dispatcher-onlya3 narrow33989862049 DONE: Mac101370051310 baselinePASS10frames,
+  original candidateFAIL, intermediate variantFAIL. Exact patch/single-path/build/
+  metadata checks PASS. Candidate có fd2 hook, variant không; cả hai có analytics-
+  create-enter/draw-core-success, không actual dispatch callback entry. Matching
+  variant IPS EXC_BAD_ACCESS/SIGSEGV vẫn realizeClassWithoutSwift→NSClassFromString→
+  NSTextInputContext→UINS scene/window setup. Editor/fd2 execution không cần cho
+  failure ở lượt này; không gán nguyên nhân cho Dispatcher hoặc renderer.
+- a3 candidate/variant registrar.h giốngf514f42d, targeted implementations/maps/
+  selectors vẫn như7fa; full registrar.mm khác nhau với cùng1054529bytes. SDK/
+  evaluated properties/resolved packages giống. Windows101370051171 baselinePASS
+  43frames và candidatePASS/table007Editor=true/59frames, đều3recreation cycles.
+  Lượt PASS này không chứng minh đã sửa các first-reinsert failures trước đó.
+  Đóng completed dispatcher variant; không có source/product change ngoài probe.
+- Root yêu cầu next read-only partition giữ async helper/caller, thay Dispatcher
+  await bằng await Task.CompletedTask + constant marker. Đã chuẩn bị full short
+  delta vs failed intermediate0ff và passing baseline2e trong review artifacts
+  table-007-baseline-completed-partition-proposal.*; before89bc459f → after
+  c8a2bfc0417cf1fdfc4ff1064c7a9575c6b15d56, patchSHA256
+  f184f03f6a70dd7e61e10598b982ad3910bbc3c4eb849e48b5ad61f6b6bb6b69.
+  git apply --check PASS, chưa cấp/chạy. Bỏ riêng unused Maui.Dispatching using
+  vì IDE0005 warning; await vẫn có nên không dự kiến CS1998; CA2007 đã disabled
+  trong unchanged editorconfig. Không suppress analyzer/change build settings.
+- [Task.CompletedTask](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.task.completedtask?view=net-10.0)
+  đã hoàn tất; [C# await](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/await)
+  trên completed operation không suspend. Expected marker/analytics tiếp tục
+  đồng bộ trong async helper; hosted compiler/runtime vẫn phải xác minh.
+- C consumer source6864459e, Packaged.Maui.Smoke/SmokePage bloba52a1c1e:
+  OnFrame chỉ atomic count; OnLoaded queue RunAsync, đợi>=3frames/positive size
+  rồi mới mutation/native assertions. UntilAsync request frame + Task.Delay30;
+  không làm mutation trong PaintSurface. Wrapper hiện chỉ chạy Android/iOS native;
+  Windows/Mac build success không chứng minh Loaded pattern sửa Mac runtime.
+  a3 traces: view Loaded trước analytics-enter, page Loaded sau first draw success;
+  callback vẫn không vào. Page Loaded không chứng minh AppKit window setup đã xong.
+- Root đã review đầy đủ JSON/patch và cấp ONE completed-await variant đúngf184f03f,
+  before89bc459f/afterc8a2bfc0, chỉ Mac page; unused using cleanup như proposal.
+  Đóng a3, original baseline/candidate chạy trước và giữ failed gates. Không
+  editor acceptance, retries/timeouts/flags/linking/mode hay native product change.
+- Completed-await guards PASS: frozen before/hash/after/path positive+negative,
+  3 Python/7 Bash syntax, original workload/baseline/candidate steps byte-equal normal
+  workflow, approved patch git apply --check/hash, original src/tests unchanged.
+  Native compile/runtime chưa chạy local; chờ narrow hosted CI.
+- Bước tiếp theo duy nhất: chạy approved completed-await partition trong narrow
+  native CI, đọc build/phase/current-process/native outcomes; giữ21 desktop paths
+  frozen và wholeB HOLD, không tự mở thêm variant hoặc sửa product.

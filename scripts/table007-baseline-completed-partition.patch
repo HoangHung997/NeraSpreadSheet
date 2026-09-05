@@ -1,15 +1,18 @@
 diff --git a/tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/SmokePage.cs b/tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/SmokePage.cs
-index 89bc459fa5c86b523e96bcd22f19a496e2151df6..0ff170b2483d5137b7e8518fdbb3e2d59d2f42c5 100644
+index 89bc459fa5c86b523e96bcd22f19a496e2151df6..c8a2bfc0417cf1fdfc4ff1064c7a9575c6b15d56 100644
 --- a/tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/SmokePage.cs
 +++ b/tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/SmokePage.cs
-@@ -1,6 +1,4 @@
+@@ -1,9 +1,6 @@
  using System.Text.Json;
 -using System.Runtime.InteropServices;
 -using System.Runtime.CompilerServices;
  using Foundation;
  using Microsoft.Maui.Controls;
- using Microsoft.Maui.Dispatching;
-@@ -29,8 +27,6 @@
+-using Microsoft.Maui.Dispatching;
+ using NeraSpreadSheet.Core;
+ using NeraSpreadSheet.Interaction;
+ using NeraSpreadSheet.Maui;
+@@ -29,8 +26,6 @@
      private readonly Grid _host = new();
      private readonly Workbook _workbook = CreateWorkbook();
      private NeraSpreadsheetView? _view;
@@ -18,7 +21,7 @@ index 89bc459fa5c86b523e96bcd22f19a496e2151df6..0ff170b2483d5137b7e8518fdbb3e2d5
      private SpreadsheetAnalyticsItemKey _chartItem;
      private SpreadsheetAnalyticsItemKey _pivotItem;
      private int _frameCount;
-@@ -41,7 +37,6 @@
+@@ -41,7 +36,6 @@
  
      public SmokePage()
      {
@@ -26,7 +29,7 @@ index 89bc459fa5c86b523e96bcd22f19a496e2151df6..0ff170b2483d5137b7e8518fdbb3e2d5
          SmokeTrace.Append("smoke-page-constructor-enter");
          Title = "Nera Mac Catalyst analytics accessibility smoke";
          Content = _host;
-@@ -81,33 +76,6 @@
+@@ -81,33 +75,6 @@
          SmokeTrace.Append("smoke-page-constructor-success");
      }
  
@@ -60,7 +63,7 @@ index 89bc459fa5c86b523e96bcd22f19a496e2151df6..0ff170b2483d5137b7e8518fdbb3e2d5
      public void Dispose()
      {
          if (_disposed)
-@@ -117,9 +85,6 @@
+@@ -117,9 +84,6 @@
  
          _disposed = true;
          Loaded -= OnLoaded;
@@ -70,27 +73,28 @@ index 89bc459fa5c86b523e96bcd22f19a496e2151df6..0ff170b2483d5137b7e8518fdbb3e2d5
          if (_view is { } view)
          {
              view.Loaded -= OnViewLoaded;
-@@ -233,17 +198,11 @@
+@@ -233,17 +197,9 @@
              var session = view.Session
                  ?? throw new InvalidOperationException(
                      "The Mac Catalyst analytics smoke lost its session before analytics creation.");
 -            // The first GPU paint can run while UIKit is still attaching the
 -            // native window. Open/focus controls after that paint stack unwinds.
 -            Task? editorPhase = null;
-+            // Diagnostic only: the original awaited Action boundary without editor execution.
-             await view.Dispatcher.DispatchAsync(() =>
-             {
+-            await view.Dispatcher.DispatchAsync(() =>
+-            {
 -                SmokeTrace.Append("table-editor-dispatch-action-enter");
 -                editorPhase = RunEditorPhaseAsync(view);
-+                SmokeTrace.Append("table-editor-partition-dispatch-enter");
-             });
+-            });
 -            Require(editorPhase is not null, "The dispatched editor phase did not start.");
 -            await editorPhase!;
 -            _editorVerified = true;
++            // Diagnostic only: retain async method shape without scheduling.
++            await Task.CompletedTask;
++            SmokeTrace.Append("table-editor-partition-completed-enter");
              var sourceRange = new CellRange(
                  new CellAddress(0, 0),
                  new CellAddress(3, 1));
-@@ -278,19 +237,6 @@
+@@ -278,19 +234,6 @@
              SmokeTrace.Append($"analytics-create-catch:{exception.GetType().FullName}");
              Fail(exception);
          }
@@ -110,7 +114,7 @@ index 89bc459fa5c86b523e96bcd22f19a496e2151df6..0ff170b2483d5137b7e8518fdbb3e2d5
      }
  
      private void ValidateNativeAccessibility(NeraSpreadsheetView view)
-@@ -351,8 +297,6 @@
+@@ -351,8 +294,6 @@
          Complete(new
          {
              status = "success",
