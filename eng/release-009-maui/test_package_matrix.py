@@ -107,6 +107,17 @@ class PackageMatrixTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 matrix.verify_producer(changed, SHA, VERSION, "10.0.302")
 
+    def testLicenseAcceptanceDefaultShouldPreserveBooleanMeaning(self):
+        absent = ET.fromstring('<metadata><description>Fixture</description></metadata>')
+        for value in ("false", "0", "true", "1"):
+            explicit = copy.deepcopy(absent)
+            ET.SubElement(explicit, "requireLicenseAcceptance").text = value
+            self.assertEqual(value in ("false", "0"), matrix.xml_key(absent) == matrix.xml_key(explicit))
+        for xml in ('<metadata><requireLicenseAcceptance>invalid</requireLicenseAcceptance></metadata>',
+                    '<metadata><requireLicenseAcceptance>false</requireLicenseAcceptance><requireLicenseAcceptance>false</requireLicenseAcceptance></metadata>'):
+            with self.assertRaisesRegex(ValueError, "license acceptance"):
+                matrix.xml_key(ET.fromstring(xml))
+
     def testArchiveHashAndAssemblyProvenanceShouldBeRequired(self):
         data = archive()
         package = matrix.inspect_package(data, VERSION, SHA)
