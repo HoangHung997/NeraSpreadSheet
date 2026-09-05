@@ -1,5 +1,75 @@
 # RELEASE-009 Split Editor — Handoff lane A
 
+## Hồ sơ bàn giao — implementation b94d2a2e, chờ exact final gates
+
+- Branch `feature/release-009-split-editor-routing`; PR #1 Draft/open/unmerged.
+  Implementation WPF cuối `b94d2a2ea6d7f793a1f72399d8a038bc57da8972`.
+  HEAD trước hồ sơ này là import-only257611ed; HEAD chứa hồ sơ này phải chạy
+  riêng full/iOS/Q003C/packages/demo trước khi release. Chưa lấy Windows xanh
+  để tuyên bố all-platform hoặc whole SDK acceptance.
+- Source commits theo thứ tự để root nhận sau final gates:
+  `7950acb90714e7e3789ea4be70b56bc386074fdb`,
+  `47faa24c3c59cd23d00d7696e048ba8b2338a873`,
+  `8d957bb192bfe5f7e5d7ae8b79a728b88bc31584`,
+  `b94d2a2ea6d7f793a1f72399d8a038bc57da8972`, rồi commit hồ sơ này.
+- Hoàn tất trong scope: active-pane visibility qua existing frame/metrics,
+  tránh integrated scrollbar overlay, giữ offset lẻ/other panes/freeze/merge/
+  hidden navigation và history; actual split metadata/nested argument help,
+  shared host formatter/reference projection; identical draft echo giữ native
+  backward direction, changed range/validation/notifications/focus vẫn đúng.
+- Windows source b94 job101369575444/full33989684232 SUCCESS: build0warnings/
+  0errors, Core1515/1515, native146/146,0skip. Cả7native regression cases mới và
+  existing full-cell measure/queued-scroll/opt-out/cancel/structured Table tests
+  chạy trong bộ này. Source8d Windows101368984456 cũng PASS146/146.
+- Artifact b94 matrix9976294755,237PNG; ZIP SHA256
+  `9c3f37e6d98e6df49930f07aa38b66e717d8679f04f16a893e180312fc79d87a`.
+  Đã xem đủ3PNG mới trong subfolder `split-editor-routing`: native split help
+  host, IF argument3 popup, Enter pane-edge sau commit42 với destination nằm
+  trên horizontal bar và bên trái vertical bar. Giữ nested display-list behavior.
+  Final HEAD vẫn phải kiểm tra artifact/ảnh riêng, không suy từ ảnh commit cha.
+- Local architecture/diff PASS. Không local heavy build/native, không cleanup;
+  native runtime/captures dùng existing Windows CI. Không chạy benchmark mới
+  hoặc tuyên bố cải thiện render/scroll performance; final controlled performance
+  và hardware acceptance vẫn thuộc scope root, chưa hoàn tất ở slice này.
+
+### Immutable import — bỏ toàn bộ commit này khi nhận source A
+
+- **SKIP `257611ed2f91a74230608a1cb69e0d02e145b300`**. Đây là import-only root
+  transport từ `f344b5ec8060a127e3ce030a717013ce4f2bb637`, nhận nguyên trạng qua
+  apply_patch theo grant, không phải implementation lane A. Root đã xác minh
+  full33988991344 và iOS33988991332 success tại source transport.
+- `scripts/run-maui-ios-smoke.sh` blob
+  `41b8d02bad14c812fffcda562b63c17c02336682` đã có nguyên trạng ở base7a.
+- `scripts/verify-native-smoke-result.py` blob
+  `5fd92e2866fc7231c44c81feda3dd4dcc8c43788` và
+  `scripts/test-native-smoke-result.py` blob
+  `cf540735e2a20faa72be3a842338b4a4638d49b7` là hai file thay đổi trong import.
+  Cả3hash khớp grant; local20/20parser fixtures PASS. Không sửa Android helper.
+- iOS7950/47 vẫn FAIL trên parser baseline; 47run33989323486/job101368596429
+  báo stream1 malformed-marker chars990/json-offset990. Không nới test hoặc
+  dùng desktop success để bỏ gate; final HEAD gồm approved import phải qua CI.
+
+### Ownership, giới hạn và bước tiếp theo
+
+- A giữ11paths:7SDK files (Control, Control.EditorDraft, Control.FormulaEditing,
+  SplitController, SplitAdorner.EditorDraft, SplitAdorner.KeyboardEditor,
+  SplitAdorner.FormulaEditing), Table007WpfEditorDraftSmokeTests, new
+  Release009SplitEditorRoutingSmokeTests, contract và worklog riêng này.
+  Root Table007SplitEditorSmokeTests giữ nguyên blob; không sửa sample, Commands,
+  resources, shared docs hoặc workflows. Ba immutable parser paths không release
+  như source A; root bỏ import commit hoàn toàn.
+- Sample formula bar và split paged filter chưa triển khai trong slice này.
+  API range không biểu diễn arbitrary cross-control selection direction;
+  CaretIndex là WPF public caret, không hứa moving edge khi selection không rỗng.
+  Absolute worksheet extent vẫn clamp theo engine, không thêm tail né overlay.
+- Rollback: revert riêng5source/doc commits nêu trên, không revert root transport;
+  không cần workbook/history migration.
+- Một bước tiếp theo duy nhất: push HEAD gồm source + immutable import + hồ sơ,
+  verify đủ5exact-final workflows và3PNG, rồi gửi release11paths/skip-import
+  manifest cho root. Root phải tự chạy combined gates sau khi nhận.
+
+## Lịch sử triển khai
+
 ## Native47 và follow-up sau review ảnh
 
 - Windows47 job101368593377 đã qua build, Core, native runtime và capture matrix.
