@@ -35,6 +35,87 @@ public sealed class DesktopRibbonPresenterSmokeTests
 
     [TestMethod]
     [Timeout(120_000)]
+    public void DesktopTableDesignBindingShouldFollowSelectionAndExecuteOneTransaction()
+    {
+        RunInSta(() =>
+        {
+            var workbook = new NeraSpreadSheet.Core.Workbook();
+            var worksheet = workbook.Worksheets[0];
+            var table = new NeraSpreadSheet.Core.SpreadsheetTable(
+                Guid.NewGuid(),
+                "Sales",
+                new NeraSpreadSheet.Core.CellRange(
+                    default,
+                    new NeraSpreadSheet.Core.CellAddress(2, 1)),
+                [
+                    new NeraSpreadSheet.Core.SpreadsheetTableColumn(Guid.NewGuid(), "Item"),
+                    new NeraSpreadSheet.Core.SpreadsheetTableColumn(Guid.NewGuid(), "Amount"),
+                ]);
+            worksheet.AddTable(table);
+            var session = new NeraSpreadSheet.Editing.SpreadsheetSession(workbook);
+            session.Selection.SetActiveCell(new NeraSpreadSheet.Core.CellAddress(4, 4));
+            var definition = RibbonProductionCommandCatalog.CreateDefaultDefinition();
+            var wpfRuntime = new RibbonRuntimeController(definition, session.Commands);
+            using var wpfRibbon = new NeraSpreadSheet.Wpf.NeraRibbonControl(wpfRuntime);
+            var window = new WpfWindow
+            {
+                Content = wpfRibbon,
+                ShowInTaskbar = false,
+                Width = 1_400d,
+                Height = 300d,
+            };
+            using var wpfBinding = wpfRibbon.BindTableDesign(session);
+            try
+            {
+                window.Show();
+                FlushWpf(window);
+                Assert.AreEqual(6, wpfRibbon.LayoutSnapshot.Tabs.Count);
+                session.Selection.SetActiveCell(new NeraSpreadSheet.Core.CellAddress(1, 0));
+                FlushWpf(window);
+                Assert.AreEqual(7, wpfRibbon.LayoutSnapshot.Tabs.Count);
+                var before = session.History.UndoCount;
+                Assert.IsTrue(wpfRuntime.TryActivateAsync(
+                    NeraSpreadSheet.Editing.SpreadsheetTableCommandIds.FirstColumn)
+                    .AsTask().GetAwaiter().GetResult());
+                FlushWpf(window);
+                Assert.AreEqual(before + 1, session.History.UndoCount);
+                Assert.IsTrue(worksheet.Tables.Single().ShowFirstColumn);
+                session.Selection.SetActiveCell(new NeraSpreadSheet.Core.CellAddress(4, 4));
+                FlushWpf(window);
+                Assert.AreEqual(6, wpfRibbon.LayoutSnapshot.Tabs.Count);
+            }
+            finally
+            {
+                window.Close();
+                FlushWpf(window);
+            }
+
+            var winRuntime = new RibbonRuntimeController(definition, session.Commands);
+            using var form = new WinFormsForm
+            {
+                ClientSize = new System.Drawing.Size(1_400, 300),
+            };
+            using var winRibbon = new NeraSpreadSheet.WinForms.NeraRibbonControl(winRuntime)
+            {
+                Dock = WinFormsDockStyle.Fill,
+            };
+            form.Controls.Add(winRibbon);
+            using var winBinding = winRibbon.BindTableDesign(session);
+            form.Show();
+            WinFormsApplication.DoEvents();
+            Assert.AreEqual(6, winRibbon.LayoutSnapshot.Tabs.Count);
+            session.Selection.SetActiveCell(new NeraSpreadSheet.Core.CellAddress(1, 1));
+            WinFormsApplication.DoEvents();
+            Assert.AreEqual(7, winRibbon.LayoutSnapshot.Tabs.Count);
+            session.Selection.SetActiveCell(new NeraSpreadSheet.Core.CellAddress(4, 4));
+            WinFormsApplication.DoEvents();
+            Assert.AreEqual(6, winRibbon.LayoutSnapshot.Tabs.Count);
+            form.Close();
+        });
+    }
+
+    [TestMethod]
+    [Timeout(120_000)]
     public void DesktopContextualQatBackstageAndKeyTipsShouldLoadAndRestoreState()
     {
         RunInSta(() =>

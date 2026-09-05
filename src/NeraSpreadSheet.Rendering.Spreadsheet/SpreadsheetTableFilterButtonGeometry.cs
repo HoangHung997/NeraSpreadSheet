@@ -94,6 +94,7 @@ public static class SpreadsheetTableFilterButtonGeometry
         foreach (var table in tables)
         {
             if (!table.HasHeaders ||
+                !table.ShowFilterButtons ||
                 !rowSlots.TryGetValue(table.Range.Top, out var row))
             {
                 continue;

@@ -596,7 +596,8 @@ public sealed class SpreadsheetTable
         bool showLastColumn = false,
         bool showRowStripes = true,
         bool showColumnStripes = false,
-        TableAutoFilter? autoFilter = null)
+        TableAutoFilter? autoFilter = null,
+        bool showFilterButtons = true)
     {
         if (id == Guid.Empty)
         {
@@ -616,6 +617,7 @@ public sealed class SpreadsheetTable
         ShowLastColumn = showLastColumn;
         ShowRowStripes = showRowStripes;
         ShowColumnStripes = showColumnStripes;
+        ShowFilterButtons = showFilterButtons;
         _columns = columns
             .Select(static column =>
                 (column ?? throw new ArgumentException(
@@ -704,6 +706,12 @@ public sealed class SpreadsheetTable
 
     public bool ShowColumnStripes { get; }
 
+    /// <summary>
+    /// Gets whether native hosts should expose filter buttons for this Table.
+    /// Active filter criteria remain intact while the buttons are hidden.
+    /// </summary>
+    public bool ShowFilterButtons { get; }
+
     public TableAutoFilter? AutoFilter { get; }
 
     public IReadOnlyList<SpreadsheetTableColumn> Columns => _columns;
@@ -746,7 +754,8 @@ public sealed class SpreadsheetTable
         ShowLastColumn,
         ShowRowStripes,
         ShowColumnStripes,
-        AutoFilter);
+        AutoFilter,
+        ShowFilterButtons);
 
     public SpreadsheetTable Rename(string name) => new(
         Id,
@@ -760,7 +769,8 @@ public sealed class SpreadsheetTable
         ShowLastColumn,
         ShowRowStripes,
         ShowColumnStripes,
-        AutoFilter);
+        AutoFilter,
+        ShowFilterButtons);
 
     public SpreadsheetTable RenameColumn(
         Guid columnId,
@@ -798,7 +808,8 @@ public sealed class SpreadsheetTable
             ShowLastColumn,
             ShowRowStripes,
             ShowColumnStripes,
-            autoFilter);
+            autoFilter,
+            ShowFilterButtons);
 
     public bool TryGetColumn(
         string name,
@@ -950,7 +961,8 @@ public sealed class SpreadsheetTable
             ShowLastColumn,
             ShowRowStripes,
             ShowColumnStripes,
-            autoFilter);
+            autoFilter,
+            ShowFilterButtons);
 
     internal SpreadsheetTable RewriteA1References(
         string currentWorksheetName,

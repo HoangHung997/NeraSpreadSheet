@@ -17,6 +17,73 @@ public sealed class TableRoundTripTests
         "urn:neraspreadsheet:test:table-extension";
 
     [TestMethod]
+    public async Task FilterButtonVisibilityAndRelationshipShouldRemainStableAcrossRoundTrip()
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        var columnId = Guid.NewGuid();
+        var table = new SpreadsheetTable(
+            Guid.NewGuid(),
+            "Sales",
+            new CellRange(default, new CellAddress(2, 0)),
+            [new SpreadsheetTableColumn(columnId, "Item")],
+            autoFilter: new TableAutoFilter([
+                new TableFilterColumn(
+                    columnId,
+                    [CellValue.FromText("A")]),
+            ]),
+            showFilterButtons: false);
+        worksheet.AddTable(table);
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        await using var hidden = new MemoryStream();
+
+        await serializer.SaveAsync(workbook, hidden, new OpenXmlExportOptions());
+        AssertSchemaValid(hidden);
+        hidden.Position = 0L;
+        var loaded = await serializer.LoadAsync(hidden, new OpenXmlImportOptions());
+        Assert.IsFalse(loaded.Worksheets[0].Tables.Single().ShowFilterButtons);
+        CollectionAssert.AreEqual(
+            new[] { CellValue.FromText("A") },
+            loaded.Worksheets[0].Tables.Single().AutoFilter!.Columns.Single().Values.ToArray());
+
+        var loadedTable = loaded.Worksheets[0].Tables.Single();
+        var visible = new SpreadsheetTable(
+            loadedTable.Id,
+            loadedTable.Name,
+            loadedTable.Range,
+            loadedTable.Columns,
+            loadedTable.HasHeaders,
+            loadedTable.HasTotalsRow,
+            loadedTable.StyleName,
+            loadedTable.ShowFirstColumn,
+            loadedTable.ShowLastColumn,
+            loadedTable.ShowRowStripes,
+            loadedTable.ShowColumnStripes,
+            loadedTable.AutoFilter,
+            showFilterButtons: true);
+        Assert.IsTrue(loaded.Worksheets[0].RemoveTable(loadedTable.Id));
+        loaded.Worksheets[0].AddTable(visible);
+        await using var shown = new MemoryStream();
+        await serializer.SaveAsync(loaded, shown, new OpenXmlExportOptions());
+        AssertSchemaValid(shown);
+        shown.Position = 0L;
+        using (var document = SpreadsheetDocument.Open(shown, false))
+        {
+            var worksheetPart = document.WorkbookPart!.WorksheetParts.Single();
+            var part = worksheetPart.TableDefinitionParts.Single();
+            Assert.AreEqual($"rIdNeraTable{table.Id:N}", worksheetPart.GetIdOfPart(part));
+            Assert.IsNotNull(LoadPartXml(part).Root?.Element(
+                SpreadsheetNamespace + "autoFilter"));
+        }
+        shown.Position = 0L;
+        var reloaded = await serializer.LoadAsync(shown, new OpenXmlImportOptions());
+        Assert.IsTrue(reloaded.Worksheets[0].Tables.Single().ShowFilterButtons);
+        CollectionAssert.AreEqual(
+            new[] { CellValue.FromText("A") },
+            reloaded.Worksheets[0].Tables.Single().AutoFilter!.Columns.Single().Values.ToArray());
+    }
+
+    [TestMethod]
     public async Task StandardTableIdentityColumnsStyleAndFilterRoundTrip()
     {
         var workbook = CreateWorkbook(out var table, out var statusColumnId);

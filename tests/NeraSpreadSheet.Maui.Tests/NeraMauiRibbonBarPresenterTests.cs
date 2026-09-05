@@ -1,7 +1,8 @@
-using Microsoft.Maui.Controls;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Bars.Core;
 using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Maui;
 using NeraSpreadSheet.Ribbon.Core;
 
@@ -10,6 +11,29 @@ namespace NeraSpreadSheet.Maui.Tests;
 [TestClass]
 public sealed class NeraMauiRibbonBarPresenterTests
 {
+    [TestMethod]
+    public void TableDesignBindingShouldUseSharedSessionSelectionContext()
+    {
+        var workbook = new Workbook();
+        workbook.Worksheets[0].AddTable(new SpreadsheetTable(
+            Guid.NewGuid(),
+            "Sales",
+            new CellRange(default, new CellAddress(2, 0)),
+            [new SpreadsheetTableColumn(Guid.NewGuid(), "Item")]));
+        var session = new SpreadsheetSession(workbook);
+        session.Selection.SetActiveCell(new CellAddress(4, 4));
+        var runtime = new RibbonRuntimeController(
+            RibbonProductionCommandCatalog.CreateDefaultDefinition(),
+            session.Commands);
+        using var binding = new NeraMauiTableDesignRibbonBinding(session, runtime);
+
+        Assert.AreEqual(6, runtime.Snapshot.Tabs.Count);
+        session.Selection.SetActiveCell(new CellAddress(1, 0));
+        Assert.AreEqual(7, runtime.Snapshot.Tabs.Count);
+        session.Selection.SetActiveCell(new CellAddress(4, 4));
+        Assert.AreEqual(6, runtime.Snapshot.Tabs.Count);
+    }
+
     [TestMethod]
     public async Task RibbonMauiDescriptorShouldTrackRuntimeSnapshot()
     {
