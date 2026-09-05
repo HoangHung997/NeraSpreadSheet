@@ -218,6 +218,35 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         return GetAdorner().Focus();
     }
 
+    /// <summary>Gets the actual split native editor draft, or null after the canonical edit ends.</summary>
+    public SpreadsheetEditorDraft? CurrentEditorDraft => GetAdorner().CurrentEditorDraft;
+
+    /// <summary>Starts the canonical edit in the active split pane. Requires a loaded adorner host.</summary>
+    public void BeginEdit(string? replacementText = null)
+    {
+        AttachOrThrow();
+        GetAdorner().BeginEdit(replacementText);
+    }
+
+    /// <summary>Commits through Session.Editor once; validation failure keeps the native draft and selection.</summary>
+    public bool CommitEditor() => GetAdorner().CommitEditor();
+
+    /// <summary>Always cleans up the native editor; returns true only when a canonical edit was canceled.</summary>
+    public bool CancelEditor() => GetAdorner().CancelEditor();
+
+    /// <summary>
+    /// Updates native text and UTF-16 selection without focus, history or restarting
+    /// the edit. Invalid bounds throw without mutation; no active draft returns false.
+    /// The owning control raises EditorDraftChanged for draft and lifecycle changes.
+    /// </summary>
+    public bool UpdateEditorDraft(string text, int selectionStart, int selectionLength) =>
+        GetAdorner().UpdateEditorDraft(text, selectionStart, selectionLength);
+
+    /// <summary>Focuses the split native editor while retaining its draft and selection.</summary>
+    public bool FocusEditor() => GetAdorner().FocusEditor();
+
+    internal void NotifyOwnerStateChanged() => GetAdorner().NotifyOwnerStateChanged();
+
     internal bool BeginViewHistory(
         string description,
         SpreadsheetSplitViewChangeKind changeKind) =>

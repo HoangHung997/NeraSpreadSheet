@@ -158,19 +158,15 @@ public sealed partial class NeraSpreadsheetControl
         FormulaTextEditResult edit;
         if (_formulaSuggestionList.SelectedItem is FormulaStructuredReferenceSuggestion structured)
         {
-            var table = _session.Workbook.Tables.FirstOrDefault(table => table.Id == structured.TableId);
-            if (structured.SourceText != _editor.Text || table is null ||
-                structured.ColumnId is { } columnId && !table.TryGetColumn(columnId, out _) ||
-                structured.Area == TableReferenceArea.ThisRow &&
-                (!_session.ActiveWorksheet.Tables.Any(candidate => candidate.Id == table.Id) ||
-                 table.DataRange?.Contains(state.Address) != true))
+            if (!SpreadsheetFormulaEditingAssistant.TryApplyStructuredReferenceSuggestion(
+                    _editor.Text, _editor.SelectionStart, _editor.SelectionLength,
+                    _session.Workbook, _session.ActiveWorksheet, state.Address, structured, out var accepted))
             {
                 UpdateFormulaSuggestions();
                 _editor.Focus();
                 return true;
             }
-            edit = SpreadsheetFormulaEditingAssistant.ApplyStructuredReferenceSuggestion(
-                _editor.Text, _session.Workbook, _session.ActiveWorksheet, state.Address, structured);
+            edit = accepted!;
         }
         else if (_formulaSuggestionList.SelectedItem is FormulaFunctionSuggestion function)
             edit = SpreadsheetFormulaEditingAssistant.ApplySuggestion(_editor.Text, _editor.SelectionStart, function);
@@ -267,7 +263,7 @@ public sealed partial class NeraSpreadsheetControl
         if (!ShowFormulaReferenceHighlights || _session is null || RenderTheme.FormulaReferenceColors.Count == 0) return [];
         var address = _cellEditor?.State?.Address ?? _session.Selection.ActiveCell;
         var formula = IsEditing ? _editor.Text : _session.ActiveWorksheet.GetFormula(address);
-        if (formula is null) return [];
+        if (formula is null || !formula.StartsWith('=')) return [];
         IReadOnlyList<FormulaDependency> references = IsEditing ? [] :
             _session.Calculation.DependencyGraph.GetDependencies(new FormulaCellKey(_session.ActiveWorksheet.Name, address));
         if (references.Count == 0 && !FormulaReferenceAnalyzer.TryGetReferences(formula, _session.Workbook, _session.ActiveWorksheet, address, out references) &&

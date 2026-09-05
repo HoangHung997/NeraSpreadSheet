@@ -733,39 +733,54 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         e.Handled = true;
     }
 
+    /// <summary>Starts the canonical edit in the active standalone or split native editor.</summary>
     public void BeginEdit(string? replacementText = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (this.TryGetSplitPaneController(out var split))
+        {
+            split.BeginEdit(replacementText);
+            return;
+        }
         if (_cellEditor is null)
         {
             return;
         }
-        var state = _cellEditor.BeginEdit();
-        WpfCellEditorStyle.Apply(
-            _editor,
-            _session!.ActiveWorksheet.GetEffectiveStyle(
-                state.Address,
-                _session.Workbook.Styles));
-        _editor.Text = replacementText ?? state.InitialText;
-        _formulaReferenceSpan = null;
-        _editor.Visibility = Visibility.Visible;
-        UpdateEditorBounds();
-        _editor.Focus();
-        if (replacementText is null)
+        _changingEditorDraft = true;
+        try
         {
-            _editor.SelectAll();
+            var state = _cellEditor.BeginEdit();
+            _hasEditorDraft = true;
+            WpfCellEditorStyle.Apply(
+                _editor,
+                _session!.ActiveWorksheet.GetEffectiveStyle(
+                    state.Address,
+                    _session.Workbook.Styles));
+            _editor.Text = replacementText ?? state.InitialText;
+            _formulaReferenceSpan = null;
+            _editor.Visibility = Visibility.Visible;
+            UpdateEditorBounds();
+            _editor.Focus();
+            if (replacementText is null)
+            {
+                _editor.SelectAll();
+            }
+            else
+            {
+                _editor.CaretIndex = _editor.Text.Length;
+            }
+            UpdateFormulaSuggestions(
+                replacementText is null ? _editor.CaretIndex : _editor.Text.Length);
         }
-        else
-        {
-            _editor.CaretIndex = _editor.Text.Length;
-        }
-        UpdateFormulaSuggestions(
-            replacementText is null ? _editor.CaretIndex : _editor.Text.Length);
+        finally { _changingEditorDraft = false; }
+        NotifyEditorDraftChanged();
     }
 
+    /// <summary>Commits the native draft once through Session.Editor; validation failure retains the draft and selection.</summary>
     public bool CommitEditor()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (this.TryGetSplitPaneController(out var split)) return split.CommitEditor();
         if (_cellEditor?.State is { } target) _session!.Selection.SetActiveCell(target.Address);
         if (_cellEditor is null || !_cellEditor.Commit(_editor.Text))
         {
@@ -777,9 +792,11 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         return true;
     }
 
+    /// <summary>Cancels the active native edit. Cleanup is idempotent; false means the canonical edit had already ended.</summary>
     public bool CancelEditor()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (this.TryGetSplitPaneController(out var split)) return split.CancelEditor();
         if (_cellEditor?.State is { } target) _session!.Selection.SetActiveCell(target.Address);
         var canceled = _cellEditor?.Cancel() == true;
         // Session activation may already have canceled the draft. The native
@@ -1050,6 +1067,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         UpdateContentExtent();
         UpdateGpuSurfaceVisibility();
         InvalidateVisual();
+        if (this.TryGetSplitPaneController(out var split)) split.NotifyOwnerStateChanged();
     }
 
     private void AttachSessionEvents()
@@ -1059,6 +1077,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
             return;
         }
         _session.ActiveWorksheetChanged += OnActiveWorksheetChanged;
+        _session.Editor.StateChanged += OnCanonicalEditorStateChanged;
         _session.Selection.Changed += OnSelectionChanged;
         _session.View.Changed += OnViewChanged;
         _session.Analytics.Changed += OnAnalyticsChanged;
@@ -1073,6 +1092,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
         if (_session is not null && _sessionEventsAttached)
         {
             _session.ActiveWorksheetChanged -= OnActiveWorksheetChanged;
+            _session.Editor.StateChanged -= OnCanonicalEditorStateChanged;
             _session.Selection.Changed -= OnSelectionChanged;
             _session.View.Changed -= OnViewChanged;
             _session.Analytics.Changed -= OnAnalyticsChanged;
@@ -1338,7 +1358,7 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
 
     private void UpdateEditorBounds()
     {
-        if (_cellEditor?.State is not { } state || _viewport is null || _session is null)
+        if (!_hasEditorDraft || _cellEditor?.State is not { } state || _viewport is null || _session is null)
         {
             return;
         }
@@ -1396,11 +1416,13 @@ public sealed partial class NeraSpreadsheetControl : FrameworkElement, IDisposab
 
     private void HideEditor()
     {
+        _hasEditorDraft = false;
         _editor.Visibility = Visibility.Collapsed;
         _editorBounds = Rect.Empty;
         _editorClipBounds = Rect.Empty;
         InvalidateMeasure();
         InvalidateArrange();
+        NotifyEditorDraftChanged();
     }
 
     private void EnsureFrameLoop()

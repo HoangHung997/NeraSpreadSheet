@@ -51,7 +51,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
 
         if (IsEditing)
         {
-            CommitEditor();
+            if (TryInsertFormulaReference(e.X, e.Y) || !CommitEditor()) return;
         }
         Focus();
 
@@ -161,6 +161,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
+        if (UpdateFormulaReferencePointer(e.X, e.Y)) return;
         if (_splitDrag is { } drag)
         {
             ApplySeparatorDrag(drag, e.X, e.Y);
@@ -179,6 +180,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
+        if (e.Button == MouseButtons.Left && UpdateFormulaReferencePointer(e.X, e.Y, release: true)) return;
         if (e.Button != MouseButtons.Left || _splitDrag is not { } drag)
         {
             return;
@@ -199,6 +201,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
     protected override void OnMouseCaptureChanged(EventArgs e)
     {
         base.OnMouseCaptureChanged(e);
+        if (!Capture) _formulaReferenceAnchor = null;
         if (Capture || _splitDrag is null)
         {
             return;

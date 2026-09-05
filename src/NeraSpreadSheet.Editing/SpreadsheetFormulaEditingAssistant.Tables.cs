@@ -14,6 +14,38 @@ public sealed record FormulaStructuredReferenceSuggestion(
 public sealed partial class SpreadsheetFormulaEditingAssistant
 {
     /// <summary>
+    /// Accepts a native popup candidate only while its draft, caret and selection
+    /// still match the original fragment. Resolves current names from stable IDs.
+    /// Returns false for stale native UI state without mutating cells or history.
+    /// </summary>
+    public static bool TryApplyStructuredReferenceSuggestion(
+        string text, int caretIndex, int selectionLength, Workbook workbook,
+        Worksheet worksheet, CellAddress formulaAddress,
+        FormulaStructuredReferenceSuggestion suggestion, out FormulaTextEditResult? result)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(suggestion);
+        ValidateWorkbookContext(workbook, worksheet);
+        result = null;
+        var span = suggestion.ReplacementSpan;
+        if (selectionLength != 0 || caretIndex < 0 || caretIndex > text.Length ||
+            suggestion.SourceText != text || span.Start < 0 || span.Length < 0 ||
+            span.Start > text.Length || span.Length > text.Length - span.Start)
+            return false;
+        var expectedCaret = span.End;
+        if (span.Length > 0 && text[span.End - 1] == ']') expectedCaret--;
+        if (caretIndex != expectedCaret) return false;
+        var table = workbook.Tables.FirstOrDefault(candidate => candidate.Id == suggestion.TableId);
+        if (table is null || suggestion.ColumnId is { } columnId && !table.TryGetColumn(columnId, out _) ||
+            suggestion.Area == TableReferenceArea.ThisRow &&
+            (!worksheet.Tables.Any(candidate => candidate.Id == table.Id) ||
+             table.DataRange?.Contains(formulaAddress) != true))
+            return false;
+        result = ApplyStructuredReferenceSuggestion(text, workbook, worksheet, formulaAddress, suggestion);
+        return true;
+    }
+
+    /// <summary>
     /// Reports whether point-mode insertion is outside a quoted literal or an
     /// existing structured token. A provisional span is validated against the draft.
     /// This query never reads cells or changes workbook/history state.

@@ -5,12 +5,14 @@ using System.Windows.Input;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
+using NeraSpreadSheet.Layout;
 
 namespace NeraSpreadSheet.Wpf;
 
 internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
 {
     private bool IsEditing => _cellEditor?.IsEditing == true;
+    private SpreadsheetPaneId _editorPane;
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
@@ -121,65 +123,74 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         e.Handled = true;
     }
 
-    private void BeginEdit(string? replacementText = null)
+    internal void BeginEdit(string? replacementText = null)
     {
-        if (_cellEditor is null || EnsureFrame() is null)
+        SynchronizeSession();
+        if (_cellEditor is null || EnsureFrame() is not { } frame)
         {
             return;
         }
 
-        var state = _cellEditor.BeginEdit();
-        WpfCellEditorStyle.Apply(
-            _editor,
-            _session!.ActiveWorksheet.GetEffectiveStyle(
-                state.Address,
-                _session.Workbook.Styles));
-        _editor.Text = replacementText ?? state.InitialText;
-        _editor.Visibility = Visibility.Visible;
-        UpdateEditorBounds();
-        _editor.Focus();
-        if (replacementText is null)
+        _changingEditorDraft = true;
+        try
         {
-            _editor.SelectAll();
+            var state = _cellEditor.BeginEdit();
+            _hasEditorDraft = true;
+            _editorPane = frame.ActivePane;
+            ResetFormulaEditingUi();
+            WpfCellEditorStyle.Apply(
+                _editor,
+                _session!.ActiveWorksheet.GetEffectiveStyle(
+                    state.Address,
+                    _session.Workbook.Styles));
+            _editor.Text = replacementText ?? state.InitialText;
+            _editor.Visibility = Visibility.Visible;
+            UpdateEditorBounds();
+            _editor.Focus();
+            if (replacementText is null)
+            {
+                _editor.SelectAll();
+            }
+            else
+            {
+                _editor.CaretIndex = _editor.Text.Length;
+            }
+            UpdateFormulaSuggestions();
         }
-        else
-        {
-            _editor.CaretIndex = _editor.Text.Length;
-        }
+        finally { _changingEditorDraft = false; }
+        NotifyEditorDraftChanged();
     }
 
-    private bool CommitEditor()
+    internal bool CommitEditor()
     {
+        var address = _cellEditor?.State?.Address;
         if (_cellEditor is null || !_cellEditor.Commit(_editor.Text))
         {
             return false;
         }
 
         HideEditor();
+        if (address is { } target) _session!.Selection.SetActiveCell(target);
         Focus();
         return true;
     }
 
-    private bool CancelEditor()
+    internal bool CancelEditor()
     {
-        if (_cellEditor is null || !_cellEditor.Cancel())
-        {
-            return false;
-        }
-
+        var canceled = _cellEditor?.Cancel() == true;
         HideEditor();
-        Focus();
-        return true;
+        if (canceled) Focus();
+        return canceled;
     }
 
     private void UpdateEditorBounds()
     {
-        if (_cellEditor?.State is not { } state ||
+        if (!_hasEditorDraft || _cellEditor?.State is not { } state ||
             _engine is null ||
             _session is null ||
             EnsureFrame() is not { } frame ||
-            !frame.TryGetPane(frame.ActivePane, out var paneFrame) ||
-            !_engine.TryGetCellBounds(frame.ActivePane, state.Address, out var bodyBounds))
+            !(frame.TryGetPane(_editorPane, out var paneFrame) || frame.TryGetPane(frame.ActivePane, out paneFrame)) ||
+            !_engine.TryGetCellBounds(paneFrame.Pane.PaneId, state.Address, out var bodyBounds))
         {
             _editor.Visibility = Visibility.Collapsed;
             _editorBounds = Rect.Empty;
@@ -216,11 +227,12 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         }
 
         var candidate = new Rect(
-            chrome.RowHeaderWidth + visibleBody.Left,
-            chrome.ColumnHeaderHeight + visibleBody.Top,
-            Math.Max(20d, visibleBody.Width),
-            Math.Max(18d, visibleBody.Height));
-        var viewport = new Rect(0d, 0d, Math.Max(0d, ActualWidth), Math.Max(0d, ActualHeight));
+            chrome.RowHeaderWidth + commonBounds.Left,
+            chrome.ColumnHeaderHeight + commonBounds.Top,
+            commonBounds.Width,
+            commonBounds.Height);
+        var viewport = new Rect(chrome.RowHeaderWidth + visibleBody.Left,
+            chrome.ColumnHeaderHeight + visibleBody.Top, visibleBody.Width, visibleBody.Height);
         var visible = Rect.Intersect(candidate, viewport);
         if (visible.IsEmpty || visible.Width <= 0d || visible.Height <= 0d)
         {
@@ -231,16 +243,20 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
         }
 
         _editor.Visibility = Visibility.Visible;
-        _editorBounds = visible;
+        _editorBounds = candidate;
+        _editorClipBounds = new Rect(visible.X - candidate.X, visible.Y - candidate.Y, visible.Width, visible.Height);
         InvalidateArrange();
     }
 
     private void HideEditor()
     {
+        _hasEditorDraft = false;
+        ResetFormulaEditingUi();
         _editor.Visibility = Visibility.Collapsed;
         _editorBounds = Rect.Empty;
         _editor.Text = string.Empty;
         InvalidateArrange();
+        NotifyEditorDraftChanged();
     }
 
     private void MoveActiveCell(int rowDelta, int columnDelta, bool extend)
@@ -273,7 +289,13 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner
             return;
         }
 
-        if (e.Key is Key.Enter or Key.Return)
+        if (TryHandleFormulaSuggestionKey(e))
+        {
+            e.Handled = true;
+            return;
+        }
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key is Key.Enter or Key.Return)
         {
             if ((Keyboard.Modifiers & ModifierKeys.Alt) != 0)
             {

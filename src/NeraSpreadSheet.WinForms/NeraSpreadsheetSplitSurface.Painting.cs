@@ -86,6 +86,8 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
             _frameTimer.Tick -= OnFrameTick;
             _frameTimer.Dispose();
             _editor.KeyDown -= OnEditorKeyDown;
+            _cellEditor?.Cancel();
+            DisposeFormulaEditingUi();
             DisposeGpuRenderers();
             _displayListRenderer.Dispose();
         }
@@ -118,7 +120,7 @@ internal sealed partial class NeraSpreadsheetSplitSurface : Control
         }
 
         var displayList = SpreadsheetSplitChromeDisplayListComposer.Compose(
-            frame.DisplayList,
+            ComposeFormulaHighlights(frame),
             frame.Layout,
             paneLayouts,
             _session!.Selection.Capture(),

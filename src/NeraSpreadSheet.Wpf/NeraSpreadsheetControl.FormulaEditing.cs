@@ -64,7 +64,7 @@ public sealed partial class NeraSpreadsheetControl
     /// Gets the current in-cell edit text, or <see langword="null"/> when the
     /// control is not editing.
     /// </summary>
-    public string? CurrentEditText => IsEditing ? _editor.Text : null;
+    public string? CurrentEditText => CurrentEditorDraft?.Text;
 
     /// <summary>
     /// Gets the visible active-sheet precedent ranges for the formula cell that
@@ -94,6 +94,8 @@ public sealed partial class NeraSpreadsheetControl
         };
         _editor.TextChanged += OnFormulaEditorTextChanged;
         _editor.SelectionChanged += OnFormulaEditorSelectionChanged;
+        _editor.TextChanged += OnNativeEditorDraftChanged;
+        _editor.SelectionChanged += OnNativeEditorDraftChanged;
         _formulaSuggestionList.Focusable = false;
         _formulaSuggestionList.PreviewMouseDown += OnFormulaSuggestionMouseClick;
         _formulaSuggestionList.SelectionChanged +=
@@ -105,6 +107,8 @@ public sealed partial class NeraSpreadsheetControl
         HideFormulaSuggestions();
         _editor.TextChanged -= OnFormulaEditorTextChanged;
         _editor.SelectionChanged -= OnFormulaEditorSelectionChanged;
+        _editor.TextChanged -= OnNativeEditorDraftChanged;
+        _editor.SelectionChanged -= OnNativeEditorDraftChanged;
         _formulaSuggestionList.PreviewMouseDown -= OnFormulaSuggestionMouseClick;
         _formulaSuggestionList.SelectionChanged -=
             OnFormulaSuggestionSelectionChanged;
@@ -150,7 +154,7 @@ public sealed partial class NeraSpreadsheetControl
 
     private void UpdateFormulaSuggestions(int? caretIndex = null)
     {
-        if (_session is null || !IsEditing)
+        if (_session is null || !_hasEditorDraft || !IsEditing)
         {
             HideFormulaSuggestions();
             return;
@@ -285,12 +289,9 @@ public sealed partial class NeraSpreadsheetControl
         FormulaTextEditResult edit;
         if (_formulaSuggestionList.SelectedItem is FormulaStructuredReferenceSuggestion structured)
         {
-            var table = _session.Workbook.Tables.FirstOrDefault(table => table.Id == structured.TableId);
-            if (structured.SourceText != _editor.Text || table is null ||
-                structured.ColumnId is { } columnId && !table.TryGetColumn(columnId, out _) ||
-                structured.Area == TableReferenceArea.ThisRow &&
-                (!_session.ActiveWorksheet.Tables.Any(candidate => candidate.Id == table.Id) ||
-                 table.DataRange?.Contains(state.Address) != true))
+            if (!SpreadsheetFormulaEditingAssistant.TryApplyStructuredReferenceSuggestion(
+                    _editor.Text, _editor.CaretIndex, _editor.SelectionLength,
+                    _session.Workbook, _session.ActiveWorksheet, state.Address, structured, out var accepted))
             {
                 // A metadata mutation can invalidate an open popup. Consume acceptance
                 // without committing the stale fragment or changing workbook history.
@@ -298,8 +299,7 @@ public sealed partial class NeraSpreadsheetControl
                 _editor.Focus();
                 return true;
             }
-            edit = SpreadsheetFormulaEditingAssistant.ApplyStructuredReferenceSuggestion(
-                _editor.Text, _session.Workbook, _session.ActiveWorksheet, state.Address, structured);
+            edit = accepted!;
         }
         else if (_formulaSuggestionList.SelectedItem is FormulaFunctionSuggestion suggestion)
         {
@@ -458,7 +458,7 @@ public sealed partial class NeraSpreadsheetControl
     private IReadOnlyList<SpreadsheetFormulaReferenceHighlight>
         GetFormulaReferenceHighlights()
     {
-        if (!ShowFormulaReferenceHighlights || _session is null)
+        if (!ShowFormulaReferenceHighlights || _session is null || (IsEditing && !_hasEditorDraft))
         {
             return Array.Empty<SpreadsheetFormulaReferenceHighlight>();
         }
@@ -466,7 +466,7 @@ public sealed partial class NeraSpreadsheetControl
         var target = _cellEditor?.State?.Address ??
             _session.Selection.ActiveCell;
         var formula = IsEditing ? _editor.Text : _session.ActiveWorksheet.GetCell(target).Formula;
-        if (formula is null)
+        if (formula is null || !formula.StartsWith('='))
         {
             return Array.Empty<SpreadsheetFormulaReferenceHighlight>();
         }
