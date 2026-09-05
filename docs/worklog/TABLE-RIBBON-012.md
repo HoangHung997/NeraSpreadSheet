@@ -85,8 +85,14 @@
 - Checkpoint [iOS 33951645436](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33951645436)
   and [Q003C 33951646681](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33951646681)
   passed at that exact implementation SHA.
-- This record ships with the capture-only correction as a descendant of the
-  implementation checkpoint. Final SHA is the containing commit, resolved with
+- Capture correction SHA: `d82e25045eb2fe1781bce81ee68ff8dac94911da`.
+  Its [Windows CI run](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33952093186)
+  passed **77/77** and the corrected full capture **177/128**. The exact-head
+  visual artifact is `9965197819`; SDK artifact `9965165237` contains **18 nupkg**.
+  CI screenshots/manifest were inspected, including Home, Table Design at 1920
+  logical px, and high-contrast customization.
+- This final documentation record descends from the capture correction. Final
+  SHA is the containing commit, resolved with
   `git rev-parse feature/table-ribbon-012-integration`; it cannot contain its own
   hash. All three workflows must be dispatched and inspected at this final SHA,
   including every job, before the task's final handoff is sent to coordinator.
@@ -94,6 +100,17 @@
   A green implementation parent is not evidence for the final descendant.
 
 ## Limits
+
+**Pending core blocker, owned by TABLE-006:** coordinator reported a reproduced
+TABLE-005 Convert-to-range regression: formulas such as `=[@Amount]*2` and
+`SUM(Sales[Amount])` can become `#REF!` after Table metadata is removed. Lane B
+is fixing the bounded controller/shared translator; no candidate fix is imported
+here and no Core/Editing file is changed by this lane. The native Convert smoke
+proves command dispatch, metadata removal, one history entry and Undo only; it
+does **not** establish preservation of evaluated formula values after conversion.
+This lane can hand off presentation, but combined Table acceptance must wait for
+the TABLE-006 fix and a rerun of regression plus the native command path on the
+integrated HEAD. A green Ribbon CI does not close this core compatibility blocker.
 
 Dialogs are WPF sample integration; SDK users provide a callback on any host.
 Read-only policy continues through command handlers; no workbook protection

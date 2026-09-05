@@ -61,3 +61,12 @@ tọa độ tuyệt đối để không kéo giãn nguồn bị clip. Manifest g
 root, Ribbon width và native DPI; assertions khóa root/Ribbon/layout width
 bằng width yêu cầu. Đây là chụp logical surface đã load, không nhận là resize
 cửa sổ vật lý vượt giới hạn monitor.
+
+## Blocker core đang bàn giao cho TABLE-006
+
+Coordinator xác nhận baseline TABLE-005 có lỗi Convert to range đối với
+structured references: một số công thức thành `#REF!` sau khi bỏ Table metadata.
+Lane này không sửa hoặc nhập fix core đang chạy. Smoke Convert hiện chỉ chứng
+minh dispatch/metadata/history/Undo; không phải bằng chứng giá trị công thức sau
+convert đúng. Nghiệm thu kết hợp phải nhận fix TABLE-006 rồi chạy lại regression
+và native command path tại HEAD tích hợp.
