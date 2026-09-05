@@ -1,5 +1,18 @@
 # RELEASE-009 Formula Bar — Handoff lane A
 
+## Checkpoint6d3fa4a1 — sửa build và active-dispose regression
+
+- Implementation `6d3fa4a12323dd06234e4a859301338b4d9a2926` đã push:
+  full33992065580/iOS33992066955/Q33992068085/packages33992069020/
+  demo33992070323. Q/packages SUCCESS; Windows101375951600 và demo FAIL build
+  vì `Color` bị existing partial method Color(string) che tên type. Follow-up
+  dùng tên WPF Color đầy đủ, không đổi logic hoặc bỏ analyzer/test.
+- Bổ sung test dispose khi draft đang active. Shell hủy canonical draft thuộc
+  native host trước SDK detach; không focus lại editor trong lúc dispose hoặc
+  cancel một session draft mà host không có. Standalone SDK Dispose tự nó chưa
+  đảm nhiệm cancellation này; không sửa SDK ngoài scope.
+- Native/capture6d chưa chạy; source follow-up phải qua đủ final gates riêng.
+
 - Branch `feature/release-009-formula-bar`, base chính xác
   `37a55b05e3af25809d412b67debb0d9e3581f929` sau root nhận SDK slice.
   PR #1 Draft/open/unmerged. HEAD chứa checkpoint này là implementation đầu,
