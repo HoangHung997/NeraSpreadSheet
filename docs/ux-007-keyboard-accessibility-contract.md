@@ -41,6 +41,11 @@ SetPresentation cập nhật labels và palette theo runtime localizer, giữ co
 stable selection, JSON, bản nháp caption/caret và search query. Runtime đổi culture
 trước, host gọi SetPresentation sau trên UI thread. Native Entry/Editor/Picker
 nhận theme trong scope control; không thay thread culture/Application.Resources.
+Trên Windows, Entry/Editor/Picker dùng brush thuộc từng control cho viền, focus,
+selection và popup. HighContrastDark dùng nền đen/viền trắng/accent vàng;
+HighContrastLight dùng nền trắng/viền đen/accent xanh. Brush được cập nhật tại
+chỗ để đổi palette trong cùng RequestedTheme vẫn có hiệu lực trên template đã
+load; không sửa brush mặc định dùng chung của Windows hoặc resource của host.
 English phủ đủ 461 neutral keys, không dịch tên/caption riêng hoặc workbook values.
 
 WPF/WinForms dialog dùng native cancel action cho Escape. WPF catalog item
@@ -69,6 +74,10 @@ Smoke chọn popup chứa toàn bộ native item containers của đúng Picker;
 rectangle theo native transform/DPI, kiểm tra ownership của smoke process trước
 đọc pixels và kiểm tra caption pixels của mỗi row. Capture bị che hoặc thiếu
 caption phải fail. Helper chỉ trong test Windows, không thêm package/production API.
+Smoke còn kiểm tra pixel của nền popup, hàng được chọn và accent indicator theo
+bốn palette, cùng viền native Entry/Picker ở hai chế độ high contrast. Chuyển
+Light → HighContrastLight và Dark → HighContrastDark được kiểm tra khi control
+đang loaded; file PNG tồn tại không đủ nghiệm thu contrast.
 
 U2 actual screen reader và U5 physical multi-monitor DPI/real touch vẫn OPEN.
 UIA peers, synthetic input và raster-scale exports không thay các bằng chứng này.

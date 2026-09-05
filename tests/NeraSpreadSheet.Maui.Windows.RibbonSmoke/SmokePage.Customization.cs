@@ -72,7 +72,10 @@ internal sealed partial class SmokePage
             shell.LoadJson(applied);
             Require(shell.ExportJson() == applied, "Persisted profile changed during load/export.");
 
-            foreach (var theme in Enum.GetValues<NeraIconTheme>())
+            // Adjacent palettes share RequestedTheme; resource updates cannot rely on a
+            // Light/Dark toggle to invalidate an already loaded native control template.
+            foreach (var theme in new[] { NeraIconTheme.Light, NeraIconTheme.HighContrastLight,
+                NeraIconTheme.Dark, NeraIconTheme.HighContrastDark })
             {
                 caption.Text = "Bản nháp chưa áp dụng";
                 caption.Focus();
@@ -88,6 +91,7 @@ internal sealed partial class SmokePage
                 Require(caption.Text == "Bản nháp chưa áp dụng" && caption.CursorPosition == 3 && caption.SelectionLength == 2,
                     $"Theme/localization must preserve the pending caption draft and caret: theme={theme}, text={caption.Text}, cursor={caption.CursorPosition}, selection={caption.SelectionLength}.");
                 await CaptureCustomizationAsync(shell, $"ux007-customization-{theme}.png").ConfigureAwait(true);
+                await VerifyCustomizationInputPaletteAsync(shell, theme).ConfigureAwait(true);
                 var picker = Picker("targets");
                 var native = (Microsoft.UI.Xaml.Controls.ComboBox)picker.Handler!.PlatformView!;
                 Require(native.RequestedTheme == (theme is NeraIconTheme.Dark or NeraIconTheme.HighContrastDark
@@ -112,6 +116,7 @@ internal sealed partial class SmokePage
                 var popupPixels = NativePopupCapture.Capture(popupVisual, WinRT.Interop.WindowNative.GetWindowHandle(Window.Handler!.PlatformView!));
                 await SaveCustomizationPixelsAsync(popupPixels.Pixels, popupPixels.Width, popupPixels.Height, $"ux007-picker-{theme}.png").ConfigureAwait(true);
                 foreach (var item in containers) VerifyCapturedCustomizationText(popupVisual, item!, popupPixels.Pixels, popupPixels.Width, popupPixels.Height);
+                VerifyCustomizationPopupPalette(popupPixels.Pixels, popupPixels.Width, popupPixels.Height, theme);
                 native.IsDropDownOpen = false;
                 Require(native.SelectedIndex == index && shell.ExportJson() == applied, "Picker open/close changed profile.");
             }
