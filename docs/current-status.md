@@ -1,6 +1,6 @@
 # NeraSpreadSheet current implementation status
 
-## RIBBON-VISUAL-011 — IMPLEMENTED LOCALLY; EXACT-HEAD CI PENDING
+## RIBBON-VISUAL-011 — IMPLEMENTATION VALIDATED
 
 Branch `feature/ribbon-visual-011` triển khai dense layout ba hàng dùng chung
 cho WPF/WinForms/MAUI, caption nhóm ở đáy, bốn palette, icon QAT, Backstage
@@ -12,8 +12,14 @@ focused Ribbon **75/75**, desktop Ribbon **16/16**, MAUI **41/41** và loaded
 MAUI Windows Ribbon smoke đã pass. Build/analyzers 0 warning/error,
 architecture/SDK packaging verifier pass; preview có **176 ảnh / 128 native
 layout snapshots**. Full Windows local **74/75** do test foreground cũ dừng ở
-`window.Activate()` trước SDK behavior. CI Windows đã được thêm capture/artifact
-gate; chưa coi checkpoint DONE cho đến khi cả ba workflow xanh tại HEAD cuối.
+`window.Activate()` trước SDK behavior; Windows CI đạt **75/75** và capture
+**176/128**. MAUI giữ command/popup khi chỉ đổi chiều cao; loaded native smoke
+kiểm tra visible stage, frame readiness và width/scale/bounds/focus thực tế.
+Checkpoint `47ccc882be420de1464888b3400606d040cd9194` đã xanh cả full CI
+#1323 / `33945177202`, iOS #144 / `33945179079` và Q003C #141 /
+`33945180352`. Artifact `ribbon-visual-matrix` là `9963130150`. Handoff chỉ
+hoàn tất khi commit tài liệu cuối cũng có ba workflow xanh tại đúng HEAD;
+không dùng checkpoint cha thay cho yêu cầu này.
 
 ## Overall roadmap implementation progress
 

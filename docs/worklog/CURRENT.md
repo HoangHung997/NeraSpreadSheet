@@ -1,17 +1,21 @@
 # Current Work Handoff
 
-## Active isolated worktree — RIBBON-VISUAL-011
+## CI-validated isolated implementation — RIBBON-VISUAL-011
 
 - Branch hiện tại: `feature/ribbon-visual-011`; base SHA:
   `284ccb76e5f69e170356ffc66915dd6e290b68fb`.
-- Implementation commit: `ee7df1ebeba207c3b0488604abf8d578199bbdd5`;
-  chuỗi trước đó: `1d0ad498`, `88ef9c03`, `a24cbcd0`, `621fb1ec`.
-  HEAD đã push: `8a3175510ed1281545335a5fd59f172d5df4edec`.
-  Full CI #1322 / `33944196848` thất bại ở loaded MAUI Windows Ribbon geometry;
-  iOS #143 / `33944198191`, Q003C #140 / `33944199269` đã xanh tại cùng SHA.
-  Core, Windows desktop **75/75** + capture **176/128**, Android và Apple jobs
-  của full CI đều xanh. Chưa được coi là checkpoint DONE.
-- Fix sau CI: `29bceded702ff31822b1e40f14d4f59a267436bb` chặn MAUI
+- Implementation cuối: `29bceded702ff31822b1e40f14d4f59a267436bb`; preview
+  commit `ee7df1ebeba207c3b0488604abf8d578199bbdd5`; chuỗi trước đó:
+  `1d0ad498`, `88ef9c03`, `a24cbcd0`, `621fb1ec`.
+- Exact-head checkpoint đã push và xác minh:
+  `47ccc882be420de1464888b3400606d040cd9194` — full CI #1323 /
+  `33945177202`, iOS #144 / `33945179079`, Q003C #141 / `33945180352`
+  đều **success**. Full CI có Core, Windows **75/75** + capture **176/128**,
+  MAUI Windows/Android/Apple và toàn bộ loaded smokes xanh.
+- Bản ghi này là documentation-only descendant của checkpoint trên. HEAD bàn
+  giao lấy bằng `git rev-parse HEAD`; ba workflow phải được xác minh lại với
+  chính SHA đó trước khi kết thúc, không suy diễn từ CI của commit cha.
+- Fix `29bceded` chặn MAUI
   height-only/stale resize rebuild; smoke dùng visible stage và chờ native
   arrange, thêm popup persistence/native bounds diagnostics. Build 0/0,
   MAUI **41/41**, loaded smoke **3 lần liên tiếp success**. Regression mới
@@ -29,12 +33,17 @@
 - Preview/capture: **176 ảnh / 128 native layout snapshots**, bốn widths và
   palettes, gallery More/customization, raster exports 125/150/200%; command
   smoke Bold/Undo, totals Average/Undo và gallery không đổi style đều pass.
+- CI artifact của checkpoint: `ribbon-visual-matrix` / `9963130150`,
+  `sdk-packages` / `9963106595`. CI #1322 cũ đỏ và nguyên nhân/fix được giữ
+  trong lane worklog, không bỏ hoặc nới assertions.
 - File trọng tâm, benchmark trước/sau và giới hạn: xem
   [`RIBBON-VISUAL-011.md`](RIBBON-VISUAL-011.md) và
   [`ribbon-visual-contract.md`](../ribbon-visual-contract.md).
-- Bước tiếp theo duy nhất: push fix và checkpoint tài liệu này, chạy lại full CI,
-  iOS, Q003C/OpenXML tại cùng HEAD; ghi evidence xanh trước khi bàn giao.
-  Không merge PR #1.
+- Bước tiếp theo duy nhất sau exact-head handoff: tích hợp chuỗi commit của
+  `feature/ribbon-visual-011` vào nhánh tích hợp được duyệt, giữ command
+  identities/handlers của TABLE-005 rồi chạy lại ba cổng ở SHA tích hợp.
+  Thứ tự lấy bằng `git log --reverse 284ccb76..feature/ribbon-visual-011`.
+  Không merge PR #1 trong lane này.
 
 ## Integration history (checkpoint before this isolated lane)
 

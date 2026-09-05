@@ -1,6 +1,6 @@
 # RIBBON-VISUAL-011 — Ribbon dense layout và visual chrome
 
-- Trạng thái: `IMPLEMENTED LOCALLY; EXACT-HEAD CI PENDING`.
+- Trạng thái: `IMPLEMENTATION VALIDATED` tại checkpoint exact-head dưới đây.
 - Owner: Codex, GPT-6 Astra / max theo yêu cầu mới nhất.
 - Branch: `feature/ribbon-visual-011`.
 - Base SHA: `284ccb76e5f69e170356ffc66915dd6e290b68fb`.
@@ -53,6 +53,9 @@ aggregate validation và tài liệu handoff.
 - `29bceded702ff31822b1e40f14d4f59a267436bb`: MAUI chỉ rebuild do resize
   khi width/scale khác snapshot; loaded smoke dùng visible stage/native-frame
   readiness và kiểm tra height-only identity, bounds và popup persistence.
+- `47ccc882be420de1464888b3400606d040cd9194`: checkpoint tài liệu sau fix,
+  đã xác minh đủ ba workflow. Thứ tự cherry-pick đầy đủ (gồm cả docs cuối):
+  `git log --reverse --format="%H %s" 284ccb76..feature/ribbon-visual-011`.
 - Core: `RibbonResponsiveLayout.cs`, `RibbonGalleryPreview.cs`,
   `RibbonProductionCommandCatalog.cs`.
 - Native: `NeraRibbonControl.cs` ở WPF/WinForms, `NeraMauiRibbonView.cs`,
@@ -97,7 +100,7 @@ aggregate validation và tài liệu handoff.
   geometry (`A MAUI group caption overlaps its packed commands`). Core,
   Windows desktop **75/75**, capture **176/128**, Android và Apple jobs xanh.
   iOS #143 / `33944198191` và Q003C #140 / `33944199269` success.
-  Đây chưa phải evidence DONE. Local regression đã tái hiện việc height-only
+  Run đỏ cũ này không phải evidence DONE. Local regression đã tái hiện việc height-only
   resize thay snapshot/control thừa trên MAUI; khi arrange hoàn tất, caption
   Y=80 và command bottom=80 đúng contract. Fixture cũ cũng đo control nằm
   ngoài viewport sau delay 50 ms; fix guard resize và visible native stage/frame
@@ -107,7 +110,28 @@ aggregate validation và tài liệu handoff.
 - Sau fix `29bceded`: MAUI build **0 warning/error**, tests **41/41** và loaded
   Ribbon smoke **3 lần liên tiếp success**, bao gồm dropdown giữ mở và choice
   thực thi đúng một lần sau height layout. Architecture/packaging verifier pass.
-  Bộ ba CI của HEAD mới vẫn phải xanh trước khi đóng checkpoint.
+  Bộ ba CI của checkpoint sau fix đã xanh như ghi bên dưới.
+
+## Checkpoint exact-head đã xác minh
+
+SHA `47ccc882be420de1464888b3400606d040cd9194`:
+
+| Cổng | Run | Kết quả |
+| --- | --- | --- |
+| Full CI #1323 | [33945177202](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33945177202) | success |
+| iOS #144 | [33945179079](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33945179079) | success |
+| Q003C/OpenXML #141 | [33945180352](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/33945180352) | success |
+
+Windows CI **75/75** và capture **176 ảnh / 128 snapshots**; các job Core,
+Windows, MAUI Windows/Android/Apple và toàn bộ native smokes đều success.
+Artifact `ribbon-visual-matrix`: `9963130150`, digest
+`sha256:ed93aa7379b08bc61f42f8be311f3c4ab507fb10046290a7564d6d332a4bc52f`.
+Artifact `sdk-packages`: `9963106595`, digest
+`sha256:51a628cbf1ca2aae272e7d5942d04a2577c848dbb0a5fec6487a59763534b84c`.
+
+Bản ghi này chỉ thay tài liệu sau checkpoint xanh. Khi bàn giao, lấy SHA bằng
+`git rev-parse HEAD` và yêu cầu ba run có `head_sha` trùng chính SHA đó;
+checkpoint cha không thay thế cổng cuối. PR #1 vẫn Draft/unmerged.
 
 ## Giới hạn và rollback
 
@@ -116,7 +140,8 @@ aggregate validation và tài liệu handoff.
 - Visual matrix pixel sampling không thay thế kiểm tra physical multi-monitor
   DPI; native regression chạy tại DPI host, layout contract kiểm tra đủ scales.
 - Rollback bằng revert các commit riêng của lane theo thứ tự ngược, bắt đầu
-  preview/docs rồi customization, native presenters và core; không reset nhánh
+  docs và MAUI lifecycle fix rồi preview, customization, native presenters và
+  core; không reset nhánh
   tích hợp hoặc hoàn tác thay đổi TABLE-005. Sau rollback chạy lại ba cổng CI.
 
 ## File có khả năng conflict với TABLE-005
@@ -128,5 +153,6 @@ dụng item sizing/preview vào cùng definition. Không tạo Table mutation th
 
 ## Bước tiếp theo duy nhất
 
-Push fix `29bceded` cùng checkpoint tài liệu, dispatch ba workflow tại cùng
-HEAD và ghi exact-SHA/run IDs xanh trước khi bàn giao chuỗi cherry-pick.
+Sau khi xác minh cả HEAD tài liệu cuối, bàn giao chuỗi cherry-pick theo thứ tự
+ở trên cho nhánh tích hợp được duyệt, giữ TABLE-005 command identities/handlers
+và yêu cầu full CI/iOS/Q003C tại SHA tích hợp trước bước tiếp theo của roadmap.
