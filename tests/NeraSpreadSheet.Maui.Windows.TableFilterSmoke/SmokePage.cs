@@ -272,6 +272,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
         var focused = search.IsFocused;
         _pagedHost.SetPresentation(new PresentationLocalization(CultureInfo.GetCultureInfo("en-GB")), NeraIconTheme.HighContrastDark);
         Require(apply.Text == "Apply" && panel.BackgroundColor == Colors.Black, "Paged filter did not apply scoped resources and palette.");
+        Require(apply.BackgroundColor == Colors.Black && apply.TextColor == Colors.White,
+            "Replacing native visual states restored stale button colors.");
         Require(search.Text == "O" && search.CursorPosition == 1 && search.SelectionLength == 0 && search.IsFocused == focused,
             "Paged filter presentation switch changed query/caret/focus.");
         Require(items.SequenceEqual(binding.Items) && ReferenceEquals(values.ItemsSource, binding.Items),
@@ -300,6 +302,12 @@ internal sealed class SmokePage : ContentPage, IDisposable
         var selected = menu.Capture().Values.Select(static item => item.IsSelected).ToArray();
         _host.SetPresentation(new PresentationLocalization(CultureInfo.GetCultureInfo("en-GB")), NeraIconTheme.HighContrastDark);
         Require(apply.Text == "Apply" && sheet.BackgroundColor == Colors.Black, "Legacy filter did not apply scoped resources and palette.");
+        Require(apply.BackgroundColor == Colors.Black && apply.TextColor == Colors.White,
+            "Legacy button colors must remain legible after replacing visual states.");
+        var nativeChoice = (Microsoft.UI.Xaml.Controls.CheckBox)values[0].Handler!.PlatformView!;
+        var glyphBrush = (Microsoft.UI.Xaml.Media.SolidColorBrush)nativeChoice.Resources["CheckBoxCheckGlyphForegroundChecked"];
+        Require(glyphBrush.Color.R == 0 && glyphBrush.Color.G == 0 && glyphBrush.Color.B == 0,
+            "The high-contrast yellow checkbox requires a dark native check glyph.");
         Require(search.IsFocused && search.Text == query && search.CursorPosition == 0 && search.SelectionLength == 0,
             "Legacy filter presentation switch changed query/caret/focus.");
         Require(originalValues.SequenceEqual(values) && selected.SequenceEqual(menu.Capture().Values.Select(static item => item.IsSelected)),
@@ -312,6 +320,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     private async Task CaptureSheetAsync(VisualElement sheet, string fileName, string culture, string theme)
     {
+        // Let the native theme/check-glyph transitions finish before raster capture.
+        await Task.Delay(300);
         Require(sheet.Handler?.PlatformView is Microsoft.UI.Xaml.FrameworkElement,
             "The capture target must be a loaded native Filter sheet.");
         var native = (Microsoft.UI.Xaml.FrameworkElement)sheet.Handler!.PlatformView!;

@@ -23,13 +23,13 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
     }
 
     private void OnLayoutUpdated(object? sender, EventArgs e) =>
-        _adorner?.InvalidateVisual();
+        _adorner?.Refresh();
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e) =>
-        _adorner?.InvalidateVisual();
+        _adorner?.Refresh();
 
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e) =>
-        _adorner?.InvalidateVisual();
+        _adorner?.Refresh();
 
     private void OnControlPreviewKeyDown(
         object sender,
@@ -85,6 +85,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         }
         _adorner = new FilterButtonAdorner(_control, this);
         layer.Add(_adorner);
+        _adorner.Refresh();
     }
 
     private void DetachAdorner()
@@ -121,6 +122,8 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
     private sealed class FilterButtonAdorner : Adorner
     {
         private readonly NeraAutoFilterPagedPopupPresenter _presenter;
+        private SpreadsheetAutoFilterButtonHit[] _buttons = [];
+        private SpreadsheetRenderTheme? _theme;
 
         public FilterButtonAdorner(
             UIElement adornedElement,
@@ -131,11 +134,23 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             IsHitTestVisible = false;
         }
 
+        internal void Refresh()
+        {
+            var buttons = _presenter.GetVisibleButtons();
+            var theme = _presenter._control.RenderTheme;
+            if (ReferenceEquals(theme, _theme) && buttons.SequenceEqual(_buttons)) return;
+            _buttons = buttons;
+            _theme = theme;
+            // InvalidateVisual also invalidates arrange. Repeating it for every
+            // LayoutUpdated event would starve dispatcher idle work indefinitely.
+            InvalidateVisual();
+        }
+
         protected override void OnRender(DrawingContext drawingContext)
         {
             base.OnRender(drawingContext);
             var theme = _presenter._control.RenderTheme;
-            foreach (var button in _presenter.GetVisibleButtons())
+            foreach (var button in _buttons)
             {
                 var bounds = new Rect(
                     button.Bounds.X,

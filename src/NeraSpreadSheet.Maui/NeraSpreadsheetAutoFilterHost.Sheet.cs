@@ -349,6 +349,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             row.Add(count, 2, 0);
             checkBox.CheckedChanged += OnValueCheckChanged;
             NeraMauiRibbonChrome.ConfigureFilter(row, NeraMauiRibbonPalette.For(IconTheme));
+            _presentationRows.RemoveAll(static reference => !reference.TryGetTarget(out _));
             _presentationRows.Add(new WeakReference<Grid>(row));
             row.BindingContextChanged += (_, _) => UpdatePresentationRow(row);
             return row;
@@ -394,6 +395,7 @@ public sealed partial class NeraSpreadsheetAutoFilterHost
             checkBox.CheckedChanged += OnDateCheckChanged;
             drill.Clicked += OnDateDrillClicked;
             NeraMauiRibbonChrome.ConfigureFilter(row, NeraMauiRibbonPalette.For(IconTheme));
+            _presentationRows.RemoveAll(static reference => !reference.TryGetTarget(out _));
             _presentationRows.Add(new WeakReference<Grid>(row));
             row.BindingContextChanged += (_, _) => UpdatePresentationRow(row);
             return row;

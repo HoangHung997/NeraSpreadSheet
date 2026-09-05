@@ -52,6 +52,7 @@ public sealed partial class RibbonPreviewWindow
             throw new InvalidOperationException("Undo did not restore the table style.");
         _session.Selection.SetActiveCell(selection);
         await CaptureTableDialogSmokeAsync(outputDirectory, images);
+        Console.Error.WriteLine("Capture: Table command/dialog smoke passed.");
         _runtime.Refresh();
         SetStatus("Sẵn sàng · Lệnh chỉnh sửa dùng lịch sử Hoàn tác của workbook");
         var tabs = _runtime.Snapshot.Tabs.Select(tab => tab.Id).Where(id => !tableDesignOnly || id == "table-design").ToArray();
@@ -60,6 +61,7 @@ public sealed partial class RibbonPreviewWindow
             SetTheme(theme);
             foreach (var width in new[] { 1920, 1600, 1280, 1024 })
             {
+                Console.Error.WriteLine($"Capture: {theme}, logical width {width}.");
                 _root.Width = width;
                 Width = width + 32;
                 await FlushCaptureAsync();
@@ -195,6 +197,7 @@ public sealed partial class RibbonPreviewWindow
             }
         }
         await CaptureLocalizationAsync(outputDirectory, images);
+        Console.Error.WriteLine($"Capture: complete, {images.Count} images.");
         var manifest = new
         {
             schemaVersion = 2, status = "success", preview = "Production Table Design commands; Nera-generated synthetic workbook",
