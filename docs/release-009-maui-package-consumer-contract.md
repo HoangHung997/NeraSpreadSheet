@@ -31,10 +31,13 @@ Source của checkpoint này từ baseline tích hợp `50cb357a`; chưa nhận 
    process exit code; không ghi thành OS exit-code proof. Missing/failure marker
    không được PASS.
    Shared Windows/Mac launchers vẫn thuộc B; Android/iOS extraction thuộc root.
-   Android có wiring opt-in qua immutable root223 transport, luôn giữ own gate
+   Android/iOS có wiring opt-in qua shared transport được root release, luôn giữ own gate
    tối thiểu 3 completed frames và toàn bộ public postconditions. Result được ghi
-   riêng `runtime-verification.json` chỉ sau khi verifier PASS. Windows/iOS/Mac
-   chưa có wiring native; actual Android native vẫn OPEN tới khi CI chạy thành công.
+   riêng `runtime-verification.json` chỉ sau khi verifier PASS. Android đã PASS
+   ở source8b; iOS giữ OPEN tới actual native CI mới. Windows/Mac chưa có wiring native.
+   iOS đòi simctl launch status0 và explicit marker; full console phải qua strict
+   parser trước khi đối chiếu exact-prefix unified fragment, không suy từ fragment
+   thành native proof. Own verifier vẫn kiểm source/version/feed/nonce/target/frames.
 
 ## Matrix và giới hạn
 
@@ -67,6 +70,6 @@ machine paths và device identifiers không được upload. Launcher input ch�
 absolute path chỉ ở RUNNER_TEMP. Source package/output debug symbols bị loại.
 Không dùng workbook thật, không publish feed công khai, không local heavy build.
 
-Local chỉ chạy `-PlanOnly`, PowerShell parser và in-memory negative fixtures
+Local chỉ chạy `-PlanOnly`, PowerShell parser và tiny synthetic negative fixtures
 `eng/release-009-maui/test_package_matrix.py`. Rollback bằng revert các file mới,
 không sửa shared source/launchers hoặc migration dữ liệu.

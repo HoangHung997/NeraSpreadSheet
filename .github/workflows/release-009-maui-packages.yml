@@ -1,8 +1,8 @@
-name: RELEASE-009 MAUI canonical packages (Android native, other native OPEN)
+name: RELEASE-009 MAUI canonical packages (Android/iOS native, Windows/Mac native OPEN)
 
 on:
   push:
-    branches: ['feature/release-009-maui-packages']
+    branches: ['feature/release-009-maui-packages', 'feature/release-009-maui-ios-consumer']
   workflow_dispatch:
 
 permissions:
@@ -154,9 +154,9 @@ jobs:
             Assert-MauiSdk $cohort
             Invoke-MauiDotnet @('workload', 'install', $env:NERA_WORKLOAD, '--skip-manifest-update')
           } finally { Pop-Location }
-      - name: Build isolated public consumer and run Android native package smoke
+      - name: Build isolated public consumer and run Android or iOS native package smoke
         shell: pwsh
-        run: ./scripts/run-release-009-maui-consumer.ps1 -Platform '${{ matrix.platform }}' -FeedDirectory '${{ runner.temp }}/maui-feed' -RunAndroidNative:('${{ matrix.platform }}' -eq 'android')
+        run: ./scripts/run-release-009-maui-consumer.ps1 -Platform '${{ matrix.platform }}' -FeedDirectory '${{ runner.temp }}/maui-feed' -RunAndroidNative:('${{ matrix.platform }}' -eq 'android') -RunIosNative:('${{ matrix.platform }}' -eq 'ios')
       - uses: actions/upload-artifact@v4
         with:
           name: release009-maui-consumer-${{ github.sha }}-${{ github.run_attempt }}-${{ matrix.platform }}
@@ -166,8 +166,8 @@ jobs:
       - name: Report acceptance boundary
         shell: pwsh
         run: |
-          if ('${{ matrix.platform }}' -eq 'android') {
-            'Android native public package smoke and exact cohort/nonce/app hash verification passed. Native editor coverage remains OPEN.' >> $env:GITHUB_STEP_SUMMARY
+          if ('${{ matrix.platform }}' -in @('android', 'ios')) {
+            '${{ matrix.platform }} native public package smoke and exact cohort/nonce/app hash verification passed. Native editor coverage remains OPEN.' >> $env:GITHUB_STEP_SUMMARY
           } else {
             'PackageReference consumer build complete. Native runtime and native editor coverage remain OPEN for this platform.' >> $env:GITHUB_STEP_SUMMARY
           }

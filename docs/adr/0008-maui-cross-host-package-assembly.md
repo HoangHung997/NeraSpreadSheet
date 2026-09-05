@@ -58,6 +58,15 @@ consumer gate vẫn bắt >=3 completed frames/cohort/app hash. Windows/iOS/Mac
 native và native editor vẫn OPEN. Khi tích hợp vào root phải bỏ qua ba imported
 shared files để không ghi đè parser/tests mới hơn của root.
 
+Sau source8b đã xanh đủ6gates và Android native10frames, root release riêng iOS
+transport tại `f344b5ec8060a127e3ce030a717013ce4f2bb637` (full33988991344 và
+iOS33988991332 SUCCESS). Nhánh iOS consumer nhận nguyên trạng ba files trong
+import-only commit riêng; không sửa shared parser hoặc thay Android helper.
+Root iOS parser chỉ đối chiếu fragment với exact prefix của full console marker
+đã strict-validate và có complete status/frame header. Package cohort fields được
+emit trước frameCount; own verify-runtime tiếp tục kiểm tất cả cohort/postconditions.
+Windows/Mac native và native editor vẫn OPEN; iOS còn cần actual consumer CI riêng.
+
 ## Tài liệu gốc
 
 - [NuGet nuspec pack qua MSBuild](https://learn.microsoft.com/en-us/nuget/reference/msbuild-targets#packing-using-a-nuspec-file).

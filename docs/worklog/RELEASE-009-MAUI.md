@@ -1,6 +1,30 @@
 # RELEASE-009 MAUI — Handoff lane C
 
-- Branch: `feature/release-009-maui-packages`.
+## Native iOS consumer — nhánh tiếp theo
+
+- Branch hiện tại: `feature/release-009-maui-ios-consumer`, từ đúng frozen source
+  `8b7781ca44b4f9f3647c5434d02970be873d9624`; giữ nguyên nhánh package đã bàn giao.
+- Source8b đã xanh6gates: full33989004197, iOS33989005769, Q33989007405,
+  Windows packages33989009301, demo33989010831, MAUI33988945365 (11jobs).
+  Bốn consumer build/apphash PASS; Android native10frames/source/nonce/feed/public
+  postconditions PASS. Root nhận9owned commits/28paths, bỏ importdfd theo mục dưới.
+- Grant mới nhận CHỈ ba blobs rootf344 qua apply_patch. Import-only commit
+  `9fe954b1adedc18d81bfb2fae78156529650b365` phải được **bỏ qua khi root nhận delta**:
+  run-maui-ios-smoke.sh `41b8d02bad14c812fffcda562b63c17c02336682`,
+  verify-native-smoke-result.py `5fd92e2866fc7231c44c81feda3dd4dcc8c43788`,
+  test-native-smoke-result.py `cf540735e2a20faa72be3a842338b4a4638d49b7`.
+  Android helper giữ nguyên223; shared files vẫn root-owned immutable.
+- Owned workflow/wrapper thêm iOS launch opt-in, verify-app ngay trước helper,
+  fresh result path và verify-runtime source/version/feed/nonce/target/SDK versions,
+  public postconditions, >=3 completed frames. Không retry/fallback hoặc sửa SDK.
+  iOS proof yêu cầu simctl status0 và full strict marker; actual iOS consumer OPEN
+  tới run mới. Windows/Mac native, native editor/fullB/P3 vẫn OPEN.
+- Local23 package/scanner và20shared parser fixtures PASS,0skip; plan/parser,
+  architecture/packaging/diff PASS. Không heavy local build/native hoặc public publish.
+
+## Checkpoint package đã release — lịch sử
+
+- Branch: `feature/release-009-maui-packages` (giữ frozen8b).
 - Base: `50cb357a00d6bb8a6b134cdeebce624a09bd1b21`, root verified five gates.
 - PR #1 giữ Draft/unmerged; lane này chưa tạo PR hoặc sửa integration branch.
 - PERF branch/source giữ nguyên `fe01586468d455c2ec26cc084e523c32c4c31baa`.
@@ -113,5 +137,5 @@ resolved/checked fixture directory. Shared imported223 blobs không đổi.
 
 ## Bước tiếp theo duy nhất
 
-Push/check hardened-link-scanner source sau `1bbe334a`, rồi xác minh toàn bộ
-package/Android native matrix và năm existing gates ở đúng final HEAD.
+Push/check iOS consumer owned wiring sau import9fe; xác minh Android/iOS native,
+bốn consumer builds và năm existing gates ở đúng final HEAD trước release delta.
