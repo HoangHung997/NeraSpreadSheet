@@ -41,7 +41,13 @@ function Write-FailureStageTrace {
         "table-editor-history-returned", "table-editor-stale-caret-cancel-returned",
         "table-editor-alt-enter-returned", "table-editor-column-resized",
         "table-editor-zoomed", "table-editor-geometry-settled",
-        "table-editor-escape-returned", "table-editor-complete"
+        "table-editor-escape-returned", "table-editor-complete",
+        "smoke-pinch-returned", "smoke-pan-returned", "smoke-tap-returned",
+        "smoke-primary-input-complete", "smoke-primary-input-verified",
+        "smoke-wheel-queued", "smoke-resize-queued", "smoke-resize-applied",
+        "smoke-recreation-queued", "smoke-before-surface-remove",
+        "smoke-after-surface-remove", "smoke-after-handler-disconnect",
+        "smoke-after-surface-reinsert"
     )
     $stream = [IO.File]::OpenRead($tracePath)
     try {

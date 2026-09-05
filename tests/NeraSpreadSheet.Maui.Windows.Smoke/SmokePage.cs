@@ -234,14 +234,18 @@ internal sealed class SmokePage : ContentPage, IDisposable
                     Table007EditorSmoke.Trace("smoke-editor-verified");
                 }
                 ApplyPinch(view);
+                Table007EditorSmoke.Trace("smoke-pinch-returned");
                 ApplyPanTo(view, ExpectedOffsetX, ExpectedOffsetY);
+                Table007EditorSmoke.Trace("smoke-pan-returned");
                 ApplyCornerTap(view);
+                Table007EditorSmoke.Trace("smoke-tap-returned");
                 _workbook.Worksheets[0].SetValue(
                     new CellAddress(0, 0),
                     "Nera MAUI repeated production stress");
                 CaptureExpectedSelection(view);
                 _sessionIdentity = view.Session;
                 _primaryInputApplied = true;
+                Table007EditorSmoke.Trace("smoke-primary-input-complete");
                 view.InvalidateSurface();
             }
             catch (Exception exception)
@@ -353,6 +357,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     private void QueueWheel(NeraSpreadsheetView view)
     {
+        Table007EditorSmoke.Trace("smoke-primary-input-verified");
         _stage = SmokeStage.AwaitWheelSettle;
         Dispatcher.Dispatch(() =>
         {
@@ -383,6 +388,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 Require(view.HasRenderLoop,
                     "The production wheel did not enable the native render loop.");
                 _wheelQueued = true;
+                Table007EditorSmoke.Trace("smoke-wheel-queued");
                 view.InvalidateSurface();
             }
             catch (Exception exception)
@@ -423,6 +429,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     private void QueueResize(NeraSpreadsheetView view)
     {
+        Table007EditorSmoke.Trace("smoke-resize-queued");
         Require(_cycleIndex >= 0 && _cycleIndex < ResizeSequence.Length,
             "The MAUI resize stress cycle index is invalid.");
 
@@ -442,6 +449,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 view.WidthRequest = _requestedWidth;
                 view.HeightRequest = _requestedHeight;
                 _resizeApplied = true;
+                Table007EditorSmoke.Trace("smoke-resize-applied");
                 view.InvalidateSurface();
             }
             catch (Exception exception)
@@ -488,6 +496,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     private void QueueSurfaceRecreation(NeraSpreadsheetView view)
     {
+        Table007EditorSmoke.Trace("smoke-recreation-queued");
         _cycleHandler = view.Handler
             ?? throw new InvalidOperationException(
                 "The stress cycle did not have a MAUI handler before recreation.");
@@ -504,8 +513,11 @@ internal sealed class SmokePage : ContentPage, IDisposable
         {
             try
             {
+                Table007EditorSmoke.Trace("smoke-before-surface-remove");
                 _editorHost!.Children.Remove(view);
+                Table007EditorSmoke.Trace("smoke-after-surface-remove");
                 view.Handler = null!;
+                Table007EditorSmoke.Trace("smoke-after-handler-disconnect");
                 _cycleLostDiagnostics = view.GpuContextDiagnostics;
                 Require(!_cycleLostDiagnostics.HasActiveContext,
                     "The detached view retained a stale GPU context.");
@@ -523,6 +535,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
                 _recreationApplied = true;
                 _editorHost.Children.Insert(0, view);
+                Table007EditorSmoke.Trace("smoke-after-surface-reinsert");
             }
             catch (Exception exception)
             {

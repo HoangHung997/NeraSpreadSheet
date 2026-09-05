@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Foundation;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Dispatching;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Interaction;
 using NeraSpreadSheet.Maui;
@@ -203,7 +204,9 @@ internal sealed class SmokePage : ContentPage, IDisposable
             var session = view.Session
                 ?? throw new InvalidOperationException(
                     "The Mac Catalyst analytics smoke lost its session before analytics creation.");
-            await Table007EditorSmoke.RunAsync(_editorHost!);
+            // The first GPU paint can run while UIKit is still attaching the
+            // native window. Open/focus controls after that paint stack unwinds.
+            await view.Dispatcher.DispatchAsync(() => Table007EditorSmoke.RunAsync(_editorHost!));
             _editorVerified = true;
             var sourceRange = new CellRange(
                 new CellAddress(0, 0),
