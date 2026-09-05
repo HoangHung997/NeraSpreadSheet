@@ -32,8 +32,8 @@ public sealed partial class RibbonPreviewWindow
         body.Children.Add(new AdornerDecorator { Child = _sheet });
         Grid.SetRow(_horizontalNavigation, 1);
         Grid.SetColumn(_verticalNavigation, 1);
-        ConfigureNavigationBar(_horizontalNavigation, "preview-worksheet-scroll-horizontal", "Cuộn ngang trang tính");
-        ConfigureNavigationBar(_verticalNavigation, "preview-worksheet-scroll-vertical", "Cuộn dọc trang tính");
+        ConfigureNavigationBar(_horizontalNavigation, "preview-worksheet-scroll-horizontal");
+        ConfigureNavigationBar(_verticalNavigation, "preview-worksheet-scroll-vertical");
         body.Children.Add(_horizontalNavigation);
         body.Children.Add(_verticalNavigation);
         _sheet.Loaded += OnNavigationLoaded;
@@ -41,20 +41,20 @@ public sealed partial class RibbonPreviewWindow
         _sheet.SizeChanged += OnNavigationStateChanged;
         _sheet.ZoomChanged += OnNavigationStateChanged;
         _sheet.ScrollChanged += OnNavigationStateChanged;
-        _session.Selection.Changed += OnNavigationStateChanged;
+        _session.Selection.Changed += OnNavigationSelectionChanged;
         _session.ActiveWorksheetChanged += OnNavigationWorksheetChanged;
         _session.View.Changed += OnNavigationViewChanged;
         _session.View.SplitChanged += OnNavigationSplitChanged;
         return body;
     }
 
-    private void ConfigureNavigationBar(ScrollBar bar, string id, string name)
+    private void ConfigureNavigationBar(ScrollBar bar, string id)
     {
         bar.Minimum = 0d;
         bar.SmallChange = _sheet.RenderTheme.ScrollBarLineStep;
         bar.Focusable = true;
         AutomationProperties.SetAutomationId(bar, id);
-        AutomationProperties.SetName(bar, Localization.Get(name));
+        RefreshNavigationName(bar);
         bar.ValueChanged += OnNavigationValueChanged;
     }
 
@@ -77,6 +77,14 @@ public sealed partial class RibbonPreviewWindow
     private void OnNavigationWorksheetChanged(object? sender, EventArgs e)
     {
         // A queued thumb position belongs to the worksheet that received it.
+        CancelNavigationInput();
+        QueueNavigationRefresh();
+    }
+
+    private void OnNavigationSelectionChanged(object? sender, EventArgs e)
+    {
+        // Later cell navigation takes precedence over a thumb position queued for
+        // the previous selection; it may already have scrolled that cell into view.
         CancelNavigationInput();
         QueueNavigationRefresh();
     }
@@ -130,6 +138,7 @@ public sealed partial class RibbonPreviewWindow
 
     private void UpdateNavigationBar(ScrollBar bar, double content, double viewport, double offset)
     {
+        RefreshNavigationName(bar);
         bar.Visibility = _splitShell is null ? Visibility.Visible : Visibility.Collapsed;
         bar.ViewportSize = viewport;
         bar.LargeChange = viewport * _sheet.RenderTheme.ScrollBarPageFactor;
@@ -137,6 +146,11 @@ public sealed partial class RibbonPreviewWindow
         bar.IsEnabled = bar.Maximum > 0d && _splitShell is null;
         bar.Value = Math.Clamp(offset, 0d, bar.Maximum);
     }
+
+    private void RefreshNavigationName(ScrollBar bar) => AutomationProperties.SetName(bar,
+        bar.Orientation == Orientation.Horizontal
+            ? Localization.Get("Cuộn ngang trang tính")
+            : Localization.Get("Cuộn dọc trang tính"));
 
     private void OnNavigationValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
@@ -183,7 +197,7 @@ public sealed partial class RibbonPreviewWindow
         _sheet.SizeChanged -= OnNavigationStateChanged;
         _sheet.ZoomChanged -= OnNavigationStateChanged;
         _sheet.ScrollChanged -= OnNavigationStateChanged;
-        _session.Selection.Changed -= OnNavigationStateChanged;
+        _session.Selection.Changed -= OnNavigationSelectionChanged;
         _session.ActiveWorksheetChanged -= OnNavigationWorksheetChanged;
         _session.View.Changed -= OnNavigationViewChanged;
         _session.View.SplitChanged -= OnNavigationSplitChanged;

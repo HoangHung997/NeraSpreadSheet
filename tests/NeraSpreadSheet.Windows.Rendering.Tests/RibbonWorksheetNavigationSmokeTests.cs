@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Windows;
@@ -9,8 +10,10 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Commands;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Rendering.Spreadsheet;
+using NeraSpreadSheet.Ribbon.Core;
 using NeraSpreadSheet.Wpf;
 using NeraSpreadSheet.Wpf.Sample;
 using ScrollBar = System.Windows.Controls.Primitives.ScrollBar;
@@ -100,6 +103,17 @@ public sealed class RibbonWorksheetNavigationSmokeTests
             PumpUntil(() => vertical.Maximum > original * 2d, "An extent-only cell change was not reflected.");
             session.ActiveWorksheet.Clear(far);
             PumpUntil(() => Math.Abs(vertical.Maximum - original) < 0.01d, "Clearing far content did not contract the extent.");
+            var mergedRange = new CellRange(far, new CellAddress(502, 201));
+            session.ActiveWorksheet.MergeCells(mergedRange);
+            PumpUntil(() => vertical.Maximum > original * 2d, "A far merge must update the navigation extent without selection changes.");
+            Assert.IsTrue(session.ActiveWorksheet.UnmergeCells(mergedRange));
+            PumpUntil(() => Math.Abs(vertical.Maximum - original) < 0.01d, "Removing a merge must release its extent.");
+            var table = new SpreadsheetTable(Guid.NewGuid(), "FarNavigation", new CellRange(far, new CellAddress(505, 200)),
+                [new SpreadsheetTableColumn(Guid.NewGuid(), "Value")]);
+            session.Tables.Add(table);
+            PumpUntil(() => vertical.Maximum > original * 2d, "A table-only change must update the navigation extent.");
+            Assert.IsTrue(session.Tables.Remove(table.Id));
+            PumpUntil(() => Math.Abs(vertical.Maximum - original) < 0.01d, "Removing a metadata-only table must release its extent.");
             session.Selection.SetActiveCell(far);
             PumpUntil(() => vertical.Maximum > original * 2d, "An empty navigation cell must expand the extent.");
             grid.ScrollCellIntoView(far);
@@ -113,6 +127,8 @@ public sealed class RibbonWorksheetNavigationSmokeTests
             var maximum = vertical.Maximum;
             for (var index = 0; index < 3; index++)
             {
+                vertical.Value = maximum - 0.5d;
+                PumpUntil(() => grid.ScrollSnapshot.OffsetY == maximum - 0.5d, "The fractional end position was not applied.");
                 vertical.Value = maximum;
                 PumpUntil(() => grid.ScrollSnapshot.OffsetY == maximum, "The end thumb was not applied.");
                 Assert.AreEqual(maximum, vertical.Maximum, 0.01d, "Thumb dragging must not recursively append a new tail.");
@@ -138,6 +154,9 @@ public sealed class RibbonWorksheetNavigationSmokeTests
             Assert.AreEqual(chrome.BodyHeight, vertical.ViewportSize, 0.01d);
             Assert.AreEqual(Math.Max(0d, grid.ContentWidth - chrome.BodyWidth), horizontal.Maximum, 0.01d);
             Assert.AreEqual(Math.Max(0d, grid.ContentHeight - chrome.BodyHeight), vertical.Maximum, 0.01d);
+            var beforeHeaderToggle = horizontal.ViewportSize;
+            Assert.IsTrue(Field<RibbonRuntimeController>(window, "_runtime").TryActivateAsync("Sample.Headers").GetAwaiter().GetResult());
+            PumpUntil(() => horizontal.ViewportSize > beforeHeaderToggle + 10d, "A shell header command must refresh body metrics without an SDK metrics event.");
         }
         finally { window.Close(); }
     });
@@ -160,6 +179,15 @@ public sealed class RibbonWorksheetNavigationSmokeTests
             PumpFor(TimeSpan.FromMilliseconds(100d));
             Assert.AreEqual(0d, grid.ScrollSnapshot.OffsetX, 1e-9);
             Assert.AreEqual(0d, horizontal.Value, 1e-9);
+            horizontal.Value = 123.25d;
+            var far = new CellAddress(300, 200);
+            session.Selection.SetActiveCell(far);
+            Assert.IsTrue(grid.ScrollCellIntoView(far));
+            var navigationOffset = grid.ScrollSnapshot.OffsetX;
+            Assert.IsTrue(navigationOffset > 123.25d);
+            PumpFor(TimeSpan.FromMilliseconds(80d));
+            Assert.AreEqual(navigationOffset, grid.ScrollSnapshot.OffsetX, 1e-9,
+                "A stale thumb frame must not override subsequent cell navigation.");
             horizontal.Value = 234.5d;
             window.Dispose();
             PumpFor(TimeSpan.FromMilliseconds(80d));
@@ -168,6 +196,32 @@ public sealed class RibbonWorksheetNavigationSmokeTests
             Assert.AreEqual(0, session.History.UndoCount);
         }
         finally { window.Close(); }
+    });
+
+    [TestMethod]
+    [Timeout(60_000)]
+    public void NavigationNamesShouldFollowHostLocalizationWithoutChangingAnotherWindow() => RunSta(() =>
+    {
+        using var englishWindow = new RibbonPreviewWindow(CreateSession()) { ShowInTaskbar = false };
+        using var vietnameseWindow = new RibbonPreviewWindow(CreateSession()) { ShowInTaskbar = false };
+        try
+        {
+            englishWindow.Show();
+            vietnameseWindow.Show();
+            PumpUntil(() => Bars(englishWindow).All(bar => bar.Maximum > 0d) && Bars(vietnameseWindow).All(bar => bar.Maximum > 0d),
+                "The localized windows were not loaded.");
+            var runtime = Field<RibbonRuntimeController>(englishWindow, "_runtime");
+            runtime.SetLocalization(new PresentationLocalization(CultureInfo.GetCultureInfo("en-US")));
+            PumpUntil(() => AutomationProperties.GetName(Bar(englishWindow, Orientation.Horizontal)) == "Scroll worksheet horizontally",
+                "The horizontal automation name did not refresh after changing the host culture.");
+            Assert.AreEqual("Scroll worksheet vertically", AutomationProperties.GetName(Bar(englishWindow, Orientation.Vertical)));
+            Assert.AreEqual("Cuộn ngang trang tính", AutomationProperties.GetName(Bar(vietnameseWindow, Orientation.Horizontal)));
+            Assert.AreEqual("Cuộn dọc trang tính", AutomationProperties.GetName(Bar(vietnameseWindow, Orientation.Vertical)));
+            runtime.SetLocalization(PresentationLocalization.Default);
+            PumpUntil(() => AutomationProperties.GetName(Bar(englishWindow, Orientation.Vertical)) == "Cuộn dọc trang tính",
+                "The Vietnamese automation name was not restored.");
+        }
+        finally { englishWindow.Close(); vietnameseWindow.Close(); }
     });
 
     private static SpreadsheetSession CreateSession()

@@ -20,10 +20,13 @@ workbook, selection hoặc lịch sử mới. Không thay SDK, package hay seria
 - Giữ adaptive navigation extent hiện có: trailing workspace, active cell và
   current viewport floor; kéo đến cuối không tự nối thêm tail. Thumb không đổi
   selection, cell, calculation hoặc workbook history.
-- Khi đổi sheet, unload hoặc dispose, hủy vị trí thumb đang chờ và tháo frame
+- Khi đổi sheet/selection, unload hoặc dispose, hủy vị trí thumb đang chờ và tháo frame
   handler. Subscription cells/dimensions chỉ theo worksheet đang hoạt động.
 - Automation IDs là preview-worksheet-scroll-horizontal và
-  preview-worksheet-scroll-vertical; nhãn tiếng Việt đi qua localization.
+  preview-worksheet-scroll-vertical; nhãn Việt/Anh theo localization riêng từng
+  runtime, cập nhật khi đổi ngôn ngữ mà không ảnh hưởng cửa sổ khác.
+- Header/theme commands làm mới body metrics và renderer đang hoạt động qua
+  shell snapshot; no-op refresh không gọi ScrollTo hoặc đổi workbook/view state.
 
 ## Split đã lưu
 
