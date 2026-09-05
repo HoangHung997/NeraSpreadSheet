@@ -161,7 +161,8 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 : ExcelDateSystem.Date1900,
         };
         OpenXmlWorkbookThemeCodec.Read(workbookPart, workbook);
-        OpenXmlTableStyleCodec.Read(workbookPart, workbook);
+        OpenXmlTableStyleCodec.Read(workbookPart, workbook, options.PreserveUnknownParts);
+        OpenXmlTableCodec.ValidateWorkbookTableIds(workbookPart);
         var exactStyleState = NeraOpenXmlStyleStateCodec.Read(workbookPart);
         if (exactStyleState is not null)
         {

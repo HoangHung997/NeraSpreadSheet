@@ -191,10 +191,8 @@ public static class SpreadsheetTableFormulaProjection
             SpreadsheetTableTotalsFunction.Sum => 109,
             _ => throw new ArgumentOutOfRangeException(nameof(function)),
         };
-        var escapedColumnName = column.Name.Replace(
-            "]",
-            "]]",
-            StringComparison.Ordinal);
+        var escapedColumnName = StructuredReferenceFormulaTranslator.EscapeColumnName(column.Name);
+        if (column.Name.IndexOfAny([',', ':']) >= 0) escapedColumnName = $"[{escapedColumnName}]";
         return $"=SUBTOTAL({functionNumber},{table.Name}[{escapedColumnName}])";
     }
 

@@ -19,7 +19,7 @@ public static class FormulaReferenceAnalyzer
         try
         {
             var result = new List<FormulaDependency>();
-            Collect(new FormulaParser(formula).Parse(), result);
+            Collect(new FormulaParser(Core.StructuredReferenceFormulaTranslator.MaskReferences(formula)).Parse(), result);
             references = result.Distinct().ToArray();
             return true;
         }
@@ -29,6 +29,19 @@ public static class FormulaReferenceAnalyzer
             return false;
         }
     }
+
+    /// <summary>
+    /// Resolves structured references through the shared Table translator before
+    /// extracting precedent ranges. Does not evaluate formulas or materialize cells.
+    /// </summary>
+    public static bool TryGetReferences(
+        string formula,
+        Core.Workbook workbook,
+        Core.Worksheet worksheet,
+        Core.CellAddress formulaAddress,
+        out IReadOnlyList<FormulaDependency> references) =>
+        TryGetReferences(StructuredReferenceFormulaEngine.Expand(
+            formula, workbook, worksheet, formulaAddress), out references);
 
     private static void Collect(
         FormulaNode node,
