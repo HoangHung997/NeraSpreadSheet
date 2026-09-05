@@ -199,6 +199,7 @@ public sealed partial class RibbonPreviewWindow
         }
         await CaptureLocalizationAsync(outputDirectory, images);
         await CaptureNavigationShellAsync(outputDirectory, images);
+        await CaptureFormulaBarAsync(outputDirectory, images);
         Console.Error.WriteLine($"Capture: complete, {images.Count} images.");
         var manifest = new
         {
@@ -288,6 +289,62 @@ public sealed partial class RibbonPreviewWindow
             }
         }
         finally { window.Close(); }
+    }
+
+    private static async Task CaptureFormulaBarAsync(string outputDirectory, List<object> images)
+    {
+        foreach (var width in new[] { 640, 1280 })
+        foreach (var useSplit in new[] { false, true })
+        {
+            var workbook = new Workbook();
+            var worksheet = workbook.Worksheets[0];
+            worksheet.SetValue(default, "Thanh công thức · Bản nháp dùng chung với ô");
+            worksheet.Dimensions.SetColumnWidth(1, 240d);
+            worksheet.Dimensions.SetRowHeight(2, 60d);
+            var session = new SpreadsheetSession(workbook);
+            var address = new CellAddress(2, 1);
+            session.Selection.SetActiveCell(address);
+            if (useSplit) session.View.SetSplitState(new SpreadsheetSplitViewState(SpreadsheetSplitViewMode.Both,
+                200.5d, 160.25d, SpreadsheetSplitViewPane.BottomRight, default, default, default, default));
+            using var window = new RibbonPreviewWindow(session, "Thanh công thức · Draft, đối số và chỉnh sửa trong ô")
+            {
+                ShowInTaskbar = false, WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize,
+                Left = -32000, Top = -32000, Width = width + 32, Height = 760,
+            };
+            window._root.CaptureFullLayout = true;
+            window._root.Width = width;
+            window._root.Height = 720;
+            try
+            {
+                window.Show();
+                await window.FlushCaptureAsync();
+                window._sheet.BeginEdit("=SUM(1," + Environment.NewLine + "IF(2,3,4))");
+                var canonical = session.Editor.State;
+                if (!window._formula.Focus()) throw new InvalidOperationException("The loaded formula bar could not receive focus.");
+                window._formula.Select(window._formula.Text.IndexOf('4'), 0);
+                await window.FlushCaptureAsync();
+                if (!window._formula.IsKeyboardFocusWithin || window._sheet.CurrentEditorDraft?.Address != address ||
+                    window._sheet.CurrentEditorDraft.Text != window._formula.Text || !ReferenceEquals(canonical, session.Editor.State) ||
+                    session.History.UndoCount != 0 || (useSplit && window._splitShell is null))
+                    throw new InvalidOperationException("The captured formula bar did not mirror the actual native draft.");
+                var mode = useSplit ? "split" : "standalone";
+                var name = $"release009-formula-bar-{width}-{mode}.png";
+                SaveCapture(window._root, Path.Combine(outputDirectory, name), 1d);
+                images.Add(new { file = name, tab = "formula-bar", host = mode, logicalWidth = width,
+                    draftAddress = address.ToString(), nativeDraft = true, exportScale = 1d });
+                if (width == 1280 && useSplit)
+                {
+                    window.ShowFormulaHelp();
+                    await window.FlushCaptureAsync();
+                    if (window._formulaBarHelpPopup?.IsOpen != true || window._sheet.CurrentFormulaHelp?.Function.Name != "IF")
+                        throw new InvalidOperationException("Formula-bar help did not follow the nested native draft.");
+                    const string helpName = "release009-formula-bar-help.png";
+                    SaveCapture((FrameworkElement)window._formulaBarHelpPopup.Child!, Path.Combine(outputDirectory, helpName), 1d);
+                    images.Add(new { file = helpName, tab = "formula-bar-help", function = "IF", activeArgument = 3, exportScale = 1d });
+                }
+            }
+            finally { window.Close(); }
+        }
     }
 
     private static void SaveCapture(FrameworkElement element, string filename, double scale)

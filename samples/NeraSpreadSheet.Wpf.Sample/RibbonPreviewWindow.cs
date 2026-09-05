@@ -18,7 +18,6 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
     private readonly PreviewDockPanel _root = new() { Background = Brushes.White };
     private readonly TextBlock _status = new() { Margin = new Thickness(12, 5, 12, 5) };
     private readonly TextBlock _address = new() { Width = 84, Margin = new Thickness(12, 6, 8, 6) };
-    private readonly TextBlock _formula = new() { Margin = new Thickness(10, 6, 8, 6) };
     private readonly NeraSpreadsheetControl _sheet = new() { UseAdaptiveNavigationExtent = true };
     private readonly SpreadsheetSession _session;
     private readonly CommandRegistry _commands = new();
@@ -55,6 +54,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         _runtime.ActivationContextProvider = CollectTableParametersAsync;
         _ribbon = new NeraRibbonControl(_runtime) { VerticalAlignment = VerticalAlignment.Top };
         _ribbon.BindTableDesign(_session);
+        InitializeFormulaBar();
         _shortcuts = _ribbon.BindShortcuts(this);
         _ribbon.CommandActivationFailed += OnCommandActivationFailed;
         _runtime.SnapshotChanged += OnPreviewStateChanged;
@@ -72,10 +72,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         _root.Children.Add(title);
         DockPanel.SetDock(_ribbon, Dock.Top);
         _root.Children.Add(_ribbon);
-        var formulaRow = new DockPanel { Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(247, 249, 250)) };
-        formulaRow.Children.Add(_address);
-        formulaRow.Children.Add(new TextBlock { Text = Localization.Get("ƒx"), Margin = new Thickness(8, 5, 8, 5), FontStyle = FontStyles.Italic });
-        formulaRow.Children.Add(_formula);
+        var formulaRow = CreateFormulaBar();
         DockPanel.SetDock(formulaRow, Dock.Top);
         _root.Children.Add(formulaRow);
         var footer = new DockPanel { Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(241, 245, 247)) };
@@ -118,6 +115,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         _ribbon.CommandActivationFailed -= OnCommandActivationFailed;
         _worksheetTabs.SelectionChanged -= OnWorksheetTabSelectionChanged;
         _worksheetTabs.SizeChanged -= OnWorksheetTabsSizeChanged;
+        DisposeFormulaBar();
         DisposeWorksheetNavigation();
         _filterPopup?.Dispose();
         _shortcuts.Dispose();
@@ -149,10 +147,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
     private void UpdateSelectionText()
     {
         if (_disposed) return;
-        var address = _session.Selection.ActiveCell;
-        _address.Text = address.ToString();
-        var cell = _session.ActiveWorksheet.GetCell(address);
-        _formula.Text = cell.Formula ?? cell.Value.ToString();
+        RefreshFormulaBar();
         SynchronizeWorksheetTabs();
         _sheet.InvalidateVisual();
         QueueNavigationRefresh();

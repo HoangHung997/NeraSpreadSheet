@@ -290,7 +290,7 @@ public sealed class RibbonLoadedWorkbookSmokeTests
             Assert.AreEqual(beforeHistory, session.History.UndoCount);
             Assert.HasCount(2, workbook.Worksheets);
             Assert.IsTrue(ribbon.IsLoaded && ribbon.LayoutSnapshot.Tabs.Count > 1);
-            Assert.IsTrue(visuals.OfType<TextBlock>().Any(text => text.Text == "=1+2"), "The loaded shell lost its formula display.");
+            Assert.IsTrue(visuals.OfType<System.Windows.Controls.TextBox>().Any(text => text.Text == "=1+2"), "The loaded shell lost its formula bar.");
             Assert.IsTrue(visuals.OfType<TextBlock>().Any(text => text.Text == "Synthetic loaded workbook"));
             var selector = visuals.OfType<ListBox>().Single(list => ReferenceEquals(list.ItemsSource, workbook.Worksheets));
             Assert.AreSame(selectedSheet, selector.SelectedItem);

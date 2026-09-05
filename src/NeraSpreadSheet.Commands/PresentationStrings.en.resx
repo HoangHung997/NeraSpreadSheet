@@ -1396,4 +1396,13 @@ Select an item on the right to change visibility or size.</value>
   <data name="Cuộn dọc trang tính" xml:space="preserve">
     <value>Scroll worksheet vertically</value>
   </data>
+  <data name="Thanh công thức" xml:space="preserve"><value>Formula bar</value></data>
+  <data name="Enter: xác nhận · Alt+Enter: xuống dòng · Esc: hủy · Tab/F2: sửa trong ô" xml:space="preserve"><value>Enter: accept · Alt+Enter: new line · Esc: cancel · Tab/F2: edit in cell</value></data>
+  <data name="Xác nhận công thức" xml:space="preserve"><value>Accept formula</value></data>
+  <data name="Hủy chỉnh sửa công thức" xml:space="preserve"><value>Cancel formula edit</value></data>
+  <data name="Sửa trong ô và chọn gợi ý (F2)" xml:space="preserve"><value>Edit in cell and choose suggestions (F2)</value></data>
+  <data name="Trợ giúp công thức đang nhập" xml:space="preserve"><value>Help for the current formula</value></data>
+  <data name="Nội dung chưa hợp lệ. Kiểm tra lại ô đang sửa." xml:space="preserve"><value>The entry is not valid. Check the cell being edited.</value></data>
+  <data name="Đặt con trỏ trong lời gọi hàm đang nhập để xem trợ giúp đối số." xml:space="preserve"><value>Place the caret inside the function being entered to see argument help.</value></data>
+  <data name="Đối số {0}: {1} — {2}" xml:space="preserve"><value>Argument {0}: {1} — {2}</value></data>
 </root>
