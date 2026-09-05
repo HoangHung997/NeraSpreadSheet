@@ -413,7 +413,7 @@ public sealed partial class SpreadsheetTableController
         return removedCount;
     }
 
-    /// <summary>Removes Table metadata while retaining the current cell content and styles.</summary>
+    /// <summary>Converts this Table's structured references to A1 before removing its metadata.</summary>
     public bool ConvertToRange(Guid tableId)
     {
         if (!_session.ActiveWorksheet.TryGetTable(tableId, out var table) ||
@@ -421,10 +421,51 @@ public sealed partial class SpreadsheetTableController
         {
             return false;
         }
-        ExecuteIncremental(new RemoveTableOperation(
+        ExecuteIncremental(new ConvertTableToRangeOperation(
+            _session.Workbook,
             _session.ActiveWorksheet,
             table));
         return true;
+    }
+
+    private sealed class ConvertTableToRangeOperation
+        : FormulaRewritingTableOperationBase, IDependencyGraphRebuildOperation
+    {
+        private readonly Workbook _workbook;
+        private readonly SpreadsheetTable _table;
+
+        public ConvertTableToRangeOperation(Workbook workbook, Worksheet worksheet, SpreadsheetTable table)
+            : base(workbook, worksheet, table.Range)
+        {
+            _workbook = workbook;
+            _table = table;
+        }
+
+        public override string Description => "Convert table to range";
+
+        protected override void Apply()
+        {
+            RewriteWorkbookFormulas((owner, address, formula) =>
+                StructuredReferenceFormulaTranslator.ConvertTableReferencesToA1(formula, _workbook, owner, address, _table.Id));
+            RewriteWorkbookTableMetadata((owner, candidate) =>
+            {
+                if (candidate.Id == _table.Id) return candidate;
+                var columns = candidate.Columns.Select((column, index) => new SpreadsheetTableColumn(
+                    column.Id, column.Name,
+                    ConvertFormula(column.CalculatedColumnFormula, owner,
+                        GetDataAnchor(candidate.Range, candidate.HasHeaders, candidate.HasTotalsRow, index) ??
+                        new CellAddress(candidate.Range.Top, candidate.Range.Left + index)),
+                    ConvertFormula(column.TotalsRowFormula, owner,
+                        new CellAddress(candidate.Range.Bottom, candidate.Range.Left + index)),
+                    column.TotalsRowLabel)).ToArray();
+                return CopyTable(candidate, columns: columns);
+            });
+            if (!Worksheet.RemoveTable(_table.Id)) throw new InvalidOperationException("The Table no longer exists.");
+        }
+
+        private string? ConvertFormula(string? formula, Worksheet owner, CellAddress address) => formula is null
+            ? null
+            : StructuredReferenceFormulaTranslator.ConvertTableReferencesToA1(formula, _workbook, owner, address, _table.Id);
     }
 
     private void SetVisualOptions(

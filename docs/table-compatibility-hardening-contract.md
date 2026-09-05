@@ -62,6 +62,14 @@ Create/resize. Mixed A1 + structured formula không được làm static analyze
 sót direct reference trước Table-local compact. Failed operation giữ cells,
 Table metadata, selection/history; thành công có đúng một Undo entry.
 
+Convert to Range đổi references của đúng Table đang bỏ sang A1 trước khi xóa
+metadata, qua `FormulaRewritingTableOperationBase` hiện hữu. Current-row
+reference giữ relative row để calculated metadata của Table khác vẫn project
+đúng từng hàng; references tới Table khác và string literals không đổi. Cells,
+Table formula metadata trên workbook và Undo/Redo cùng transaction, rồi dùng
+prepared graph + `RecalculateAffected`. Đây là sửa lỗi TABLE-005 làm calculated
+values trở thành `#REF!` khi convert; không thêm calculation/history path mới.
+
 ## Structured reference và interface cho host
 
 Mở rộng `SpreadsheetFormulaEditingAssistant` hiện hữu:
