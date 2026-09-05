@@ -74,3 +74,13 @@
 
 Revert implementation commit RIBBON-009. Constructor `RibbonDefinition(tabs)` và
 toàn bộ RIBBON-008 item/customization API vẫn tương thích.
+
+## Integration closure
+
+- Integrated with `FILTER-007` at
+  `f75e2f103598cbbe7b5c22f92c3ab8dd755ef8c3` without conflict.
+- Combined local gates: Core **1354/1354**, MAUI **40/40**, focused desktop
+  Ribbon/Table-filter **13/13** and loaded MAUI Windows Ribbon/Table-filter
+  smokes passed.
+- Exact-head GitHub gates passed: full CI `33931524467` / #1312, iOS
+  `33931524461` / #133 and Q003C/OpenXML `33931524543` / #130.

@@ -25,9 +25,15 @@ independently reviewed, hardened and integrated without conflict. Combined
 local gates pass Core solution **1324/1324**, MAUI **36/36**, focused desktop
 **7/7**, and loaded MAUI Windows Ribbon plus Table-filter runtime smokes.
 Combined exact head `d595539d616cba1bb5543ab3530035f927304069`
-passed full CI #1309, iOS #130 and Q003C/OpenXML #127. Both checkpoints are
-`DONE`; `RIBBON-009` and `FILTER-007` are active in isolated worktrees from
-that exact green SHA. Schedule checkpoint
+passed full CI #1309, iOS #130 and Q003C/OpenXML #127. `RIBBON-009` and
+`FILTER-007` then completed in isolated worktrees, passed independent blocker
+reviews and were integrated without conflict. The new combined local gates are
+Core solution **1354/1354**, MAUI **40/40**, focused desktop Ribbon/Table-filter
+**13/13**, and both loaded MAUI Windows Ribbon and Table-filter runtime smokes.
+Exact combined head `f75e2f103598cbbe7b5c22f92c3ab8dd755ef8c3`
+passed full CI #1312, iOS #133 and Q003C/OpenXML #130. Both checkpoints are
+`DONE`; `RIBBON-010` and `TABLE-004` are active in isolated, non-overlapping
+worktrees from that exact green SHA. Schedule checkpoint
 `f9340c1bf3c59e2c85336c961cf017d2c9ef8858` passed full CI #1303, iOS gate
 #124 and Q003C/OpenXML gate #121.
 
