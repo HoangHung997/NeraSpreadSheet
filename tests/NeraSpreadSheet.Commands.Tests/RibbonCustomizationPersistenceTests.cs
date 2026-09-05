@@ -90,7 +90,7 @@ public sealed class RibbonCustomizationPersistenceTests
 
     [TestMethod]
     [DataRow("{\"schema\":\"wrong\",\"version\":1,\"tabs\":[]}")]
-    [DataRow("{\"schema\":\"neraspreadsheet.ribbon-customization\",\"version\":2,\"tabs\":[]}")]
+    [DataRow("{\"schema\":\"neraspreadsheet.ribbon-customization\",\"version\":3,\"tabs\":[]}")]
     [DataRow("{\"schema\":\"neraspreadsheet.ribbon-customization\",\"tabs\":[]}")]
     public void DeserializeShouldRejectUnsupportedSchemaHeaders(string json)
     {

@@ -17,14 +17,24 @@ public sealed class NeraRibbonCustomizationDialog : Window
     private readonly CheckBox _visible = new() { Content = "Hiển thị" };
     private readonly CheckBox _large = new() { Content = "Nút lớn" };
     private bool _refreshing;
+    private bool _accepted;
 
     public NeraRibbonCustomizationDialog(RibbonRuntimeController runtime)
+        : this(runtime, null)
+    {
+    }
+
+    public NeraRibbonCustomizationDialog(
+        RibbonRuntimeController runtime,
+        RibbonCustomizationPolicy? policy)
     {
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         Session = new RibbonCustomizationSession(
             runtime.Definition,
+            runtime.CommandCatalog,
             runtime.Customization,
-            CreateCaptionResolver(runtime.Snapshot));
+            CreateCaptionResolver(runtime.Snapshot),
+            policy);
         Title = "Tùy biến Ribbon";
         Width = 520d;
         Height = 560d;
@@ -55,6 +65,32 @@ public sealed class NeraRibbonCustomizationDialog : Window
     }
 
     public event EventHandler? CustomizationApplied;
+
+    public RibbonDefinition PreviewCustomization()
+    {
+        _runtime.SetCustomization(Session.CreateCustomization());
+        return Session.Preview();
+    }
+
+    public void ApplyCustomization()
+    {
+        _runtime.SetCustomization(Session.Commit());
+        _accepted = true;
+        CustomizationApplied?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void CancelCustomization()
+    {
+        Session.Cancel();
+        _runtime.SetCustomization(Session.CreateCustomization());
+        _accepted = true;
+    }
+
+    public RibbonCustomizationTarget AddCustomTab(string tabId, string caption) => Session.AddTab(tabId, caption);
+    public RibbonCustomizationTarget AddCustomGroup(string tabId, string groupId, string caption) => Session.AddGroup(tabId, groupId, caption);
+    public RibbonCustomizationTarget MoveCommand(RibbonCustomizationTarget source, string tabId, string groupId, int index = int.MaxValue) => Session.MoveCommand(source, tabId, groupId, index);
+    public bool AddToQuickAccessToolbar(CommandId commandId) => Session.AddToQuickAccessToolbar(commandId);
+    public bool RemoveFromQuickAccessToolbar(CommandId commandId) => Session.RemoveFromQuickAccessToolbar(commandId);
 
     public bool MoveSelected(int offset)
     {
@@ -124,7 +160,8 @@ public sealed class NeraRibbonCustomizationDialog : Window
         footer.Children.Add(CreateButton("Lên", "MoveUp", () => MoveSelected(-1)));
         footer.Children.Add(CreateButton("Xuống", "MoveDown", () => MoveSelected(1)));
         footer.Children.Add(CreateButton("Mặc định", "Reset", ResetCustomization));
-        footer.Children.Add(CreateButton("Đóng", "Close", Close));
+        footer.Children.Add(CreateButton("Áp dụng", "Apply", ApplyCustomization));
+        footer.Children.Add(CreateButton("Hủy", "Cancel", () => { CancelCustomization(); Close(); }));
         DockPanel.SetDock(footer, Dock.Bottom);
         root.Children.Add(footer);
 
@@ -170,9 +207,9 @@ public sealed class NeraRibbonCustomizationDialog : Window
         try
         {
             var entry = (_entries.SelectedItem as EditorRow)?.Entry;
-            _visible.IsEnabled = entry is not null;
+            _visible.IsEnabled = entry is not null && !entry.IsLocked;
             _visible.IsChecked = entry?.IsVisible;
-            _large.IsEnabled = entry?.Target.Kind == RibbonCustomizationTargetKind.Command;
+            _large.IsEnabled = entry?.Target.Kind == RibbonCustomizationTargetKind.Command && !entry.IsLocked;
             _large.IsChecked = entry?.IsLarge;
         }
         finally
@@ -186,6 +223,12 @@ public sealed class NeraRibbonCustomizationDialog : Window
         _runtime.SetCustomization(Session.CreateCustomization());
         RefreshEntries(selected);
         CustomizationApplied?.Invoke(this, EventArgs.Empty);
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        if (!_accepted) CancelCustomization();
+        base.OnClosed(e);
     }
 
     private void RefreshEntries(RibbonCustomizationTarget? selected = null)

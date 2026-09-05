@@ -16,14 +16,24 @@ public sealed class NeraRibbonCustomizationDialog : Form
     private readonly CheckBox _visible = new() { Text = "Hiển thị", AutoSize = true };
     private readonly CheckBox _large = new() { Text = "Nút lớn", AutoSize = true };
     private bool _refreshing;
+    private bool _accepted;
 
     public NeraRibbonCustomizationDialog(RibbonRuntimeController runtime)
+        : this(runtime, null)
+    {
+    }
+
+    public NeraRibbonCustomizationDialog(
+        RibbonRuntimeController runtime,
+        RibbonCustomizationPolicy? policy)
     {
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         Session = new RibbonCustomizationSession(
             runtime.Definition,
+            runtime.CommandCatalog,
             runtime.Customization,
-            CreateCaptionResolver(runtime.Snapshot));
+            CreateCaptionResolver(runtime.Snapshot),
+            policy);
         Text = "Tùy biến Ribbon";
         Name = "NeraRibbonCustomizationDialog";
         AccessibleName = Text;
@@ -56,6 +66,32 @@ public sealed class NeraRibbonCustomizationDialog : Form
     }
 
     public event EventHandler? CustomizationApplied;
+
+    public RibbonDefinition PreviewCustomization()
+    {
+        _runtime.SetCustomization(Session.CreateCustomization());
+        return Session.Preview();
+    }
+
+    public void ApplyCustomization()
+    {
+        _runtime.SetCustomization(Session.Commit());
+        _accepted = true;
+        CustomizationApplied?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void CancelCustomization()
+    {
+        Session.Cancel();
+        _runtime.SetCustomization(Session.CreateCustomization());
+        _accepted = true;
+    }
+
+    public RibbonCustomizationTarget AddCustomTab(string tabId, string caption) => Session.AddTab(tabId, caption);
+    public RibbonCustomizationTarget AddCustomGroup(string tabId, string groupId, string caption) => Session.AddGroup(tabId, groupId, caption);
+    public RibbonCustomizationTarget MoveCommand(RibbonCustomizationTarget source, string tabId, string groupId, int index = int.MaxValue) => Session.MoveCommand(source, tabId, groupId, index);
+    public bool AddToQuickAccessToolbar(CommandId commandId) => Session.AddToQuickAccessToolbar(commandId);
+    public bool RemoveFromQuickAccessToolbar(CommandId commandId) => Session.RemoveFromQuickAccessToolbar(commandId);
 
     public bool MoveSelected(int offset)
     {
@@ -141,7 +177,8 @@ public sealed class NeraRibbonCustomizationDialog : Form
             FlowDirection = FlowDirection.RightToLeft,
             Padding = new Padding(0, 8, 0, 0),
         };
-        buttons.Controls.Add(CreateButton("Đóng", "RibbonCustomizationClose", Close));
+        buttons.Controls.Add(CreateButton("Áp dụng", "RibbonCustomizationApply", ApplyCustomization));
+        buttons.Controls.Add(CreateButton("Hủy", "RibbonCustomizationCancel", () => { CancelCustomization(); Close(); }));
         buttons.Controls.Add(CreateButton(
             "Mặc định",
             "RibbonCustomizationReset",
@@ -178,6 +215,12 @@ public sealed class NeraRibbonCustomizationDialog : Form
         CustomizationApplied?.Invoke(this, EventArgs.Empty);
     }
 
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        if (!_accepted) CancelCustomization();
+        base.OnFormClosed(e);
+    }
+
     private void RefreshEntries(RibbonCustomizationTarget? selected = null)
     {
         selected ??= SelectedTarget;
@@ -210,9 +253,9 @@ public sealed class NeraRibbonCustomizationDialog : Form
         try
         {
             var entry = (_entries.SelectedItem as EditorRow)?.Entry;
-            _visible.Enabled = entry is not null;
+            _visible.Enabled = entry is not null && !entry.IsLocked;
             _visible.Checked = entry?.IsVisible == true;
-            _large.Enabled = entry?.Target.Kind == RibbonCustomizationTargetKind.Command;
+            _large.Enabled = entry?.Target.Kind == RibbonCustomizationTargetKind.Command && !entry.IsLocked;
             _large.Checked = entry?.IsLarge == true;
         }
         finally

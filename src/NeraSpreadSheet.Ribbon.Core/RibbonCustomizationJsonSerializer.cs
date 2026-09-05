@@ -13,13 +13,13 @@ public static class RibbonCustomizationJsonSerializer
     public const string SchemaName = "neraspreadsheet.ribbon-customization";
 
     /// <summary>Gets the schema version written by this serializer.</summary>
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     private const int MaxPayloadBytes = 1024 * 1024;
     private const int MaxEntries = 10_000;
 
     /// <summary>
-    /// Serializes a customization to canonical schema-v1 JSON.
+    /// Serializes a customization to canonical current-version JSON.
     /// </summary>
     public static string Serialize(RibbonCustomization customization)
     {
@@ -34,6 +34,11 @@ public static class RibbonCustomizationJsonSerializer
             writer.WriteNumber("version", CurrentSchemaVersion);
             writer.WritePropertyName("tabs");
             WriteTabs(writer, customization.Tabs);
+            if (customization.HasQuickAccessToolbarOverride)
+            {
+                writer.WritePropertyName("quickAccessToolbar");
+                WriteQuickAccessToolbar(writer, customization.QuickAccessToolbar);
+            }
             writer.WriteEndObject();
         }
 
@@ -46,7 +51,7 @@ public static class RibbonCustomizationJsonSerializer
     }
 
     /// <summary>
-    /// Deserializes schema-v1 JSON or migrates a headerless legacy-v0 document in memory.
+    /// Deserializes schema-v1/v2 JSON or migrates a headerless legacy-v0 document in memory.
     /// </summary>
     /// <exception cref="InvalidDataException">
     /// The payload is malformed, exceeds safety limits or uses an unsupported schema version.
@@ -66,10 +71,15 @@ public static class RibbonCustomizationJsonSerializer
             });
             var root = RequireObject(document.RootElement, "ribbon customization");
             EnsureUniqueProperties(root, "ribbon customization");
-            ValidateSchemaHeader(root);
+            var version = ValidateSchemaHeader(root);
 
             var remainingEntries = MaxEntries;
-            return new RibbonCustomization(ReadTabs(root, ref remainingEntries));
+            var tabs = ReadTabs(root, ref remainingEntries, version);
+            return new RibbonCustomization(
+                tabs,
+                version >= 2 && root.TryGetProperty("quickAccessToolbar", out var quickAccess)
+                    ? ReadQuickAccessToolbar(quickAccess, ref remainingEntries)
+                    : null);
         }
         catch (JsonException exception)
         {
@@ -87,7 +97,7 @@ public static class RibbonCustomizationJsonSerializer
     }
 
     /// <summary>
-    /// Validates and rewrites schema-v1 or legacy-v0 JSON as canonical schema-v1 JSON.
+    /// Validates and rewrites schema-v1/v2 or legacy-v0 JSON as canonical current-version JSON.
     /// </summary>
     public static string MigrateToCurrent(string json) =>
         Serialize(Deserialize(json));
@@ -105,6 +115,8 @@ public static class RibbonCustomizationJsonSerializer
             writer.WriteString("tabId", tab.TabId);
             writer.WriteBoolean("isVisible", tab.IsVisible);
             WriteNullableNumber(writer, "order", tab.Order);
+            if (tab.Caption is not null) writer.WriteString("caption", tab.Caption);
+            if (tab.IsCustom) writer.WriteBoolean("isCustom", true);
             writer.WritePropertyName("groups");
             WriteGroups(writer, tab.Groups);
             writer.WriteEndObject();
@@ -125,6 +137,8 @@ public static class RibbonCustomizationJsonSerializer
             writer.WriteString("groupId", group.GroupId);
             writer.WriteBoolean("isVisible", group.IsVisible);
             WriteNullableNumber(writer, "order", group.Order);
+            if (group.Caption is not null) writer.WriteString("caption", group.Caption);
+            if (group.IsCustom) writer.WriteBoolean("isCustom", true);
             writer.WritePropertyName("items");
             WriteItems(writer, group.Items);
             writer.WriteEndObject();
@@ -149,6 +163,7 @@ public static class RibbonCustomizationJsonSerializer
             {
                 writer.WriteBoolean("isLarge", isLarge);
             }
+            if (item.IsPlacement) writer.WriteBoolean("isPlacement", true);
             writer.WriteEndObject();
         }
         writer.WriteEndArray();
@@ -156,7 +171,8 @@ public static class RibbonCustomizationJsonSerializer
 
     private static RibbonTabCustomization[] ReadTabs(
         JsonElement root,
-        ref int remainingEntries)
+        ref int remainingEntries,
+        int version)
     {
         var array = RequireArrayProperty(root, "tabs", "ribbon customization");
         var result = new RibbonTabCustomization[array.GetArrayLength()];
@@ -170,14 +186,17 @@ public static class RibbonCustomizationJsonSerializer
                 RequireString(tab, "tabId", "ribbon tab customization"),
                 ReadBoolean(tab, "isVisible", defaultValue: true),
                 ReadNullableInt32(tab, "order"),
-                ReadGroups(tab, ref remainingEntries));
+                ReadGroups(tab, ref remainingEntries, version),
+                version >= 2 ? ReadOptionalString(tab, "caption") : null,
+                version >= 2 && ReadBoolean(tab, "isCustom", defaultValue: false));
         }
         return result;
     }
 
     private static RibbonGroupCustomization[] ReadGroups(
         JsonElement tab,
-        ref int remainingEntries)
+        ref int remainingEntries,
+        int version)
     {
         if (!tab.TryGetProperty("groups", out var element))
         {
@@ -196,14 +215,17 @@ public static class RibbonCustomizationJsonSerializer
                 RequireString(group, "groupId", "ribbon group customization"),
                 ReadBoolean(group, "isVisible", defaultValue: true),
                 ReadNullableInt32(group, "order"),
-                ReadItems(group, ref remainingEntries));
+                ReadItems(group, ref remainingEntries, version),
+                version >= 2 ? ReadOptionalString(group, "caption") : null,
+                version >= 2 && ReadBoolean(group, "isCustom", defaultValue: false));
         }
         return result;
     }
 
     private static RibbonItemCustomization[] ReadItems(
         JsonElement group,
-        ref int remainingEntries)
+        ref int remainingEntries,
+        int version)
     {
         if (!group.TryGetProperty("items", out var element))
         {
@@ -225,18 +247,19 @@ public static class RibbonCustomizationJsonSerializer
                     "ribbon item customization")),
                 ReadBoolean(item, "isVisible", defaultValue: true),
                 ReadNullableInt32(item, "order"),
-                ReadNullableBoolean(item, "isLarge"));
+                ReadNullableBoolean(item, "isLarge"),
+                version >= 2 && ReadBoolean(item, "isPlacement", defaultValue: false));
         }
         return result;
     }
 
-    private static void ValidateSchemaHeader(JsonElement root)
+    private static int ValidateSchemaHeader(JsonElement root)
     {
         var hasSchema = root.TryGetProperty("schema", out var schema);
         var hasVersion = root.TryGetProperty("version", out var version);
         if (!hasSchema && !hasVersion)
         {
-            return;
+            return 0;
         }
         if (!hasSchema || !hasVersion ||
             schema.ValueKind != JsonValueKind.String ||
@@ -247,11 +270,12 @@ public static class RibbonCustomizationJsonSerializer
         }
         if (version.ValueKind != JsonValueKind.Number ||
             !version.TryGetInt32(out var parsedVersion) ||
-            parsedVersion != CurrentSchemaVersion)
+            parsedVersion is < 1 or > CurrentSchemaVersion)
         {
             throw new InvalidDataException(
                 $"The ribbon customization schema version is unsupported; expected {CurrentSchemaVersion}.");
         }
+        return parsedVersion;
     }
 
     private static void ValidatePayloadSize(string json)
@@ -278,6 +302,46 @@ public static class RibbonCustomizationJsonSerializer
                 }
             }
         }
+        foreach (var _ in customization.QuickAccessToolbar) CountEntry(ref remainingEntries);
+    }
+
+    private static void WriteQuickAccessToolbar(Utf8JsonWriter writer, IReadOnlyList<RibbonQuickAccessItemCustomization> items)
+    {
+        writer.WriteStartArray();
+        foreach (var item in items.OrderBy(static item => item.Order))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("commandId", item.CommandId.Value);
+            writer.WriteNumber("order", item.Order);
+            if (item.KeyTip is not null) writer.WriteString("keyTip", item.KeyTip);
+            writer.WriteEndObject();
+        }
+        writer.WriteEndArray();
+    }
+
+    private static RibbonQuickAccessItemCustomization[] ReadQuickAccessToolbar(JsonElement value, ref int remainingEntries)
+    {
+        var array = RequireArray(value, "Quick Access Toolbar customization collection");
+        var result = new RibbonQuickAccessItemCustomization[array.GetArrayLength()];
+        var index = 0;
+        foreach (var child in array.EnumerateArray())
+        {
+            CountEntry(ref remainingEntries);
+            var item = RequireObject(child, "Quick Access Toolbar customization");
+            EnsureUniqueProperties(item, "Quick Access Toolbar customization");
+            result[index++] = new RibbonQuickAccessItemCustomization(
+                new CommandId(RequireString(item, "commandId", "Quick Access Toolbar customization")),
+                ReadNullableInt32(item, "order") ?? index - 1,
+                ReadOptionalString(item, "keyTip"));
+        }
+        return result;
+    }
+
+    private static string? ReadOptionalString(JsonElement owner, string propertyName)
+    {
+        if (!owner.TryGetProperty(propertyName, out var value) || value.ValueKind == JsonValueKind.Null) return null;
+        if (value.ValueKind != JsonValueKind.String) throw new InvalidDataException($"'{propertyName}' must be a string or null.");
+        return value.GetString();
     }
 
     private static JsonElement RequireObject(JsonElement value, string scope)

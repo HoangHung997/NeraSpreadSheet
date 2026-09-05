@@ -395,6 +395,18 @@ internal sealed class SmokePage : ContentPage
 
             var customization = new NeraMauiRibbonCustomizationBinding(
                 ribbonRuntime);
+            var customTab = customization.AddCustomTab("custom", "Cá nhân");
+            var customGroup = customization.AddCustomGroup(customTab.TabId, "quick", "Lệnh nhanh");
+            customization.MoveCommand(
+                RibbonCustomizationTarget.Command("view", "display", "view.gridlines"),
+                customTab.TabId,
+                customGroup.GroupId!);
+            customization.Preview();
+            Require(ribbonRuntime.Snapshot.Tabs.Any(static tab => tab.Id == "custom"),
+                "The loaded MAUI Ribbon did not preview a custom tab/group and moved command.");
+            customization.Cancel();
+            Require(ribbonRuntime.Snapshot.Tabs.All(static tab => tab.Id != "custom"),
+                "The loaded MAUI Ribbon did not roll back a structural preview.");
             Require(customization.SetVisible(
                     RibbonCustomizationTarget.Command(
                         "view",
@@ -430,7 +442,7 @@ internal sealed class SmokePage : ContentPage
             ribbonCommand = "view.gridlines",
             barCommand = "file.save",
             shortcut = "Ctrl+S",
-            customization = "hide-reset",
+            customization = "structural-preview-cancel-hide-reset",
             overflow = "bounded-scroll",
             complexItems = "all-kinds-selection",
         });
