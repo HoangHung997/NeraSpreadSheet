@@ -78,6 +78,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
 
     protected override void DisconnectHandler(UIView platformView)
     {
+        _renderer?.TraceLifecycle("handler-disconnect");
         if (_subscribedView is not null)
         {
             _subscribedView.SizeChanged -= OnVirtualViewSizeChanged;
@@ -97,8 +98,11 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
         base.DisconnectHandler(platformView);
     }
 
-    private void OnVirtualViewSizeChanged(object? sender, EventArgs e) =>
+    private void OnVirtualViewSizeChanged(object? sender, EventArgs e)
+    {
+        _renderer?.TraceLifecycle("size-change");
         _renderer?.RequestRender();
+    }
 
     private void Paint(
         UIView platformView,
@@ -213,6 +217,8 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
         private CADisplayLink? _displayLink;
         private GRContext? _context;
         private int _renderPending;
+        private int _drawDepth;
+        private int _lifecycleProbeCount;
         private bool _renderLoopRequested;
         private bool _disposed;
 
@@ -263,6 +269,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
 
         internal void RequestRender()
         {
+            TraceLifecycle("request");
             if (_disposed)
             {
                 return;
@@ -283,6 +290,7 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
             NeraMacCatalystGpuDiagnostics.TraceStage("request-render-dispatch-maui-mainthread");
             Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
             {
+                TraceLifecycle("request-callback");
                 NeraMacCatalystGpuDiagnostics.TraceStage("request-render-mainthread");
                 Interlocked.Exchange(ref _renderPending, 0);
                 DrawSafely();
@@ -292,12 +300,14 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
 
         public void Dispose()
         {
+            TraceLifecycle("dispose-enter");
             if (_disposed)
             {
                 return;
             }
 
             _disposed = true;
+            TraceLifecycle("dispose-marked");
             if (_displayLink is { } displayLink)
             {
                 displayLink.Paused = true;
@@ -332,8 +342,10 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
             Justification = "Exceptions must not escape a Core Animation display callback; the failure is retained in Nera diagnostics and the render loop is stopped.")]
         private void DrawSafely()
         {
+            Interlocked.Increment(ref _drawDepth);
             try
             {
+                TraceLifecycle("draw-enter");
                 NeraMacCatalystGpuDiagnostics.TraceStage("draw-safely-enter");
                 if (DrawCore())
                 {
@@ -357,6 +369,18 @@ internal sealed class NeraMacCatalystSKGLViewHandler :
                 _renderLoopRequested = false;
                 UpdateDisplayLinkState();
             }
+            finally
+            {
+                TraceLifecycle("draw-exit");
+                Interlocked.Decrement(ref _drawDepth);
+            }
+        }
+
+        internal void TraceLifecycle(string stage)
+        {
+            if (Interlocked.Increment(ref _lifecycleProbeCount) <= 96)
+                NeraMacCatalystGpuDiagnostics.TraceStage(
+                    $"lifecycle:{stage}:depth={Volatile.Read(ref _drawDepth)}:pending={Volatile.Read(ref _renderPending)}:disposed={_disposed}:main={Microsoft.Maui.ApplicationModel.MainThread.IsMainThread}");
         }
 
         private bool DrawCore()

@@ -2,7 +2,7 @@
 
 - Branch: `feature/table-007-editor-corpus`; PR lane chưa tạo.
 - Base clean đã xác minh: `2e8482c25a44797a479b276ae26f472811a0a81e`.
-- Implementation checkpoint đã push: `3f2032142e4d9aa4c7a75601adc78498aeda91a4`;
+- Implementation checkpoint đã push: `24395c7aed64cb21df7352d33cb26db3d3eaacd0`;
   đang sửa native CI, chưa release/exact-final-head green.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
@@ -130,6 +130,27 @@
   Không thêm dependency parser vào repo; môi trường không có PyYAML/node yaml.
   Workflow review thủ công, PowerShell syntax/diff/architecture PASS; GitHub
   parser và native builds phải xác nhận workflow mới trước khi dùng evidence.
+- Diagnostic exact243 run `33981545011` accepted/builds PASS, cả hai native jobs
+  FAIL. Mac vẫn signal11 trước host-attach-enter: editor subtree chưa được tạo,
+  nên first Clip/Focus/IME không có đường gọi. C không tìm misuse của editor
+  qua source; renderer reentrancy/lifetime vẫn là exposure chưa chứng minh fatal.
+- Windows243 cả2attempts: native surface loaded trước remove, focus NONE;
+  old handler clear và new handler/create/reinsert trả về, new surface vẫn
+  unloaded, không tới next Loaded/recreated-frame. Không hỗ trợ focused-view
+  hypothesis. Đã đề xuất root minimal renderer-depth probe và native XAML
+  UnhandledException→existing failure boundary để lấy inner stack; chưa sửa
+  những ranh giới đó trước khi được root transfer/confirm.
+- Root đã transfer riêng Mac handler cho probe, chưa cho sửa scheduler/dispose.
+  Followup ghi tối đa96 lifecycle stages/renderer với draw depth, pending,
+  disposed/main-thread flags tại request/callback/size/disconnect/dispose và
+  DrawSafely enter/finally. Không đổi quyết định scheduling hay giải phóng.
+- Windows native UnhandledException được root cho phép đi vào existing Fail:
+  giữ inner exception objects ở boundary, JSON chỉ xuất tối đa4 exception types/
+  HResult +16 method frames mỗi cấp, không raw message/source paths/arguments.
+  Không set Handled, không swallow/success fallback; unsubscribe khi Dispose.
+  Architecture/diff/PowerShell parser PASS; extracted formatter compile và
+  synthetic message/path/UUID exclusion + inner type retention audit PASS.
+  Compilation/native runtime còn phụ thuộc next diagnostic CI.
 - Gaps: T1/T2 còn native CI và Apple hardware-key evidence; T3 corpus đã có,
   final regression/exact-head CI đang chờ. CI actual SDK phải đọc log (global
   requested .302 + latestFeature có thể chọn .400), không suy ra từ config.

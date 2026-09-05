@@ -75,6 +75,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     public SmokePage()
     {
         Table007EditorSmoke.Trace("smoke-page-constructor");
+        Microsoft.UI.Xaml.Application.Current.UnhandledException += OnNativeUnhandledException;
         Title = "NeraSpreadSheet MAUI repeated runtime stress";
         Content = _host;
         Loaded += OnLoaded;
@@ -754,7 +755,42 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Environment.Exit(0);
     }
 
-    private void Fail(Exception exception)
+    private void OnNativeUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+    {
+        Table007EditorSmoke.Trace("smoke-native-unhandled-exception");
+        Fail(e.Exception, sanitizeNativeException: true);
+    }
+
+    private static string DescribeNativeException(Exception exception)
+    {
+        // Keep exception identity and method frames, never native messages,
+        // source paths, argument values, environment data or raw dumps.
+        var lines = new List<string>();
+        Exception? current = exception;
+        for (var depth = 0; current is not null && depth < 4; depth++, current = current.InnerException)
+        {
+            lines.Add($"{SafeMethodName(current.GetType().FullName)} HResult=0x{current.HResult:X8}");
+            var frames = new System.Diagnostics.StackTrace(current, fNeedFileInfo: false).GetFrames();
+            foreach (var frame in (frames ?? []).Take(16))
+            {
+                var method = frame.GetMethod();
+                lines.Add(SafeMethodName($"{method?.DeclaringType?.FullName}.{method?.Name}"));
+            }
+        }
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string SafeMethodName(string? name)
+    {
+        var text = name ?? "unknown";
+        text = System.Text.RegularExpressions.Regex.Replace(text,
+            "[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", "id");
+        text = System.Text.RegularExpressions.Regex.Replace(text,
+            @"(?:[A-Za-z]:[\\/]|/)[^\s""'<>]+", "path");
+        return new string(text.Where(character => char.IsAsciiLetterOrDigit(character) || character is '.' or '+' or '_' or '<' or '>').Take(200).ToArray());
+    }
+
+    private void Fail(Exception exception, bool sanitizeNativeException = false)
     {
         if (Interlocked.Exchange(ref _finished, 1) != 0)
         {
@@ -769,7 +805,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 stage = _stage.ToString(),
                 cycleIndex = _cycleIndex,
                 frameCount = _frameCount,
-                error = exception.ToString(),
+                error = sanitizeNativeException ? DescribeNativeException(exception) : exception.ToString(),
             });
         }
         finally
@@ -843,6 +879,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     public void Dispose()
     {
+        Microsoft.UI.Xaml.Application.Current.UnhandledException -= OnNativeUnhandledException;
         _editorHost?.Dispose();
         _editorHost = null;
         if (_view is { } view)

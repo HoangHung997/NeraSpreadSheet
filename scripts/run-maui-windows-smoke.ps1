@@ -51,7 +51,8 @@ function Write-FailureStageTrace {
         "smoke-surface-loaded", "smoke-surface-loaded-invalidate-returned",
         "smoke-recreated-frame-enter", "smoke-native-surface-loaded",
         "smoke-native-surface-unloaded", "smoke-native-focus-none",
-        "smoke-native-focus-surface", "smoke-native-focus-editor", "smoke-native-focus-other"
+        "smoke-native-focus-surface", "smoke-native-focus-editor", "smoke-native-focus-other",
+        "smoke-native-unhandled-exception"
     )
     $stream = [IO.File]::OpenRead($tracePath)
     try {
