@@ -19,9 +19,13 @@ click ở context không hợp lệ được consume, không rơi xuống commit
 Không tạo editor cho mỗi cell; raw cell rectangle quyết định wrapping và
 viewport/frozen panes chỉ clip vùng hiển thị.
 
-MAUI SKGLView chưa có cell editor overlay/binding nền. Split adorner/surface
-có editor riêng, chưa dùng assistance của standalone. Chưa tuyên bố đầy đủ
-editor ở cả ba host/split, chưa thay contract chung hoặc dựng model mới.
+TABLE-007 nối assistant hiện có vào split adorner/surface và bổ sung
+`NeraSpreadsheetEditorHost` tùy chọn quanh MAUI SKGLView. Host tái sử dụng một
+native Editor và `Session.Editor`; không dựng workbook/editor model song song.
+Geometry dùng toàn cell rectangle và clip; phép tính layout không tạo display
+list hoặc recalculate. Worksheet có Table filter vẫn dùng snapshot refresh/reuse
+hiện hữu để phản ánh đúng visible rows. Native runtime/exact-head acceptance
+và các giới hạn keyboard được ghi tại [TABLE-007](table-007-editor-corpus-contract.md).
 
 ## Transfer codec được coordinator chấp thuận
 
@@ -60,7 +64,13 @@ với recipe/version/hash/expected values/formulas/identities/relationships tron
 cá nhân/path/revision pointer; không đổi native Table/styles/formula payload.
 Excel Table dataDxfId là preserve-only, strict không giả semantic hỗ trợ.
 Save–Load–Save kiểm tra schema và stable identities; Convert/Undo/Redo kiểm tra
-giá trị. LibreOffice producer chưa đủ bằng chứng: không coi fixture Excel ở
-upstream LibreOffice là file do LibreOffice tạo. TABLE-006 vẫn chưa đóng toàn bộ.
+giá trị. TABLE-007 bổ sung workbook synthetic do LibreOffice Calc 24.2.7.2
+thực sự xuất tại run `33971871140`, artifact `9971160827`; manifest riêng ghi
+producer/version/hash và payload audit. Calc không giữ calculated-column,
+totals label/formula và style metadata, nhưng cell formulas/values còn đúng.
+Không tái tạo metadata bị producer bỏ để giả parity. Empty autoFilter có ref
+bằng toàn Table gồm totals được normalize về data range chỉ khi không có
+predicate/opaque content/extra attributes/Table sortState; các dạng khác vẫn
+theo validation hiện hữu. Corpus có negative tests và ba vòng edit/save/reopen.
 
 Rollback bằng revert delta lane sau `2bc00eb6`; không migration/package mới.

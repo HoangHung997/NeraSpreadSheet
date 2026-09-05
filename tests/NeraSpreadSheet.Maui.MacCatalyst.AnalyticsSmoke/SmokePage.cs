@@ -26,6 +26,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private readonly Grid _host = new();
     private readonly Workbook _workbook = CreateWorkbook();
     private NeraSpreadsheetView? _view;
+    private NeraSpreadsheetEditorHost? _editorHost;
+    private bool _editorVerified;
     private SpreadsheetAnalyticsItemKey _chartItem;
     private SpreadsheetAnalyticsItemKey _pivotItem;
     private int _frameCount;
@@ -60,7 +62,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
             SmokeTrace.Append("smoke-page-constructor-events-subscribed");
 
             SmokeTrace.Append("smoke-page-constructor-before-host-add");
-            _host.Children.Add(view);
+            _editorHost = new NeraSpreadsheetEditorHost(view);
+            _host.Children.Add(_editorHost);
             SmokeTrace.Append("smoke-page-constructor-after-host-add");
         }
         catch (Exception exception)
@@ -84,6 +87,9 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
         _disposed = true;
         Loaded -= OnLoaded;
+        _editorHost?.Dispose();
+        if (_editorHost is not null) _host.Children.Remove(_editorHost);
+        _editorHost = null;
         if (_view is { } view)
         {
             view.Loaded -= OnViewLoaded;
@@ -147,7 +153,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             var analyticsState = Volatile.Read(ref _analyticsInserted);
             if (analyticsState == 0)
             {
-                CreateAnalyticsForNextFrame(view);
+                _ = CreateAnalyticsForNextFrameAsync(view);
                 return;
             }
 
@@ -184,7 +190,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             "The Mac Catalyst analytics smoke observed a failed GPU frame.");
     }
 
-    private void CreateAnalyticsForNextFrame(NeraSpreadsheetView view)
+    private async Task CreateAnalyticsForNextFrameAsync(NeraSpreadsheetView view)
     {
         if (Interlocked.CompareExchange(ref _analyticsInserted, -1, 0) != 0)
         {
@@ -197,6 +203,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
             var session = view.Session
                 ?? throw new InvalidOperationException(
                     "The Mac Catalyst analytics smoke lost its session before analytics creation.");
+            await Table007EditorSmoke.RunAsync(_editorHost!);
+            _editorVerified = true;
             var sourceRange = new CellRange(
                 new CellAddress(0, 0),
                 new CellAddress(3, 1));
@@ -291,6 +299,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Complete(new
         {
             status = "success",
+            table007Editor = _editorVerified,
+            table007NativeKeys = "UIKit InsertText Enter and marked-text guard; hardware keys pending",
             frameCount = _frameCount,
             nativeElementCount = nativeElements.Length,
             chart = DescribeNativeElement(chart),

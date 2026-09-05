@@ -45,7 +45,8 @@ internal static class Table007EditorSmoke
         Require(host.CancelEditor() && session.History.UndoCount == count, "Cancel changed history.");
         Require(host.BeginEdit("first"), "The reused editor did not reopen for a multiline draft.");
         await PressNativeAsync(host, native, 0x0D, alt: true);
-        Require(host.CurrentEditText == "first\n" && session.Editor.IsEditing, "Newline committed the draft.");
+        Require(host.CurrentEditText?.ReplaceLineEndings("\n") == "first\n" && session.Editor.IsEditing,
+            $"Native Alt+Enter differs: editing={session.Editor.IsEditing}, draft={System.Text.Json.JsonSerializer.Serialize(host.CurrentEditText)}.");
         Require(ReferenceEquals(native, editor.Handler?.PlatformView), "Editing created another native overlay.");
         Require(editor.Clip is RectangleGeometry, "The editor has no cell/viewport clip.");
         await PressNativeAsync(host, native, 0x1B);

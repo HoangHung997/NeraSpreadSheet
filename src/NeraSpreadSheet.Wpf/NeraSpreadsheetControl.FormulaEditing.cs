@@ -462,7 +462,7 @@ public sealed partial class NeraSpreadsheetControl
         var target = _cellEditor?.State?.Address ??
             _session.Selection.ActiveCell;
         var formula = IsEditing ? _editor.Text : _session.ActiveWorksheet.GetCell(target).Formula;
-        if (formula is null)
+        if (formula is null || !formula.StartsWith('='))
         {
             return Array.Empty<SpreadsheetFormulaReferenceHighlight>();
         }

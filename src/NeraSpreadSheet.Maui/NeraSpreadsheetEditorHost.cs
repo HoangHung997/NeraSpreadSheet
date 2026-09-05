@@ -229,6 +229,7 @@ public sealed partial class NeraSpreadsheetEditorHost : Grid, IDisposable
 
     private void HideEditor()
     {
+        _editor.Unfocus();
         _editor.IsVisible = _suggestions.IsVisible = _suggestionScroll.IsVisible = _actions.IsVisible = false;
         _candidates = [];
         _referenceSpan = null;

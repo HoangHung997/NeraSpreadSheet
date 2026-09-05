@@ -49,6 +49,26 @@ public sealed class SpreadsheetViewportEngine
     public long DisplayListCacheMissCount { get; private set; }
     public int DisplayListCacheEntryCount => _displayListCache.Count;
 
+    /// <summary>
+    /// Computes visible/overscan geometry in document pixels without composing a
+    /// display list or calculating formulas. Uses the same sparse metrics as Compose.
+    /// Active Table filters may refresh the existing worksheet snapshot for hidden
+    /// row spans; an unchanged version reuses that snapshot. Unfiltered layout does
+    /// not capture worksheet cells. Scroll and size validation matches Compose.
+    /// </summary>
+    public ViewportLayout ComputeLayout(double scrollX, double scrollY,
+        double viewportWidth, double viewportHeight, double overscan = 128d) =>
+        ComputeLayoutCore(scrollX, scrollY, viewportWidth, viewportHeight, overscan).Layout;
+
+    private (ViewportLayoutEngine Engine, ViewportLayout Layout) ComputeLayoutCore(
+        double scrollX, double scrollY, double viewportWidth, double viewportHeight, double overscan)
+    {
+        EnsureMetrics();
+        var engine = new ViewportLayoutEngine(_rows!, _columns!);
+        return (engine, engine.Compute(new ViewportRequest(scrollX, scrollY,
+            new SizeD(viewportWidth, viewportHeight), overscan, _session.View.FrozenRows, _session.View.FrozenColumns)));
+    }
+
     public SpreadsheetViewportFrame Compose(
         double scrollX,
         double scrollY,
@@ -57,16 +77,8 @@ public sealed class SpreadsheetViewportEngine
         double overscan = 128d,
         SpreadsheetRenderTheme? theme = null)
     {
-        EnsureMetrics();
         theme ??= new SpreadsheetRenderTheme();
-        var layoutEngine = new ViewportLayoutEngine(_rows!, _columns!);
-        var layout = layoutEngine.Compute(new ViewportRequest(
-            scrollX,
-            scrollY,
-            new SizeD(viewportWidth, viewportHeight),
-            overscan,
-            _session.View.FrozenRows,
-            _session.View.FrozenColumns));
+        var (layoutEngine, layout) = ComputeLayoutCore(scrollX, scrollY, viewportWidth, viewportHeight, overscan);
         var worksheet = _session.ActiveWorksheet;
         var selection = _session.Selection.Capture();
         var cellDisplayList = _cacheOptions.Enabled

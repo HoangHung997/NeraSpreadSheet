@@ -177,11 +177,11 @@ internal sealed partial class NeraSpreadsheetSplitSurface
         if (TryHitTest(x, y, out _, out var address))
         {
             var range = new CellRange(anchor, address);
-        var edit = SpreadsheetFormulaEditingAssistant.InsertReference(_editor.Text, _editor.SelectionStart,
-            _session.Workbook, _session.ActiveWorksheet, state.Address, _session.ActiveWorksheet,
-            range, _formulaReferenceSpan);
-        SetFormulaEditText(edit);
-        _formulaReferenceSpan = edit.InsertedSpan;
+            var edit = SpreadsheetFormulaEditingAssistant.InsertReference(_editor.Text, _editor.SelectionStart,
+                _session.Workbook, _session.ActiveWorksheet, state.Address, _session.ActiveWorksheet,
+                range, _formulaReferenceSpan);
+            SetFormulaEditText(edit);
+            _formulaReferenceSpan = edit.InsertedSpan;
             _provisionalReferenceRange = range;
         }
         if (release)
@@ -196,7 +196,8 @@ internal sealed partial class NeraSpreadsheetSplitSurface
 
     private DisplayList ComposeFormulaHighlights(SpreadsheetSplitViewportFrame frame)
     {
-        if (_session is null || _cellEditor?.State is not { } state || _owner.RenderTheme.FormulaReferenceColors.Count == 0) return frame.DisplayList;
+        if (_session is null || _cellEditor?.State is not { } state || !_editor.Text.StartsWith('=') ||
+            _owner.RenderTheme.FormulaReferenceColors.Count == 0) return frame.DisplayList;
         if (!FormulaReferenceAnalyzer.TryGetReferences(_editor.Text, _session.Workbook, _session.ActiveWorksheet,
                 state.Address, out var references) && _provisionalReferenceRange is { } range)
             references = [new FormulaDependency(_session.ActiveWorksheet.Name, range)];

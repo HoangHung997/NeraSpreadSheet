@@ -20,7 +20,7 @@ internal sealed class NeraCellEditorHandler : EditorHandler
             base.InsertText(text);
         }
 
-        public override void PressesBegan(NSSet<UIPress> presses, UIPressesEvent? evt)
+        public override void PressesBegan(NSSet<UIPress> presses, UIPressesEvent evt)
         {
             if (MarkedTextRange is null && presses.Count == 1 && handler.VirtualView is NeraCellEditor editor)
             {

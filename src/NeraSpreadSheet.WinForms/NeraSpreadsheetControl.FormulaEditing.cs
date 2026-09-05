@@ -263,7 +263,7 @@ public sealed partial class NeraSpreadsheetControl
         if (!ShowFormulaReferenceHighlights || _session is null || RenderTheme.FormulaReferenceColors.Count == 0) return [];
         var address = _cellEditor?.State?.Address ?? _session.Selection.ActiveCell;
         var formula = IsEditing ? _editor.Text : _session.ActiveWorksheet.GetFormula(address);
-        if (formula is null) return [];
+        if (formula is null || !formula.StartsWith('=')) return [];
         IReadOnlyList<FormulaDependency> references = IsEditing ? [] :
             _session.Calculation.DependencyGraph.GetDependencies(new FormulaCellKey(_session.ActiveWorksheet.Name, address));
         if (references.Count == 0 && !FormulaReferenceAnalyzer.TryGetReferences(formula, _session.Workbook, _session.ActiveWorksheet, address, out references) &&

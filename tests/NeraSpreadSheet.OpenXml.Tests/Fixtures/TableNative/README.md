@@ -1,6 +1,6 @@
 # Corpus native Table nhỏ
 
-Hai workbook chỉ chứa số và nhãn mẫu mới. Không dùng workbook cá nhân, không
+Ba workbook chỉ chứa số và nhãn mẫu mới. Không dùng workbook cá nhân, không
 nhập fixture bên thứ ba. Quyền sử dụng theo repository hiện tại; dữ liệu này
 không tự cấp một giấy phép phân phối mới cho SDK. Hash, producer, version,
 expected cells/formulas và graph gốc nằm trong `provenance.json`.
@@ -44,15 +44,25 @@ preservation; không gọi đó là đầy đủ Excel visual parity. Strict exp
 chuẩn hóa graph sang Nera. Tests kiểm tra schema Microsoft365, cached values,
 recalculate, ba vòng Save–Load, Convert/Undo/Redo và source bytes không đổi.
 
-## Khoảng trống LibreOffice
+## LibreOffice
 
-Không thấy LibreOffice trong native inventory hoặc hai thư mục cài đặt chuẩn.
-Không cài/tải/chạy producer mới. Đã kiểm tra `tablerefsnamed.xlsx`,
-`tableref-column-linebreak.xlsx`, `TableStyleTest.xlsx`,
-`tdf162963_TableWithTotalsEnabled.xlsx` từ
-[LibreOffice core](https://github.com/LibreOffice/core/tree/master/sc/qa/unit/data/xlsx).
-App metadata đều ghi Excel hoặc Excel Online, nên không dùng chúng để chứng
-minh LibreOffice producer. Project công bố
-[MPL licensing](https://www.libreoffice.org/licenses/); không nhập fixture
-upstream khi chưa đủ version/producer/provenance và không suy ra quyền từ tên
-repository. TABLE-006 còn mở cho producer LibreOffice.
+Workflow `table-007-libreoffice.yml` cài Calc từ Ubuntu 24.04 và chạy producer
+thật với profile tạm riêng, import `nera-table.xlsx` rồi export bằng filter
+`Calc MS Excel 2007 XML`. Run `33971871140`, artifact `9971160827` ghi
+`LibreOffice 24.2.7.2 420(Build:2)`, package
+`4:24.2.7-0ubuntu0.24.04.6`. Không dùng fixture Excel ở upstream LibreOffice
+để suy ra producer. Không nhập nội dung bên thứ ba.
+
+`libreoffice-provenance.json` ghi seed/native/sanitized SHA-256 và từng payload
+không đổi. Chỉ core author/date metadata và ZIP timestamps được sanitize;
+Table/worksheet/styles/relationships không sửa. Fixture SHA-256:
+`531D092BD1A4D1B89EB5C99900515BC3E6E78158B828DB6365E10D8891B864CE`.
+
+Calc giữ Table1 A1:B5 và cell formulas/values (Amount 10/20/30, Double 20/40/60,
+SUM 60, SUBTOTAL 120), nhưng bỏ calculated-column, totals label/formula và
+Table style metadata. Tests giữ sự khác biệt này, không fabricate metadata.
+Calc xuất empty autoFilter A1:B5 gồm totals; importer chỉ normalize trường hợp
+empty/no extra attributes/no Table sortState về A1:B4. Predicate, opaque content,
+wrong range và extra attributes vẫn bị từ chối. `Table007LibreOfficeCorpusTests`
+kiểm tra provenance/privacy, các case strict/preserve của ba producer và ba
+vòng load/edit/save/reopen với stable Table/column identities.

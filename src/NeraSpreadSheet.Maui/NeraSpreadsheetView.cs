@@ -122,29 +122,34 @@ public sealed class NeraSpreadsheetView : SKGLView, IDisposable
 
     /// <summary>
     /// Gets the full cell rectangle and visible clip in MAUI logical coordinates.
-    /// Requires a composed frame. Clipping never changes the editor's wrap width.
+    /// Uses loaded host geometry even if no usable GPU frame is available.
+    /// This does not imply GPU rendering succeeded. Clipping never changes wrap width.
     /// </summary>
     public bool TryGetEditorBounds(CellAddress address, out RectD bounds, out RectD clip)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         bounds = default;
         clip = default;
-        if (_viewport is null || _session is null || _lastLayout is not { } layout) return false;
+        if (_viewport is null || _session is null || Width <= 0d || Height <= 0d) return false;
         address = _session.ActiveWorksheet.ResolveMergedAnchor(address);
         var scroll = _scroll.Snapshot;
         if (!_viewport.TryGetCellBounds(address, scroll.OffsetX, scroll.OffsetY, out var body)) return false;
-        var chrome = GetChromeMetrics(_zoom);
+        var usableFrame = _lastLayout is not null && _lastSurfaceWidth > 0 && _lastSurfaceHeight > 0;
+        var width = usableFrame ? _lastSurfaceWidth : Width;
+        var height = usableFrame ? _lastSurfaceHeight : Height;
+        var chrome = SpreadsheetChromeGeometry.Calculate(width / _zoom, height / _zoom, _renderTheme);
+        var layout = _viewport.ComputeLayout(scroll.OffsetX, scroll.OffsetY, chrome.BodyWidth, chrome.BodyHeight, 0d);
         var frozenColumn = address.ColumnIndex < _session.View.FrozenColumns;
         var frozenRow = address.RowIndex < _session.View.FrozenRows;
         var pane = new RectD(frozenColumn ? 0d : layout.FrozenWidth,
             frozenRow ? 0d : layout.FrozenHeight,
-            frozenColumn ? layout.FrozenWidth : Math.Max(0d, _lastBodyWidth - layout.FrozenWidth),
-            frozenRow ? layout.FrozenHeight : Math.Max(0d, _lastBodyHeight - layout.FrozenHeight));
+            frozenColumn ? Math.Min(chrome.BodyWidth, layout.FrozenWidth) : Math.Max(0d, chrome.BodyWidth - layout.FrozenWidth),
+            frozenRow ? Math.Min(chrome.BodyHeight, layout.FrozenHeight) : Math.Max(0d, chrome.BodyHeight - layout.FrozenHeight));
         var visible = body.Intersect(pane);
         if (visible.IsEmpty) return false;
         // The SKGLView frame may be physical pixels even when its MAUI layout is DIPs.
-        var scaleX = _lastSurfaceWidth > 0 && Width > 0 ? Width / _lastSurfaceWidth : 1d;
-        var scaleY = _lastSurfaceHeight > 0 && Height > 0 ? Height / _lastSurfaceHeight : 1d;
+        var scaleX = Width / width;
+        var scaleY = Height / height;
         bounds = new RectD((body.X + chrome.RowHeaderWidth) * _zoom * scaleX,
             (body.Y + chrome.ColumnHeaderHeight) * _zoom * scaleY,
             body.Width * _zoom * scaleX, body.Height * _zoom * scaleY);

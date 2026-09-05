@@ -37,6 +37,17 @@ public sealed class Table007SplitEditorSmokeTests
                 var surface = Field<object>(split, "_adorner");
                 var editor = Field<WpfControls.TextBox>(surface, "_editor");
                 var list = Field<WpfControls.ListBox>(surface, "_formulaSuggestionList");
+                foreach (var draft in new[] { string.Empty, "literal", "=SUM(" })
+                {
+                    Invoke(surface, "BeginEdit", draft);
+                    split.RenderNow();
+                    window.UpdateLayout();
+                    Assert.AreEqual(0, owner.CurrentFormulaReferenceHighlights.Count,
+                        "The hidden standalone editor must not analyze its empty draft during a split edit.");
+                    Assert.AreEqual(draft, editor.Text);
+                    PressWpf(editor, WpfInput.Key.Escape);
+                }
+                Assert.AreEqual(0, session.History.UndoCount);
                 Invoke(surface, "BeginEdit", "=SUM(Sales[Am");
                 window.UpdateLayout();
                 Assert.AreEqual("Amount", ((FormulaStructuredReferenceSuggestion)list.Items[0]).DisplayText);
@@ -84,6 +95,17 @@ public sealed class Table007SplitEditorSmokeTests
             split.RenderNow();
             var surface = Field<object>(split, "_surface");
             var editor = Field<Forms.TextBox>(surface, "_editor");
+            foreach (var draft in new[] { string.Empty, "literal", "=SUM(" })
+            {
+                Invoke(surface, "BeginEdit", draft);
+                split.RenderNow();
+                Forms.Application.DoEvents();
+                Assert.AreEqual(0, owner.CurrentFormulaReferenceHighlights.Count,
+                    "The hidden standalone editor must not analyze its empty draft during a split edit.");
+                Assert.AreEqual(draft, editor.Text);
+                PressForms(editor, Forms.Keys.Escape);
+            }
+            Assert.AreEqual(0, session.History.UndoCount);
             Invoke(surface, "BeginEdit", "=SUM(Sales[Am");
             var list = Field<Forms.ListBox>(surface, "_formulaSuggestionList");
             Assert.AreEqual(1, list.Items.Count);
