@@ -31,9 +31,11 @@ public sealed partial class NeraSpreadsheetControl
     private Popup? _formulaSuggestionPopup;
     private IReadOnlyList<FormulaFunctionSuggestion> _formulaSuggestions =
         Array.Empty<FormulaFunctionSuggestion>();
+    private IReadOnlyList<FormulaStructuredReferenceSuggestion> _structuredReferenceSuggestions = [];
     private FormulaFunctionHelpContext? _formulaHelpContext;
     private CellAddress? _formulaReferenceAnchor;
     private FormulaTextSpan? _formulaReferenceSpan;
+    private FormulaDependency? _provisionalReference;
     private bool _updatingFormulaText;
 
     /// <summary>
@@ -47,6 +49,10 @@ public sealed partial class NeraSpreadsheetControl
     /// </summary>
     public IReadOnlyList<FormulaFunctionSuggestion> CurrentFormulaSuggestions =>
         _formulaSuggestions;
+
+    /// <summary>Gets the bounded Table/column candidates in the active editor popup.</summary>
+    public IReadOnlyList<FormulaStructuredReferenceSuggestion> CurrentStructuredReferenceSuggestions =>
+        _structuredReferenceSuggestions;
 
     /// <summary>
     /// Gets help for the innermost function invocation at the editor caret.
@@ -87,8 +93,9 @@ public sealed partial class NeraSpreadsheetControl
             },
         };
         _editor.TextChanged += OnFormulaEditorTextChanged;
-        _formulaSuggestionList.MouseDoubleClick +=
-            OnFormulaSuggestionMouseDoubleClick;
+        _editor.SelectionChanged += OnFormulaEditorSelectionChanged;
+        _formulaSuggestionList.Focusable = false;
+        _formulaSuggestionList.PreviewMouseDown += OnFormulaSuggestionMouseClick;
         _formulaSuggestionList.SelectionChanged +=
             OnFormulaSuggestionSelectionChanged;
     }
@@ -97,8 +104,8 @@ public sealed partial class NeraSpreadsheetControl
     {
         HideFormulaSuggestions();
         _editor.TextChanged -= OnFormulaEditorTextChanged;
-        _formulaSuggestionList.MouseDoubleClick -=
-            OnFormulaSuggestionMouseDoubleClick;
+        _editor.SelectionChanged -= OnFormulaEditorSelectionChanged;
+        _formulaSuggestionList.PreviewMouseDown -= OnFormulaSuggestionMouseClick;
         _formulaSuggestionList.SelectionChanged -=
             OnFormulaSuggestionSelectionChanged;
         if (_formulaSuggestionPopup is not null)
@@ -112,6 +119,7 @@ public sealed partial class NeraSpreadsheetControl
     {
         _formulaReferenceAnchor = null;
         _formulaReferenceSpan = null;
+        _provisionalReference = null;
         HideFormulaSuggestions();
     }
 
@@ -122,6 +130,20 @@ public sealed partial class NeraSpreadsheetControl
         if (!_updatingFormulaText)
         {
             _formulaReferenceSpan = null;
+            _provisionalReference = null;
+        }
+        UpdateFormulaSuggestions();
+        InvalidateVisual();
+    }
+
+    private void OnFormulaEditorSelectionChanged(object sender, RoutedEventArgs e)
+    {
+        if (_updatingFormulaText) return;
+        if (_formulaReferenceSpan is { } span &&
+            (_editor.CaretIndex != span.End || _editor.SelectionLength != 0))
+        {
+            _formulaReferenceSpan = null;
+            _provisionalReference = null;
         }
         UpdateFormulaSuggestions();
     }
@@ -140,19 +162,24 @@ public sealed partial class NeraSpreadsheetControl
         _formulaHelpContext = _session.FormulaEditing.GetFunctionHelp(
             _editor.Text,
             caretIndex ?? _editor.CaretIndex);
-        _formulaSuggestionList.ItemsSource = _formulaSuggestions;
-        _formulaSuggestionList.Visibility = _formulaSuggestions.Count == 0
+        _structuredReferenceSuggestions = SpreadsheetFormulaEditingAssistant.GetStructuredReferenceSuggestions(
+            _editor.Text, caretIndex ?? _editor.CaretIndex, _session.Workbook,
+            _session.ActiveWorksheet, _cellEditor!.State!.Address);
+        _formulaSuggestionList.ItemsSource = _structuredReferenceSuggestions.Cast<object>()
+            .Concat(_formulaSuggestions).ToArray();
+        var count = _formulaSuggestionList.Items.Count;
+        _formulaSuggestionList.Visibility = count == 0
             ? Visibility.Collapsed
             : Visibility.Visible;
         if (_formulaSuggestionPopup is null ||
-            (_formulaSuggestions.Count == 0 && _formulaHelpContext is null))
+            (count == 0 && _formulaHelpContext is null))
         {
             HideFormulaSuggestions();
             return;
         }
 
         _formulaSuggestionList.SelectedIndex =
-            _formulaSuggestions.Count == 0 ? -1 : 0;
+            count == 0 ? -1 : 0;
         UpdateFormulaHelpText();
         if (IsLoaded)
         {
@@ -163,6 +190,7 @@ public sealed partial class NeraSpreadsheetControl
     private void HideFormulaSuggestions()
     {
         _formulaSuggestions = Array.Empty<FormulaFunctionSuggestion>();
+        _structuredReferenceSuggestions = [];
         _formulaHelpContext = null;
         _formulaSuggestionList.ItemsSource = null;
         _formulaHelpText.Text = string.Empty;
@@ -175,7 +203,7 @@ public sealed partial class NeraSpreadsheetControl
     private bool TryHandleFormulaSuggestionKey(KeyEventArgs e)
     {
         if (_formulaSuggestionPopup?.IsOpen != true ||
-            _formulaSuggestions.Count == 0)
+            _formulaSuggestionList.Items.Count == 0 || Keyboard.Modifiers != ModifierKeys.None)
         {
             return false;
         }
@@ -183,7 +211,7 @@ public sealed partial class NeraSpreadsheetControl
         if (e.Key == Key.Down)
         {
             _formulaSuggestionList.SelectedIndex = Math.Min(
-                _formulaSuggestions.Count - 1,
+                _formulaSuggestionList.Items.Count - 1,
                 _formulaSuggestionList.SelectedIndex + 1);
             _formulaSuggestionList.ScrollIntoView(
                 _formulaSuggestionList.SelectedItem);
@@ -202,20 +230,18 @@ public sealed partial class NeraSpreadsheetControl
         {
             return ApplySelectedFormulaSuggestion();
         }
-        if (e.Key == Key.Escape)
-        {
-            HideFormulaSuggestions();
-            return true;
-        }
         return false;
     }
 
-    private void OnFormulaSuggestionMouseDoubleClick(
+    private void OnFormulaSuggestionMouseClick(
         object sender,
         MouseButtonEventArgs e)
     {
-        if (ApplySelectedFormulaSuggestion())
+        if (e.ChangedButton == MouseButton.Left && e.OriginalSource is DependencyObject source &&
+            ItemsControl.ContainerFromElement(_formulaSuggestionList, source) is ListBoxItem item)
         {
+            _formulaSuggestionList.SelectedItem = item.Content;
+            ApplySelectedFormulaSuggestion();
             e.Handled = true;
         }
     }
@@ -227,6 +253,11 @@ public sealed partial class NeraSpreadsheetControl
 
     private void UpdateFormulaHelpText()
     {
+        if (_formulaSuggestionList.SelectedItem is FormulaStructuredReferenceSuggestion structured)
+        {
+            _formulaHelpText.Text = structured.DisplayText;
+            return;
+        }
         if (_formulaSuggestionList.SelectedItem is
             FormulaFunctionSuggestion suggestion)
         {
@@ -250,18 +281,38 @@ public sealed partial class NeraSpreadsheetControl
 
     private bool ApplySelectedFormulaSuggestion()
     {
-        if (_formulaSuggestionList.SelectedItem is not
-            FormulaFunctionSuggestion suggestion)
+        if (_session is null || _cellEditor?.State is not { } state) return false;
+        FormulaTextEditResult edit;
+        if (_formulaSuggestionList.SelectedItem is FormulaStructuredReferenceSuggestion structured)
+        {
+            var table = _session.Workbook.Tables.FirstOrDefault(table => table.Id == structured.TableId);
+            if (structured.SourceText != _editor.Text || table is null ||
+                structured.ColumnId is { } columnId && !table.TryGetColumn(columnId, out _) ||
+                structured.Area == TableReferenceArea.ThisRow &&
+                (!_session.ActiveWorksheet.Tables.Any(candidate => candidate.Id == table.Id) ||
+                 table.DataRange?.Contains(state.Address) != true))
+            {
+                // A metadata mutation can invalidate an open popup. Consume acceptance
+                // without committing the stale fragment or changing workbook history.
+                UpdateFormulaSuggestions();
+                _editor.Focus();
+                return true;
+            }
+            edit = SpreadsheetFormulaEditingAssistant.ApplyStructuredReferenceSuggestion(
+                _editor.Text, _session.Workbook, _session.ActiveWorksheet, state.Address, structured);
+        }
+        else if (_formulaSuggestionList.SelectedItem is FormulaFunctionSuggestion suggestion)
+        {
+            edit = SpreadsheetFormulaEditingAssistant.ApplySuggestion(
+                _editor.Text, _editor.CaretIndex, suggestion);
+        }
+        else
         {
             return false;
         }
-
-        var edit = SpreadsheetFormulaEditingAssistant.ApplySuggestion(
-            _editor.Text,
-            _editor.CaretIndex,
-            suggestion);
         SetFormulaEditText(edit.Text, edit.CaretIndex);
         _formulaReferenceSpan = null;
+        _provisionalReference = null;
         UpdateFormulaSuggestions(edit.CaretIndex);
         _editor.Focus();
         return true;
@@ -276,19 +327,24 @@ public sealed partial class NeraSpreadsheetControl
         string? worksheetName = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (!IsEditing || !_editor.Text.StartsWith('='))
+        if (_session is null || _cellEditor?.State is not { } state ||
+            !SpreadsheetFormulaEditingAssistant.CanInsertReference(
+                _editor.Text, _editor.CaretIndex, _formulaReferenceSpan))
         {
             return false;
         }
 
+        var referenceWorksheet = worksheetName is null ? _session.ActiveWorksheet :
+            _session.Workbook.Worksheets.FirstOrDefault(sheet => string.Equals(
+                sheet.Name, worksheetName, StringComparison.OrdinalIgnoreCase));
+        if (referenceWorksheet is null) return false;
         var edit = SpreadsheetFormulaEditingAssistant.InsertReference(
-            _editor.Text,
-            _editor.CaretIndex,
-            range,
-            worksheetName,
-            _formulaReferenceSpan);
+            _editor.Text, _editor.CaretIndex, _session.Workbook,
+            _session.ActiveWorksheet, state.Address, referenceWorksheet, range, _formulaReferenceSpan);
         SetFormulaEditText(edit.Text, edit.CaretIndex);
         _formulaReferenceSpan = edit.InsertedSpan;
+        _provisionalReference = new FormulaDependency(referenceWorksheet.Name, range);
+        InvalidateVisual();
         return true;
     }
 
@@ -315,6 +371,8 @@ public sealed partial class NeraSpreadsheetControl
         {
             return false;
         }
+        if (!SpreadsheetFormulaEditingAssistant.CanInsertReference(_editor.Text, _editor.CaretIndex, _formulaReferenceSpan))
+            return true;
 
         var hit = SpreadsheetChromeGeometry.HitTest(
             point.X,
@@ -407,7 +465,7 @@ public sealed partial class NeraSpreadsheetControl
 
         var target = _cellEditor?.State?.Address ??
             _session.Selection.ActiveCell;
-        var formula = _session.ActiveWorksheet.GetCell(target).Formula;
+        var formula = IsEditing ? _editor.Text : _session.ActiveWorksheet.GetCell(target).Formula;
         if (formula is null)
         {
             return Array.Empty<SpreadsheetFormulaReferenceHighlight>();
@@ -419,13 +477,21 @@ public sealed partial class NeraSpreadsheetControl
             return Array.Empty<SpreadsheetFormulaReferenceHighlight>();
         }
 
-        var dependencies = _session.Calculation.DependencyGraph.GetDependencies(
-            new FormulaCellKey(_session.ActiveWorksheet.Name, target));
-        if (dependencies.Count == 0)
+        IReadOnlyList<FormulaDependency> dependencies;
+        if (IsEditing)
         {
-            FormulaReferenceAnalyzer.TryGetReferences(
-                formula,
-                out dependencies);
+            if (!FormulaReferenceAnalyzer.TryGetReferences(formula, _session.Workbook,
+                    _session.ActiveWorksheet, target, out dependencies) &&
+                _provisionalReference is { } provisional)
+                dependencies = [provisional];
+        }
+        else
+        {
+            dependencies = _session.Calculation.DependencyGraph.GetDependencies(
+                new FormulaCellKey(_session.ActiveWorksheet.Name, target));
+            if (dependencies.Count == 0)
+                FormulaReferenceAnalyzer.TryGetReferences(formula, _session.Workbook,
+                    _session.ActiveWorksheet, target, out dependencies);
         }
         var result = new List<SpreadsheetFormulaReferenceHighlight>();
         foreach (var dependency in dependencies)

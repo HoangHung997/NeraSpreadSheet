@@ -8,6 +8,26 @@ namespace NeraSpreadSheet.Editing.Tests;
 public sealed class StructuredReferenceEditingTests
 {
     [TestMethod]
+    [DataRow("=SUM(", 5, true)]
+    [DataRow("=Sales[Am", 9, false)]
+    [DataRow("=\"literal", 9, false)]
+    [DataRow("='Sheet", 7, false)]
+    [DataRow("", 0, false)]
+    [DataRow("=", 2, false)]
+    public void PointModeGuardShouldRejectInvalidDraftInsertion(string text, int caret, bool expected)
+    {
+        Assert.AreEqual(expected, SpreadsheetFormulaEditingAssistant.CanInsertReference(text, caret));
+    }
+
+    [TestMethod]
+    public void PointModeGuardShouldValidateProvisionalBoundsWithoutOverflow()
+    {
+        Assert.IsTrue(SpreadsheetFormulaEditingAssistant.CanInsertReference("=Sales[Amount]", 14, new FormulaTextSpan(1, 13)));
+        Assert.IsFalse(SpreadsheetFormulaEditingAssistant.CanInsertReference("=A1", 3, new FormulaTextSpan(1, int.MaxValue)));
+        Assert.IsFalse(SpreadsheetFormulaEditingAssistant.CanInsertReference("=A1", 3, new FormulaTextSpan(-1, 2)));
+    }
+
+    [TestMethod]
     public void ConvertShouldRejectUnsupportedTargetReferenceAndRestoreAllEarlierRewrites()
     {
         var session = CreateSession();

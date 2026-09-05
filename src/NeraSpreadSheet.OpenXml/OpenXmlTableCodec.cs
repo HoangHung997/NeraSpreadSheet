@@ -199,6 +199,7 @@ internal static class OpenXmlTableCodec
             throw new InvalidDataException(
                 "A table-definition part has invalid root markup.");
         }
+        ValidateDifferentialStyleReferences(root, differentialStyles.Count);
 
         var name = RequiredAttribute(root, "displayName");
         var internalName = (string?)root.Attribute("name");
@@ -785,6 +786,23 @@ internal static class OpenXmlTableCodec
         var escaped = StructuredReferenceFormulaTranslator.EscapeColumnName(name);
         if (name.IndexOfAny([',', ':']) >= 0) escaped = $"[{escaped}]";
         return $"=SUBTOTAL({number},{tableName}[{escaped}])";
+    }
+
+    internal static bool ValidateDifferentialStyleReferences(XElement root, int differentialStyleCount)
+    {
+        var found = false;
+        foreach (var attribute in root.DescendantsAndSelf()
+                     .Where(element => element.Name == SpreadsheetNamespace + "table" ||
+                         element.Name == SpreadsheetNamespace + "tableColumn")
+                     .Attributes().Where(attribute => attribute.Name.Namespace == XNamespace.None &&
+                         attribute.Name.LocalName.EndsWith("DxfId", StringComparison.Ordinal)))
+        {
+            found = true;
+            if (!uint.TryParse(attribute.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var index) ||
+                index >= differentialStyleCount)
+                throw new InvalidDataException($"Table style reference '{attribute.Name}' is outside the differential-style table.");
+        }
+        return found;
     }
 
     private static void ValidateAttributes(XElement element, bool preserve, params string[] owned)

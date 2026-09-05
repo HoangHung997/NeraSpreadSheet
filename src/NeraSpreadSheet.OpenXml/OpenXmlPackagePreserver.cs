@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Xml;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml.Packaging;
@@ -171,21 +172,24 @@ internal static class OpenXmlPackagePreserver
             var preserveConditionalFormatting = worksheetPairs.Any(
                 static pair => ContainsUnsupportedConditionalFormatting(
                     pair.Preserved));
+            var preserveTableDifferentialStyles = ContainsTableDifferentialStyleReferences(preservedWorkbookPart);
+            var preserveDifferentialStyles = preserveConditionalFormatting || preserveTableDifferentialStyles;
+            PatchStyles(preservedWorkbookPart, generatedWorkbookPart, preserveDifferentialStyles);
+            var differentialStyleMap = preserveTableDifferentialStyles
+                ? OpenXmlDifferentialStyleRemapper.MergeGeneratedStyles(preservedWorkbookPart, generatedWorkbookPart)
+                : null;
             foreach (var pair in worksheetPairs)
             {
                 PatchWorksheetPart(
                     pair.Preserved,
                     pair.Generated,
-                    preserveConditionalFormatting);
+                    preserveConditionalFormatting,
+                    differentialStyleMap);
             }
 
             SavePartXml(
                 preservedWorkbookPart,
                 preservedWorkbookXml);
-            PatchStyles(
-                preservedWorkbookPart,
-                generatedWorkbookPart,
-                preserveConditionalFormatting);
             NeraOpenXmlStyleStateCodec.Write(
                 preservedWorkbookPart,
                 workbook);
@@ -197,7 +201,8 @@ internal static class OpenXmlPackagePreserver
     private static void PatchWorksheetPart(
         WorksheetPart preservedPart,
         WorksheetPart generatedPart,
-        bool preserveConditionalFormatting)
+        bool preserveConditionalFormatting,
+        IReadOnlyDictionary<uint, uint>? differentialStyleMap)
     {
         var preservedXml = LoadPartXml(preservedPart);
         var generatedXml = LoadPartXml(generatedPart);
@@ -212,6 +217,18 @@ internal static class OpenXmlPackagePreserver
         {
             throw new InvalidDataException(
                 "The XLSX package contains invalid worksheet markup.");
+        }
+        if (!preserveConditionalFormatting && differentialStyleMap is not null)
+        {
+            foreach (var rule in generatedRoot.Descendants(SpreadsheetNamespace + "cfRule"))
+            {
+                var attribute = rule.Attribute("dxfId");
+                if (attribute is null) continue;
+                if (!uint.TryParse(attribute.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var generatedId) ||
+                    !differentialStyleMap.TryGetValue(generatedId, out var outputId))
+                    throw new InvalidDataException("A generated conditional rule references an unavailable differential style.");
+                attribute.Value = outputId.ToString(CultureInfo.InvariantCulture);
+            }
         }
 
         ReplaceOwnedElements(
@@ -271,6 +288,19 @@ internal static class OpenXmlPackagePreserver
         SavePartXml(
             preservedStylesPart,
             preservedXml);
+    }
+
+    private static bool ContainsTableDifferentialStyleReferences(WorkbookPart workbookPart)
+    {
+        var styleRoot = workbookPart.WorkbookStylesPart is { } styles ? LoadPartXml(styles).Root : null;
+        var count = styleRoot?.Element(SpreadsheetNamespace + "dxfs")?.Elements(SpreadsheetNamespace + "dxf").Count() ?? 0;
+        var found = false;
+        foreach (var tablePart in workbookPart.WorksheetParts.SelectMany(sheet => sheet.TableDefinitionParts))
+        {
+            var root = LoadPartXml(tablePart).Root ?? throw new InvalidDataException("A preserved Table definition is empty.");
+            found |= OpenXmlTableCodec.ValidateDifferentialStyleReferences(root, count);
+        }
+        return found;
     }
 
     private static bool ContainsUnsupportedConditionalFormatting(
