@@ -140,6 +140,7 @@ public sealed class WpfRibbonVisualRegressionTests
                     .RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
                 Flush(window);
                 var popupTile = PresentationSource.CurrentSources.Cast<PresentationSource>()
+                    .Where(source => source.Dispatcher == window.Dispatcher)
                     .Select(source => source.RootVisual).OfType<FrameworkElement>()
                     .SelectMany(Descendants<ToggleButton>)
                     .Single(button => AutomationProperties.GetAutomationId(button) == "ribbon-command-table.styles-popup-choice-7");

@@ -1,6 +1,7 @@
 using System.Runtime.ExceptionServices;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Iconography;
 using NeraSpreadSheet.Ribbon.Core;
 
 namespace NeraSpreadSheet.Windows.Rendering.Tests;
@@ -10,6 +11,71 @@ namespace NeraSpreadSheet.Windows.Rendering.Tests;
 public sealed class DesktopRibbonCustomizationDialogSmokeTests
 {
     private static readonly TimeSpan StaTimeout = TimeSpan.FromSeconds(90d);
+
+    [TestMethod]
+    [Timeout(120_000)]
+    public void ThemedDesktopDialogsShouldApplyAndCancelCommandsSharedAcrossTabs()
+    {
+        RunInSta(() =>
+        {
+            foreach (var theme in Enum.GetValues<NeraIconTheme>())
+            {
+                var wpfRuntime = CreateSharedCommandRuntime();
+                var wpf = new NeraSpreadSheet.Wpf.NeraRibbonCustomizationDialog(wpfRuntime)
+                {
+                    IconTheme = theme,
+                    ShowInTaskbar = false,
+                    WindowStartupLocation = System.Windows.WindowStartupLocation.Manual,
+                    Left = -32_000d,
+                    Top = -32_000d,
+                };
+                try
+                {
+                    wpf.Show();
+                    wpf.Dispatcher.Invoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, static () => { });
+                    Assert.AreEqual(2, wpf.Session.Entries.Count(entry => entry.Target.Kind == RibbonCustomizationTargetKind.Command && entry.Caption == "Sao chép"));
+                    wpf.SelectedTarget = RibbonCustomizationTarget.Command("home", "clipboard", "edit.copy");
+                    Assert.IsTrue(wpf.SetSelectedVisible(false));
+                    wpf.ApplyCustomization();
+                    Assert.IsTrue(wpf.SetSelectedVisible(true));
+                    wpf.CancelCustomization();
+                    Assert.AreEqual(1, wpfRuntime.Snapshot.Tabs.SelectMany(static tab => tab.Groups).SelectMany(static group => group.Items).Count());
+                    Assert.AreEqual("Sao chép", wpfRuntime.Snapshot.Tabs.SelectMany(static tab => tab.Groups).SelectMany(static group => group.Items).Single().Command.Caption);
+                }
+                finally { wpf.Close(); }
+
+                var winRuntime = CreateSharedCommandRuntime();
+                using var win = new NeraSpreadSheet.WinForms.NeraRibbonCustomizationDialog(winRuntime)
+                {
+                    IconTheme = theme,
+                    ShowInTaskbar = false,
+                    StartPosition = System.Windows.Forms.FormStartPosition.Manual,
+                    Location = new System.Drawing.Point(-32_000, -32_000),
+                };
+                win.Show();
+                System.Windows.Forms.Application.DoEvents();
+                Assert.AreEqual(2, win.Session.Entries.Count(entry => entry.Target.Kind == RibbonCustomizationTargetKind.Command && entry.Caption == "Sao chép"));
+                win.SelectedTarget = RibbonCustomizationTarget.Command("home", "clipboard", "edit.copy");
+                Assert.IsTrue(win.SetSelectedVisible(false));
+                win.ApplyCustomization();
+                Assert.IsTrue(win.SetSelectedVisible(true));
+                win.CancelCustomization();
+                Assert.AreEqual(1, winRuntime.Snapshot.Tabs.SelectMany(static tab => tab.Groups).SelectMany(static group => group.Items).Count());
+                Assert.AreNotEqual(win.BackColor, win.ForeColor);
+                win.Close();
+            }
+        });
+    }
+
+    private static RibbonRuntimeController CreateSharedCommandRuntime()
+    {
+        var registry = new CommandRegistry();
+        registry.Register(new CommandDescriptor("edit.copy", "Sao chép"), new EnabledHandler());
+        return new RibbonRuntimeController(new RibbonDefinition([
+            new RibbonTabDefinition("home", "Trang đầu", [new RibbonGroupDefinition("clipboard", "Bảng tạm", [new RibbonItemDefinition("edit.copy")])]),
+            new RibbonTabDefinition("insert", "Chèn", [new RibbonGroupDefinition("clipboard", "Bảng tạm", [new RibbonItemDefinition("edit.copy")])]),
+        ]), registry);
+    }
 
     [TestMethod]
     [Timeout(120_000)]

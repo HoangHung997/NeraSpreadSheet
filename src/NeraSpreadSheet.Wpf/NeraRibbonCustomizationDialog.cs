@@ -24,6 +24,7 @@ public sealed class NeraRibbonCustomizationDialog : Window
     private readonly TextBlock _selectionCaption = new();
     private bool _refreshing;
     private bool _accepted;
+    private bool _initialized;
     private NeraIconTheme _iconTheme;
 
     public NeraRibbonCustomizationDialog(RibbonRuntimeController runtime)
@@ -62,6 +63,7 @@ public sealed class NeraRibbonCustomizationDialog : Window
         _search.TextChanged += (_, _) => RefreshCatalog();
         RefreshEntries();
         RefreshCatalog();
+        _initialized = true;
     }
 
     public RibbonCustomizationSession Session { get; }
@@ -346,7 +348,7 @@ public sealed class NeraRibbonCustomizationDialog : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        if (!_accepted) CancelCustomization();
+        if (_initialized && !_accepted) CancelCustomization();
         base.OnClosed(e);
     }
 
@@ -380,6 +382,7 @@ public sealed class NeraRibbonCustomizationDialog : Window
         var captions = snapshot.Tabs
             .SelectMany(static tab => tab.Groups)
             .SelectMany(static group => group.Items)
+            .DistinctBy(static item => item.Command.CommandId.Value, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 item => item.Command.CommandId.Value,
                 item => item.Command.Caption,

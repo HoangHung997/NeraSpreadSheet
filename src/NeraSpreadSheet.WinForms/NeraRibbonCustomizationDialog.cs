@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Iconography;
 using NeraSpreadSheet.Ribbon.Core;
 
 namespace NeraSpreadSheet.WinForms;
@@ -20,6 +21,8 @@ public sealed class NeraRibbonCustomizationDialog : Form
     private readonly Label _selectionDetails = new() { AutoSize = true, ForeColor = Color.FromArgb(98, 109, 119), Padding = new Padding(0, 6, 0, 6) };
     private bool _refreshing;
     private bool _accepted;
+    private bool _initialized;
+    private NeraIconTheme _iconTheme;
 
     public NeraRibbonCustomizationDialog(RibbonRuntimeController runtime)
         : this(runtime, null)
@@ -55,11 +58,26 @@ public sealed class NeraRibbonCustomizationDialog : Form
         RefreshEntries();
         _search.TextChanged += (_, _) => RefreshCatalog();
         RefreshCatalog();
+        ApplyTheme();
+        _initialized = true;
     }
 
     [Browsable(false)]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public RibbonCustomizationSession Session { get; }
+
+    /// <summary>Gets or sets the shared Ribbon chrome palette used by this dialog.</summary>
+    [DefaultValue(NeraIconTheme.Light)]
+    public NeraIconTheme IconTheme
+    {
+        get => _iconTheme;
+        set
+        {
+            if (_iconTheme == value) return;
+            _iconTheme = value;
+            ApplyTheme();
+        }
+    }
 
     [Browsable(false)]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -259,7 +277,7 @@ public sealed class NeraRibbonCustomizationDialog : Form
 
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
-        if (!_accepted) CancelCustomization();
+        if (_initialized && !_accepted) CancelCustomization();
         base.OnFormClosed(e);
     }
 
@@ -313,8 +331,7 @@ public sealed class NeraRibbonCustomizationDialog : Form
         var captions = snapshot.Tabs
             .SelectMany(static tab => tab.Groups)
             .SelectMany(static group => group.Items)
-            .GroupBy(static item => item.Command.CommandId.Value, StringComparer.OrdinalIgnoreCase)
-            .Select(static group => group.First())
+            .DistinctBy(static item => item.Command.CommandId.Value, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 item => item.Command.CommandId.Value,
                 item => item.Command.Caption,
@@ -338,6 +355,26 @@ public sealed class NeraRibbonCustomizationDialog : Form
         finally
         {
             _catalog.EndUpdate();
+        }
+    }
+
+    private void ApplyTheme()
+    {
+        var palette = NeraWinFormsRibbonPalette.For(IconTheme);
+        Apply(this);
+        _selectionDetails.ForeColor = palette.Muted;
+
+        void Apply(Control control)
+        {
+            control.BackColor = control is TextBoxBase or ListBox ? palette.Surface : palette.Chrome;
+            control.ForeColor = palette.Text;
+            if (control is Button button)
+            {
+                button.FlatAppearance.BorderColor = palette.Separator;
+                button.FlatAppearance.MouseOverBackColor = palette.Hover;
+                button.FlatAppearance.MouseDownBackColor = palette.Pressed;
+            }
+            foreach (Control child in control.Controls) Apply(child);
         }
     }
 
