@@ -103,7 +103,7 @@ try {
         if ($RunAndroidNative) {
             & bash (Join-Path $mauiRoot 'scripts/run-maui-android-smoke.sh') $mauiAppPath $mauiBundleId 'NeraPackagedMauiSmoke' 'NERA_PACKAGED_MAUI_SMOKE:' $mauiNativeResult
         } else {
-            & bash (Join-Path $mauiRoot 'scripts/run-maui-ios-smoke.sh') $mauiAppPath $mauiBundleId 'NERA_PACKAGED_MAUI_SMOKE:' $mauiNativeResult
+            & bash (Join-Path $mauiRoot 'scripts/run-maui-ios-smoke.sh') $mauiAppPath $mauiBundleId 'NERA_PACKAGED_MAUI_SMOKE:' $mauiNativeResult 'app-file-v1'
         }
         if ($LASTEXITCODE -ne 0) { throw "$Platform native package transport failed." }
         & python $mauiVerifier verify-runtime --result $mauiNativeResult --build (Join-Path $mauiOutput 'build-manifest.json')
