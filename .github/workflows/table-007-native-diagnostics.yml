@@ -130,6 +130,90 @@ jobs:
         if: ${{ !cancelled() && steps.baseline_build.outcome == 'success' && steps.candidate_build.outcome == 'success' }}
         shell: bash
         run: python3 ./scripts/inspect-table007-apple-registrar.py
+      - name: Checkout same-source baseline-dispatch diagnostic partition
+        id: variant_checkout
+        if: ${{ !cancelled() && steps.candidate_build.outcome == 'success' }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: baseline-dispatch-variant
+      - name: Apply only the approved dispatcher-only page patch
+        id: variant_prepare
+        if: ${{ !cancelled() && steps.variant_checkout.outcome == 'success' }}
+        working-directory: baseline-dispatch-variant
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          import subprocess
+          page = 'tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/SmokePage.cs'
+          before = subprocess.check_output(['git', 'hash-object', page], text=True).strip()
+          if before != '89bc459fa5c86b523e96bcd22f19a496e2151df6':
+              raise SystemExit('The current page differs from the frozen proposal; a revised grant is required.')
+          path = Path('../scripts/table007-baseline-dispatch-partition.patch')
+          expected = '6996d3c42d01f96423698ece2b03c4f9ae123c188036eb41b190357698eb01e5'
+          if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+              raise SystemExit('The approved baseline-dispatch patch hash differs.')
+          print('Approved baseline-dispatch patch SHA256: ' + expected)
+          PY
+          git apply --check ../scripts/table007-baseline-dispatch-partition.patch
+          git apply ../scripts/table007-baseline-dispatch-partition.patch
+          python3 - <<'PY'
+          import subprocess
+          page = 'tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/SmokePage.cs'
+          if subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines() != [page]:
+              raise SystemExit('The baseline-dispatch partition modified unexpected paths.')
+          after = subprocess.check_output(['git', 'hash-object', page], text=True).strip()
+          if after != '0ff170b2483d5137b7e8518fdbb3e2d59d2f42c5':
+              raise SystemExit('The variant page does not match the exact approved intermediate blob.')
+          print('Variant page matches the exact approved intermediate blob: ' + after)
+          PY
+          git diff --check
+          git diff -- tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/SmokePage.cs
+          git -C .. diff --exit-code
+      - name: Build baseline-dispatch variant with unchanged baseline analytics assertions
+        id: variant_build
+        if: ${{ !cancelled() && steps.variant_prepare.outcome == 'success' }}
+        working-directory: baseline-dispatch-variant
+        run: dotnet build tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke.csproj -c Release -f net10.0-maccatalyst -r "$NERA_MACCATALYST_SMOKE_RID" -p:NeraMauiTargetFrameworks=net10.0-maccatalyst
+      - name: Record bounded generated metadata for the baseline-dispatch partition
+        id: variant_audit
+        if: ${{ !cancelled() && steps.variant_build.outcome == 'success' }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import runpy
+          module = runpy.run_path('scripts/inspect-table007-apple-registrar.py')
+          checkout = Path('baseline-dispatch-variant').resolve()
+          report = module['cohort_report'](checkout, os.environ['NERA_MACCATALYST_SMOKE_RID'])
+          if report['sourceSha'] != '${{ github.sha }}':
+              raise SystemExit('The variant source is not the expected current candidate.')
+          output = {'diagnosticOnly': True, 'baselineDispatchPartition': True,
+                    'editorAcceptance': False, 'cohorts': {'baseline-dispatch-variant': report}}
+          print(module['bounded_json'](output))
+          if report['registrarMetadata'] != 'available':
+              raise SystemExit('Generated class metadata is unavailable for the baseline-dispatch partition.')
+          PY
+      - name: Run baseline-dispatch partition with current runner
+        id: variant_run
+        if: ${{ !cancelled() && steps.variant_audit.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="baseline-dispatch-variant/tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/bin/Release/net10.0-maccatalyst/$NERA_MACCATALYST_SMOKE_RID"
+          RESULT="$RUNNER_TEMP/nera-maccatalyst-baseline-dispatch-variant-smoke.json"
+          APP="$(find "$ROOT" -type d -name 'NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke.app' | head -n 1 || true)"
+          if [ -z "$APP" ]; then
+            echo "Mac baseline-dispatch diagnostic app bundle was not produced."
+            exit 1
+          fi
+          git diff --exit-code
+          bash ./scripts/run-maui-maccatalyst-smoke.sh "$APP" "$RESULT"
       - name: Record paired Mac Catalyst outcomes
         if: always()
         shell: bash
@@ -140,4 +224,8 @@ jobs:
           Baseline build/run: ${{ steps.baseline_build.outcome }} / ${{ steps.baseline_run.outcome }}
           Candidate build/run: ${{ steps.candidate_build.outcome }} / ${{ steps.candidate_run.outcome }}
           Baseline comparison does not replace candidate acceptance. Every failed step retains job failure.
+          Baseline-page partition source: ${{ github.sha }}; patch 6996d3c42d01f96423698ece2b03c4f9ae123c188036eb41b190357698eb01e5.
+          Variant build/metadata/run: ${{ steps.variant_build.outcome }} / ${{ steps.variant_audit.outcome }} / ${{ steps.variant_run.outcome }}
+          Variant adds only the awaited Dispatcher Action boundary to the passing baseline page. It has no editor phase and is not TABLE007 editor acceptance or release evidence.
+          Original candidate failures remain failures regardless of this diagnostic variant outcome.
           SUMMARY

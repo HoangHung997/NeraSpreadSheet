@@ -1,0 +1,121 @@
+diff --git a/tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/SmokePage.cs b/tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/SmokePage.cs
+index 89bc459fa5c86b523e96bcd22f19a496e2151df6..0ff170b2483d5137b7e8518fdbb3e2d59d2f42c5 100644
+--- a/tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/SmokePage.cs
++++ b/tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/SmokePage.cs
+@@ -1,6 +1,4 @@
+ using System.Text.Json;
+-using System.Runtime.InteropServices;
+-using System.Runtime.CompilerServices;
+ using Foundation;
+ using Microsoft.Maui.Controls;
+ using Microsoft.Maui.Dispatching;
+@@ -29,8 +27,6 @@
+     private readonly Grid _host = new();
+     private readonly Workbook _workbook = CreateWorkbook();
+     private NeraSpreadsheetView? _view;
+-    private NeraSpreadsheetEditorHost? _editorHost;
+-    private bool _editorVerified;
+     private SpreadsheetAnalyticsItemKey _chartItem;
+     private SpreadsheetAnalyticsItemKey _pivotItem;
+     private int _frameCount;
+@@ -41,7 +37,6 @@
+ 
+     public SmokePage()
+     {
+-        CaptureNativeStandardError();
+         SmokeTrace.Append("smoke-page-constructor-enter");
+         Title = "Nera Mac Catalyst analytics accessibility smoke";
+         Content = _host;
+@@ -81,33 +76,6 @@
+         SmokeTrace.Append("smoke-page-constructor-success");
+     }
+ 
+-    private static void CaptureNativeStandardError()
+-    {
+-        var runKey = Environment.GetEnvironmentVariable("NERA_MAUI_NATIVE_STDERR_RUN");
+-        if (string.IsNullOrEmpty(runKey)) return;
+-        Require(Guid.TryParseExact(runKey, "D", out _), "The native diagnostic run key is invalid.");
+-        var resultPath = Environment.GetEnvironmentVariable("NERA_MAUI_SMOKE_RESULT");
+-        Require(!string.IsNullOrEmpty(resultPath), "The native diagnostic result directory is missing.");
+-        var directory = Path.GetDirectoryName(resultPath!)
+-            ?? throw new InvalidOperationException("The native diagnostic result directory is invalid.");
+-        var fileName = $"nera-native-stderr-{runKey}-{Environment.ProcessId}.log";
+-        using var output = new FileStream(Path.Combine(directory, fileName), new FileStreamOptions
+-        {
+-            Mode = FileMode.CreateNew,
+-            Access = FileAccess.Write,
+-            Share = FileShare.ReadWrite | FileShare.Delete,
+-            UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
+-        });
+-        output.Write(System.Text.Encoding.ASCII.GetBytes($"NERA_NATIVE_STDERR_V1:{Environment.ProcessId}:{runKey}\n"));
+-        output.Flush();
+-        Require(DuplicateDescriptor(output.SafeFileHandle.DangerousGetHandle().ToInt32(), 2) == 2,
+-            "The native diagnostic stderr descriptor could not be redirected.");
+-        SmokeTrace.Append("native-stderr-capture-installed");
+-    }
+-
+-    [DllImport("/usr/lib/libSystem.dylib", EntryPoint = "dup2", SetLastError = true)]
+-    private static extern int DuplicateDescriptor(int source, int destination);
+-
+     public void Dispose()
+     {
+         if (_disposed)
+@@ -117,9 +85,6 @@
+ 
+         _disposed = true;
+         Loaded -= OnLoaded;
+-        _editorHost?.Dispose();
+-        if (_editorHost is not null) _host.Children.Remove(_editorHost);
+-        _editorHost = null;
+         if (_view is { } view)
+         {
+             view.Loaded -= OnViewLoaded;
+@@ -233,17 +198,11 @@
+             var session = view.Session
+                 ?? throw new InvalidOperationException(
+                     "The Mac Catalyst analytics smoke lost its session before analytics creation.");
+-            // The first GPU paint can run while UIKit is still attaching the
+-            // native window. Open/focus controls after that paint stack unwinds.
+-            Task? editorPhase = null;
++            // Diagnostic only: the original awaited Action boundary without editor execution.
+             await view.Dispatcher.DispatchAsync(() =>
+             {
+-                SmokeTrace.Append("table-editor-dispatch-action-enter");
+-                editorPhase = RunEditorPhaseAsync(view);
++                SmokeTrace.Append("table-editor-partition-dispatch-enter");
+             });
+-            Require(editorPhase is not null, "The dispatched editor phase did not start.");
+-            await editorPhase!;
+-            _editorVerified = true;
+             var sourceRange = new CellRange(
+                 new CellAddress(0, 0),
+                 new CellAddress(3, 1));
+@@ -278,19 +237,6 @@
+             SmokeTrace.Append($"analytics-create-catch:{exception.GetType().FullName}");
+             Fail(exception);
+         }
+-    }
+-
+-    [MethodImpl(MethodImplOptions.NoInlining)]
+-    private async Task RunEditorPhaseAsync(NeraSpreadsheetView view)
+-    {
+-        SmokeTrace.Append("table-editor-host-attach-enter");
+-        _host.Children.Remove(view);
+-        SmokeTrace.Append("table-editor-bare-view-removed");
+-        _editorHost = new NeraSpreadsheetEditorHost(view);
+-        SmokeTrace.Append("table-editor-host-created");
+-        _host.Children.Add(_editorHost);
+-        SmokeTrace.Append("table-editor-host-attach-returned");
+-        await Table007EditorSmoke.RunAsync(_editorHost);
+     }
+ 
+     private void ValidateNativeAccessibility(NeraSpreadsheetView view)
+@@ -351,8 +297,6 @@
+         Complete(new
+         {
+             status = "success",
+-            table007Editor = _editorVerified,
+-            table007NativeKeys = "UIKit InsertText Enter and marked-text guard; hardware keys pending",
+             frameCount = _frameCount,
+             nativeElementCount = nativeElements.Length,
+             chart = DescribeNativeElement(chart),

@@ -400,6 +400,21 @@
   git apply --check PASS. NếuFAIL: async dispatch/control-flow/reachability đủ
   tái hiện mà không editor phase; nếuPASS: editor-related roots/body vẫn OPEN.
   Cả hai không thay editor acceptance; chỉ chạy khi root cấp đúng patch mới.
-- Bước tiếp theo duy nhất: nhận quyết định root về prepared dispatcher-only
-  baseline-page partition; giữ21 desktop paths frozen và wholeB HOLD, không
-  tự mở thêm variant hoặc bật runtime flags.
+- Root đã đọc JSON/patch đầy đủ và cấp ONE baseline-dispatch-only partition mới
+  đúng SHA6996d3c4/before89bc459f/after0ff170b2; original baseline/candidate chạy
+  trước và failures giữFAIL. Native class/product/SDK/runner không đổi, metadata
+  bounded trước launch; không editor phase/acceptance, flags/linking/retry mới.
+  Đã đóng variant7fa tại local closure1f67e369 trước bước này.
+- Dispatcher-only checks PASS: original Windows/baseline/candidate workflow
+  prefix byte-equal approved normal workflow; frozen before/hash/after/path
+  positive+negative guards,3 Python/7 Bash blocks syntax, exact patch application
+  check. Original src/tests không đổi; architecture result vẫn áp dụng. Build/
+  runtime validation dành cho hosted CI, chưa suy PASS từ static checks.
+- Primary source MAUI10.0.20: [DispatcherExtensions](https://raw.githubusercontent.com/dotnet/maui/10.0.20/src/Core/src/Dispatching/DispatcherExtensions.cs)
+  triển khai Action overload qua TaskCompletionSource-backed Dispatcher.Dispatch;
+  [Apple Dispatcher](https://raw.githubusercontent.com/dotnet/maui/10.0.20/src/Core/src/Dispatching/Dispatcher.iOS.cs)
+  enqueue qua CoreFoundation DispatchQueue.DispatchAsync. Đây là implementation
+  context cho partition, không phải bằng chứng nguyên nhân native failure.
+- Bước tiếp theo duy nhất: chạy approved dispatcher-only partition trong narrow
+  native CI và đọc entry marker/generated metadata/runtime outcomes; giữ21 desktop
+  paths frozen và wholeB HOLD, không tự mở thêm variant hoặc bật runtime flags.
