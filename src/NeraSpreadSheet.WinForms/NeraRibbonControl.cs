@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Iconography;
 using NeraSpreadSheet.Ribbon.Core;
 
@@ -25,6 +26,7 @@ public sealed class NeraRibbonControl : UserControl
     private readonly ToolTip _toolTip = new();
     private readonly List<ContextMenuStrip> _overflowMenus = [];
     private readonly List<IDisposable> _shortcutBindings = [];
+    private readonly List<IDisposable> _tableDesignBindings = [];
     private Func<string, Image?>? _iconResolver;
     private Func<NeraIconRequest, Image?>? _iconRequestResolver;
     private NeraIconTheme _iconTheme = NeraIconTheme.Light;
@@ -215,6 +217,18 @@ public sealed class NeraRibbonControl : UserControl
         return binding;
     }
 
+    /// <summary>Binds contextual Table Design visibility to a spreadsheet session.</summary>
+    public IDisposable BindTableDesign(SpreadsheetSession session)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var binding = new NeraWinFormsTableDesignRibbonBinding(
+            session,
+            _runtime,
+            this);
+        _tableDesignBindings.Add(binding);
+        return binding;
+    }
+
     public ValueTask<bool> TryActivateShortcutAsync(string shortcut) =>
         _runtime.TryActivateShortcutAsync(shortcut);
 
@@ -325,6 +339,11 @@ public sealed class NeraRibbonControl : UserControl
                 binding.Dispose();
             }
             _shortcutBindings.Clear();
+            foreach (var binding in _tableDesignBindings)
+            {
+                binding.Dispose();
+            }
+            _tableDesignBindings.Clear();
             foreach (var menu in _overflowMenus)
             {
                 menu.Dispose();

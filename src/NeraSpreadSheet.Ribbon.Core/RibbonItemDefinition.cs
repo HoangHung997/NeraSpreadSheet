@@ -105,4 +105,4 @@ public sealed record RibbonItemDefinition(
 /// <summary>Structured activation payload for a selectable Ribbon item.</summary>
 public sealed record RibbonItemActivation(
     string? SelectedValue,
-    object? OriginalParameter = null);
+    object? OriginalParameter = null) : ICommandItemActivation;

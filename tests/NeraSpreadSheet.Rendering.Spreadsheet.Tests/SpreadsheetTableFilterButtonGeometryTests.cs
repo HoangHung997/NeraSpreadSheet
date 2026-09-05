@@ -9,6 +9,25 @@ namespace NeraSpreadSheet.Rendering.Spreadsheet.Tests;
 public sealed class SpreadsheetTableFilterButtonGeometryTests
 {
     [TestMethod]
+    public void HiddenTableFilterButtonsShouldNotProduceGeometry()
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        worksheet.AddTable(new SpreadsheetTable(
+            Guid.NewGuid(),
+            "Sales",
+            new CellRange(default, new CellAddress(2, 0)),
+            [new SpreadsheetTableColumn(Guid.NewGuid(), "Item")],
+            showFilterButtons: false));
+
+        var buttons = SpreadsheetTableFilterButtonGeometry.GetVisibleButtons(
+            WorksheetSnapshot.Capture(worksheet),
+            CreateLayout());
+
+        Assert.AreEqual(0, buttons.Count);
+    }
+
+    [TestMethod]
     public void ReturnsOneButtonPerVisibleTableHeaderColumn()
     {
         var workbook = new Workbook();

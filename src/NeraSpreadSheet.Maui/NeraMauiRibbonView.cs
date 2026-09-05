@@ -1,5 +1,6 @@
 using Microsoft.Maui.Controls;
 using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Iconography;
 using NeraSpreadSheet.Ribbon.Core;
 
@@ -27,6 +28,7 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
     private readonly Dictionary<VisualElement, RibbonFocusIdentity> _focusIdentities = [];
     private readonly Dictionary<VisualElement, string> _keyTipFocusElements = [];
     private readonly List<IDisposable> _shortcutBindings = [];
+    private readonly List<IDisposable> _tableDesignBindings = [];
     private Func<string, ImageSource?>? _iconResolver;
     private Func<NeraIconRequest, ImageSource?>? _iconRequestResolver;
     private NeraIconTheme _iconTheme = NeraIconTheme.Light;
@@ -261,6 +263,18 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
         return binding;
     }
 
+    /// <summary>Binds contextual Table Design visibility to a spreadsheet session.</summary>
+    public IDisposable BindTableDesign(SpreadsheetSession session)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var binding = new NeraMauiTableDesignRibbonBinding(
+            session,
+            _runtime,
+            Dispatcher);
+        _tableDesignBindings.Add(binding);
+        return binding;
+    }
+
     public void Rebuild()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -310,6 +324,11 @@ public sealed class NeraMauiRibbonView : ContentView, IDisposable
             binding.Dispose();
         }
         _shortcutBindings.Clear();
+        foreach (var binding in _tableDesignBindings)
+        {
+            binding.Dispose();
+        }
+        _tableDesignBindings.Clear();
         _tabStrip.Children.Clear();
         _topBar.Children.Clear();
         _backstage.Children.Clear();

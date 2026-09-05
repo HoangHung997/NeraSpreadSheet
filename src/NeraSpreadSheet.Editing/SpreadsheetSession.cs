@@ -31,6 +31,7 @@ public sealed class SpreadsheetSession
         Sort = new SpreadsheetSortController(this);
         Validation = new SpreadsheetDataValidationController(this);
         Tables = new SpreadsheetTableController(this);
+        TableDesign = new SpreadsheetTableDesignController(this);
         Analytics = new SpreadsheetAnalyticsController(this);
         AnalyticsPlacements = new SpreadsheetAnalyticsPlacementController(
             this,
@@ -57,6 +58,7 @@ public sealed class SpreadsheetSession
             this,
             Structure,
             AxisVisibility);
+        SpreadsheetTableCommandCatalog.Register(Commands, this);
         SpreadsheetAnalyticsCommandCatalog.Register(
             Commands,
             Analytics);
@@ -85,6 +87,9 @@ public sealed class SpreadsheetSession
     public SpreadsheetDataValidationController Validation { get; }
 
     public SpreadsheetTableController Tables { get; }
+
+    /// <summary>Gets the shared contextual Table Design state and command facade.</summary>
+    public SpreadsheetTableDesignController TableDesign { get; }
 
     public SpreadsheetAnalyticsController Analytics { get; }
 
@@ -281,6 +286,16 @@ public sealed class SpreadsheetSession
                 AffectsCalculation: false,
             })
         {
+            return;
+        }
+        if (operation is ISpreadsheetEditOperation dependencyEdit &&
+            operation is IDependencyGraphRebuildOperation)
+        {
+            Calculation.PrepareDependencyGraph(Workbook);
+            Calculation.RecalculateAffected(
+                Workbook,
+                dependencyEdit.Worksheet,
+                dependencyEdit.AffectedRange);
             return;
         }
         if (operation is ISpreadsheetEditOperation editOperation &&

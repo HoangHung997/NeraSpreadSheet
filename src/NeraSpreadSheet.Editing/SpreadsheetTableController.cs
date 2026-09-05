@@ -2,7 +2,7 @@ using NeraSpreadSheet.Core;
 
 namespace NeraSpreadSheet.Editing;
 
-public sealed class SpreadsheetTableController
+public sealed partial class SpreadsheetTableController
 {
     private readonly SpreadsheetSession _session;
 
@@ -77,7 +77,7 @@ public sealed class SpreadsheetTableController
                     table,
                     columnId,
                     formula);
-        Execute(new UpdateTableMetadataOperation(
+        ExecuteIncremental(new UpdateTableMetadataOperation(
             _session.ActiveWorksheet,
             table,
             replacement,
@@ -99,7 +99,7 @@ public sealed class SpreadsheetTableController
                     table,
                     columnId,
                     formula);
-        Execute(new UpdateTableMetadataOperation(
+        ExecuteIncremental(new UpdateTableMetadataOperation(
             _session.ActiveWorksheet,
             table,
             replacement,
@@ -121,7 +121,7 @@ public sealed class SpreadsheetTableController
                     table,
                     columnId,
                     label);
-        Execute(new UpdateTableMetadataOperation(
+        ExecuteIncremental(new UpdateTableMetadataOperation(
             _session.ActiveWorksheet,
             table,
             replacement,
@@ -145,7 +145,7 @@ public sealed class SpreadsheetTableController
                     columnId,
                     function,
                     customFormula);
-        Execute(new UpdateTableMetadataOperation(
+        ExecuteIncremental(new UpdateTableMetadataOperation(
             _session.ActiveWorksheet,
             table,
             replacement,
@@ -483,7 +483,7 @@ public sealed class SpreadsheetTableController
     }
 
     private sealed class RemoveTableOperation
-        : TableOperationBase
+        : TableOperationBase, IDependencyGraphRebuildOperation
     {
         private readonly Guid _tableId;
 
@@ -508,7 +508,7 @@ public sealed class SpreadsheetTableController
     }
 
     private sealed class UpdateTableMetadataOperation
-        : TableOperationBase
+        : TableOperationBase, IDependencyGraphRebuildOperation
     {
         private readonly SpreadsheetTable _previous;
         private readonly SpreadsheetTable _next;
