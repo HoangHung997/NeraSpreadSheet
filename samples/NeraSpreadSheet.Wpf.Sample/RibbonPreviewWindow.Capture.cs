@@ -7,6 +7,8 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Iconography;
 using NeraSpreadSheet.Ribbon.Core;
 
@@ -19,7 +21,7 @@ public sealed partial class RibbonPreviewWindow
     /// Captures the real SDK presenter at reference widths and palettes. Export DPI
     /// is raster sampling, not a claim that the operating system changed monitor DPI.
     /// </summary>
-    public async Task CaptureMatrixAsync(string outputDirectory)
+    public async Task CaptureMatrixAsync(string outputDirectory, bool tableDesignOnly = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
         Directory.CreateDirectory(outputDirectory);
@@ -36,20 +38,24 @@ public sealed partial class RibbonPreviewWindow
         if (!await _runtime.TryActivateAsync("Edit.Undo") || _session.Styles.ActiveCellStyle.Font.Weight != before)
             throw new InvalidOperationException("Preview Undo did not restore the selected cell.");
         var tableBefore = CurrentTable ?? throw new InvalidOperationException("Preview table is not selected.");
-        if (!await _runtime.TryActivateItemAsync("Sample.TableTotals", "Average") || GetTableTotalsState().SelectedValue != "Average")
+        _session.Selection.SetActiveCell(new CellAddress(1, tableBefore.Range.Right));
+        if (!await _runtime.TryActivateItemAsync("Table.TotalsFunction", "Average") || _session.TableDesign.Snapshot.TotalsFunction != SpreadsheetTableTotalsFunction.Average)
             throw new InvalidOperationException("Preview totals state did not reflect the real table formula.");
         if (!await _runtime.TryActivateAsync("Edit.Undo") || CurrentTable?.Columns[^1].TotalsRowFormula != tableBefore.Columns[^1].TotalsRowFormula)
             throw new InvalidOperationException("Preview Undo did not restore the table formula.");
-        if (!await _runtime.TryActivateItemAsync("Sample.TableStylesPreview", "TableStyleMedium3") || CurrentTable?.StyleName != tableBefore.StyleName)
-            throw new InvalidOperationException("Visual gallery preview changed the table style.");
-        _previewStyle = tableBefore.StyleName ?? "TableStyleMedium2";
+        if (!await _runtime.TryActivateItemAsync("Table.Style", "TableStyleMedium3") || CurrentTable?.StyleName != "TableStyleMedium3")
+            throw new InvalidOperationException("Production gallery did not change the table style.");
+        if (!await _runtime.TryActivateAsync("Edit.Undo") || CurrentTable?.StyleName != tableBefore.StyleName)
+            throw new InvalidOperationException("Undo did not restore the table style.");
+        _session.Selection.SetActiveCell(selection);
+        await CaptureTableDialogSmokeAsync(outputDirectory, images);
         _runtime.Refresh();
         SetStatus("Sẵn sàng · Lệnh chỉnh sửa dùng lịch sử Hoàn tác của workbook");
-        var tabs = _runtime.Snapshot.Tabs.Select(tab => tab.Id).ToArray();
+        var tabs = _runtime.Snapshot.Tabs.Select(tab => tab.Id).Where(id => !tableDesignOnly || id == "table-design").ToArray();
         foreach (var theme in Enum.GetValues<NeraIconTheme>())
         {
             SetTheme(theme);
-            foreach (var width in new[] { 1536, 1280, 1024, 820 })
+            foreach (var width in new[] { 1920, 1600, 1280, 1024 })
             {
                 _root.Width = width;
                 Width = width + 32;
@@ -98,21 +104,44 @@ public sealed partial class RibbonPreviewWindow
                     if (width == 1280 && tabId == "table-design")
                     {
                         var more = CaptureDescendants<Button>(_ribbon).Single(button =>
-                            AutomationProperties.GetAutomationId(button) == "ribbon-command-Sample.TableStylesPreview-more");
+                            AutomationProperties.GetAutomationId(button) == "ribbon-command-Table.Style-more");
                         more.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
                         await FlushCaptureAsync();
                         var popup = PresentationSource.CurrentSources.Cast<PresentationSource>()
                             .Where(source => source.Dispatcher == Dispatcher)
                             .Select(source => source.RootVisual).OfType<FrameworkElement>()
                             .Single(root => CaptureDescendants<ToggleButton>(root).Any(button =>
-                                AutomationProperties.GetAutomationId(button) == "ribbon-command-Sample.TableStylesPreview-popup-choice-TableStyleMedium2"));
+                                AutomationProperties.GetAutomationId(button) == "ribbon-command-Table.Style-popup-choice-TableStyleMedium2"));
                         var popupName = $"{theme.ToString().ToLowerInvariant()}-gallery-more.png";
                         SaveCapture(popup, Path.Combine(outputDirectory, popupName), 1);
                         images.Add(new { file = popupName, theme = theme.ToString(), tab = "gallery-more", exportScale = 1d });
-                        more.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                        if (theme == NeraIconTheme.Light)
+                        {
+                            var history = _session.History.UndoCount;
+                            CaptureDescendants<ToggleButton>(popup).Single(button =>
+                                AutomationProperties.GetAutomationId(button) == "ribbon-command-Table.Style-popup-choice-TableStyleDark1")
+                                .RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                            await FlushCaptureAsync();
+                            if (CurrentTable?.StyleName != "TableStyleDark1" || _session.History.UndoCount != history + 1)
+                                throw new InvalidOperationException("Native gallery choice did not dispatch one style mutation.");
+                            if (!await _runtime.TryActivateAsync("Edit.Undo") || CurrentTable?.StyleName != tableBefore.StyleName)
+                                throw new InvalidOperationException("Native gallery Undo failed.");
+                            _session.Selection.SetActiveCell(new CellAddress(1, tableBefore.Range.Right));
+                            await FlushCaptureAsync();
+                            CaptureDescendants<ComboBox>(_ribbon).Single(combo =>
+                                AutomationProperties.GetAutomationId(combo) == "ribbon-command-Table.TotalsFunction").SelectedValue = "Average";
+                            await FlushCaptureAsync();
+                            if (_session.TableDesign.Snapshot.TotalsFunction != SpreadsheetTableTotalsFunction.Average ||
+                                _session.History.UndoCount != history + 1)
+                                throw new InvalidOperationException("Native totals selection did not dispatch one mutation.");
+                            if (!await _runtime.TryActivateAsync("Edit.Undo")) throw new InvalidOperationException("Native totals Undo failed.");
+                            _session.Selection.SetActiveCell(selection);
+                        }
+                        else more.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
                         await FlushCaptureAsync();
                     }
                 }
+                if (tableDesignOnly) continue;
                 CaptureDescendants<Button>(_ribbon).Single(button => AutomationProperties.GetAutomationId(button) == "ribbon-file")
                     .RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
                 await FlushCaptureAsync();
@@ -123,6 +152,7 @@ public sealed partial class RibbonPreviewWindow
                     .RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
                 await FlushCaptureAsync();
             }
+            if (tableDesignOnly) continue;
             var customization = new NeraRibbonCustomizationDialog(_runtime)
             {
                 Owner = this, IconTheme = theme, ShowInTaskbar = false, Left = -32000, Top = -32000,
@@ -140,7 +170,7 @@ public sealed partial class RibbonPreviewWindow
             finally { customization.Close(); }
         }
         var engine = new RibbonResponsiveLayoutEngine();
-        foreach (var width in new[] { 1536d, 1280d, 1024d, 820d })
+        foreach (var width in new[] { 1920d, 1600d, 1280d, 1024d, 820d })
         {
             string? baseline = null;
             foreach (var scale in new[] { 1d, 1.25, 1.5, 2d })
@@ -156,9 +186,9 @@ public sealed partial class RibbonPreviewWindow
         }
         var manifest = new
         {
-            schemaVersion = 1, status = "success", preview = "SDK commands; generated sample workbook; table styles are preview-only",
+            schemaVersion = 2, status = "success", preview = "Production Table Design commands; Nera-generated synthetic workbook",
             note = "Export scale tests raster sampling; native DPI is reported separately. Core layout is checked at 1/1.25/1.5/2.",
-            commandSmoke = "Bold/Undo; table totals/Average/Undo; gallery selection without table-style mutation", selection = selection.ToString(), images, layouts,
+            commandSmoke = "Bold/Undo; Table.TotalsFunction/Average/Undo; Table.Style/mutation/Undo; dialog cancellation/validation; Create/Rename/Resize/CalculatedColumn/CustomTotals/RemoveDuplicates/ConvertToRange with Undo", selection = selection.ToString(), images, layouts,
         };
         await File.WriteAllTextAsync(Path.Combine(outputDirectory, "manifest.json"),
             JsonSerializer.Serialize(manifest, CaptureJsonOptions));

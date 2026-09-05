@@ -40,6 +40,14 @@ public sealed class RibbonRuntimeController
     public event EventHandler? SnapshotChanged;
 
     /// <summary>
+    /// Optionally collects execution parameters on the caller's context before dispatch.
+    /// Receives the stable command ID, selected item value (or null for a primary
+    /// action), and original context. Returning null cancels without executing.
+    /// This callback is never invoked during state projection.
+    /// </summary>
+    public Func<CommandId, string?, CommandContext, ValueTask<CommandContext?>>? ActivationContextProvider { get; set; }
+
+    /// <summary>
     /// Gets the application-supplied definition before user customization.
     /// </summary>
     public RibbonDefinition Definition { get; }
@@ -138,9 +146,13 @@ public sealed class RibbonRuntimeController
             return false;
         }
 
+        var prepared = await PrepareActivationAsync(commandId, null, context);
+        if (prepared is not { } activationContext || !_visibleCommands.Contains(commandId))
+        {
+            return false;
+        }
         var executed = await _dispatcher
-            .TryExecuteAsync(commandId, context)
-            .ConfigureAwait(false);
+            .TryExecuteAsync(commandId, activationContext);
         if (executed)
         {
             Publish(EffectiveDefinition, context);
@@ -163,15 +175,20 @@ public sealed class RibbonRuntimeController
             return false;
         }
 
-        var activationContext = context with
+        var prepared = await PrepareActivationAsync(commandId, selectedValue, context);
+        if (prepared is not { } preparedContext ||
+            !TryResolveSelectableLeaf(commandId, selectedValue, out _))
+        {
+            return false;
+        }
+        var activationContext = preparedContext with
         {
             Parameter = new RibbonItemActivation(
                 selectedValue,
-                context.Parameter),
+                preparedContext.Parameter),
         };
         var executed = await _dispatcher
-            .TryExecuteAsync(commandId, activationContext)
-            .ConfigureAwait(false);
+            .TryExecuteAsync(commandId, activationContext);
         if (executed)
         {
             // Command state belongs to the workbook/host context. The structured
@@ -179,6 +196,21 @@ public sealed class RibbonRuntimeController
             Publish(EffectiveDefinition, context);
         }
         return executed;
+    }
+
+    private async ValueTask<CommandContext?> PrepareActivationAsync(
+        CommandId commandId, string? selectedValue, CommandContext context)
+    {
+        context.CancellationToken.ThrowIfCancellationRequested();
+        if (!_dispatcher.QueryState(commandId, context).IsEnabled)
+        {
+            return null;
+        }
+        var prepared = ActivationContextProvider is { } provider
+            ? await provider(commandId, selectedValue, context)
+            : context;
+        context.CancellationToken.ThrowIfCancellationRequested();
+        return prepared;
     }
 
     /// <summary>

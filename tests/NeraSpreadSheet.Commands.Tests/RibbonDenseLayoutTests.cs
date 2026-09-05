@@ -261,14 +261,12 @@ public sealed class RibbonDenseLayoutTests
     }
 
     [TestMethod]
-    public void ProductionDefinitionShouldReserveLargeChromeForFivePrimaryCommandsAndRetainCatalog()
+    public void ProductionDefinitionShouldReservePrimaryChromeAndRetainExactSessionCatalog()
     {
         var definition = RibbonProductionCommandCatalog.CreateDefaultDefinition();
         var items = definition.Tabs.SelectMany(static tab => tab.Groups)
             .SelectMany(static group => group.Items).ToArray();
-        CommandId[] expectedLarge = ["Edit.Paste", "Insert.Chart.Column", "Insert.Pivot.Sum", "Formula.RecalculateWorkbook", "View.FreezePanes"];
-        Assert.AreEqual(5, items.Count(static item => item.IsLarge));
-        Assert.AreEqual(25, items.Count(static item => !item.IsLarge));
+        CommandId[] expectedLarge = ["Edit.Paste", "Insert.Chart.Column", "Insert.Pivot.Sum", "Formula.RecalculateWorkbook", "View.FreezePanes", "Table.Rename", "Table.Style"];
         CollectionAssert.AreEquivalent(expectedLarge, items.Where(static item => item.IsLarge)
             .Select(static item => item.CommandId).ToArray());
         CollectionAssert.AreEquivalent(RibbonProductionCommandCatalog.CommandIds.ToArray(),

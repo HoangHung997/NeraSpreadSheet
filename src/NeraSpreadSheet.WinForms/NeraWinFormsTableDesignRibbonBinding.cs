@@ -43,10 +43,13 @@ public sealed class NeraWinFormsTableDesignRibbonBinding : IDisposable
         {
             return;
         }
-        var snapshot = _tableDesign.Refresh();
-        void Apply() => _ribbon.SetSelectionContext(new RibbonSelectionContext(
-            snapshot.HasSelection,
-            snapshot.IsInTable));
+        void Apply()
+        {
+            if (_disposed || _owner.IsDisposed) return;
+            var snapshot = _tableDesign.Snapshot;
+            _ribbon.SetSelectionContext(new RibbonSelectionContext(
+                snapshot.HasSelection, snapshot.IsInTable));
+        }
         if (_owner.IsHandleCreated && _owner.InvokeRequired)
         {
             _owner.BeginInvoke(Apply);

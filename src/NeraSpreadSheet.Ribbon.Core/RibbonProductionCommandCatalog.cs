@@ -29,7 +29,11 @@ public static class RibbonProductionCommandCatalog
     ]);
 
     /// <summary>Creates the complete built-in command placement used for audit and host bootstrap.</summary>
-    public static RibbonDefinition CreateDefaultDefinition() => new(
+    public static RibbonDefinition CreateDefaultDefinition() => CreateDefaultDefinition(null);
+
+    /// <summary>Creates production placement with optional host-supplied style thumbnails.</summary>
+    public static RibbonDefinition CreateDefaultDefinition(
+        Func<CommandItem, RibbonGalleryPreview?>? tableStylePreview) => new(
         [
             CreateTab("home", "Trang đầu", "clipboard", "Bảng tạm",
                 "Edit.Paste", "Edit.Cut", "Edit.Copy", "Edit.Undo", "Edit.Redo"),
@@ -65,7 +69,7 @@ public static class RibbonProductionCommandCatalog
                     new RibbonItemDefinition(
                         "Table.Style",
                         RibbonItemKind.Gallery,
-                        isLarge: true)]),
+                        isLarge: true) { GalleryPreview = tableStylePreview }]),
                 new RibbonGroupDefinition("table-formulas", "Công thức", [
                     Item("Table.CalculatedColumn"),
                     new RibbonItemDefinition(
