@@ -1,5 +1,21 @@
 # Đợt song song Table/Ribbon — 05/09/2026
 
+## Cập nhật tích hợp
+
+Hai task đã bàn giao source final: A `d283a55b`, B `7f73a97d`; coordinator
+đã kiểm tra đủ ba workflow/mọi job xanh cho từng source. Đã lấy sáu commit A
+rồi chỉ ba commit sau `cf923db2` của B vào integration, không conflict.
+Combined implementation `e29acb44` bổ sung regression và native dialog smoke
+cho giá trị Convert-to-range. Build/tests local và đủ ba combined exact-head
+gates đã xanh tại `e29acb44`: full `33953936497`, iOS `33953936520`, Q003C
+`33953936475`. TABLE-005/TABLE-RIBBON-012 đóng defined scope; tài liệu cuối
+cũng phải xanh tại SHA của nó, theo
+[integration worklog](TABLE_RIBBON_INTEGRATION_20260905.md).
+Từ lúc bàn giao, coordinator sở hữu sửa integration; không còn hai writer đang
+chạy trên các file lane. Các mục ACTIVE bên dưới là lịch sử dispatch, không
+phải trạng thái hiện tại. TABLE-006 chỉ bàn giao headless scope; native UX và
+producer corpus vẫn là công việc chưa đóng. Không mở thêm task trong lượt này.
+
 ## Quyết định và mốc xuất phát
 
 Theo yêu cầu người dùng, mở đúng hai task worktree riêng với
@@ -113,5 +129,5 @@ thay đổi code hoặc lịch sử main. Các attempt thất bại không có t
 
 ## Bước tiếp theo duy nhất
 
-Kiểm tra handoff của lane A trước, rồi chỉ delta sau `cf923db2` của lane B;
-không mở thêm checkpoint phụ thuộc trước cổng tích hợp xanh.
+Xác minh ba workflow và mọi job ở đúng HEAD tích hợp cuối, cập nhật bàn giao
+trên PR #1; không mở thêm checkpoint phụ thuộc trước cổng tích hợp xanh.

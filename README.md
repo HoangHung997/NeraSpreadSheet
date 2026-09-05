@@ -34,5 +34,5 @@ dotnet run --project samples/NeraSpreadSheet.Wpf.Sample -- --ribbon-preview
 ./scripts/capture-ribbon-visual.ps1
 ```
 
-Phạm vi, command thật và giới hạn Table Style preview được ghi trong
+Phạm vi và command thật được ghi trong
 [Ribbon visual contract](docs/ribbon-visual-contract.md).

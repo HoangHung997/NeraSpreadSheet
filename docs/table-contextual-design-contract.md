@@ -56,7 +56,9 @@ registry hoặc `SpreadsheetSession.Tables`.
 - Insert column giữ ID cũ, sinh đúng một ID mới và remap sort/filter offsets.
 - Delete column giữ ID của các cột còn lại và từ chối nếu formula cell hoặc
   Table formula metadata nào tham chiếu trực tiếp cột đó.
-- Convert-to-range bỏ metadata nhưng giữ cell values, formulas và styles.
+- Convert-to-range bỏ metadata nhưng giữ cell values và styles; TABLE-006
+  chuyển structured references của Table đích thành A1 trước khi xóa metadata.
+  Formula text có thể đổi để giữ nghĩa; Undo phục hồi tham chiếu Table ban đầu.
 - Remove-duplicates ổn định theo thứ tự nguồn và nhận column IDs, không index
   tạm thời.
 
@@ -91,6 +93,10 @@ bị tách hay đổi nghĩa tự động. Freeze/split, dimensions và scroll o
 - Sau mutation thay topology Table, dependency graph được chuẩn bị lại rồi chỉ
   `RecalculateAffected` trên union range và transitive dependents. Undo/Redo dùng
   cùng contract; không full-workbook recalculation cho TABLE-005 path.
+- Convert-to-range dùng cùng formula-rewrite transaction trên workbook và
+  `RecalculateAffected`; metadata-only style/banding/filter-button mutations
+  không rebuild graph hoặc tính lại. Chi tiết tại
+  [TABLE-006 contract](table-compatibility-hardening-contract.md).
 - Rename Table/column vẫn dùng full-workbook path hiện hữu vì chính operation đó
   rewrite formula cells và Table formula metadata trên nhiều worksheet.
 

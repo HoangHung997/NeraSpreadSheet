@@ -30,24 +30,25 @@ dotnet run --project samples/NeraSpreadSheet.Wpf.Sample -- --ribbon-preview
 ```
 
 Sample có Trang đầu, Chèn, Bố trí trang, Công thức, Dữ liệu, Xem lại, Xem và
-Thiết kế Bảng theo selection; Tệp là Backstage. Ba mươi command đã đăng ký
+Thiết kế Bảng theo selection; Tệp là Backstage. Bốn mươi chín command đã đăng ký
 trong session được tái sử dụng với cùng handlers/identities. Các command host
 trong sample chỉ gọi API có sẵn: cell styles, print settings/preview, formula
 editing/help, filter, zoom, table rename và totals. Save ghi vào file tạm cùng
 thư mục và chỉ thay bản đích sau khi serialize thành công.
 
-`RibbonProductionCommandCatalog` vẫn là manifest của 30 command session có
+`RibbonProductionCommandCatalog` là manifest của 49 command session có
 sẵn, không thêm khả năng chưa đăng ký. Factory mặc định giữ tab/command IDs
 cũ và đánh dấu năm command chính là large. Sample minh họa cách host lắp thêm
 command trong cùng public definition/runtime; không phải model hay presenter
 mới của SDK.
 
 Table Style gallery dùng `TableStylePreview.Create` và workbook theme thật.
-Chọn tile **chỉ đổi lựa chọn xem trước**, không áp dụng style cho bảng. Table
-Design mutation/catalog đầy đủ thuộc lane `TABLE-005`; tích hợp phải gắn
-thumbnail vào command của lane đó, không tạo handler mutation thứ hai. Không
-có thay đổi Table style resolver, calculation, identity hoặc OpenXML trong lane
-visual này. Không mô phỏng capability Excel chưa có trong SDK.
+Sau tích hợp TABLE-RIBBON-012, chọn tile dispatch `Table.Style` của TABLE-005,
+áp dụng style thật và Undo/Redo được; không còn chỉ xem trước như checkpoint
+VISUAL-011 ban đầu. Các lệnh tham số dùng cùng callback runtime/dispatcher,
+không tạo handler mutation thứ hai. Xem
+[Table/Ribbon integration contract](table-ribbon-integration-contract.md).
+Không mô phỏng capability Excel chưa có trong SDK.
 
 ## Chụp ảnh và regression
 
@@ -56,10 +57,13 @@ visual này. Không mô phỏng capability Excel chưa có trong SDK.
 ```
 
 Script build sample, chạy đúng presenter SDK với workbook sinh trong bộ nhớ,
-chụp 1536/1280/1024/820 logical px cho tám tab và Backstage trong bốn palette,
+chụp 1920/1600/1280/1024 logical px cho tám tab và Backstage trong bốn palette,
 thêm customization, popup gallery More và raster export 125/150/200% của
 Trang đầu/Thiết kế Bảng.
-Ma trận hiện tại gồm **176 ảnh** và **128 native layout snapshots**.
+Ma trận hiện tại gồm **177 ảnh** và **128 native layout snapshots**, gồm thêm
+dialog validation của Table. Khi OS giới hạn native window, capture dùng
+loaded logical surface theo contract tích hợp và ghi riêng native geometry;
+không nhận đó là cửa sổ vật lý vượt kích thước monitor.
 Kết quả ở `artifacts/ribbon-visual-011/captures`; `manifest.json` chỉ chứa tên
 file tương đối, logical/native geometry và kết quả command smoke.
 

@@ -1,5 +1,11 @@
 # TABLE-006 — XLSX compatibility và hardening
 
+> Cập nhật coordinator 05/09/2026: source final `7f73a97d` đã xanh cả ba
+> workflow/mọi job và delta sau `cf923db2` đã ghép vào `e29acb44` sau lane A.
+> Đây vẫn chỉ là headless scope, chưa đóng native UX/corpus. Các số liệu source
+> bên dưới là lịch sử; combined/final gates và runtime nằm trong
+> [integration worklog](TABLE_RIBBON_INTEGRATION_20260905.md).
+
 - Trạng thái: `CI` — implementation headless đã qua local gates; chưa đóng toàn
   TABLE-006 vì thiếu native producer corpus và native point-mode wiring.
 - Branch: `feature/table-006-compat-hardening`.

@@ -1,5 +1,12 @@
 # Kế hoạch hoàn thiện Table, Filter, Ribbon và UX
 
+Tiến độ thực tế 05/09/2026: hai lane TABLE-RIBBON-012 và TABLE-006 đã bàn giao,
+TABLE-005/Table Design cùng headless compatibility đã ghép vào implementation
+`e29acb44`, xanh đủ ba workflow/mọi job. Lịch ngày bên dưới vẫn là mốc dự kiến,
+không buộc chờ đến ngày đó. TABLE-006 còn native structured-reference editor
+wiring và corpus Excel/LibreOffice có provenance, chưa đóng toàn checkpoint.
+Xem [integration worklog](worklog/TABLE_RIBBON_INTEGRATION_20260905.md).
+
 ## 1. Mục tiêu phát hành
 
 Hoàn thiện một command surface có thể dùng như SDK cho WPF, WinForms và .NET

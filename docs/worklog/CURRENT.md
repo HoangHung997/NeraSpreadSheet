@@ -1,6 +1,37 @@
 # Current Work Handoff
 
-## Current dispatch — TABLE-RIBBON-012 / TABLE-006
+## Current integration — TABLE-005 / TABLE-RIBBON-012 / TABLE-006
+
+- Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+- Đã nhận A đến `d283a55b` (sáu commit gồm TABLE-005 một lần), sau đó chỉ
+  delta B `cf923db2..7f73a97d` (ba commit). Không conflict hoặc ghi đè source
+  worktree. Base `6d1beca7`, implementation kết hợp
+  `e29acb44bc058e91a27c9dcc35a6979909d4dd5b` đã push.
+- Regression mới qua Ribbon giữ giá trị Convert-to-range/Undo/Redo và tính lại
+  dependent sau sửa ô nguồn. Native WPF dialog kiểm tra giá trị/formula, không
+  còn chỉ kiểm tra metadata/history.
+- Local: full solution/WPF build 0/0, Core **1470/1470**, MAUI **43/43**,
+  loaded MAUI Windows Ribbon smoke success/3 frames, capture **177 ảnh/128
+  layouts**, architecture/packaging pass, **18 nupkg**.
+- Windows local **76/77**: một test dừng tại `window.Activate()` như checkpoint
+  trước; không bỏ/nới assertion. Combined Windows CI vẫn là cổng bắt buộc.
+- Exact-head implementation gates **success**, attempt 1, đủ bảy job: full
+  #1333 / `33953936497`, iOS #154 / `33953936520`, Q003C #151 / `33953936475`.
+  Windows CI **77/77**, capture **177/128**; không còn blocker tích hợp.
+- TABLE-005 và TABLE-RIBBON-012 **DONE for defined scope** tại implementation
+  `e29acb44`. Commit tài liệu này là descendant; SHA cuối lấy bằng
+  `git rev-parse HEAD`, phải xanh cả ba workflow trước bàn giao. Final SHA/run
+  URLs được ghi ở [PR handoff](https://github.com/HoangHung997/NeraSpreadSheet/pull/1#issuecomment-5550451701).
+- Hai task nguồn đã bàn giao, không còn giữ quyền ghi vào integration.
+  TABLE-006 mới xong headless scope; native structured-reference UX và corpus
+  Excel/LibreOffice có provenance chưa làm. Không đóng gói demo ngoài repo,
+  không thêm Avalonia hoặc tự mở task kế tiếp.
+- Chi tiết file, commits, test và rollback:
+  [`TABLE_RIBBON_INTEGRATION_20260905.md`](TABLE_RIBBON_INTEGRATION_20260905.md).
+- Bước tiếp theo duy nhất: kiểm tra đủ ba workflow/mọi job trên HEAD cuối
+  (kể cả commit tài liệu), rồi ghi SHA/run URLs bàn giao trên PR #1.
+
+## Historical dispatch — TABLE-RIBBON-012 / TABLE-006
 
 - Integration branch vẫn `feature/bootstrap-architecture-v0.1`; PR #1
   Draft/open/unmerged. Checkpoint tích hợp cuối đã xanh tại

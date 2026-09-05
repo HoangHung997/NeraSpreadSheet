@@ -62,11 +62,14 @@ root, Ribbon width và native DPI; assertions khóa root/Ribbon/layout width
 bằng width yêu cầu. Đây là chụp logical surface đã load, không nhận là resize
 cửa sổ vật lý vượt giới hạn monitor.
 
-## Blocker core đang bàn giao cho TABLE-006
+## Convert to Range sau tích hợp TABLE-006
 
-Coordinator xác nhận baseline TABLE-005 có lỗi Convert to range đối với
-structured references: một số công thức thành `#REF!` sau khi bỏ Table metadata.
-Lane này không sửa hoặc nhập fix core đang chạy. Smoke Convert hiện chỉ chứng
-minh dispatch/metadata/history/Undo; không phải bằng chứng giá trị công thức sau
-convert đúng. Nghiệm thu kết hợp phải nhận fix TABLE-006 rồi chạy lại regression
-và native command path tại HEAD tích hợp.
+Baseline TABLE-005 từng làm một số structured-reference formulas thành `#REF!`
+sau khi bỏ metadata. Tích hợp delta TABLE-006 đến `7f73a97d` đã nhận bản sửa
+rewrite sang A1 trước khi bỏ Table, giữ cùng transaction/dependency engine.
+Regression qua `RibbonRuntimeController` kiểm tra calculated/cross-sheet values,
+Undo/Redo và thay đổi ô nguồn sau convert. Native WPF dialog smoke cũng kiểm
+tra giá trị ngay sau convert và formula text được khôi phục sau Undo, không
+chỉ đếm Table/history. Đây không phải native structured-reference editor UX.
+Kết quả combined HEAD tại
+[integration worklog](worklog/TABLE_RIBBON_INTEGRATION_20260905.md).

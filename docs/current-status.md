@@ -1,6 +1,27 @@
 # NeraSpreadSheet current implementation status
 
-## Đợt Table/Ribbon tiếp theo — DISPATCH
+## TABLE-005 / TABLE-RIBBON-012 / TABLE-006 — INTEGRATED, IMPLEMENTATION GREEN
+
+Ngày 05/09/2026, coordinator đã ghép sạch sáu commit lane A đến `d283a55b`
+và ba commit delta lane B đến `7f73a97d`, không nhập trùng TABLE-005.
+Implementation kết hợp `e29acb44bc058e91a27c9dcc35a6979909d4dd5b` đã push.
+Table Design/gallery/19 Table commands dùng command registry thật, gồm fix
+Convert-to-range giữ giá trị công thức; regression command và native dialog
+smoke đã kiểm tra điểm nối này. Local: Core **1470/1470**, MAUI **43/43**,
+loaded MAUI Ribbon success, build 0/0, capture **177 ảnh/128 layouts**, 18 nupkg.
+Windows local **76/77** giữ nguyên failure `window.Activate()` trước SDK behavior.
+Combined implementation xanh đủ ba gate, mọi job, attempt 1: full #1333 /
+`33953936497`, iOS #154 / `33953936520`, Q003C #151 / `33953936475`;
+Windows CI **77/77**, capture **177/128**. TABLE-005 và TABLE-RIBBON-012
+**DONE for defined scope**. Commit tài liệu cuối vẫn phải qua ba gate ở đúng
+SHA của nó; final SHA/run URLs ghi trên PR #1 trước bàn giao.
+TABLE-006 chưa đóng toàn bộ: còn native editor structured-reference wiring và
+corpus Excel/LibreOffice có provenance. Các mục dưới là lịch sử checkpoint,
+không phủ nhận trạng thái tích hợp mới này. PR #1 vẫn Draft/unmerged; chưa
+repack demo ngoài repo. Xem
+[integration worklog](worklog/TABLE_RIBBON_INTEGRATION_20260905.md).
+
+## Đợt Table/Ribbon trước tích hợp — lịch sử DISPATCH
 
 Ribbon integration final HEAD `488c61ea75ea6c8f7a6ceb480035a341f24c6c19`
 đã xanh full CI `33949294692`, iOS `33949294721`, Q003C `33949294687`.

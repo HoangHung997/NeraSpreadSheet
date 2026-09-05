@@ -1,5 +1,12 @@
 # TABLE-RIBBON-012 — Table Design integration and UX
 
+> Coordinator note, 05/09/2026: source final `d283a55b` passed all three gates
+> and has been imported into combined implementation `e29acb44`. The core
+> Convert blocker described below is historical: TABLE-006 fix `7f73a97d` is
+> now included, with evaluated-value regressions and native dialog smoke.
+> Combined/final acceptance and remaining limits are tracked in
+> [integration worklog](TABLE_RIBBON_INTEGRATION_20260905.md).
+
 - State: CI; implementation and local handoff checks complete.
 - Branch: `feature/table-ribbon-012-integration`.
 - Base: `488c61ea75ea6c8f7a6ceb480035a341f24c6c19`.
