@@ -53,8 +53,21 @@ def text_of(element, name):
 def xml_key(element):
     attributes = {name: canonical_tfm(value) if name == "targetFramework" else value
                   for name, value in element.attrib.items()}
-    return (local_name(element), tuple(sorted(attributes.items())),
-            (element.text or "").strip(), tuple(sorted(xml_key(e) for e in element)))
+    name = local_name(element)
+    value = (element.text or "").strip()
+    elements = list(element)
+    if name == "requireLicenseAcceptance":
+        require(not attributes and not elements and value in ("false", "true", "0", "1"),
+                "Invalid license acceptance metadata")
+        value = "true" if value in ("true", "1") else "false"
+    keys = [xml_key(e) for e in elements]
+    if name == "metadata":
+        licenses = [e for e in elements if local_name(e) == "requireLicenseAcceptance"]
+        require(len(licenses) <= 1, "Duplicate license acceptance metadata")
+        # NuGet ManifestMetadata defaults this Boolean to false; pack may emit it.
+        if not licenses:
+            keys.append(("requireLicenseAcceptance", (), "false", ()))
+    return (name, tuple(sorted(attributes.items())), value, tuple(sorted(keys)))
 
 
 def canonical_tfm(value):

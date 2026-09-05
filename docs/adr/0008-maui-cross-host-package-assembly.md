@@ -38,8 +38,14 @@ TABLE-007 native editor và final combined performance là gates riêng, không 
 Rollback: revert các file gate/consumer/ADR mới; không có workbook migration hoặc
 public feed publish.
 
+Phép so sánh metadata chuẩn hóa spelling TFM tương đương và Boolean
+`requireLicenseAcceptance` bị bỏ qua thành false, theo default của NuGet
+ManifestMetadata. True vẫn khác false; Boolean không hợp lệ/duplicate bị từ chối.
+Không bỏ kiểm tra metadata, payload hoặc dependency/framework groups.
+
 ## Tài liệu gốc
 
 - [NuGet nuspec pack qua MSBuild](https://learn.microsoft.com/en-us/nuget/reference/msbuild-targets#packing-using-a-nuspec-file).
 - [Package nhiều target frameworks](https://learn.microsoft.com/en-us/nuget/create-packages/supporting-multiple-target-frameworks).
 - [Canonical target platform versions](https://learn.microsoft.com/en-us/dotnet/standard/frameworks#os-version-in-tfms).
+- [NuGet ManifestMetadata defaults](https://github.com/NuGet/NuGet.Client/blob/dev/src/NuGet.Core/NuGet.Packaging/PackageCreation/Authoring/ManifestMetadata.cs).

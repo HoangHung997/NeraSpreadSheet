@@ -40,7 +40,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Loaded += OnLoaded;
     }
 
-    private void OnFrame(object? sender, SKPaintGLSurfaceEventArgs e) => _frames++;
+    // The public event follows the SDK GPU lease completion; keep the cross-thread count atomic.
+    private void OnFrame(object? sender, SKPaintGLSurfaceEventArgs e) => Interlocked.Increment(ref _frames);
 
     private void OnLoaded(object? sender, EventArgs e)
     {
@@ -54,8 +55,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
         try
         {
             var view = _host.Spreadsheet;
-            view.HasRenderLoop = true;
-            await UntilAsync(() => _frames >= 3 && view.Width > 0 && view.Height > 0);
+            await UntilAsync(() => Volatile.Read(ref _frames) >= 3 && view.Width > 0 && view.Height > 0,
+                view.InvalidateSurface);
             PackageProvenance.Require(view.Handler?.PlatformView is not null && view.GRContext is not null &&
                 _ribbon.Handler?.PlatformView is not null, "Public package hosts did not attach native handlers.");
             var session = _host.Session!;
@@ -80,24 +81,25 @@ internal sealed class SmokePage : ContentPage, IDisposable
             _host.CloseFilterSheet();
             PackageProvenance.Require(!_host.IsFilterSheetOpen, "Filter close did not complete.");
             var width = view.Width;
-            var framesBeforeResize = _frames;
+            var framesBeforeResize = view.GpuContextDiagnostics.FramesCompleted;
             _host.WidthRequest = width * 0.65d;
             _host.HorizontalOptions = LayoutOptions.Start;
-            await UntilAsync(() => view.Width < width * 0.8d && _frames > framesBeforeResize);
-            var gpu = view.GpuContextDiagnostics;
+            await UntilAsync(() => view.Width < width * 0.8d &&
+                view.GpuContextDiagnostics.FramesCompleted > framesBeforeResize, view.InvalidateSurface);
+            view.HasRenderLoop = false;
+            var gpu = await WaitForIdleGpuAsync(view);
             PackageProvenance.Require(gpu.FramesCompleted >= 3 && gpu.FramesFailed == 0 && !gpu.HasActiveFrame,
                 "Package GPU lifecycle did not finish healthy frames.");
             var assemblies = PackageProvenance.VerifyLoadedAssemblies();
-            view.HasRenderLoop = false;
             Dispose();
-            PackageProvenance.Emit("success", _frames, new { assemblies, gpu, controllerEditUndo = true,
+            PackageProvenance.Emit("success", Volatile.Read(ref _frames), new { assemblies, gpu, controllerEditUndo = true,
                 filterValues = 20, actualResize = true, publicApiOnly = true });
             Environment.Exit(0);
         }
         catch (Exception exception)
         {
             // Never serialize exception messages/stack traces containing runner paths.
-            PackageProvenance.Emit("failure", _frames, new { exceptionType = exception.GetType().FullName });
+            PackageProvenance.Emit("failure", Volatile.Read(ref _frames), new { exceptionType = exception.GetType().FullName });
             Environment.Exit(1);
         }
     }
@@ -115,12 +117,30 @@ internal sealed class SmokePage : ContentPage, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private static async Task UntilAsync(Func<bool> ready)
+    private static async Task<NeraGpuContextDiagnostics> WaitForIdleGpuAsync(NeraSpreadsheetView view)
+    {
+        var previous = view.GpuContextDiagnostics;
+        var stable = previous;
+        await UntilAsync(() =>
+        {
+            stable = view.GpuContextDiagnostics;
+            var ready = stable == previous && stable.HasActiveContext && !stable.HasActiveFrame &&
+                stable.FramesCompleted >= 3 && stable.FramesFailed == 0;
+            previous = stable;
+            return ready;
+        }, requireInitialDelay: true);
+        return stable;
+    }
+
+    private static async Task UntilAsync(Func<bool> ready, Action? requestFrame = null, bool requireInitialDelay = false)
     {
         var deadline = DateTime.UtcNow.AddSeconds(30);
+        if (requireInitialDelay) await Task.Delay(30);
         while (!ready())
         {
             if (DateTime.UtcNow >= deadline) throw new TimeoutException("Package consumer condition timed out.");
+            // Nera disables its continuous loop when scrolling settles; request frames on the UI dispatcher.
+            requestFrame?.Invoke();
             await Task.Delay(30);
         }
     }
