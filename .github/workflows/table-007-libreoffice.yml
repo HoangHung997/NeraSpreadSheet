@@ -1,6 +1,11 @@
 name: table-007-libreoffice
 
 on:
+  push:
+    branches: [feature/table-007-editor-corpus]
+    paths:
+      - .github/workflows/table-007-libreoffice.yml
+      - scripts/table-007-libreoffice.py
   workflow_dispatch:
 
 permissions:
