@@ -9,6 +9,7 @@ public sealed class RibbonRuntimeController
 {
     private readonly CommandDispatcher _dispatcher;
     private readonly RibbonPresentationProjector _projector;
+    private readonly RibbonCommandCatalog _commandCatalog;
     private HashSet<CommandId> _visibleCommands = [];
     private CommandShortcutMap _shortcuts = CommandShortcutMap.Create([]);
     private RibbonSelectionContext _selectionContext;
@@ -27,6 +28,7 @@ public sealed class RibbonRuntimeController
 
         _dispatcher = new CommandDispatcher(registry);
         _projector = new RibbonPresentationProjector(registry);
+        _commandCatalog = RibbonCommandCatalog.FromDefinition(Definition, registry);
         Customization = customization;
         EffectiveDefinition = ApplyCustomization(customization);
         Snapshot = Project(EffectiveDefinition, context);
@@ -41,6 +43,9 @@ public sealed class RibbonRuntimeController
     /// Gets the application-supplied definition before user customization.
     /// </summary>
     public RibbonDefinition Definition { get; }
+
+    /// <summary>Gets the immutable grouped catalog available to customization hosts.</summary>
+    public RibbonCommandCatalog CommandCatalog => _commandCatalog;
 
     /// <summary>
     /// Gets the customization currently applied to <see cref="Definition"/>.
@@ -193,7 +198,7 @@ public sealed class RibbonRuntimeController
             : ValueTask.FromResult(false);
 
     private RibbonDefinition ApplyCustomization(RibbonCustomization? customization) =>
-        customization is null ? Definition : customization.ApplyTo(Definition);
+        customization is null ? Definition : customization.ApplyTo(Definition, _commandCatalog);
 
     private bool TryResolveSelectableLeaf(
         CommandId commandId,

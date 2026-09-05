@@ -31,6 +31,18 @@ public sealed class DesktopRibbonCustomizationDialogSmokeTests
                 dialog.Dispatcher.Invoke(
                     System.Windows.Threading.DispatcherPriority.Background,
                     new Action(static () => { }));
+                var customTab = dialog.AddCustomTab("custom", "Cá nhân");
+                var customGroup = dialog.AddCustomGroup(customTab.TabId, "quick", "Lệnh nhanh");
+                dialog.MoveCommand(
+                    RibbonCustomizationTarget.Command("home", "clipboard", "edit.copy"),
+                    customTab.TabId,
+                    customGroup.GroupId!);
+                dialog.AddToQuickAccessToolbar("edit.copy");
+                dialog.PreviewCustomization();
+                Assert.AreEqual("custom", runtime.Snapshot.Tabs[1].Id);
+                Assert.AreEqual("edit.copy", runtime.Snapshot.QuickAccessToolbar[0].CommandId.Value);
+                dialog.CancelCustomization();
+                Assert.AreEqual(1, runtime.Snapshot.Tabs.Count);
                 dialog.SelectedTarget = RibbonCustomizationTarget.Command(
                     "home",
                     "clipboard",
@@ -67,6 +79,18 @@ public sealed class DesktopRibbonCustomizationDialogSmokeTests
             };
             dialog.Show();
             System.Windows.Forms.Application.DoEvents();
+            var customTab = dialog.AddCustomTab("custom", "Cá nhân");
+            var customGroup = dialog.AddCustomGroup(customTab.TabId, "quick", "Lệnh nhanh");
+            dialog.MoveCommand(
+                RibbonCustomizationTarget.Command("home", "clipboard", "edit.paste"),
+                customTab.TabId,
+                customGroup.GroupId!);
+            dialog.PreviewCustomization();
+            Assert.AreEqual("custom", runtime.Snapshot.Tabs[1].Id);
+            dialog.ApplyCustomization();
+            dialog.Session.Rename(customTab, "Tạm thời");
+            dialog.CancelCustomization();
+            Assert.AreEqual("Cá nhân", runtime.Snapshot.Tabs[1].Caption);
             dialog.SelectedTarget = RibbonCustomizationTarget.Command(
                 "home",
                 "clipboard",

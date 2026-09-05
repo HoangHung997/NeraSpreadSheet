@@ -44,6 +44,10 @@ thể dùng session headless để xây editor riêng hoặc dùng dialog có s�
 
 ## Giới hạn còn lại
 
+Các giới hạn kéo-thả/chuyển parent/MAUI dưới đây mô tả checkpoint lịch sử
+RIBBON-CUSTOMIZE-UI và đã được RIBBON-010 thay thế bằng
+[`ribbon-deep-customization-contract.md`](ribbon-deep-customization-contract.md).
+
 - chưa có kéo-thả; bản native dùng chọn target và nút Lên/Xuống;
 - chưa chuyển command giữa các parent;
 - MAUI presenter/editor thuộc task `RIBBON-MAUI` sau khi vùng Apple được giải phóng;

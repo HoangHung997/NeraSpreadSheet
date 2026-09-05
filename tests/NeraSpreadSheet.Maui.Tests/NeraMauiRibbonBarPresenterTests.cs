@@ -186,6 +186,31 @@ public sealed class NeraMauiRibbonBarPresenterTests
                 entry.Target.CommandId == "view.gridlines").Caption);
     }
 
+    [TestMethod]
+    public void RibbonCustomizationBindingShouldProvideStructuralPreviewApplyAndCancel()
+    {
+        var registry = new CommandRegistry();
+        registry.Register(new CommandDescriptor("view.gridlines", "Đường lưới"), new ToggleHandler());
+        var runtime = new RibbonRuntimeController(CreateRibbonDefinition(), registry);
+        var binding = new NeraMauiRibbonCustomizationBinding(runtime);
+
+        var tab = binding.AddCustomTab("custom", "Cá nhân");
+        var group = binding.AddCustomGroup(tab.TabId, "display", "Hiển thị riêng");
+        binding.MoveCommand(
+            RibbonCustomizationTarget.Command("view", "display", "view.gridlines"),
+            tab.TabId,
+            group.GroupId!);
+        binding.AddToQuickAccessToolbar("view.gridlines");
+        binding.Preview();
+
+        Assert.AreEqual("custom", runtime.Snapshot.Tabs[1].Id);
+        Assert.AreEqual("view.gridlines", runtime.Snapshot.QuickAccessToolbar[0].CommandId.Value);
+        binding.Apply();
+        binding.Rename(tab, "Tạm thời");
+        binding.Cancel();
+        Assert.AreEqual("Cá nhân", runtime.Snapshot.Tabs[1].Caption);
+    }
+
     private static RibbonDefinition CreateRibbonDefinition() =>
         new(
         [

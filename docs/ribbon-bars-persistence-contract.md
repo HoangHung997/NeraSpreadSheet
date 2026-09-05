@@ -12,9 +12,15 @@ giữa `Ribbon.Core` và `Bars.Core`:
 Codec chỉ lưu override của ứng dụng/người dùng, không lưu definition gốc, caption,
 icon hay trạng thái command lúc chạy.
 
-## Schema hiện hành
+## Schema RIBBON-002 (đã được RIBBON-010 nâng cấp)
 
-- Ribbon: `neraspreadsheet.ribbon-customization`, version `1`.
+RIBBON-010 nâng Ribbon profile lên version `2`; xem
+[`ribbon-deep-customization-contract.md`](ribbon-deep-customization-contract.md).
+Các quy tắc version 1 dưới đây vẫn là contract migration được hỗ trợ. Bar profile
+vẫn ở version 1.
+
+- Ribbon RIBBON-002: `neraspreadsheet.ribbon-customization`, version `1`;
+  serializer hiện hành đọc v1 và xuất v2.
 - Bars: `neraspreadsheet.bar-customization`, version `1`.
 - Tên thuộc tính JSON phân biệt hoa thường.
 - Serializer luôn xuất UTF-8 JSON gọn, theo thứ tự thuộc tính cố định và sắp target
