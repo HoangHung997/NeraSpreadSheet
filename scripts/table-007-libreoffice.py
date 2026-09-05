@@ -56,7 +56,7 @@ def main():
                     data = ET.tostring(document, encoding="utf-8", xml_declaration=True)
                     changed.append(item.filename)
                 elif item.filename.endswith((".xml", ".rels")):
-                    if re.search(rb"(?:[A-Za-z]:[\\/]|file:///|/home/|/Users/)", data):
+                    if re.search(rb"(?:(?<![A-Za-z0-9])[A-Za-z]:[\\/]|file:///|/home/|/Users/)", data):
                         raise RuntimeError("Unexpected machine path in " + item.filename)
                 if data == archive.read(item.filename):
                     payload_hashes[item.filename] = digest(data)
