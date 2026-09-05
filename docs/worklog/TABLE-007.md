@@ -65,6 +65,21 @@
   mốc native input/marked-text/cleanup. Host dùng một RectangleGeometry và chỉ
   cập nhật khi rect đổi, tránh invalidation vô điều kiện mỗi frame; chưa kết
   luận đó là nguyên nhân crash trước runtime mới. Không đổi native gate/timeout.
+- CI `3e9239ab3282a45bd6c52fb9fb62a8c240857458`: full `33978509220`,
+  iOS `33978510465`, Q003C `33978511735`. iOS đã PASS sau real-layout wait;
+  Core/Windows desktop/Android PASS. Mac trace xác định Enter/commit/undo/reopen
+  đều qua, signal 11 ngay tại SetMarkedText trước khi API trả về. Thêm plain
+  UIKit baseline probe tạm (không MAUI handler/workbook callback) để phân biệt
+  lỗi native API với editor; vẫn giữ probe trên reused editor, không dùng baseline
+  thay acceptance. Native first-responder/selection được validate trước gọi.
+- MAUI Windows tại3e fail-fast trước marker cả hai attempts hiện hữu. Clip không
+  còn gắn geometry rỗng trong constructor; chỉ gắn sau có cell geometry hợp lệ,
+  như thời điểm35 trước đây, vẫn reuse khi rect đổi. Chưa xác nhận root cause.
+- Root transfer riêng `scripts/run-maui-maccatalyst-smoke.sh`: sau failure chờ
+  report của đúng PID/process/run tối đa10s; chỉ in selected exception/termination/
+  thread frames đã lọc UUID/path, bỏ raw report dump. Không đổi cleanup scope,
+  launch/runtime timeout, success criteria hoặc exit status. Bash syntax và
+  synthetic Python audit PID/name/privacy/two-part IPS parsing đã PASS.
 - Gaps: T1/T2 còn native CI và Apple hardware-key evidence; T3 corpus đã có,
   final regression/exact-head CI đang chờ. CI actual SDK phải đọc log (global
   requested .302 + latestFeature có thể chọn .400), không suy ra từ config.

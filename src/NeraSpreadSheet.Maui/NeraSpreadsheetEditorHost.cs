@@ -38,7 +38,6 @@ public sealed partial class NeraSpreadsheetEditorHost : Grid, IDisposable
     {
         Spreadsheet = spreadsheet ?? throw new ArgumentNullException(nameof(spreadsheet));
         ((NeraCellEditor)_editor).HandleKey = HandleEditorKey;
-        _editor.Clip = _editorClip;
         if (spreadsheet.Parent is not null) throw new ArgumentException("The spreadsheet already has a parent.", nameof(spreadsheet));
         Children.Add(spreadsheet);
         Children.Add(_overlay);
@@ -223,6 +222,7 @@ public sealed partial class NeraSpreadsheetEditorHost : Grid, IDisposable
         AbsoluteLayout.SetLayoutBounds(_editor, new Rect(raw.X, raw.Y, raw.Width, raw.Height));
         var clipRect = new Rect(clip.X - raw.X, clip.Y - raw.Y, clip.Width, clip.Height);
         if (_editorClip.Rect != clipRect) _editorClip.Rect = clipRect;
+        if (!ReferenceEquals(_editor.Clip, _editorClip)) _editor.Clip = _editorClip;
         _editor.IsVisible = true;
         _actions.IsVisible = true;
         _suggestions.IsVisible = _candidates.Count > 0;

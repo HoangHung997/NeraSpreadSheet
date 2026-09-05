@@ -186,15 +186,108 @@ print_diagnostics() {
     --last 5m \
     --predicate "process == \"$PROCESS_NAME\"" \
     2>/dev/null | tail -n 400 || true
-  echo "--- Mac Catalyst diagnostic reports ---"
-  find "$HOME/Library/Logs/DiagnosticReports" \
-    -maxdepth 1 \
-    -type f \
-    -name "$PROCESS_NAME*" \
-    -mmin -10 \
-    -print \
-    -exec sh -c 'echo "--- $1 ---"; tail -n 300 "$1"' _ {} \; \
-    2>/dev/null || true
+  echo "--- Mac Catalyst sanitized current-process crash diagnostics ---"
+  python3 - "$PROCESS_NAME" "${APP_PID:-}" "${LAUNCH_DIAG_START:-}" <<'PY' || true
+import datetime
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import time
+
+
+def safe_text(value):
+    text = str(value)[:1000]
+    text = re.sub(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", "<id>", text)
+    return re.sub(r"(?:[A-Za-z]:[\\/]|/)[^\s\"']+", "<path>", text)
+
+
+def selected_fields(source, names):
+    return {name: safe_text(source[name]) for name in names if name in source}
+
+
+def summarize_report(report, expected_pid, expected_name):
+    matches_name = report.get("procName") == expected_name or Path(str(report.get("procPath", ""))).name == expected_name
+    if report.get("pid") != expected_pid or not matches_name:
+        return None
+    images = report.get("usedImages", [])
+    threads = report.get("threads", [])
+    fault = report.get("faultingThread")
+    selected = [index for index, thread in enumerate(threads)
+                if thread.get("triggered") or index == fault]
+    if not selected:
+        selected = list(range(min(3, len(threads))))
+    stacks = []
+    for index in selected[:3]:
+        frames = []
+        for frame in threads[index].get("frames", [])[:40]:
+            image_index = frame.get("imageIndex", -1)
+            module = images[image_index].get("name", "unknown") if isinstance(image_index, int) and 0 <= image_index < len(images) else "unknown"
+            fields = selected_fields(frame, ("symbol", "symbolLocation", "imageOffset"))
+            fields["module"] = safe_text(module)
+            frames.append(fields)
+        stacks.append({"index": index, "frames": frames})
+    return {
+        "matchedCurrentProcess": True,
+        "exception": selected_fields(report.get("exception", {}), ("type", "signal", "subtype", "codes")),
+        "termination": selected_fields(report.get("termination", {}), ("namespace", "code", "indicator")),
+        "threads": stacks,
+    }
+
+
+def read_report(path):
+    try:
+        if path.stat().st_size > 8 * 1024 * 1024:
+            return None
+        raw = path.read_text(encoding="utf-8")
+        first, end = json.JSONDecoder().raw_decode(raw)
+        remainder = raw[end:].strip()
+        return json.loads(remainder) if remainder else first
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+
+
+def main():
+    name, pid_text, launch_text = sys.argv[1:4]
+    if not pid_text.isdecimal() or not launch_text:
+        print("No exact launched process identity is available for crash-report matching.")
+        return
+    pid = int(pid_text)
+    launch = datetime.datetime.strptime(launch_text, "%Y-%m-%d %H:%M:%S").timestamp()
+    try:
+        os.kill(pid, 0)
+        wait = 0
+    except ProcessLookupError:
+        wait = 10
+    except PermissionError:
+        wait = 0
+    deadline = time.monotonic() + wait
+    directory = Path.home() / "Library/Logs/DiagnosticReports"
+    while True:
+        try:
+            candidates = [path for path in directory.glob("*.ips")
+                          if path.is_file() and path.stat().st_mtime >= launch]
+        except OSError:
+            candidates = []
+        for path in candidates:
+            report = read_report(path)
+            if not isinstance(report, dict):
+                continue
+            result = summarize_report(report, pid, name)
+            if result is not None:
+                print(json.dumps(result, ensure_ascii=True, indent=2))
+                return
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            print("No matching current-run JSON crash report appeared within the bounded diagnostic wait.")
+            return
+        time.sleep(min(0.5, remaining))
+
+
+if __name__ == "__main__":
+    main()
+PY
 }
 
 consume_result_file() {
