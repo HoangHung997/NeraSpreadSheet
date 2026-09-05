@@ -15,6 +15,9 @@ public sealed class NeraRibbonCustomizationDialog : Form
     private readonly ListBox _entries = new() { Dock = DockStyle.Fill };
     private readonly CheckBox _visible = new() { Text = "Hiển thị", AutoSize = true };
     private readonly CheckBox _large = new() { Text = "Nút lớn", AutoSize = true };
+    private readonly ListBox _catalog = new() { Dock = DockStyle.Fill, DisplayMember = nameof(RibbonCommandCatalogEntry.Caption), BorderStyle = BorderStyle.FixedSingle };
+    private readonly TextBox _search = new() { Dock = DockStyle.Fill, PlaceholderText = "Tìm lệnh…", AccessibleName = "Tìm trong danh mục lệnh", Name = "RibbonCustomizationSearch" };
+    private readonly Label _selectionDetails = new() { AutoSize = true, ForeColor = Color.FromArgb(98, 109, 119), Padding = new Padding(0, 6, 0, 6) };
     private bool _refreshing;
     private bool _accepted;
 
@@ -37,14 +40,21 @@ public sealed class NeraRibbonCustomizationDialog : Form
         Text = "Tùy biến Ribbon";
         Name = "NeraRibbonCustomizationDialog";
         AccessibleName = Text;
-        MinimumSize = new Size(420, 360);
-        ClientSize = new Size(500, 520);
+        MinimumSize = new Size(760, 440);
+        ClientSize = new Size(920, 580);
+        Font = new Font("Segoe UI", 9f);
+        BackColor = Color.FromArgb(247, 249, 250);
+        _entries.BorderStyle = BorderStyle.FixedSingle;
+        _entries.ItemHeight = 24;
+        _catalog.ItemHeight = 24;
         StartPosition = FormStartPosition.CenterParent;
         BuildLayout();
         _entries.SelectedIndexChanged += (_, _) => RefreshOptions();
         _visible.Click += (_, _) => SetSelectedVisible(_visible.Checked);
         _large.Click += (_, _) => SetSelectedLarge(_large.Checked);
         RefreshEntries();
+        _search.TextChanged += (_, _) => RefreshCatalog();
+        RefreshCatalog();
     }
 
     [Browsable(false)]
@@ -151,14 +161,41 @@ public sealed class NeraRibbonCustomizationDialog : Form
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            Padding = new Padding(10),
+            Padding = new Padding(20),
             ColumnCount = 1,
-            RowCount = 3,
+            RowCount = 4,
         };
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.Controls.Add(_entries, 0, 0);
+        root.Controls.Add(new Label
+        {
+            Text = "Sắp xếp Ribbon theo cách làm việc của bạn",
+            AutoSize = true,
+            Padding = new Padding(0, 0, 0, 16),
+            ForeColor = Color.FromArgb(37, 45, 51),
+        }, 0, 0);
+        var columns = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
+        columns.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 43f));
+        columns.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 57f));
+        var available = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 4, Padding = new Padding(0, 0, 16, 0) };
+        available.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        available.RowStyles.Add(new RowStyle(SizeType.Absolute, 34f));
+        available.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        available.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        available.Controls.Add(new Label { Text = "Danh mục lệnh", AutoSize = true, Padding = new Padding(0, 0, 0, 8) }, 0, 0);
+        available.Controls.Add(_search, 0, 1);
+        available.Controls.Add(_catalog, 0, 2);
+        available.Controls.Add(new Label { Text = "Các lệnh được nhóm theo tab nguồn.\nChọn một mục bên phải để đổi hiển thị hoặc kích thước.", AutoSize = true, Padding = new Padding(0, 8, 0, 0), ForeColor = Color.FromArgb(98, 109, 119) }, 0, 3);
+        var current = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2 };
+        current.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        current.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        current.Controls.Add(new Label { Text = "Tab và nhóm hiện tại", AutoSize = true, Padding = new Padding(0, 0, 0, 8) }, 0, 0);
+        current.Controls.Add(_entries, 0, 1);
+        columns.Controls.Add(available, 0, 0);
+        columns.Controls.Add(current, 1, 0);
+        root.Controls.Add(columns, 0, 1);
 
         var options = new FlowLayoutPanel
         {
@@ -168,7 +205,8 @@ public sealed class NeraRibbonCustomizationDialog : Form
         };
         options.Controls.Add(_visible);
         options.Controls.Add(_large);
-        root.Controls.Add(options, 0, 1);
+        options.Controls.Add(_selectionDetails);
+        root.Controls.Add(options, 0, 2);
 
         var buttons = new FlowLayoutPanel
         {
@@ -191,7 +229,7 @@ public sealed class NeraRibbonCustomizationDialog : Form
             "Lên",
             "RibbonCustomizationMoveUp",
             () => MoveSelected(-1)));
-        root.Controls.Add(buttons, 0, 2);
+        root.Controls.Add(buttons, 0, 3);
         Controls.Add(root);
     }
 
@@ -203,7 +241,11 @@ public sealed class NeraRibbonCustomizationDialog : Form
             Name = name,
             AutoSize = true,
             MinimumSize = new Size(72, 0),
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.White,
+            Padding = new Padding(10, 4, 10, 4),
         };
+        button.FlatAppearance.BorderColor = Color.FromArgb(210, 218, 224);
         button.Click += (_, _) => action();
         return button;
     }
@@ -257,6 +299,7 @@ public sealed class NeraRibbonCustomizationDialog : Form
             _visible.Checked = entry?.IsVisible == true;
             _large.Enabled = entry?.Target.Kind == RibbonCustomizationTargetKind.Command && !entry.IsLocked;
             _large.Checked = entry?.IsLarge == true;
+            _selectionDetails.Text = entry is null ? string.Empty : $"{entry.Caption}{(entry.IsLocked ? " · Đã khóa bởi ứng dụng" : string.Empty)}";
         }
         finally
         {
@@ -270,11 +313,32 @@ public sealed class NeraRibbonCustomizationDialog : Form
         var captions = snapshot.Tabs
             .SelectMany(static tab => tab.Groups)
             .SelectMany(static group => group.Items)
+            .GroupBy(static item => item.Command.CommandId.Value, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group.First())
             .ToDictionary(
                 item => item.Command.CommandId.Value,
                 item => item.Command.Caption,
                 StringComparer.OrdinalIgnoreCase);
         return commandId => captions.GetValueOrDefault(commandId.Value, commandId.Value);
+    }
+
+    private void RefreshCatalog()
+    {
+        _catalog.BeginUpdate();
+        try
+        {
+            _catalog.Items.Clear();
+            foreach (var entry in _runtime.CommandCatalog.Entries.Where(entry =>
+                         entry.Caption.Contains(_search.Text, StringComparison.CurrentCultureIgnoreCase) ||
+                         entry.CategoryCaption.Contains(_search.Text, StringComparison.CurrentCultureIgnoreCase)))
+            {
+                _catalog.Items.Add(entry);
+            }
+        }
+        finally
+        {
+            _catalog.EndUpdate();
+        }
     }
 
     private sealed class EditorRow

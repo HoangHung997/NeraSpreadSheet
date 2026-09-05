@@ -76,8 +76,10 @@ public sealed class DesktopRibbonItemModelSmokeTests
                     System.Windows.Automation.AutomationProperties.GetName(control) ==
                     "Automation Gallery");
             Assert.AreEqual(
-                System.Windows.Controls.ScrollBarVisibility.Auto,
+                System.Windows.Controls.ScrollBarVisibility.Hidden,
                 gallery.HorizontalScrollBarVisibility);
+            Assert.IsNotNull(FindWpfDescendants<System.Windows.Controls.Button>(ribbon).Single(button =>
+                System.Windows.Automation.AutomationProperties.GetAutomationId(button) == "ribbon-command-item.Gallery-more"));
             Assert.IsInstanceOfType<System.Windows.Controls.StackPanel>(gallery.Content);
             Assert.AreEqual(
                 12,
@@ -174,7 +176,7 @@ public sealed class DesktopRibbonItemModelSmokeTests
         Assert.AreEqual(2, FindWinFormsDescendants<System.Windows.Forms.ComboBox>(ribbon).Count());
         var separator = FindWinFormsDescendants<System.Windows.Forms.Panel>(ribbon)
             .Single(static panel => panel.AccessibleName == "Dấu phân cách");
-        Assert.AreEqual(8, separator.Width);
+        Assert.AreEqual((int)Math.Round(8d * ribbon.DeviceDpi / 96d), separator.Width);
         Assert.AreEqual(0, separator.Margin.Horizontal);
         var gallery = FindWinFormsDescendants<System.Windows.Forms.FlowLayoutPanel>(ribbon)
             .Single(static panel => panel.AccessibleName == "Automation Gallery");

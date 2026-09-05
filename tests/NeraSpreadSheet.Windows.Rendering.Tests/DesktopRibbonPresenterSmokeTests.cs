@@ -559,7 +559,7 @@ public sealed class DesktopRibbonPresenterSmokeTests
 
     [TestMethod]
     [Timeout(120_000)]
-    public void CompactDesktopCommandsShouldKeepCaptionWhenIconIsUnavailable()
+    public void NarrowDesktopCommandsShouldKeepUnavailableIconCaptionInOverflowAndInline()
     {
         RunInSta(() =>
         {
@@ -602,12 +602,29 @@ public sealed class DesktopRibbonPresenterSmokeTests
             Assert.AreEqual(
                 RibbonItemSize.Compact,
                 wpfRibbon.LayoutSnapshot.Tabs[0].Groups[0].Items[0].Size);
+            Assert.IsTrue(wpfRibbon.LayoutSnapshot.Tabs[0].HasOverflow);
+            Assert.IsTrue(winFormsRibbon.LayoutSnapshot.Tabs[0].HasOverflow);
+            Assert.IsTrue(wpfRibbon.LayoutSnapshot.Tabs[0].Groups[0].Items[0].CaptionVisible);
+            var overflowTab = (System.Windows.Controls.TabItem)wpfRibbon.NativeTabControl.Items[0];
+            var overflowMenu = ((System.Windows.Controls.StackPanel)overflowTab.Content).Children.OfType<System.Windows.Controls.Menu>().Single();
+            var overflowRoot = (WpfMenuItem)overflowMenu.Items[0];
+            var overflowGroup = (WpfMenuItem)overflowRoot.Items[0];
+            Assert.AreEqual("Không có biểu tượng", ((WpfMenuItem)overflowGroup.Items[0]).Header);
+            wpfRibbon.Width = 240d;
+            wpfRibbon.Measure(new System.Windows.Size(240d, 180d));
+            wpfRibbon.Arrange(new System.Windows.Rect(0d, 0d, 240d, 180d));
+            wpfRibbon.UpdateLayout();
+            wpfRibbon.Rebuild();
+            winFormsRibbon.ClientSize = new System.Drawing.Size((int)Math.Ceiling(240d * winFormsRibbon.DeviceDpi / 96d), 180);
+            winFormsRibbon.Rebuild();
+            Assert.IsFalse(wpfRibbon.LayoutSnapshot.Tabs[0].HasOverflow);
+            Assert.IsFalse(winFormsRibbon.LayoutSnapshot.Tabs[0].HasOverflow);
             var wpfTab = (System.Windows.Controls.TabItem)wpfRibbon.NativeTabControl.Items[0];
             var wpfGroups = (System.Windows.Controls.StackPanel)wpfTab.Content;
             var wpfGroup = (System.Windows.Controls.GroupBox)wpfGroups.Children[0];
-            var wpfItems = (System.Windows.Controls.StackPanel)wpfGroup.Content;
+            var wpfItems = (System.Windows.Controls.Canvas)wpfGroup.Content;
             var wpfButton = (WpfButtonBase)wpfItems.Children[0];
-            var wpfContent = (System.Windows.Controls.StackPanel)wpfButton.Content;
+            var wpfContent = ((System.Windows.Controls.Grid)wpfButton.Content).Children.OfType<System.Windows.Controls.StackPanel>().Single();
             Assert.AreEqual(
                 "Không có biểu tượng",
                 wpfContent.Children.OfType<System.Windows.Controls.TextBlock>()
@@ -615,11 +632,9 @@ public sealed class DesktopRibbonPresenterSmokeTests
             var winFormsButton = FindWinFormsDescendants<WinFormsButtonBase>(
                     winFormsRibbon)
                 .Single(control => control.Tag is CommandId);
-            Assert.AreEqual(
-                RibbonItemSize.Compact,
-                winFormsRibbon.LayoutSnapshot.Tabs[0].Groups[0].Items[0].Size);
             Assert.AreEqual("Không có biểu tượng", winFormsButton.Text);
             Assert.IsNull(winFormsButton.Image);
+            Assert.IsGreaterThanOrEqualTo(wpfContent.Children.OfType<System.Windows.Controls.TextBlock>().Single().MaxWidth + 6d, wpfButton.Width);
         });
     }
 
@@ -647,14 +662,14 @@ public sealed class DesktopRibbonPresenterSmokeTests
             var winRuntime = new RibbonRuntimeController(definition, registry);
             using var wpfRibbon = new NeraSpreadSheet.Wpf.NeraRibbonControl(wpfRuntime)
             {
-                Width = 70d,
+                Width = 90d,
             };
             using var winRibbon = new NeraSpreadSheet.WinForms.NeraRibbonControl(winRuntime);
             winRibbon.ClientSize = new System.Drawing.Size(
-                (int)Math.Ceiling(70d * winRibbon.DeviceDpi / 96d),
+                (int)Math.Ceiling(90d * winRibbon.DeviceDpi / 96d),
                 120);
-            wpfRibbon.Measure(new System.Windows.Size(70d, 120d));
-            wpfRibbon.Arrange(new System.Windows.Rect(0d, 0d, 70d, 120d));
+            wpfRibbon.Measure(new System.Windows.Size(90d, 120d));
+            wpfRibbon.Arrange(new System.Windows.Rect(0d, 0d, 90d, 120d));
             wpfRibbon.UpdateLayout();
             wpfRibbon.Rebuild();
             winRibbon.Rebuild();
@@ -675,15 +690,16 @@ public sealed class DesktopRibbonPresenterSmokeTests
             var wpfTab = (System.Windows.Controls.TabItem)wpfRibbon.NativeTabControl.Items[0];
             var wpfGroups = (System.Windows.Controls.StackPanel)wpfTab.Content;
             var wpfGroup = (System.Windows.Controls.GroupBox)wpfGroups.Children[0];
-            var wpfItems = (System.Windows.Controls.StackPanel)wpfGroup.Content;
+            var wpfItems = (System.Windows.Controls.Canvas)wpfGroup.Content;
             var wpfButton = (WpfButtonBase)wpfItems.Children[0];
-            var wpfContent = (System.Windows.Controls.StackPanel)wpfButton.Content;
-            var wpfText = wpfContent.Children
-                .OfType<System.Windows.Controls.TextBlock>()
-                .Single();
+            var wpfContent = (System.Windows.Controls.Grid)wpfButton.Content;
+            var badge = wpfContent.Children.OfType<System.Windows.Controls.Border>().Single();
+            var wpfText = (System.Windows.Controls.TextBlock)badge.Child;
             var winButton = FindWinFormsDescendants<WinFormsButtonBase>(winRibbon)
                 .Single(control => control.Tag is CommandId);
-            StringAssert.Contains(wpfText.Text, "[");
+            Assert.IsTrue(wpfRuntime.KeyTips.TryGetCommandTip("view.gridlines", out var expectedTip));
+            Assert.AreEqual(expectedTip, wpfText.Text);
+            Assert.IsNotNull(badge.BorderBrush);
             StringAssert.Contains(winButton.Text, "[");
             Assert.IsNotNull(winButton.Image);
         });

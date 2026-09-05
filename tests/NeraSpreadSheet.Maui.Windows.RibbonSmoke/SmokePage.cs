@@ -40,6 +40,7 @@ internal sealed class SmokePage : ContentPage
             var gridlines = new ToggleHandler();
             var save = new OneShotHandler();
             var open = new OneShotHandler();
+            var details = new ToggleHandler();
             registry.Register(
                 new CommandDescriptor(
                     "view.gridlines",
@@ -64,6 +65,7 @@ internal sealed class SmokePage : ContentPage
                     iconKey: "file.open",
                     shortcut: "Ctrl+O"),
                 open);
+            registry.Register(new CommandDescriptor("file.details", "Thông tin sổ tính", tooltip: "Xem thông tin của sổ tính", iconKey: "file.info"), details);
 
             var ribbonRuntime = new RibbonRuntimeController(
                 CreateRibbonDefinition(),
@@ -215,10 +217,19 @@ internal sealed class SmokePage : ContentPage
             fileButton.SendClicked();
             await Task.Delay(100).ConfigureAwait(true);
             Require(ribbon.IsBackstageOpen && ((Grid)ribbon.Content).Children
-                    .OfType<VerticalStackLayout>()
-                    .Single().Children.OfType<Button>()
+                    .OfType<Grid>()
+                    .Where(static grid => grid.AutomationId == "ribbon-backstage")
+                    .SelectMany(static grid => Descendants<Button>(grid))
                     .Any(static button => button.AutomationId == "ribbon-backstage-file.open"),
                 "The MAUI Ribbon did not open its accessible backstage surface.");
+            Descendants<Button>(ribbon).Single(static button => button.AutomationId == "ribbon-backstage-file.details").SendClicked();
+            await Task.Delay(100).ConfigureAwait(true);
+            Require(details.ExecutionCount == 0 && open.ExecutionCount == 0,
+                "Selecting a MAUI backstage navigation entry executed its document command.");
+            Descendants<Button>(ribbon).Single(static button => button.AutomationId == "ribbon-backstage-file.details-execute").SendClicked();
+            await Task.Delay(100).ConfigureAwait(true);
+            Require(details.ExecutionCount == 1,
+                "The MAUI backstage content action did not execute its selected command exactly once.");
             ((Grid)ribbon.Content).Children.OfType<HorizontalStackLayout>()
                 .SelectMany(static layout => layout.Children.OfType<Button>())
                 .Single(static button => button.AutomationId == "ribbon-file")
@@ -238,8 +249,8 @@ internal sealed class SmokePage : ContentPage
             ribbon.EnterKeyTipModeWithFocusOrigin(focusOrigin);
             Require(await ribbon.ProcessKeyTipCharacterAsync('F') &&
                     ribbon.IsBackstageOpen &&
-                    ((Grid)ribbon.Content).Children.OfType<VerticalStackLayout>()
-                        .Single().IsVisible,
+                    ((Grid)ribbon.Content).Children.OfType<Grid>()
+                        .Single(static grid => grid.AutomationId == "ribbon-backstage").IsVisible,
                 "The MAUI F key tip did not reveal the backstage surface.");
             ribbon.EscapeKeyTipMode();
             ribbon.EscapeKeyTipMode();
@@ -304,7 +315,7 @@ internal sealed class SmokePage : ContentPage
             Require(separator.WidthRequest == 8d &&
                     separator.Margin.Left + separator.Margin.Right == 0d,
                 "The MAUI separator did not occupy its measured logical width.");
-            var gallery = complexRibbon.ItemControls.OfType<ScrollView>()
+            var gallery = Descendants<ScrollView>(complexRibbon)
                 .Single(static scroll =>
                     scroll.AutomationId == "ribbon-command-complex.Gallery");
             Require(gallery.Orientation == ScrollOrientation.Horizontal &&
@@ -315,7 +326,7 @@ internal sealed class SmokePage : ContentPage
                 "The MAUI gallery is not horizontally scrollable with item icons.");
             var toggleButton = complexRibbon.CommandButtons.Single(static button =>
                 button.AutomationId == "ribbon-command-complex.Toggle");
-            Require(toggleButton.BorderWidth == 1d &&
+            Require(toggleButton.BorderWidth == 0d &&
                     SemanticProperties.GetDescription(toggleButton).Contains(
                         "Đang tắt",
                         StringComparison.Ordinal) &&
@@ -420,6 +431,8 @@ internal sealed class SmokePage : ContentPage
             Require(ribbon.CommandButtons.Count == 1,
                 "The MAUI Ribbon did not rebuild after customization reset.");
 
+            await VerifyDenseGeometryAsync(complexRibbon, focusOrigin).ConfigureAwait(true);
+
             CompleteSuccessfully();
         }
         catch (Exception exception)
@@ -445,6 +458,7 @@ internal sealed class SmokePage : ContentPage
             customization = "structural-preview-cancel-hide-reset",
             overflow = "bounded-scroll",
             complexItems = "all-kinds-selection",
+            visualLayout = "packed-rows-bottom-captions-1536-1280-1024-820-dpi100-125-150-200",
         });
         Environment.Exit(0);
     }
@@ -489,6 +503,66 @@ internal sealed class SmokePage : ContentPage
         });
     }
 
+    private static async Task VerifyDenseGeometryAsync(NeraMauiRibbonView ribbon, Button externalFocus)
+    {
+        Require(externalFocus.Focus(), "The MAUI geometry smoke could not focus the worksheet sibling.");
+        await Task.Delay(100).ConfigureAwait(true);
+        Require(externalFocus.IsFocused, "The MAUI geometry smoke worksheet sibling did not receive native focus.");
+        foreach (var scale in new[] { 1d, 1.25d, 1.5d, 2d })
+        {
+            ribbon.LayoutScale = scale;
+            foreach (var width in new[] { 1536d, 1280d, 1024d, 820d })
+            {
+                ribbon.WidthRequest = width;
+                await Task.Delay(50).ConfigureAwait(true);
+                ribbon.Rebuild();
+                await Task.Delay(50).ConfigureAwait(true);
+                Require(externalFocus.IsFocused, "MAUI Ribbon resize stole focus from the worksheet sibling.");
+                foreach (var group in ribbon.LayoutSnapshot.Tabs.SelectMany(static tab => tab.Groups)
+                             .Where(static group => group.Mode != RibbonGroupLayoutMode.Overflow))
+                {
+                    var native = Descendants<AbsoluteLayout>(ribbon).Single(layout =>
+                        layout.AutomationId == $"ribbon-group-{group.Presentation.Id}");
+                    var caption = native.Children.OfType<Label>().Single();
+                    Require(caption.Y + 1d >= group.Items.Max(static item => item.Y + item.Height) / scale,
+                        "A MAUI group caption overlaps its packed commands.");
+                    foreach (var item in group.Items)
+                    {
+                        var index = group.Items.ToList().IndexOf(item);
+                        var child = (View)native.Children[index + 1];
+                        Require(Math.Abs(child.X - (item.X / scale)) <= 1d &&
+                                Math.Abs(child.Y - (item.Y / scale)) <= 1d &&
+                                Math.Abs(child.Width - (item.Width / scale)) <= 1d &&
+                                Math.Abs(child.Height - (item.Height / scale)) <= 1d,
+                            $"MAUI native bounds differ from packed layout for {item.Presentation.Command.CommandId}.");
+                    }
+                }
+            }
+        }
+        foreach (var theme in Enum.GetValues<NeraSpreadSheet.Iconography.NeraIconTheme>())
+        {
+            ribbon.IconTheme = theme;
+            await Task.Delay(50).ConfigureAwait(true);
+            Require(externalFocus.IsFocused, "MAUI theme refresh stole worksheet focus.");
+        }
+    }
+
+    private static IEnumerable<T> Descendants<T>(Microsoft.Maui.IVisualTreeElement root)
+        where T : class
+    {
+        foreach (var child in root.GetVisualChildren())
+        {
+            if (child is T match)
+            {
+                yield return match;
+            }
+            foreach (var descendant in Descendants<T>(child))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
     private static RibbonDefinition CreateRibbonDefinition() =>
         new(
         [
@@ -513,7 +587,7 @@ internal sealed class SmokePage : ContentPage
         ],
         [new RibbonContextualTabRule("table-design", RibbonContextRequirement.Table, "TB")],
         [new RibbonCommandSurfaceItem("view.gridlines", "1")],
-        [new RibbonCommandSurfaceItem("file.open", "O")]);
+        [new RibbonCommandSurfaceItem("file.open", "O"), new RibbonCommandSurfaceItem("file.details", "D")]);
 
     private static BarDefinition CreateBarDefinition() =>
         new(

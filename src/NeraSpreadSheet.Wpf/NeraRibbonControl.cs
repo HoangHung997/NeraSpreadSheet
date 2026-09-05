@@ -19,7 +19,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     private readonly RibbonResponsiveLayoutEngine _layoutEngine = new();
     private readonly DockPanel _root = new();
     private readonly StackPanel _topBar = new() { Orientation = Orientation.Horizontal };
-    private readonly StackPanel _backstage = new();
+    private readonly Grid _backstage = new();
     private readonly Grid _contentHost = new();
     private readonly TabControl _tabs = new();
     private readonly List<IDisposable> _shortcutBindings = [];
@@ -33,6 +33,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     private bool _suppressChoiceActivation;
     private bool _resizeRebuildPending;
     private bool _isBackstageOpen;
+    private CommandId? _backstageSelection;
     private IInputElement? _focusBeforeKeyTips;
     private string? _focusBeforeKeyTipsAutomationId;
     private bool _disposed;
@@ -40,6 +41,14 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     public NeraRibbonControl(RibbonRuntimeController runtime)
     {
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
+        NeraRibbonChrome.Install(this);
+        FontFamily = new FontFamily("Segoe UI");
+        FontSize = 12d;
+        UseLayoutRounding = true;
+        SnapsToDevicePixels = true;
+        SetResourceReference(ForegroundProperty, "RibbonForeground");
+        SetResourceReference(BackgroundProperty, "RibbonSurface");
+        _topBar.SetResourceReference(Panel.BackgroundProperty, "RibbonTopSurface");
         DockPanel.SetDock(_topBar, Dock.Top);
         _root.Children.Add(_topBar);
         _contentHost.Children.Add(_tabs);
@@ -231,6 +240,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         CaptureIdentities();
+        NeraRibbonChrome.ApplyTheme(this, IconTheme);
         var scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
         var physicalWidth = ActualWidth > 0d
             ? ActualWidth * scale
@@ -241,7 +251,10 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
                 physicalWidth,
                 scale,
                 _selectedTabId,
-                _focusedCommandId));
+                _focusedCommandId)
+            {
+                IsIconAvailable = iconKey => ResolveIcon(iconKey, 16) is not null,
+            });
         var selectedTabId = LayoutSnapshot.SelectedTabId;
         _focusedCommandId = LayoutSnapshot.FocusedCommandId;
         _tabs.Items.Clear();
@@ -251,7 +264,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         {
             var groups = new StackPanel
             {
-                Margin = new Thickness(4d),
+                Margin = new Thickness(0d),
                 Orientation = Orientation.Horizontal,
                 Visibility = _runtime.IsMinimized
                     ? Visibility.Collapsed
@@ -260,24 +273,46 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             foreach (var group in tab.Groups.Where(static group =>
                          group.Mode != RibbonGroupLayoutMode.Overflow))
             {
-                var items = new StackPanel
+                var items = new Canvas
                 {
-                    Margin = new Thickness(2d),
-                    Orientation = Orientation.Horizontal,
-                    VerticalAlignment = VerticalAlignment.Stretch,
+                    Width = group.Width / scale,
+                    Height = group.Height / scale,
                 };
                 foreach (var item in group.Items)
                 {
-                    items.Children.Add(CreateRibbonItem(item));
+                    var control = CreateRibbonItem(item);
+                    control.Width = Math.Max(1d, item.Width / scale);
+                    control.Height = Math.Max(1d, item.Height / scale);
+                    Canvas.SetLeft(control, item.X / scale);
+                    Canvas.SetTop(control, item.Y / scale);
+                    items.Children.Add(control);
                 }
-
-                groups.Children.Add(new GroupBox
+                var caption = new TextBlock
+                {
+                    Text = group.Presentation.Caption,
+                    Width = group.Width / scale,
+                    Height = group.CaptionHeight / scale,
+                    FontSize = 11d,
+                    TextAlignment = TextAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    ToolTip = group.Presentation.Caption,
+                    IsHitTestVisible = false,
+                };
+                caption.SetResourceReference(TextBlock.ForegroundProperty, "RibbonMuted");
+                AutomationProperties.SetAutomationId(caption, $"ribbon-group-{group.Presentation.Id}-caption");
+                Canvas.SetTop(caption, group.CaptionY / scale);
+                items.Children.Add(caption);
+                var nativeGroup = new GroupBox
                 {
                     Header = group.Presentation.Caption,
                     Content = items,
-                    Margin = new Thickness(2d),
-                    Padding = new Thickness(3d),
-                });
+                    Width = group.Width / scale,
+                    Height = group.Height / scale,
+                    Margin = new Thickness(groups.Children.Count == 0 ? 0d : RibbonLayoutMetrics.Default.Spacing, 0d, 0d, 0d),
+                };
+                AutomationProperties.SetAutomationId(nativeGroup, $"ribbon-group-{group.Presentation.Id}");
+                AutomationProperties.SetName(nativeGroup, group.Presentation.Caption);
+                groups.Children.Add(nativeGroup);
             }
             AddOverflowMenu(groups, tab);
 
@@ -338,7 +373,11 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             Content = _runtime.KeyTips.Scope == RibbonKeyTipScope.Tabs
                 ? $"{FileCaption} [F]"
                 : FileCaption,
-            Margin = new Thickness(2d),
+            Height = 28d,
+            MinWidth = 56d,
+            Margin = new Thickness(6d, 2d, 8d, 2d),
+            FontWeight = FontWeights.SemiBold,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
         };
         AutomationProperties.SetAutomationId(file, "ribbon-file");
         AutomationProperties.SetName(file, FileAutomationName);
@@ -367,17 +406,36 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         _topBar.Children.Add(file);
         foreach (var command in _runtime.Snapshot.QuickAccessToolbar)
         {
+            var tip = _runtime.KeyTips.Scope switch
+            {
+                RibbonKeyTipScope.Tabs => $"Q→{FindSurfaceTip(_runtime.Definition.QuickAccessToolbar, command.CommandId)}",
+                RibbonKeyTipScope.QuickAccessToolbar => FindSurfaceTip(_runtime.Definition.QuickAccessToolbar, command.CommandId),
+                _ => null,
+            };
+            var icon = command.IconKey is { Length: > 0 } key ? ResolveIcon(key, 16) : null;
+            var content = new Grid();
+            if (icon is not null)
+            {
+                content.Children.Add(new Image { Source = icon, Width = 16d, Height = 16d });
+            }
+            else
+            {
+                content.Children.Add(new TextBlock { Text = command.Caption, VerticalAlignment = VerticalAlignment.Center });
+            }
+            if (tip is not null)
+            {
+                content.Children.Add(CreateKeyTipBadge(tip));
+            }
             var button = new Button
             {
-                Content = _runtime.KeyTips.Scope switch
-                {
-                    RibbonKeyTipScope.Tabs => $"{command.Caption} [Q→{FindSurfaceTip(_runtime.Definition.QuickAccessToolbar, command.CommandId)}]",
-                    RibbonKeyTipScope.QuickAccessToolbar => $"{command.Caption} [{FindSurfaceTip(_runtime.Definition.QuickAccessToolbar, command.CommandId)}]",
-                    _ => command.Caption,
-                },
+                Content = content,
                 CommandParameter = command.CommandId,
+                Tag = command.CommandId,
                 IsEnabled = command.IsEnabled,
-                Margin = new Thickness(2d),
+                Width = icon is null ? double.NaN : 28d,
+                Height = 28d,
+                Margin = new Thickness(1d, 2d, 1d, 2d),
+                ToolTip = BuildToolTip(command),
             };
             AutomationProperties.SetAutomationId(button, $"ribbon-qat-{command.CommandId.Value}");
             AutomationProperties.SetName(button, command.Caption);
@@ -389,22 +447,100 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     private void RebuildBackstage()
     {
         _backstage.Children.Clear();
+        _backstage.ColumnDefinitions.Clear();
+        _backstage.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(190d) });
+        _backstage.ColumnDefinitions.Add(new ColumnDefinition());
+        _backstage.MinHeight = 310d;
+        var rail = new StackPanel { Margin = new Thickness(0d), Background = (Brush)FindResource("RibbonRail") };
+        var railTitle = new TextBlock
+        {
+            Text = FileCaption,
+            FontSize = 23d,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(20d, 20d, 12d, 18d),
+        };
+        rail.Children.Add(railTitle);
+        _backstage.Children.Add(rail);
+        var selection = _runtime.Snapshot.Backstage.FirstOrDefault(command => command.CommandId == _backstageSelection)
+            ?? (_runtime.Snapshot.Backstage.Count > 0 ? _runtime.Snapshot.Backstage[0] : null);
+        _backstageSelection = selection?.CommandId;
         foreach (var command in _runtime.Snapshot.Backstage)
         {
-            var button = new Button
+            var content = new StackPanel { Orientation = Orientation.Horizontal };
+            if (command.IconKey is { Length: > 0 } iconKey && ResolveIcon(iconKey, 16) is { } icon)
             {
-                Content = _runtime.KeyTips.Scope == RibbonKeyTipScope.Backstage
+                content.Children.Add(new Image { Source = icon, Width = 16d, Height = 16d, Margin = new Thickness(0d, 0d, 12d, 0d) });
+            }
+            content.Children.Add(new TextBlock
+            {
+                Text = _runtime.KeyTips.Scope == RibbonKeyTipScope.Backstage
                     ? $"{command.Caption} [{FindSurfaceTip(_runtime.Definition.Backstage, command.CommandId)}]"
                     : command.Caption,
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+            var button = new Button
+            {
+                Content = content,
                 CommandParameter = command.CommandId,
+                Tag = command.CommandId,
                 IsEnabled = command.IsEnabled,
-                Margin = new Thickness(4d),
+                Height = 38d,
+                Padding = new Thickness(12d, 4d, 8d, 4d),
+                Margin = new Thickness(8d, 1d, 8d, 1d),
+                Background = command.CommandId == _backstageSelection
+                    ? (Brush)FindResource("RibbonChecked") : Brushes.Transparent,
             };
             AutomationProperties.SetAutomationId(button, $"ribbon-backstage-{command.CommandId.Value}");
             AutomationProperties.SetName(button, command.Caption);
-            button.Click += OnCommandClick;
-            _backstage.Children.Add(button);
+            button.Click += (_, _) =>
+            {
+                _backstageSelection = command.CommandId;
+                RebuildBackstage();
+            };
+            rail.Children.Add(button);
         }
+        var pane = new StackPanel { Margin = new Thickness(32d, 26d, 32d, 24d), MaxWidth = 640d, HorizontalAlignment = HorizontalAlignment.Left };
+        Grid.SetColumn(pane, 1);
+        _backstage.Children.Add(pane);
+        pane.Children.Add(new TextBlock { Text = selection?.Caption ?? FileCaption, FontSize = 26d, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0d, 0d, 0d, 16d) });
+        if (selection is not null)
+        {
+            pane.Children.Add(new TextBlock { Text = selection.Tooltip ?? selection.Caption, TextWrapping = TextWrapping.Wrap, MaxWidth = 520d, Margin = new Thickness(0d, 0d, 0d, 24d) });
+            var action = new Button
+            {
+                Content = selection.Caption,
+                CommandParameter = selection.CommandId,
+                IsEnabled = selection.IsEnabled,
+                MinWidth = 160d,
+                Height = 38d,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                Padding = new Thickness(18d, 6d, 18d, 6d),
+                Background = (Brush)FindResource("RibbonChecked"),
+                BorderBrush = (Brush)FindResource("RibbonAccent"),
+                ToolTip = BuildToolTip(selection),
+            };
+            AutomationProperties.SetAutomationId(action, $"ribbon-backstage-{selection.CommandId.Value}-execute");
+            AutomationProperties.SetName(action, selection.Caption);
+            action.Click += OnCommandClick;
+            pane.Children.Add(action);
+        }
+    }
+
+    private Border CreateKeyTipBadge(string text)
+    {
+        return new Border
+        {
+            Child = new TextBlock { Text = text, FontSize = 10d, Foreground = (Brush)FindResource("RibbonForeground") },
+            Background = (Brush)FindResource("RibbonSurface"),
+            BorderBrush = (Brush)FindResource("RibbonAccent"),
+            BorderThickness = new Thickness(1d),
+            Padding = new Thickness(2d, 0d, 2d, 0d),
+            CornerRadius = new CornerRadius(2d),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            IsHitTestVisible = false,
+        };
     }
 
     private async void OnRibbonPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -523,10 +659,10 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         button.Tag = command.CommandId;
         button.Content = CreateCommandContent(item);
         button.IsEnabled = command.IsEnabled;
-        button.Width = Math.Max(1d, item.Width / LayoutSnapshot.Scale - 4d);
-        button.MinHeight = item.Size == RibbonItemSize.Large ? 58d : 30d;
-        button.Margin = new Thickness(2d);
-        button.Padding = new Thickness(6d, 3d, 6d, 3d);
+        button.Width = Math.Max(1d, item.Width / LayoutSnapshot.Scale);
+        button.Height = Math.Max(1d, item.Height / LayoutSnapshot.Scale);
+        button.Margin = new Thickness(0d);
+        button.Padding = new Thickness(3d, 1d, 3d, 1d);
         button.ToolTip = BuildToolTip(command);
         AutomationProperties.SetAutomationId(
             button,
@@ -545,7 +681,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         var separator = new Separator
         {
             Tag = item.Presentation.Command.CommandId,
-            Margin = new Thickness(0d, 6d, 0d, 6d),
+            Margin = new Thickness(0d),
             Width = Math.Max(1d, item.Width / LayoutSnapshot.Scale),
         };
         AutomationProperties.SetAutomationId(
@@ -559,23 +695,26 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
     {
         var panel = new DockPanel
         {
-            Width = Math.Max(1d, item.Width / LayoutSnapshot.Scale - 4d),
-            Margin = new Thickness(2d),
+            Width = Math.Max(1d, item.Width / LayoutSnapshot.Scale),
+            Margin = new Thickness(0d),
             Tag = item.Presentation.Command.CommandId,
         };
         var menu = CreateChoiceMenu(
             item,
-            header: "▼",
+            header: "⌄",
             compactHeader: false,
             automationSuffix: "menu");
         menu.Margin = new Thickness(0d);
+        menu.Width = 18d;
+        menu.VerticalAlignment = VerticalAlignment.Stretch;
         DockPanel.SetDock(menu, Dock.Right);
         panel.Children.Add(menu);
-        var primary = CreateCommandButton(item);
+        var primary = CreateCommandButton(item with { Width = Math.Max(1d, item.Width - (18d * LayoutSnapshot.Scale)) });
         AutomationProperties.SetAutomationId(
             primary,
             $"ribbon-command-{item.Presentation.Command.CommandId.Value}-primary");
         primary.Width = double.NaN;
+        primary.Height = double.NaN;
         primary.Margin = new Thickness(0d);
         panel.Children.Add(primary);
         return panel;
@@ -593,35 +732,25 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         var command = item.Presentation.Command;
         var root = new MenuItem
         {
-            Header = header,
+            Header = compactHeader ? CreateCommandContent(item, showArrow: true) : header,
             Tag = command.CommandId,
             IsEnabled = command.IsEnabled,
             ToolTip = BuildToolTip(command),
-            MinWidth = compactHeader
-                ? Math.Max(1d, item.Width / LayoutSnapshot.Scale - 4d)
-                : 20d,
+            Width = compactHeader ? Math.Max(1d, item.Width / LayoutSnapshot.Scale) : 18d,
+            Height = item.Height / LayoutSnapshot.Scale,
+            Padding = compactHeader ? new Thickness(3d, 1d, 3d, 1d) : new Thickness(1d),
         };
         AutomationProperties.SetAutomationId(
             root,
             $"ribbon-command-{command.CommandId.Value}{(automationSuffix is null ? string.Empty : $"-{automationSuffix}")}");
         AutomationProperties.SetName(root, item.Presentation.AutomationName);
-        if (command.IconKey is { Length: > 0 } iconKey &&
-            ResolveIcon(iconKey, 16) is ImageSource rootIcon)
-        {
-            root.Icon = new Image
-            {
-                Source = rootIcon,
-                Width = 16d,
-                Height = 16d,
-            };
-        }
         foreach (var choice in command.SelectableItems)
         {
             root.Items.Add(CreateChoiceMenuItem(command.CommandId, choice));
         }
         return new Menu
         {
-            Margin = new Thickness(2d),
+            Margin = new Thickness(0d),
             Items = { root },
         };
     }
@@ -671,22 +800,42 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             SelectedValue = command.SelectedValue,
             IsEnabled = command.IsEnabled,
             Tag = command.CommandId,
-            Width = Math.Max(1d, item.Width / LayoutSnapshot.Scale - 4d),
-            Margin = new Thickness(2d),
+            Width = Math.Max(1d, item.Width / LayoutSnapshot.Scale),
+            Margin = new Thickness(0d),
             ToolTip = BuildToolTip(command),
         };
-        var itemStyle = new Style(typeof(ComboBoxItem));
+        var itemStyle = new Style(typeof(ComboBoxItem), (Style)FindResource(typeof(ComboBoxItem)));
         itemStyle.Setters.Add(new Setter(
             UIElement.IsEnabledProperty,
             new Binding(nameof(CommandItem.IsEnabled))));
         combo.ItemContainerStyle = itemStyle;
+        if (item.Presentation.Kind == RibbonItemKind.ColorPicker)
+        {
+            combo.DisplayMemberPath = string.Empty;
+            var template = new DataTemplate(typeof(CommandItem));
+            var content = new FrameworkElementFactory(typeof(StackPanel));
+            content.SetValue(StackPanel.OrientationProperty, Orientation.Horizontal);
+            var swatch = new FrameworkElementFactory(typeof(Border));
+            swatch.SetValue(FrameworkElement.WidthProperty, 13d);
+            swatch.SetValue(FrameworkElement.HeightProperty, 13d);
+            swatch.SetValue(FrameworkElement.MarginProperty, new Thickness(0d, 0d, 5d, 0d));
+            swatch.SetValue(Border.BorderBrushProperty, (Brush)FindResource("RibbonFieldBorder"));
+            swatch.SetValue(Border.BorderThicknessProperty, new Thickness(1d));
+            swatch.SetBinding(Border.BackgroundProperty, new Binding(nameof(CommandItem.Value)) { Converter = NeraRibbonColorConverter.Instance });
+            content.AppendChild(swatch);
+            var label = new FrameworkElementFactory(typeof(TextBlock));
+            label.SetBinding(TextBlock.TextProperty, new Binding(nameof(CommandItem.Caption)));
+            content.AppendChild(label);
+            template.VisualTree = content;
+            combo.ItemTemplate = template;
+        }
         AutomationProperties.SetAutomationId(combo, $"ribbon-command-{command.CommandId.Value}");
         AutomationProperties.SetName(combo, item.Presentation.AutomationName);
         combo.SelectionChanged += OnChoiceSelectionChanged;
         return combo;
     }
 
-    private ScrollViewer CreateGallery(RibbonItemLayout item)
+    private DockPanel CreateGallery(RibbonItemLayout item)
     {
         var command = item.Presentation.Command;
         var panel = new StackPanel
@@ -698,7 +847,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         {
             var button = new ToggleButton
             {
-                Content = CreateGalleryChoiceContent(choice),
+                Content = CreateGalleryChoiceContent(item, choice),
                 Tag = command.CommandId,
                 CommandParameter = choice.Value,
                 IsEnabled = command.IsEnabled && choice.IsEnabled,
@@ -707,8 +856,10 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
                     choice.Value,
                     StringComparison.Ordinal),
                 ToolTip = choice.Tooltip ?? choice.Caption,
+                Width = 72d,
+                Height = Math.Max(24d, item.Height / LayoutSnapshot.Scale - 4d),
                 Margin = new Thickness(1d),
-                Padding = new Thickness(4d, 2d, 4d, 2d),
+                Padding = new Thickness(3d),
             };
             AutomationProperties.SetName(button, choice.Caption);
             AutomationProperties.SetAutomationId(
@@ -720,46 +871,124 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
         var scroll = new ScrollViewer
         {
             Content = panel,
-            Width = Math.Max(1d, item.Width / LayoutSnapshot.Scale - 4d),
-            Margin = new Thickness(2d),
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Margin = new Thickness(0d),
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Tag = command.CommandId,
         };
-        AutomationProperties.SetAutomationId(scroll, $"ribbon-command-{command.CommandId.Value}");
+        AutomationProperties.SetAutomationId(scroll, $"ribbon-command-{command.CommandId.Value}-viewport");
         AutomationProperties.SetName(scroll, item.Presentation.AutomationName);
-        return scroll;
+        var gallery = new DockPanel { Tag = command.CommandId, Background = (Brush)FindResource("RibbonFieldSurface") };
+        AutomationProperties.SetAutomationId(gallery, $"ribbon-command-{command.CommandId.Value}");
+        AutomationProperties.SetName(gallery, item.Presentation.AutomationName);
+        var controls = new UniformGrid { Rows = 3, Width = 18d };
+        DockPanel.SetDock(controls, Dock.Right);
+        var previous = new Button { Content = "⌃", Padding = new Thickness(0d), ToolTip = "Kiểu trước", IsEnabled = false };
+        previous.Click += (_, _) => scroll.ScrollToHorizontalOffset(Math.Max(0d, scroll.HorizontalOffset - 74d));
+        var next = new Button { Content = "⌄", Padding = new Thickness(0d), ToolTip = "Kiểu tiếp theo", IsEnabled = command.IsEnabled };
+        next.Click += (_, _) => scroll.ScrollToHorizontalOffset(scroll.HorizontalOffset + 74d);
+        var more = new Button { Content = "⌄", Padding = new Thickness(0d), ToolTip = "Tất cả kiểu", Tag = command.CommandId, IsEnabled = command.IsEnabled };
+        AutomationProperties.SetAutomationId(previous, $"ribbon-command-{command.CommandId.Value}-previous");
+        AutomationProperties.SetAutomationId(next, $"ribbon-command-{command.CommandId.Value}-next");
+        AutomationProperties.SetAutomationId(more, $"ribbon-command-{command.CommandId.Value}-more");
+        AutomationProperties.SetName(previous, "Kiểu trước");
+        AutomationProperties.SetName(next, "Kiểu tiếp theo");
+        AutomationProperties.SetName(more, "Tất cả kiểu");
+        controls.Children.Add(previous);
+        controls.Children.Add(next);
+        controls.Children.Add(more);
+        gallery.Children.Add(controls);
+        gallery.Children.Add(scroll);
+        scroll.ScrollChanged += (_, _) =>
+        {
+            previous.IsEnabled = command.IsEnabled && scroll.HorizontalOffset > 0d;
+            next.IsEnabled = command.IsEnabled && scroll.HorizontalOffset + scroll.ViewportWidth < scroll.ExtentWidth;
+        };
+        scroll.Loaded += (_, _) =>
+        {
+            var selectedIndex = command.SelectableItems.ToList().FindIndex(choice =>
+                string.Equals(choice.Value, command.SelectedValue, StringComparison.Ordinal));
+            if (selectedIndex > 0)
+            {
+                scroll.ScrollToHorizontalOffset(selectedIndex * 74d);
+            }
+        };
+        var popup = CreateGalleryPopup(item, more);
+        more.Click += (_, _) => popup.IsOpen = !popup.IsOpen;
+        gallery.Unloaded += (_, _) => popup.IsOpen = false;
+        return gallery;
     }
 
-    private object CreateGalleryChoiceContent(CommandItem choice)
+    private Popup CreateGalleryPopup(RibbonItemLayout item, FrameworkElement placementTarget)
     {
-        if (choice.IconKey is not { Length: > 0 } iconKey ||
-            ResolveIcon(iconKey, 16) is not ImageSource source)
+        var tiles = new WrapPanel { Width = 370d };
+        foreach (var choice in item.Presentation.Command.SelectableItems)
         {
-            return choice.Caption;
+            var tile = new ToggleButton
+            {
+                Width = 72d,
+                Height = 74d,
+                Margin = new Thickness(1d),
+                Content = CreateGalleryChoiceContent(item, choice),
+                Tag = item.Presentation.Command.CommandId,
+                CommandParameter = choice.Value,
+                IsEnabled = item.Presentation.Command.IsEnabled && choice.IsEnabled,
+                IsChecked = string.Equals(item.Presentation.Command.SelectedValue, choice.Value, StringComparison.Ordinal),
+                ToolTip = choice.Tooltip ?? choice.Caption,
+            };
+            AutomationProperties.SetName(tile, choice.Caption);
+            AutomationProperties.SetAutomationId(tile, $"ribbon-command-{item.Presentation.Command.CommandId.Value}-popup-choice-{choice.Value}");
+            tile.Click += OnChoiceButtonClick;
+            tiles.Children.Add(tile);
         }
-        var panel = new StackPanel { Orientation = Orientation.Horizontal };
-        panel.Children.Add(new Image
+        var popup = new Popup
         {
-            Source = source,
-            Width = 16d,
-            Height = 16d,
-            Margin = new Thickness(0d, 0d, 4d, 0d),
-        });
-        panel.Children.Add(new TextBlock { Text = choice.Caption });
+            PlacementTarget = placementTarget,
+            Placement = PlacementMode.Bottom,
+            StaysOpen = false,
+            AllowsTransparency = true,
+            Child = new Border
+            {
+                Background = (Brush)FindResource("RibbonSurface"),
+                BorderBrush = (Brush)FindResource("RibbonFieldBorder"),
+                BorderThickness = new Thickness(1d),
+                CornerRadius = new CornerRadius(4d),
+                Padding = new Thickness(6d),
+                Child = new ScrollViewer { Content = tiles, MaxHeight = 320d, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
+            },
+        };
+        popup.Resources.MergedDictionaries.Add(Resources);
+        return popup;
+    }
+
+    private StackPanel CreateGalleryChoiceContent(RibbonItemLayout item, CommandItem choice)
+    {
+        var panel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        var preview = item.Presentation.Definition.GalleryPreview?.Invoke(choice);
+        if (preview is not null)
+        {
+            panel.Children.Add(new NeraRibbonGalleryThumbnail(preview) { Width = 58d, Height = 38d, Margin = new Thickness(0d, 0d, 0d, 4d) });
+        }
+        else if (choice.IconKey is { Length: > 0 } iconKey && ResolveIcon(iconKey, 32) is { } source)
+        {
+            panel.Children.Add(new Image { Source = source, Width = 32d, Height = 32d, Margin = new Thickness(0d, 0d, 0d, 4d) });
+        }
+        panel.Children.Add(new TextBlock { Text = choice.Caption, FontSize = 10d, TextAlignment = TextAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, Width = 62d });
         return panel;
     }
 
-    private StackPanel CreateCommandContent(RibbonItemLayout item)
+    private Grid CreateCommandContent(RibbonItemLayout item, bool showArrow = false)
     {
         var command = item.Presentation.Command;
         var isLarge = item.Size == RibbonItemSize.Large;
+        var wrapper = new Grid();
         var panel = new StackPanel
         {
             Orientation = isLarge ? Orientation.Vertical : Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Center,
+            HorizontalAlignment = isLarge ? HorizontalAlignment.Center : HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center,
         };
+        wrapper.Children.Add(panel);
         var resolvedIcon = command.IconKey is { Length: > 0 } iconKey
             ? ResolveIcon(iconKey, isLarge ? 32 : 16)
             : null;
@@ -776,16 +1005,31 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
                 Stretch = Stretch.Uniform,
             });
         }
-        panel.Children.Add(new TextBlock
+        var showCaption = item.CaptionVisible || resolvedIcon is null;
+        if (showCaption)
         {
-            Text = item.Size == RibbonItemSize.Compact && resolvedIcon is not null &&
-                   _runtime.KeyTips.Scope != RibbonKeyTipScope.Tab
-                ? string.Empty
-                : DecorateCommandCaption(command),
-            TextAlignment = TextAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-        });
-        return panel;
+            panel.Children.Add(new TextBlock
+            {
+                Text = showArrow ? $"{command.Caption} ⌄" : command.Caption,
+                TextAlignment = isLarge ? TextAlignment.Center : TextAlignment.Left,
+                TextWrapping = isLarge ? TextWrapping.Wrap : TextWrapping.NoWrap,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                LineHeight = 14d,
+                LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
+                MaxHeight = isLarge ? item.CaptionMaxLines * 14d : 16d,
+                MaxWidth = Math.Max(1d, item.Width / LayoutSnapshot.Scale - (isLarge || resolvedIcon is null ? 8d : 28d)),
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+        }
+        else if (showArrow)
+        {
+            panel.Children.Add(new TextBlock { Text = "⌄", VerticalAlignment = VerticalAlignment.Center });
+        }
+        if (_runtime.KeyTips.Scope == RibbonKeyTipScope.Tab && _runtime.KeyTips.TryGetCommandTip(command.CommandId, out var tip))
+        {
+            wrapper.Children.Add(CreateKeyTipBadge(tip));
+        }
+        return wrapper;
     }
 
     private string DecorateCommandCaption(CommandPresentation command)
@@ -809,7 +1053,7 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             return;
         }
 
-        var root = new MenuItem { Header = "Thêm", Width = 56d };
+        var root = new MenuItem { Header = "Thêm ⌄", Width = 56d, Height = 76d };
         AutomationProperties.SetAutomationId(root, "ribbon-overflow");
         AutomationProperties.SetName(root, "Lệnh Ribbon bổ sung");
         foreach (var group in overflowGroups)
@@ -875,7 +1119,11 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             }
             root.Items.Add(groupItem);
         }
-        groups.Children.Add(new Menu { Items = { root } });
+        groups.Children.Add(new Menu
+        {
+            Items = { root },
+            Margin = new Thickness(groups.Children.Count == 0 ? 0d : RibbonLayoutMetrics.Default.Spacing, 4d, 0d, 0d),
+        });
     }
 
     private void CaptureIdentities()
@@ -948,7 +1196,10 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
                 CommandParameter: string selectedValue,
             })
         {
-            await ActivateItemAsync(commandId, selectedValue);
+            if (!await ActivateItemAsync(commandId, selectedValue))
+            {
+                Rebuild();
+            }
         }
     }
 
@@ -960,7 +1211,10 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
                 CommandParameter: string selectedValue,
             })
         {
-            await ActivateItemAsync(commandId, selectedValue);
+            if (!await ActivateItemAsync(commandId, selectedValue))
+            {
+                Rebuild();
+            }
         }
     }
 
@@ -1053,7 +1307,10 @@ public sealed class NeraRibbonControl : UserControl, IDisposable
             return;
         }
 
-        await ActivateCommandAsync(commandId);
+        if (!await ActivateCommandAsync(commandId))
+        {
+            Rebuild();
+        }
     }
 
     private async ValueTask<bool> ActivateCommandAsync(CommandId commandId)

@@ -20,11 +20,13 @@ public sealed class NeraRibbonControl : UserControl
         AutoSize = true,
         WrapContents = false,
     };
-    private readonly FlowLayoutPanel _backstage = new() { Dock = DockStyle.Fill };
+    private readonly Panel _backstage = new() { Dock = DockStyle.Fill };
     private readonly TabControl _tabs = new() { Dock = DockStyle.Fill };
     private readonly ToolTip _toolTip = new();
     private readonly List<ContextMenuStrip> _overflowMenus = [];
     private readonly List<IDisposable> _shortcutBindings = [];
+    private readonly List<Image> _galleryImages = [];
+    private readonly Font _backstageHeadingFont = new("Segoe UI", 18f);
     private Func<string, Image?>? _iconResolver;
     private Func<NeraIconRequest, Image?>? _iconRequestResolver;
     private NeraIconTheme _iconTheme = NeraIconTheme.Light;
@@ -35,6 +37,7 @@ public sealed class NeraRibbonControl : UserControl
     private bool _suppressChoiceActivation;
     private bool _resizeRebuildPending;
     private bool _isBackstageOpen;
+    private CommandId? _backstageSelection;
     private Control? _focusBeforeKeyTips;
     private string? _focusBeforeKeyTipsControlName;
     private bool _disposed;
@@ -44,6 +47,12 @@ public sealed class NeraRibbonControl : UserControl
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         Name = "NeraRibbon";
         AccessibleName = "Thanh Ribbon NeraSpreadSheet";
+        Font = new Font("Segoe UI", 9f);
+        DoubleBuffered = true;
+        _topBar.Margin = Padding.Empty;
+        _topBar.Padding = new Padding(4, 2, 4, 2);
+        _tabs.DrawMode = TabDrawMode.OwnerDrawFixed;
+        _tabs.DrawItem += OnDrawTab;
         Controls.Add(_tabs);
         Controls.Add(_backstage);
         Controls.Add(_topBar);
@@ -221,22 +230,32 @@ public sealed class NeraRibbonControl : UserControl
     public void Rebuild()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        var form = FindForm();
+        var externalFocus = form is null ? null : FindDescendants<Control>(form)
+            .FirstOrDefault(control => control.Focused && !ReferenceEquals(control, this) && !Contains(control));
         CaptureIdentities();
         var scale = DeviceDpi / 96d;
         LayoutSnapshot = _layoutEngine.Layout(
             _runtime.Snapshot,
             new RibbonLayoutRequest(
-                ClientSize.Width > 0 ? ClientSize.Width : double.PositiveInfinity,
+                ClientSize.Width > 0 ? Math.Max(0d, ClientSize.Width - (8d * scale)) : double.PositiveInfinity,
                 scale,
                 _selectedTabId,
-                _focusedCommandId));
+                _focusedCommandId)
+            {
+                IsIconAvailable = key => ResolveIcon(key, 16) is not null,
+            });
         var selectedTabId = LayoutSnapshot.SelectedTabId;
         _focusedCommandId = LayoutSnapshot.FocusedCommandId;
-        RebuildTopBar();
-        RebuildBackstage();
+        BackColor = Palette.Surface;
+        ForeColor = Palette.Text;
+        _topBar.BackColor = Palette.Chrome;
+        _tabs.BackColor = Palette.Chrome;
+        _tabs.ForeColor = Palette.Text;
+        _tabs.ItemSize = new Size(0, ScalePixel(28));
+        _toolTip.RemoveAll();
         var oldPages = _tabs.TabPages.Cast<TabPage>().ToArray();
         _tabs.TabPages.Clear();
-        _toolTip.RemoveAll();
         foreach (var menu in _overflowMenus)
         {
             menu.Dispose();
@@ -246,6 +265,13 @@ public sealed class NeraRibbonControl : UserControl
         {
             page.Dispose();
         }
+        foreach (var image in _galleryImages)
+        {
+            image.Dispose();
+        }
+        _galleryImages.Clear();
+        RebuildTopBar();
+        RebuildBackstage();
         foreach (var tab in LayoutSnapshot.Tabs)
         {
             var page = new TabPage(
@@ -256,6 +282,9 @@ public sealed class NeraRibbonControl : UserControl
                 Name = $"ribbon-tab-{tab.Presentation.Id}",
                 Tag = tab.Presentation.Id,
                 AutoScroll = false,
+                BackColor = Palette.Surface,
+                ForeColor = Palette.Text,
+                Padding = Padding.Empty,
             };
             var groups = new FlowLayoutPanel
             {
@@ -264,29 +293,44 @@ public sealed class NeraRibbonControl : UserControl
                 WrapContents = false,
                 FlowDirection = FlowDirection.LeftToRight,
                 Visible = !_runtime.IsMinimized,
+                Padding = Padding.Empty,
+                Margin = Padding.Empty,
+                BackColor = Palette.Surface,
             };
             foreach (var group in tab.Groups.Where(static group =>
                          group.Mode != RibbonGroupLayoutMode.Overflow))
             {
-                var box = new GroupBox
+                var box = new Panel
                 {
-                    Text = group.Presentation.Caption,
-                    AutoSize = true,
-                    AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                    Padding = new Padding(6),
-                    Margin = new Padding(3),
+                    Name = $"ribbon-group-{group.Presentation.Id}",
+                    AccessibleName = group.Presentation.Caption,
+                    Size = new Size(Pixel(group.Width), Pixel(group.Height)),
+                    Margin = new Padding(0, 0, ScalePixel(2), 0),
+                    BackColor = Palette.Surface,
                 };
-                var items = new FlowLayoutPanel
+                var caption = new Label
                 {
-                    AutoSize = true,
-                    AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                    WrapContents = false,
+                    Name = $"ribbon-group-caption-{group.Presentation.Id}",
+                    Text = group.Presentation.Caption,
+                    AccessibleName = group.Presentation.Caption,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Bounds = new Rectangle(0, Pixel(group.CaptionY), Pixel(group.Width), Pixel(group.CaptionHeight)),
+                    ForeColor = Palette.Muted,
+                    AutoEllipsis = true,
                 };
                 foreach (var item in group.Items)
                 {
-                    items.Controls.Add(CreateRibbonItem(item));
+                    var control = CreateRibbonItem(item);
+                    control.Bounds = new Rectangle(Pixel(item.X), Pixel(item.Y), Pixel(item.Width), Pixel(item.Height));
+                    control.Margin = Padding.Empty;
+                    box.Controls.Add(control);
                 }
-                box.Controls.Add(items);
+                box.Controls.Add(caption);
+                box.Paint += (_, args) =>
+                {
+                    using var pen = new Pen(Palette.Separator);
+                    args.Graphics.DrawLine(pen, box.Width - 1, ScalePixel(5), box.Width - 1, box.Height - ScalePixel(5));
+                };
                 groups.Controls.Add(box);
             }
             AddOverflowButton(groups, tab);
@@ -308,7 +352,14 @@ public sealed class NeraRibbonControl : UserControl
         _selectedTabId = selectedTabId;
         _tabs.Visible = !_isBackstageOpen;
         _backstage.Visible = _isBackstageOpen;
-        RestoreFocus();
+        if (externalFocus is { IsDisposed: false, CanFocus: true })
+        {
+            externalFocus.Focus();
+        }
+        else
+        {
+            RestoreFocus();
+        }
     }
 
     protected override void Dispose(bool disposing)
@@ -318,6 +369,7 @@ public sealed class NeraRibbonControl : UserControl
             _disposed = true;
             _runtime.SnapshotChanged -= OnSnapshotChanged;
             _tabs.SelectedIndexChanged -= OnSelectedIndexChanged;
+            _tabs.DrawItem -= OnDrawTab;
             Resize -= OnRibbonResize;
             DpiChangedAfterParent -= OnRibbonDpiChanged;
             foreach (var binding in _shortcutBindings)
@@ -330,6 +382,12 @@ public sealed class NeraRibbonControl : UserControl
                 menu.Dispose();
             }
             _overflowMenus.Clear();
+            foreach (var image in _galleryImages)
+            {
+                image.Dispose();
+            }
+            _galleryImages.Clear();
+            _backstageHeadingFont.Dispose();
             _toolTip.Dispose();
         }
         base.Dispose(disposing);
@@ -385,8 +443,9 @@ public sealed class NeraRibbonControl : UserControl
                 : FileCaption,
             Name = "ribbon-file",
             AccessibleName = FileAutomationName,
-            AutoSize = true,
+            Size = new Size(ScalePixel(54), ScalePixel(28)),
         };
+        StyleButton(file);
         file.Click += (_, _) =>
         {
             _isBackstageOpen = !_isBackstageOpen;
@@ -412,20 +471,24 @@ public sealed class NeraRibbonControl : UserControl
         _topBar.Controls.Add(file);
         foreach (var command in _runtime.Snapshot.QuickAccessToolbar)
         {
+            var icon = command.IconKey is { Length: > 0 } key ? ResolveIcon(key, 16) : null;
             var button = new Button
             {
                 Text = _runtime.KeyTips.Scope switch
                 {
                     RibbonKeyTipScope.Tabs => $"{command.Caption} [Q→{FindSurfaceTip(_runtime.Definition.QuickAccessToolbar, command.CommandId)}]",
                     RibbonKeyTipScope.QuickAccessToolbar => $"{command.Caption} [{FindSurfaceTip(_runtime.Definition.QuickAccessToolbar, command.CommandId)}]",
-                    _ => command.Caption,
+                    _ => icon is null ? command.Caption : string.Empty,
                 },
                 Name = $"ribbon-qat-{command.CommandId.Value}",
                 AccessibleName = command.Caption,
                 Tag = command.CommandId,
                 Enabled = command.IsEnabled,
-                AutoSize = true,
+                Image = icon,
+                Size = new Size(ScalePixel(icon is null || _runtime.KeyTips.Scope != RibbonKeyTipScope.Inactive ? 100 : 28), ScalePixel(28)),
             };
+            StyleButton(button);
+            _toolTip.SetToolTip(button, BuildToolTip(command));
             button.Click += OnCommandClick;
             _topBar.Controls.Add(button);
         }
@@ -435,6 +498,58 @@ public sealed class NeraRibbonControl : UserControl
     {
         DisposeChildren(_backstage);
         _backstage.Controls.Clear();
+        _backstage.BackColor = Palette.Surface;
+        var selection = _runtime.Snapshot.Backstage.FirstOrDefault(command => command.CommandId == _backstageSelection)
+            ?? (_runtime.Snapshot.Backstage.Count > 0 ? _runtime.Snapshot.Backstage[0] : null);
+        _backstageSelection = selection?.CommandId;
+        var rail = new FlowLayoutPanel
+        {
+            Name = "ribbon-backstage-navigation",
+            AccessibleName = "Điều hướng Tệp",
+            Dock = DockStyle.Left,
+            Width = ScalePixel(196),
+            Padding = new Padding(ScalePixel(8)),
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            AutoScroll = true,
+            BackColor = Palette.Chrome,
+        };
+        var content = new TableLayoutPanel
+        {
+            Name = "ribbon-backstage-content",
+            Dock = DockStyle.Fill,
+            Padding = new Padding(ScalePixel(24), ScalePixel(14), ScalePixel(24), ScalePixel(14)),
+            ColumnCount = 1,
+            RowCount = 3,
+        };
+        content.RowStyles.Add(new RowStyle(SizeType.Absolute, ScalePixel(34)));
+        content.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        content.RowStyles.Add(new RowStyle(SizeType.Absolute, ScalePixel(38)));
+        var title = new Label { Text = selection?.Caption ?? FileCaption, Dock = DockStyle.Fill, ForeColor = Palette.Text, Font = _backstageHeadingFont, TextAlign = ContentAlignment.MiddleLeft };
+        var detail = new Label { Text = selection is null ? "Chọn lệnh để làm việc với sổ tính." : BuildToolTip(selection), Dock = DockStyle.Fill, ForeColor = Palette.Muted };
+        content.Controls.Add(title, 0, 0);
+        content.Controls.Add(detail, 0, 1);
+        if (selection is not null)
+        {
+            var execute = new Button
+            {
+                Name = $"ribbon-backstage-{selection.CommandId.Value}-execute",
+                Text = selection.Caption,
+                AccessibleName = selection.Caption,
+                AccessibleDescription = BuildToolTip(selection),
+                Tag = selection.CommandId,
+                Enabled = selection.IsEnabled,
+                Size = new Size(ScalePixel(160), ScalePixel(34)),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top,
+            };
+            StyleButton(execute);
+            execute.BackColor = Palette.Checked;
+            execute.FlatAppearance.BorderSize = 1;
+            execute.Click += OnCommandClick;
+            content.Controls.Add(execute, 0, 2);
+        }
+        _backstage.Controls.Add(content);
+        _backstage.Controls.Add(rail);
         foreach (var command in _runtime.Snapshot.Backstage)
         {
             var button = new Button
@@ -446,10 +561,27 @@ public sealed class NeraRibbonControl : UserControl
                 AccessibleName = command.Caption,
                 Tag = command.CommandId,
                 Enabled = command.IsEnabled,
-                AutoSize = true,
+                Size = new Size(ScalePixel(172), ScalePixel(34)),
+                TextAlign = ContentAlignment.MiddleLeft,
+                ImageAlign = ContentAlignment.MiddleLeft,
+                TextImageRelation = TextImageRelation.ImageBeforeText,
             };
-            button.Click += OnCommandClick;
-            _backstage.Controls.Add(button);
+            StyleButton(button);
+            if (command.IconKey is { Length: > 0 } iconKey)
+            {
+                button.Image = ResolveIcon(iconKey, 16);
+            }
+            if (command.CommandId == _backstageSelection)
+            {
+                button.BackColor = Palette.Checked;
+                button.FlatAppearance.BorderSize = 1;
+            }
+            button.Click += (_, _) =>
+            {
+                _backstageSelection = command.CommandId;
+                RebuildBackstage();
+            };
+            rail.Controls.Add(button);
         }
     }
 
@@ -500,7 +632,7 @@ public sealed class NeraRibbonControl : UserControl
 
     private static void DisposeChildren(Control parent)
     {
-        foreach (Control child in parent.Controls)
+        foreach (var child in parent.Controls.Cast<Control>().ToArray())
         {
             child.Dispose();
         }
@@ -546,9 +678,12 @@ public sealed class NeraRibbonControl : UserControl
         button.Enabled = command.IsEnabled;
         button.AutoSize = false;
         button.Size = new Size(
-            Math.Max(1, (int)Math.Round(item.Width / LayoutSnapshot.Scale) - 4),
-            item.Size == RibbonItemSize.Large ? 58 : 30);
-        button.Margin = new Padding(2);
+            Pixel(item.Width),
+            Pixel(item.Height));
+        button.Margin = Padding.Empty;
+        button.TextAlign = item.Size == RibbonItemSize.Large ? ContentAlignment.MiddleCenter : ContentAlignment.MiddleLeft;
+        button.ImageAlign = item.Size == RibbonItemSize.Large ? ContentAlignment.MiddleCenter : ContentAlignment.MiddleLeft;
+        StyleButton(button);
         button.AccessibleName = item.Presentation.AutomationName;
         button.AccessibleDescription = command.Tooltip;
         if (resolvedIcon is Image image)
@@ -584,11 +719,11 @@ public sealed class NeraRibbonControl : UserControl
     {
         Name = $"ribbon-command-{item.Presentation.Command.CommandId.Value}",
         AccessibleName = item.Presentation.AutomationName,
-        BackColor = SystemColors.ControlDark,
+        BackColor = Palette.Separator,
         Size = new Size(
-            Math.Max(1, (int)Math.Round(item.Width / LayoutSnapshot.Scale)),
-            42),
-        Margin = new Padding(0, 6, 0, 6),
+            Pixel(item.Width),
+            Pixel(item.Height)),
+        Margin = Padding.Empty,
         Tag = item.Presentation.Command.CommandId,
     };
 
@@ -600,9 +735,9 @@ public sealed class NeraRibbonControl : UserControl
             WrapContents = false,
             FlowDirection = FlowDirection.LeftToRight,
             Size = new Size(
-                Math.Max(1, (int)Math.Round(item.Width / LayoutSnapshot.Scale) - 4),
-                item.Size == RibbonItemSize.Large ? 58 : 30),
-            Margin = new Padding(2),
+                Pixel(item.Width),
+                Pixel(item.Height)),
+            Margin = Padding.Empty,
             Tag = item.Presentation.Command.CommandId,
             Name = $"ribbon-command-{item.Presentation.Command.CommandId.Value}",
             AccessibleName = item.Presentation.AutomationName,
@@ -610,8 +745,8 @@ public sealed class NeraRibbonControl : UserControl
         var primary = CreateCommandButton(item);
         primary.Name = $"ribbon-command-{item.Presentation.Command.CommandId.Value}-primary";
         primary.Margin = Padding.Empty;
-        primary.Width = Math.Max(1, panel.Width - 24);
-        var menuButton = CreateDropDownButton(item, "▼", 24, "menu");
+        primary.Width = Math.Max(1, panel.Width - ScalePixel(18));
+        var menuButton = CreateDropDownButton(item, "▾", ScalePixel(18), "menu");
         menuButton.Margin = Padding.Empty;
         panel.Controls.Add(primary);
         panel.Controls.Add(menuButton);
@@ -622,7 +757,7 @@ public sealed class NeraRibbonControl : UserControl
         CreateDropDownButton(
             item,
             item.Presentation.Command.Caption,
-            Math.Max(1, (int)Math.Round(item.Width / LayoutSnapshot.Scale) - 4));
+            Pixel(item.Width));
 
     private Button CreateDropDownButton(
         RibbonItemLayout item,
@@ -631,10 +766,10 @@ public sealed class NeraRibbonControl : UserControl
         string? automationSuffix = null)
     {
         var command = item.Presentation.Command;
-        var menu = new ContextMenuStrip();
+        var menu = CreateMenu();
         foreach (var choice in command.SelectableItems)
         {
-            menu.Items.Add(CreateChoiceMenuItem(command.CommandId, choice));
+            menu.Items.Add(CreateChoiceMenuItem(command.CommandId, choice, command.SelectedValue));
         }
         _overflowMenus.Add(menu);
         var button = new Button
@@ -645,14 +780,20 @@ public sealed class NeraRibbonControl : UserControl
             Enabled = command.IsEnabled,
             AccessibleName = item.Presentation.AutomationName,
             AccessibleDescription = command.Tooltip,
-            Size = new Size(width, item.Size == RibbonItemSize.Large ? 58 : 30),
+            Size = new Size(width, Pixel(item.Height)),
+            Margin = Padding.Empty,
         };
+        StyleButton(button);
         _toolTip.SetToolTip(button, BuildToolTip(command));
-        if (command.IconKey is { Length: > 0 } iconKey &&
-            ResolveIcon(iconKey, 16) is Image image)
+        if (automationSuffix is null && command.IconKey is { Length: > 0 } iconKey &&
+            ResolveIcon(iconKey, item.Size == RibbonItemSize.Large ? 32 : 16) is Image image)
         {
             button.Image = image;
-            button.TextImageRelation = TextImageRelation.ImageBeforeText;
+            button.TextImageRelation = item.Size == RibbonItemSize.Large ? TextImageRelation.ImageAboveText : TextImageRelation.ImageBeforeText;
+            if (!item.CaptionVisible && _runtime.KeyTips.Scope != RibbonKeyTipScope.Tab)
+            {
+                button.Text = "▾";
+            }
         }
         button.Click += (_, _) => menu.Show(button, new Point(0, button.Height));
         return button;
@@ -660,20 +801,21 @@ public sealed class NeraRibbonControl : UserControl
 
     private ToolStripMenuItem CreateChoiceMenuItem(
         CommandId commandId,
-        CommandItem choice)
+        CommandItem choice,
+        string? selectedValue = null)
     {
         var item = new ToolStripMenuItem(choice.Caption)
         {
             Tag = new RibbonChoiceTag(commandId, choice.Value),
             Enabled = choice.IsEnabled,
-            Checked = choice.IsChecked ?? false,
+            Checked = choice.IsChecked ?? string.Equals(choice.Value, selectedValue, StringComparison.Ordinal),
             CheckOnClick = false,
             AccessibleName = choice.Caption,
             ToolTipText = choice.Tooltip ?? choice.Caption,
         };
         foreach (var child in choice.Children)
         {
-            item.DropDownItems.Add(CreateChoiceMenuItem(commandId, child));
+            item.DropDownItems.Add(CreateChoiceMenuItem(commandId, child, selectedValue));
         }
         if (choice.IconKey is { Length: > 0 } iconKey)
         {
@@ -699,23 +841,58 @@ public sealed class NeraRibbonControl : UserControl
             Enabled = command.IsEnabled,
             AccessibleName = item.Presentation.AutomationName,
             DropDownStyle = ComboBoxStyle.DropDownList,
+            FlatStyle = FlatStyle.Flat,
+            DrawMode = DrawMode.OwnerDrawFixed,
+            ItemHeight = Math.Max(1, Pixel(item.Height) - ScalePixel(8)),
+            BackColor = Palette.Surface,
+            ForeColor = Palette.Text,
             Size = new Size(
-                Math.Max(1, (int)Math.Round(item.Width / LayoutSnapshot.Scale) - 4),
-                30),
-            Margin = new Padding(2),
+                Pixel(item.Width),
+                Pixel(item.Height)),
+            Margin = Padding.Empty,
         };
         if (command.SelectedValue is not null)
         {
             combo.SelectedValue = command.SelectedValue;
         }
+        combo.DrawItem += (_, args) =>
+        {
+            if (args.Index < 0 || args.Index >= command.SelectableItems.Count)
+            {
+                return;
+            }
+            var choice = command.SelectableItems[args.Index];
+            var selected = (args.State & DrawItemState.Selected) != 0;
+            using var fill = new SolidBrush(selected ? Palette.Hover : Palette.Surface);
+            args.Graphics.FillRectangle(fill, args.Bounds);
+            var textBounds = args.Bounds;
+            if (item.Presentation.Kind == RibbonItemKind.ColorPicker && TryResolveColor(choice.Value, out var color))
+            {
+                var swatch = new Rectangle(args.Bounds.Left + ScalePixel(3), args.Bounds.Top + ScalePixel(3), ScalePixel(16), Math.Max(1, args.Bounds.Height - ScalePixel(6)));
+                using var brush = new SolidBrush(color);
+                args.Graphics.FillRectangle(brush, swatch);
+                using var border = new Pen(Palette.Separator);
+                args.Graphics.DrawRectangle(border, swatch);
+                textBounds.X += ScalePixel(23);
+                textBounds.Width -= ScalePixel(23);
+            }
+            TextRenderer.DrawText(args.Graphics, choice.Caption, combo.Font, textBounds, choice.IsEnabled ? Palette.Text : Palette.Muted, TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            args.DrawFocusRectangle();
+        };
         _toolTip.SetToolTip(combo, BuildToolTip(command));
         combo.SelectedIndexChanged += OnChoiceSelectionCommitted;
         return combo;
     }
 
-    private FlowLayoutPanel CreateGallery(RibbonItemLayout item)
+    private Panel CreateGallery(RibbonItemLayout item)
     {
         var command = item.Presentation.Command;
+        var host = new Panel
+        {
+            Name = $"ribbon-gallery-{command.CommandId.Value}",
+            Size = new Size(Pixel(item.Width), Pixel(item.Height)),
+            Margin = Padding.Empty,
+        };
         var panel = new FlowLayoutPanel
         {
             Name = $"ribbon-command-{command.CommandId.Value}",
@@ -725,9 +902,11 @@ public sealed class NeraRibbonControl : UserControl
             WrapContents = false,
             AutoScroll = true,
             Size = new Size(
-                Math.Max(1, (int)Math.Round(item.Width / LayoutSnapshot.Scale) - 4),
-                item.Size == RibbonItemSize.Large ? 58 : 30),
-            Margin = new Padding(2),
+                Math.Max(1, Pixel(item.Width) - ScalePixel(18)),
+                Pixel(item.Height)),
+            Margin = Padding.Empty,
+            Dock = DockStyle.Fill,
+            BackColor = Palette.Surface,
         };
         foreach (var choice in command.SelectableItems)
         {
@@ -743,14 +922,24 @@ public sealed class NeraRibbonControl : UserControl
                     command.SelectedValue,
                     choice.Value,
                     StringComparison.Ordinal),
-                AutoSize = true,
+                AutoSize = false,
+                Size = new Size(ScalePixel(76), Math.Max(ScalePixel(24), Pixel(item.Height) - ScalePixel(18))),
                 AccessibleName = choice.Caption,
+                TextImageRelation = TextImageRelation.ImageAboveText,
+                TextAlign = ContentAlignment.BottomCenter,
+                Margin = new Padding(1),
             };
-            if (choice.IconKey is { Length: > 0 } iconKey &&
+            StyleButton(button);
+            if (item.Presentation.Definition.GalleryPreview?.Invoke(choice) is { } preview)
+            {
+                var thumbnail = NeraWinFormsRibbonChrome.CreatePreview(preview, ScalePixel(64), ScalePixel(32));
+                _galleryImages.Add(thumbnail);
+                button.Image = thumbnail;
+            }
+            else if (choice.IconKey is { Length: > 0 } iconKey &&
                 ResolveIcon(iconKey, 16) is Image image)
             {
                 button.Image = image;
-                button.TextImageRelation = TextImageRelation.ImageBeforeText;
             }
             _toolTip.SetToolTip(button, choice.Tooltip ?? choice.Caption);
             button.Click += async (_, _) =>
@@ -759,9 +948,14 @@ public sealed class NeraRibbonControl : UserControl
         }
         panel.AutoScrollMinSize = new Size(
             panel.Controls.Cast<Control>().Sum(control =>
-                control.PreferredSize.Width + control.Margin.Horizontal),
+                control.Width + control.Margin.Horizontal),
             0);
-        return panel;
+        var more = CreateDropDownButton(item, "▾", ScalePixel(18), "more");
+        more.Dock = DockStyle.Right;
+        more.AccessibleName = $"{item.Presentation.AutomationName}, thêm lựa chọn";
+        host.Controls.Add(panel);
+        host.Controls.Add(more);
+        return host;
     }
 
     private void AddOverflowButton(FlowLayoutPanel groups, RibbonTabLayout tab)
@@ -774,7 +968,7 @@ public sealed class NeraRibbonControl : UserControl
             return;
         }
 
-        var menu = new ContextMenuStrip();
+        var menu = CreateMenu();
         foreach (var group in overflowGroups)
         {
             var groupItem = new ToolStripMenuItem(group.Presentation.Caption);
@@ -827,7 +1021,8 @@ public sealed class NeraRibbonControl : UserControl
                     {
                         commandItem.DropDownItems.Add(CreateChoiceMenuItem(
                             command.CommandId,
-                            choice));
+                            choice,
+                            command.SelectedValue));
                     }
                 }
                 groupItem.DropDownItems.Add(commandItem);
@@ -840,9 +1035,10 @@ public sealed class NeraRibbonControl : UserControl
             Name = "ribbon-overflow",
             Text = "Thêm",
             AccessibleName = "Lệnh Ribbon bổ sung",
-            Size = new Size(56, 30),
-            Margin = new Padding(2),
+            Size = new Size(ScalePixel(56), ScalePixel(76)),
+            Margin = new Padding(0, ScalePixel(4), 0, 0),
         };
+        StyleButton(overflow);
         overflow.Click += (_, _) => menu.Show(overflow, new Point(0, overflow.Height));
         groups.Controls.Add(overflow);
     }
@@ -954,6 +1150,27 @@ public sealed class NeraRibbonControl : UserControl
         if (_tabs.SelectedTab?.Tag is string selectedId)
         {
             _selectedTabId = selectedId;
+        }
+    }
+
+    private void OnDrawTab(object? sender, DrawItemEventArgs e)
+    {
+        if (e.Index < 0 || e.Index >= _tabs.TabPages.Count)
+        {
+            return;
+        }
+        var selected = e.Index == _tabs.SelectedIndex;
+        using var fill = new SolidBrush(selected ? Palette.Surface : Palette.Chrome);
+        e.Graphics.FillRectangle(fill, e.Bounds);
+        TextRenderer.DrawText(e.Graphics, _tabs.TabPages[e.Index].Text, Font, e.Bounds, selected ? Palette.Accent : Palette.Text, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+        if (selected)
+        {
+            using var pen = new Pen(Palette.Accent, ScalePixel(2));
+            e.Graphics.DrawLine(pen, e.Bounds.Left + ScalePixel(8), e.Bounds.Bottom - 2, e.Bounds.Right - ScalePixel(8), e.Bounds.Bottom - 2);
+        }
+        if (_tabs.Focused)
+        {
+            e.DrawFocusRectangle();
         }
     }
 
@@ -1098,6 +1315,46 @@ public sealed class NeraRibbonControl : UserControl
                 .Where(static value => !string.IsNullOrWhiteSpace(value))) is { Length: > 0 } value
             ? value
             : command.Caption;
+
+    private NeraWinFormsRibbonPalette Palette => NeraWinFormsRibbonPalette.For(IconTheme);
+
+    private static int Pixel(double value) => Math.Max(0, (int)Math.Round(value));
+
+    private int ScalePixel(double value) => Pixel(value * LayoutSnapshot.Scale);
+
+    private void StyleButton(ButtonBase button)
+    {
+        button.FlatStyle = FlatStyle.Flat;
+        button.FlatAppearance.BorderSize = button is CheckBox { Checked: true } ? 1 : 0;
+        button.FlatAppearance.BorderColor = Palette.Accent;
+        button.FlatAppearance.MouseOverBackColor = Palette.Hover;
+        button.FlatAppearance.MouseDownBackColor = Palette.Pressed;
+        button.FlatAppearance.CheckedBackColor = Palette.Checked;
+        button.BackColor = button is CheckBox { Checked: true } ? Palette.Checked : Palette.Surface;
+        button.ForeColor = Palette.Text;
+        button.Padding = new Padding(ScalePixel(3), 0, ScalePixel(3), 0);
+        button.UseVisualStyleBackColor = false;
+        button.Margin = Padding.Empty;
+    }
+
+    private ContextMenuStrip CreateMenu() => new()
+    {
+        BackColor = Palette.Surface,
+        ForeColor = Palette.Text,
+        Renderer = new ToolStripProfessionalRenderer(new NeraWinFormsRibbonColorTable(Palette)),
+        ShowImageMargin = true,
+    };
+
+    private static bool TryResolveColor(string value, out Color color)
+    {
+        if (value.StartsWith('#') && value.Length is 7 or 9 && uint.TryParse(value.AsSpan(1), System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var argb))
+        {
+            color = Color.FromArgb(unchecked((int)(value.Length == 7 ? argb | 0xFF000000 : argb)));
+            return true;
+        }
+        color = Color.FromName(value);
+        return color.IsKnownColor;
+    }
 
     private sealed record RibbonChoiceTag(CommandId CommandId, string Value);
 }
