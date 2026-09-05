@@ -103,6 +103,18 @@ internal static class Table007EditorSmoke
             File.AppendAllText(resultPath + ".trace", stage + Environment.NewLine);
     }
 
+    internal static void TraceNativeSurface(NeraSpreadsheetEditorHost host)
+    {
+        var surface = host.Spreadsheet.Handler?.PlatformView as Microsoft.UI.Xaml.FrameworkElement;
+        Trace(surface?.IsLoaded == true ? "smoke-native-surface-loaded" : "smoke-native-surface-unloaded");
+        var editor = (Editor)typeof(NeraSpreadsheetEditorHost).GetField("_editor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(host)!;
+        var focused = surface?.XamlRoot is { } root
+            ? Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(root) : null;
+        Trace(focused is null ? "smoke-native-focus-none" :
+            ReferenceEquals(focused, surface) ? "smoke-native-focus-surface" :
+            ReferenceEquals(focused, editor.Handler?.PlatformView) ? "smoke-native-focus-editor" : "smoke-native-focus-other");
+    }
+
     private static async Task PressNativeAsync(NeraSpreadsheetEditorHost host, NativeTextBox editor, byte key, bool alt = false)
     {
         var window = host.Window?.Handler?.PlatformView as Microsoft.UI.Xaml.Window

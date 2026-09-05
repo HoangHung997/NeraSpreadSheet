@@ -63,8 +63,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             SmokeTrace.Append("smoke-page-constructor-events-subscribed");
 
             SmokeTrace.Append("smoke-page-constructor-before-host-add");
-            _editorHost = new NeraSpreadsheetEditorHost(view);
-            _host.Children.Add(_editorHost);
+            _host.Children.Add(view);
             SmokeTrace.Append("smoke-page-constructor-after-host-add");
         }
         catch (Exception exception)
@@ -206,7 +205,17 @@ internal sealed class SmokePage : ContentPage, IDisposable
                     "The Mac Catalyst analytics smoke lost its session before analytics creation.");
             // The first GPU paint can run while UIKit is still attaching the
             // native window. Open/focus controls after that paint stack unwinds.
-            await view.Dispatcher.DispatchAsync(() => Table007EditorSmoke.RunAsync(_editorHost!));
+            await view.Dispatcher.DispatchAsync(async () =>
+            {
+                SmokeTrace.Append("table-editor-host-attach-enter");
+                _host.Children.Remove(view);
+                SmokeTrace.Append("table-editor-bare-view-removed");
+                _editorHost = new NeraSpreadsheetEditorHost(view);
+                SmokeTrace.Append("table-editor-host-created");
+                _host.Children.Add(_editorHost);
+                SmokeTrace.Append("table-editor-host-attach-returned");
+                await Table007EditorSmoke.RunAsync(_editorHost);
+            });
             _editorVerified = true;
             var sourceRange = new CellRange(
                 new CellAddress(0, 0),

@@ -103,14 +103,23 @@ internal sealed class SmokePage : ContentPage, IDisposable
         };
         view.PaintSurface += OnPaintSurface;
         view.Loaded += OnViewLoaded;
+        view.HandlerChanged += OnSurfaceHandlerChanged;
         return view;
+    }
+
+    private void OnSurfaceHandlerChanged(object? sender, EventArgs e)
+    {
+        Table007EditorSmoke.Trace("smoke-surface-handler-changed");
+        if (_editorHost is not null) Table007EditorSmoke.TraceNativeSurface(_editorHost);
     }
 
     private static void OnViewLoaded(object? sender, EventArgs e)
     {
         if (sender is NeraSpreadsheetView view)
         {
+            Table007EditorSmoke.Trace("smoke-surface-loaded");
             view.InvalidateSurface();
+            Table007EditorSmoke.Trace("smoke-surface-loaded-invalidate-returned");
         }
     }
 
@@ -127,6 +136,8 @@ internal sealed class SmokePage : ContentPage, IDisposable
         {
             _frameCount++;
             if (_frameCount == 1) Table007EditorSmoke.Trace("smoke-first-frame");
+            if (_stage == SmokeStage.AwaitRecreation && _recreationApplied)
+                Table007EditorSmoke.Trace("smoke-recreated-frame-enter");
             ValidateFrame(view, e);
             switch (_stage)
             {
@@ -514,6 +525,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             try
             {
                 Table007EditorSmoke.Trace("smoke-before-surface-remove");
+                Table007EditorSmoke.TraceNativeSurface(_editorHost!);
                 _editorHost!.Children.Remove(view);
                 Table007EditorSmoke.Trace("smoke-after-surface-remove");
                 view.Handler = null!;
@@ -536,6 +548,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 _recreationApplied = true;
                 _editorHost.Children.Insert(0, view);
                 Table007EditorSmoke.Trace("smoke-after-surface-reinsert");
+                Table007EditorSmoke.TraceNativeSurface(_editorHost);
             }
             catch (Exception exception)
             {
@@ -836,6 +849,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
         {
             view.PaintSurface -= OnPaintSurface;
             view.Loaded -= OnViewLoaded;
+            view.HandlerChanged -= OnSurfaceHandlerChanged;
             view.Dispose();
             _view = null;
         }

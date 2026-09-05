@@ -2,7 +2,7 @@
 
 - Branch: `feature/table-007-editor-corpus`; PR lane chưa tạo.
 - Base clean đã xác minh: `2e8482c25a44797a479b276ae26f472811a0a81e`.
-- Implementation checkpoint đã push: `4cdee6aadedb59e2ee25549cc2985ef2203686d8`;
+- Implementation checkpoint đã push: `3f2032142e4d9aa4c7a75601adc78498aeda91a4`;
   đang sửa native CI, chưa release/exact-final-head green.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
@@ -112,6 +112,24 @@
   xảy ra SAU editor phase, nên không gọi startup noise hoặc editor PASS đầy đủ.
   Followup thêm literal stages cho pinch/pan/wheel/resize/surface recreation để
   xác định original stress phase gây failure; giữ nguyên hành vi và gates cũ.
+- CI source3f: full `33980860391` FAIL Mac/Windows; iOS `33980861653`,
+  Q003C `33980863021`, Core/desktop/Android PASS. Mac không tới editor-enter
+  trong queued callback; GPU first/subsequent draw đều tới flush/present success.
+  C review loại trừ first Clip/Focus/IME vì BeginEdit chưa chạy; chưa tìm native
+  misuse của editor từ source. Followup giữ original bare view lúc initial attach,
+  queued callback mới bọc SAME view/session trong editor host; thêm create/attach
+  stages, giữ mọi editor/analytics assertion. Không sửa renderer của root.
+- Windows3f cả2attempts tới after-surface-reinsert của chu kỳ đầu, trước frame
+  tái tạo. Followup thêm handler-changed/loaded/recreated-frame và focus category
+  (none/surface/editor/other), không ghi values/path/device IDs. Focus hoặc
+  stale native unload chưa phải nguyên nhân được chứng minh.
+- Root cấp riêng `table-007-native-diagnostics.yml`: hai hosted jobs chạy đúng
+  existing Windows.Smoke/MacCatalyst.AnalyticsSmoke và runner/SDK/workload/timeouts
+  hiện hữu; push chỉ branch B. Probe iterations dùng workflow hẹp; final source
+  vẫn phải xanh cả ba existing workflows cộng workflow chẩn đoán đúng HEAD.
+  Không thêm dependency parser vào repo; môi trường không có PyYAML/node yaml.
+  Workflow review thủ công, PowerShell syntax/diff/architecture PASS; GitHub
+  parser và native builds phải xác nhận workflow mới trước khi dùng evidence.
 - Gaps: T1/T2 còn native CI và Apple hardware-key evidence; T3 corpus đã có,
   final regression/exact-head CI đang chờ. CI actual SDK phải đọc log (global
   requested .302 + latestFeature có thể chọn .400), không suy ra từ config.
