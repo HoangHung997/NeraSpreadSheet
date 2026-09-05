@@ -12,7 +12,8 @@ ADR0008/contract mới. Không sửa SDK csproj, production, existing workflows,
 launchers hoặc shared status/CURRENT/wave. Scope grant ở wave root 06/09.
 
 Producer/assembler commit: `feb12d5f`.
-Local: 18 package/consumer và 12 shared native transport in-memory fixtures PASS; all three plan modes
+Local: 23 package/consumer fixtures và 12 shared native transport fixtures PASS,
+0 skip; gồm 5 actual-filesystem inventory fixtures nhỏ. All three plan modes
 and PowerShell parser PASS; architecture/packaging metadata/diff/privacy checks PASS.
 Build/publish/native chưa chạy local do disk constraint. CI exact implementation
 HEAD sẽ được ghi khi commit và run được xác minh; không dùng baseline green thay.
@@ -96,10 +97,21 @@ Android source transport proof do root: job101364379179/source223 và trước �
 101363322182. C gọi explicit APK/bundle/tag/prefix/fresh-result sau verify-app,
 không retry/fallback; sau helper0 còn bắt own source/version/feed/nonce/target,
 required assembly versions, public postconditions và >=3 completed frames.
-Generic legacy min2 không phải consumer acceptance. Chưa có Android native run
-ở source wiring này; Windows/iOS/Mac native, native editor/fullB/P3 vẫn OPEN.
+Generic legacy min2 không phải consumer acceptance. Source wiring
+`1bbe334a61ce0edecbf4679972a888de0bd9398b`, run `33988568079` đã SUCCESS toàn
+matrix: năm producers, canonical assembler, bốn consumer builds/apphash và actual
+Android native public smoke/cohort validator. Windows/iOS/Mac native, native
+editor/fullB/P3 vẫn OPEN; hardened link scanner tiếp theo cần exact-source CI riêng.
+
+Theo root review sau wiring `1bbe334a61ce0edecbf4679972a888de0bd9398b`, scanner
+giữ explicit link kind/target/resolved target, không flatten directory aliases;
+reject absolute/escaping links, symbolic và directory-graph cycles, path collisions.
+23 fixtures PASS local gồm actual hidden add/remove/equal-length content changes,
+file/directory retarget tới same bytes và actual cycle/escape; không skip và không
+native/build workload local. Temporary fixture cleanup chỉ trong newly-created,
+resolved/checked fixture directory. Shared imported223 blobs không đổi.
 
 ## Bước tiếp theo duy nhất
 
-Push/check cohort Android native sau importdfd và owned wiring; xem Mac inventory
-và Android actual marker, giữ mọi failed/missing/cohort mismatch làm gate đỏ.
+Push/check hardened-link-scanner source sau `1bbe334a`, rồi xác minh toàn bộ
+package/Android native matrix và năm existing gates ở đúng final HEAD.
