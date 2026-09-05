@@ -39,15 +39,21 @@ internal sealed partial class SmokePage
         foreach (var id in new[] { "caption", "targets" })
         {
             var control = Descendants<VisualElement>(shell).Single(view => view.AutomationId == "ribbon-customization-" + id);
-            var native = (Microsoft.UI.Xaml.FrameworkElement)control.Handler!.PlatformView!;
+            var native = FindCustomizationInputBorder((Microsoft.UI.Xaml.DependencyObject)control.Handler!.PlatformView!,
+                id == "caption" ? "BorderElement" : "Background");
+            Require(native is { IsLoaded: true, ActualWidth: > 0d, ActualHeight: > 0d, Child: null, Opacity: > 0d },
+                $"{theme} {id} has no loaded native outline visual.");
+            // ComboBox's invisible HighlightBackground has Margin=-4. Rendering the
+            // whole control expands the bitmap, so its outer pixels are not the outline.
+            // Measure the real template Border, with no caption pixels in this target.
             var bitmap = new RenderTargetBitmap();
-            await bitmap.RenderAsync(native);
+            await bitmap.RenderAsync(native!);
             var buffer = await bitmap.GetPixelsAsync();
             var pixels = new byte[buffer.Length];
             using (var reader = global::Windows.Storage.Streams.DataReader.FromBuffer(buffer)) reader.ReadBytes(pixels);
             var expected = id == "caption" ? colors.Accent : colors.Border;
             var matches = 0;
-            var edge = Math.Max(2, (int)Math.Ceiling(3d * bitmap.PixelWidth / native.ActualWidth));
+            var edge = Math.Max(2, (int)Math.Ceiling(3d * bitmap.PixelWidth / native!.ActualWidth));
             for (var y = 0; y < bitmap.PixelHeight; y++)
             for (var x = 0; x < bitmap.PixelWidth; x++)
                 if ((x < edge || x >= bitmap.PixelWidth - edge || y < edge || y >= bitmap.PixelHeight - edge) &&
@@ -55,6 +61,14 @@ internal sealed partial class SmokePage
             Require(matches >= bitmap.PixelWidth / 2,
                 $"{theme} {id} outline has insufficient rendered contrast: matches={matches}, width={bitmap.PixelWidth}.");
         }
+    }
+
+    private static Microsoft.UI.Xaml.Controls.Border? FindCustomizationInputBorder(Microsoft.UI.Xaml.DependencyObject root, string name)
+    {
+        if (root is Microsoft.UI.Xaml.Controls.Border border && border.Name == name) return border;
+        for (var index = 0; index < Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root); index++)
+            if (FindCustomizationInputBorder(Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, index), name) is { } found) return found;
+        return null;
     }
 
     private static void VerifyCustomizationPopupPalette(byte[] pixels, int width, int height, NeraIconTheme theme)
