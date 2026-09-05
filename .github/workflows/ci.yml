@@ -18,6 +18,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Validate native result transport parser
+        run: python3 -B scripts/test-native-smoke-result.py
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
@@ -190,164 +193,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
-          EMULATOR="$ANDROID_HOME/emulator/emulator"
-          ADB="$ANDROID_HOME/platform-tools/adb"
-          AVD_NAME="nera-analytics-smoke"
-          SYSTEM_IMAGE="system-images;android-35;google_apis;x86_64"
-          EMULATOR_LOG="$RUNNER_TEMP/nera-android-emulator.log"
-          PACKAGE="com.neraspreadsheet.androidanalyticssmoke"
-          LOG_TAG="NeraAnalyticsSmoke"
-          export ANDROID_USER_HOME="$RUNNER_TEMP/nera-android-user"
-          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
-          mkdir -p "$ANDROID_AVD_HOME"
-
-          print_runtime_diagnostics() {
-            echo "--- package process ---"
-            "$ADB" shell pidof "$PACKAGE" || true
-            echo "--- resolved launcher ---"
-            "$ADB" shell cmd package resolve-activity --brief -c android.intent.category.LAUNCHER "$PACKAGE" || true
-            echo "--- foreground/activity state ---"
-            "$ADB" shell dumpsys activity activities | grep -E -A 20 -B 5 "$PACKAGE|mResumedActivity|topResumedActivity" || true
-            echo "--- targeted app/runtime logcat ---"
-            "$ADB" logcat -d | grep -E -i "$LOG_TAG|$PACKAGE|AndroidRuntime|mono-rt|dotnet|crash|FATAL EXCEPTION" | tail -n 400 || true
-          }
-
-          echo "ANDROID_USER_HOME=$ANDROID_USER_HOME"
-          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME"
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platform-tools" "emulator" "$SYSTEM_IMAGE"
-          printf 'no\n' | "$AVDMANAGER" create avd -f -n "$AVD_NAME" -k "$SYSTEM_IMAGE"
-
-          echo "AVDs reported by avdmanager:"
-          "$AVDMANAGER" list avd
-          echo "AVDs reported by emulator:"
-          AVAILABLE_AVDS="$("$EMULATOR" -list-avds)"
-          printf '%s\n' "$AVAILABLE_AVDS"
-          if ! printf '%s\n' "$AVAILABLE_AVDS" | grep -Fxq "$AVD_NAME"; then
-            echo "Created Android AVD is not visible to the emulator."
-            find "$ANDROID_USER_HOME" -maxdepth 3 -type f -print || true
+          ROOT="tests/NeraSpreadSheet.Maui.Android.AnalyticsSmoke/bin/Release/net10.0-android"
+          mapfile -t APKS < <(find "$ROOT" -type f -name '*-Signed.apk')
+          if [ "${#APKS[@]}" -eq 0 ]; then
+            mapfile -t APKS < <(find "$ROOT" -type f -name '*.apk')
+          fi
+          if [ "${#APKS[@]}" -ne 1 ]; then
+            echo "Android smoke APK is missing or ambiguous."
             exit 1
           fi
-
-          ACCEL="off"
-          if [ -e /dev/kvm ]; then
-            sudo chmod 666 /dev/kvm || true
-            ACCEL="on"
-          fi
-          echo "Android emulator acceleration mode: $ACCEL"
-
-          nohup "$EMULATOR" \
-            -avd "$AVD_NAME" \
-            -no-window \
-            -noaudio \
-            -no-boot-anim \
-            -no-snapshot \
-            -no-metrics \
-            -gpu swiftshader_indirect \
-            -accel "$ACCEL" \
-            >"$EMULATOR_LOG" 2>&1 &
-          EMULATOR_PID=$!
-
-          if ! timeout 180 "$ADB" wait-for-device; then
-            echo "Android emulator did not expose an adb device within 180 seconds."
-            tail -n 200 "$EMULATOR_LOG" || true
-            exit 1
-          fi
-
-          booted=0
-          for _ in $(seq 1 120); do
-            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
-              echo "Android emulator exited before boot completed."
-              tail -n 200 "$EMULATOR_LOG" || true
-              exit 1
-            fi
-            if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
-              booted=1
-              break
-            fi
-            sleep 2
-          done
-          if [ "$booted" -ne 1 ]; then
-            echo "Android emulator did not finish booting."
-            "$ADB" devices -l || true
-            tail -n 200 "$EMULATOR_LOG" || true
-            exit 1
-          fi
-
-          "$ADB" devices -l
-          APK="$(find tests/NeraSpreadSheet.Maui.Android.AnalyticsSmoke/bin/Release/net10.0-android -type f -name '*-Signed.apk' | head -n 1)"
-          if [ -z "$APK" ]; then
-            APK="$(find tests/NeraSpreadSheet.Maui.Android.AnalyticsSmoke/bin/Release/net10.0-android -type f -name '*.apk' | head -n 1)"
-          fi
-          if [ -z "$APK" ]; then
-            echo "Android analytics smoke APK was not produced."
-            exit 1
-          fi
-
-          timeout 120 "$ADB" install --no-incremental -r "$APK"
-          "$ADB" logcat -c
-
-          RESOLVED_OUTPUT="$("$ADB" shell cmd package resolve-activity --brief -c android.intent.category.LAUNCHER "$PACKAGE" | tr -d '\r' || true)"
-          printf '%s\n' "$RESOLVED_OUTPUT"
-          ACTIVITY="$(printf '%s\n' "$RESOLVED_OUTPUT" | grep -E '^[A-Za-z0-9_.]+/[A-Za-z0-9_.$]+' | tail -n 1 || true)"
-          if [ -z "$ACTIVITY" ]; then
-            echo "Android analytics smoke package has no resolvable launcher activity."
-            "$ADB" shell dumpsys package "$PACKAGE" | head -n 300 || true
-            exit 1
-          fi
-
-          echo "Launching Android analytics smoke activity: $ACTIVITY"
-          if ! timeout 60 "$ADB" shell am start -W -S -n "$ACTIVITY"; then
-            echo "Android analytics smoke launcher failed."
-            print_runtime_diagnostics
-            exit 1
-          fi
-
-          PID=""
-          for _ in $(seq 1 20); do
-            PID="$("$ADB" shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
-            if [ -n "$PID" ]; then
-              break
-            fi
-            sleep 1
-          done
-          if [ -z "$PID" ]; then
-            echo "Android analytics smoke process did not stay alive after launch."
-            print_runtime_diagnostics
-            exit 1
-          fi
-          echo "Android analytics smoke PID: $PID"
-
-          for _ in $(seq 1 60); do
-            OUTPUT="$("$ADB" logcat -d -s "$LOG_TAG:I" '*:S' || true)"
-            if printf '%s\n' "$OUTPUT" | grep -Fq '"status":"success"'; then
-              printf '%s\n' "$OUTPUT"
-              "$ADB" shell am force-stop "$PACKAGE" || true
-              exit 0
-            fi
-            if printf '%s\n' "$OUTPUT" | grep -Fq '"status":"failure"'; then
-              printf '%s\n' "$OUTPUT"
-              print_runtime_diagnostics
-              "$ADB" shell am force-stop "$PACKAGE" || true
-              exit 1
-            fi
-
-            CURRENT_PID="$("$ADB" shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' | awk '{print $1}' || true)"
-            if [ -z "$CURRENT_PID" ]; then
-              echo "Android analytics smoke process exited before producing a result marker."
-              print_runtime_diagnostics
-              exit 1
-            fi
-            sleep 2
-          done
-
-          echo "Android analytics accessibility smoke timed out."
-          print_runtime_diagnostics
-          tail -n 200 "$EMULATOR_LOG" || true
-          "$ADB" shell am force-stop "$PACKAGE" || true
-          exit 1
+          bash scripts/run-maui-android-smoke.sh "${APKS[0]}"
 
   maui-apple:
     name: MAUI Apple GPU host builds

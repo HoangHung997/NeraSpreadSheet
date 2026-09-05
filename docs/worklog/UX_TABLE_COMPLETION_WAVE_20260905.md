@@ -23,6 +23,14 @@ thêm task/worktree. Không local heavy build/native lease khi đĩa C gần đ�
   `RibbonWorksheetNavigationSmokeTests.cs` trong Windows.Rendering.Tests.
 - Tài liệu riêng: `docs/release-009-navigation-shell-contract.md` và
   `docs/worklog/RELEASE-009-NAVIGATION.md`.
+- Bổ sung grant localization: A giữ duy nhất
+  `src/NeraSpreadSheet.Commands/PresentationStrings.resx` và
+  `PresentationStrings.en.resx` để thêm đúng hai key automation name
+  `Cuộn ngang trang tính` / `Cuộn dọc trang tính`, English tương ứng
+  `Scroll worksheet horizontally` / `Scroll worksheet vertically`.
+  Native names phải theo runtime localization change; test trong owned
+  RibbonWorksheetNavigationSmokeTests, giữ resource parity gate hiện hữu.
+  Không mở rộng sang command mutation hoặc thay các resource không liên quan.
 - Gắn hai standalone worksheet scrollbars bằng API/extent hiện có, coalesce
   thumb input theo frame, giữ fractional offsets và adaptive extent floor.
   Loaded split dùng đúng session/stored topology, không force Both hoặc ghi
@@ -75,6 +83,16 @@ không phải acceptance. Baseline/candidate gốc vẫn chạy và failure vẫ
 fail dù variant tiến xa hơn hoặc success. Không upload/publish variant package
 hoặc gọi đó là production fix. Báo exact source delta và entry stages để root
 quyết định bước tiếp, không mở nhiều biến thể hoặc rerun-until-green.
+
+Sau matched IPS của run `33985385938`, cho B thêm read-only diagnostics trong
+paired Mac workflow đang sở hữu: đối chiếu generated registrar/linker metadata
+của đúng baseline/candidate đã build trong job, đặc biệt native editor subclass.
+Chỉ đọc outputs hiện có bằng công cụ sẵn trên runner, không build biến thể,
+install tooling, debugger/OS changes hoặc sửa production. Xuất bounded summary
+tối đa 32 KiB gồm logical type/selector/signature/flags, source/toolchain và
+relative output hashes; nếu output không có thì báo unavailable, không suy đoán.
+Không upload raw generated files/binlog/paths/UUID/native dumps. Native runtime
+failure và existing acceptance gates giữ nguyên; metadata không thay runtime.
 
 Root giữ sample Commands/command audit, tất cả shared docs/CI ngoài các quyền
 mới ghi rõ, review và tích hợp tuần tự. A/C báo đường dẫn cần thêm trước sửa;

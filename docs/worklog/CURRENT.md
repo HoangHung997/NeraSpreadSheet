@@ -1,5 +1,49 @@
 # Current Work Handoff
 
+## Đang xác minh — shared Android/iOS transport
+
+Root tách hai existing native launch blocks sang `run-maui-android-smoke.sh`
+và `run-maui-ios-smoke.sh`; giữ source apps/setup/bounds, thêm bounded JSON
+marker parser để không chấp nhận mixed failure/success hoặc frame evidence
+thiếu. Local 9 in-memory tests, bash syntax, architecture/packaging/diff PASS.
+Native full/iOS CI cho extraction chưa chạy; không lấy root782 green thay thế.
+MAUI PackageReference runtime vẫn OPEN đến khi C wrapper kiểm app hashes và
+cohort/nonce bằng đúng consumer marker; generic transport không chứng minh việc đó.
+
+B đã release riêng 21 desktop/shared assistant/test paths tại `9bf24af9`,
+patch base root782, SHA256 eb48e632d1eab79b3d49c5d0f43869584414ba4ef34fc30e446829c78f7441e7.
+Root đã verify manifest/hash, chưa apply: phải review dependency closure trước,
+không lấy MAUI/corpus/Viewport/docs hoặc lặp slices49/64. Source desktop121/121
+và Editing292/292 reported green, native Mac còn FAIL. A final81d4c045 chờ
+exact gates/images; C producer5targets đã reported PASS nhưng canonical package
+equivalence guard đang FAIL, chưa release.
+
+Bước tiếp theo: push/verify extraction CI, review 21-path desktop bridge và
+final A navigation để tích hợp tuần tự; đợi full B cho P3/whole acceptance.
+
+## Mới nhất — R1 checkpoint 782890b6 xanh đủ năm workflow
+
+- Root implementation `782890b65fa3c7d5b53271ef5e3955d40005f867` đã SUCCESS:
+  full `33985469017`, iOS `33985468976`, Q003C `33985468981`, Windows package
+  consumer `33985466608`, published demo/command guide `33985466630`.
+  Windows job `101358050532` đã build/runtime PASS, gồm năm R1 tests mới.
+  Không lấy kết quả này thay new integration hoặc whole B acceptance.
+- A `d5cd3242` đã push navigation/split source, giữ HOLD chờ final CI/capture
+  và đang thêm theme/header refresh cùng hai automation-name resource keys.
+  Root đã đọc source/tests, cấp đúng hai resource files trong wave; A vẫn writer.
+- B one-off experiment `4bef0f0e` / run `33985385938`: Mac baseline PASS,
+  candidate và variant bỏ handler mapping đều native FAIL trước callback entry.
+  Variant có matched IPS SIGSEGV ở native class realization/NSClassFromString
+  trong AppKit text input. Chưa chứng minh root cause hoặc renderer fix; bỏ
+  handler mapping không bỏ native subclass metadata. B tiếp tục concrete
+  editor bridge/cleanup (`9bf24af9`, chưa release) và paired native gates.
+- C đang tạo canonical MAUI package/isolated public consumers trên nhánh mới;
+  existing native launchers vẫn B sở hữu. Không có claim build-only = runtime.
+- Các cập nhật evidence/grant này chờ ghép vào commit tiếp theo, không tạo
+  docs-only CI storm. Không xóa artifacts hoặc heavy build/native local.
+- Bước tiếp theo duy nhất: review final A/navigation CI/captures và B bridge
+  khi source release; tích hợp tuần tự rồi chạy exact-head gates mới.
+
 ## Tiếp tục — baseline 50cb357a xanh đủ năm workflow
 
 - Implementation `50cb357a00d6bb8a6b134cdeebce624a09bd1b21` đã success:
