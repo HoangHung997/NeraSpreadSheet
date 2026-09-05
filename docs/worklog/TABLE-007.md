@@ -181,6 +181,14 @@
   chạy baseline rồi candidate với outcomes/result labels riêng. Candidate vẫn
   chạy sau baseline failure nhưng mọi failed step giữ job FAIL, không thêm
   retry/timeout/assertion bypass. Baseline không thay candidate acceptance.
+- WinForms bounded lifecycle followup theo grant root: CancelEditor luôn gọi
+  HideEditor (đã bao gồm reset candidates), chỉ Focus/return true khi thực sự
+  hủy draft. Native regression riêng có2 STA cases: activation tự đóng draft/
+  suggestions ngay và external canonical cancel + moved selection; không đổi
+  cells/history/selection. Không sửa hai WPF paths đã release. Incremental
+  desktop test build SDK10.0.302 PASS0warnings/errors,25.7s; runtime đợi CI.
+- Paired workflow source `c6de63379b16718e67be24df6ba7bfb4a9296e9d` đã push;
+  run `33983361424` được GitHub parser chấp nhận, hai jobs đang thực thi baseline.
 - Gaps: T1/T2 còn native CI và Apple hardware-key evidence; T3 corpus đã có,
   final regression/exact-head CI đang chờ. CI actual SDK phải đọc log (global
   requested .302 + latestFeature có thể chọn .400), không suy ra từ config.

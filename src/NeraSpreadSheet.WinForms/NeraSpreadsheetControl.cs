@@ -698,13 +698,12 @@ public sealed partial class NeraSpreadsheetControl : Control
     public bool CancelEditor()
     {
         if (_cellEditor?.State is { } target) _session!.Selection.SetActiveCell(target.Address);
-        if (_cellEditor is null || !_cellEditor.Cancel())
-        {
-            return false;
-        }
+        var canceled = _cellEditor?.Cancel() == true;
+        // Session activation may already have canceled the draft. The native
+        // overlay still needs cleanup without selecting the old cell again.
         HideEditor();
-        Focus();
-        return true;
+        if (canceled) Focus();
+        return canceled;
     }
 
     public void QueuePrecisionScroll(double deltaX, double deltaY)
