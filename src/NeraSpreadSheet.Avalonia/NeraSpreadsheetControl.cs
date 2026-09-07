@@ -18,7 +18,7 @@ namespace NeraSpreadSheet.Avalonia;
 /// <summary>A virtualized Avalonia viewport over an existing spreadsheet session.
 /// Access this control and its attached session from the Avalonia UI thread.
 /// Disposing the control does not dispose or replace the caller-owned workbook.</summary>
-public sealed partial class NeraSpreadsheetControl : Panel, IDisposable
+public sealed partial class NeraSpreadsheetControl : Control, IDisposable
 {
     public static readonly DirectProperty<NeraSpreadsheetControl, SpreadsheetSession?> SessionProperty =
         AvaloniaProperty.RegisterDirect<NeraSpreadsheetControl, SpreadsheetSession?>(
@@ -26,7 +26,6 @@ public sealed partial class NeraSpreadsheetControl : Panel, IDisposable
     public static readonly DirectProperty<NeraSpreadsheetControl, double> ZoomProperty =
         AvaloniaProperty.RegisterDirect<NeraSpreadsheetControl, double>(
             nameof(Zoom), control => control.Zoom, (control, value) => control.Zoom = value);
-
     private readonly AvaloniaDisplayListRenderer _renderer = new();
     private readonly ContinuousScrollController _scroll = new();
     private readonly DispatcherTimer _frameTimer = new() { Interval = TimeSpan.FromSeconds(1d / 60d) };
@@ -51,12 +50,18 @@ public sealed partial class NeraSpreadsheetControl : Panel, IDisposable
     {
         Focusable = true;
         ClipToBounds = true;
-        Children.Add(_editor);
+        // Control.Render is extensible; Panel.Render is deliberately sealed by Avalonia.
+        // Register both trees so the sole editor inherits styles and receives routed input.
+        LogicalChildren.Add(_editor);
+        VisualChildren.Add(_editor);
+        Children = Array.AsReadOnly<Control>([_editor]);
         _frameTimer.Tick += OnFrame;
-        // Intercept commit/navigation keys before the native multiline TextBox handles them.
         _editor.AddHandler(InputElement.KeyDownEvent, OnEditorKeyDown, RoutingStrategies.Tunnel);
         _editor.TextChanged += OnEditorTextChanged;
     }
+
+    /// <summary>The fixed native child set: one reusable editor, never one control per cell.</summary>
+    public IReadOnlyList<Control> Children { get; }
 
     public SpreadsheetSession? Session
     {
@@ -126,7 +131,6 @@ public sealed partial class NeraSpreadsheetControl : Panel, IDisposable
     public event EventHandler? ZoomChanged;
     public event EventHandler? EditorDraftChanged;
     public event EventHandler<SpreadsheetInteractionFailedEventArgs>? InteractionFailed;
-
     private double DocumentWidth => Math.Max(0, Bounds.Width / _zoom);
     private double DocumentHeight => Math.Max(0, Bounds.Height / _zoom);
     private SpreadsheetChromeMetrics Chrome =>
@@ -382,7 +386,6 @@ public sealed partial class NeraSpreadsheetControl : Panel, IDisposable
         var snapshot = _scroll.Snapshot;
         var x = Math.Clamp(snapshot.OffsetX, 0, Math.Max(0, ContentWidth - ViewportBodyWidth));
         var y = Math.Clamp(snapshot.OffsetY, 0, Math.Max(0, ContentHeight - ViewportBodyHeight));
-        // A repaint/selection notification must not discard pending precision deltas.
         if (x != snapshot.OffsetX || y != snapshot.OffsetY) _scroll.ScrollTo(x, y, false);
         UpdateEditorBounds();
         InvalidateVisual();

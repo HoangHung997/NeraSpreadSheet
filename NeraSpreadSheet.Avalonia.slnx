@@ -1,5 +1,17 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/NeraSpreadSheet.Foundation/NeraSpreadSheet.Foundation.csproj" />
+    <Project Path="src/NeraSpreadSheet.Core/NeraSpreadSheet.Core.csproj" />
+    <Project Path="src/NeraSpreadSheet.Commands/NeraSpreadSheet.Commands.csproj" />
+    <Project Path="src/NeraSpreadSheet.Formulas/NeraSpreadSheet.Formulas.csproj" />
+    <Project Path="src/NeraSpreadSheet.Interaction/NeraSpreadSheet.Interaction.csproj" />
+    <Project Path="src/NeraSpreadSheet.Editing/NeraSpreadSheet.Editing.csproj" />
+    <Project Path="src/NeraSpreadSheet.Layout/NeraSpreadSheet.Layout.csproj" />
+    <Project Path="src/NeraSpreadSheet.Scrolling/NeraSpreadSheet.Scrolling.csproj" />
+    <Project Path="src/NeraSpreadSheet.Rendering.Abstractions/NeraSpreadSheet.Rendering.Abstractions.csproj" />
+    <Project Path="src/NeraSpreadSheet.Rendering.Spreadsheet/NeraSpreadSheet.Rendering.Spreadsheet.csproj" />
+    <Project Path="src/NeraSpreadSheet.Viewport/NeraSpreadSheet.Viewport.csproj" />
+    <Project Path="src/NeraSpreadSheet.OpenXml/NeraSpreadSheet.OpenXml.csproj" />
     <Project Path="src/NeraSpreadSheet.Avalonia/NeraSpreadSheet.Avalonia.csproj" />
   </Folder>
   <Folder Name="/samples/">
