@@ -14,6 +14,9 @@ namespace NeraSpreadSheet.Avalonia.Sample;
 
 public sealed partial class MainWindow : Window
 {
+    private static readonly string[] ExcelPatterns = ["*.xlsx"];
+    private static readonly IReadOnlyList<FilePickerFileType> ExcelTypes =
+        Array.AsReadOnly<FilePickerFileType>([new FilePickerFileType("Excel") { Patterns = ExcelPatterns }]);
     private readonly NeraSpreadsheetControl _sheet = new() { UseAdaptiveNavigationExtent = true };
     private readonly TextBox _formula = new() { MinWidth = 240 };
     private readonly TextBlock _address = new() { MinWidth = 70, VerticalAlignment = VerticalAlignment.Center };
@@ -24,6 +27,7 @@ public sealed partial class MainWindow : Window
     private readonly NeraOpenXmlSpreadsheetSessionSerializer _serializer = new();
     private bool _updating;
     private bool _busy;
+    private bool _isClosed;
 
     public MainWindow()
     {
@@ -93,6 +97,7 @@ public sealed partial class MainWindow : Window
         var button = new Button { Content = label, Focusable = false };
         button.Click += (_, _) =>
         {
+            if (_busy || _isClosed) return;
             try
             {
                 if (_sheet.IsEditing && !_sheet.CommitEditor()) { _status.Text = "Giá trị chưa vượt qua kiểm tra dữ liệu."; return; }
@@ -112,7 +117,7 @@ public sealed partial class MainWindow : Window
             foreach (var worksheet in session.Workbook.Worksheets)
             {
                 var tab = new Button { Content = worksheet.Name };
-                tab.Click += (_, _) => session.ActivateWorksheet(worksheet);
+                tab.Click += (_, _) => { if (!_busy && !_isClosed) session.ActivateWorksheet(worksheet); };
                 _tabs.Children.Add(tab);
             }
         UpdateSelection();
@@ -122,7 +127,7 @@ public sealed partial class MainWindow : Window
     private void OnDraftChanged(object? sender, EventArgs e) => UpdateSelection();
     private void UpdateSelection()
     {
-        if (_sheet.Session is not { } session || _updating) return;
+        if (_sheet.Session is not { } session || _updating || _isClosed) return;
         _updating = true;
         try
         {
@@ -136,22 +141,22 @@ public sealed partial class MainWindow : Window
         finally { _updating = false; }
     }
 
-    private void OnFormulaFocus(object? sender, GotFocusEventArgs e)
+    private void OnFormulaFocus(object? sender, RoutedEventArgs e)
     {
-        if (_updating) return;
+        if (_updating || _busy || _isClosed) return;
         _sheet.BeginEdit(focusEditor: false);
         UpdateSelection();
     }
 
     private void OnFormulaTextChanged(object? sender, TextChangedEventArgs e)
     {
-        if (!_updating && _formula.IsFocused && _sheet.IsEditing)
+        if (!_updating && !_busy && !_isClosed && _formula.IsFocused && _sheet.IsEditing)
             _sheet.SetEditorText(_formula.Text ?? string.Empty);
     }
 
     private void OnFormulaKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Handled || e.Key is not (Key.Enter or Key.Escape)) return;
+        if (e.Handled || _busy || _isClosed || e.Key is not (Key.Enter or Key.Escape)) return;
         e.Handled = true;
         try
         {
@@ -164,7 +169,7 @@ public sealed partial class MainWindow : Window
 
     private void OnViewportChanged(object? sender, EventArgs e)
     {
-        if (_updating) return;
+        if (_updating || _isClosed) return;
         _updating = true;
         try
         {
@@ -182,7 +187,7 @@ public sealed partial class MainWindow : Window
 
     private void OnScrollChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
-        if (!_updating) _sheet.ScrollTo(_horizontal.Value, _vertical.Value);
+        if (!_updating && !_busy && !_isClosed) _sheet.ScrollTo(_horizontal.Value, _vertical.Value);
     }
 
     private void OnInteractionFailed(object? sender, SpreadsheetInteractionFailedEventArgs e) => _status.Text = e.Exception.Message;
@@ -191,12 +196,12 @@ public sealed partial class MainWindow : Window
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Mở bảng tính", AllowMultiple = false,
-            FileTypeFilter = [new FilePickerFileType("Excel") { Patterns = ["*.xlsx"] }],
+            Title = "Mở bảng tính", AllowMultiple = false, FileTypeFilter = ExcelTypes,
         });
-        if (files.Count == 0) return;
+        if (_isClosed || files.Count == 0) return;
         await using var stream = await files[0].OpenReadAsync();
-        _sheet.Session = await _serializer.LoadSessionAsync(stream, new OpenXmlImportOptions());
+        var session = await _serializer.LoadSessionAsync(stream, new OpenXmlImportOptions());
+        if (!_isClosed) _sheet.Session = session;
     });
 
     private async void SaveClick(object? sender, RoutedEventArgs e) => await RunIo(async () =>
@@ -205,12 +210,13 @@ public sealed partial class MainWindow : Window
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Lưu bảng tính", SuggestedFileName = "NeraSpreadSheet.xlsx", DefaultExtension = "xlsx",
-            FileTypeChoices = [new FilePickerFileType("Excel") { Patterns = ["*.xlsx"] }],
+            FileTypeChoices = ExcelTypes,
         });
-        if (file is null) return;
+        if (_isClosed || file is null) return;
         // Stage package construction before opening the destination for writing.
         using var staging = new MemoryStream();
         await _serializer.SaveSessionAsync(session, staging, new OpenXmlExportOptions());
+        if (_isClosed) return;
         staging.Position = 0;
         await using var destination = await file.OpenWriteAsync();
         if (!destination.CanSeek) throw new NotSupportedException("Thiết bị lưu phải hỗ trợ seek.");
@@ -218,23 +224,33 @@ public sealed partial class MainWindow : Window
         await staging.CopyToAsync(destination);
         destination.SetLength(staging.Length);
         await destination.FlushAsync();
-        _status.Text = "Đã lưu bảng tính.";
+        if (!_isClosed) _status.Text = "Đã lưu bảng tính.";
     });
 
     private async Task RunIo(Func<Task> operation)
     {
-        if (_busy) return;
-        if (_sheet.IsEditing && !_sheet.CommitEditor()) { _status.Text = "Cần xác nhận dữ liệu trước khi mở/lưu."; return; }
+        if (_busy || _isClosed) return;
         _busy = true;
-        try { await operation(); }
+        try
+        {
+            if (_sheet.IsEditing && !_sheet.CommitEditor()) { _status.Text = "Cần xác nhận dữ liệu trước khi mở/lưu."; return; }
+            _sheet.IsEnabled = false;
+            _formula.IsEnabled = false;
+            await operation();
+        }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or
             InvalidOperationException or ArgumentException or NotSupportedException)
-        { _status.Text = exception.Message; }
-        finally { _busy = false; }
+        { if (!_isClosed) _status.Text = exception.Message; }
+        finally
+        {
+            _busy = false;
+            if (!_isClosed) { _sheet.IsEnabled = true; _formula.IsEnabled = true; }
+        }
     }
 
     private void OnClosed(object? sender, EventArgs e)
     {
+        _isClosed = true;
         _smokeTimer?.Stop();
         _sheet.SessionChanged -= OnSessionChanged;
         _sheet.SelectionChanged -= OnSelectionChanged;
