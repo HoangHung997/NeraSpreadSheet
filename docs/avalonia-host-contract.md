@@ -4,7 +4,7 @@
 
 Implementation candidate cho host desktop đầu tiên. Chưa phải toàn bộ A1/A2/A3 DONE.
 Chỉ ghi nhận build/test/native runtime khi có run thành công trên exact source SHA.
-PR #1 giữ Draft; nhánh Avalonia chưa được tích hợp vào root.
+PR #1 giữ Draft; nhánh Avalonia có Draft PR #4, chưa được tích hợp vào root.
 
 ## Quyết định phụ thuộc
 
@@ -23,13 +23,15 @@ https://docs.avaloniaui.net/docs/graphics-animation/custom-rendering.
 - Public NeraSpreadsheetControl gắn vào SpreadsheetSession do caller sở hữu.
 - Shared viewport/display list, headers, cells, formatting, frozen-pane projection.
 - Nested display lists giữ reference semantics; brush/pen/text caches có giới hạn.
-- Một native TextBox tái sử dụng; không tạo control cho mỗi ô.
+- Host kế thừa Avalonia Control, không override sealed Panel.Render. Đúng một
+  native TextBox nằm trong cả logical/visual trees; không tạo control cho mỗi ô.
 - Pixel scrolling dùng ContinuousScrollController và frame timer; zoom 25–400%.
 - Selection, keyboard navigation, drag range, header resize, hidden-axis navigation
   dùng geometry/model chung. Không thực thi lại công thức trong Render/scroll.
 - Editor bắt đầu/commit/cancel qua Session.Editor; một view không chiếm draft của
   view khác. Đổi sheet, rebind, detach/dispose dọn draft do chính view sở hữu;
-  không khôi phục địa chỉ cũ sau canonical cancellation.
+  không khôi phục địa chỉ cũ sau canonical cancellation. Re-enter draft không
+  reset text; commit keys được bắt ở tunnel trước native multiline handling.
 - C/Cmd+C/X/V hiện là clipboard nội bộ của Nera, UI ghi rõ giới hạn. Chưa nối
   OS clipboard, rich native clipboard hoặc drag/drop dữ liệu.
 - Sample: toolbar command thật, formula-bar bridge tới cùng native draft,
@@ -49,13 +51,14 @@ physical mouse/keyboard/IME/GPU latency test. Capture dùng loaded visual tree.
 
 ## Kiểm thử và bằng chứng
 
-`NeraSpreadSheet.Avalonia.slnx` chỉ chứa host/sample/tests mới, không sửa solutions
-của WPF/WinForms/MAUI. MSTest dùng HeadlessUnitTestSession để giữ UI thread.
-Workflow Avalonia chạy build/analyzers, headless regressions, architecture,
-loaded native window smoke/capture và pack trên Windows/Linux/macOS. Linux
-native dùng Xvfb; không thay bằng headless drawing. Success record có source SHA,
-frame count, postconditions, OS và loaded assembly location. PackageReference
-provenance chưa được claim chỉ vì pack thành công.
+`NeraSpreadSheet.Avalonia.slnx` là solution riêng cho host/sample/tests cùng các
+shared project dependencies khai báo tường minh để chúng cùng build Release.
+Không sửa solutions của WPF/WinForms/MAUI. MSTest dùng HeadlessUnitTestSession
+để giữ UI thread. Workflow Avalonia chạy build/analyzers, headless regressions,
+architecture, loaded native window smoke/capture và pack trên Windows/Linux/macOS.
+Linux native dùng Xvfb; không thay bằng headless drawing. Success record có
+source SHA, frame count, postconditions, OS và loaded assembly location.
+PackageReference provenance chưa được claim chỉ vì pack thành công.
 
 Chạy từ repository với SDK của global.json:
 
