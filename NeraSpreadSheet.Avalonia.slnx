@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NeraSpreadSheet.Avalonia/NeraSpreadSheet.Avalonia.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/NeraSpreadSheet.Avalonia.Sample/NeraSpreadSheet.Avalonia.Sample.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NeraSpreadSheet.Avalonia.Tests/NeraSpreadSheet.Avalonia.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,92 @@
+name: Avalonia desktop host
+
+on:
+  push:
+    branches: ['feature/avalonia-001-host']
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/NeraSpreadSheet.Avalonia/**'
+      - 'samples/NeraSpreadSheet.Avalonia.Sample/**'
+      - 'tests/NeraSpreadSheet.Avalonia.Tests/**'
+      - 'eng/avalonia-packages.props'
+      - 'NeraSpreadSheet.Avalonia.slnx'
+      - '.github/workflows/avalonia-001.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avalonia-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    name: Avalonia ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      NERA_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      NERA_AVALONIA_ARTIFACTS: artifacts/avalonia
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Install native Linux display dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libx11-6 libice6 libsm6 libfontconfig1 libxcb1 libxrender1 libxrandr2 libxi6 libgl1 libegl1 fonts-dejavu-core
+      - name: Restore isolated Avalonia solution
+        run: dotnet restore NeraSpreadSheet.Avalonia.slnx
+      - name: Build with repository analyzers and warnings as errors
+        run: dotnet build NeraSpreadSheet.Avalonia.slnx -c Release --no-restore
+      - name: Headless regressions
+        run: dotnet test tests/NeraSpreadSheet.Avalonia.Tests/NeraSpreadSheet.Avalonia.Tests.csproj -c Release --no-build --logger "trx;LogFileName=avalonia.trx" --results-directory artifacts/tests
+      - name: Verify existing architecture boundaries
+        shell: pwsh
+        run: ./scripts/verify-architecture.ps1
+      - name: Verify Avalonia host isolation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $hostProject = Get-Content src/NeraSpreadSheet.Avalonia/NeraSpreadSheet.Avalonia.csproj -Raw
+          if ($hostProject -match 'NeraSpreadSheet\.(Wpf|WinForms|Maui|Rendering\.Skia|Rendering\.Direct2D)|SkiaSharp|UseWPF|UseWindowsForms|UseMaui') { throw 'Avalonia host crossed a platform boundary.' }
+          foreach ($name in @('Foundation', 'Core', 'Formulas', 'Editing', 'Interaction', 'Layout', 'Scrolling', 'Viewport', 'Rendering.Abstractions', 'Rendering.Spreadsheet')) {
+            $text = Get-Content "src/NeraSpreadSheet.$name/NeraSpreadSheet.$name.csproj" -Raw
+            if ($text -match 'Avalonia') { throw "Avalonia dependency leaked into $name." }
+          }
+      - name: Loaded native window smoke and capture
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path artifacts/avalonia -Force | Out-Null
+          $app = 'samples/NeraSpreadSheet.Avalonia.Sample/bin/Release/net10.0/NeraSpreadSheet.Avalonia.Sample.dll'
+          if ($IsLinux) { $lines = & xvfb-run -a dotnet $app --smoke 2>&1 }
+          else { $lines = & dotnet $app --smoke 2>&1 }
+          $exitCode = $LASTEXITCODE
+          $lines | Tee-Object -FilePath artifacts/avalonia/native.log
+          if ($exitCode -ne 0) { throw "Native smoke exited $exitCode." }
+          $prefix = 'NERA_AVALONIA_SMOKE_SUCCESS '
+          $records = @($lines | ForEach-Object { "$_" } | Where-Object { $_.StartsWith($prefix, [StringComparison]::Ordinal) })
+          if ($records.Count -ne 1) { throw 'Exactly one native success record is required.' }
+          $result = $records[0].Substring($prefix.Length) | ConvertFrom-Json
+          if ($result.sha -cne $env:NERA_SOURCE_SHA -or $result.framesBefore -lt 1 -or $result.assertions -lt 11 -or !$result.nativeWindow) { throw 'Native result postconditions failed.' }
+          if (!(Test-Path artifacts/avalonia/native-window.png) -or (Get-Item artifacts/avalonia/native-window.png).Length -eq 0) { throw 'Native capture is missing.' }
+      - name: Pack host library
+        run: dotnet pack src/NeraSpreadSheet.Avalonia/NeraSpreadSheet.Avalonia.csproj -c Release --no-build -o artifacts/packages
+      - name: Upload exact-source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avalonia-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/
+          if-no-files-found: warn
