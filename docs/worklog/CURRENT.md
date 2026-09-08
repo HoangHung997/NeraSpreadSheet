@@ -1,5 +1,38 @@
 # Current Work Handoff
 
+## Hiện hành — iOS c7 đỏ; bổ sung diagnostic-only, không nới gate
+
+Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+Last all-six-green vẫn `f3d65d03ef8a52f40d116b03d37876ae3c80069e` (runs ở dưới).
+Docs-only `c7b8787fe90efd87cf509fec6d2d011eef25694a` có iOS34182876834/
+job101925328713 FAIL: malformed-marker chars990/offset990, chưa có stream/phase.
+Q34182876835/packages34182872484/demo34182925548 SUCCESS; full34182876855 và
+MAUI34182872546 đang chạy ở checkpoint này. Không gọi c7 là green.
+
+Root sửa riêng `scripts/verify-native-smoke-result.py` để phân biệt failure ở
+console/unified/combined reconciliation và giữ numeric stream khi lỗi trước
+vòng parse cuối. Không đổi acceptance, parser payload/protocol/frame rules,
+timeout hoặc retries; chưa kết luận nguyên nhân native iOS. Thêm3regressions
+gọi actual implementation/CLI với private canaries. Local36tests PASS/0skip,
+architecture và diff PASS. SDK/render/input không thay nên không chạy local
+heavy build/native/benchmark; final exact-HEAD native CI vẫn bắt buộc.
+
+B77f4c447 narrow34182690972: root đọc actual Mac101924799380 FAIL sau Dispatch
+true/no callback, classifier14counts0/unclassified4/unclipped,664bytes5lines,
+không current IPS. Windows101924799555 PASS60frames (baseline43). Probe đã dùng;
+B chỉ chuẩn bị bounded read-only next diagnostic proposal, không thêm variant/
+fullgates. Root SKIP B77 import, C vẫn sole classifier/launcher writer.
+
+A6e8 BUILD CS0136 (không runtime evidence mới), A sửa trong own test thànha2d80b34;
+18paths HOLD chờ native/captures/gates. Cfa96692c giữ12paths, Mac diagnostic/
+compact OSLog đã push chờ hosted proof; không nhận source hoặc shared parser cũ.
+C tiếp tục với frozen d73 transport; root giữ diagnostic parser mới khi integrate,
+không overwrite. Baseline C5906 vẫn PHẢI nhận. Whole B/P3/hardware/100% OPEN.
+
+Bước tiếp theo duy nhất: đọc exact-head iOS result sau diagnostic phase labels;
+nếu đỏ dùng đúng failing channel để chọn correction tối thiểu, không bỏ malformed
+marker hoặc lặp CI vô hạn. A/C tiếp tục độc lập theo committed wave và release gates.
+
 ## Hiện hành — f3 xanh đủ sáu; A/C tiếp tục theo amended grant
 
 Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.

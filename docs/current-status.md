@@ -1,5 +1,14 @@
 # NeraSpreadSheet current implementation status
 
+## CẬP NHẬT 08/09 — GIỮ iOS GATE ĐỎ, ĐANG KHOANH VÙNG TRANSPORT
+
+Last all-six-green làf3d65d03. Root docs-onlyc7b8787f bị iOS gate từ chối marker
+JSON chưa đủ990ký tự; log chưa xác định console hay unified reconciliation.
+Root thêm diagnostic-only phase/stream và3regressions (36PASS/0skip), giữ nguyên
+điều kiện nghiệm thu. Không gọi đây là SDK regression hoặc đã sửa native failure.
+B77 true Mac vẫn FAIL trước callback/editor, Windows60frames PASS; A/C tiếp tục
+own branches. Chưa nhận các source WIP, chưa100%. [Chi tiết](worklog/CURRENT.md).
+
 ## CẬP NHẬT 08/09 — BASELINE XANH, TIẾP TỤC BA NHÁNH CÒN THIẾU
 
 Root `f3d65d03` đã SUCCESS cả sáu workflows, gồm published demo và canonical

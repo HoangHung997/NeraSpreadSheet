@@ -280,6 +280,52 @@ class NativeResultTests(unittest.TestCase):
         normalized = MODULE.reconcile_unified_duplicates("no console marker", "TEST:" + value, "TEST:")
         self.assertEqual(json.loads(value), MODULE.parse_result(normalized, "TEST:"))
 
+    def testReconciliationDiagnosticsDistinguishInputAndCombinedFailures(self):
+        value = self.marker(nonce="current", details="x" * 1500)
+        cases = (
+            (value[:990], value, "reconcile-console", "malformed-marker"),
+            (value, self.marker(nonce="foreign", details="x" * 1500)[:990],
+             "reconcile-unified", "malformed-marker"),
+            (value, self.marker(status="failure"), "reconcile-unified", "failure-or-unknown-status"),
+            (value, self.marker(nonce="foreign"), "reconcile-combined", "conflicting-success-markers"),
+        )
+        for console, unified, phase, reason in cases:
+            with self.subTest(phase=phase, reason=reason), self.assertRaisesRegex(
+                    MODULE.NativeResultError, "^phase=" + phase + " " + reason):
+                MODULE.reconcile_unified_duplicates("TEST:" + console, "TEST:" + unified, "TEST:")
+
+    def testCliReconciliationDiagnosticsStayPrivateAndCannotCreateSuccessfulOutput(self):
+        canary = "PrivatePayloadCanary_0192837465"
+        value = self.marker(nonce="current", details=canary * 100)
+        for malformed_console in (False, True):
+            with self.subTest(console=malformed_console), private_fixture() as directory:
+                console = directory / "PrivateConsolePathCanary.log"
+                unified = directory / "PrivateUnifiedPathCanary.json"
+                console.write_text("TEST:" + (value[:990] if malformed_console else value), encoding="utf-8")
+                other = value if malformed_console else self.marker(nonce="foreign", details=canary * 100)[:990]
+                unified.write_text(json.dumps([{"eventMessage": "TEST:" + other}]), encoding="utf-8")
+                output = directory / "verified.json"
+                diagnostic = io.StringIO()
+                arguments = ["verifier", "--log", str(console), "--json-log", str(unified),
+                             "--prefix", "TEST:", "--output", str(output)]
+                with patch.object(MODULE.sys, "argv", arguments), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(diagnostic):
+                    self.assertEqual(1, MODULE.main())
+                phase = "reconcile-console" if malformed_console else "reconcile-unified"
+                self.assertIn("stream=1 phase=" + phase + " malformed-marker chars=990", diagnostic.getvalue())
+                self.assertFalse(output.exists())
+                for private_value in (canary, str(directory), console.name, unified.name, "foreign", "current"):
+                    self.assertNotIn(private_value, diagnostic.getvalue())
+                self.assertLess(len(diagnostic.getvalue()), 256)
+
+    def testUnifiedEnvelopeDiagnosticIdentifiesStreamWithoutChangingRejection(self):
+        with private_fixture() as directory:
+            console = directory / "console.log"
+            console.write_text("TEST:" + self.marker(), encoding="utf-8")
+            unified = directory / "unified.json"
+            unified.write_text('[{"eventMessage":', encoding="utf-8")
+            with self.assertRaisesRegex(MODULE.NativeResultError, "^stream=1 malformed-unified-log$"):
+                MODULE.read_result([console], "TEST:", json_paths=[unified])
+
     def testMissingAndWrongPrefixStayPending(self):
         self.assertIsNone(MODULE.parse_result("other:" + self.marker(), "TEST:"))
         self.assertIsNone(MODULE.parse_result("runtime has not finished", ""))

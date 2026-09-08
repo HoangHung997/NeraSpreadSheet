@@ -160,3 +160,23 @@ analytics CI still exercises the legacy default; the canonical package matrix
 exercises file mode. Every new combined HEAD must pass both paths independently.
 Rollback removes the opt-in caller flag/emitter and this optional shared path,
 not the accepted legacy transport or SDK behavior.
+
+## Reconciliation failure diagnostics — 08/09
+
+Docs-only root `c7b8787f` failed legacy iOS job101925328713 with a malformed
+990-character marker at decoder offset990. That error could previously escape
+reconciliation before stream labeling, so this result does not identify whether
+the console input was malformed or a unified fragment could not be reconciled.
+It is not evidence of an SDK regression or permission failure by itself.
+
+The verifier now labels errors with fixed phases `reconcile-console`,
+`reconcile-unified` or `reconcile-combined`, plus the numeric stream currently
+being processed. In the console phase, the failing input is the earlier
+accumulated console text, not the current unified stream. JSON-envelope decoding
+errors also retain the numeric stream index. No paths, payload values, nonce or
+raw logs are printed. All acceptance, prefix/header matching, duplicate/failure,
+frame and file-protocol rules are unchanged; no retry or timeout is added.
+
+Thirty-six synthetic tests include actual CLI failure/private-canary cases and
+preserve the existing truncated compact-marker rejection. This diagnostic change
+does not fix or accept the failed native run; fresh exact-head CI remains required.

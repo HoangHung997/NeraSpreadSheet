@@ -146,7 +146,10 @@ def reconcile_unified_duplicates(console, unified, prefix, minimum_frames=2):
     an exact strict text prefix of an already validated full console payload
     may be replaced by that same payload; mismatches and failures still reject.
     """
-    complete_result = parse_result(console, prefix, minimum_frames)
+    try:
+        complete_result = parse_result(console, prefix, minimum_frames)
+    except NativeResultError as error:
+        raise NativeResultError(f"phase=reconcile-console {error}") from error
     complete_payloads = list(marker_payloads(console, prefix))
     messages = []
     for payload in marker_payloads(unified, prefix):
@@ -156,12 +159,15 @@ def reconcile_unified_duplicates(console, unified, prefix, minimum_frames=2):
             matches = [full for full in complete_payloads if len(payload) < len(full) and full.startswith(payload)]
             if (not str(error).startswith("malformed-marker") or not matches or
                     complete_result is None or not has_complete_success_header(payload, complete_result)):
-                raise
+                raise NativeResultError(f"phase=reconcile-unified {error}") from error
             payload = matches[0]
         messages.append(prefix + payload)
     normalized = "\n".join(messages)
     # Do not hide a complete different success or failure in another event.
-    parse_result(console + "\n" + normalized, prefix, minimum_frames)
+    try:
+        parse_result(console + "\n" + normalized, prefix, minimum_frames)
+    except NativeResultError as error:
+        raise NativeResultError(f"phase=reconcile-combined {error}") from error
     return normalized
 
 
@@ -176,9 +182,14 @@ def read_result(paths, prefix, minimum_frames=2, json_paths=(), allow_truncated_
             raise NativeResultError("oversized-log")
         text = source.read_text(encoding="utf-8", errors="replace")
         if is_json:
-            text = extract_unified_messages(text, prefix)
-            if allow_truncated_duplicates:
-                text = reconcile_unified_duplicates(console, text, prefix, minimum_frames)
+            try:
+                text = extract_unified_messages(text, prefix)
+                if allow_truncated_duplicates:
+                    text = reconcile_unified_duplicates(console, text, prefix, minimum_frames)
+            except NativeResultError as error:
+                # This identifies the stream being processed; reconcile-console
+                # specifically means the earlier accumulated console input failed.
+                raise NativeResultError(f"stream={len(texts)} {error}") from error
         else:
             console += text + "\n"
         texts.append(text)
