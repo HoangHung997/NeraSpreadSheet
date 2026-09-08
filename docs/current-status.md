@@ -1,5 +1,19 @@
 # NeraSpreadSheet current implementation status
 
+## CẬP NHẬT 08/09 — UX-008 ĐÃ TÍCH HỢP, CHỜ CI KẾT HỢP
+
+Root nhận hai commit kiểm thử accessibility của popup bộ lọc phân trang thành
+`afc98171..52ca8a0e`, bốn file khớp nguồn `258a9f92`. Nguồn có đủ năm workflows
+SUCCESS, 1515 nonnative +186 native desktop và46 MAUI tests PASS; packaged demo
+267captures/128layouts PASS. Không thay SDK, API, giao diện hoặc timing.
+
+Phạm vi đã kiểm là fresh direct WPF peer query; chưa nghiệm thu automatic UIA
+cache/events hoặc trình đọc màn hình thật. Bản kết hợp cần sáu gates ở đúng
+HEAD cuối, không lấy source CI thay thế. Last all-six-green vẫn `4639767e`.
+Whole B, Mac package runtime, final P3/hardware và 100% còn OPEN. Mục2 Clipboard
+UX/Mục3 trạng thái từng sheet đã xếp hàng sau công việc hiện tại, chưa bắt đầu.
+[Bằng chứng, mapping và bước tiếp theo](worklog/CURRENT.md).
+
 ## CẬP NHẬT 08/09 — ĐÃ GHÉP SPLIT FILTER, CHỜ SÁU GATE KẾT HỢP
 
 Root đã nhận 10 commit của nhánh A `8c9bdef9`, thành `f6ae7027..e97cdb3d`;

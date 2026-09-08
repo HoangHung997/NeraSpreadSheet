@@ -1,5 +1,148 @@
 # Current Work Handoff
 
+## Yêu cầu mới được xếp hàng — không đổi công việc hiện tại
+
+Đã đọc [comment5579073325](https://github.com/HoangHung997/NeraSpreadSheet/pull/1#issuecomment-5579073325)
+và xác nhận chỉ đạo người dùng: Mục2 Clipboard UX toàn dự án và Mục3 per-sheet
+view state chỉ làm **SAU khi công việc hiện tại hoàn tất**. Cả hai QUEUED,
+chưa audit latest feature source/dispatch/sửa; không thay grants A/B/C hoặc
+bước tiếp theo hiện hành. [Phạm vi và test bắt buộc](NEXT_CLIPBOARD_WORKSHEET_VIEW_STATE.md).
+Khi đến lượt phải re-audit latest refs; ưu tiên Cut nhiều vùng nguy cơ mất dữ
+liệu và SheetViews preservation. Mục1 Avalonia do ChatGPT giữ, phối hợp trước
+khi chạm paths liên quan. Không lấy findings từ refs cũ làm kết luận hiện tại.
+Receipt sẽ fold cùng checkpoint kế tiếp, không tạo docs-only CI hoặc task mới.
+
+## Hiện hành — UX-008 đã tích hợp, chờ sáu gates kết hợp
+
+Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+Implementation `52ca8a0e8863e45afc8f96423fccf8406ae88d9b` nhận hai commit
+UX-008 từ base463: source66344418 → afc98171504043f6b2946bcca26eeba1f6bcb80c;
+source258a9f92 → 52ca8a0e. Cả bốn final blobs khớp nguồn đã freeze/release.
+Không production/API/CI/timing changes; chỉ 12 native accessibility cases và
+contract/worklog, fixture cũ thêm partial. File trọng tâm là sibling test
+Release009SplitAutoFilterSmokeTests.Accessibility.cs và UX-008 contract.
+
+Root đã kiểm năm exact-source258 workflows SUCCESS: full34190913369,
+iOS34190915221/Q34190917515/Windows34190919620/demo34190921934. Actual Windows
+101948618364:1515 nonnative +186 native PASS/0skip, build0warnings0errors,
+267captures/128layouts PASS. Actual MAUIWindows101948618243:46tests PASS,
+runtime steps SUCCESS; package101948636483 exact-cohort PASS và demo101948643343
+267/128 PASS. No new visual changes; không dùng artifact existence thay image QA.
+Successful-test log không lộ NERA_UX008_PEER_QUERY records và không có uploaded
+TRX: actual cached/fresh counts unavailable, không suy automatic notification.
+Source663 bốn failures vẫn được giữ; source258 PASS chỉ fresh direct-peer scope.
+
+Local integration architecture/packaging/diff checks PASS, không heavy build.
+Commit chứa checkpoint này là final combined HEAD cần đủ sáu workflows riêng;
+không kế thừa source PASS. Last verified all-six-green vẫn4639767e. Shared root
+checkpoints và hàng chờ Mục2/Mục3 được fold cùng integration này, không docs-only CI.
+B87/C01a0 giữ frozen HOLD, chưa nhận whole lanes hoặc nguyên nhân Mac. U2 actual
+reader/connected-client events, U5/hardware/final P3 và 100% tiếp tục OPEN.
+
+Một bước tiếp theo duy nhất: xác minh đủ sáu workflows ở HEAD chứa checkpoint
+này; nếu đỏ đọc actual failure trước sửa. Mục2/Mục3 chưa audit/dispatch, chỉ bắt
+đầu sau công việc hiện tại hoàn tất. Rollback UX-008 bằng revert hai implementation
+commits theo thứ tự ngược và cập nhật receipt; không workbook migration.
+
+## Checkpoint trước tích hợp — A sửa direct-peer test, C đã chạy một cohort
+
+Root vẫn ở `4639767ef8c5f3c44d1e074084d3b7f78dac00fc`, PR #1 Draft;
+sáu gates kết hợp SUCCESS như receipt bên dưới. Không nhận candidate đỏ.
+
+A đã push delta được duyệt thành `258a9f92db09a35ee73063ec08133ad3384fb18a`.
+Root đối chiếu actual test diff: cached matches/offscreen counts trước reset,
+fresh enumeration và mọi substantive assertions giữ nguyên. Đúng một bộ năm
+source workflows, exact SHA/attempt1, đang chạy khi kiểm: full34190913369,
+iOS34190915221/Q34190917515/Windows34190919620/demo34190921934. Chưa source
+acceptance hoặc integration; source frozen trong khi chờ actual outcome.
+
+A source `66344418b52d577a43ed39b0c438c5e912e63518`: full34189609698
+Windows101944786182 FAIL, 182/186 native PASS, 4 FAIL sau đổi trang vì cached
+subtree không chứa current checkbox peers; 174 tests cũ và 8 tests mới khác PASS.
+iOS34189611664/Q34189613773/Windows34189615883/demo34189617513 SUCCESS.
+Root đã đọc actual failure và WPF v10 peer/cache/root-registration lifecycle.
+Grant local delta chỉ new Accessibility test + own contract/worklog: ghi bounded
+cached/current counts trước public ResetChildrenCache trên scroller peer, rồi
+giữ mọi assertion fresh identity/count/name/role/offscreen/focus/stale action.
+Cumulative ownership vẫn đúng bốn paths, fixture cũ chỉ partial; không SDK,
+timing, CI hoặc capture changes. Cho một bộ năm exact-source gates sau commit;
+không retry663. Automatic retained-client cache/StructureChanged/live-region
+delivery vẫn OPEN; không dùng fresh query để biến failure cũ hoặc U2 thành DONE.
+
+C source `01a0fa6b466f8e9806c10ccae6d1976184db2ecc`: root đối chiếu đúng
+bốn before/after blobs của packet đã duyệt, clean worktree. Canonical34190050107
+push/attempt1 completed FAILURE: 10/11 jobs SUCCESS, riêng Mac101946706676 FAIL.
+Root đọc actual hosted fixture101946083141 PASS và actual Mac log: app-file0,
+unified3097 bytes, constructorEntered/Completed1, Loaded/dispatch/callback/run0.
+Kernel exit/absence trước cleanup vẫn quan sát được, polls51; exitCategory
+unknown/currentRunAssociated=false. Không đủ bằng chứng guard nào làm mất
+association, wait status, cause/clean exit hoặc smoke success. Windows101946706681,
+Android101946706687/iOS101946706564 SUCCESS theo REST; frame details là receipt
+của C, chưa thay root actual-log review. C frozen, không thêm probe/retry/import.
+B87 whole lane vẫn HOLD; không coi Mac B và Mac C là cùng lỗi đã xác định.
+
+Một bước tiếp theo duy nhất: review source SHA và năm gates của A sau delta
+direct-peer đã duyệt; nếu đỏ đọc failure thật trước đổi scope. C chờ root review
+bằng chứng riêng. Mục2/Mục3 vẫn QUEUED sau công việc hiện tại. Checkpoint local
+này sẽ fold cùng implementation kế tiếp, không tạo docs-only CI.
+
+## C — packet trạng thái thoát đã review, cho một canonical cohort (lịch sử)
+
+Root đã đọc đầy đủ four-path patch9868fe23/39025bytes, receipt91585849,
+actual observer/receiver/fixtures và primary Apple/Python contracts. Kiểm4before/
+afterblobs/hash, reverse-apply, prefix/legacy suffix/query/observe boundary,
+Bash/architecture/packaging/diff PASS. Root tự extract actual reducer/observer/
+finalization và fixture strings:157cases PASS với fake kernel/wait APIs và
+synthetic formatter input; không local C# compile hoặc native process probe.
+Existing33transport/23package/13classifier PASS; root parser36 vẫn giữ riêng.
+
+Grant C commit/push đúng immutable patch SHA256
+9868fe23abc88a0f03fd667326a75b5d2d0951dffbb139d5da1eadcd4ccd3b23
+từ source0a, chạy MỘT automatic canonical workflow tại exactHEAD mới gồm hosted
+actual C# fixture +native consumers. Không manual full/iOS/Q/Windows/demo,
+rerun/extra probe, root Picker/parser/B source imports. Bốn afterblobs:
+Mac e2bdda33a5bc49bea3a78c8eb26fc40c56decdf8;
+Program adfdd7bc3d2c6fa4dc6f925832beaecfa5c5d00b;
+contract a687bcc19a1394803cd33a22159ba6b79e48cd86;
+ownlog f6566c09fefd383a9eb0db862df01b65572c1c99.
+Own docs giữ checkpoint local lịch sử; grant mới này supersedes no-push text,
+không thêm docs-only sửa sau khi hash đã duyệt. Native availability/permission/
+exit category chưa biết, không cause/cleanexit/smoke acceptance từ status0.
+Sau một cohort C freeze/report actual immutable output, root review rồi mới
+quyết định bước kế. Root463 vẫn last all-six-green, không đã nhận wholeC/B.
+Mục2/Mục3 tiếp tục QUEUED sau công việc hiện tại, không thay scope.
+
+## Local checkpoint sau463 — sáu gates xanh, tiếp tục hai phạm vi riêng
+
+HEAD/remote `4639767ef8c5f3c44d1e074084d3b7f78dac00fc` đã root kiểm đủ sáu
+SUCCESS: full34188043102/iOS34188043132/Q34188043118/Windows34188040548/
+MAUI34188040552/demo34188040545. Actual Windows101940240878:1515nonnative và
+174native PASS/0skip/build0warnings0errors. MAUIWindows101940240912:46tests,
+Ribbon3frames/9captures và các smoke còn lại PASS. Không chỉ source/parent green.
+Root download/hashverify combined artifacts: Ribbon10041298267 digest
+fc3d66b5d732f6f8bdbf2512cdd617601981930542a6d0bdc40a059fe6095760;
+trực tiếp xem đủ9ảnh. Visual10041283176 digest
+c6effd5fc1ad09299e0fffb3b292bdc0b453fec377a8f388da5fa21973e06375;
+mọi28split-filter PNG hash bằng source8c đã root QA. Manifest digest
+a07c0c6b288cf44ddc9c8ebcdcc6f3391e8d1309e22f9cc3e4c7d593d68fefc4.
+Demo actual101940233003 PASS267captures/128layouts; artifact10041232257,
+digest2d6c74bea188d5157254a6b6743b4cf0d907980476393f0361b81d676a1b529f
+(metadata receipt, chưa download demoZIP). Windows package101940233077 PASS.
+
+A next grant UX-008 automated paged-filter accessibility trên base463, dùng
+worktree/task hiện có và branch feature/ux-008-paged-filter-accessibility;
+nguồn8c giữ nguyên. Chỉ bốn paths ghi trong wave dưới local checkpoint; không
+production/editor/CI/helper capture changes, actual-reader/hardware còn OPEN.
+C next LOCAL-only NOTE_EXITSTATUS proposal trong bốn existingownedpaths;
+root đã đọc primary Apple/Python +actualobserver, nhưng phải review exactpatch/
+hash/fixtures trước commit/push/nativeprobe. Không dùng diagnostic status làm
+completed-result hoặc cause proof. B87 whole lane vẫn frozenHOLD.
+
+Checkpoint này chưa commit riêng để tránh docs-only CI; sẽ ghép cùng thay đổi
+kế tiếp. PR comment5553292467 là live receipt. Một bước tiếp theo: review C
+immutable4path status packet khi handoff tới; A triển khai UX-008 độc lập.
+Không merge/publicNuGet/wholeB/finalP3/hardware/100%.
+
 ## Hiện hành — A đã ghép, chờ sáu gate tại HEAD kết hợp
 
 Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.

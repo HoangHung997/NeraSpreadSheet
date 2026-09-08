@@ -1,5 +1,95 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## Hàng chờ bổ sung của người dùng — chưa kích hoạt
+
+Đã tiếp nhận [Mục2 Clipboard UX và Mục3 per-sheet view state](NEXT_CLIPBOARD_WORKSHEET_VIEW_STATE.md)
+từ PR#1 comment5579073325. Chỉ bắt đầu SAU công việc hiện tại hoàn tất, đọc lại
+source mới trước sửa. Không đổi scope/grant của wave đang chạy, không thêm
+writer/task/CI cho hai track lúc này. Cut nhiều vùng và XLSX SheetViews có ưu
+tiên correctness khi đến lượt; Formula UX Avalonia của ChatGPT không bị ghi đè.
+
+## UX-008 đã nhận — chờ exact combined gates
+
+Root nhận source66344418 rồi258a9f92 thành afc98171 rồi52ca8a0e; cả bốn blobs
+khớp nguồn final, original fixture chỉ partial. Năm source workflows SUCCESS,
+root đọc actual Windows1515+186 PASS/0skip/build0/0, MAUI46 PASS, package PASS,
+demo267captures/128layouts PASS. Không SDK/UI/performance changes hoặc acceptance
+về actual screen reader/automatic UIA events. Successful log không xuất cached
+counts, không lấy absence làm proof. Architecture/packaging/diff PASS local.
+Root checkpoint commit kế tiếp cần đủ sáu combined gates; last all-six-green463.
+Không nhận wholeB/C, không mở queued Clipboard/per-sheet, U2/U5/P3/hardware OPEN.
+
+## Outcome trước tích hợp sau463 — không mở thêm phạm vi
+
+A correction source258a9f92db09a35ee73063ec08133ad3384fb18a đã push; root kiểm
+actual delta và một bộ exact-source/attempt1 full34190913369/iOS34190915221/
+Q34190917515/Windows34190919620/demo34190921934. Cả năm đang chạy tại receipt,
+chưa PASS/release; không sửa source/rerun/dispatch thêm trong lúc chờ.
+
+A663 Windows101944786182: 182/186 PASS, bốn current-subtree membership FAIL
+sau Next; 174 tests cũ PASS, bốn source workflows khác SUCCESS. Root review
+actual log và framework cache lifecycle, duyệt test-only fresh direct-peer
+query trong new Accessibility helper cùng own docs. Ghi cached counts trước
+ResetChildrenCache, giữ substantive assertions; không SDK/CI/timing changes.
+Cho một bộ năm exact-source gates ở commit mới, freeze/report sau outcome.
+Automatic connected-client cache/events và actual screen-reader U2 vẫn OPEN;
+không diễn giải bốn failures cũ thành PASS. Cumulative grant vẫn đúng bốn paths.
+
+C01a0fa6b đúng bốn reviewed blobs: canonical34190050107 completed FAILURE,
+10/11 jobs SUCCESS; Mac101946706676 thiếu result, constructor-only diagnostics,
+precleanup exit/absence observed, exitCategory unknown/currentRunAssociated false.
+Root đã đọc actual fixture101946083141 và Mac logs. Source frozen, không retry,
+extra probe/CI hoặc import; chưa cause/clean-exit/runtime acceptance. B87 HOLD.
+Root463 vẫn all-six-green. Clipboard/per-sheet queued work chưa audit/dispatch.
+
+## Local grant sau463 all-six-green — A UX-008, C status diagnosis (lịch sử)
+
+**C sau immutable review:** root đã đọc toàn bộ patch9868fe23/39025bytes,
+kiểm4blobs/hash/unchanged boundaries và tự chạy157actual-extracted cases PASS
+(fake kernel/wait API, synthetic formatter inputs). 33+23+13existing tests và
+architecture/packaging/Bash/diff PASS. Grant commit/push đúng packet
+9868fe23abc88a0f03fd667326a75b5d2d0951dffbb139d5da1eadcd4ccd3b23 và MỘT
+automaticcanonicalcohort, không extra5compatibility/manual/retry hoặc imports.
+Grant mới supersedes LOCAL-only bên dưới và trong frozen own docs; không sửa
+thêm bytes đã hash. Native/C# availability/permission/category còn pending.
+Giữ strict acceptance/90s/128/precleanup/privacy, không status0/causeclaim.
+
+Root463 có full34188043102/iOS34188043132/Q34188043118/Windows34188040548/
+MAUI34188040552/demo34188040545 SUCCESS; actual174desktop/46MAUI/9Picker PNG
+và28split PNG sourcehashmatch đã root kiểm. Giữ final baseline này khi làm tiếp.
+
+A dùng task/worktree hiện có, branch mới feature/ux-008-paged-filter-accessibility
+từ exact463; không xóa/rewrite source8c hoặc artifacts. Write scope đúng4paths:
+1. tests/NeraSpreadSheet.Windows.Rendering.Tests/Release009SplitAutoFilterSmokeTests.cs:
+   chỉ thêm modifier partial vào existing test class để dùng lại private helpers;
+   không thay tests/assertions/helpers/timing hiện có.
+2. tests/NeraSpreadSheet.Windows.Rendering.Tests/Release009SplitAutoFilterSmokeTests.Accessibility.cs:
+   tests mới trên actual loaded presenter/sample/session; không fixture model mới.
+3. docs/ux-008-paged-filter-accessibility-contract.md.
+4. docs/worklog/UX-008-PAGED-FILTER-ACCESSIBILITY.md.
+
+U2 subset: Table/worksheet và4split panes, vi/en native peer roles/names/patterns/
+checked/enabled/focus, header filter/sort states và bounded page/search/Apply
+announcements; page250/100, stale hidden-page peers/focus và sheet/close lifecycle.
+Native WPF peers trên owning UI thread, không tạo external UIA client/COM hook.
+Nếu cần production fix hoặc sharedhelper edit ngoài modifier phải báo evidence/
+exactpaths và chờ amendedgrant. Giữ tất cả174tests/capture assertions trước đó.
+Không claim actual screen-reader/physical-DPI/touch acceptance. Không local
+heavy build; existing source full/iOS/Q/Windows package/demo gates, không
+duplicate dispatch hoặc rerun-until-green. Root giữ shared docs/CI/capture paths.
+
+C chỉ LOCAL proposal: request NOTE_EXIT|NOTE_EXITSTATUS một lần, fixed wait-status
+category từ exact validated event khi requested+echoed flags; bareNOTE/EV_ERROR
+không đọc thành status. Public Darwin constant/version caveat phải rõ. Current
+run association từ existing checked context/scoped finite nonce records, không
+birthidentity. Invalid/missing/denied/unavailable/clipped => UNKNOWN; zero không
+PASS/cause proof. Scope observer trong scripts/run-maui-maccatalyst-smoke.sh,
+actual fixture eng/release-009-maui/emission-fixture/Program.cs, own contract/log.
+Không app/SDK/launch/cleanup/timeouts/parser/logflags/security/reportscan change.
+Giữ128observations/90seconds/precleanup immutable và<=2KiB. Actual-code fixtures,
+patchSHA/4blobs phải root review trước commit/push/MỘT probe grant; hiện chưa có.
+B remains whole87 HOLD, không import C hoặc sửa chồng hai lanes.
+
 ## Checkpoint tích hợp A — source được nhận, combined acceptance còn chờ
 
 Root nhận đúng 10 commit/18 file nguồn A `8c9bdef9` lên nền `20654456`,
