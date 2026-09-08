@@ -152,8 +152,25 @@ public sealed class SpreadsheetClipboardController
         return Clipboard;
     }
 
+    /// <summary>
+    /// Copies and clears a single selected range using the session clipboard.
+    /// </summary>
+    /// <remarks>
+    /// This synchronous method does not write to the operating-system clipboard.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// The selection contains more than one range, or existing source validation fails.
+    /// </exception>
     public bool CutPrimarySelection()
     {
+        // Copy captures only Ranges[0], whereas ClearSelection clears every range.
+        // Reject before either call so neither data nor the old clipboard is lost.
+        if (_session.Selection.Ranges.Count != 1)
+        {
+            throw new InvalidOperationException(
+                "Cannot cut multiple selection ranges. Select one range before cutting.");
+        }
+
         CopyPrimarySelection();
         return _session.ClearSelection();
     }
