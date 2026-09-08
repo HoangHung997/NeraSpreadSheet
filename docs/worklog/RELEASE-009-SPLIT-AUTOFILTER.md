@@ -2,6 +2,11 @@
 
 ## Branch và grant
 
+- Root đã APPROVE amended scope tổng18paths: chỉ thêm
+  `session.View.FreezeTopRows(1)` ngay sau CreateSession trong WPF PERF008 test.
+  Tất cả assertions/cycles/offsets và WinForms giữ nguyên. Unfrozen-header close
+  được kiểm riêng trong owned regression; CLR abort vẫn là vấn đề chưa rõ nguyên nhân.
+
 - Branch `feature/release-009-split-autofilter` từ exact root base
   `d73cd2e2bcb7e2832e9a8b3fd071373b62cb2a0f` (root đã xác minh sáu gates).
 - Grant 17 paths đọc tại root `e228ddc678f829d471382b050699e1eacb922741`, đầu
@@ -64,6 +69,5 @@
 - Không documentation-only churn sau final CI: exact-final SHA/run IDs/17-blob
   manifest/capture hashes và giới hạn sẽ gửi root trong final handoff; root ghi
   kết quả cuối ở shared docs khi tích hợp.
-- Một bước tiếp theo: nhận amended grant của root cho WPF PERF008 frozen-header
-  fixture; sau đó áp đúng phạm vi được duyệt và chạy source CI để xử lý native
+- Một bước tiếp theo: chạy source CI sau amended fixture, xử lý native
   abort/capture, rồi xác minh đủ năm workflows tại SHA cuối trước RELEASED.
