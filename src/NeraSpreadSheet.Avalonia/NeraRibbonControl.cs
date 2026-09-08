@@ -34,6 +34,7 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
     private string? _selectedTabId;
     private CommandId? _selectedBackstageId;
     private bool _backstageOpen;
+    private bool _showTopBar = true;
     private NeraIconTheme _iconTheme = NeraIconTheme.Light;
 
     public NeraRibbonControl(RibbonRuntimeController runtime)
@@ -50,6 +51,7 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
         UseLayoutRounding = true;
         FontSize = 12;
         SetIdentity(this, "nera-ribbon", "Ribbon NeraSpreadSheet");
+        SetIdentity(_top, "ribbon-top-bar", "Thanh Tệp và truy cập nhanh");
         _tabs.SelectionChanged += OnSelectedTabChanged;
         _runtime.SnapshotChanged += OnSnapshotChanged;
         Rebuild();
@@ -60,6 +62,17 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
     public TabControl NativeTabControl => _tabs;
     public string? SelectedTabId => _selectedTabId;
     public bool IsBackstageOpen => _backstageOpen;
+    public bool ShowTopBar
+    {
+        get => _showTopBar;
+        set
+        {
+            VerifyUsable();
+            if (_showTopBar == value) return;
+            _showTopBar = value;
+            Rebuild();
+        }
+    }
     public bool IsMinimized { get => _runtime.IsMinimized; set { VerifyUsable(); _runtime.SetMinimized(value); } }
     public Func<CommandId, CommandContext>? CommandContextFactory { get; set; }
     public Func<NeraIconRequest, IImage?>? IconRequestResolver { get; set; }
@@ -171,6 +184,8 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
     private void BuildTopBar()
     {
         _top.Children.Clear();
+        _top.IsVisible = _showTopBar;
+        if (!_showTopBar) return;
         var file = new Button { Content = KeyTipScope == RibbonKeyTipScope.Tabs ? Localize("Tệp") + " [F]" : Localize("Tệp"), MinWidth = 54, Height = 28 };
         SetIdentity(file, "ribbon-file", Localize("Tệp"));
         file.Click += (_, _) => { if (_backstageOpen) CloseBackstage(); else OpenBackstage(); };

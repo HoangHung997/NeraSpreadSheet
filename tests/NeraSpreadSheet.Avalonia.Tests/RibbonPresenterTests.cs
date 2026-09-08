@@ -79,6 +79,17 @@ public sealed class RibbonPresenterTests
         Assert.IsNotNull(((TabItem)fixture.Ribbon.NativeTabControl.SelectedItem!).Content);
     });
     [TestMethod]
+    public Task TopBarCanBeHiddenWithoutHidingTheRibbonTab() => AvaloniaTestEnvironment.OnUiAsync(() =>
+    {
+        using var fixture = new RibbonFixture();
+        fixture.Ribbon.ShowTopBar = false;
+        fixture.Window.UpdateLayout();
+
+        Assert.IsFalse(fixture.Find("ribbon-top-bar").IsVisible);
+        Assert.IsTrue(fixture.Ribbon.NativeTabControl.IsVisible);
+        Assert.AreEqual("home", fixture.Ribbon.SelectedTabId);
+    });
+    [TestMethod]
     public Task NarrowRibbonShouldRetainCommandsInOverflow() => AvaloniaTestEnvironment.OnUiAsync(() =>
     {
         using var fixture = new RibbonFixture(); fixture.Ribbon.Width = 100; fixture.Window.UpdateLayout(); fixture.Ribbon.Rebuild(); fixture.Window.UpdateLayout();
