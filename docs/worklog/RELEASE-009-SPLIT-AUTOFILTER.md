@@ -18,6 +18,17 @@
 
 ## Implementation checkpoint, chờ native CI
 
+- `88c39e7bcdd2379cad4cb06f3edcd6c3d6b5c370`, full `34183597175`, Windows
+  `101927431766`: 166 PASS/8 FAIL/0 skip trong đủ174 native; CLR abort không
+  tái hiện. Log chứng minh hit đúng surface, popup mở trước mouse-up rồi đóng
+  ngay sau mouse-up. Follow-up mở ở matching mouse-up sau khi nhả capture;
+  hủy pending gesture khi mất capture/host/generation. Regression vẫn dùng OS
+  down/up và thêm lost-capture cancellation. WPF Popup xử lý cả outside up:
+  https://github.com/dotnet/wpf/blob/main/src/Microsoft.DotNet.Wpf/src/PresentationFramework/System/Windows/Controls/Primitives/Popup.cs
+  Standalone fixture chờ layout vẫn timeout sau resize/zoom và disable split;
+  follow-up invalidate actual native visual trước layout pump, không compose
+  geometry thay thế. Chưa chứng minh final native/capture PASS.
+
 - `a2d80b34c841fb09fc601e5d86be775d20eb158a`, full `34183087697`, Windows
   `101925956030`: native chạy hết 174 cases, 168 PASS/6 FAIL/0 skip; PERF008 qua,
   CLR abort không tái hiện (chưa chứng minh nguyên nhân). Bốn first-header native
