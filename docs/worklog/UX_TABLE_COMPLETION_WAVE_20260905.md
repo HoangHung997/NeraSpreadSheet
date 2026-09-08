@@ -1,5 +1,147 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## Grant triển khai tiếp — baseline kết hợp d73 đã xanh đủ sáu gates
+
+Root REST xác minh `d73cd2e2bcb7e2832e9a8b3fd071373b62cb2a0f` SUCCESS:
+full `34179085621`, iOS `34179085641`, Q `34179085671`, Windows packages
+`34179082790`, demo `34179082695`, MAUI `34179082733` (11/11 jobs).
+Dùng exact d73 làm base cho A/C, giữ branches đã release349/5d nguyên trạng.
+Tái dùng đúng ba task GPT-6 Astra/xhigh; không tạo task/desktop lease mới.
+
+### A — active split paged AutoFilter
+
+Branch mới `feature/release-009-split-autofilter` từ exact d73. Grant 17 paths:
+
+- `src/NeraSpreadSheet.Wpf/NeraAutoFilterPagedPopupPresenter.cs`
+- `src/NeraSpreadSheet.Wpf/NeraAutoFilterPagedPopupPresenter.Host.cs`
+- `src/NeraSpreadSheet.Wpf/NeraAutoFilterPagedPopupPresenter.Popup.cs`
+- `src/NeraSpreadSheet.Wpf/NeraAutoFilterPagedPopupPresenter.Operations.cs`
+- `src/NeraSpreadSheet.Wpf/NeraAutoFilterPagedPopupPresenter.SplitHost.cs`
+- `src/NeraSpreadSheet.Wpf/NeraSpreadsheetSplitController.cs`
+- `src/NeraSpreadSheet.Wpf/NeraSpreadsheetSplitAdorner.cs`
+- `tests/NeraSpreadSheet.Windows.Rendering.Tests/Release009SplitAutoFilterSmokeTests.cs`
+- `samples/NeraSpreadSheet.Wpf.Sample/RibbonPreviewWindow.cs`
+- `samples/NeraSpreadSheet.Wpf.Sample/RibbonPreviewWindow.Commands.cs`
+- `samples/NeraSpreadSheet.Wpf.Sample/RibbonPreviewWindow.Capture.cs`
+- `samples/NeraSpreadSheet.Wpf.Sample/RibbonPreviewWindow.SplitFilterCapture.cs`
+- `docs/release-009-split-autofilter-contract.md`
+- `docs/worklog/RELEASE-009-SPLIT-AUTOFILTER.md`
+- `docs/demo/COMMANDS-WIN11-VI.md`
+- `src/NeraSpreadSheet.Commands/PresentationStrings.resx`
+- `src/NeraSpreadSheet.Commands/PresentationStrings.en.resx`
+
+Giới hạn trong các files: split controller chỉ internal surface/frame/activation
+bridge; split adorner chỉ internal frame/surface lifecycle, không editor/history.
+Sample main khởi tạo/dispose đúng một presenter; Commands chỉ Sample.Filter;
+Capture chỉ một bounded call và manifest append; resource catalogs tối đa hai
+matching keys cho lý do không mở được filter. Guide chỉ filter/split sections.
+Additional pointer/header path cần evidence và amended grant trước khi sửa.
+Existing binding/Core/Editing/Viewport/geometry model/shared CI/docs read-only.
+
+Chốt behavior: khi native draft active, từ chối mở filter và giữ nguyên
+State/text/range/focus; không âm thầm commit/cancel hoặc đổi selection.
+Dùng cùng presenter/binding/session hiện hữu, không model/cancellation stack khác.
+Pane identity phải đi cùng owner/header và rectangle từ existing presented
+LastFrame/layout, offsets double và pane clip; cùng snapshot cho draw/hit/anchor.
+Không Compose/RenderNow/WorksheetSnapshot/value scan theo từng raw event.
+Giữ separator/scrollbar/resize precedence. Host/session/worksheet/pane/open-generation
+guards chặn stale close/search/focus callbacks; chuyển surface/sheet đóng đồng bộ.
+Popup cùng header còn visible được relocate, không còn visible thì đóng.
+Tạo presenter từ đầu để first header click/Alt+Down hoạt động trước Ribbon command.
+
+Regression: Table + worksheet, standalone + bốn panes/repeated headers; actual
+header/Alt+Down SystemKey/command, offsets fractional/hidden axes/clip/zoom/resize,
+negative separators/scrollbars/resize handles, active draft refusal; 250+ distinct
+nhưng chỉ page100 controls, page/search/toggle/Apply/Clear/Undo/Redo đúng một lần.
+Close/reopen/pending search/sheet/session/reattach/unload/dispose races không stale
+mutation/focus; idle/layout storm/cache bounded. Giữ tests và giới hạn source cap,
+truncated catalog, rich/date/custom/sort hiện hành, không nới assertions.
+14 planned full-shell transitions và actual Popup images phải có pane/clip/anchor/
+page/history evidence và được xem hết; có thể giảm ảnh chỉ khi trùng evidence,
+không bỏ coverage. Source năm workflows/native tests và root sáu combined gates
+riêng; P3 đo cuối không được thay bằng source benchmark hoặc lời hứa nhanh hơn.
+
+### C — Windows/Mac package transport opt-in trong shared launchers hiện hữu
+
+Branch mới `feature/release-009-maui-desktop-consumer` từ exact d73.
+B đã RELEASE riêng hai launcher paths tại source `6509393a`, byte-equal48fe:
+Windows `b50e60f9f90190594ae6c648e2d0354d83fd8c5c`,
+Mac `fee485b3a771b7fe58711d8112bc51ccbc187c3d`.
+Root đã đọc delta. C nhận đúng hai frozen blobs bằng apply_patch vào commit
+riêng trước implementation; đây là received baseline delta PHẢI nhận khi root
+tích hợp C, KHÔNG phải import-only để skip vì root d73 chưa có chúng. B không
+ghi hai paths nữa; không import whole B/editor/corpus hoặc B workflow.
+
+Grant đúng chín paths:
+
+- `scripts/run-maui-windows-smoke.ps1`
+- `scripts/run-maui-maccatalyst-smoke.sh`
+- `scripts/run-release-009-maui-consumer.ps1`
+- `.github/workflows/release-009-maui-packages.yml`
+- `eng/release-009-maui/emission-fixture/EmissionFixture.csproj`
+- `eng/release-009-maui/emission-fixture/Program.cs`
+- `docs/adr/0008-maui-cross-host-package-assembly.md`
+- `docs/release-009-maui-package-consumer-contract.md`
+- `docs/worklog/RELEASE-009-MAUI.md`
+
+Giữ default legacy behavior/timeout/assertions và diagnostics đã release; thêm
+opt-in `app-file-v1` trong CHÍNH hai launcher, không launcher hoặc parser thứ hai.
+Chỉ chạy isolated hosted CI với RUNNER_TEMP; không điều khiển desktop/workbook thật.
+Windows proposed flags ResultPath/MarkerPrefix/ResultProtocol cùng existing
+ExecutablePath, TimeoutSeconds75, MaximumAttempts1; mode mới bắt một attempt,
+fresh output khác private app payload/context, actual child ExitCode0 và bounded
+completion, capture stdout/stderr chính child. Timeout/nonzero dù marker success
+vẫn FAIL; async pipe reads phải bounded, không deadlock/đợi vô hạn.
+
+Mac proposed args giữ hai legacy args rồi expected bundle/prefix/mode. Verify
+Info.plist/bundle identity, strict codesign và dùng existing NSWorkspace/LaunchServices
+helper; không signing/security flags, direct-executable bypass hoặc native retry.
+Fresh writable path phải được xác minh trong actual container của app hosted,
+không lấy simctl iOS áp sang Mac. Compact envelope phải thật sự thu được qua
+scoped native console/unified transport; không có marker thì không pass file-only.
+Opt-in không chạy legacy broad deletion/container search/stale fallback/process
+replacement search; chỉ owned fresh paths và launched process, cleanup bounded.
+Giữ bounds launch30s/result90s. LaunchServices success KHÔNG là child ExitCode0:
+Mac chỉ ghi `launchservices-started-and-explicit-completed-marker` tới khi có
+cơ chế OS exit đo được. Windows ghi actual child exit0, Android giữ marker-only.
+
+Dùng nguyên shared strict Python CLI/file-context protocol33 của root d73, không
+sửa parser/tests hoặc iOS/Android helpers. Full payload/nonce/hash/strict JSON,
+minimum3, exact cohort/SDK assemblies/public postconditions và prelaunch app hash
+giữ nguyên. Full raw logs/path/context không upload/in ra; không overwrite.
+Consumer Emit/page/csproj/SDK giữ nguyên; nếu actual Mac không cung cấp marker/
+writable path qua interface này, báo exact blocker và xin amended scope trước.
+Fixture hiện hữu được mở rộng với synthetic child modes/launcher-negative tests
+và actual parser; giữ toàn bộ existing six behavior groups + CLI roundtrip.
+No new packages. Runtime-only Windows/Mac fixture steps nằm trong owned workflow.
+
+Source final sáu gates, whole fresh canonical cohort và native public consumer
+bốn targets bắt buộc; thử nghiệm implementation có thể bắt đầu trước native
+proof, không coi đó là acceptance. Rollback reverse-revert own slice, giữ d73
+SDK và iOS/Android protocol. Whole B/native editor/P3/hardware vẫn OPEN.
+
+### B — chẩn đoán đúng ranh giới Dispatch, không thay true editor gate
+
+True650 narrow `34178968589`: Mac baseline10 PASS, candidate build0/0 nhưng
+FAIL trước callback/editor; Windows baseline41/candidate64 PASS, 3 recreations.
+Selected registrar entries match prior source, không khẳng định whole mm equal.
+Không có current matching IPS/stack; fd2 shape664bytes/5lines không đủ suy crash type.
+
+Grant đúng proposal patch SHA256
+`04d34290728692101b4d0d6651c22d6658f8d358770ff81c8de57de6a05207f3`,
+chỉ Mac SmokePage.cs before `a12981ecc93ab3521738e8685090c6cda053aee0`
+→ after `a82776c5468ebeda2fa8de67e34c6b1c134c1f6d`, cùng own TABLE-007.md.
+Thêm resolved/before-call/returned-true-false/callback/invoke markers, fixed
+exception classifier + bare rethrow, NoInlining invocation boundary. Không đổi
+scheduling/readiness/editor/assertion/timeout/runner, không editor-free variant.
+Chạy một paired narrow mới; full source gates chỉ sau actual Mac PASS.
+True-return/no-callback không đủ chứng minh JIT failure. Hai launcher đã chuyển
+C writer, B không ghi lại hoặc nhận package changes vào lượt chẩn đoán này.
+
+Root giữ shared status/worklog/CI/parser. Mọi handoff phải release paths và có
+exact-final source gates/artifact/manifest, rồi root nhận tuần tự và test combined.
+Không merge PR #1, publish public feed hoặc suy 100% từ partial green.
+
 ## Checkpoint 08/09 — nhận A/C, chuẩn bị grant tiếp theo
 
 Root nhận C final `5d70be93` thành `389c883d..aabd359f` và A final `349cc0aa`

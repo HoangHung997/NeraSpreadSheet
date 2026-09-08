@@ -1,5 +1,16 @@
 # NeraSpreadSheet current implementation status
 
+## CẬP NHẬT 08/09 — BẢN KẾT HỢP d73 ĐÃ XANH, TIẾP TỤC SPLIT FILTER VÀ R3
+
+`d73cd2e2bcb7e2832e9a8b3fd071373b62cb2a0f` đã SUCCESS cả sáu workflow, gồm
+published Win11 demo và canonical MAUI matrix 11/11 jobs. Thanh công thức và
+Android/iOS package consumer đã qua gate kết hợp, không còn chỉ source proof.
+A tiếp tục paged AutoFilter theo active split host; C làm native Windows/Mac
+PackageReference transport opt-in sau khi B release hai launcher paths.
+B giữ actual Mac editor diagnostic riêng: true650 vẫn FAIL trước callback,
+không nhận whole B hoặc bỏ gate. [Ownership và bằng chứng](worklog/CURRENT.md).
+Chưa phải 100% Table/Filter/Ribbon/UX; P3/hardware và các acceptance còn mở.
+
 ## CẬP NHẬT 08/09 — ĐÃ GHÉP THANH CÔNG THỨC VÀ NATIVE iOS PACKAGE CONSUMER
 
 Root nhận A final `349cc0aa` và C final `5d70be93`, thành implementation kết hợp

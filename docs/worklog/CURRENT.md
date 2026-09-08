@@ -1,5 +1,39 @@
 # Current Work Handoff
 
+## Dispatch mới — d73 xanh đủ sáu gates, A/C triển khai độc lập
+
+Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+Source kết hợp `d73cd2e2bcb7e2832e9a8b3fd071373b62cb2a0f` đã SUCCESS cả sáu:
+full34179085621, iOS34179085641, Q34179085671, Windows packages34179082790,
+demo34179082695, MAUI34179082733 (11/11 jobs). Đây là baseline mới được xác minh,
+không dùng source A/C hoặc30e thay d73. Private full-source logs/artifacts không
+download thêm hoặc sửa workbook; code source root không thay trong grant này.
+
+Root chốt [exact-path grants](UX_TABLE_COMPLETION_WAVE_20260905.md):
+
+- A: branch `feature/release-009-split-autofilter` từ exact d73, 17 paths theo
+  wave. Reuse existing paged presenter/binding, active-pane geometry/input/
+  lifecycle; từ chối mở filter khi đang có native draft, không implicit commit.
+- C: branch `feature/release-009-maui-desktop-consumer` từ exact d73, 9 paths.
+  B release hai Windows/Mac launcher blobs ở650; C nhận hai frozen files trong
+  commit riêng, PHẢI nhận commit này khi root integrate (không skip/import-only).
+  Thêm opt-in vào chính launchers, giữ shared parser/iOS/Android/Emit/SDK nguyên.
+  Mac chỉ LaunchServices-started + explicit marker, không nói child exit0.
+- B: true650 narrow34178968589 Mac FAIL trước callback/editor; Windows64 PASS.
+  Grant một boundary diagnostic patch04d34290 ở Mac SmokePage only + own log,
+  giữ true editor/assertions, no scheduling/timeout/runner change. Hai launchers
+  đã chuyển C writer; whole B HOLD. No current stack/IPS để kết luận crash type.
+- Root: duy nhất shared docs/CI/parser writer; không đụng paths đang grant.
+
+Ba task giữ GPT-6 Astra/xhigh, reuse worktrees, không task/automation/desktop
+lease mới. Local chỉ source/light verification; build/native/captures trên CI.
+Grant commit sau d73 cần exact-HEAD CI riêng, không gọi docs source mới là xanh
+từ commit cha. Whole B, final P3, Windows/Mac package runtime và hardware còn OPEN.
+
+Bước tiếp theo duy nhất: theo dõi A/C implementation và B paired diagnostic
+theo grant; chỉ nhận source đã release sau review đúng final SHA, rồi chạy sáu
+combined gates. Không đợi B để bắt đầu các paths A/C độc lập hoặc báo 100% sớm.
+
 ## Hiện hành — 08/09: đã nhận thanh công thức và native iOS package consumer
 
 Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
