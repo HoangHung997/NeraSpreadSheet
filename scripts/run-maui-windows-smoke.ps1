@@ -26,6 +26,48 @@ $tempRoot = if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {
 $retryablePreMarkerExitCodes = [System.Collections.Generic.HashSet[int]]::new()
 [void]$retryablePreMarkerExitCodes.Add(-1073740791)
 
+function Write-FailureStageTrace {
+    param([string]$ResultPath)
+
+    $tracePath = $ResultPath + ".trace"
+    if (-not (Test-Path -LiteralPath $tracePath -PathType Leaf)) { return }
+    # The app only emits these labels. Never echo arbitrary sidecar content or
+    # paths, and bound diagnostic work independently of the smoke success gate.
+    $allowedStages = @(
+        "smoke-page-constructor", "smoke-page-loaded", "smoke-view-created",
+        "smoke-editor-host-created", "smoke-editor-host-attached", "smoke-first-frame",
+        "smoke-editor-verified", "table-editor-enter", "table-editor-opened",
+        "table-editor-candidate-accepted", "table-editor-enter-returned",
+        "table-editor-history-returned", "table-editor-stale-caret-cancel-returned",
+        "table-editor-alt-enter-returned", "table-editor-column-resized",
+        "table-editor-zoomed", "table-editor-geometry-settled",
+        "table-editor-escape-returned", "table-editor-complete",
+        "smoke-pinch-returned", "smoke-pan-returned", "smoke-tap-returned",
+        "smoke-primary-input-complete", "smoke-primary-input-verified",
+        "smoke-wheel-queued", "smoke-resize-queued", "smoke-resize-applied",
+        "smoke-recreation-queued", "smoke-before-surface-remove",
+        "smoke-after-surface-remove", "smoke-after-handler-disconnect",
+        "smoke-after-surface-reinsert", "smoke-surface-handler-changed",
+        "smoke-surface-loaded", "smoke-surface-loaded-invalidate-returned",
+        "smoke-recreated-frame-enter", "smoke-native-surface-loaded",
+        "smoke-native-surface-unloaded", "smoke-native-focus-none",
+        "smoke-native-focus-surface", "smoke-native-focus-editor", "smoke-native-focus-other",
+        "smoke-native-unhandled-exception"
+    )
+    $stream = [IO.File]::OpenRead($tracePath)
+    try {
+        $buffer = [byte[]]::new(8192)
+        $length = $stream.Read($buffer, 0, $buffer.Length)
+        $labels = [Text.Encoding]::UTF8.GetString($buffer, 0, $length) -split '\r?\n'
+        Write-Host "MAUI Windows failure stage trace:"
+        $labels | Select-Object -First 64 | ForEach-Object {
+            if ($allowedStages -ccontains $_) { Write-Host $_ }
+        }
+    } finally {
+        $stream.Dispose()
+    }
+}
+
 for ($attempt = 1; $attempt -le $MaximumAttempts; $attempt++) {
     $resultPath = Join-Path $tempRoot (
         "nera-maui-windows-smoke-" +
@@ -54,6 +96,7 @@ for ($attempt = 1; $attempt -le $MaximumAttempts; $attempt++) {
         $process.WaitForExit()
 
         if (-not (Test-Path -LiteralPath $resultPath)) {
+            Write-FailureStageTrace -ResultPath $resultPath
             $exitCode = $process.ExitCode
             $mayRetry =
                 $attempt -lt $MaximumAttempts -and
@@ -78,12 +121,14 @@ for ($attempt = 1; $attempt -le $MaximumAttempts; $attempt++) {
         $result = $rawResult | ConvertFrom-Json
         Write-Host $rawResult
         if ($process.ExitCode -ne 0) {
+            Write-FailureStageTrace -ResultPath $resultPath
             throw (
                 "The MAUI Windows smoke exited with code " +
                 "$($process.ExitCode) after creating its marker."
             )
         }
         if ($result.status -ne "success") {
+            Write-FailureStageTrace -ResultPath $resultPath
             throw "The MAUI Windows smoke marker did not report success."
         }
         if ([int]$result.frameCount -lt 3) {

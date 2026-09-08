@@ -18,6 +18,8 @@ LAUNCHER="$WORK_DIR/LaunchNeraMacCatalystSmoke.swift"
 INFO_PLIST="$APP/Contents/Info.plist"
 EXPECTED_BUNDLE_ID="com.neraspreadsheet.maccatalystanalyticssmoke"
 LAUNCH_DIAG_START=""
+NERA_MAUI_NATIVE_STDERR_RUN="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+export NERA_MAUI_NATIVE_STDERR_RUN
 
 if [ ! -d "$APP" ]; then
   echo "Mac Catalyst smoke app bundle does not exist: $APP" >&2
@@ -80,6 +82,84 @@ if ! codesign --verify --deep --strict --verbose=4 "$APP"; then
   exit 1
 fi
 echo "Mac Catalyst strict code-signature verification: PASS"
+
+native_stderr_diagnostics() {
+  python3 - "$1" "$CONTAINER_ROOT/tmp" "${APP_PID:-}" "$NERA_MAUI_NATIVE_STDERR_RUN" "${LAUNCH_DIAG_START:-}" <<'PY'
+import datetime
+import os
+from pathlib import Path
+import re
+import sys
+
+
+def method_frames(raw):
+    frames = []
+    for line in raw.splitlines()[1:]:
+        # Only native symbolized frame formats, never exception messages,
+        # registers, managed locals, environment values or arbitrary stderr.
+        match = re.fullmatch(r"\s*0x[0-9a-fA-F]+\s+-\s+(.+?)\s+:\s+(.+?)\s*", line)
+        if match is None:
+            match = re.fullmatch(r"\s*\d+\s+(\S+)\s+0x[0-9a-fA-F]+\s+(.+?)\s*", line)
+        if match is None:
+            continue
+        module, symbol = match.groups()
+        module = Path(module).name
+        symbol = re.sub(r"\s+\+\s+\d+\s*$", "", symbol)
+        symbol = symbol.split("(", 1)[0].strip()
+        if not re.fullmatch(r"[A-Za-z0-9_.+-]{1,120}", module):
+            continue
+        if not (re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$.:<>~]{0,239}", symbol)
+                or re.fullmatch(r"[-+]\[[A-Za-z_$][A-Za-z0-9_$.]* [A-Za-z_$][A-Za-z0-9_$:]*\]", symbol)):
+            continue
+        if re.search(r"0x[0-9a-fA-F]+|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", module + symbol):
+            continue
+        frames.append(module + "!" + symbol)
+        if len(frames) == 64:
+            break
+    return frames
+
+
+def main():
+    action, directory, pid, run_key, launch_text = sys.argv[1:6]
+    if not pid.isdecimal() or not re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", run_key) or not launch_text:
+        return
+    path = Path(directory) / ("nera-native-stderr-" + run_key + "-" + pid + ".log")
+    try:
+        launch = datetime.datetime.strptime(launch_text, "%Y-%m-%d %H:%M:%S").timestamp()
+        if path.is_symlink() or not path.is_file():
+            if action == "read":
+                print("No current-process native stderr capture was produced.")
+            return
+        stat = path.stat()
+        if stat.st_uid != os.getuid() or stat.st_mtime < launch:
+            return
+        with path.open("rb") as stream:
+            raw = stream.read(64 * 1024).decode("utf-8", errors="replace")
+        if raw.splitlines()[0] != "NERA_NATIVE_STDERR_V1:" + pid + ":" + run_key:
+            return
+        if action == "cleanup":
+            path.unlink()
+        elif action == "read":
+            frames = method_frames(raw)
+            print("Native stderr capture matched the current process and run.")
+            print("Native stderr shape: bytes=" + str(len(raw.encode("utf-8")))
+                  + "; lines=" + str(len(raw.splitlines()))
+                  + "; nativeHeader=" + str("Native stacktrace" in raw)
+                  + "; managedHeader=" + str("Managed Stacktrace" in raw)
+                  + "; addressFrameLines=" + str(sum(bool(re.match(r"\s*(?:0x[0-9a-fA-F]+|\d+\s+\S+\s+0x[0-9a-fA-F]+)", line)) for line in raw.splitlines())))
+            for frame in frames:
+                print(frame)
+            if not frames:
+                print("No whitelisted symbolized native frames were captured.")
+    except (OSError, ValueError, IndexError):
+        if action == "read":
+            print("Current-process native stderr diagnostics were unavailable.")
+
+
+if __name__ == "__main__":
+    main()
+PY
+}
 
 print_trace_file() {
   local trace_file="$1"
@@ -186,15 +266,109 @@ print_diagnostics() {
     --last 5m \
     --predicate "process == \"$PROCESS_NAME\"" \
     2>/dev/null | tail -n 400 || true
-  echo "--- Mac Catalyst diagnostic reports ---"
-  find "$HOME/Library/Logs/DiagnosticReports" \
-    -maxdepth 1 \
-    -type f \
-    -name "$PROCESS_NAME*" \
-    -mmin -10 \
-    -print \
-    -exec sh -c 'echo "--- $1 ---"; tail -n 300 "$1"' _ {} \; \
-    2>/dev/null || true
+  echo "--- Mac Catalyst sanitized current-process crash diagnostics ---"
+  native_stderr_diagnostics read
+  python3 - "$PROCESS_NAME" "${APP_PID:-}" "${LAUNCH_DIAG_START:-}" <<'PY' || true
+import datetime
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import time
+
+
+def safe_text(value):
+    text = str(value)[:1000]
+    text = re.sub(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", "<id>", text)
+    return re.sub(r"(?:[A-Za-z]:[\\/]|/)[^\s\"']+", "<path>", text)
+
+
+def selected_fields(source, names):
+    return {name: safe_text(source[name]) for name in names if name in source}
+
+
+def summarize_report(report, expected_pid, expected_name):
+    matches_name = report.get("procName") == expected_name or Path(str(report.get("procPath", ""))).name == expected_name
+    if report.get("pid") != expected_pid or not matches_name:
+        return None
+    images = report.get("usedImages", [])
+    threads = report.get("threads", [])
+    fault = report.get("faultingThread")
+    selected = [index for index, thread in enumerate(threads)
+                if thread.get("triggered") or index == fault]
+    if not selected:
+        selected = list(range(min(3, len(threads))))
+    stacks = []
+    for index in selected[:3]:
+        frames = []
+        for frame in threads[index].get("frames", [])[:40]:
+            image_index = frame.get("imageIndex", -1)
+            module = images[image_index].get("name", "unknown") if isinstance(image_index, int) and 0 <= image_index < len(images) else "unknown"
+            fields = selected_fields(frame, ("symbol", "symbolLocation", "imageOffset"))
+            fields["module"] = safe_text(module)
+            frames.append(fields)
+        stacks.append({"index": index, "frames": frames})
+    return {
+        "matchedCurrentProcess": True,
+        "exception": selected_fields(report.get("exception", {}), ("type", "signal", "subtype", "codes")),
+        "termination": selected_fields(report.get("termination", {}), ("namespace", "code", "indicator")),
+        "threads": stacks,
+    }
+
+
+def read_report(path):
+    try:
+        if path.stat().st_size > 8 * 1024 * 1024:
+            return None
+        raw = path.read_text(encoding="utf-8")
+        first, end = json.JSONDecoder().raw_decode(raw)
+        remainder = raw[end:].strip()
+        return json.loads(remainder) if remainder else first
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+
+
+def main():
+    name, pid_text, launch_text = sys.argv[1:4]
+    if not pid_text.isdecimal() or not launch_text:
+        print("No exact launched process identity is available for crash-report matching.")
+        return
+    pid = int(pid_text)
+    launch = datetime.datetime.strptime(launch_text, "%Y-%m-%d %H:%M:%S").timestamp()
+    try:
+        os.kill(pid, 0)
+        wait = 0
+    except ProcessLookupError:
+        wait = 10
+    except PermissionError:
+        wait = 0
+    deadline = time.monotonic() + wait
+    directory = Path.home() / "Library/Logs/DiagnosticReports"
+    while True:
+        try:
+            candidates = [path for path in directory.glob("*.ips")
+                          if path.is_file() and path.stat().st_mtime >= launch]
+        except OSError:
+            candidates = []
+        for path in candidates:
+            report = read_report(path)
+            if not isinstance(report, dict):
+                continue
+            result = summarize_report(report, pid, name)
+            if result is not None:
+                print(json.dumps(result, ensure_ascii=True, indent=2))
+                return
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            print("No matching current-run JSON crash report appeared within the bounded diagnostic wait.")
+            return
+        time.sleep(min(0.5, remaining))
+
+
+if __name__ == "__main__":
+    main()
+PY
 }
 
 consume_result_file() {
@@ -259,6 +433,7 @@ cleanup() {
       kill "$replacement_pid" 2>/dev/null || true
     fi
   done < <(pgrep -f -- "$APP_EXECUTABLE" 2>/dev/null || true)
+  native_stderr_diagnostics cleanup
 }
 trap cleanup EXIT
 
