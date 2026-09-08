@@ -1,5 +1,26 @@
 # Current Work Handoff
 
+## Hiện hành — e228 xanh, C thêm bounded diagnostics theo single writer
+
+`e228ddc678f829d471382b050699e1eacb922741` trên branch tích hợp đã SUCCESS
+cả sáu: full34180125560, iOS34180125523, Q34180125531, packages34180122646,
+MAUI34180122612, demo34180196414. PR #1 vẫn Draft/open/unmerged. Không nhận
+whole B hoặc source WIP của A/C; root tree chỉ thay shared coordination docs.
+
+B529 narrow34180074766 Mac FAIL sau Dispatch returned true, chưa callback/editor;
+Windows62frames/3recreation PASS. No current stack/IPS, fd2 chỉ664bytes/5lines;
+crash cause vẫn UNKNOWN. Root review proposal classifier và giao C sole writer
+thực hiện trong existing Mac diagnostic helper, thêm đúng một fixture path theo
+[amended grant](UX_TABLE_COMPLETION_WAVE_20260905.md). Không chồng Mac launcher.
+C đang có dirty opt-in ở hai launchers, giữ nguyên; baseline `5906ea9f` PHẢI nhận
+khi integrate C. A vẫn làm split filter theo17paths; không đổi task/model/base.
+
+Bước tiếp theo duy nhất: review minimal immutable classifier patch/fixture C
+bàn giao (tách khỏi opt-in, against Mac blobfee485b3), rồi mới cho B import đúng
+slice và chạy một paired true runtime probe. Giữ B529 SmokePage/CI/assertions;
+không tự cấp B writer hoặc nhận full C launcher WIP. Grant/docs HEAD mới cần
+CI riêng; e228 green không thay exact HEAD sau commit này. P3/hardware vẫn OPEN.
+
 ## Dispatch mới — d73 xanh đủ sáu gates, A/C triển khai độc lập
 
 Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.

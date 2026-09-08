@@ -1,5 +1,54 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## Amended grant C — classifier stderr hữu hạn cho B529
+
+Root `e228ddc678f829d471382b050699e1eacb922741` đã được REST xác minh đủ sáu
+workflow SUCCESS (full34180125560/iOS34180125523/Q34180125531/packages34180122646/
+MAUI34180122612/demo34180196414). A/C vẫn triển khai từ frozen green d73;
+không đổi base hoặc model. C đã nhận hai B launcher blobs thành baseline commit
+`5906ea9fe4d27baaa310997cfb9938ee4d194934`, commit PHẢI nhận khi tích hợp C.
+
+B529 narrow34180074766: Mac baseline10 PASS, true candidate build0/0/native FAIL.
+Actual Dispatch returned true, chưa callback/invoke/catch/editor; Windows baseline43/
+candidate62 PASS/3 recreation. No matching current IPS/stack; stderr664bytes/5lines
+không đủ exit/crash category. Không suy thành JIT failure từ thiếu callback.
+
+Root đọc đầy đủ proposal của B; C là SOLE WRITER launcher và được thêm đúng
+`eng/release-009-maui/test_native_stderr_classifier.py` vào chín-path grant.
+Chỉ bổ sung classifier vào Python `native_stderr_diagnostics()` hiện hữu và
+fixture/owned workflow/own log liên quan. Không B/root ghi chồng launcher C đang sửa.
+
+- Reuse exact current-process/run header, freshness, UID, no-symlink guards và
+  buffer <=64 KiB; không file/capture/env/flag/timeout/retry/cleanup mới.
+- Bỏ header, <=128 lines, <=4096 chars/line; mỗi category count0..64, clipped
+  boolean và unclassified count. Một versioned JSON <=2 KiB, fixed keys only.
+- Allowed indicators: objcDuplicateClassText, objcClassMetadataText,
+  objcUncaughtExceptionText, managedUnhandledText, aotJitRestrictionText,
+  runtimeAssertionText, dynamicLoaderText, sigsegvText, sigabrtText, sigbusText,
+  typeLoadExceptionText, invalidProgramExceptionText, missingMethodExceptionText,
+  typeInitializationExceptionText. Dùng đúng conjunction/token literals trong
+  proposal B, không generic error/failed/JIT matching hoặc free-form extraction.
+- Chỉ output số đếm/fixed category/version, không raw line/message/type/class/
+  symbol/path/address/PID/run/hash/env. Positive chỉ là text indicator, không
+  fatal cause/effective mode/OS exit proof; all-zero không là clean-exit proof.
+- Giữ toàn bộ native result/exit/assertions và default/package transport semantics.
+  Fixture gọi chính classifier implementation, kiểm positives/near-token negatives,
+  limits và identity/stale/foreign/symlink không emit. Không copy classifier vào test.
+
+C bổ sung vào own branch đang làm, bảo toàn dirty opt-in edits. Để B chạy probe
+độc lập, C cung cấp IMMUTABLE minimal patch chỉ classifier against frozen Mac blob
+`fee485b3a771b7fe58711d8112bc51ccbc187c3d`, before/after blobs, patch SHA256 và
+fixture hash/evidence. Nếu không tách được khỏi opt-in thì báo root, không stash/
+reset/delete hoặc cấp ngầm B writer. Không đưa toàn launcher có opt-in chưa release
+vào B. Root review exact patch/fixtures trước khi cho B nhận immutable slice.
+
+Sau root xác minh slice, B chỉ apply chính immutable classifier slice + fixture
+trong commit import-only riêng, ghi own log, không sửa implementation. Một paired
+baseline/true-candidate narrow mới với SmokePage529 byte-equal và existing workflow;
+không variant bỏ editor/full source gates trước Mac PASS. C giữ writer lâu dài.
+Khi root nhận whole B, SKIP classifier import-only và không ghi đè hai launcher
+do C sở hữu; khi nhận C vẫn phải nhận baseline5906 và own final delta đầy đủ.
+
 ## Grant triển khai tiếp — baseline kết hợp d73 đã xanh đủ sáu gates
 
 Root REST xác minh `d73cd2e2bcb7e2832e9a8b3fd071373b62cb2a0f` SUCCESS:
