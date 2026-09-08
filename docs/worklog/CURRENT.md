@@ -1,5 +1,34 @@
 # Current Work Handoff
 
+## Hiện hành — f3 xanh đủ sáu; A/C tiếp tục theo amended grant
+
+Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+Exact `f3d65d03ef8a52f40d116b03d37876ae3c80069e` SUCCESS đủ sáu workflows:
+full34180853269/iOS34180853216/Q34180853268/packages34180848586/
+MAUI34180848576/demo34180950552. Root implementation107dab01; chưa nhận
+A6a728b8d/Cdd6eafda hoặc whole B chưa release.
+
+Root đọc/rerun immutable Ccf4f9dac actual classifier,13PASS/0skip; hashes/blobs
+và actual B apply-check PASS. B nhận import-only77f4c447 để chạy một paired
+true529 narrow, giữ SmokePage/workflow/assertions. C vẫn sole writer; root SKIP
+B77 nhưng PHẢI nhận C5906 baseline khi integrate final C.
+
+A được thêm đúng1dòng frozen header trong WPF PERF008 fixture để same-binding/
+no-rescan đo header còn visible; không đổi WinForms/assertions. CLR test-host
+abort vẫn chưa rõ nguyên nhân. C được thêm2consumer files chỉ bounded Mac
+diagnostic/compact OSLog, giữ native assertions/parser. Root đã đọc actual Mac
+job101922679905: app-file0/unified-bytes2 chưa rõ cause. C báo dd năm compatible
+gates xanh, Windows9/Android11/iOS8 PASS; native Mac vẫn đỏ nên source HOLD.
+Exact scopes/hashes ở [wave](UX_TABLE_COMPLETION_WAVE_20260905.md).
+
+Local root chỉ13actual classifier fixtures PASS; không local heavy build/native.
+Giữ user workbook/untracked artifacts và3task/model hiện hành. Grant-only HEAD
+sau f3 cần gates riêng. Whole B/final P3/hardware/all-platform vẫn OPEN.
+
+Bước tiếp theo duy nhất: review paired true529+classifier của B, chọn correction
+tiếp dựa trên actual evidence; nhận final A/C tuần tự khi đủ gates/review, không
+ghi chồng owned paths hoặc báo100% từ partial green.
+
 ## Hiện hành — e228 xanh, C thêm bounded diagnostics theo single writer
 
 `e228ddc678f829d471382b050699e1eacb922741` trên branch tích hợp đã SUCCESS

@@ -1,5 +1,14 @@
 # NeraSpreadSheet current implementation status
 
+## CẬP NHẬT 08/09 — BASELINE XANH, TIẾP TỤC BA NHÁNH CÒN THIẾU
+
+Root `f3d65d03` đã SUCCESS cả sáu workflows, gồm published demo và canonical
+package consumers trong phạm vi đã có. A đang sửa lifecycle/kiểm thử bộ lọc
+chia khung, B điều tra true Mac editor runtime, C nối Windows/Mac package runtime.
+Source mới vẫn HOLD; chưa nghiệm thu all-platform. Root kiểm13actual diagnostic
+fixtures để B tiếp tục mà không ghi chồng C. Whole B, final combined P3 và hardware
+acceptance vẫn OPEN; chưa đạt100%. [Ownership/evidence hiện hành](worklog/CURRENT.md).
+
 ## CẬP NHẬT 08/09 — BẢN KẾT HỢP d73 ĐÃ XANH, TIẾP TỤC SPLIT FILTER VÀ R3
 
 `d73cd2e2bcb7e2832e9a8b3fd071373b62cb2a0f` đã SUCCESS cả sáu workflow, gồm

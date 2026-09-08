@@ -117,6 +117,13 @@ mỗi ba cycles; đây không phải chứng nhận không có leak ở toàn b�
 Private-field probes fail closed nếu cấu trúc production thay đổi; không thay
 host production bằng mock rồi suy diễn native behavior.
 
+Amendment08/09: WPF native fixture freeze đúng một header row trước khi attach
+host để popup anchor vẫn visible trong scroll loop. Split-filter lifecycle mới
+đóng popup khi unfrozen header rời viewport; bài test riêng kiểm trường hợp đó.
+Không đổi12cycles,offset106,no-rescan/generation/same-binding/page-cap/history/
+subscription assertions hoặc WinForms. Không đổi CPU harness counts,
+fingerprints,budgets; không chứng minh final P3 đã PASS.
+
 Cache hiện giữ tất cả requested pages cho generation hiện tại, chưa có LRU
 eviction. Bounds có thật: native current page 100, source defaults 100.000 rows /
 10.000 distinct; 20 page requests giữ 2.000 items. Không tuyên bố cache có một

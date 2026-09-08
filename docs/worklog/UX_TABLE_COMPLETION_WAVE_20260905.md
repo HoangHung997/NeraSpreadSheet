@@ -1,5 +1,67 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## Điều phối 08/09 — f3 xanh; gỡ hai phạm vi bị chặn
+
+Root exact `f3d65d03ef8a52f40d116b03d37876ae3c80069e` đã SUCCESS cả sáu:
+full34180853269/iOS34180853216/Q34180853268/packages34180848586/
+MAUI34180848576/demo34180950552. Không nhận A/C WIP hoặc whole B.
+
+### B — đã duyệt immutable diagnostic import
+
+Root đọc actual block và fixture C `cf4f9dac1eb8c7a45ecf366328523df834f0cd45`,
+đối chiếu frozen implementation và chạy lại13tests PASS/0skip. Patch SHA256
+`6f72d9d4fa514eaab43ffc633775331e53819f3d373a9c8a288f90993c9b0b2a`;
+Mac `fee485b3a771b7fe58711d8112bc51ccbc187c3d` →
+`13287ae318dea2cc318329a76373611aefb6fe6a`; fixture
+`a3243dc6f6a1b89669e7d3586956b5d43b4b549c`. Actual B apply-check PASS.
+B nhận đúng2paths IMPORT-ONLY thành77f4c447, giữ local docs commits; được chạy
+một paired baseline/true-candidate narrow, giữ SmokePage529/workflow byte-equal.
+Không nhận C opt-in, sửa classifier hoặc chạy full gates trước Mac PASS. C vẫn
+sole writer; root SKIP B77 import khi nhận whole B, nhưng PHẢI nhận baseline5906
+và classifier cùng own delta khi nhận final C. Counts chỉ là text indicators,
+không phải crash cause; all-zero không chứng minh clean exit.
+
+### A — thêm đúng một fixture path, tổng18paths
+
+Root đọc native job101921208530/source609a54ae: build0/0, Core1515 PASS;
+PERF008 thất bại khi đọc binding sau khi unfrozen header rời viewport. Fixture
+same-binding mâu thuẫn lifecycle đóng popup offscreen mới. Cho A thêm đúng một
+dòng `session.View.FreezeTopRows(1)` sau `CreateSession()` trong riêng WPF test
+của `tests/NeraSpreadSheet.Windows.Rendering.Tests/PERF008NativeStressTests.cs`.
+Giữ WinForms,12cycles,offsets,assertions,generation,no-rescan,page-cap,history,
+subscriptions. Không auto-freeze production hoặc giữ popup offscreen để qua test.
+Test mới vẫn phải kiểm đóng popup khi unfrozen header rời viewport. CLR test-host
+abort sau đó là lỗi riêng chưa rõ nguyên nhân. A6a728b8d vẫn HOLD, cần native/
+captures và năm final-source gates; một dòng fixture không đóng final P3.
+
+### C — thêm đúng hai consumer files, tổng12paths
+
+Cdd6eafda50f5e98bb51fe23a9e0312525be70868 báo năm compatibility gates SUCCESS:
+full34182133420/iOS34182134752/Q34182135997/packages34182137232/demo34182138742.
+MAUI34181795895 vẫn FAIL. C báo Windows9frames/child0,Android11,iOS8 PASS;
+root đọc Mac101922679905: fixtures/build0/0, native app-file0/unified-bytes2.
+Constructor/Loaded/dispatch, writable context và Emit chưa phân biệt được.
+
+Grant thêm C sole writer `tests/NeraSpreadSheet.Packaged.Maui.Smoke/PackageProvenance.cs`
+và `tests/NeraSpreadSheet.Packaged.Maui.Smoke/SmokePage.cs`, chỉ hosted Mac
+bounded diagnostics và native compact envelope. Dùng public
+`CoreFoundation.OSLog.Default.Log` dưới MACCATALYST, không package/PInvoke mới.
+Finite stage allowlist + exact transport nonce trong private log; existing query
+giữ exactPID/start,2MiB/deadline bounds; public summary fixed stage counts/booleans
+<=2KiB, không raw message/exception/type/path/PID/nonce/environment hoặc raw-log
+artifact. Diagnostic không là result. Compact marker chỉ sau actual CreateNew/
+Write/Flush/close, console/native duplicates phải giống hệt. Giữ full payload,
+hash/nonce, strict shared parser, minimum frames/cohort và mọi native assertion.
+File-only/diagnostic-only vẫn FAIL. Android/iOS/Windows/default behavior giữ
+nguyên. Không đổi scheduling/await, SDK/editor, signing/AOT/runtime config,
+timeout/retries/cleanup hay thêm launcher. Existing linked fixture kiểm actual
+Emit/protocol và bounded stage/privacy negatives; actual Mac compile/runtime
+kiểm platform binding, không coi neutral fixtures là OSLog delivery proof.
+Root đọc [primary binding source](https://raw.githubusercontent.com/dotnet/macios/main/src/CoreFoundation/OSLog.cs).
+Classifier cf4f9dac frozen trong lúc B probe. Final C vẫn cần cả bốn actual native
+consumers và năm compatibility gates đúng finalSHA; không lặp cohort trước khi
+có implementation correction có lý do. Baseline5906 PHẢI nhận khi integrate C.
+
 ## Amended grant C — classifier stderr hữu hạn cho B529
 
 Root `e228ddc678f829d471382b050699e1eacb922741` đã được REST xác minh đủ sáu
