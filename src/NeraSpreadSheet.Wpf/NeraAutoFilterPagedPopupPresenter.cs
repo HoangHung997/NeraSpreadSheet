@@ -75,13 +75,12 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
         _control.LayoutUpdated += OnLayoutUpdated;
         _control.SizeChanged += OnSizeChanged;
         _control.ScrollChanged += OnScrollChanged;
-        _control.PreviewKeyDown += OnControlPreviewKeyDown;
-        _control.PreviewMouseMove += OnPreviewMouseMove;
-        _control.PreviewMouseLeftButtonDown +=
-            OnPreviewMouseLeftButtonDown;
+        NeraSpreadsheetSplitExtensions.ControllerChanged += OnControllerChanged;
+        SynchronizeHost();
         if (_control.IsLoaded)
         {
             AttachAdorner();
+            RefreshHostPresentation();
         }
     }
 
@@ -103,10 +102,11 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
         ArgumentNullException.ThrowIfNull(criterion);
         var binding = _binding ?? throw new InvalidOperationException(
             "Open the AutoFilter popup before applying a rich criterion.");
+        if (!IsCurrentBinding(binding)) throw new InvalidOperationException("The filter host has changed.");
         var generation = await binding.ApplyRichFilterAsync(
             criterion,
             cancellationToken);
-        if (ReferenceEquals(_binding, binding)) CloseAndRefresh();
+        if (IsCurrentBinding(binding)) CloseAndRefresh();
         return generation;
     }
 
@@ -121,17 +121,20 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
     public bool TryOpenForActiveCell()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        SynchronizeHost();
         var session = _control.Session;
-        if (session is null ||
+        if (!IsHostReady || _control.CurrentEditorDraft is not null || session is null ||
             !session.TryResolveActiveAutoFilterTarget(out var target))
         {
             return false;
         }
 
-        var hit = GetVisibleButtons().FirstOrDefault(candidate =>
-            candidate.HeaderCell == target.HeaderCell &&
-            candidate.OwnerKind == ToGeometryOwner(target.OwnerKind));
-        if (hit.Bounds.IsEmpty)
+        var hit = _nativeButtons.FirstOrDefault(candidate =>
+            candidate.Pane == (_splitHost?.ActivePane) &&
+            candidate.Hit.HeaderCell == target.HeaderCell &&
+            candidate.Hit.TableId == target.TableId && candidate.Hit.TableColumnId == target.TableColumnId &&
+            candidate.Hit.OwnerKind == ToGeometryOwner(target.OwnerKind));
+        if (hit.Hit.Bounds.IsEmpty)
         {
             return false;
         }
@@ -143,15 +146,18 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
     public bool TryOpenAt(double x, double y)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (!TryHitTest(x, y, out var hit) ||
+        SynchronizeHost();
+        if (!IsHostReady || _control.CurrentEditorDraft is not null || !TryHitTest(x, y, out var hit) ||
             _control.Session is not { } session ||
             !session.TryResolveAutoFilterTarget(
-                hit.HeaderCell,
-                out var target))
+                hit.Hit.HeaderCell,
+                out var target) || hit.Hit.OwnerKind != ToGeometryOwner(target.OwnerKind) ||
+            hit.Hit.TableId != target.TableId || hit.Hit.TableColumnId != target.TableColumnId)
         {
             return false;
         }
 
+        if (hit.Pane is { } pane) _splitHost?.ActivatePresentationPane(pane);
         Open(hit, target);
         return true;
     }
@@ -173,14 +179,15 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
         _control.LayoutUpdated -= OnLayoutUpdated;
         _control.SizeChanged -= OnSizeChanged;
         _control.ScrollChanged -= OnScrollChanged;
-        _control.PreviewKeyDown -= OnControlPreviewKeyDown;
-        _control.PreviewMouseMove -= OnPreviewMouseMove;
-        _control.PreviewMouseLeftButtonDown -=
-            OnPreviewMouseLeftButtonDown;
+        NeraSpreadsheetSplitExtensions.ControllerChanged -= OnControllerChanged;
+        DetachHost();
         GC.SuppressFinalize(this);
     }
 
-    internal SpreadsheetAutoFilterButtonHit[] GetVisibleButtons()
+    internal SpreadsheetAutoFilterButtonHit[] GetVisibleButtons() =>
+        _nativeButtons.Select(static button => button.Hit).ToArray();
+
+    private SpreadsheetAutoFilterButtonHit[] ComposeStandaloneButtons()
     {
         var session = _control.Session;
         if (session is null ||
@@ -231,7 +238,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
     private bool TryHitTest(
         double x,
         double y,
-        out SpreadsheetAutoFilterButtonHit hit)
+        out NativeFilterButton hit)
     {
         if (!double.IsFinite(x) || !double.IsFinite(y))
         {
@@ -239,9 +246,9 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
             return false;
         }
         var point = new PointD(x, y);
-        foreach (var candidate in GetVisibleButtons())
+        foreach (var candidate in _nativeButtons)
         {
-            if (candidate.Bounds.Contains(point))
+            if (candidate.Hit.Bounds.Contains(point))
             {
                 hit = candidate;
                 return true;
@@ -252,16 +259,19 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
     }
 
     private void Open(
-        SpreadsheetAutoFilterButtonHit hit,
+        NativeFilterButton button,
         SpreadsheetAutoFilterTarget target)
     {
         var session = _control.Session
             ?? throw new InvalidOperationException(
                 "A spreadsheet session is required before opening AutoFilter.");
+        _openGeneration++;
         Close();
         CancelOperations();
         DisposeBinding();
         _focusBeforeOpen = Keyboard.FocusedElement;
+        _openContext = new FilterOpenContext(_openGeneration, session, session.ActiveWorksheet,
+            _inputSurface!, _splitHost, button);
         var presenter = new SpreadsheetAutoFilterPagedPresenter(
             session,
             target,
@@ -274,10 +284,10 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter : IDisposable
 
         var popup = new Popup
         {
-            PlacementTarget = _control,
+            PlacementTarget = _inputSurface,
             Placement = PlacementMode.RelativePoint,
-            HorizontalOffset = Math.Max(0d, hit.Bounds.Left),
-            VerticalOffset = Math.Max(0d, hit.Bounds.Bottom),
+            HorizontalOffset = Math.Max(0d, button.Hit.Bounds.Left),
+            VerticalOffset = Math.Max(0d, button.Hit.Bounds.Bottom),
             StaysOpen = false,
             AllowsTransparency = true,
             Child = BuildPopupContent(target),

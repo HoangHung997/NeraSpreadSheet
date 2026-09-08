@@ -1405,4 +1405,6 @@ Chọn một mục bên phải để đổi hiển thị hoặc kích thước.<
   <data name="Nội dung chưa hợp lệ. Kiểm tra lại ô đang sửa." xml:space="preserve"><value>Nội dung chưa hợp lệ. Kiểm tra lại ô đang sửa.</value></data>
   <data name="Đặt con trỏ trong lời gọi hàm đang nhập để xem trợ giúp đối số." xml:space="preserve"><value>Đặt con trỏ trong lời gọi hàm đang nhập để xem trợ giúp đối số.</value></data>
   <data name="Đối số {0}: {1} — {2}" xml:space="preserve"><value>Đối số {0}: {1} — {2}</value></data>
+  <data name="Kết thúc chỉnh sửa ô trước khi mở bộ lọc." xml:space="preserve"><value>Kết thúc chỉnh sửa ô trước khi mở bộ lọc.</value></data>
+  <data name="Chọn ô thuộc bộ lọc và giữ tiêu đề hiển thị trong vùng đang dùng." xml:space="preserve"><value>Chọn ô thuộc bộ lọc và giữ tiêu đề hiển thị trong vùng đang dùng.</value></data>
 </root>

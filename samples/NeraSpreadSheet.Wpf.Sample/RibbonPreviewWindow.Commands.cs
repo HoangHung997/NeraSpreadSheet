@@ -71,7 +71,9 @@ public sealed partial class RibbonPreviewWindow
             _filterPopup ??= new NeraAutoFilterPagedPopupPresenter(_sheet);
             _filterPopup.IconTheme = _ribbon.IconTheme;
             _filterPopup.Localization = Localization;
-            if (!_filterPopup.TryOpenForActiveCell()) SetStatus("Chọn một ô trong bảng có hàng tiêu đề để mở bộ lọc.");
+            if (!_filterPopup.TryOpenForActiveCell()) SetStatus(_sheet.CurrentEditorDraft is not null
+                ? "Kết thúc chỉnh sửa ô trước khi mở bộ lọc."
+                : "Chọn ô thuộc bộ lọc và giữ tiêu đề hiển thị trong vùng đang dùng.");
         });
         Add("Sample.FilterClear", "Xóa bộ lọc", "data.filter-clear", _ =>
         {

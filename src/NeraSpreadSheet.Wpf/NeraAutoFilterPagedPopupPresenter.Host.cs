@@ -13,36 +13,41 @@ namespace NeraSpreadSheet.Wpf;
 
 public sealed partial class NeraAutoFilterPagedPopupPresenter
 {
-    private void OnLoaded(object sender, RoutedEventArgs e) =>
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        SynchronizeHost();
         AttachAdorner();
+        RefreshHostPresentation();
+    }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
-        Close();
+        CloseForHostChange();
+        _nativeButtons = [];
         DetachAdorner();
     }
 
     private void OnLayoutUpdated(object? sender, EventArgs e) =>
-        _adorner?.Refresh();
+        QueueHostRefresh();
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e) =>
-        _adorner?.Refresh();
+        QueueHostRefresh();
 
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e) =>
-        _adorner?.Refresh();
+        QueueHostRefresh();
 
     private void OnControlPreviewKeyDown(
         object sender,
         KeyEventArgs e)
     {
-        if (IsOpen)
+        if (e.Handled || IsOpen)
         {
             return;
         }
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if ((e.KeyboardDevice.Modifiers & ModifierKeys.Alt) != 0 &&
             key == Key.Down &&
-            TryOpenForActiveCell())
+            (_control.CurrentEditorDraft is not null || TryOpenForActiveCell()))
         {
             e.Handled = true;
         }
@@ -50,14 +55,15 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
 
     private void OnPreviewMouseMove(object sender, MouseEventArgs e)
     {
-        var point = e.GetPosition(_control);
+        if (e.Handled || _inputSurface is null) return;
+        var point = e.GetPosition(_inputSurface);
         if (TryHitTest(point.X, point.Y, out _))
         {
-            _control.Cursor = Cursors.Hand;
+            _inputSurface.SetValue(FrameworkElement.CursorProperty, Cursors.Hand);
         }
-        else if (_control.Cursor == Cursors.Hand)
+        else if (Equals(_inputSurface.GetValue(FrameworkElement.CursorProperty), Cursors.Hand))
         {
-            _control.Cursor = null;
+            _inputSurface.ClearValue(FrameworkElement.CursorProperty);
         }
     }
 
@@ -65,8 +71,10 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         object sender,
         MouseButtonEventArgs e)
     {
-        var point = e.GetPosition(_control);
-        if (TryOpenAt(point.X, point.Y))
+        if (e.Handled || _inputSurface is null) return;
+        var point = e.GetPosition(_inputSurface);
+        if (TryHitTest(point.X, point.Y, out _) &&
+            (_control.CurrentEditorDraft is not null || TryOpenAt(point.X, point.Y)))
         {
             e.Handled = true;
         }

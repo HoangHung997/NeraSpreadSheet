@@ -276,7 +276,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             if (binding is not null)
             {
                 await binding.SelectAllVisibleAsync(token);
-                if (ReferenceEquals(_binding, binding)) RebuildPage();
+                if (IsCurrentBinding(binding)) RebuildPage();
             }
         });
         selectNone.Click += (_, _) => StartOperation(async token =>
@@ -285,7 +285,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             if (binding is not null)
             {
                 await binding.ClearVisibleSelectionAsync(token);
-                if (ReferenceEquals(_binding, binding)) RebuildPage();
+                if (IsCurrentBinding(binding)) RebuildPage();
             }
         });
         previous.Click += (_, _) => StartOperation(token =>
@@ -369,7 +369,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
                 return;
             }
             await binding.InitializeAsync(token);
-            if (!ReferenceEquals(_binding, binding)) return;
+            if (!IsCurrentBinding(binding)) return;
             RebuildPage();
             FocusSearchBox(popup);
         });
@@ -383,6 +383,9 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         }
         popup.Opened -= OnPopupOpened;
         popup.Closed -= OnPopupClosed;
+        if (!ReferenceEquals(_popup, popup)) return;
+        var context = _openContext;
+        _openContext = null;
         CancelOperations();
         DisposeBinding();
         if (ReferenceEquals(_popup, popup))
@@ -406,7 +409,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             _datePage = null;
             _selectedDateGroups.Clear();
         }
-        RestoreFocus(_focusBeforeOpen);
+        if (context is not null) RestoreFocus(_focusBeforeOpen, context);
         _focusBeforeOpen = null;
     }
 

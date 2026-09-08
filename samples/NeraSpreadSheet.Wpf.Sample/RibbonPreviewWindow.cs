@@ -54,6 +54,7 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         _runtime.ActivationContextProvider = CollectTableParametersAsync;
         _ribbon = new NeraRibbonControl(_runtime) { VerticalAlignment = VerticalAlignment.Top };
         _ribbon.BindTableDesign(_session);
+        _filterPopup = new NeraAutoFilterPagedPopupPresenter(_sheet) { Localization = Localization, IconTheme = _ribbon.IconTheme };
         InitializeFormulaBar();
         _shortcuts = _ribbon.BindShortcuts(this);
         _ribbon.CommandActivationFailed += OnCommandActivationFailed;
@@ -115,9 +116,9 @@ public sealed partial class RibbonPreviewWindow : Window, IDisposable
         _ribbon.CommandActivationFailed -= OnCommandActivationFailed;
         _worksheetTabs.SelectionChanged -= OnWorksheetTabSelectionChanged;
         _worksheetTabs.SizeChanged -= OnWorksheetTabsSizeChanged;
+        _filterPopup?.Dispose();
         DisposeFormulaBar();
         DisposeWorksheetNavigation();
-        _filterPopup?.Dispose();
         _shortcuts.Dispose();
         _ribbon.Dispose();
         _sheet.Dispose();

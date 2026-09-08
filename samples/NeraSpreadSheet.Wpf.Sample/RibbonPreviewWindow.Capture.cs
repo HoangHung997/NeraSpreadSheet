@@ -200,6 +200,7 @@ public sealed partial class RibbonPreviewWindow
         await CaptureLocalizationAsync(outputDirectory, images);
         await CaptureNavigationShellAsync(outputDirectory, images);
         await CaptureFormulaBarAsync(outputDirectory, images);
+        await CaptureSplitFilterAsync(outputDirectory, images);
         Console.Error.WriteLine($"Capture: complete, {images.Count} images.");
         var manifest = new
         {
