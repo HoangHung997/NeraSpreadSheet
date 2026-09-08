@@ -160,15 +160,59 @@ internal sealed class SmokePage : ContentPage, IDisposable
         view.InvalidateSurface();
         SmokeTrace.Append("smoke-page-loaded-after-invalidate");
         SmokeTrace.Append("smoke-page-orchestration-queued");
-        if (!Dispatcher.Dispatch(() =>
+        bool dispatched;
+        try
         {
-            SmokeTrace.Append("smoke-page-orchestration-enter");
-            _ = RunLoadedSmokeAsync(view);
-        }))
+            var dispatcher = Dispatcher;
+            SmokeTrace.Append("smoke-page-orchestration-dispatcher-resolved");
+            Action callback = () =>
+            {
+                SmokeTrace.Append("smoke-page-orchestration-enter");
+                try
+                {
+                    InvokeLoadedSmoke(view);
+                    SmokeTrace.Append("smoke-page-orchestration-callback-returned");
+                }
+                catch (Exception exception)
+                {
+                    SmokeTrace.Append($"smoke-page-orchestration-callback-catch:{ClassifyDispatchException(exception)}");
+                    throw;
+                }
+            };
+            SmokeTrace.Append("smoke-page-orchestration-dispatch-call-enter");
+            dispatched = dispatcher.Dispatch(callback);
+            SmokeTrace.Append(dispatched
+                ? "smoke-page-orchestration-dispatch-returned-true"
+                : "smoke-page-orchestration-dispatch-returned-false");
+        }
+        catch (Exception exception)
+        {
+            SmokeTrace.Append($"smoke-page-orchestration-dispatch-catch:{ClassifyDispatchException(exception)}");
+            throw;
+        }
+        if (!dispatched)
         {
             Fail(new InvalidOperationException("The loaded Mac smoke orchestration could not be dispatched."));
         }
     }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void InvokeLoadedSmoke(NeraSpreadsheetView view)
+    {
+        SmokeTrace.Append("smoke-page-orchestration-invoke-enter");
+        _ = RunLoadedSmokeAsync(view);
+        SmokeTrace.Append("smoke-page-orchestration-invoke-returned");
+    }
+
+    private static string ClassifyDispatchException(Exception exception) =>
+        exception.GetType().FullName switch
+        {
+            "System.InvalidOperationException" => "invalid-operation",
+            "System.ObjectDisposedException" => "object-disposed",
+            "System.NullReferenceException" => "null-reference",
+            "ObjCRuntime.ObjCException" => "objective-c",
+            _ => "other",
+        };
 
     private static void OnViewLoaded(object? sender, EventArgs e)
     {

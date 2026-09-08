@@ -7,6 +7,9 @@
   `1ff4f3582c55ce0690afd930da37417c873b5460` có completed async-shape partition:
   Mac variant PASS, Windows native PASS; original Mac gate đỏ. One-off đã đóng;
   historical commit giữ exact patch và evidence. Chưa có active variant tiếp.
+- True harness source `6509393af67801b5217cb9b4d934681158a7a561`: paired narrow
+  `34178968589` Windows PASS/Mac actual FAIL. Root đã cấp exact diagnostic patch
+  chỉ thêm dispatch boundary evidence vào true page; chi tiết ở cuối log.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
 - Root cho phép riêng workflow `table-007-libreoffice.yml` và producer script;
@@ -495,6 +498,48 @@
   không thêm Task.Delay, không còn editor/analytics orchestration trong Paint.
   Chỉ sửa SmokePage và log này; không SDK/renderer/handler/B21. Audit script được
   sửa encoding/parser cục bộ rồi chạy PASS; chưa có compile/runtime proof mới.
-- Bước tiếp theo duy nhất: commit/push true harness và chạy existing paired narrow
-  CI; chỉ khi candidate thật PASS mới chạy full source/corpus gates. Giữ21 desktop
-  paths frozen và wholeB HOLD, Windows intermittent risk vẫn OPEN.
+- True harness source đã push `6509393af67801b5217cb9b4d934681158a7a561`;
+  paired narrow `34178968589` đã xong: actual Mac FAIL, Windows PASS.
+- Theo yêu cầu root, RELEASE riêng hai shared launchers cho root/C triển khai
+  package result transport opt-in độc lập. Windows `run-maui-windows-smoke.ps1`
+  blob `b50e60f9f90190594ae6c648e2d0354d83fd8c5c`; Mac `run-maui-maccatalyst-smoke.sh`
+  blob `fee485b3a771b7fe58711d8112bc51ccbc187c3d`. Cả hai HEAD650 và working tree
+  byte-equal48fe đã xác minh. B không còn writer hai paths, không cần sửa launcher
+  cho true harness; giữ nguyên source lane và không nhập package delta trong lượt
+  này. Root đã nhận writer hai paths, chưa chuyển writer cho C; khi nhận wholeB
+  sẽ kiểm/skíp hoặc reconcile riêng hai launchers, không ghi đè package delta.
+  Actual Mac SmokePage vẫn thuộc B; wholeB chưa release.
+- Mac job `101913937851`: baseline PASS10frames; actual candidate build0warnings/
+  0errors nhưng native FAIL trước khi tạo result. Deduplicate nguyên trace cho
+  thấy page Loaded, orchestration-queued rồi thêm một draw-core-success; không
+  có orchestration-enter/initial-wait/editor entry. Marker queued nằm trước
+  lời gọi Dispatch nên chưa chứng minh Dispatch trả về hoặc callback đã chạy.
+  Không có matching current-run IPS trong bounded wait; matched fd2 chỉ có
+  shape664bytes/5lines, không native/managed header hay address-frame lines.
+  Không kết luận SIGSEGV hoặc stack giống các lượt trước từ bằng chứng này.
+- Windows job `101913938068`: baseline PASS41frames/candidate PASS64frames,
+  table007Editor=true; cả hai3recreation cycles và zero failed/abandoned/stale
+  GPU frames. Thành công này không xóa historical first-reinsert failure.
+- Registrar selected comparison READ-ONLY: candidate h vẫnf514f42d,
+  83,623bytes/135declarations; mm1,054,529bytes/115declarations, selected
+  bodies4182b68c/879814ad và class-map indices/tokens/flags giống prior candidates.
+  Full mm hash `40e60e7e6f8f7951e707705c8e13d60abb6725b288223eae2efcf2988a6d99fe`
+  khác; không coi toàn metadata bằng nhau. SDK10.0.400, resolved MAUI10.0.20 và
+  Skia4.151.1 như trước; effective registrar/link/interpreter flags unavailable.
+  Sanitized evidence ở ignored artifact `table-007-true-loaded-result-6509393a.json`.
+- Root yêu cầu giữ source650 và gửi smallest diagnostic proposal. Chỉ Mac
+  SmokePage: dispatch resolved/call/return true-false markers, callback entry;
+  non-inlined wrapper có invoke entry/return, catches phát fixed category rồi
+  rethrow. Giữ mọi scheduling/readiness/editor/assertion; không sửa launcher.
+  Proposal patch SHA256 `04d34290728692101b4d0d6651c22d6658f8d358770ff81c8de57de6a05207f3`,
+  before blob `a12981ecc93ab3521738e8685090c6cda053aee0`, after
+  `a82776c5468ebeda2fa8de67e34c6b1c134c1f6d`; apply-check PASS, chưa áp dụng.
+  True return/no callback marker một mình không phân biệt pending dispatch,
+  process termination hay callback JIT/entry; chưa yêu cầu thêm stderr classifier.
+- Root đã đọc patch/manifest và cấp đúng SHA25604d342907 cùng before/after blobs;
+  đã áp dụng bằng apply_patch và xác minh cả hai blob. Thêm literal call/return/
+  callback/invoke markers, fixed exception category với bare rethrow, NoInlining
+  wrapper; chưa đổi scheduling/readiness/editor/assertion/timeout hoặc launcher.
+- Bước tiếp theo duy nhất: commit/push exact dispatch-boundary diagnostic và chạy
+  paired baseline/true-candidate narrow mới; chưa chạy full source gates khi Mac
+  đỏ. Giữ21 desktop paths frozen, hai launcher thuộc root, wholeB HOLD.
