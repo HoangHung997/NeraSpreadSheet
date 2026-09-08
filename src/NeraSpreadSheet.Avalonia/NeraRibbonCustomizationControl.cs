@@ -17,7 +17,7 @@ public sealed class NeraRibbonCustomizationControl : UserControl
     private readonly ListBox _catalog = new();
     private readonly ListBox _entries = new();
     private readonly ListBox _qat = new();
-    private readonly TextBox _caption = new() { Watermark = "Tên tab hoặc nhóm" };
+    private readonly TextBox _caption = new() { PlaceholderText = "Tên tab hoặc nhóm" };
     private readonly TextBox _json = new() { AcceptsReturn = true, MinHeight = 90, TextWrapping = global::Avalonia.Media.TextWrapping.Wrap };
     private readonly TextBlock _error = new() { TextWrapping = global::Avalonia.Media.TextWrapping.Wrap };
     private RibbonCustomizationSession _session;
@@ -79,13 +79,11 @@ public sealed class NeraRibbonCustomizationControl : UserControl
         AutomationProperties.SetAutomationId(this, "nera-ribbon-customization");
         root.Children.Add(columns); Content = root; Refresh();
     }
-
     public IReadOnlyList<RibbonCustomizationEntry> Entries => _session.GetLocalizedEntries(_runtime.Localization);
     public IReadOnlyList<CommandId> QuickAccessToolbar => _session.QuickAccessToolbar;
     public bool HasChanges => _changed;
     public event EventHandler? Applied;
     public event EventHandler? Cancelled;
-
     public bool SetVisible(RibbonCustomizationTarget target, bool visible) => Mutate(() => _session.SetVisible(target, visible));
     public bool SetLarge(RibbonCustomizationTarget target, bool large) => Mutate(() => _session.SetLarge(target, large));
     public bool Rename(RibbonCustomizationTarget target, string caption) => Mutate(() => _session.Rename(target, caption));
@@ -99,47 +97,36 @@ public sealed class NeraRibbonCustomizationControl : UserControl
     public bool RemoveFromQuickAccessToolbar(CommandId id) => Mutate(() => _session.RemoveFromQuickAccessToolbar(id), true);
     public bool MoveQuickAccessToolbar(CommandId id, int offset) => Mutate(() => _session.MoveQuickAccessToolbar(id, offset), true);
 
-    /// <summary>Exports the shared versioned profile. An untouched QAT stays inherited,
-    /// not a frozen copy of the application defaults. This does not patch other hosts.</summary>
+    /// <summary>An untouched QAT stays inherited rather than freezing application defaults.
+    /// This preserves shared profile semantics; it does not patch other platform hosts.</summary>
     public string ExportJson()
     {
-        VerifyAccess();
-        return RibbonCustomizationJsonSerializer.Serialize(CreateProfile() ?? new RibbonCustomization([]));
+        VerifyAccess(); return RibbonCustomizationJsonSerializer.Serialize(CreateProfile() ?? new RibbonCustomization([]));
     }
     public void ImportJson(string json)
     {
-        VerifyAccess();
-        var profile = RibbonCustomizationJsonSerializer.Deserialize(json);
-        // Validate the complete candidate and application policy before touching the working editor.
-        var candidate = CreateSession(_baseline);
-        candidate.ReplaceCustomization(profile);
-        _ = candidate.Preview();
+        VerifyAccess(); var profile = RibbonCustomizationJsonSerializer.Deserialize(json);
+        var candidate = CreateSession(_baseline); candidate.ReplaceCustomization(profile); _ = candidate.Preview();
         _session = candidate; _qatOverride = profile.HasQuickAccessToolbarOverride; _changed = true; Refresh();
     }
     public RibbonCustomization? Apply()
     {
         VerifyAccess();
         if (!ReferenceEquals(_runtime.Customization, _baseline)) throw new InvalidOperationException("Ribbon profile changed outside this editor. Cancel and reopen before applying.");
-        var profile = CreateProfile();
-        if (_changed) _runtime.SetCustomization(profile);
+        var profile = CreateProfile(); if (_changed) _runtime.SetCustomization(profile);
         _baseline = _runtime.Customization; _session = CreateSession(_baseline);
-        _qatOverride = _baseline?.HasQuickAccessToolbarOverride == true; _changed = false; Refresh(); Applied?.Invoke(this, EventArgs.Empty);
-        return _baseline;
+        _qatOverride = _baseline?.HasQuickAccessToolbarOverride == true; _changed = false; Refresh(); Applied?.Invoke(this, EventArgs.Empty); return _baseline;
     }
     public void Cancel()
     {
         VerifyAccess(); _baseline = _runtime.Customization; _session = CreateSession(_baseline);
         _qatOverride = _baseline?.HasQuickAccessToolbarOverride == true; _changed = false; Refresh(); Cancelled?.Invoke(this, EventArgs.Empty);
     }
-    public void Reset()
-    {
-        VerifyAccess(); _session.Reset(); _qatOverride = false; _changed = true; Refresh();
-    }
+    public void Reset() { VerifyAccess(); _session.Reset(); _qatOverride = false; _changed = true; Refresh(); }
     private RibbonCustomization? CreateProfile()
     {
         if (!_changed) return _baseline;
-        var profile = _session.CreateCustomization();
-        return new RibbonCustomization(profile.Tabs, _qatOverride ? profile.QuickAccessToolbar : null);
+        var profile = _session.CreateCustomization(); return new RibbonCustomization(profile.Tabs, _qatOverride ? profile.QuickAccessToolbar : null);
     }
     private RibbonCustomizationSession CreateSession(RibbonCustomization? profile) => new(_runtime.Definition, _runtime.CommandCatalog, profile, Caption, _policy);
     private string Caption(CommandId id) => _runtime.CommandCatalog.Entries.FirstOrDefault(entry => entry.CommandId == id)?.Caption ?? id.Value;
@@ -161,17 +148,14 @@ public sealed class NeraRibbonCustomizationControl : UserControl
         button.Click += (_, _) =>
         {
             try { action(); _error.Text = string.Empty; }
-            catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or System.IO.InvalidDataException)
-            { _error.Text = exception.Message; }
+            catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or System.IO.InvalidDataException) { _error.Text = exception.Message; }
         };
         return button;
     }
     private void Refresh()
     {
-        var selected = (_entries.SelectedItem as RibbonCustomizationEntry)?.Target;
-        var selectedQat = _qat.SelectedItem;
-        _entries.ItemsSource = Entries;
-        _entries.SelectedItem = Entries.FirstOrDefault(entry => entry.Target == selected);
+        var selected = (_entries.SelectedItem as RibbonCustomizationEntry)?.Target; var selectedQat = _qat.SelectedItem;
+        _entries.ItemsSource = Entries; _entries.SelectedItem = Entries.FirstOrDefault(entry => entry.Target == selected);
         _qat.ItemsSource = QuickAccessToolbar; _qat.SelectedItem = selectedQat;
     }
 }
