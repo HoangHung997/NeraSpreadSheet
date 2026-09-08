@@ -377,6 +377,8 @@ public sealed class Release009SplitAutoFilterSmokeTests
         host.Window.UpdateLayout();
         if (host.Split is { IsDisposed: false, IsAttached: true } split) split.RenderNow();
         await host.Window.Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ApplicationIdle).Task.WaitAsync(TimeSpan.FromSeconds(5));
+        if (host.Split is null && host.Grid.IsLoaded && !Field<bool>(host.Grid, "_disposed"))
+            await Until(() => Field<ViewportLayout?>(host.Grid, "_lastLayout") is not null);
     }
     private static async Task Drain(Host host)
     {
@@ -432,16 +434,36 @@ public sealed class Release009SplitAutoFilterSmokeTests
     {
         Assert.IsTrue(GetCursorPos(out var original));
         var point = host.Grid.PointToScreen(new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2));
+        var surface = Surface(host);
+        var downSeen = false;
+        var pressed = false;
+        MouseButtonEventHandler observeDown = (_, args) =>
+        {
+            downSeen = true;
+            Console.WriteLine($"Native filter down: point={args.GetPosition(surface)}, expected={bounds}, handled={args.Handled}, source={args.OriginalSource.GetType().Name}.");
+        };
+        surface.AddHandler(Mouse.PreviewMouseDownEvent, observeDown, handledEventsToo: true);
         try
         {
             Assert.IsTrue(SetCursorPos((int)Math.Round(point.X), (int)Math.Round(point.Y)));
             await Task.Delay(20);
             MouseEvent(0x0002, 0, 0, 0, UIntPtr.Zero);
+            pressed = true;
+            await Until(() => downSeen);
+            await host.Window.Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.Background);
+            Console.WriteLine($"Native filter before up: open={host.Presenter.IsOpen}, generation={Field<long>(host.Presenter, "_openGeneration")}, draft={host.Grid.CurrentEditorDraft is not null}.");
             MouseEvent(0x0004, 0, 0, 0, UIntPtr.Zero);
+            pressed = false;
             await Task.Delay(30);
             await Flush(host);
+            Console.WriteLine($"Native filter after up: open={host.Presenter.IsOpen}, active={host.Session.Selection.ActiveCell}, focus={Keyboard.FocusedElement?.GetType().Name}.");
         }
-        finally { Assert.IsTrue(SetCursorPos(original.X, original.Y)); }
+        finally
+        {
+            if (pressed) MouseEvent(0x0004, 0, 0, 0, UIntPtr.Zero);
+            surface.RemoveHandler(Mouse.PreviewMouseDownEvent, observeDown);
+            Assert.IsTrue(SetCursorPos(original.X, original.Y));
+        }
     }
     private static void PressAltDown(UIElement target)
     {

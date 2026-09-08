@@ -18,6 +18,14 @@
 
 ## Implementation checkpoint, chờ native CI
 
+- `a2d80b34c841fb09fc601e5d86be775d20eb158a`, full `34183087697`, Windows
+  `101925956030`: native chạy hết 174 cases, 168 PASS/6 FAIL/0 skip; PERF008 qua,
+  CLR abort không tái hiện (chưa chứng minh nguyên nhân). Bốn first-header native
+  clicks chưa giữ popup mở; hai standalone geometry cases đọc null layout ngay
+  sau zoom. Follow-up chờ actual layout và quan sát mouse-down trước mouse-up;
+  giữ actual OS input và assertions. Capture metadata sửa theo scrollbar-reserved
+  clip/anchor ở native-surface DIPs theo review của root.
+
 - `6e8de0203029c151a10cc011eaa19c143d765e4c` đã thêm đúng amended PERF1line.
   Full `34182884926`, Windows `101925352662` FAIL test compile CS0136 vì biến
   clipped trùng scope trong test mới. Follow-up đổi tên local và chọn lại Header

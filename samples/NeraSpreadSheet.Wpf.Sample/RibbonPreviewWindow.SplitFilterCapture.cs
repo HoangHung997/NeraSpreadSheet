@@ -85,18 +85,25 @@ public sealed partial class RibbonPreviewWindow
             var count = CaptureDescendants<CheckBox>(popup).Count();
             if (count != 100 || session.History.UndoCount != 0 || !session.TryResolveActiveAutoFilterTarget(out var target))
                 throw new InvalidOperationException("Filter capture did not retain one bounded page and canonical target/history.");
-            RectD? paneClip = null;
+            var chrome = SpreadsheetChromeGeometry.Calculate(window._sheet.ActualWidth, window._sheet.ActualHeight, window._sheet.RenderTheme);
+            var paneClip = new RectD(chrome.RowHeaderWidth, chrome.ColumnHeaderHeight, chrome.BodyWidth, chrome.BodyHeight);
             RectD? buttonAnchor = null;
-            PointD? offset = null;
+            var offset = new PointD(window._sheet.ScrollSnapshot.OffsetX, window._sheet.ScrollSnapshot.OffsetY);
             if (window._splitShell is { } split)
             {
-                var pane = split.LastFrame!.Panes.Single(item => item.Pane.PaneId == split.ActivePane);
-                paneClip = pane.Pane.Bounds;
+                var frame = split.LastFrame!;
+                var pane = frame.Panes.Single(item => item.Pane.PaneId == split.ActivePane);
+                var right = frame.ScrollBars.TryGetBar(split.ActivePane, SpreadsheetScrollBarOrientation.Vertical, out var vertical)
+                    ? Math.Min(pane.Pane.Bounds.Right, vertical.Bounds.Left) : pane.Pane.Bounds.Right;
+                var bottom = frame.ScrollBars.TryGetBar(split.ActivePane, SpreadsheetScrollBarOrientation.Horizontal, out var horizontal)
+                    ? Math.Min(pane.Pane.Bounds.Bottom, horizontal.Bounds.Top) : pane.Pane.Bounds.Bottom;
+                paneClip = new RectD(pane.Pane.Bounds.X + chrome.RowHeaderWidth, pane.Pane.Bounds.Y + chrome.ColumnHeaderHeight,
+                    Math.Max(0, right - pane.Pane.Bounds.X), Math.Max(0, bottom - pane.Pane.Bounds.Y));
                 offset = split.GetPaneScroll(split.ActivePane);
                 var hit = SpreadsheetAutoFilterButtonGeometry.GetVisibleButtons(worksheet.Tables, worksheet.AutoFilter,
                     pane.ViewportFrame.Layout, window._sheet.RenderTheme).Single();
-                var chrome = SpreadsheetChromeGeometry.Calculate(window._sheet.ActualWidth, window._sheet.ActualHeight, window._sheet.RenderTheme);
-                buttonAnchor = hit.Bounds.Translate(pane.Pane.Bounds.X + chrome.RowHeaderWidth, pane.Pane.Bounds.Y + chrome.ColumnHeaderHeight);
+                buttonAnchor = hit.Bounds.Translate(pane.Pane.Bounds.X + chrome.RowHeaderWidth, pane.Pane.Bounds.Y + chrome.ColumnHeaderHeight).Intersect(paneClip);
+                if (buttonAnchor.Value.IsEmpty) throw new InvalidOperationException("The filter header is outside the visible pane body.");
                 if (!window._filterPopup.TryOpenAt(buttonAnchor.Value.Left + buttonAnchor.Value.Width / 2,
                     buttonAnchor.Value.Top + buttonAnchor.Value.Height / 2))
                     throw new InvalidOperationException("The captured pane header is not a native filter hit.");
@@ -110,7 +117,7 @@ public sealed partial class RibbonPreviewWindow
             SaveCapture(window._root, Path.Combine(directory, shellFile), 1d);
             images.Add(new { file = shellFile, tab = "split-filter", owner, pane = paneName, logicalWidth = width,
                 transition, header = target.HeaderCell.ToString(), target.TableId, target.TableColumnId,
-                paneClip, buttonAnchor, offset, popupX = popupPosition.X, popupY = popupPosition.Y,
+                coordinateSpace = "native-surface-dip", paneClip, buttonAnchor, offset, popupX = popupPosition.X, popupY = popupPosition.Y,
                 pageOffset = 0, pageCount = count, sourceCount = 250, history = session.History.UndoCount, exportScale = 1d });
             var popupFile = prefix + "-popup.png";
             SaveCapture(popup, Path.Combine(directory, popupFile), 1d);
