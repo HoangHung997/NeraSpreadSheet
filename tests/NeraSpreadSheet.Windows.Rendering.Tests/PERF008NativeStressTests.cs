@@ -29,6 +29,7 @@ public sealed class PERF008NativeStressTests
         RunSta(() =>
         {
             var session = CreateSession();
+            session.View.FreezeTopRows(1);
             var runtime = new RibbonRuntimeController(RibbonProductionCommandCatalog.CreateDefaultDefinition(), session.Commands);
             using var grid = new Wpf.NeraSpreadsheetControl { Session = session };
             var root = new System.Windows.Controls.DockPanel();
