@@ -140,19 +140,23 @@ public sealed partial class NeraSpreadsheetControl
     {
         if (!IsFormulaDraft) return false;
         if (CanInsertPointReference && InsertFormulaReference(new CellRange(address, address))) _pointAnchor = address;
-        // A formula click outside a valid insertion position must not commit it by accident.
         return true;
     }
     internal bool UpdatePointReference(CellAddress address) => _pointAnchor is { } anchor && InsertFormulaReference(new CellRange(anchor, address));
     internal void EndPointReference(bool focus = true)
     {
+        StopFormulaPointerTracking();
         if (_pointAnchor is null) return; _pointAnchor = null;
         if (focus) { if (_formulaAnchor is { } anchor) anchor.Focus(); else FocusEditor(); }
     }
     private bool TryBeginFormulaPointer(Point point, IPointer pointer)
     {
         if (!IsFormulaDraft || !TryHitFormulaCell(point, out var address)) return false;
-        BeginPointReference(address); if (_pointAnchor is not null) CapturePointer(pointer); return true;
+        CapturePointer(pointer);
+        BeginPointReference(address);
+        if (_pointAnchor is not null) TrackFormulaPointer(this, point);
+        else ReleasePointer();
+        return true;
     }
 
     private void InitializeFormulaAssistance()
@@ -199,7 +203,6 @@ public sealed partial class NeraSpreadsheetControl
     {
         if (_updatingFormulaDraft || !IsEditing) return;
         var text = _editor.Text ?? string.Empty;
-        // Avalonia TextChanged may be queued after a programmatic completion/drag update.
         if (string.Equals(text, _acknowledgedFormulaText, StringComparison.Ordinal)) return;
         _acknowledgedFormulaText = text; ResetProvisionalReference(); QueueFormulaRefresh(); RefreshFormulaHighlights();
     }
@@ -241,6 +244,7 @@ public sealed partial class NeraSpreadsheetControl
     }
     private void ResetFormulaAssistance()
     {
+        StopFormulaPointerTracking();
         _pointAnchor = null; _acknowledgedFormulaText = null; ResetProvisionalReference(); HideFormulaAssistance(); RefreshFormulaHighlights();
     }
     private void ResetProvisionalReference() { _provisionalSpan = null; _provisionalDependency = null; }
@@ -281,8 +285,9 @@ public sealed partial class NeraSpreadsheetControl
             var formula = IsEditing ? _editor.Text : session.ActiveWorksheet.GetCell(address).Formula;
             if (formula?.StartsWith('=') == true)
             {
-                if (!FormulaReferenceAnalyzer.TryGetReferences(formula, session.Workbook, session.ActiveWorksheet, address, out var references) && _provisionalDependency is { } provisional)
-                    references = [provisional];
+                IReadOnlyList<FormulaDependency> references;
+                if (IsEditing) references = FormulaDraftReferenceProjection.GetReferences(formula, session.Workbook, session.ActiveWorksheet, address, _provisionalDependency);
+                else FormulaReferenceAnalyzer.TryGetReferences(formula, session.Workbook, session.ActiveWorksheet, address, out references);
                 var colors = _renderTheme.FormulaReferenceColors;
                 _formulaHighlights = references.Where(reference => reference.WorksheetName is null || string.Equals(reference.WorksheetName, session.ActiveWorksheet.Name, StringComparison.OrdinalIgnoreCase))
                     .Select((reference, index) => new SpreadsheetFormulaReferenceHighlight(reference.Range, colors[index % colors.Count])).ToArray();

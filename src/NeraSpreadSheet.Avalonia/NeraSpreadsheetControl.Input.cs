@@ -29,7 +29,6 @@ public sealed partial class NeraSpreadsheetControl
         base.OnPointerPressed(e);
         if (e.Handled || _disposed || _session is null || _viewport is null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
         var p = e.GetPosition(this);
-        // Native text selection remains the TextBox's responsibility.
         if (IsEditing && _editorBounds.Contains(p)) return;
         e.Handled = true;
         RunInput(() =>
@@ -71,7 +70,7 @@ public sealed partial class NeraSpreadsheetControl
         var p = e.GetPosition(this);
         if (IsFormulaPointMode)
         {
-            if (TryHitFormulaCell(p, out var address)) UpdatePointReference(address);
+            TrackFormulaPointer(this, p);
             e.Handled = true; return;
         }
         if (_resize is { } resize)
@@ -93,6 +92,11 @@ public sealed partial class NeraSpreadsheetControl
     {
         base.OnPointerReleased(e);
         if (_capturedPointer is null) return;
+        if (IsFormulaPointMode)
+        {
+            TrackFormulaPointer(this, e.GetPosition(this));
+            AdvanceFormulaPointerFrame(TimeSpan.Zero);
+        }
         EndPointReference(); ReleasePointer(); e.Handled = true;
     }
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
