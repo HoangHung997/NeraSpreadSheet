@@ -25,6 +25,8 @@ dispatcher Render; giữ frame scheduler và nested display-list semantics hiệ
   selection/history giữ nguyên; không implicit commit/cancel.
 - Hit filter tiêu thụ preview event trước ordinary cell selection; native
   separator, scrollbar và header resize vẫn giữ precedence của split surface.
+  Pointer mở khi thả chuột trên cùng header, sau khi nhả capture của gesture;
+  mất capture hoặc đổi host/generation hủy lần nhấn đang chờ.
 - Keyboard/command chọn header ở active pane; pointer chọn pane thực sự chứa
   nút. Mở/đóng popup không thêm history hoặc dịch selection/scroll để giả anchor.
 - Popup giữ open-context identity gồm generation, session, worksheet, surface,

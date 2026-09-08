@@ -43,6 +43,10 @@ public sealed class Release009SplitAutoFilterSmokeTests
                 var expected = ExpectedHit(host, pane);
                 var selection = host.Session.Selection.Capture();
                 var undo = host.Session.History.UndoCount;
+                await ClickHeader(host, expected.Bounds, cancelCapture: true);
+                Assert.IsFalse(host.Presenter.IsOpen, "Losing native capture must cancel the pending header click.");
+                Assert.AreEqual(selection.Version, host.Session.Selection.Capture().Version);
+                Assert.AreEqual(undo, host.Session.History.UndoCount);
                 await ClickHeader(host, expected.Bounds);
                 await Ready(host);
                 Assert.AreSame(host.Presenter, Field<NeraAutoFilterPagedPopupPresenter>(host.Window, "_filterPopup"));
@@ -376,6 +380,12 @@ public sealed class Release009SplitAutoFilterSmokeTests
     {
         host.Window.UpdateLayout();
         if (host.Split is { IsDisposed: false, IsAttached: true } split) split.RenderNow();
+        else if (host.Grid.IsLoaded && !Field<bool>(host.Grid, "_disposed") &&
+            Field<ViewportLayout?>(host.Grid, "_lastLayout") is null)
+        {
+            host.Grid.InvalidateVisual();
+            host.Window.UpdateLayout();
+        }
         await host.Window.Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ApplicationIdle).Task.WaitAsync(TimeSpan.FromSeconds(5));
         if (host.Split is null && host.Grid.IsLoaded && !Field<bool>(host.Grid, "_disposed"))
             await Until(() => Field<ViewportLayout?>(host.Grid, "_lastLayout") is not null);
@@ -430,7 +440,7 @@ public sealed class Release009SplitAutoFilterSmokeTests
         Assert.AreEqual(expected.Bounds.Bottom, popup.VerticalOffset, 0.01);
         if (host.Split is { } split) Assert.AreEqual(pane, split.ActivePane);
     }
-    private static async Task ClickHeader(Host host, RectD bounds)
+    private static async Task ClickHeader(Host host, RectD bounds, bool cancelCapture = false)
     {
         Assert.IsTrue(GetCursorPos(out var original));
         var point = host.Grid.PointToScreen(new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2));
@@ -452,6 +462,7 @@ public sealed class Release009SplitAutoFilterSmokeTests
             await Until(() => downSeen);
             await host.Window.Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.Background);
             Console.WriteLine($"Native filter before up: open={host.Presenter.IsOpen}, generation={Field<long>(host.Presenter, "_openGeneration")}, draft={host.Grid.CurrentEditorDraft is not null}.");
+            if (cancelCapture) surface.ReleaseMouseCapture();
             MouseEvent(0x0004, 0, 0, 0, UIntPtr.Zero);
             pressed = false;
             await Task.Delay(30);

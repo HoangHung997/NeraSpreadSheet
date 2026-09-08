@@ -73,11 +73,39 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
     {
         if (e.Handled || _inputSurface is null) return;
         var point = e.GetPosition(_inputSurface);
-        if (TryHitTest(point.X, point.Y, out _) &&
-            (_control.CurrentEditorDraft is not null || TryOpenAt(point.X, point.Y)))
+        if (!TryHitTest(point.X, point.Y, out var button)) return;
+        if (_control.CurrentEditorDraft is not null)
         {
             e.Handled = true;
+            return;
         }
+        if (!IsHostReady || !_inputSurface.CaptureMouse()) return;
+        _pendingPointer = (_openGeneration, button);
+        e.Handled = true;
+    }
+
+    private void OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_pendingPointer is not { } pending || _inputSurface is null) return;
+        var point = e.GetPosition(_inputSurface);
+        var shouldOpen = !e.Handled && pending.Generation == _openGeneration &&
+            TryHitTest(point.X, point.Y, out var button) && SameHeader(button, pending.Button);
+        // Release the initiating click before the popup takes its outside-click capture.
+        CancelPointerOpen();
+        e.Handled = true;
+        if (shouldOpen) TryOpenAt(point.X, point.Y);
+    }
+
+    private void OnFilterLostMouseCapture(object sender, MouseEventArgs e)
+    {
+        if (_inputSurface?.IsMouseCaptured != true) _pendingPointer = null;
+    }
+
+    private void CancelPointerOpen()
+    {
+        if (_pendingPointer is null) return;
+        _pendingPointer = null;
+        if (_inputSurface?.IsMouseCaptured == true) _inputSurface.ReleaseMouseCapture();
     }
 
     private void AttachAdorner()

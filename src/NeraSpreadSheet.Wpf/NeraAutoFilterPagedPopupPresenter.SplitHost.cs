@@ -28,6 +28,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
     private bool _refreshQueued;
     private bool _refreshingHost;
     private bool _splitWasAttached;
+    private (long Generation, NativeFilterButton Button)? _pendingPointer;
 
     private void SynchronizeHost()
     {
@@ -52,6 +53,8 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         surface.PreviewKeyDown += OnControlPreviewKeyDown;
         surface.PreviewMouseMove += OnPreviewMouseMove;
         surface.PreviewMouseLeftButtonDown += OnPreviewMouseLeftButtonDown;
+        surface.PreviewMouseLeftButtonUp += OnPreviewMouseLeftButtonUp;
+        surface.LostMouseCapture += OnFilterLostMouseCapture;
         if (split is not null) split.PresentationChanged += OnHostPresentationChanged;
         if (session is not null) session.ActiveWorksheetChanged += OnHostIdentityChanged;
         if (worksheet is not null)
@@ -66,11 +69,14 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
 
     private void DetachHost()
     {
+        CancelPointerOpen();
         if (_inputSurface is { } surface)
         {
             surface.PreviewKeyDown -= OnControlPreviewKeyDown;
             surface.PreviewMouseMove -= OnPreviewMouseMove;
             surface.PreviewMouseLeftButtonDown -= OnPreviewMouseLeftButtonDown;
+            surface.PreviewMouseLeftButtonUp -= OnPreviewMouseLeftButtonUp;
+            surface.LostMouseCapture -= OnFilterLostMouseCapture;
         }
         if (_splitHost is { } split) split.PresentationChanged -= OnHostPresentationChanged;
         if (_hostSession is { } session) session.ActiveWorksheetChanged -= OnHostIdentityChanged;
@@ -203,6 +209,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
 
     private void CloseForHostChange()
     {
+        CancelPointerOpen();
         _openGeneration++;
         Close();
         CancelOperations();
