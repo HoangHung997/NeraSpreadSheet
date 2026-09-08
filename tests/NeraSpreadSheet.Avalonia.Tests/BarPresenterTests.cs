@@ -16,11 +16,9 @@ public sealed class BarPresenterTests
         using var presenter = CreatePresenter(BarKind.Toolbar, handler);
         var panel = (StackPanel)presenter.NativeControl;
         Assert.HasCount(1, panel.Children);
-        var button = (Button)panel.Children[0];
-        button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        ((Button)panel.Children[0]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Assert.AreEqual(1, handler.Count);
     });
-
     [TestMethod]
     public Task AllBarKindsShouldUseNativeControls() => AvaloniaTestEnvironment.OnUiAsync(() =>
     {
@@ -33,57 +31,47 @@ public sealed class BarPresenterTests
         Assert.IsInstanceOfType<ContextMenu>(context.NativeControl);
         Assert.AreEqual(0, handler.Count);
     });
-
     [TestMethod]
-    public Task DisabledCommandShouldNotExecuteEvenWhenInvokedProgrammatically() => AvaloniaTestEnvironment.OnUiAsync(() =>
+    public Task DisabledCommandShouldNotExecuteEvenWhenInvokedProgrammatically() => AvaloniaAsyncTest.Run(async () =>
     {
         var handler = new CountingHandler { Enabled = false };
         using var presenter = CreatePresenter(BarKind.Toolbar, handler);
         Assert.IsFalse(((StackPanel)presenter.NativeControl).Children[0].IsEnabled);
-        Assert.IsFalse(presenter.ActivateCommandAsync(new CommandId("Test.Action")).GetAwaiter().GetResult());
+        Assert.IsFalse(await presenter.ActivateCommandAsync(new CommandId("Test.Action")));
         Assert.AreEqual(0, handler.Count);
     });
-
     [TestMethod]
-    public Task CancelledParameterCollectionShouldNotExecute() => AvaloniaTestEnvironment.OnUiAsync(() =>
+    public Task CancelledParameterCollectionShouldNotExecute() => AvaloniaAsyncTest.Run(async () =>
     {
         var handler = new CountingHandler();
         using var presenter = CreatePresenter(BarKind.Toolbar, handler);
         presenter.ActivationContextProvider = (_, _) => ValueTask.FromResult<CommandContext?>(null);
-        Assert.IsFalse(presenter.ActivateCommandAsync(new CommandId("Test.Action")).GetAwaiter().GetResult());
+        Assert.IsFalse(await presenter.ActivateCommandAsync(new CommandId("Test.Action")));
         Assert.AreEqual(0, handler.Count);
     });
-
     [TestMethod]
-    public Task ActivationFailureShouldPreserveTheOriginalException() => AvaloniaTestEnvironment.OnUiAsync(() =>
+    public Task ActivationFailureShouldPreserveTheOriginalException() => AvaloniaAsyncTest.Run(async () =>
     {
         var expected = new InvalidOperationException("Intentional command failure");
-        var handler = new CountingHandler { Failure = expected };
-        using var presenter = CreatePresenter(BarKind.Toolbar, handler);
+        using var presenter = CreatePresenter(BarKind.Toolbar, new CountingHandler { Failure = expected });
         Exception? actual = null;
         presenter.CommandActivationFailed += (_, e) => actual = e.Exception;
-        Assert.IsFalse(presenter.ActivateCommandAsync(new CommandId("Test.Action")).GetAwaiter().GetResult());
+        Assert.IsFalse(await presenter.ActivateCommandAsync(new CommandId("Test.Action")));
         Assert.AreSame(expected, actual);
     });
-
     [TestMethod]
     public Task DisposedPresenterShouldIgnoreQueuedSnapshotNotifications() => AvaloniaTestEnvironment.OnUiAsync(() =>
     {
         var presenter = CreatePresenter(BarKind.Toolbar, new CountingHandler());
-        presenter.Runtime.Refresh();
-        presenter.Dispose();
-        presenter.Runtime.Refresh();
+        presenter.Runtime.Refresh(); presenter.Dispose(); presenter.Runtime.Refresh();
         Assert.HasCount(0, ((StackPanel)presenter.NativeControl).Children);
     });
-
     private static NeraBarPresenter CreatePresenter(BarKind kind, CountingHandler handler)
     {
         var registry = new CommandRegistry();
         registry.Register(new CommandDescriptor("Test.Action", "Thực hiện", shortcut: "Ctrl+S"), handler);
-        return new NeraBarPresenter(new BarRuntimeController(
-            new BarDefinition("test", kind, [BarItemDefinition.Command("Test.Action")]), registry));
+        return new NeraBarPresenter(new BarRuntimeController(new BarDefinition("test", kind, [BarItemDefinition.Command("Test.Action")]), registry));
     }
-
     private sealed class CountingHandler : ICommandHandler
     {
         public int Count { get; private set; }
@@ -93,8 +81,7 @@ public sealed class BarPresenterTests
         public ValueTask ExecuteAsync(CommandContext context)
         {
             if (Failure is { } error) return ValueTask.FromException(error);
-            Count++;
-            return ValueTask.CompletedTask;
+            Count++; return ValueTask.CompletedTask;
         }
     }
 }

@@ -200,7 +200,7 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
         _top.Children.Add(customize);
     }
 
-    private Control BuildGroups(RibbonTabLayout tab)
+    private StackPanel BuildGroups(RibbonTabLayout tab)
     {
         var groups = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, ClipToBounds = true };
         foreach (var group in tab.Groups.Where(static item => item.Mode != RibbonGroupLayoutMode.Overflow))
@@ -252,9 +252,10 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
         _backstage.MinHeight = 260;
         var rail = new StackPanel { Spacing = 4, Margin = new Thickness(8) };
         _backstage.Children.Add(rail);
-        var selected = _runtime.Snapshot.Backstage.FirstOrDefault(item => item.CommandId == _selectedBackstageId) ?? _runtime.Snapshot.Backstage.FirstOrDefault();
+        var entries = _runtime.Snapshot.Backstage;
+        var selected = entries.FirstOrDefault(item => item.CommandId == _selectedBackstageId) ?? (entries.Count > 0 ? entries[0] : null);
         _selectedBackstageId = selected?.CommandId;
-        foreach (var command in _runtime.Snapshot.Backstage)
+        foreach (var command in entries)
         {
             var caption = command.Caption;
             if (KeyTipScope == RibbonKeyTipScope.Backstage)

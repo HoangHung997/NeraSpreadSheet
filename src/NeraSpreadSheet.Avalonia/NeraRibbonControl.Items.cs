@@ -19,25 +19,20 @@ public sealed partial class NeraRibbonControl
         RibbonItemKind.Gallery => BuildGallery(item),
         _ => BuildButton(item),
     };
-
     private Button BuildButton(RibbonItemLayout item)
     {
         var command = item.Presentation.Command;
         Button button = item.Presentation.IsToggle ? new ToggleButton { IsChecked = command.IsChecked ?? false } : new Button();
-        button.Content = BuildContent(item);
-        button.IsEnabled = command.IsEnabled;
-        button.Padding = new Thickness(3, 1);
-        button.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        button.Content = BuildContent(item); button.IsEnabled = command.IsEnabled;
+        button.Padding = new Thickness(3, 1); button.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         SetIdentity(button, "ribbon-command-" + command.CommandId.Value, item.Presentation.AutomationName);
         ToolTip.SetTip(button, ToolTipText(command));
         button.Click += async (_, _) => await ActivateCommandAsync(command.CommandId);
         return button;
     }
-
-    private Control BuildContent(RibbonItemLayout item, bool arrow = false)
+    private Grid BuildContent(RibbonItemLayout item, bool arrow = false)
     {
-        var command = item.Presentation.Command;
-        var large = item.Size == RibbonItemSize.Large;
+        var command = item.Presentation.Command; var large = item.Size == RibbonItemSize.Large;
         var content = new StackPanel
         {
             Orientation = large ? Orientation.Vertical : Orientation.Horizontal, Spacing = 3,
@@ -49,73 +44,57 @@ public sealed partial class NeraRibbonControl
         if (item.CaptionVisible || icon is null)
             content.Children.Add(new TextBlock
             {
-                Text = command.Caption + (arrow ? " ⌄" : string.Empty),
-                TextWrapping = large ? TextWrapping.Wrap : TextWrapping.NoWrap,
-                TextAlignment = large ? TextAlignment.Center : TextAlignment.Left,
-                TextTrimming = TextTrimming.CharacterEllipsis,
+                Text = command.Caption + (arrow ? " ⌄" : string.Empty), TextWrapping = large ? TextWrapping.Wrap : TextWrapping.NoWrap,
+                TextAlignment = large ? TextAlignment.Center : TextAlignment.Left, TextTrimming = TextTrimming.CharacterEllipsis,
                 MaxWidth = Math.Max(1, item.Width / LayoutSnapshot.Scale - (large || icon is null ? 8 : 28)),
-                MaxHeight = large ? item.CaptionMaxLines * 15 : 18,
-                FontSize = 11, VerticalAlignment = VerticalAlignment.Center,
+                MaxHeight = large ? item.CaptionMaxLines * 15 : 18, FontSize = 11, VerticalAlignment = VerticalAlignment.Center,
             });
         else if (arrow) content.Children.Add(new TextBlock { Text = "⌄" });
         var wrapper = new Grid(); wrapper.Children.Add(content);
         if (KeyTipScope == RibbonKeyTipScope.Tab && _runtime.KeyTips.TryGetCommandTip(command.CommandId, out var tip))
             wrapper.Children.Add(new Border
             {
-                Child = new TextBlock { Text = tip, FontSize = 10 }, Background = Background,
-                BorderBrush = Brushes.Gray, BorderThickness = new Thickness(1), Padding = new Thickness(2, 0),
-                HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, IsHitTestVisible = false,
+                Child = new TextBlock { Text = tip, FontSize = 10 }, Background = Background, BorderBrush = Brushes.Gray,
+                BorderThickness = new Thickness(1), Padding = new Thickness(2, 0), HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Bottom, IsHitTestVisible = false,
             });
         return wrapper;
     }
-
-    private Control BuildSplitButton(RibbonItemLayout item)
+    private DockPanel BuildSplitButton(RibbonItemLayout item)
     {
-        var command = item.Presentation.Command;
-        var panel = new DockPanel();
+        var command = item.Presentation.Command; var panel = new DockPanel();
         var arrow = new Button { Content = "⌄", Width = 18, Padding = new Thickness(0), IsEnabled = command.IsEnabled };
         DockPanel.SetDock(arrow, Dock.Right); panel.Children.Add(arrow);
         var primary = BuildButton(item with { Width = Math.Max(1, item.Width - 18 * LayoutSnapshot.Scale) });
-        SetIdentity(primary, $"ribbon-command-{command.CommandId.Value}-primary", item.Presentation.AutomationName);
-        panel.Children.Add(primary);
-        var menu = new ContextMenu();
-        foreach (var choice in command.SelectableItems) menu.Items.Add(BuildChoice(command.CommandId, choice));
-        arrow.ContextMenu = menu;
-        arrow.Click += (_, _) => menu.Open(arrow);
+        SetIdentity(primary, $"ribbon-command-{command.CommandId.Value}-primary", item.Presentation.AutomationName); panel.Children.Add(primary);
+        var menu = new ContextMenu(); foreach (var choice in command.SelectableItems) menu.Items.Add(BuildChoice(command.CommandId, choice));
+        arrow.ContextMenu = menu; arrow.Click += (_, _) => menu.Open(arrow);
         SetIdentity(arrow, $"ribbon-command-{command.CommandId.Value}-menu", item.Presentation.AutomationName + " — " + Localize("Lựa chọn"));
         return panel;
     }
-
-    private Control BuildDropDown(RibbonItemLayout item)
+    private Button BuildDropDown(RibbonItemLayout item)
     {
         var command = item.Presentation.Command;
         var button = new Button { Content = BuildContent(item, true), IsEnabled = command.IsEnabled, Padding = new Thickness(3, 1) };
-        var menu = new ContextMenu();
-        foreach (var choice in command.SelectableItems) menu.Items.Add(BuildChoice(command.CommandId, choice));
-        button.ContextMenu = menu;
-        button.Click += (_, _) => menu.Open(button);
-        SetIdentity(button, "ribbon-command-" + command.CommandId.Value, item.Presentation.AutomationName);
-        ToolTip.SetTip(button, ToolTipText(command));
+        var menu = new ContextMenu(); foreach (var choice in command.SelectableItems) menu.Items.Add(BuildChoice(command.CommandId, choice));
+        button.ContextMenu = menu; button.Click += (_, _) => menu.Open(button);
+        SetIdentity(button, "ribbon-command-" + command.CommandId.Value, item.Presentation.AutomationName); ToolTip.SetTip(button, ToolTipText(command));
         return button;
     }
-
     private MenuItem BuildChoice(CommandId id, CommandItem choice)
     {
         var native = new MenuItem
         {
             Header = choice.Caption, IsEnabled = choice.IsEnabled,
-            ToggleType = choice.IsChecked.HasValue ? MenuItemToggleType.CheckBox : MenuItemToggleType.None,
-            IsChecked = choice.IsChecked ?? false,
+            ToggleType = choice.IsChecked.HasValue ? MenuItemToggleType.CheckBox : MenuItemToggleType.None, IsChecked = choice.IsChecked ?? false,
         };
-        SetIdentity(native, $"ribbon-command-{id.Value}-choice-{choice.Value}", choice.Caption);
-        ToolTip.SetTip(native, choice.Tooltip ?? choice.Caption);
+        SetIdentity(native, $"ribbon-command-{id.Value}-choice-{choice.Value}", choice.Caption); ToolTip.SetTip(native, choice.Tooltip ?? choice.Caption);
         if (choice.IconKey is { } key && ResolveIcon(key, 16) is { } image) native.Icon = new Image { Source = image, Width = 16, Height = 16 };
         foreach (var child in choice.Children) native.Items.Add(BuildChoice(id, child));
         if (choice.Children.Count == 0) native.Click += async (_, e) => { e.Handled = true; await ActivateChoiceAsync(id, choice.Value); };
         return native;
     }
-
-    private Control BuildCombo(RibbonItemLayout item)
+    private ComboBox BuildCombo(RibbonItemLayout item)
     {
         var command = item.Presentation.Command;
         var combo = new ComboBox { IsEnabled = command.IsEnabled, Padding = new Thickness(3, 1), MinHeight = 0 };
@@ -129,12 +108,10 @@ public sealed partial class NeraRibbonControl
                 row.Children.Add(new TextBlock { Text = choice.Caption }); content = row;
             }
             var native = new ComboBoxItem { Content = content, Tag = choice.Value, IsEnabled = choice.IsEnabled };
-            SetIdentity(native, $"ribbon-command-{command.CommandId.Value}-choice-{choice.Value}", choice.Caption);
-            combo.Items.Add(native);
+            SetIdentity(native, $"ribbon-command-{command.CommandId.Value}-choice-{choice.Value}", choice.Caption); combo.Items.Add(native);
             if (string.Equals(command.SelectedValue, choice.Value, StringComparison.Ordinal)) combo.SelectedItem = native;
         }
-        SetIdentity(combo, "ribbon-command-" + command.CommandId.Value, item.Presentation.AutomationName);
-        ToolTip.SetTip(combo, ToolTipText(command));
+        SetIdentity(combo, "ribbon-command-" + command.CommandId.Value, item.Presentation.AutomationName); ToolTip.SetTip(combo, ToolTipText(command));
         combo.SelectionChanged += async (_, e) =>
         {
             if (!_rebuilding && ReferenceEquals(e.Source, combo) && combo.SelectedItem is ComboBoxItem { Tag: string value, IsEnabled: true })
@@ -142,8 +119,7 @@ public sealed partial class NeraRibbonControl
         };
         return combo;
     }
-
-    private Control BuildGallery(RibbonItemLayout item)
+    private DockPanel BuildGallery(RibbonItemLayout item)
     {
         var command = item.Presentation.Command;
         var tiles = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
@@ -162,8 +138,7 @@ public sealed partial class NeraRibbonControl
         };
         all.Click += (_, _) =>
         {
-            ClosePopups();
-            var wrap = new WrapPanel { Width = 380, Orientation = Orientation.Horizontal };
+            ClosePopups(); var wrap = new WrapPanel { Width = 380, Orientation = Orientation.Horizontal };
             foreach (var choice in command.SelectableItems) wrap.Children.Add(BuildGalleryChoice(item, choice));
             CreatePopup(all, new ScrollViewer { Content = wrap, MaxHeight = 360, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }).IsOpen = true;
         };
@@ -172,31 +147,23 @@ public sealed partial class NeraRibbonControl
         SetIdentity(all, $"ribbon-command-{command.CommandId.Value}-more", Localize("Tất cả kiểu"));
         arrows.Children.Add(previous); Grid.SetRow(next, 1); arrows.Children.Add(next); Grid.SetRow(all, 2); arrows.Children.Add(all);
         var panel = new DockPanel(); DockPanel.SetDock(arrows, Dock.Right); panel.Children.Add(arrows); panel.Children.Add(scroll);
-        SetIdentity(panel, "ribbon-command-" + command.CommandId.Value, item.Presentation.AutomationName);
-        return panel;
+        SetIdentity(panel, "ribbon-command-" + command.CommandId.Value, item.Presentation.AutomationName); return panel;
     }
-
-    private Control BuildGalleryChoice(RibbonItemLayout item, CommandItem choice)
+    private ToggleButton BuildGalleryChoice(RibbonItemLayout item, CommandItem choice)
     {
         var command = item.Presentation.Command;
         var content = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 3 };
-        if (item.Presentation.Definition.GalleryPreview?.Invoke(choice) is { } preview)
-            content.Children.Add(new NeraRibbonGalleryThumbnail(preview) { Width = 60, Height = 38 });
-        else if (choice.IconKey is { } key && ResolveIcon(key, 32) is { } icon)
-            content.Children.Add(new Image { Source = icon, Width = 32, Height = 32 });
+        if (item.Presentation.Definition.GalleryPreview?.Invoke(choice) is { } preview) content.Children.Add(new NeraRibbonGalleryThumbnail(preview) { Width = 60, Height = 38 });
+        else if (choice.IconKey is { } key && ResolveIcon(key, 32) is { } icon) content.Children.Add(new Image { Source = icon, Width = 32, Height = 32 });
         content.Children.Add(new TextBlock { Text = choice.Caption, TextAlignment = TextAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, FontSize = 10, MaxWidth = 64 });
         var button = new ToggleButton
         {
-            Content = content, Width = 72, Height = Math.Max(24, item.Height / LayoutSnapshot.Scale - 4),
-            Margin = new Thickness(1), Padding = new Thickness(2), IsEnabled = command.IsEnabled && choice.IsEnabled,
-            IsChecked = string.Equals(command.SelectedValue, choice.Value, StringComparison.Ordinal),
+            Content = content, Width = 72, Height = Math.Max(24, item.Height / LayoutSnapshot.Scale - 4), Margin = new Thickness(1), Padding = new Thickness(2),
+            IsEnabled = command.IsEnabled && choice.IsEnabled, IsChecked = string.Equals(command.SelectedValue, choice.Value, StringComparison.Ordinal),
         };
-        SetIdentity(button, $"ribbon-command-{command.CommandId.Value}-choice-{choice.Value}", choice.Caption);
-        ToolTip.SetTip(button, choice.Tooltip ?? choice.Caption);
-        button.Click += async (_, _) => await ActivateChoiceAsync(command.CommandId, choice.Value);
-        return button;
+        SetIdentity(button, $"ribbon-command-{command.CommandId.Value}-choice-{choice.Value}", choice.Caption); ToolTip.SetTip(button, choice.Tooltip ?? choice.Caption);
+        button.Click += async (_, _) => await ActivateChoiceAsync(command.CommandId, choice.Value); return button;
     }
-
     private Control BuildOverflowItem(RibbonItemLayout item)
     {
         if (item.Presentation.Kind == RibbonItemKind.Separator) return new Separator();
@@ -230,14 +197,12 @@ public sealed class NeraRibbonGalleryThumbnail : Control
     public NeraRibbonGalleryThumbnail(RibbonGalleryPreview preview) => _preview = preview ?? throw new ArgumentNullException(nameof(preview));
     public override void Render(DrawingContext context)
     {
-        base.Render(context);
-        if (Bounds.Width <= 0 || Bounds.Height <= 0) return;
+        base.Render(context); if (Bounds.Width <= 0 || Bounds.Height <= 0) return;
         var width = Bounds.Width / _preview.Columns; var height = Bounds.Height / _preview.Rows;
         for (var row = 0; row < _preview.Rows; row++)
         for (var column = 0; column < _preview.Columns; column++)
         {
-            var cell = _preview.Cells[row * _preview.Columns + column];
-            var bounds = new Rect(column * width, row * height, width, height);
+            var cell = _preview.Cells[row * _preview.Columns + column]; var bounds = new Rect(column * width, row * height, width, height);
             context.DrawRectangle(new SolidColorBrush(Color.FromUInt32(cell.BackgroundArgb)), null, bounds);
             context.DrawLine(new Pen(new SolidColorBrush(Color.FromUInt32(cell.ForegroundArgb)), Math.Min(1, height / 4)),
                 new Point(bounds.X + width * 0.2, bounds.Y + height * 0.5), new Point(bounds.X + width * 0.75, bounds.Y + height * 0.5));
