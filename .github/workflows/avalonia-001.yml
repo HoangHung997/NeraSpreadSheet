@@ -75,7 +75,7 @@ jobs:
             [xml]$trx = Get-Content "$directory/avalonia.trx" -Raw
             $summary = $trx.TestRun.ResultSummary
             $counts = $summary.Counters
-            if ([int]$counts.total -lt 17 -or [int]$counts.passed -ne [int]$counts.total -or [int]$counts.executed -ne [int]$counts.total -or $summary.outcome -notin @('Completed', 'Passed')) {
+            if ([int]$counts.total -lt 77 -or [int]$counts.passed -ne [int]$counts.total -or [int]$counts.executed -ne [int]$counts.total -or $summary.outcome -notin @('Completed', 'Passed')) {
               throw "Process $pass has missing/skipped/failed tests or failed assembly cleanup."
             }
           }
@@ -109,6 +109,28 @@ jobs:
           $result = $records[0].Substring($prefix.Length) | ConvertFrom-Json
           if ($result.sha -cne $env:NERA_SOURCE_SHA -or $result.framesBefore -lt 1 -or $result.assertions -lt 11 -or !$result.nativeWindow) { throw 'Native result postconditions failed.' }
           if (!(Test-Path artifacts/avalonia/native-window.png) -or (Get-Item artifacts/avalonia/native-window.png).Length -eq 0) { throw 'Native capture is missing.' }
+      - name: Loaded full Ribbon split formula and OS clipboard smoke
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = 'samples/NeraSpreadSheet.Avalonia.Sample/bin/Release/net10.0/NeraSpreadSheet.Avalonia.Sample.dll'
+          if ($IsLinux) { $lines = & xvfb-run -a dotnet $app --full-ui-smoke 2>&1 }
+          else { $lines = & dotnet $app --full-ui-smoke 2>&1 }
+          $exitCode = $LASTEXITCODE
+          $lines | Tee-Object -FilePath artifacts/avalonia/full-ui.log
+          if ($exitCode -ne 0) { throw "Full UI native smoke exited $exitCode." }
+          $prefix = 'NERA_AVALONIA_FULL_UI_SUCCESS '
+          $records = @($lines | ForEach-Object { "$_" } | Where-Object { $_.StartsWith($prefix, [StringComparison]::Ordinal) })
+          if ($records.Count -ne 1) { throw 'Exactly one full UI result is required.' }
+          $result = $records[0].Substring($prefix.Length) | ConvertFrom-Json
+          $required = @('exact-source','loaded-window','ribbon-projection','native-menu','native-ribbon-dispatch','ribbon-bar-shortcut-once','os-copy','os-paste','os-paste-value','os-paste-undo','formula-suggestion','formula-completion','formula-argument-help','formula-bar-one-draft','reference-highlights','draft-no-commit','four-stable-panes','independent-fractional-scroll','customization-no-op','customization-apply','customization-json','native-icon-cache','native-icon-fallback')
+          if ($result.sha -cne $env:NERA_SOURCE_SHA -or !$result.osClipboard -or !$result.nativeWindow -or $result.physicalInputTested -ne $false -or $result.assertions -ne $required.Count) { throw 'Full UI evidence postconditions failed.' }
+          if (@($result.checks).Count -ne $required.Count -or @(Compare-Object $required @($result.checks)).Count -ne 0) { throw 'Full UI feature checks are incomplete.' }
+          foreach ($name in @('full-ui-window.png','full-ui-customization.png')) {
+            $path = Join-Path artifacts/avalonia $name
+            if (!(Test-Path $path) -or (Get-Item $path).Length -eq 0) { throw "Missing full UI capture $name." }
+          }
       - name: Pack host library
         run: dotnet pack src/NeraSpreadSheet.Avalonia/NeraSpreadSheet.Avalonia.csproj -c Release --no-build -o artifacts/packages
       - name: Upload exact-source evidence
