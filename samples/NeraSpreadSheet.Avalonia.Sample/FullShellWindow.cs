@@ -52,8 +52,13 @@ public sealed partial class FullShellWindow : Window, IDisposable
         _ribbon.CommandActivationFailed += OnCommandFailure; _menu.CommandActivationFailed += OnCommandFailure; _ribbon.CustomizationRequested += OnCustomizationRequested;
         var root = new DockPanel(); DockPanel.SetDock(_menu.NativeControl, Dock.Top); root.Children.Add(_menu.NativeControl);
         DockPanel.SetDock(_ribbon, Dock.Top); root.Children.Add(_ribbon);
-        var bar = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Margin = new Thickness(6) };
-        bar.Children.Add(_address); Grid.SetColumn(_formula, 1); bar.Children.Add(_formula); DockPanel.SetDock(bar, Dock.Top); root.Children.Add(bar);
+        var bar = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), Margin = new Thickness(6) };
+        bar.Children.Add(_address); Grid.SetColumn(_formula, 1); bar.Children.Add(_formula);
+        var reference = new Button { Content = "Chọn tham chiếu…", Focusable = false, Margin = new Thickness(6, 0, 0, 0) };
+        AutomationProperties.SetAutomationId(reference, "nera-shell-reference-picker");
+        reference.Click += (_, _) => ShowFormulaReferencePicker();
+        Grid.SetColumn(reference, 2); bar.Children.Add(reference);
+        DockPanel.SetDock(bar, Dock.Top); root.Children.Add(bar);
         DockPanel.SetDock(_status, Dock.Bottom); root.Children.Add(_status); DockPanel.SetDock(_tabs, Dock.Bottom); root.Children.Add(_tabs);
         root.Children.Add(_split); Content = root;
         AutomationProperties.SetAutomationId(_formula, "nera-shell-formula-bar"); AutomationProperties.SetName(_formula, "Thanh công thức");
@@ -175,7 +180,13 @@ public sealed partial class FullShellWindow : Window, IDisposable
         foreach (var worksheet in Session.Workbook.Worksheets)
         {
             var button = new Button { Content = worksheet.Name, IsEnabled = !_busy };
-            button.Click += (_, _) => { if (!_busy && !_closed) Session.ActivateWorksheet(worksheet); }; _tabs.Children.Add(button);
+            button.Click += (_, _) =>
+            {
+                if (_busy || _closed) return;
+                if (_split.EditingSpreadsheet is { } editor && editor.EditorText.StartsWith('=')) ShowFormulaReferencePicker(worksheet);
+                else Session.ActivateWorksheet(worksheet);
+            };
+            _tabs.Children.Add(button);
         }
     }
     private void OnCommandFailure(object? sender, NeraAvaloniaCommandActivationFailedEventArgs e) => _status.Text = e.Exception.Message;
