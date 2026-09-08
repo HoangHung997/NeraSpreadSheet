@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Automation.Peers;
@@ -285,6 +286,33 @@ public sealed partial class Release009SplitAutoFilterSmokeTests
     {
         var scroller = Field<ScrollViewer>(host.Presenter, "_itemsScroller");
         var root = NativePeer(scroller, AutomationControlType.Pane);
+        var current = Values(host).Select(element => NativePeer(element, AutomationControlType.CheckBox)).ToArray();
+        var cached = ReadValuePeerSubtree(root);
+        var cachedMatches = cached.Count(current.Contains);
+        var cachedOffscreenCount = cached.Count(peer => peer.IsOffscreen());
+        // This direct-peer fixture does not attach an external UIA client/root.
+        // Request a fresh native child snapshot; automatic cache invalidation and
+        // StructureChanged delivery require a separate connected-client test.
+        root.ResetChildrenCache();
+        var fresh = ReadValuePeerSubtree(root);
+        if (cached.Count != current.Length || cachedMatches != current.Length)
+        {
+            // Fixed 250-value fixture: at most three page/search changes per pane.
+            // Log counts only, retaining evidence of the pre-refresh mismatch.
+            Console.WriteLine("NERA_UX008_PEER_QUERY:" + JsonSerializer.Serialize(new
+            {
+                schema = "ux008-direct-peer-query-v1",
+                pageOffset = Field<NeraWpfAutoFilterPagedBinding>(host.Presenter, "_binding").PageOffset,
+                currentCount = current.Length, cachedCount = cached.Count, cachedMatches,
+                cachedOffscreenCount,
+                freshCount = fresh.Count, freshMatches = fresh.Count(current.Contains),
+            }));
+        }
+        return fresh;
+    }
+
+    private static List<AutomationPeer> ReadValuePeerSubtree(AutomationPeer root)
+    {
         var queue = new Queue<AutomationPeer>();
         var visited = new HashSet<AutomationPeer>();
         var values = new List<AutomationPeer>();

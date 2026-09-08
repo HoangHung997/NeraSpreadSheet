@@ -45,6 +45,16 @@ Ba nhóm test, mỗi nhóm chạy hai owner và hai ngôn ngữ vi-VN/en-US. M�
 
 Đây là direct native WPF peer và loaded UI regression. Không thêm external UIA
 COM client, không giả screen-reader smoke bằng việc đọc Name/role/state.
+Trước khi kiểm current subtree, helper lưu counts của cached snapshot rồi gọi
+public `ResetChildrenCache` trên actual ScrollViewer peer để lấy children mới
+qua `GetChildrenCore`. Nếu cached/current khác nhau, ghi bounded counts trước/sau;
+không bỏ peer identity/names/count/role/offscreen/focus assertions. Tối đa ba
+page/search changes mỗi pane của fixture cố định; không ghi nội dung workbook.
+Đây là fresh direct-peer query, không chứng minh tự invalidating cache hoặc
+UIA StructureChanged/property-change/live-region events đến connected client.
+[Microsoft API](https://learn.microsoft.com/en-us/dotnet/api/system.windows.automation.peers.automationpeer.resetchildrencache?view=windowsdesktop-10.0)
+giải thích thao tác reset đồng bộ; lượt cached query FAIL tại663 được giữ trong
+worklog, không diễn giải lại thành PASS hoặc kết luận production cause.
 `IsOffscreen` không chứng minh phần tử không bị một cửa sổ khác che. Không dùng
 kết quả này để đóng U2 manual Narrator/NVDA, U5 physical DPI/multi-monitor/touch,
 Apple hardware keyboard, whole MAUI hoặc P3 performance.
