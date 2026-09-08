@@ -692,6 +692,137 @@ def summarize_package_diagnostics(data, expected_nonce):
     return result
 # END PACKAGE DIAGNOSTIC SUMMARY
 
+# BEGIN PACKAGE PROCESS OBSERVER
+import errno
+import select
+
+
+class PackageProcessLifetimeObserver:
+    """Observe one numeric PID without changing result acceptance or inferring birth identity."""
+    def __init__(self, target_pid, backend=select, signal_probe=os.kill):
+        self._pid = target_pid
+        self._backend = backend
+        self._probe = signal_probe
+        self._queue = None
+        self._usable = False
+        self._frozen = False
+        self._state = {
+            'schema': 'nativePackageProcessLifetimeV1', 'watchRegistered': False,
+            'registrationAbsent': False, 'watchDenied': False, 'watchUnavailable': False,
+            'observerError': False, 'exitEventObserved': False, 'pidAbsentObserved': False,
+            'livenessDenied': False, 'finalLivenessChecked': False, 'pidPresentAtFinalCheck': False,
+            'finalObservationBeforeCleanup': False, 'pollLimitReached': False, 'pollCount': 0,
+        }
+        self._valid_pid = type(target_pid) is int and target_pid > 0
+        if not self._valid_pid:
+            self._state['observerError'] = True
+            return
+        required = ('kqueue', 'kevent', 'KQ_FILTER_PROC', 'KQ_NOTE_EXIT',
+                    'KQ_EV_ADD', 'KQ_EV_ONESHOT', 'KQ_EV_ERROR')
+        if not all(hasattr(backend, name) for name in required):
+            self._state['watchUnavailable'] = True
+            return
+        try:
+            self._queue = backend.kqueue()
+            event = backend.kevent(target_pid, filter=backend.KQ_FILTER_PROC,
+                flags=backend.KQ_EV_ADD | backend.KQ_EV_ONESHOT, fflags=backend.KQ_NOTE_EXIT)
+            self._usable = self._consume(self._queue.control([event], 1, 0), registration=True)
+            self._state['watchRegistered'] = self._usable
+        except NotImplementedError:
+            self._state['watchUnavailable'] = True
+        except OSError as error:
+            self._registration_error(error.errno)
+        except (AttributeError, TypeError, ValueError, OverflowError):
+            self._state['observerError'] = True
+
+    def _registration_error(self, code):
+        if code == errno.ESRCH:
+            self._state['registrationAbsent'] = True
+        elif code in (errno.EACCES, errno.EPERM):
+            self._state['watchDenied'] = True
+        elif code in (errno.ENOSYS, errno.ENOTSUP):
+            self._state['watchUnavailable'] = True
+        else:
+            self._state['observerError'] = True
+
+    def _consume(self, events, registration=False):
+        try:
+            if not isinstance(events, (list, tuple)) or len(events) > 1:
+                raise ValueError('invalid observation batch')
+            if not events:
+                return True
+            event = events[0]
+            fields = (event.ident, event.filter, event.flags, event.fflags)
+            allowed_flags = self._backend.KQ_EV_ADD | self._backend.KQ_EV_ONESHOT | self._backend.KQ_EV_ERROR
+            for name in ('KQ_EV_EOF', 'KQ_EV_CLEAR', 'KQ_EV_ENABLE', 'KQ_EV_DISABLE'):
+                allowed_flags |= getattr(self._backend, name, 0)
+            if (not all(type(value) is int for value in fields) or event.ident != self._pid or
+                    event.filter != self._backend.KQ_FILTER_PROC or event.flags < 0 or
+                    event.flags & ~allowed_flags):
+                raise ValueError('unexpected observation identity')
+            if event.flags & self._backend.KQ_EV_ERROR:
+                if registration and type(event.data) is int:
+                    self._registration_error(event.data)
+                else:
+                    self._state['observerError'] = True
+                return False
+            if event.fflags != self._backend.KQ_NOTE_EXIT:
+                raise ValueError('unexpected process event')
+            # Never read or publish a normal event's data as an exit status.
+            self._state['exitEventObserved'] = True
+            return True
+        except (AttributeError, TypeError, ValueError, OverflowError):
+            self._state['observerError'] = True
+            return False
+
+    def observe(self, final=False):
+        if self._frozen or not self._valid_pid:
+            return
+        # Reserve one final observation even if callers exhaust the ordinary bound.
+        if self._state['pollCount'] >= (128 if final else 127):
+            self._state['pollLimitReached'] = True
+            return
+        self._state['pollCount'] += 1
+        if self._usable and not self._state['exitEventObserved']:
+            try:
+                self._usable = self._consume(self._queue.control(None, 1, 0))
+            except (OSError, AttributeError, TypeError, ValueError, OverflowError):
+                self._usable = False
+                self._state['observerError'] = True
+        try:
+            self._probe(self._pid, 0)
+            if final:
+                self._state['finalLivenessChecked'] = True
+                self._state['pidPresentAtFinalCheck'] = True
+        except OSError as error:
+            if error.errno == errno.ESRCH:
+                self._state['pidAbsentObserved'] = True
+                if final:
+                    self._state['finalLivenessChecked'] = True
+            elif error.errno in (errno.EACCES, errno.EPERM):
+                self._state['livenessDenied'] = True
+            else:
+                self._state['observerError'] = True
+        except (TypeError, ValueError, OverflowError):
+            self._state['observerError'] = True
+
+    def finish(self):
+        if not self._frozen:
+            try:
+                self.observe(final=True)
+                self._state['finalObservationBeforeCleanup'] = self._valid_pid and self._state['pollCount'] > 0
+            finally:
+                self._frozen = True
+                if self._queue is not None:
+                    try:
+                        self._queue.close()
+                    except (OSError, AttributeError, TypeError, ValueError):
+                        self._state['observerError'] = True
+                    self._queue = None
+                    self._usable = False
+        return dict(self._state)
+# END PACKAGE PROCESS OBSERVER
+
 pid, started, prefix, context, directory, output, verifier = sys.argv[1:]
 directory = Path(directory)
 console = directory / 'console.log'
@@ -734,8 +865,10 @@ def read_scoped_log():
                 process.kill()
                 process.wait(timeout=2)
 
+process_observer = PackageProcessLifetimeObserver(int(pid))
 try:
     while time.monotonic() < deadline:
+        process_observer.observe()
         data = read_scoped_log()
         last_data = data
         last_size = len(data)
@@ -758,8 +891,11 @@ except (OSError, ValueError, subprocess.SubprocessError):
     print(f'Mac package transport incomplete; app-file={int(has_file)}; unified-bytes={last_size}.', file=sys.stderr)
     raise SystemExit(1)
 finally:
+    # Freeze and close the watcher before this process returns to Bash's cleanup trap.
+    lifetime = process_observer.finish()
     # This fixed summary is diagnostic only. The independent strict result parser decides acceptance.
     print(json.dumps(summarize_package_diagnostics(last_data, transport_nonce), separators=(',', ':')))
+    print(json.dumps(lifetime, separators=(',', ':')))
 PY
   exit 0
 fi

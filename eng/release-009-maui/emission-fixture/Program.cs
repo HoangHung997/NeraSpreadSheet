@@ -141,11 +141,16 @@ internal static class Program
         var start = source.IndexOf("# BEGIN PACKAGE DIAGNOSTIC SUMMARY", StringComparison.Ordinal);
         var end = source.IndexOf("# END PACKAGE DIAGNOSTIC SUMMARY", StringComparison.Ordinal);
         Require(start >= 0 && end > start, "Missing actual diagnostic summary implementation.");
+        var observerStart = source.IndexOf("# BEGIN PACKAGE PROCESS OBSERVER", StringComparison.Ordinal);
+        var observerEnd = source.IndexOf("# END PACKAGE PROCESS OBSERVER", StringComparison.Ordinal);
+        Require(observerStart >= 0 && observerEnd > observerStart, "Missing actual process lifetime observer.");
         var script = Path.Combine(root, "diagnostic-fixture.py");
-        File.WriteAllText(script, "import json, sys\n" + source[start..end] + DiagnosticSummaryFixture);
+        File.WriteAllText(script, "import json, os, sys\n" + source[start..end] + source[observerStart..observerEnd] +
+            DiagnosticSummaryFixture + ProcessObserverFixture);
         var inputs = Path.Combine(root, "diagnostic-inputs.json");
         File.WriteAllBytes(inputs, JsonSerializer.SerializeToUtf8Bytes(messages));
-        string[] arguments = ["-B", script, inputs, TransportNonce];
+        var observerSummary = Path.Combine(root, "observer-summary.json");
+        string[] arguments = ["-B", script, inputs, TransportNonce, observerSummary];
         Require(RunTool("python", arguments) == 0, "Actual diagnostic summary failed its privacy or bounds fixture.");
 
         var payload = Path.Combine(root, "diagnostic-only-payload.json");
@@ -157,7 +162,7 @@ internal static class Program
             schema = "native-result-file-context-v1", path = payload, transportNonce = TransportNonce,
         }));
         var console = Path.Combine(root, "diagnostic-only-console.log");
-        File.WriteAllText(console, string.Empty);
+        File.WriteAllText(console, File.ReadAllText(observerSummary));
         var unified = Path.Combine(root, "diagnostic-only-unified.json");
         File.WriteAllBytes(unified, JsonSerializer.SerializeToUtf8Bytes(messages.Select(message => new { eventMessage = message })));
         var output = Path.Combine(root, "diagnostic-only-verified.json");
@@ -205,6 +210,158 @@ assert summarize(['NERA_PACKAGED_MAUI_SMOKE:{"status":"success"}'])['matchingDia
 assert summarize_package_diagnostics(b'x' * (2 * 1024 * 1024 + 1), nonce)['inputClipped']
 for data in [b'{', b'{}', b'null', b'\xff', b'[' * 1100 + b']' * 1100]:
     assert summarize_package_diagnostics(data, nonce)['invalidLogData']
+""";
+
+    private const string ProcessObserverFixture = """
+
+from types import SimpleNamespace
+observer_cases = 0
+target_pid = 987654321
+class Event:
+    def __init__(self, ident=target_pid, filter=-5, flags=0, fflags=0x80000000, error=None):
+        self.ident, self.filter, self.flags, self.fflags = ident, filter, flags, fflags
+        self.error = error
+    @property
+    def data(self):
+        assert self.flags & 0x4000, 'Normal exit data must never be inspected.'
+        return self.error
+class Queue:
+    def __init__(self, results, timeline):
+        self.results, self.timeline, self.calls = list(results), timeline, []
+        self.closed = False
+    def control(self, changes, maximum, timeout):
+        assert not self.closed and maximum == 1 and timeout == 0
+        if not self.calls:
+            assert len(changes) == 1 and changes[0].ident == target_pid
+            assert changes[0].filter == -5 and changes[0].flags == 0x11 and changes[0].fflags == 0x80000000
+        else:
+            assert changes is None
+        self.calls.append(changes)
+        self.timeline.append('poll')
+        result = self.results.pop(0) if self.results else []
+        if isinstance(result, Exception): raise result
+        return result
+    def close(self):
+        assert not self.closed
+        self.closed = True
+        self.timeline.append('close')
+class Backend:
+    KQ_FILTER_PROC, KQ_NOTE_EXIT = -5, 0x80000000
+    KQ_EV_ADD, KQ_EV_ONESHOT, KQ_EV_ERROR, KQ_EV_EOF = 1, 0x10, 0x4000, 0x8000
+    def __init__(self, queue): self.queue = queue
+    def kqueue(self): return self.queue
+    def kevent(self, ident, **kwargs): return Event(ident=ident, **kwargs)
+class Probe:
+    def __init__(self, results, timeline): self.results, self.timeline, self.calls = list(results), timeline, []
+    def __call__(self, ident, signal):
+        assert ident == target_pid and signal == 0
+        self.calls.append((ident, signal))
+        self.timeline.append('probe')
+        result = self.results.pop(0) if self.results else None
+        if isinstance(result, Exception): raise result
+def create(events, probes=()):
+    timeline = []
+    queue, probe = Queue(events, timeline), Probe(probes, timeline)
+    return PackageProcessLifetimeObserver(target_pid, Backend(queue), probe), queue, probe, timeline
+expected_keys = {'schema', 'watchRegistered', 'registrationAbsent', 'watchDenied', 'watchUnavailable',
+    'observerError', 'exitEventObserved', 'pidAbsentObserved', 'livenessDenied', 'finalLivenessChecked',
+    'pidPresentAtFinalCheck', 'finalObservationBeforeCleanup', 'pollLimitReached', 'pollCount'}
+def finish(observer):
+    global observer_cases
+    observer_cases += 1
+    result = observer.finish()
+    encoded = json.dumps(result, separators=(',', ':'))
+    largest_stages = dict(positive, stages=dict.fromkeys(positive['stages'], 64))
+    combined = encoded + '\n' + json.dumps(largest_stages, separators=(',', ':')) + '\n'
+    assert len(combined.encode()) <= 2048 and str(target_pid) not in encoded and 'private' not in encoded
+    assert nonce not in encoded and set(result) == expected_keys
+    assert result['schema'] == 'nativePackageProcessLifetimeV1'
+    assert type(result['pollCount']) is int and 0 <= result['pollCount'] <= 128
+    assert all(type(value) is bool for key, value in result.items() if key not in ('schema', 'pollCount'))
+    assert observer.finish() == result
+    observer.observe()
+    assert observer.finish() == result
+    return result
+
+observer, queue, probe, timeline = create([[Event()]])
+immediate = finish(observer)
+assert immediate['watchRegistered'] and immediate['exitEventObserved'] and queue.closed
+observer, queue, probe, timeline = create([[], [], [Event(flags=0x8010)]])
+observer.observe()
+later = finish(observer)
+assert later['exitEventObserved'] and later['finalObservationBeforeCleanup'] and queue.closed
+snapshot = dict(later)
+timeline.append('cleanup')
+assert timeline[-2:] == ['close', 'cleanup']
+observer.observe()
+assert observer.finish() == snapshot and len(queue.calls) == 3
+
+for code, field in [(errno.ESRCH, 'registrationAbsent'), (errno.EACCES, 'watchDenied'),
+                    (errno.EPERM, 'watchDenied'), (errno.ENOSYS, 'watchUnavailable'),
+                    (errno.ENOTSUP, 'watchUnavailable'), (errno.EINVAL, 'observerError'), (0, 'observerError')]:
+    for failure in [OSError(code, '/private/secret'), [Event(flags=0x4000, error=code)]]:
+        observer, queue, probe, timeline = create([failure])
+        rejected = finish(observer)
+        assert rejected[field] and not rejected['watchRegistered'] and not rejected['exitEventObserved'] and queue.closed
+observer, queue, probe, timeline = create([[], [Event(flags=0x4000, error=errno.ESRCH)]])
+observer.observe()
+assert finish(observer)['observerError'] and not observer.finish()['registrationAbsent']
+for events in [None, [Event(), Event()], [object()], [Event(ident=1)], [Event(ident=True)],
+               [Event(filter=1)], [Event(flags=-1)], [Event(flags=1 << 28)], [Event(fflags=0)],
+               [Event(fflags=0xC0000000)], [Event(flags=0x4000, error='/private/secret')]]:
+    observer, queue, probe, timeline = create([events])
+    rejected = finish(observer)
+    assert rejected['observerError'] and not rejected['exitEventObserved'] and not rejected['watchRegistered']
+for failure in [OSError(errno.EINVAL, '/private/secret'), [Event(ident=1)]]:
+    observer, queue, probe, timeline = create([[], failure])
+    observer.observe()
+    assert finish(observer)['observerError'] and not observer.finish()['exitEventObserved']
+
+probe = Probe([], [])
+unavailable = finish(PackageProcessLifetimeObserver(target_pid, SimpleNamespace(), probe))
+assert unavailable['watchUnavailable'] and not unavailable['watchRegistered']
+for code, field in [(errno.ESRCH, 'pidAbsentObserved'), (errno.EACCES, 'livenessDenied'),
+                    (errno.EPERM, 'livenessDenied'), (errno.EINVAL, 'observerError')]:
+    observer, queue, probe, timeline = create([[]], [OSError(code, '/private/secret')])
+    result = finish(observer)
+    assert result[field] and not result['pidPresentAtFinalCheck']
+    assert result['finalLivenessChecked'] == (code == errno.ESRCH)
+observer, queue, probe, timeline = create([[]])
+present = finish(observer)
+assert present['watchRegistered'] and present['pidPresentAtFinalCheck'] and not present['exitEventObserved']
+assert not present['pidAbsentObserved']
+frozen_present = dict(present)
+queue.results.append([Event()])
+probe.results.append(OSError(errno.ESRCH, '/private/cleanup'))
+timeline.append('cleanup')
+observer.observe()
+assert observer.finish() == frozen_present and timeline[-2:] == ['close', 'cleanup']
+present['exitEventObserved'] = True
+assert observer.finish() == frozen_present
+observer, queue, probe, timeline = create([[]])
+ordinary_close = queue.close
+def failed_close():
+    ordinary_close()
+    raise OSError(errno.EIO, '/private/close')
+queue.close = failed_close
+assert finish(observer)['observerError'] and queue.closed
+observer, queue, probe, timeline = create([[]])
+backend = Backend(queue)
+def unavailable_queue(): raise NotImplementedError('/private/unavailable')
+backend.kqueue = unavailable_queue
+assert finish(PackageProcessLifetimeObserver(target_pid, backend, probe))['watchUnavailable']
+observer, queue, probe, timeline = create([[]])
+for _ in range(1000): observer.observe()
+bounded = finish(observer)
+assert bounded['pollCount'] == 128 and bounded['pollLimitReached']
+assert len(queue.calls) == 129 and len(probe.calls) == 128 and queue.closed
+for invalid_pid in [0, -1, True, '987654321']:
+    probe = Probe([], [])
+    invalid = finish(PackageProcessLifetimeObserver(invalid_pid, SimpleNamespace(), probe))
+    assert invalid['observerError'] and not probe.calls and not invalid['finalObservationBeforeCleanup']
+with open(sys.argv[3], 'w', encoding='utf-8') as stream:
+    json.dump(immediate, stream, separators=(',', ':'))
+print('Actual process observer fixture cases passed:', observer_cases)
 """;
 
     private static void WindowsLauncherShouldEnforceCompleteSingleAttemptEvidence(string root)

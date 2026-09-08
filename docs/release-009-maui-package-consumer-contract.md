@@ -95,6 +95,35 @@ khác result prefix; file + diagnostics không thể PASS. Mac opt-in ghi chính
 result vào OSLog sau durable close, trùng nội dung console. Default/non-Mac giữ
 transport cũ; native branch phải được actual hosted compile/runtime xác minh.
 
+## Đề xuất local observer vòng đời process — chưa được phép push/probe
+
+Sau fa native Mac đã ghi constructor/Loaded/dispatchAccepted nhưng chưa callback,
+root chỉ cấp implementation cục bộ cho observer trong existing package receiver.
+Đăng ký đúng numeric PID một lần qua Python `select.kqueue`, `KQ_FILTER_PROC`/
+`KQ_NOTE_EXIT`; không observer cho child/replacement hoặc đọc normal event data
+thành exit code. Registration nhận cả lỗi syscall lẫn `EV_ERROR`: ESRCH, denied,
+unavailable và lỗi/record không dự kiến là các Boolean riêng. Poll không chờ
+(`timeout=0`, tối đa1 event), chỉ tại biên vòng lặp hiện hữu và lần cuối.
+Giới hạn128 lượt quan sát (127 thường +1 cuối), ngoài một syscall đăng ký;
+không thay90s deadline, log cap2MiB/query10s hoặc shared result acceptance.
+
+Lần cuối gọi signal0 để quan sát PID, đóng băng snapshot rồi đóng queue trước khi
+Python trả về Bash cleanup. Không tính TERM của harness là app tự kết thúc.
+Summary vòng đời và stage cộng lại <=2KiB, fixed schema/counts/booleans; không
+PID, thời gian, process path/name, errno text, exit status, signal, raw stack/log.
+Chỉ `NOTE_EXIT` hoặc quan sát PID vắng mặt thêm bằng chứng kết thúc/vắng mặt;
+không khẳng định nguyên nhân, clean exit, thời điểm chính xác hoặc callback chưa
+từng chạy. PID có mặt không chứng minh original instance còn sống: registration
+gap/PID reuse vẫn UNKNOWN, cũng không chứng minh main thread starvation/deadlock.
+Observer thiếu quyền/API, nhận dữ liệu bất thường hoặc close lỗi phải báo UNKNOWN
+qua các cờ lỗi, không bypass quyền hay làm result-only/diagnostic-only PASS.
+
+Fixtures extract chính implementation, fake kernel/probe cho immediate/later exit,
+registration ESRCH/EACCES/unsupported/EV_ERROR, event sai, liveness errors/noevent,
+caps/privacy và snapshot trước cleanup. CLI test giữ full valid file + diagnostics/
+lifetime-only ở pending/no output. Hosted C# build và actual Mac API vẫn chưa chạy
+cho local patch; root phải review exact patch/hash trước commit/push/native run.
+
 ## Matrix và giới hạn
 
 | Target | Host build | Probe dự kiến |

@@ -2,6 +2,32 @@
 
 ## Desktop package consumer — 08/09 đang triển khai
 
+- Hiện hành: branch giữ HEAD/remote `fa96692c096caab2d9b6a5c8db7d972c792d9056`,
+  PR1 Draft/unmerged; **local observer patch chưa commit/push và chưa chạy native**.
+  Root chỉ cho4existing paths: package Python của Mac launcher, linked fixture
+  Program, own contract và worklog này. Không thay fa app/formatter/OSLog/SDK/
+  shared parser/launch/cleanup/timeout/acceptance hoặc nhận root/B WIP.
+- Fa source có4gates SUCCESS: iOS34183385120, Q34183386502, Windows packages
+  34183388536, demo34183389821. Full34183383351 FAIL legacy Picker capture tại
+  job101926823821; ảnh10039767660 theo root review chụp nền, chưa là SDK glyph bug.
+  MAUI34183245138 có10/11jobs PASS: Windows1019270816779frames/child0,
+  Android10192708169810frames, iOS1019270816488frames/cohort PASS. Mac101927081641
+  fixture/build0/0 PASS, nhưng actual90s FAIL app-file0/unified6192;4matching stage
+  constructorEntered/completed, loadedEntered, dispatchAccepted, không callback/
+  run/Emit; no malformed/clipped/foreign records. Không suy nguyên nhân hay OSexit.
+- Local patch thêm read-only kqueue exit watcher một numeric PID, cùng vòng90s,
+  timeout0/oneevent, cap128observations +1registration. Snapshot cuối đóng băng và
+  queue đóng trước Bash cleanup, không coi harnessTERM là spontaneous exit.
+  Fixed flags tách ESRCH/denied/unavailable/unexpected, không đọc normal exit data.
+  Stage+lifetime summary<=2KiB; PID present không thành live-original/hang proof.
+  Fixture extract actual observer:43cases fake kernel/liveness PASS; actual shared
+  CLI giữ lifetime/diagnostic-only ở pending2/no output, failure1/no output và
+  complete marker0/output. Existing33transport+23package+13classifier PASS0skip;
+  architecture/packaging/Bash/inline Python syntax/diff và frozen-boundary checks PASS.
+  Compiled C# và nativeMac API chưa được chạy ở patch này; local patch/hash gửi
+  root review trước mọi commit/push/probe.
+- Một bước tiếp theo duy nhất: root review immutable local4path patch/hash và
+  quyết định commit/push/probe grant; C không tự chạy lại cohort hoặc đổi source.
 - Exact checkpoint `dd6eafda50f5e98bb51fe23a9e0312525be70868` có năm existing gates
   SUCCESS: full34182133420, iOS34182134752, Q34182135997, Windows packages34182137232,
   demo34182138742. Core1515/native desktop158 và local33+23+13 PASS0skip.
