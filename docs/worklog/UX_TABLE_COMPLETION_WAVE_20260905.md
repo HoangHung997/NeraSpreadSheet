@@ -1,5 +1,19 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## Root-owned test correction — native Picker screen origin
+
+Cfa actual failure artifact10039767660 đã root xem/verify: alleged open-Picker
+PNG là nền customization. Root giữ sole writer đúng
+`tests/NeraSpreadSheet.Maui.Windows.RibbonSmoke/NativePopupCapture.cs` và
+`tests/NeraSpreadSheet.Maui.Windows.RibbonSmoke/SmokePage.Customization.cs`.
+A chỉ read-only review, write grant vẫn18paths; C vẫn12authorized paths/frozenfa.
+Test-only correction dùng actual item automation-peer screen bounds/verified DPI,
+multi-reference origin agreement, actual window ownership/visibility và stability;
+không owner-origin fallback hoặc giảm caption/palette assertions/9captures.
+[Contract/evidence](../ux-007-keyboard-accessibility-contract.md) giữ giới hạn.
+Chỉ chuyển immutable slice cho C sau root actual native proof/final images;
+không C/B tự sửa hai files hoặc lấy unverified WIP. SDK/renderer/UI không thay.
+
 ## B — grant một queued witness sau classifier77, không thay true editor
 
 Root đọc actual77 Mac101924799380 và Windows101924799555: Mac FAIL sau Dispatch

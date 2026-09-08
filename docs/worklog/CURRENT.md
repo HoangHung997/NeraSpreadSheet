@@ -1,5 +1,43 @@
 # Current Work Handoff
 
+## Hiện hành — root sửa test-only Picker screen geometry, Cfa vẫn frozen
+
+Branch `feature/bootstrap-architecture-v0.1`, PR#1 Draft/open/unmerged.
+Root39b34daa chưa được gọi all-six-green tại checkpoint này; parser434 iOS
+34183578371 SUCCESS nhưng không chứng minh đã sửa nguồn malformed990 của c7.
+Diagnostic parser6d6804cd/tests3b9c668b giữ nguyên,36fixtures PASS/0skip.
+
+C final checkpointfa96692c (NOT acceptance), clean/pushed: iOS34183385120,
+Q34183386502, packages34183388536, demo34183389821 SUCCESS; full34183383351
+FAIL riêng legacy Windows Ribbon capture101926823821, MAUI34183245138 FAIL riêng
+Mac101927081641. C báo actual Windows9/child0, Android10, iOS8 và own cohort PASS.
+Root đọc Mac fixed-stage log: constructorEntered/Completed/loadedEntered/
+dispatchAccepted mỗi1; callback/run/Emit0, file0/unified6192, valid nonce/time/PID,
+absolutePathObserved true/parent exists, no rejected/invalid/clipped. Chưa cause,
+writability hoặc completed-result proof. C freeze, không retry/extra source.
+
+Root đã xem cả2PNG artifact10039767660, archiveSHAf5062a52: supposed picker462x234
+thực tế là background customization. Root đọc helper/caller/contract và primary
+WinUI peer screen-coordinate API; A review độc lập read-only khớp coordinate-root
+hypothesis. Root sole writer sửa đúng `NativePopupCapture.cs` và
+`SmokePage.Customization.cs` trong tests/NeraSpreadSheet.Maui.Windows.RibbonSmoke.
+Peer-screen/local-to-popup references phải thống nhất DPI/origin, actual hit HWND/
+PID/visibility guards và post-capture stability; mọi pixel/palette/9images checks
+giữ nguyên. Native self-checks đã thêm nhưng CHƯA chạy local; architecture/diff
+PASS, hosted compile/native và final artifact review còn bắt buộc. Không SDK/UI/
+launcher/package/timing changes, không user workbook/desktop mutation.
+
+A tiếp tục18paths:835eb855 đạt172/174native,2fixture transition failures;
+80d98b07 drains shell ContextIdle rồi resolves actual surface, đang CI/HOLD.
+B witnessaa103f94/run34183813450: Windows101928049979 FAIL real formula-value
+assertion AwaitPrimaryInput/cycle0/frame9, không historical reattach crash;
+Mac101928049783 còn chờ. Không nới assertion hoặc retry. Cfa giữ12authorized/
+11changed paths; C5906 PHẢI nhận, B77 import SKIP. No whole lane received.
+
+Bước tiếp theo duy nhất: xem actual native Picker capture ở HEAD correction mới;
+chỉ release immutable two-file root slice cho C sau source proof/image review,
+đồng thời đọc B witness để quyết định next Mac scope. P3/hardware/100% vẫn OPEN.
+
 ## Dispatch hiện hành — queued witness B; root iOS diagnostic434 đang kiểm
 
 Root `434b1475db0842090c8389afd52688c409d8db92` đã push diagnostic-only parser:

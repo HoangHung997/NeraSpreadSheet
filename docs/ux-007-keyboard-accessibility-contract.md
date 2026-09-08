@@ -82,6 +82,35 @@ bốn palette, cùng viền native Entry/Picker ở hai chế độ high contras
 Light → HighContrastLight và Dark → HighContrastDark được kiểm tra khi control
 đang loaded; file PNG tồn tại không đủ nghiệm thu contrast.
 
+### Correction screen geometry — 08/09, chưa native acceptance
+
+Cfa96692c full34183383351/job101926823821 thất bại caption-pixel assertion.
+Root download/verify artifact10039767660 (ZIP SHA256
+`f5062a523a00dc5dd86649315eaf859780d85dcddc2ad9f8c2cbbde80e6f71e9`) và xem
+cả hai PNG: ảnh picker462x234 chứa phần nền customization, không phải danh sách
+đang mở. Không coi đó là bằng chứng SDK vẽ sai font/palette. Helper cũ cộng
+`TransformToVisual(null)` của popup vào owner client origin, dù hai coordinate
+roots có thể khác nhau; kiểm cùng PID không loại được nền cùng process.
+
+Root sửa riêng test helper/caller: lấy screen bounds từ actual item
+[AutomationPeer.GetBoundingRectangle](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.automation.peers.automationpeer.getboundingrectangle?view=windows-app-sdk-1.8),
+đối chiếu với từng item local-to-popup bounds và RasterizationScale. Ít nhất
+hai references phải đồng ý origin trong2physical pixels; kích thước/DPI phải
+khớp và item nằm trong popup. Không dùng gốc owner làm fallback. Item centers
+phải hit cùng visible native window của smoke và nằm trong actual window rect;
+giữ chín own-process checks trước đọc pixels. IsOpen/loaded và geometry phải
+giữ nguyên qua capture. Diagnostic chỉ fixed schema/numeric geometry và Boolean,
+không HWND/PID/path hay raw desktop dump. Same-process background vẫn không được
+coi là popup: các caption/palette assertions nguyên vẹn phải kiểm actual pixels.
+
+Pure geometry self-checks trong existing native smoke dùng scale100/125/150/200%,
+negative screen origin và rejects cho thiếu references, invalid/mismatched DPI,
+inconsistent origins/outside layout. Đây không phải physical DPI certification.
+Chín captures/full-narrow/theme/profile/caret checks không bị giảm; actual
+Windows native run và ảnh đúng finalHEAD còn bắt buộc. Không SDK, package,
+production Ribbon/editor/renderer, launcher, timing/retry hoặc permission change.
+Rollback riêng hai test files về trước correction; không migration user data.
+
 U2 actual screen reader và U5 physical multi-monitor DPI/real touch vẫn OPEN.
 UIA peers, synthetic input và raster-scale exports không thay các bằng chứng này.
 Apple/Android shell compile là cổng build; chưa phải native keyboard/touch smoke.

@@ -11,6 +11,7 @@ internal sealed partial class SmokePage
 {
     private async Task VerifyCustomizationShellAsync()
     {
+        NativePopupCapture.VerifyGeometryContract();
         var registry = new CommandRegistry();
         var handler = new ToggleHandler();
         registry.Register(new CommandDescriptor("first", "Premier"), handler);
@@ -113,7 +114,7 @@ internal sealed partial class SmokePage
                         containers.All(item => ContainsNativeCustomizationVisual(candidate.Child, item!)));
                 Require(popup?.Child is Microsoft.UI.Xaml.FrameworkElement, "Open Picker has no native popup visual.");
                 var popupVisual = (Microsoft.UI.Xaml.FrameworkElement)popup!.Child!;
-                var popupPixels = NativePopupCapture.Capture(popupVisual, WinRT.Interop.WindowNative.GetWindowHandle(Window.Handler!.PlatformView!));
+                var popupPixels = NativePopupCapture.Capture(popupVisual, WinRT.Interop.WindowNative.GetWindowHandle(Window.Handler!.PlatformView!), native, containers);
                 await SaveCustomizationPixelsAsync(popupPixels.Pixels, popupPixels.Width, popupPixels.Height, $"ux007-picker-{theme}.png").ConfigureAwait(true);
                 foreach (var item in containers) VerifyCapturedCustomizationText(popupVisual, item!, popupPixels.Pixels, popupPixels.Width, popupPixels.Height);
                 VerifyCustomizationPopupPalette(popupPixels.Pixels, popupPixels.Width, popupPixels.Height, theme);
