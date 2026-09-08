@@ -25,7 +25,7 @@ namespace NeraSpreadSheet.Windows.Rendering.Tests;
 
 [TestClass]
 [DoNotParallelize]
-public sealed class Release009SplitAutoFilterSmokeTests
+public sealed partial class Release009SplitAutoFilterSmokeTests
 {
     private static readonly CellAddress Header = new(2, 1);
 
