@@ -1,12 +1,12 @@
-# ChatGPT cloud — giao việc Mục 2 và Mục 3
+# ChatGPT Chat / Pro — giao việc Mục 2 và Mục 3
 
 ## 1. Chỉ đạo hiện hành
 
 - Ngày giao: 08/09/2026. Mã đợt: `CHATGPT-CLIPBOARD-VIEW-20260908`.
-- Người dùng yêu cầu một task ChatGPT cloud MỚI, riêng với các task giám sát PR và Avalonia, dùng chế độ **Pro**, đọc file này mỗi **15 phút** để thực hiện công việc, không chỉ báo tiến độ.
+- Người dùng yêu cầu một **Trò chuyện (Chat) ChatGPT MỚI trên cloud, KHÔNG phải Công việc (Work)**, riêng với các task giám sát PR và Avalonia, dùng chế độ **Pro**, đọc file này mỗi **15 phút** để thực hiện công việc, không chỉ báo tiến độ. Người dùng đã đính chính rõ Chat thay vì Work sau lượt thiết lập đầu.
 - File giao việc: `docs/worklog/CHATGPT_CLIPBOARD_VIEW_STATE_ASSIGNMENT.md` trên nhánh `feature/chatgpt-clipboard-view-state-plan` của `HoangHung997/NeraSpreadSheet`. Codex coordinator là người duy nhất sửa file này.
 - Chỉ đạo này thay điều kiện trì hoãn Mục 2/3 trong [hàng chờ cũ](NEXT_CLIPBOARD_WORKSHEET_VIEW_STATE.md) và [comment 5579073325](https://github.com/HoangHung997/NeraSpreadSheet/pull/1#issuecomment-5579073325): được bắt đầu các bước đã cấp phạm vi dưới đây, không cần chờ toàn bộ Mac hoàn tất. Không mở rộng hoặc ngắt công việc A/B/C hay PR #4.
-- Trạng thái lúc xuất bản: **ASSIGNMENT READY; cloud task / lịch chạy / Pro chưa được xác minh**. Đây không phải bằng chứng đã chạy lịch, đã chọn Pro hoặc đã sửa SDK. Kết quả thiết lập phải ghi riêng bằng dữ liệu trả về thực tế.
+- Trạng thái hiện hành: **ASSIGNMENT READY; chờ tạo đúng Chat / chọn Pro / thiết lập lịch**. Task Work tạo nhầm đã nhận yêu cầu dừng, xác nhận chưa tạo/kích hoạt automation và chưa sửa source/nhánh/PR; task đó không còn là worker được giao quyền. Hai giao diện điều khiển trình duyệt/Computer Use cùng lỗi khởi tạo, chưa mở được Chat đúng loại. Chưa có lịch 15 phút hoặc Pro được xác minh. Kết quả thiết lập tiếp theo phải ghi bằng dữ liệu trả về thực tế.
 - Nếu không xác minh được Pro trong cấu hình thực thi của task/lịch, chỉ được thiết lập, đọc và lập báo cáo; chưa sửa source. Không coi chữ “Pro” trong prompt, tên task, gói thuê bao hoặc Astra `high/xhigh/max/ultra` là bằng chứng Pro đã bật. Không tự thay bằng Codex local hoặc model khác.
 
 ## 2. Nguồn, nhánh và các phần phải bảo toàn
@@ -105,4 +105,4 @@ Nối cùng state vào Copy/Cut/Paste/Paste Special, viền nguồn đúng clip/
 
 ## 7. Nội dung lịch 15 phút
 
-Quay lại đúng task ChatGPT cloud được tạo riêng cho đợt này mỗi 15 phút. Dùng Pro đã xác minh trong cấu hình thực thi; nếu chưa xác minh thì báo điều kiện còn thiếu, không sửa source. Đọc bản mới nhất của file giao việc này trên nhánh plan và progress của worker qua GitHub. Tuân thủ một lượt chạy/một writer, khóa expected-SHA, phạm vi file và thứ tự C1 → C2 → V1 → V2 → H1. Thực hiện bước kế tiếp có thể làm ngay: đọc source, tái hiện, sửa, test và checkpoint trong nhánh riêng; không chỉ viết báo cáo. Không ngắt lượt đang chạy, không tạo task mới mỗi lượt, không sửa các nhánh đang được người khác giữ. Khi chỉ chờ hoặc không có thay đổi thì giữ im lặng; báo checkpoint, lỗi mới hoặc cần quyết định. Dừng chính lịch này khi toàn bộ Mục 2/3 đã được nghiệm thu hoặc người dùng yêu cầu dừng. Không tự chuyển sang công việc khác.
+Quay lại đúng Trò chuyện ChatGPT (Chat, KHÔNG phải Work) được tạo riêng cho đợt này mỗi 15 phút. Dùng Pro đã xác minh trong cấu hình thực thi; nếu chưa xác minh thì báo điều kiện còn thiếu, không sửa source. Đọc bản mới nhất của file giao việc này trên nhánh plan và progress của worker qua GitHub. Tuân thủ một lượt chạy/một writer, khóa expected-SHA, phạm vi file và thứ tự C1 → C2 → V1 → V2 → H1. Thực hiện bước kế tiếp có thể làm ngay: đọc source, tái hiện, sửa, test và checkpoint trong nhánh riêng; không chỉ viết báo cáo. Không ngắt lượt đang chạy, không tạo task mới mỗi lượt, không sửa các nhánh đang được người khác giữ. Khi chỉ chờ hoặc không có thay đổi thì giữ im lặng; báo checkpoint, lỗi mới hoặc cần quyết định. Dừng chính lịch này khi toàn bộ Mục 2/3 đã được nghiệm thu hoặc người dùng yêu cầu dừng. Không tự chuyển sang công việc khác.
