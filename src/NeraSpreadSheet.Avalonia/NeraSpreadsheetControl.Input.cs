@@ -12,6 +12,7 @@ public sealed partial class NeraSpreadsheetControl
     private IPointer? _capturedPointer;
     private bool _draggingSelection;
     private SpreadsheetHeaderResizeHandle? _resize;
+
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
         base.OnPointerWheelChanged(e);
@@ -22,16 +23,20 @@ public sealed partial class NeraSpreadsheetControl
         if ((e.KeyModifiers & KeyModifiers.Shift) != 0 && dx == 0) (dx, dy) = (dy, 0);
         QueuePrecisionScroll(dx, dy);
     }
+
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
         if (e.Handled || _disposed || _session is null || _viewport is null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
         var p = e.GetPosition(this);
+        // Native text selection remains the TextBox's responsibility.
         if (IsEditing && _editorBounds.Contains(p)) return;
         e.Handled = true;
         RunInput(() =>
         {
+            if (TryBeginFormulaPointer(p, e.Pointer)) return;
             if (IsEditing && !CommitEditor()) return;
+            if (_session.Editor.IsEditing) return;
             Focus(); var x = p.X / _zoom; var y = p.Y / _zoom;
             if (_layout is not null && SpreadsheetHeaderResizeGeometry.TryHitResizeHandle(x, y, DocumentWidth, DocumentHeight, _renderTheme, _layout, out var resize))
             { _resize = resize; CapturePointer(e.Pointer); return; }
@@ -58,11 +63,17 @@ public sealed partial class NeraSpreadsheetControl
             }
         });
     }
+
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
         if (_disposed || _session is null || _viewport is null || _capturedPointer is null) return;
         var p = e.GetPosition(this);
+        if (IsFormulaPointMode)
+        {
+            if (TryHitFormulaCell(p, out var address)) UpdatePointReference(address);
+            e.Handled = true; return;
+        }
         if (_resize is { } resize)
         {
             var size = SpreadsheetHeaderResizeGeometry.CalculateSize(resize, p.X / _zoom, p.Y / _zoom);
@@ -77,23 +88,28 @@ public sealed partial class NeraSpreadsheetControl
             e.Handled = true;
         }
     }
+
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
-        base.OnPointerReleased(e); if (_capturedPointer is null) return; ReleasePointer(); e.Handled = true;
+        base.OnPointerReleased(e);
+        if (_capturedPointer is null) return;
+        EndPointReference(); ReleasePointer(); e.Handled = true;
     }
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
-        _capturedPointer = null; _draggingSelection = false; _resize = null; base.OnPointerCaptureLost(e);
+        EndPointReference(false); _capturedPointer = null; _draggingSelection = false; _resize = null;
+        base.OnPointerCaptureLost(e);
     }
     private void CapturePointer(IPointer pointer) { _capturedPointer = pointer; pointer.Capture(this); }
     private void ReleasePointer()
     {
         var pointer = _capturedPointer; _capturedPointer = null; _draggingSelection = false; _resize = null; pointer?.Capture(null);
     }
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.Handled || _disposed || _session is null || IsEditing) return;
+        if (e.Handled || _disposed || _session is null || _session.Editor.IsEditing) return;
         if (PrimaryModifier(e.KeyModifiers))
         {
             if (e.Key is Key.C or Key.X or Key.V) { e.Handled = true; ExecuteClipboardInput(e.Key); return; }
@@ -111,8 +127,9 @@ public sealed partial class NeraSpreadsheetControl
             {
                 switch (e.Key)
                 {
-                    case Key.F2: BeginEdit(); break; case Key.Delete: _session.ClearSelection(); break;
-                    case Key.Enter: MoveActiveCell(1, 0, false); break;
+                    case Key.F2: BeginEdit(); break;
+                    case Key.Delete: _session.ClearSelection(); break;
+                    case Key.Enter: MoveActiveCell((e.KeyModifiers & KeyModifiers.Shift) != 0 ? -1 : 1, 0, false); break;
                     case Key.Tab: MoveActiveCell(0, (e.KeyModifiers & KeyModifiers.Shift) != 0 ? -1 : 1, false); break;
                 }
             });
@@ -128,7 +145,7 @@ public sealed partial class NeraSpreadsheetControl
     protected override void OnTextInput(TextInputEventArgs e)
     {
         base.OnTextInput(e);
-        if (e.Handled || _disposed || _session is null || IsEditing || string.IsNullOrEmpty(e.Text) || e.Text.Any(char.IsControl)) return;
+        if (e.Handled || _disposed || _session is null || _session.Editor.IsEditing || string.IsNullOrEmpty(e.Text) || e.Text.Any(char.IsControl)) return;
         e.Handled = true; RunInput(() => BeginEdit(e.Text));
     }
     private static bool PrimaryModifier(KeyModifiers modifiers) => (modifiers & (OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control)) != 0;
