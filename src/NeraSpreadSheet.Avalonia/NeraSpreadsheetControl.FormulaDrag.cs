@@ -45,7 +45,7 @@ public sealed partial class NeraSpreadsheetControl
     internal bool AdvanceFormulaPointerFrame(TimeSpan elapsed)
     {
         VerifyUsable();
-        if (elapsed < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(elapsed));
+        ArgumentOutOfRangeException.ThrowIfLessThan(elapsed, TimeSpan.Zero);
         var target = _formulaDragTarget;
         if (!IsFormulaPointMode || target is null || target._disposed || !target._attached ||
             !target.IsEffectivelyVisible || !ReferenceEquals(_session, target._session))
@@ -54,7 +54,7 @@ public sealed partial class NeraSpreadsheetControl
             return false;
         }
         var bounds = target.GetFormulaBodyBounds();
-        if (bounds.Width <= 1 || bounds.Height <= 1) return false;
+        if (bounds.Width <= 1 || bounds.Height <= 1) { StopFormulaPointerTracking(); return false; }
         var seconds = Math.Min(elapsed.TotalSeconds, 0.05);
         if (seconds > 0)
         {
