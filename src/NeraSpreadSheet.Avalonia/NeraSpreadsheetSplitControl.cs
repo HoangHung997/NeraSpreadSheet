@@ -11,11 +11,12 @@ using NeraSpreadSheet.Layout;
 
 namespace NeraSpreadSheet.Avalonia;
 
-/// <summary>Up to four stable native panes over one session. Topology, active pane,
-/// independent scroll offsets and split history belong to Session.View.</summary>
+/// <summary>Four stable native panes over one caller-owned session. Topology,
+/// active pane, scroll offsets and split history belong to Session.View.</summary>
 public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
 {
     private readonly Pane[] _panes;
+    private readonly SplitFormulaRouting _formulaRouting;
     private SpreadsheetSession? _session;
     private int _syncDepth;
     private bool _attached;
@@ -27,23 +28,23 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
 
     public NeraSpreadsheetSplitControl()
     {
-        Background = Brushes.Gray;
-        ClipToBounds = true;
+        Background = Brushes.Gray; ClipToBounds = true;
         _panes = Enum.GetValues<SpreadsheetSplitViewPane>().Select(id => new Pane(this, id)).ToArray();
         foreach (var pane in _panes) Children.Add(pane.Root);
+        // Point-mode owns the original draft and runs before ordinary pane activation.
+        _formulaRouting = new SplitFormulaRouting(this);
         AddHandler(PointerPressedEvent, OnPointerDown, RoutingStrategies.Tunnel);
         AddHandler(PointerMovedEvent, OnPointerMove, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, OnPointerUp, RoutingStrategies.Tunnel);
         Synchronize();
     }
-
     public SpreadsheetSession? Session
     {
         get => _session;
         set
         {
             VerifyUsable(); if (ReferenceEquals(_session, value)) return;
-            FinishDrag(false); DetachSession(); _syncDepth++;
+            _formulaRouting.Cancel(); FinishDrag(false); DetachSession(); _syncDepth++;
             try
             {
                 _session = value;
@@ -62,7 +63,6 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
     public event EventHandler? SessionChanged;
     public event EventHandler? ActivePaneChanged;
     public event EventHandler<SpreadsheetInteractionFailedEventArgs>? InteractionFailed;
-
     public NeraSpreadsheetControl GetPane(SpreadsheetSplitViewPane pane)
     {
         if (!Enum.IsDefined(pane)) throw new ArgumentOutOfRangeException(nameof(pane));
@@ -70,11 +70,10 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
     }
     public bool SetMode(SpreadsheetSplitViewMode mode, double? splitX = null, double? splitY = null)
     {
-        VerifyUsable(); var view = RequireSession().View;
+        VerifyUsable(); _formulaRouting.Cancel(); var view = RequireSession().View;
         var x = mode is SpreadsheetSplitViewMode.Vertical or SpreadsheetSplitViewMode.Both ? splitX ?? Math.Max(48, Bounds.Width / 2) : (double?)null;
         var y = mode is SpreadsheetSplitViewMode.Horizontal or SpreadsheetSplitViewMode.Both ? splitY ?? Math.Max(48, Bounds.Height / 2) : (double?)null;
-        var changed = view.ExecuteSplitTopologyChange(mode, x, y);
-        Synchronize(); return changed;
+        var changed = view.ExecuteSplitTopologyChange(mode, x, y); Synchronize(); return changed;
     }
     public bool ActivatePane(SpreadsheetSplitViewPane pane, bool focus = true)
     {
@@ -84,23 +83,17 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
         if (EditingSpreadsheet is { } editor && !ReferenceEquals(editor, target) && !editor.CommitEditor()) return false;
         var changed = session.View.SetSplitActivePane(pane, this);
         if (focus) target.Focus();
-        if (changed) ActivePaneChanged?.Invoke(this, EventArgs.Empty);
+        if (changed && !_subscribed) ActivePaneChanged?.Invoke(this, EventArgs.Empty);
         return true;
     }
-    public void SetZoom(double zoom)
-    {
-        VerifyUsable(); foreach (var pane in _panes) pane.Sheet.Zoom = zoom;
-    }
+    public void SetZoom(double zoom) { VerifyUsable(); foreach (var pane in _panes) pane.Sheet.Zoom = zoom; }
     public bool UndoSplit() { VerifyUsable(); return RequireSession().View.UndoSplitViewChange(); }
     public bool RedoSplit() { VerifyUsable(); return RequireSession().View.RedoSplitViewChange(); }
-
     protected override Size MeasureOverride(Size availableSize)
     {
-        var size = new Size(double.IsFinite(availableSize.Width) ? availableSize.Width : 900,
-            double.IsFinite(availableSize.Height) ? availableSize.Height : 600);
+        var size = new Size(double.IsFinite(availableSize.Width) ? availableSize.Width : 900, double.IsFinite(availableSize.Height) ? availableSize.Height : 600);
         var layout = Compute(size);
-        foreach (var pane in _panes)
-            if (layout.TryGetPane((SpreadsheetPaneId)pane.Id, out var slot)) pane.Root.Measure(new Size(slot.Bounds.Width, slot.Bounds.Height));
+        foreach (var pane in _panes) if (layout.TryGetPane((SpreadsheetPaneId)pane.Id, out var slot)) pane.Root.Measure(new Size(slot.Bounds.Width, slot.Bounds.Height));
         return size;
     }
     protected override Size ArrangeOverride(Size finalSize)
@@ -125,13 +118,11 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
     private SpreadsheetSplitLayout Compute(Size size)
     {
         var state = State;
-        return SpreadsheetSplitLayoutEngine.Compute(new SpreadsheetSplitRequest(new SizeD(Math.Max(0, size.Width), Math.Max(0, size.Height)),
-            state.SplitX, state.SplitY, 5, 64));
+        return SpreadsheetSplitLayoutEngine.Compute(new SpreadsheetSplitRequest(new SizeD(Math.Max(0, size.Width), Math.Max(0, size.Height)), state.SplitX, state.SplitY, 5, 64));
     }
     private void Synchronize()
     {
-        if (_disposed) return;
-        _syncDepth++;
+        if (_disposed) return; _syncDepth++;
         try
         {
             var state = State;
@@ -140,9 +131,7 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
                 var visible = state.IsPaneVisible(pane.Id);
                 if (!visible && pane.Sheet.IsEditing) pane.Sheet.CancelEditor();
                 pane.Root.IsVisible = visible;
-                var scroll = state.GetPaneScroll(pane.Id);
-                pane.Sheet.ScrollTo(scroll.OffsetX, scroll.OffsetY);
-                pane.UpdateScrollbars();
+                var scroll = state.GetPaneScroll(pane.Id); pane.Sheet.ScrollTo(scroll.OffsetX, scroll.OffsetY); pane.UpdateScrollbars();
             }
             InvalidateMeasure(); InvalidateArrange();
         }
@@ -156,23 +145,21 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
         if (e.ChangeKind is SpreadsheetSplitViewChangeKind.ActivePane or SpreadsheetSplitViewChangeKind.ActiveWorksheet or SpreadsheetSplitViewChangeKind.History)
             ActivePaneChanged?.Invoke(this, EventArgs.Empty);
     }
-    private void OnWorksheetChanged(object? sender, EventArgs e) { FinishDrag(false); Synchronize(); }
+    private void OnWorksheetChanged(object? sender, EventArgs e) { _formulaRouting.Cancel(); FinishDrag(false); Synchronize(); }
     private void OnSelectionChanged(object? sender, EventArgs e)
     {
-        if (_syncDepth == 0 && _session is not null) ActiveSpreadsheet.ScrollCellIntoView(_session.Selection.ActiveCell);
+        if (_syncDepth == 0 && _session is not null && !_session.Editor.IsEditing) ActiveSpreadsheet.ScrollCellIntoView(_session.Selection.ActiveCell);
     }
     private void OnPaneViewportChanged(Pane pane)
     {
         pane.UpdateScrollbars();
         if (_syncDepth != 0 || _session is null || !pane.Root.IsVisible || _disposed) return;
-        var scroll = pane.Sheet.ScrollSnapshot;
-        _session.View.SetSplitPaneScroll(pane.Id, scroll.OffsetX, scroll.OffsetY, this);
+        var scroll = pane.Sheet.ScrollSnapshot; _session.View.SetSplitPaneScroll(pane.Id, scroll.OffsetX, scroll.OffsetY, this);
     }
     private void OnPointerDown(object? sender, PointerPressedEventArgs e)
     {
         if (e.Handled || _disposed || _session is null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
-        LastLayout = Compute(Bounds.Size);
-        var point = e.GetPosition(this); var hit = LastLayout.HitTest(new PointD(point.X, point.Y));
+        LastLayout = Compute(Bounds.Size); var point = e.GetPosition(this); var hit = LastLayout.HitTest(new PointD(point.X, point.Y));
         if (hit.RegionKind == SpreadsheetSplitHitRegionKind.Pane && hit.PaneId is { } id)
         {
             try { if (!ActivatePane((SpreadsheetSplitViewPane)id, false)) e.Handled = true; }
@@ -185,14 +172,12 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
             return;
         }
         if (hit.RegionKind is not (SpreadsheetSplitHitRegionKind.VerticalSeparator or SpreadsheetSplitHitRegionKind.HorizontalSeparator or SpreadsheetSplitHitRegionKind.SeparatorIntersection)) return;
-        e.Handled = true; FinishDrag(false);
-        _dragKind = hit.RegionKind; _dragPointer = e.Pointer;
-        _dragHistory = _session.View.BeginSplitViewHistoryTransaction("Resize split panes", SpreadsheetSplitViewChangeKind.Topology);
-        e.Pointer.Capture(this);
+        e.Handled = true; FinishDrag(false); _dragKind = hit.RegionKind; _dragPointer = e.Pointer;
+        _dragHistory = _session.View.BeginSplitViewHistoryTransaction("Resize split panes", SpreadsheetSplitViewChangeKind.Topology); e.Pointer.Capture(this);
     }
     private void OnPointerMove(object? sender, PointerEventArgs e)
     {
-        if (_dragPointer != e.Pointer || _session is null || _disposed) return;
+        if (e.Handled || _dragPointer != e.Pointer || _session is null || _disposed) return;
         e.Handled = true; var point = e.GetPosition(this); var state = State;
         var x = _dragKind is SpreadsheetSplitHitRegionKind.VerticalSeparator or SpreadsheetSplitHitRegionKind.SeparatorIntersection ? point.X : state.SplitX;
         var y = _dragKind is SpreadsheetSplitHitRegionKind.HorizontalSeparator or SpreadsheetSplitHitRegionKind.SeparatorIntersection ? point.Y : state.SplitY;
@@ -201,17 +186,13 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
     }
     private void OnPointerUp(object? sender, PointerReleasedEventArgs e)
     {
-        if (_dragPointer != e.Pointer) return; e.Handled = true; FinishDrag(true);
+        if (e.Handled || _dragPointer != e.Pointer) return; e.Handled = true; FinishDrag(true);
     }
-    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e) { FinishDrag(false); base.OnPointerCaptureLost(e); }
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e) { _formulaRouting.Cancel(); FinishDrag(false); base.OnPointerCaptureLost(e); }
     private void FinishDrag(bool commit)
     {
-        var pointer = _dragPointer; _dragPointer = null;
-        var history = _dragHistory; _dragHistory = null;
-        if (history is not null)
-        {
-            using (history) { if (commit) history.Commit(); else history.Cancel(); }
-        }
+        var pointer = _dragPointer; _dragPointer = null; var history = _dragHistory; _dragHistory = null;
+        if (history is not null) { using (history) { if (commit) history.Commit(); else history.Cancel(); } }
         pointer?.Capture(null);
     }
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -220,20 +201,18 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
     }
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        FinishDrag(false); DetachSession(); _attached = false; base.OnDetachedFromVisualTree(e);
+        _formulaRouting.Cancel(); FinishDrag(false); DetachSession(); _attached = false; base.OnDetachedFromVisualTree(e);
     }
     private void AttachSession()
     {
         if (_subscribed || _session is null) return;
-        _session.View.SplitChanged += OnSplitChanged; _session.ActiveWorksheetChanged += OnWorksheetChanged;
-        _session.Selection.Changed += OnSelectionChanged; _subscribed = true;
+        _session.View.SplitChanged += OnSplitChanged; _session.ActiveWorksheetChanged += OnWorksheetChanged; _session.Selection.Changed += OnSelectionChanged; _subscribed = true;
     }
     private void DetachSession()
     {
         if (_subscribed && _session is not null)
         {
-            _session.View.SplitChanged -= OnSplitChanged; _session.ActiveWorksheetChanged -= OnWorksheetChanged;
-            _session.Selection.Changed -= OnSelectionChanged;
+            _session.View.SplitChanged -= OnSplitChanged; _session.ActiveWorksheetChanged -= OnWorksheetChanged; _session.Selection.Changed -= OnSelectionChanged;
         }
         _subscribed = false;
     }
@@ -241,7 +220,7 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
     private void VerifyUsable() { VerifyAccess(); ObjectDisposedException.ThrowIf(_disposed, this); }
     public void Dispose()
     {
-        VerifyAccess(); if (_disposed) return; FinishDrag(false); DetachSession(); _disposed = true;
+        VerifyAccess(); if (_disposed) return; _formulaRouting.Dispose(); FinishDrag(false); DetachSession(); _disposed = true;
         RemoveHandler(PointerPressedEvent, OnPointerDown); RemoveHandler(PointerMovedEvent, OnPointerMove); RemoveHandler(PointerReleasedEvent, OnPointerUp);
         foreach (var pane in _panes) pane.Dispose(); Children.Clear(); _session = null;
     }
@@ -254,11 +233,9 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
             _owner = owner; Id = id;
             Root = new Grid { RowDefinitions = new RowDefinitions("*,Auto"), ColumnDefinitions = new ColumnDefinitions("*,Auto") };
             Sheet = new NeraSpreadsheetControl { UseAdaptiveNavigationExtent = true };
-            Horizontal = new ScrollBar { Orientation = Orientation.Horizontal, SmallChange = 24 };
-            Vertical = new ScrollBar { Orientation = Orientation.Vertical, SmallChange = 24 };
+            Horizontal = new ScrollBar { Orientation = Orientation.Horizontal, SmallChange = 24 }; Vertical = new ScrollBar { Orientation = Orientation.Vertical, SmallChange = 24 };
             Root.Children.Add(Sheet); Grid.SetRow(Horizontal, 1); Root.Children.Add(Horizontal); Grid.SetColumn(Vertical, 1); Root.Children.Add(Vertical);
-            Sheet.ViewportChanged += OnViewportChanged; Horizontal.ValueChanged += OnScrollChanged; Vertical.ValueChanged += OnScrollChanged;
-            Sheet.InteractionFailed += OnInteractionFailed;
+            Sheet.ViewportChanged += OnViewportChanged; Horizontal.ValueChanged += OnScrollChanged; Vertical.ValueChanged += OnScrollChanged; Sheet.InteractionFailed += OnInteractionFailed;
         }
         public SpreadsheetSplitViewPane Id { get; }
         public Grid Root { get; }
@@ -272,16 +249,15 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
         }
         private void OnInteractionFailed(object? sender, SpreadsheetInteractionFailedEventArgs e)
         {
-            if (_owner.InteractionFailed is not { } handler) throw e.Exception;
-            handler(_owner, e);
+            if (_owner.InteractionFailed is not { } handler) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e.Exception).Throw();
+            else handler(_owner, e);
         }
         public void UpdateScrollbars()
         {
             if (_updating) return; _updating = true;
             try
             {
-                Horizontal.Maximum = Math.Max(0, Sheet.ContentWidth - Sheet.ViewportBodyWidth);
-                Vertical.Maximum = Math.Max(0, Sheet.ContentHeight - Sheet.ViewportBodyHeight);
+                Horizontal.Maximum = Math.Max(0, Sheet.ContentWidth - Sheet.ViewportBodyWidth); Vertical.Maximum = Math.Max(0, Sheet.ContentHeight - Sheet.ViewportBodyHeight);
                 Horizontal.ViewportSize = Sheet.ViewportBodyWidth; Vertical.ViewportSize = Sheet.ViewportBodyHeight;
                 Horizontal.LargeChange = Sheet.ViewportBodyWidth; Vertical.LargeChange = Sheet.ViewportBodyHeight;
                 Horizontal.Value = Sheet.ScrollSnapshot.OffsetX; Vertical.Value = Sheet.ScrollSnapshot.OffsetY;
