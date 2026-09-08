@@ -137,6 +137,24 @@ public sealed class Release009SplitAutoFilterSmokeTests
             await Flush(host);
             Assert.IsTrue(host.Presenter.IsOpen, "A visible header must relocate across resize/zoom.");
             AssertAnchor(host, pane);
+            if (host.Split is { } partial)
+            {
+                var frame = partial.LastFrame!;
+                var paneFrame = frame.Panes.Single(item => item.Pane.PaneId == pane);
+                Assert.IsTrue(frame.ScrollBars.TryGetBar(pane, SpreadsheetScrollBarOrientation.Vertical, out var bar));
+                // Put the right edge of the header button four pixels under the vertical bar.
+                host.Session.ActiveWorksheet.Dimensions.SetColumnWidth(1,
+                    bar.Bounds.Left - paneFrame.Pane.Bounds.Left + paneFrame.ScrollX + host.Grid.RenderTheme.TableFilterButtonMargin + 4);
+                await Flush(host);
+                var clipped = ExpectedHit(host, pane);
+                Assert.IsTrue(clipped.Bounds.Width > 0 && clipped.Bounds.Width < host.Grid.RenderTheme.TableFilterButtonExtent);
+                AssertAnchor(host, pane);
+                var chrome = SpreadsheetChromeGeometry.Calculate(host.Grid.ActualWidth, host.Grid.ActualHeight, host.Grid.RenderTheme);
+                Assert.IsFalse(host.Presenter.TryOpenAt(chrome.RowHeaderWidth + bar.Bounds.Left + 1,
+                    clipped.Bounds.Y + clipped.Bounds.Height / 2), "A partially clipped filter must not steal the scrollbar hit.");
+                host.Session.ActiveWorksheet.Dimensions.SetColumnWidth(1, 160);
+                await Flush(host);
+            }
             host.Session.ActiveWorksheet.Dimensions.HideColumns(1);
             await Flush(host);
             Assert.HasCount(0, Buttons(host));
@@ -206,6 +224,13 @@ public sealed class Release009SplitAutoFilterSmokeTests
             Assert.AreSame(focus, Keyboard.FocusedElement);
             Assert.AreEqual(selection.Version, host.Session.Selection.Capture().Version);
             Assert.AreEqual(0, host.Session.History.UndoCount);
+            var barEditor = Field<TextBox>(host.Window, "_formula");
+            Assert.IsTrue(barEditor.Focus());
+            Assert.IsFalse(host.Presenter.TryOpenForActiveCell());
+            Assert.IsTrue(await host.Runtime.TryActivateAsync("Sample.Filter"));
+            Assert.AreSame(barEditor, Keyboard.FocusedElement);
+            Assert.AreSame(state, host.Session.Editor.State);
+            Assert.AreEqual(draft, host.Grid.CurrentEditorDraft);
             host.Grid.CancelEditor();
             await Flush(host);
             Assert.IsTrue(host.Presenter.TryOpenForActiveCell());
@@ -249,6 +274,17 @@ public sealed class Release009SplitAutoFilterSmokeTests
                 host.Grid.EnableSplitPanes(SpreadsheetSplitPaneMode.Both);
                 await Flush(host);
             }
+            if (!host.Presenter.IsOpen) Assert.IsTrue(host.Presenter.TryOpenForActiveCell());
+            await Ready(host);
+            var decorator = (System.Windows.Documents.AdornerDecorator)host.Grid.Parent;
+            decorator.Child = null;
+            host.Window.UpdateLayout();
+            await Task.Delay(30);
+            Assert.IsFalse(host.Presenter.IsOpen);
+            decorator.Child = host.Grid;
+            await Flush(host);
+            Assert.IsTrue(host.Presenter.TryOpenForActiveCell());
+            await Ready(host);
             host.Grid.Session = new SpreadsheetSession(new Workbook());
             await Flush(host);
             Assert.IsFalse(host.Presenter.IsOpen);
@@ -312,7 +348,11 @@ public sealed class Release009SplitAutoFilterSmokeTests
                         }
                         await verify(host);
                     }
-                    finally { window.Close(); }
+                    finally
+                    {
+                        window.Close();
+                        await dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ApplicationIdle);
+                    }
                     completion.SetResult();
                 }
                 catch (Exception exception) { completion.SetException(exception); }
@@ -368,7 +408,15 @@ public sealed class Release009SplitAutoFilterSmokeTests
             host.Session.ActiveWorksheet.AutoFilter, layout, host.Grid.RenderTheme).Single();
         var origin = host.Split?.LastFrame!.Panes.Single(item => item.Pane.PaneId == pane).Pane.Bounds ?? default;
         var chrome = SpreadsheetChromeGeometry.Calculate(host.Grid.ActualWidth, host.Grid.ActualHeight, host.Grid.RenderTheme);
-        return hit with { Bounds = hit.Bounds.Translate(origin.X + chrome.RowHeaderWidth, origin.Y + chrome.ColumnHeaderHeight) };
+        var bounds = hit.Bounds.Translate(origin.X, origin.Y);
+        if (host.Split is { } clipping)
+        {
+            var frame = clipping.LastFrame!;
+            var right = frame.ScrollBars.TryGetBar(pane, SpreadsheetScrollBarOrientation.Vertical, out var vertical) ? vertical.Bounds.Left : origin.Right;
+            var bottom = frame.ScrollBars.TryGetBar(pane, SpreadsheetScrollBarOrientation.Horizontal, out var horizontal) ? horizontal.Bounds.Top : origin.Bottom;
+            bounds = bounds.Intersect(new RectD(origin.X, origin.Y, right - origin.X, bottom - origin.Y));
+        }
+        return hit with { Bounds = bounds.Translate(chrome.RowHeaderWidth, chrome.ColumnHeaderHeight) };
     }
     private static void AssertAnchor(Host host, SpreadsheetPaneId pane)
     {
