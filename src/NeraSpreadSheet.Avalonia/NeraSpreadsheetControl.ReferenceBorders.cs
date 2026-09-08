@@ -9,6 +9,7 @@ namespace NeraSpreadSheet.Avalonia;
 public sealed partial class NeraSpreadsheetControl
 {
     private ReferenceBorderDrag? _referenceBorderDrag;
+    /// <summary>True only while this editor owns an A1 outline move/resize gesture.</summary>
     public bool IsDraggingFormulaReferenceBorder => _referenceBorderDrag is not null;
 
     internal void BeginReferenceGesture(NeraSpreadsheetControl target, Point point, CellAddress address)
@@ -29,8 +30,7 @@ public sealed partial class NeraSpreadsheetControl
             .OrderBy(reference => Math.Abs(reference.Span.End - _editor.CaretIndex));
         foreach (var reference in references)
         {
-            CellAddress? opposite = null;
-            var handleHit = false;
+            CellAddress? opposite = null; var handleHit = false;
             foreach (var handle in FormulaReferenceOutlineGeometry.Handles(layout, reference.Range))
                 if (Math.Abs(bodyPoint.X - handle.Position.X) <= tolerance && Math.Abs(bodyPoint.Y - handle.Position.Y) <= tolerance)
                 {
@@ -38,7 +38,9 @@ public sealed partial class NeraSpreadsheetControl
                     handleHit = true; break;
                 }
             if (!handleHit && !FormulaReferenceOutlineGeometry.Edges(layout, reference.Range).Any(edge => FormulaReferenceOutlineGeometry.Distance(bodyPoint, edge) <= tolerance)) continue;
-            _referenceBorderDrag = new ReferenceBorderDrag(CurrentEditorDraft!, reference, address, opposite, _session.Workbook.Version);
+            var draft = CurrentEditorDraft!;
+            _referenceBorderDrag = new ReferenceBorderDrag(draft, reference, address, opposite, _session.Workbook.Version,
+                _session.ActiveWorksheet.Version, _session.ActiveWorksheet.Dimensions.Version, draft.Text);
             _pointAnchor = address;
             return true;
         }
@@ -47,7 +49,17 @@ public sealed partial class NeraSpreadsheetControl
     private bool UpdateReferenceBorder(CellAddress address)
     {
         if (_referenceBorderDrag is not { } drag || _session is null || !IsEditing) return false;
-        if (_session.Workbook.Version != drag.WorkbookVersion) { EndReferenceBorder(false); EndPointReference(false); return false; }
+        if (!string.Equals(EditorText, drag.ExpectedText, StringComparison.Ordinal))
+        {
+            // Native text/IME may update the TextBox without the formula-bar bridge.
+            // Preserve that new text, do not restore an older gesture snapshot.
+            _referenceBorderDrag = null; EndPointReference(false); return false;
+        }
+        if (_session.Workbook.Version != drag.WorkbookVersion || _session.ActiveWorksheet.Version != drag.WorksheetVersion ||
+            _session.ActiveWorksheet.Dimensions.Version != drag.DimensionsVersion)
+        {
+            EndReferenceBorder(false); EndPointReference(false); return false;
+        }
         CellRange range;
         if (drag.OppositeCorner is { } anchor) range = new CellRange(anchor, address);
         else
@@ -57,14 +69,13 @@ public sealed partial class NeraSpreadsheetControl
             var column = Math.Clamp(address.ColumnIndex - drag.StartCell.ColumnIndex, -source.Left, SpreadsheetLimits.MaxColumns - 1 - source.Right);
             range = new CellRange(new CellAddress(source.Top + row, source.Left + column), new CellAddress(source.Bottom + row, source.Right + column));
         }
-        var replacement = drag.Reference.Format(range);
-        var span = drag.Reference.Span;
+        var replacement = drag.Reference.Format(range); var span = drag.Reference.Span;
         var text = string.Concat(drag.Draft.Text.AsSpan(0, span.Start), replacement, drag.Draft.Text.AsSpan(span.End));
         var nextSpan = new FormulaTextSpan(span.Start, replacement.Length);
+        _referenceBorderDrag = drag with { ExpectedText = text };
         ApplyFormulaText(new FormulaTextEditResult(text, nextSpan.End, nextSpan));
         _provisionalSpan = nextSpan; _provisionalDependency = new FormulaDependency(drag.Reference.WorksheetName, range);
-        RefreshFormulaAssistance(); RefreshFormulaHighlights(); NotifyDraftChanged();
-        return true;
+        RefreshFormulaAssistance(); RefreshFormulaHighlights(); NotifyDraftChanged(); return true;
     }
     private void EndReferenceBorder(bool keepChanges)
     {
@@ -73,5 +84,5 @@ public sealed partial class NeraSpreadsheetControl
         UpdateEditorDraft(drag.Draft.Text, drag.Draft.SelectionStart, drag.Draft.SelectionEnd);
     }
     private sealed record ReferenceBorderDrag(SpreadsheetEditorDraft Draft, EditableFormulaReference Reference,
-        CellAddress StartCell, CellAddress? OppositeCorner, long WorkbookVersion);
+        CellAddress StartCell, CellAddress? OppositeCorner, long WorkbookVersion, long WorksheetVersion, long DimensionsVersion, string ExpectedText);
 }

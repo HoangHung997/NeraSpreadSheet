@@ -64,6 +64,12 @@ public sealed partial class NeraSpreadsheetControl
         if (!IsEditing) return false;
         var textChanged = !string.Equals(_editor.Text, text, StringComparison.Ordinal);
         if (!textChanged && _editor.SelectionStart == selectionStart && _editor.SelectionEnd == selectionEnd) return true;
+        // An external formula-bar change ends a border gesture instead of letting
+        // a later captured pointer overwrite the user's more recent draft.
+        if (_referenceBorderDrag is not null)
+        {
+            _referenceBorderDrag = null; _pointAnchor = null; StopFormulaPointerTracking();
+        }
         _updatingFormulaDraft = true;
         try
         {
@@ -128,7 +134,17 @@ public sealed partial class NeraSpreadsheetControl
     }
     internal bool IsFormulaDraft => IsEditing && (_editor.Text?.StartsWith('=') ?? false);
     private bool CanInsertPointReference => IsFormulaDraft && _editor.SelectionStart == _editor.SelectionEnd &&
-        SpreadsheetFormulaEditingAssistant.CanInsertReference(_editor.Text ?? string.Empty, _editor.CaretIndex, _provisionalSpan);
+        SpreadsheetFormulaEditingAssistant.CanInsertReference(_editor.Text ?? string.Empty, _editor.CaretIndex, _provisionalSpan) &&
+        IsReferenceInsertionBoundary(_editor.Text ?? string.Empty, _provisionalSpan?.Start ?? _editor.CaretIndex, _provisionalSpan?.End ?? _editor.CaretIndex);
+    // The shared query rejects strings/structured tokens. This host also requires
+    // an operand slot: outside a token alone is not permission to append A1 to D5.
+    private static bool IsReferenceInsertionBoundary(string text, int start, int end)
+    {
+        var before = start - 1; while (before > 0 && char.IsWhiteSpace(text[before])) before--;
+        if (before < 0 || text[before] is not ('=' or '(' or ',' or ';' or '+' or '-' or '*' or '/' or '^' or '&' or '<' or '>' or ':')) return false;
+        var after = end; while (after < text.Length && char.IsWhiteSpace(text[after])) after++;
+        return after == text.Length || text[after] is ')' or ',' or ';' or '+' or '-' or '*' or '/' or '^' or '&' or '=' or '<' or '>' or ':' or '%';
+    }
     internal bool TryHitFormulaCell(Point point, out CellAddress address)
     {
         address = default; if (_viewport is null) return false;
@@ -146,18 +162,15 @@ public sealed partial class NeraSpreadsheetControl
         ? UpdateReferenceBorder(address) : _pointAnchor is { } anchor && InsertFormulaReference(new CellRange(anchor, address));
     internal void EndPointReference(bool focus = true)
     {
-        StopFormulaPointerTracking();
-        EndReferenceBorder(focus);
+        StopFormulaPointerTracking(); EndReferenceBorder(focus);
         if (_pointAnchor is null) return; _pointAnchor = null;
         if (focus) { if (_formulaAnchor is { } anchor) anchor.Focus(); else FocusEditor(); }
     }
     private bool TryBeginFormulaPointer(Point point, IPointer pointer)
     {
         if (!IsFormulaDraft || !TryHitFormulaCell(point, out var address)) return false;
-        CapturePointer(pointer);
-        BeginReferenceGesture(this, point, address);
-        if (_pointAnchor is not null) TrackFormulaPointer(this, point);
-        else ReleasePointer();
+        CapturePointer(pointer); BeginReferenceGesture(this, point, address);
+        if (_pointAnchor is not null) TrackFormulaPointer(this, point); else ReleasePointer();
         return true;
     }
 
@@ -169,8 +182,7 @@ public sealed partial class NeraSpreadsheetControl
             Margin = new Thickness(5, 2),
         });
         _formulaList.AddHandler(PointerPressedEvent, OnSuggestionPointer, RoutingStrategies.Tunnel);
-        _formulaList.SelectionChanged += OnSuggestionSelection;
-        _editor.PropertyChanged += OnEditorCaretChanged;
+        _formulaList.SelectionChanged += OnSuggestionSelection; _editor.PropertyChanged += OnEditorCaretChanged;
         var panel = new StackPanel { Spacing = 2 }; panel.Children.Add(_formulaList); panel.Children.Add(_formulaHelp);
         var border = new Border { Child = panel, Padding = new Thickness(2), BorderBrush = Brushes.Gray, BorderThickness = new Thickness(1) };
         border.Bind(Border.BackgroundProperty, this.GetResourceObservable("SystemControlBackgroundAltHighBrush"));
