@@ -11,19 +11,24 @@ internal static class NativePopupCapture
 {
     internal sealed record Snapshot(byte[] Pixels, int Width, int Height);
 
-    private readonly record struct ReferenceBounds(NativeRect Screen, NativeRect Local);
+    private readonly record struct ReferenceBounds(NativeRect Screen, NativeRect Local)
+    {
+        internal NativeRect RasterizedClient { get; init; }
+        internal Microsoft.UI.Xaml.FrameworkElement? RenderedChild { get; init; }
+    }
 
     internal static Snapshot Capture(Microsoft.UI.Xaml.FrameworkElement popup, nint owner,
         Microsoft.UI.Xaml.Controls.ComboBox picker, IReadOnlyList<Microsoft.UI.Xaml.Controls.ComboBoxItem?> items)
     {
         Require(picker.IsDropDownOpen && popup.IsLoaded && items.Count >= 2, "The actual Picker must remain open and realized.");
+        var xamlRoot = popup.XamlRoot;
         var references = ReadReferences(popup, items);
-        var scale = popup.XamlRoot.RasterizationScale;
+        var scale = xamlRoot.RasterizationScale;
         // Capture bounded numeric evidence before validation: an automation peer
         // may report clipped bounds, unlike the complete local layout rectangle.
         Console.WriteLine("NERA_PICKER_CAPTURE_REFERENCES:" + JsonSerializer.Serialize(new
         {
-            schema = "native-picker-references-v1", scale = FiniteNumber(scale),
+            schema = "native-picker-references-v2", scale = FiniteNumber(scale),
             popupWidth = FiniteNumber(popup.ActualWidth), popupHeight = FiniteNumber(popup.ActualHeight),
             count = references.Length, clipped = references.Length > 16,
             items = references.Take(16).Select((reference, index) => new
@@ -32,11 +37,13 @@ internal static class NativePopupCapture
                 screenWidth = FiniteNumber(reference.Screen.Width), screenHeight = FiniteNumber(reference.Screen.Height),
                 localX = FiniteNumber(reference.Local.X), localY = FiniteNumber(reference.Local.Y),
                 localWidth = FiniteNumber(reference.Local.Width), localHeight = FiniteNumber(reference.Local.Height),
+                peerClientX = FiniteNumber(reference.RasterizedClient.X), peerClientY = FiniteNumber(reference.RasterizedClient.Y),
+                peerWidth = FiniteNumber(reference.RasterizedClient.Width), peerHeight = FiniteNumber(reference.RasterizedClient.Height),
             }),
         }));
         var bounds = ResolveBounds(references, scale, popup.ActualWidth, popup.ActualHeight);
-        // Popup and owner can have different coordinate roots. The peer contract
-        // supplies screen coordinates; two or more items must agree on the origin.
+        // Built-in peers report RasterizedClient bounds. ReadReferences converts
+        // through the associated island; multiple rendered items must agree.
         var origin = new NativePoint();
         Check(ClientToScreen(owner, ref origin));
         var offset = popup.TransformToVisual(null).TransformPoint(new global::Windows.Foundation.Point());
@@ -97,8 +104,12 @@ internal static class NativePopupCapture
             var pixels = new byte[checked(width * height * 4)];
             Check(GetDIBits(memory, bitmap, 0, (uint)height, pixels, ref header, 0) == height);
             for (var index = 3; index < pixels.Length; index += 4) pixels[index] = 255;
-            Require(picker.IsDropDownOpen && popup.IsLoaded, "Picker closed during capture.");
-            var after = ResolveBounds(ReadReferences(popup, items), popup.XamlRoot.RasterizationScale,
+            Require(picker.IsDropDownOpen && popup.IsLoaded && ReferenceEquals(xamlRoot, popup.XamlRoot) &&
+                scale == xamlRoot.RasterizationScale, "Picker closed or changed its coordinate root/scale during capture.");
+            var afterReferences = ReadReferences(popup, items);
+            Require(references.Length == afterReferences.Length && references.Zip(afterReferences).All(pair =>
+                ReferenceEquals(pair.First.RenderedChild, pair.Second.RenderedChild)), "Picker template children changed during capture.");
+            var after = ResolveBounds(afterReferences, xamlRoot.RasterizationScale,
                 popup.ActualWidth, popup.ActualHeight);
             Require(Near(bounds.X, after.X) && Near(bounds.Y, after.Y) && Near(bounds.Width, after.Width) &&
                 Near(bounds.Height, after.Height), "Picker screen geometry changed during capture.");
@@ -116,14 +127,44 @@ internal static class NativePopupCapture
     private static ReferenceBounds[] ReadReferences(Microsoft.UI.Xaml.FrameworkElement popup,
         IReadOnlyList<Microsoft.UI.Xaml.Controls.ComboBoxItem?> items)
     {
+        var xamlRoot = popup.XamlRoot;
+        var scale = xamlRoot.RasterizationScale;
+        var converter = xamlRoot.CoordinateConverter;
+        Require(converter is not null, "The actual popup island has no screen coordinate converter.");
         return items.Select(item =>
         {
             Require(item is { IsLoaded: true, ActualWidth: > 0d, ActualHeight: > 0d }, "Picker item lost its native layout.");
-            var peer = FrameworkElementAutomationPeer.CreatePeerForElement(item!);
+            var container = item!;
+            Require(ReferenceEquals(container.XamlRoot, xamlRoot) &&
+                Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(container) == 1,
+                "Picker item has an unexpected coordinate root or template topology.");
+            var rendered = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(container, 0) as Microsoft.UI.Xaml.FrameworkElement;
+            Require(rendered is { IsLoaded: true, ActualWidth: > 0d, ActualHeight: > 0d },
+                "Picker item has no measurable rendered template root.");
+            var peer = FrameworkElementAutomationPeer.CreatePeerForElement(container);
             Require(peer is not null && !peer.IsOffscreen(), "Picker item has no visible automation peer.");
-            var local = item!.TransformToVisual(popup).TransformBounds(new NativeRect(0, 0, item.ActualWidth, item.ActualHeight));
-            return new ReferenceBounds(peer!.GetBoundingRectangle(), local);
+            var client = peer!.GetBoundingRectangle();
+            // The converter accepts island-local logical coordinates and applies
+            // rasterization itself. Never scale its physical screen result again.
+            var screen = converter!.ConvertLocalToScreen(ToLogical(client, scale));
+            // Automation reports rendered bounds, not the item's outer layout slot.
+            // Measure the actual template child; never bake in theme margins.
+            var local = rendered!.TransformToVisual(popup).TransformBounds(new NativeRect(0, 0, rendered.ActualWidth, rendered.ActualHeight));
+            return new ReferenceBounds(new NativeRect(screen.X, screen.Y, screen.Width, screen.Height), local)
+            {
+                RasterizedClient = client, RenderedChild = rendered,
+            };
         }).ToArray();
+    }
+
+    private static NativeRect ToLogical(NativeRect rasterizedClient, double scale)
+    {
+        Require(FiniteRect(rasterizedClient) && double.IsFinite(scale) && scale > 0,
+            "Invalid native peer bounds or rasterization scale.");
+        var logical = new NativeRect(rasterizedClient.X / scale, rasterizedClient.Y / scale,
+            rasterizedClient.Width / scale, rasterizedClient.Height / scale);
+        Require(FiniteRect(logical), "Peer-to-logical conversion produced invalid bounds.");
+        return logical;
     }
 
     private static NativeRect ResolveBounds(IReadOnlyList<ReferenceBounds> references, double scale, double width, double height)
@@ -164,6 +205,9 @@ internal static class NativePopupCapture
     {
         foreach (var scale in new[] { 1d, 1.25d, 1.5d, 2d })
         {
+            var logical = ToLogical(new NativeRect(-12 * scale, 43 * scale, 90 * scale, 21 * scale), scale);
+            Require(logical.X == -12 && logical.Y == 43 && logical.Width == 90 && logical.Height == 21,
+                "Rasterized peer coordinates must be converted to logical units exactly once.");
             ReferenceBounds[] references = [new(new NativeRect(-120 + 10 * scale, 80 + 8 * scale, 100 * scale, 20 * scale),
                 new NativeRect(10, 8, 100, 20)), new(new NativeRect(-120 + 10 * scale, 80 + 38 * scale, 100 * scale, 20 * scale),
                 new NativeRect(10, 38, 100, 20))];

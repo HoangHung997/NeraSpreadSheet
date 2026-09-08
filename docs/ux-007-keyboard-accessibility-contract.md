@@ -84,6 +84,30 @@ Light → HighContrastLight và Dark → HighContrastDark được kiểm tra kh
 
 ### Correction screen geometry — 08/09, chưa native acceptance
 
+**Correction tiếp theo sau numeric1217:** guard cũ không hợp lệ vì so direct
+peer/rendered bounds với full item slot, đồng thời coi RasterizedClient là screen.
+Actual1217/job101933021836 có6refs450x33, full layout460x37, scale1. Exact
+[WinUI1.7.4 UIA host source](https://github.com/microsoft/microsoft-ui-xaml/blob/5968fc091e07ee77202245dc7f2f36ea08342d51/src/dxaml/xcp/win/shared/UIAHostEnvironmentInfo.cpp)
+và UIAWrapper cho thấy directpeer còn cần conversion; nhận xét public-peer-screen
+ở checkpoint96 bên dưới đã được thay thế, không tiếp tục dùng làm contract.
+
+Helper mới đo single actual rendered template child của mỗi item, không hardcode
+theme margins. Built-in peer RasterizedClient chia RasterizationScale một lần,
+đưa vào `popup.XamlRoot.CoordinateConverter.ConvertLocalToScreen(Rect)` rồi
+đối chiếu physical result với measured child popup-local bounds. Converter tự
+áp dụng rasterization theo [API](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.content.contentcoordinateconverter.convertlocaltoscreen?view=windows-app-sdk-1.7).
+[XamlRoot getter](https://github.com/microsoft/microsoft-ui-xaml/blob/5968fc091e07ee77202245dc7f2f36ea08342d51/src/dxaml/xcp/dxaml/lib/XamlRoot_Partial.cpp)
+lấy converter của associated island, cùng island mà Popup tạo UIA environment.
+Không suy chọn main-window ID hoặc popup HWND để cộng offset thủ công.
+
+Giữ2px finite/dimension/origin guards, actual HWND/PID checks và mọi caption/
+palette/9captures; template root identity, XamlRoot và scale phải giữ nguyên
+qua capture. Unexpected template/clipping/unsupported converter vẫn FAIL, không
+fallback hoặc giảm tolerance. Diagnosticv2 tách peerClientX/Y với converted
+screenX/Y. Thêm pure scale-once regression; actual hosted compilation/native
+capture còn bắt buộc. Local cached assets là1.7.250909003/MAUI10.0.20; đây chưa
+phải attestation của hosted native module. Không production SDK/package đổi.
+
 Cfa96692c full34183383351/job101926823821 thất bại caption-pixel assertion.
 Root download/verify artifact10039767660 (ZIP SHA256
 `f5062a523a00dc5dd86649315eaf859780d85dcddc2ad9f8c2cbbde80e6f71e9`) và xem

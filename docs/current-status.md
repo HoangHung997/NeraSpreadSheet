@@ -1,5 +1,15 @@
 # NeraSpreadSheet current implementation status
 
+## CẬP NHẬT 08/09 — ĐANG SỬA MAPPING PICKER; FILTER ĐÃ REVIEW XONG
+
+Root đã xác định hai giả định sai trong test capture: directpeer chưa ở tọa độ
+màn hình, và bounds hiển thị nhỏ hơn full layout slot. Đã sửa test-only helper
+dùng associated-island converter và actual template child; không sửa SDK để né
+test, không giảm pixel/palette assertions. Build/native finalHEAD còn chờ.
+A8c có1515nonnative+174native PASS,14shell/14popup được review/đối chiếu hashes;
+chưa ghép vì shared capture gate còn đỏ. B chạy một Windows diagnostic snapshot,
+C chạy một cohort có native process observer. WholeB/P3/hardware/100% vẫn OPEN.
+
 ## CẬP NHẬT 08/09 — NỀN39 XANH; PICKER96 CHƯA ĐẠT NATIVE GATE
 
 Root39b34daa và434b1475 đã được kiểm độc lập: sáu workflows đềuSUCCESS.

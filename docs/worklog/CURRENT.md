@@ -1,5 +1,105 @@
 # Current Work Handoff
 
+## Hiện hành — root chuyển Picker qua associated-island converter
+
+Parent1217b898723a020f777c40c4ba989afbe211ab01, branch
+`feature/bootstrap-architecture-v0.1`, PR1 Draft/open/unmerged.
+Root đã đọc A exactprimarysource proposal +UIAHost/UIAWrapper/XamlRoot/Popup,
+public converterAPI và localcachedassets1.7.250909003/MAUI10.0.20. Sửa riêng
+NativePopupCapture: measure singleactualtemplatechild, directpeer divide scale
+→XamlRoot.CoordinateConverter→physicalscreen; nohardcodedmargins/ownerfallback.
+Preserve2px/finite/origin/PID/caption/palette guards/9captures; trước/sau phải
+giữ templatechildidentity/XamlRoot/scale. Numeric schema v2 phân biệt peerClient
+vàconvertedScreen; pure scale-once check. KhôngSDK/backend/UI/launcher/dependency/
+native timing change. Build/actualpixels còn pending; không có acceptance mới.
+Local36transport/architecture/diff vẫn là kiểmtra nhẹ, không native smoke.
+
+C source0a6bbb265c0142c52ccea8f73278f1a19a9deb67 ONEcanonical34186366468:
+C báo hostedC#fixture101935386724/5producers/assembler101935796386 SUCCESS,
+Mac101935885806/Win101935885584/iOS101935885582/Android101935885568 đang chạy.
+Root đã independently43observerfixturePASS trướcgrant; actualconsumer chưa đọc.
+B patch9bb778e4 đã được apply/commitpush exact
+87bcac30a55d1371fe3d6baf1d464288675b2bbf, automaticpaired34186605968 attempt1.
+B báo localtargetedEditing36/Formulas7PASS0skip và2afterblobs khớp. Native build/
+Windows snapshots/Mac unchangedcontrol đang chờ; no thêmworkflow/import/retry.
+A8c18paths frozen/review-ready,4gates+1515/174native+imageQA PASS; sharedlegacy
+MAUIcapture FAIL, chưa nhận10commits hoặc chạy lạisourceA. C5906 phải nhận/B77
+importSKIP và rootparser6d68/tests3b9 giữ nguyên khi ghép. No wholeB/P3/hardware.
+
+Bước tiếp theo duy nhất: đọc exactHEAD mới MAUIWindows actualscreen/pixel proof;
+nếu9captures đúng vàsourcegatesPASS thì release immutable2rootfiles choA/C và
+ghép frozenA18paths, chạy đủ6combinedgates. NếuFAIL dùng actualreference numbers,
+không blindretry/tolerancefallback. B/Cfreeze sauboundedprobe rồirootreview.
+
+## Checkpoint local sau1217 — chưa commit riêng để tránh thêm docs-only CI
+
+B Windows diagnostic-v2 APPROVED sau root fullreport/2filepatch/source/primaryAPI
+review +hash/applycheck. Exactpatch9bb778e40ad5418b40f9d909fa1c41978ef23251e904e47841ac01d9502dce64;
+helper9ecc3be3→2a139c1e, page54848577→b5fc515b. Cho apply/ownlog/commitpush và
+MỘT existing paired TABLE007 native run tự trigger. Windows newfour snapshots,
+Mac unchangedcontrol (không sourcefix); no extra manual/full/iOS/Q/retries.
+Giữ33assertions/Delays/KeyEvents/expected60. Fourfixedphase/kind+boundedbooleans/
+numbers, commitArgumentObserved=false; actualoutputshape/privacy/cleanup và
+nativecompile còn phải verify. PASSinstrumentation không causeproof. B trước
+apply localreport4e12f8d7/native sourceaa; không importC0a6/rootPickerWIP.
+
+C đã commit/push exactapproved4path observer thành
+`0a6bbb265c0142c52ccea8f73278f1a19a9deb67`; chờ MỘT automaticcanonicalcohort.
+
+C observer grant đã tiến sang APPROVED immutable patch11ab73c40d9efc41a6edf884d326670483d66a9fe64f5676348532f24038a13e,
+24616bytes/4ownedpaths. Root đọc fullpatch, tự extract actualobserver/actualfixture:
+43PASS; actualfourafterblobs/reverseapply/Bash/diff PASS. Cho C commit/push đúng
+patch và chạy MỘT canonical MAUI cohort (hosted C# + nativeMac API/consumers).
+Không năm manualcompatibility/full/demo dispatch hoặc retry khi Mac chưaPASS/
+rootPicker chưa released. SourceSDK/app/scheduling/acceptance/legacy/cleanup giữ
+nguyên; kết quả lifetime chỉdiagnostic. Own proposal docs giữ lịch sử local-only;
+grant này mới hơn. Khi có outcome C freeze/report; chưa source release.
+
+RootHEAD/remote `1217b898723a020f777c40c4ba989afbe211ab01` đã push.
+Local36transport tests/architecture/diff PASS. Full34185538586/iOS34185538656/
+Q34185538695/packages34185535547/MAUI34185535578 đã chạy; chưa gọi all-green.
+Chưa dispatch demo riêng cho diagnostic HEAD đang FAIL; final acceptance vẫn
+cần đủ sáu exact-HEAD workflows. Last all-six-green vẫn39b34daa.
+
+Root đọc actual1217 MAUI Windows101933021836: build/46tests/selfchecks PASS,
+actual guard FAIL. Numeric6refs scale1, popup462x234; peer rectangle từngi là
+(18,50+37*i,450,33), local full item (1,5+37*i,460,37). Log fields `screenX/Y`
+ở diagnostic v1 là giá trị directpeer, CHƯA được chứng minh physical screen.
+Root và A đã đọc immutable WinUI1.7.4 tag5968fc09:
+`UIAHostEnvironmentInfo.cpp` nói peer bounds là RasterizedClient;
+`UIAWrapper.cpp/get_BoundingRectangleImpl` còn TransformClientToScreen trước
+trả UIA-provider rectangle. Core peer global bounds có clipping, không phải
+full local layout. Hai giả định của96 chưa đúng; không giảm2px guard/hardcode
+10x4margin/owner origin fallback. A đang READ-ONLY tìm supported popup mapping
+đúng native root. Cached A assets làWindowsAppSDK1.7.250909003/MAUI10.0.20;
+hosted exact version cần đối chiếu trước gọi version-matched proof.
+
+A8c9bdef9 REVIEW-READY NOTRELEASED,18paths/10commits frozen. Root đọc toàn bộ
+delta6a→8c (mouseup/lostcapture, footerlastfill, native tests/capture), không
+thấy scopeviolation/findings mới. ActualWindows101931775113:1515nonnative +174
+native PASS/0skip/build0warnings0errors. Bốn gate34185115408/34185116903/
+34185118300/34185119908 SUCCESS; full34185113478 FAIL chỉ sharedlegacyMAUI
+capture101931774955. Không yêu cầu A retry lỗi chung hoặc gọi five-green.
+Root trực tiếp xem14shell8c và2unique popup;14popup hashes xác nhận7Table bằng
+9ed5871e2020bf78adc4e618f88e668ebdd03a589adecc075d03c0662428eb5e và7worksheet
+bằng9183add798b8b6a747e50028e94a7b23420395155c52f5a1fa2460388e019cbe. Footer và
+paging đầy đủ. Artifact10040312535/manifest20cfb3ff38142061b8fe28f0781414335f4dc7ba3ca5fdc9c4fe718671cc3fd7;
+14cases đềuB3/page100/source250/history0. Offscreen shell/popup captures riêng
+không physical anchor proof; visible OS-input tests kiểm target/pane/offset riêng.
+
+B: source native aa103f94 giữ nguyên, đang chuẩn bị test-only Windows snapshot
+proposal. Core recalc synchronous trước editor-end; không lý do đổi expected60
+hoặc thêmcalcwait. Native TextChanged→MAUI draft là hypothesis, chưa actualcause;
+existing editor-ended event không mang Commit(string) argument nên không gán
+managed-text snapshot thành actualcommit argument. Chưa code/probe grant.
+C: LOCAL4path kqueue observer/fixture đang viết theo grant, remote vẫnfa;
+chưa rootreview exactpatch/fixture và chưa push/probe. Root không sửa các files C.
+
+Bước tiếp theo duy nhất: root review A supported popup-coordinate proposal,
+sửa test helper/caller trong2ownedpaths rồi dùng exactnative/pixel evidence để
+quyết định checkpoint ghép frozenA. Song song review Bproposal/C4pathdiff khi
+handoff đến; chưa wholeB/P3/hardware/100%. C5906 nhận/B77import SKIP như dưới.
+
 ## Hiện hành — số đo Picker trước guard; ba lane tiếp tục riêng
 
 Branch `feature/bootstrap-architecture-v0.1`, PR#1 Draft/open/unmerged.

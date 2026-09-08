@@ -1,6 +1,37 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## B — grant Windows commit evidence v2, không production correction
+
+Root đọc fullproposal/sourceevent/host/helper và primaryMAUI10.0.20 native bridge;
+hash/applycheck PASS. Grant exactpatch
+`9bb778e40ad5418b40f9d909fa1c41978ef23251e904e47841ac01d9502dce64` cho
+`tests/NeraSpreadSheet.Maui.Windows.Smoke/Table007EditorSmoke.cs`
+(9ecc3be3→2a139c1e) và cùng project `SmokePage.cs` (54848577→b5fc515b), ownlog.
+Apply/verify/commitpush rồi MỘT automatic paired TABLE007 native diagnostic.
+Windows snapshots mới; Mac giữ code/control cũ, không coi là Mac fix. Không
+manualextra/full/iOS/Q/retry, production/editor/Mac/workflow/launcher imports.
+
+Tối đa4fixedphase snapshots: after-completion, before-native-enter ngay sau
+existingfocus/80ms/foreground check, canonical-ended, after-native-enter.
+Chỉ booleans/boundednumbers/fixedkind, no rawdraft/value/ID/path; explicit
+commitArgumentObserved=false vì event không expose actualargument. Sameobject/
+address, prefixcomplete/equality, storedformulakind/expected60/source10+20+30 và
+historydelta dùng syntheticdata. Giữ33assertions/Delays/KeyEvents/cleanupfinally.
+Native build/outputshape/privacy/cap checks còn bắt buộc. TextChanged asynchronous
+là hypothesis; không đổi60 hoặc thêmcalcwait và không gọi instrumentedPASS là
+sourcecausecorrected. Sauactualoutcome Bfreeze/report, wholeB vẫn HOLD.
+
 ## C — grant LOCAL watcher proposal; chưa push hoặc probe
+
+**Checkpoint sau review:** root đã đọc full4path patch SHA256
+`11ab73c40d9efc41a6edf884d326670483d66a9fe64f5676348532f24038a13e`,
+kiểm4afterblobs, reverse-apply/Bash/diff và chạy actual-extracted43cases PASS.
+Cho C commit/push đúng reviewed patch và chạy MỘT canonical MAUI cohort gồm
+hosted compiled fixture/native API/consumer. Không manual5compatibility/full/
+demo hoặc retry khi chưa MacPASS và rootPicker chưa released. Không import WIP,
+không sửa thêm docs-only sau hash; grant mới này supersedes LOCAL-only ở dưới.
+Actual native availability/permissions/exit observations còn chưa biết. Chưa
+release/sourcegreen; lifetime diagnosis không đổi completed-result acceptance.
 
 Sau sourcefa Mac chỉ có4stages và Baa directleaf-only, lifetime vẫn chưa rõ.
 Root đọc actual package receiver/Swift launcher/cleanup và primary
