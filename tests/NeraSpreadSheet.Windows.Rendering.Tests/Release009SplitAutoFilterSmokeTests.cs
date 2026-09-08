@@ -378,6 +378,9 @@ public sealed class Release009SplitAutoFilterSmokeTests
     private static void Click(Button button) => button.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
     private static async Task Flush(Host host)
     {
+        // The sample switches its native surface at ContextIdle after a sheet change.
+        // Resolve the surface only after that queued host transition has completed.
+        await host.Window.Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ContextIdle).Task.WaitAsync(TimeSpan.FromSeconds(5));
         host.Window.UpdateLayout();
         if (host.Split is { IsDisposed: false, IsAttached: true } split) split.RenderNow();
         else if (host.Grid.IsLoaded && !Field<bool>(host.Grid, "_disposed") &&

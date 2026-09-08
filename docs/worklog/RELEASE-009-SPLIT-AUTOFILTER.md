@@ -18,6 +18,14 @@
 
 ## Implementation checkpoint, chờ native CI
 
+- `835eb855dfeed8dd6f37652ed5ba1ebd81e3f650`, full `34184114570`, Windows
+  `101928908214`: 172 PASS/2 FAIL/0 skip trong đủ174 native. First OS click,
+  lost-capture, AltDown/command ở từng pane và toàn bộ geometry/zoom đều qua;
+  CLR abort không tái hiện. Hai failures ở chuyển split sheet sang empty Other:
+  fixture chọn old split trước khi sample thực thi host transition ở ContextIdle,
+  rồi chờ standalone layout chưa được pump. Follow-up drain ContextIdle trước
+  khi chọn actual surface để render/wait. Production shell không đổi.
+
 - `88c39e7bcdd2379cad4cb06f3edcd6c3d6b5c370`, full `34183597175`, Windows
   `101927431766`: 166 PASS/8 FAIL/0 skip trong đủ174 native; CLR abort không
   tái hiện. Log chứng minh hit đúng surface, popup mở trước mouse-up rồi đóng
