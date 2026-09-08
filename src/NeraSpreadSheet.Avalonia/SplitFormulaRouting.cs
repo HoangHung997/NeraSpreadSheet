@@ -1,4 +1,6 @@
+using global::Avalonia.Controls;
 using global::Avalonia.Input;
+using global::Avalonia.VisualTree;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
@@ -6,8 +8,9 @@ using NeraSpreadSheet.Layout;
 
 namespace NeraSpreadSheet.Avalonia;
 
-/// <summary>Routes references to the draft owner. The split host calls these methods
-/// directly before activation, rather than relying on sibling tunnel-handler order.</summary>
+/// <summary>Routes reference gestures from every pane to the original draft owner.
+/// The split host calls this before pane activation. Native text editing keeps its
+/// own pointer handling; worksheet reference drags are captured by the split host.</summary>
 internal sealed class SplitFormulaRouting : IDisposable
 {
     private readonly NeraSpreadsheetSplitControl _owner;
@@ -26,24 +29,37 @@ internal sealed class SplitFormulaRouting : IDisposable
             pane.FormulaAssistanceChanged += OnFormulaChanged;
         }
     }
+
     private void OnFormulaChanged(object? sender, EventArgs e)
     {
         if (_disposed) return;
+        if (_editor is { IsEditing: false }) Cancel();
         foreach (var pane in _panes) pane.InvalidateVisual();
     }
+
     public bool TryPressed(PointerPressedEventArgs e)
     {
         if (_disposed || e.Handled || !e.GetCurrentPoint(_owner).Properties.IsLeftButtonPressed ||
             _owner.EditingSpreadsheet is not { IsFormulaDraft: true } editor) return false;
-        if (!TryTarget(e, out var target, out var address) || ReferenceEquals(target, editor)) return false;
+        // TextPresenter and decoration visuals route through the TextBox. A click
+        // there must position/select the caret, not insert a worksheet reference.
+        if (e.Source is global::Avalonia.Visual source &&
+            (source is TextBox || source.GetVisualAncestors().Any(static parent => parent is TextBox))) return false;
+        if (!TryTarget(e, out _, out var address)) return false;
         e.Handled = true;
         editor.BeginPointReference(address);
         if (editor.IsFormulaPointMode)
         {
-            _editor = editor; _pointer = e.Pointer; e.Pointer.Capture(_owner);
+            // This must also capture gestures starting in the editor's own pane.
+            // Otherwise subsequent coordinates stay relative to that pane after
+            // crossing a separator, producing a different reference range.
+            _editor = editor;
+            _pointer = e.Pointer;
+            e.Pointer.Capture(_owner);
         }
         return true;
     }
+
     public bool TryMoved(PointerEventArgs e)
     {
         if (_disposed || _pointer != e.Pointer) return false;
@@ -52,6 +68,7 @@ internal sealed class SplitFormulaRouting : IDisposable
         if (TryTarget(e, out _, out var address)) _editor.UpdatePointReference(address);
         return true;
     }
+
     public bool TryReleased(PointerReleasedEventArgs e)
     {
         if (_disposed || _pointer != e.Pointer) return false;
@@ -60,14 +77,15 @@ internal sealed class SplitFormulaRouting : IDisposable
         _editor = null;
         var pointer = _pointer;
         _pointer = null;
-        // EndPointReference restores the original formula-bar/editor focus.
         editor?.EndPointReference();
         pointer?.Capture(null);
         return true;
     }
+
     private bool TryTarget(PointerEventArgs e, out NeraSpreadsheetControl? target, out CellAddress address)
     {
-        target = null; address = default;
+        target = null;
+        address = default;
         var point = e.GetPosition(_owner);
         var layout = _owner.LastLayout;
         if (layout is null) return false;
@@ -76,16 +94,26 @@ internal sealed class SplitFormulaRouting : IDisposable
         target = _owner.GetPane((SpreadsheetSplitViewPane)id);
         return target.TryHitFormulaCell(e.GetPosition(target), out address);
     }
+
     public void Cancel()
     {
-        var pointer = _pointer; _pointer = null;
-        var editor = _editor; _editor = null;
+        var pointer = _pointer;
+        _pointer = null;
+        var editor = _editor;
+        _editor = null;
         editor?.EndPointReference(false);
         pointer?.Capture(null);
     }
+
     public void Dispose()
     {
-        if (_disposed) return; Cancel(); _disposed = true;
-        foreach (var pane in _panes) { pane.FormulaAssistanceChanged -= OnFormulaChanged; pane.FormulaProjectionOwner = null; }
+        if (_disposed) return;
+        Cancel();
+        _disposed = true;
+        foreach (var pane in _panes)
+        {
+            pane.FormulaAssistanceChanged -= OnFormulaChanged;
+            pane.FormulaProjectionOwner = null;
+        }
     }
 }
