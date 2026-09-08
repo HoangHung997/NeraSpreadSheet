@@ -12,6 +12,9 @@
     <Project Path="src/NeraSpreadSheet.Rendering.Spreadsheet/NeraSpreadSheet.Rendering.Spreadsheet.csproj" />
     <Project Path="src/NeraSpreadSheet.Viewport/NeraSpreadSheet.Viewport.csproj" />
     <Project Path="src/NeraSpreadSheet.OpenXml/NeraSpreadSheet.OpenXml.csproj" />
+    <Project Path="src/NeraSpreadSheet.Bars.Core/NeraSpreadSheet.Bars.Core.csproj" />
+    <Project Path="src/NeraSpreadSheet.Ribbon.Core/NeraSpreadSheet.Ribbon.Core.csproj" />
+    <Project Path="src/NeraSpreadSheet.Iconography/NeraSpreadSheet.Iconography.csproj" />
     <Project Path="src/NeraSpreadSheet.Avalonia/NeraSpreadSheet.Avalonia.csproj" />
   </Folder>
   <Folder Name="/samples/">

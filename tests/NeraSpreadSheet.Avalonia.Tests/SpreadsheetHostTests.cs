@@ -187,11 +187,7 @@ public sealed class SpreadsheetHostTests
         Assert.AreEqual("After reattach", fixture.Session.ActiveWorksheet.GetCell(default).Value.ToString());
     });
 
-    private static async Task OnUi(Action action)
-    {
-        await using var headless = HeadlessUnitTestSession.StartNew(typeof(TestApplication));
-        await headless.Dispatch(action, CancellationToken.None);
-    }
+    private static Task OnUi(Action action) => AvaloniaTestEnvironment.OnUiAsync(action);
 
     private sealed class HostFixture : IDisposable
     {
