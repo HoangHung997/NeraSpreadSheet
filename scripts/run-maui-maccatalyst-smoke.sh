@@ -540,10 +540,15 @@ consume_any_result() {
 }
 
 cleanup() {
+  if [ "$PACKAGE_MODE" = "app-file-v1" ]; then
+    if [[ "${APP_PID:-}" =~ ^[1-9][0-9]*$ ]] && kill -0 "$APP_PID" 2>/dev/null; then
+      kill "$APP_PID" 2>/dev/null || true
+    fi
+    return
+  fi
   if [ -n "${APP_PID:-}" ] && kill -0 "$APP_PID" 2>/dev/null; then
     kill "$APP_PID" 2>/dev/null || true
   fi
-  if [ "$PACKAGE_MODE" = "app-file-v1" ]; then return; fi
   while IFS= read -r replacement_pid; do
     [ -n "$replacement_pid" ] || continue
     if [ "$replacement_pid" != "${APP_PID:-}" ]; then
@@ -618,7 +623,7 @@ fi
 if [ "$PACKAGE_MODE" = "app-file-v1" ]; then
   if [ "$LAUNCH_EXIT" -ne 0 ]; then package_failure; fi
   APP_PID="$(printf '%s\n' "$LAUNCH_OUTPUT" | sed -n 's/^launched_pid=//p' | tail -n 1)"
-  if ! [[ "$APP_PID" =~ ^[0-9]+$ ]]; then package_failure; fi
+  if ! [[ "$APP_PID" =~ ^[1-9][0-9]*$ ]]; then package_failure; fi
   PACKAGE_STAGE="complete-bound-result"
   python3 - "$APP_PID" "$LAUNCH_DIAG_START" "$PACKAGE_PREFIX" "$PACKAGE_CONTEXT" "$WORK_DIR" "$RESULT" "$(cd "$(dirname "$0")" && pwd -P)/verify-native-smoke-result.py" <<'PY'
 import json, os, selectors, subprocess, sys, time
