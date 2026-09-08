@@ -19,6 +19,21 @@ internal static class NativePopupCapture
         Require(picker.IsDropDownOpen && popup.IsLoaded && items.Count >= 2, "The actual Picker must remain open and realized.");
         var references = ReadReferences(popup, items);
         var scale = popup.XamlRoot.RasterizationScale;
+        // Capture bounded numeric evidence before validation: an automation peer
+        // may report clipped bounds, unlike the complete local layout rectangle.
+        Console.WriteLine("NERA_PICKER_CAPTURE_REFERENCES:" + JsonSerializer.Serialize(new
+        {
+            schema = "native-picker-references-v1", scale = FiniteNumber(scale),
+            popupWidth = FiniteNumber(popup.ActualWidth), popupHeight = FiniteNumber(popup.ActualHeight),
+            count = references.Length, clipped = references.Length > 16,
+            items = references.Take(16).Select((reference, index) => new
+            {
+                index, screenX = FiniteNumber(reference.Screen.X), screenY = FiniteNumber(reference.Screen.Y),
+                screenWidth = FiniteNumber(reference.Screen.Width), screenHeight = FiniteNumber(reference.Screen.Height),
+                localX = FiniteNumber(reference.Local.X), localY = FiniteNumber(reference.Local.Y),
+                localWidth = FiniteNumber(reference.Local.Width), localHeight = FiniteNumber(reference.Local.Height),
+            }),
+        }));
         var bounds = ResolveBounds(references, scale, popup.ActualWidth, popup.ActualHeight);
         // Popup and owner can have different coordinate roots. The peer contract
         // supplies screen coordinates; two or more items must agree on the origin.
@@ -52,7 +67,8 @@ internal static class NativePopupCapture
             ownerDerivedX = origin.X + offset.X * scale, ownerDerivedY = origin.Y + offset.Y * scale,
             screenX = bounds.X, screenY = bounds.Y, width, height, referenceWindowIsOwner = referenceWindow == owner,
         }));
-        // Reject another process or an occluded popup before reading any pixels.
+        // Reject other-process coverage. Same-process occlusion still requires
+        // the caller's independent per-caption and palette pixel assertions.
         foreach (var dx in new[] { 1, width / 2, width - 2 })
         foreach (var dy in new[] { 1, height / 2, height - 2 })
         {
@@ -136,6 +152,8 @@ internal static class NativePopupCapture
         double.IsFinite(value.Width) && double.IsFinite(value.Height) && value.Width > 0 && value.Height > 0;
 
     private static bool Near(double left, double right) => Math.Abs(left - right) <= 2d;
+
+    private static double? FiniteNumber(double value) => double.IsFinite(value) ? value : null;
 
     private static void Require(bool condition, string message)
     {

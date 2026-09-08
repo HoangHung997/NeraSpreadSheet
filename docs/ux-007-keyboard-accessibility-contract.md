@@ -111,6 +111,16 @@ Windows native run và ảnh đúng finalHEAD còn bắt buộc. Không SDK, pac
 production Ribbon/editor/renderer, launcher, timing/retry hoặc permission change.
 Rollback riêng hai test files về trước correction; không migration user data.
 
+Root96f04fe actual34184752596/job101930731588: build,46MAUI tests và native
+geometry self-checks PASS; actual Picker FAIL ở guard screen/local dimensions,
+trước khi tạo popup PNG. Chưa có numeric rectangles để xác định clipping, DPI
+hay nguồn khác. Không giảm guard: bổ sung diagnostic fixed schema trước guard,
+tối đa16references, chỉ numeric geometry (non-finite thànhnull), không captions/
+HWND/PID/path. [WinUI source](https://github.com/microsoft/microsoft-ui-xaml/blob/main/dxaml/xcp/dxaml/lib/FrameworkElementAutomationPeer_partial.cpp)
+cho thấy core peer lấy global bounds có clipping; đây là lý do cần đo, chưa phải
+cause proof cho runner. Same-PID nine-point guard không chứng minh popup identity;
+caption/palette pixel assertions vẫn bắt buộc. Timing/acceptance không đổi.
+
 U2 actual screen reader và U5 physical multi-monitor DPI/real touch vẫn OPEN.
 UIA peers, synthetic input và raster-scale exports không thay các bằng chứng này.
 Apple/Android shell compile là cổng build; chưa phải native keyboard/touch smoke.

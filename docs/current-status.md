@@ -1,5 +1,16 @@
 # NeraSpreadSheet current implementation status
 
+## CẬP NHẬT 08/09 — NỀN39 XANH; PICKER96 CHƯA ĐẠT NATIVE GATE
+
+Root39b34daa và434b1475 đã được kiểm độc lập: sáu workflows đềuSUCCESS.
+Root96f04fe có nămSUCCESS, fullCI FAIL riêng native Picker screen/local geometry
+guard; build và synthetic self-checks PASS không thay actual capture proof.
+Đang bổ sung số đo giới hạn, không giảm điều kiện nghiệm thu. A8c9bdef9 kiểm lại
+footer bộ lọc full/narrow sau khi QA tìm thấy action bị cắt; B điều tra riêng
+Windows Table formula-value assertion và Mac chưa quan sát queued callback;
+C chuẩn bị observer chẩn đoán lifetime, chưa được chạy probe mới. Whole B,
+final combined P3 và hardware acceptance vẫn OPEN. [Handoff](worklog/CURRENT.md).
+
 ## CẬP NHẬT 08/09 — GIỮ iOS GATE ĐỎ, ĐANG KHOANH VÙNG TRANSPORT
 
 Last all-six-green làf3d65d03. Root docs-onlyc7b8787f bị iOS gate từ chối marker

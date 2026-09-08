@@ -1,5 +1,34 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## C — grant LOCAL watcher proposal; chưa push hoặc probe
+
+Sau sourcefa Mac chỉ có4stages và Baa directleaf-only, lifetime vẫn chưa rõ.
+Root đọc actual package receiver/Swift launcher/cleanup và primary
+[Apple kqueue](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/kqueue.2.html)/
+[Python select](https://docs.python.org/3/library/select.html#kqueue-objects).
+Cho C chuẩn bị local diff trong đúng4existingownedpaths:
+`scripts/run-maui-maccatalyst-smoke.sh` (package Python observer only),
+`eng/release-009-maui/emission-fixture/Program.cs` (actual extracted implementation
+fixtures), `docs/release-009-maui-package-consumer-contract.md`, own
+`docs/worklog/RELEASE-009-MAUI.md`. Root phải review exact patch/hash/tests
+trước commit/push hoặc một native run mới; source remote vẫnfa.
+
+Đăng ký một kqueue process NOTE_EXIT cho numeric launchedPID, poll timeout0
+tối đa1event tại existing loop boundaries và finally; kill0 chỉ observation.
+Xử lý immediate event, EV_ERROR/OSError registration, ESRCH/denied/unavailable,
+unexpected events UNKNOWN. Snapshot đóng trước Bash cleanup để không gán TERM
+của harness thành spontaneous exit. Fixed booleans + capped pollCount, combined
+summaries<=2KiB; không PID/timestamp/path/process name/errno text/kevent.data/
+exitcode/rawlogs/env. Không đổi scheduling native app, result acceptance,
+90s/query2MiB/10s bounds, launch flags/security/signing hay parser/classifier.
+
+Fixtures phải gọi actual watcher/reducer: immediate/later exit/noevent, absent,
+denied/unavailable, malformed/mismatched/error, before-cleanup snapshot,
+privacy/caps và diagnostic-only vẫn FAIL. NOTE_EXIT hoặc absence chỉ cung cấp
+observed termination/absence, không cause/clean exit/unobserved callback claims.
+Pre-registration gap/PID reuse vẫn UNKNOWN; presentPID không live-original proof.
+Root Picker96 chưa released vì dimension guard FAIL, không C tự import/sửa.
+
 ## Root-owned test correction — native Picker screen origin
 
 Cfa actual failure artifact10039767660 đã root xem/verify: alleged open-Picker

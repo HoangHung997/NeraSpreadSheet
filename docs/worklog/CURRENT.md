@@ -1,5 +1,50 @@
 # Current Work Handoff
 
+## Hiện hành — số đo Picker trước guard; ba lane tiếp tục riêng
+
+Branch `feature/bootstrap-architecture-v0.1`, PR#1 Draft/open/unmerged.
+Root96f04fe747794695839d1826a378ee5e1cc7dc18: full34184752596 FAIL riêng
+MAUI Windows101930731588 (Table capture missing là fallout skipped step).
+Build/46MAUI tests/native geometry self-checks PASS; actual Picker bị từ chối:
+`Item screen bounds do not verify the popup DPI scale`, chưa tạo popup PNG.
+Artifact10040201019 không phải completed nine-image proof. iOS34184752592,
+Q34184752594/packages34184750562/MAUI34184750527/demo34184922268 SUCCESS.
+Root giữ strict guards, chỉ thêm capped numeric reference diagnostic trước
+validation và sửa mô tả same-PID guard cho đúng giới hạn. Không SDK/launcher/
+timing/retry/user workbook mutation. Native final HEAD vẫn bắt buộc.
+
+Last verified all-six-green:39b34daaa7078346d160ea8eae4fbf76e6d091f6:
+full34183726364/iOS34183726424/Q34183726363/packages34183721792/
+MAUI34183721829/demo34183783461. Root434 cũng all-six-green:
+full34183578378/iOS34183578371/Q34183578376/packages34183575876/
+MAUI34183575816/demo34183638432. Không suy đã sửa cause malformed990 c7.
+
+A80d98b07 native174PASS nhưng actual PNG cho thấy footer bị cắt; không nhận.
+Final candidate8c9bdef9a1355646955a6785a5a2a7dd66e506c3 sửa DockPanel footer,
+bổ sung native bounds/hit checks và actual action hits trong1280/640captures.
+Giữ18paths/page100/max540/all5controls;5exact gates/28newPNG review còn chờ.
+A read-only review96 không thấy compile blocker, nêu same-PID guard không
+chứng minh popup identity; root đồng ý, giữ caption/palette assertions.
+
+B witnessaa103f94/run34183813450 đã dùng: Mac101928049783 FAIL/direct leaf1,
+queued leaf0/no true callback; không chứng minh scheduling hay crash cause.
+Windows101928049979 FAIL AwaitPrimaryInput/cycle0/frame9 tại formula-value
+assertion, chưa biết actualvalue; khác historical reattach crash. B local159856ef
+report-only chưa push, native source vẫnaa103f94. B chỉ read-only Windows
+input→draft→commit→calc proposal, không code/probe trước review.
+
+Cfa96692c source vẫn frozen; root duyệt LOCAL diagnostic watcher proposal
+trong4ownedpaths ở wave: package Python receiver, actual linked fixtures,
+consumer contract và own log. Chưa push/probe. kqueue NOTE_EXIT/kill0 chỉ
+quan sát numericPID trước cleanup; hiện diện không chứng minh live-original,
+absent/exit không chỉ cause/clean exit. Không import root Picker WIP hoặc Bpage.
+C5906 phải nhận/B77 import phải SKIP khi ghép final; shared rootparser6d68/
+tests3b9 giữ nguyên36PASS/0skip. Chưa nhận whole lane/P3/hardware/100%.
+
+Bước tiếp theo duy nhất: đọc numeric Picker reference evidence tại correction
+HEAD mới, phân biệt peer clipping/coordinate/DPI trước thay capture algorithm.
+Trong lúc chờ, review final A và local C proposal; không chạy lại source lỗi cũ.
+
 ## Hiện hành — root sửa test-only Picker screen geometry, Cfa vẫn frozen
 
 Branch `feature/bootstrap-architecture-v0.1`, PR#1 Draft/open/unmerged.
