@@ -13,6 +13,13 @@
 
 ## Implementation checkpoint, chờ native CI
 
+- Checkpoint `ee8fbea5b1f0c8c40da1190e8173668912036b53` full CI `34181243092`:
+  Core SUCCESS; Windows job `101920628361` FAIL compile test vì ButtonBase trùng
+  WPF/WinForms global using. Chưa chạy native/capture; follow-up thêm WPF alias.
+- Follow-up cũng chặn events từ controls thuộc popup/page cũ, gồm search/Apply/
+  checkbox/date drill, và test old-control race cùng exact fractional offsets.
+  Không làm yếu assertion hay sửa test cũ để nhận xanh.
+
 - Một existing paged presenter từ đầu sample; input đi qua actual split adorner.
   Internal controller/frame hooks và private UI context, không presenter/model mới.
 - Geometry từ presented native frame của từng pane; shared Table/worksheet hits
