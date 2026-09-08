@@ -28,6 +28,11 @@
   Root review rồi mới cấp B import; không giao full opt-in WIP hoặc B writer.
   Khi root nhận B phải skip classifier import của B để không ghi đè C launcher.
 - Windows/Mac package native mới, native editor/whole B/P3/hardware vẫn OPEN.
+- First experiment `55ddb62f`, MAUI34181591521: hosted common fixture SUCCESS,
+  producers đang chạy tại checkpoint. Bổ sung positive-PID guard riêng package
+  cleanup để không nhận0/process-group values; hosted Mac fixture extract chính
+  actual cleanup function và thay kill bằng counter để kiểm invalid/positive IDs.
+  New source phải chạy whole cohort/sáu gates riêng, không nhận parent CI thay.
 
 ## Native iOS consumer — checkpoint đã nhận
 

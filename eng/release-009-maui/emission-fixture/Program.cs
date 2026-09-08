@@ -154,6 +154,19 @@ internal static class Program
         if (!OperatingSystem.IsMacOS()) return;
         Console.WriteLine(nameof(MacLauncherShouldRejectInvalidIdentityAndUnsignedPayload));
         var repository = Environment.GetEnvironmentVariable("GITHUB_WORKSPACE")!;
+        var launcherSource = File.ReadAllText(Path.Combine(repository, "scripts", "run-maui-maccatalyst-smoke.sh"));
+        var cleanupStart = launcherSource.IndexOf("cleanup() {", StringComparison.Ordinal);
+        var cleanupEnd = launcherSource.IndexOf("\n}\ntrap cleanup EXIT", cleanupStart, StringComparison.Ordinal) + 2;
+        Require(cleanupStart >= 0 && cleanupEnd > cleanupStart, "Missing actual Mac cleanup function.");
+        var cleanup = launcherSource[cleanupStart..cleanupEnd];
+        var cleanupHarness = "PACKAGE_MODE=app-file-v1\nAPP_PID=\"$1\"\ncalls=0\n" +
+            "kill() { calls=$((calls+1)); return 0; }\n" + cleanup + "\ncleanup\ntest \"$calls\" -eq \"$2\"";
+        string[] processIds = ["", "0", "-1", "00123", "12345"];
+        foreach (var processId in processIds)
+        {
+            string[] check = ["-c", cleanupHarness, "fixture", processId, processId == "12345" ? "2" : "0"];
+            Require(RunTool("bash", check) == 0, "Mac package cleanup did not restrict the process identity.");
+        }
         var app = Path.Combine(root, "Unsigned.app");
         var contents = Path.Combine(app, "Contents");
         var binaries = Path.Combine(contents, "MacOS");
