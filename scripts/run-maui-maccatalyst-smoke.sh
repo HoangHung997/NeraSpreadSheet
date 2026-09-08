@@ -742,6 +742,7 @@ class PackageProcessLifetimeObserver:
             'livenessDenied': False, 'finalLivenessChecked': False, 'pidPresentAtFinalCheck': False,
             'finalObservationBeforeCleanup': False, 'pollLimitReached': False, 'pollCount': 0,
             'exitCategory': 'unknown', 'currentRunAssociated': False,
+            'privateContextVerified': False, 'lastScopedQuerySucceeded': False, 'exitStatusDecoded': False,
         }
         self._valid_pid = type(target_pid) is int and target_pid > 0
         if not self._valid_pid:
@@ -873,7 +874,7 @@ class PackageProcessLifetimeObserver:
         except (TypeError, ValueError, OverflowError):
             self._state['observerError'] = True
 
-    def finish(self, diagnostics=None, verified_context=False):
+    def finish(self, diagnostics=None, verified_context=False, collection_succeeded=False):
         if not self._frozen:
             try:
                 self.observe(final=True)
@@ -887,7 +888,13 @@ class PackageProcessLifetimeObserver:
                         self._state['observerError'] = True
                     self._queue = None
                     self._usable = False
-                self._state['currentRunAssociated'] = self._valid_pid and package_run_associated(diagnostics, verified_context)
+                self._state['privateContextVerified'] = verified_context is True
+                self._state['lastScopedQuerySucceeded'] = collection_succeeded is True
+                self._state['exitStatusDecoded'] = self._status_category in (
+                    'waitExitZero', 'waitExitNonzero', 'signalAbort', 'signalSegv', 'signalBus',
+                    'signalKill', 'signalTerm', 'signalOther')
+                self._state['currentRunAssociated'] = self._valid_pid and package_run_associated(
+                    diagnostics, self._state['privateContextVerified'] and self._state['lastScopedQuerySucceeded'])
                 if self._state['currentRunAssociated']:
                     self._state['exitCategory'] = self._status_category
         return dict(self._state)
@@ -970,7 +977,7 @@ finally:
     # BEGIN PACKAGE PROCESS FINALIZATION
     # Freeze and close the watcher before this process returns to Bash's cleanup trap.
     diagnostics = summarize_package_diagnostics(last_data, transport_nonce)
-    lifetime = process_observer.finish(diagnostics, verified_context and diagnostic_collection_succeeded)
+    lifetime = process_observer.finish(diagnostics, verified_context, diagnostic_collection_succeeded)
     # This fixed summary is diagnostic only. The independent strict result parser decides acceptance.
     print(json.dumps(diagnostics, separators=(',', ':')))
     print(json.dumps(lifetime, separators=(',', ':')))

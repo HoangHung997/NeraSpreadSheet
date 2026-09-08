@@ -124,7 +124,7 @@ caps/privacy và snapshot trước cleanup. CLI test giữ full valid file + dia
 lifetime-only ở pending/no output. Hosted C# build và actual Mac API vẫn chưa chạy
 cho local patch; root phải review exact patch/hash trước commit/push/native run.
 
-## Trạng thái thoát Darwin — bản vá cục bộ sau source 0a
+## Trạng thái thoát Darwin — lịch sử đề xuất trước source 01a0
 
 Source `0a6bbb265c0142c52ccea8f73278f1a19a9deb67`, canonical run `34186366468`,
 đã compile/chạy observer thật: kernel EXIT và PID vắng mặt được ghi nhận trước
@@ -189,6 +189,52 @@ dù full file hợp lệ. Fake APIs không là native proof; C# hosted compile/n
 runtime cần grant riêng sau root review immutable patch/hash. Không thay render,
 input hoặc workbook nên không thêm benchmark; P3/hardware vẫn là gate riêng.
 Rollback bản vá này chỉ reverse bốn owned-file deltas về0a; không migration.
+
+## Ba cờ chẩn đoán association/status — local pending sau source 01a0
+
+Source `01a0fa6b466f8e9806c10ccae6d1976184db2ecc`, canonical run `34190050107`,
+có10/11jobs SUCCESS. Mac job `101946706676` build0warnings/0errors nhưng FAIL
+complete-bound-result: app-file0/unified3097, chỉ hai constructor stages được
+quan sát. Watch registered/EXIT/PID absent trước cleanup, pollCount51; category
+`unknown`, association false. Summary mốc chạy hợp lệ chưa cho biết context riêng
+hay lượt query cuối không đạt, hoặc private classifier đã giải mã status hay chưa.
+Không suy nguyên nhân native/managed, clean exit, birth identity hay path writable.
+
+Root chỉ cấp bản vá cục bộ trong observer init/finish/final diagnostic assembly,
+actual extracted fixtures và hai own docs. Remote giữ01a0, bản vá mới chưa commit/
+push/native/CI. Snapshot lifetime hiện hữu thêm đúng ba Boolean:
+
+- `privateContextVerified`: input context phải chính là Boolean true; integer1,
+  string hoặc truthy object đều thành false.
+- `lastScopedQuerySucceeded`: input từ collection flag hiện hữu phải chính là
+  Boolean true. False có thể là chưa có query trả về hoặc query cuối không trả về
+  thành công; true không tự chứng minh diagnostic/result payload hợp lệ.
+- `exitStatusDecoded`: private classifier đang giữ một trong tám finite categories
+  khác `unknown` tại thời điểm freeze, trước association masking. False không chứng
+  minh API chắc chắn thiếu hoặc chưa từng decode. Không xuất category không được
+  association, raw status, numeric signal/PID, path, nonce, thời gian hay error text.
+
+Internal finish nhận riêng hai guard inputs, default cả hai false. Association
+vẫn là valid PID + hai guards + strict diagnostic summary. Category công khai vẫn
+`unknown` nếu association false, kể cả `exitStatusDecoded=true`. Ba Boolean được
+đóng băng cùng snapshot trước cleanup; gọi finish thêm, sửa input hoặc return dict
+không đổi dữ liệu đã lưu. Tổng hai JSON summaries tối đa1155bytes theo fixed fields,
+counts64/poll128/longest category, vẫn dưới2KiB. Chúng chỉ mô tả chẩn đoán.
+
+Không sửa classifier/registration/observe/query/launch/Swift/app/SDK/cleanup,
+deadline90s, poll128, predicate PID/nonce, caps, log flags hoặc shared parser.
+Query cuối thất bại vẫn mask category; không thêm grace period, fallback, query
+hay thay strict full result/cohort acceptance. Native status0 không làm smoke PASS.
+
+194 actual extracted observer/status/finalization/receiver cases kiểm bốn tổ hợp
+guards, decoded/bare/missing API/malformed/permission, strict Boolean/defaults,
+earlier success rồi terminal query failure ở fake90s, privacy/bounds và immutable
+snapshot trước cleanup. Fixture dùng fake clock/kernel/query/wait APIs/CLI/filesystem
+cho receiver; không là native proof. Actual shared CLI kiểm diagnostics/status-only
+pending, explicit failure và complete marker riêng; hosted fixture còn đưa explicit
+failure từ chính consumer Emit qua CLI để bảo đảm các cờ không che failure.
+Local không .NET/native build; C# compile/native và CI của delta mới chưa được grant.
+Rollback chỉ reverse bốn owned-file deltas về01a0; không migration hay public publish.
 
 ## Matrix và giới hạn
 

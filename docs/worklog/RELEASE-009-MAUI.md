@@ -1,6 +1,46 @@
 # RELEASE-009 MAUI — Handoff lane C
 
-## Hiện hành — 08/09: local NOTE_EXITSTATUS, chờ root review
+## Hiện hành — 08/09: local ba Boolean, chờ root review
+
+- Branch `feature/release-009-maui-desktop-consumer`, HEAD/remote giữ
+  `01a0fa6b466f8e9806c10ccae6d1976184db2ecc`; PR1 Draft/open/unmerged.
+  Root duyệt read-only analysis rồi cấp LOCAL ONLY đúng4paths: package observer
+  init/finish/finalization trong Mac launcher, actual extracted Program fixtures,
+  own contract và worklog này. Chưa grant commit/push/CI/native cho delta mới.
+- Source01a0 là exact approved packet9868, đã chạy canonical `34190050107`,
+  attempt1:10/11jobs SUCCESS. Hosted C#fixture `101946083141`,5producers và
+  assemble `101946593475` PASS. Windows `101946706681`9frames/child exit0,
+  Android `101946706687`10frames, iOS `101946706564`9frames, tất cả own cohort/
+  nonce/app hash/public postconditions PASS. Mac `101946706676` build0/0 nhưng
+  complete-bound-result FAIL: app-file0/unified3097, hai constructor stages1,
+  Loaded/dispatch/callback/run/later chưa được quan sát. Watch registered/kernel
+  EXIT/PID absent trước cleanup, final check có/PID không còn, pollCount51;
+  denied/unavailable/error/limit false. Category unknown/association false.
+- Read-only actual reducer kiểm đúng actual summary +True PASS/+False FAIL;
+  source cho biết context/query combined Boolean false, chưa biết runtime guard
+  nào. Sáu fake receiver cases cho thấy query cuối thất bại có thể mask decoded
+  status; không coi đó là native cause. Root xác minh độc lập kết luận này.
+- Local delta thêm đúng privateContextVerified/lastScopedQuerySucceeded/
+  exitStatusDecoded vào frozen snapshot; guard inputs strict Boolean/defaultfalse,
+  decoded Boolean trước masking chỉ từ finite private category. Giữ association/
+  public category masking và toàn bộ classifier/registration/observe/query/launch/
+  cleanup/90s/128/privacy/caps/strict acceptance. Không import root/A/B/capture/
+  parser hoặc đổi source scope; Mục2/Mục3 vẫn queued.
+- 194 actual extracted cases PASS local, gồm4guardcombos/status availability,
+  strict types/defaults, earlier query success rồi fake deadline failure,
+  <=2KiB/no alias/precleanup; actual shared CLI pending2/failure1/complete0 PASS.
+  Native calls/clocks/query/receiver file writes đều fake trong loop fixture;
+  không .NET/native build. New hosted C# explicit-Emit-failure assertion chưa
+  compile/run ở delta này; actual source01a0 CI không thay new-delta proof.
+  Existing33shared+23package+13frozen classifier PASS/0skip; architecture/packaging,
+  Bash/PowerShell parser/four inline Python/diff PASS. Byte-boundary check xác nhận
+  Mac chỉ đổi init/finish/final call; classifier/registration/observe/query/launch/
+  cleanup và9frozen files không đổi.
+- Một bước tiếp theo duy nhất: gửi một immutable4path patch/hash/before-after
+  blobs/fixture receipt cho root review rồi HOLD. Không docs-only push hoặc chạy
+  cohort khi chưa có grant mới. Các failures/holds phía dưới được giữ làm lịch sử.
+
+## Lịch sử trước source 01a0 — local NOTE_EXITSTATUS
 
 - Branch `feature/release-009-maui-desktop-consumer`, HEAD/remote giữ
   `0a6bbb265c0142c52ccea8f73278f1a19a9deb67`; PR1 Draft/open/unmerged.

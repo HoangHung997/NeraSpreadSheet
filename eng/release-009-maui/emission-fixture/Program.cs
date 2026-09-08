@@ -148,9 +148,15 @@ internal static class Program
         var finalEnd = source.IndexOf("# END PACKAGE PROCESS FINALIZATION", StringComparison.Ordinal);
         Require(finalStart >= 0 && finalEnd > finalStart, "Missing actual process diagnostic finalization.");
         var finalization = source[finalStart..finalEnd].Replace("\n    ", "\n", StringComparison.Ordinal);
+        var receiverStart = source.IndexOf("process_observer = PackageProcessLifetimeObserver(int(pid))", StringComparison.Ordinal);
+        Require(receiverStart >= 0, "Missing actual package receiver entry.");
+        var receiverBodyStart = source.IndexOf('\n', receiverStart) + 1;
+        var receiverEnd = source.IndexOf("\nPY", receiverBodyStart, StringComparison.Ordinal);
+        Require(receiverBodyStart > receiverStart && receiverEnd > receiverBodyStart, "Missing actual package receiver body.");
         var script = Path.Combine(root, "diagnostic-fixture.py");
         File.WriteAllText(script, "import json, os, sys\nfrom pathlib import Path\n" + source[start..end] + source[observerStart..observerEnd] +
             "\nfinalization = " + JsonSerializer.Serialize(finalization) + "\n" +
+            "receiver_body = " + JsonSerializer.Serialize(source[receiverBodyStart..receiverEnd]) + "\n" +
             DiagnosticSummaryFixture + ProcessObserverFixture);
         var inputs = Path.Combine(root, "diagnostic-inputs.json");
         File.WriteAllBytes(inputs, JsonSerializer.SerializeToUtf8Bytes(messages));
@@ -176,6 +182,16 @@ internal static class Program
             "--minimum-frames", "3", "--output", output];
         Require(RunTool("python", verify) == 2 && !File.Exists(output),
             "Diagnostic-only log and full file incorrectly authorized a native result.");
+        var failurePayload = Path.Combine(root, "diagnostic-failure-payload.json");
+        Configure(Protocol, TransportNonce, failurePayload);
+        var failureMarker = Capture(() => PackageProvenance.Emit("failure", 3, Details()));
+        File.WriteAllBytes(context, JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            schema = "native-result-file-context-v1", path = failurePayload, transportNonce = TransportNonce,
+        }));
+        File.AppendAllText(console, Environment.NewLine + failureMarker);
+        Require(RunTool("python", verify) == 1 && !File.Exists(output),
+            "Diagnostic flags or decoded zero status hid an explicit actual consumer failure.");
     }
 
     private const string DiagnosticSummaryFixture = """
@@ -281,22 +297,26 @@ def create(events, probes=(), **options):
 expected_keys = {'schema', 'watchRegistered', 'registrationAbsent', 'watchDenied', 'watchUnavailable',
     'observerError', 'exitEventObserved', 'pidAbsentObserved', 'livenessDenied', 'finalLivenessChecked',
     'pidPresentAtFinalCheck', 'finalObservationBeforeCleanup', 'pollLimitReached', 'pollCount',
-    'exitCategory', 'currentRunAssociated'}
+    'exitCategory', 'currentRunAssociated', 'privateContextVerified', 'lastScopedQuerySucceeded', 'exitStatusDecoded'}
 categories = {'unknown', 'waitExitZero', 'waitExitNonzero', 'signalAbort', 'signalSegv', 'signalBus',
               'signalKill', 'signalTerm', 'signalOther'}
-def finish(observer, diagnostics=associated_diagnostics, verified_context=True):
+def finish(observer, diagnostics=associated_diagnostics, verified_context=True, collection_succeeded=True):
     global observer_cases
     observer_cases += 1
-    result = observer.finish(diagnostics, verified_context)
+    result = observer.finish(diagnostics, verified_context, collection_succeeded)
     encoded = json.dumps(result, separators=(',', ':'))
     largest_stages = dict(positive, stages=dict.fromkeys(positive['stages'], 64))
     combined = encoded + '\n' + json.dumps(largest_stages, separators=(',', ':')) + '\n'
-    assert len(combined.encode()) <= 2048 and str(target_pid) not in encoded and 'private' not in encoded
+    # Only this approved Boolean key contains the privacy sentinel; all values remain checked.
+    privacy_text = encoded.replace('"privateContextVerified":', '"contextFlag":')
+    assert len(combined.encode()) <= 2048 and str(target_pid) not in encoded and 'private' not in privacy_text
     assert nonce not in encoded and set(result) == expected_keys
     assert result['schema'] == 'nativePackageProcessLifetimeV1'
     assert type(result['pollCount']) is int and 0 <= result['pollCount'] <= 128
     assert result['exitCategory'] in categories
     assert result['currentRunAssociated'] or result['exitCategory'] == 'unknown'
+    assert result['privateContextVerified'] == (verified_context is True)
+    assert result['lastScopedQuerySucceeded'] == (collection_succeeded is True)
     assert all(type(value) is bool for key, value in result.items() if key not in ('schema', 'pollCount', 'exitCategory'))
     assert observer.finish() == result
     observer.observe()
@@ -306,6 +326,7 @@ def finish(observer, diagnostics=associated_diagnostics, verified_context=True):
 observer, queue, probe, timeline = create([[Event()]])
 immediate = finish(observer)
 assert immediate['watchRegistered'] and immediate['exitEventObserved'] and queue.closed
+assert not immediate['exitStatusDecoded']
 observer, queue, probe, timeline = create([[], [], [Event(flags=0x8010)]])
 observer.observe()
 later = finish(observer)
@@ -413,6 +434,7 @@ for status, exited, value, category in status_cases:
     observer, queue, probe, timeline = create([[event]], native_os=api)
     result = finish(observer)
     assert result['exitCategory'] == category and result['exitEventObserved'] and result['currentRunAssociated']
+    assert result['exitStatusDecoded']
     assert event.data_reads == 1 and len(api.calls) == 3 and len(queue.calls) == 1
     if status == 0:
         complete_status_summary = dict(result)
@@ -424,6 +446,7 @@ for fflags, change_request in [(0x80000000, False), (0x84000000, True)]:
     if change_request: observer._requested_flags = 0x80000000
     result = finish(observer)
     assert result['exitEventObserved'] and result['exitCategory'] == 'unknown' and event.data_reads == 0
+    assert not result['exitStatusDecoded']
     assert not api.calls and len(queue.calls) == 2
 for fflags in [0x04000000, 0xC4000000, True]:
     event = Event(fflags=fflags, status=AssertionError('Invalid echo status read.'))
@@ -437,6 +460,7 @@ for status in [None, True, False, -1, 65536, 2 ** 80, 1.0, '0', {}, [],
     observer, queue, probe, timeline = create([[event]], native_os=api)
     result = finish(observer)
     assert result['exitEventObserved'] and result['exitCategory'] == 'unknown' and not api.calls
+    assert not result['exitStatusDecoded']
 for method in ['WIFEXITED', 'WEXITSTATUS', 'WIFSIGNALED', 'WTERMSIG']:
     api, event = WaitApi(0, True, 0), Event(fflags=0x84000000, status=AssertionError('Unavailable API data read.'))
     setattr(api, method, None)
@@ -477,6 +501,7 @@ for code in [errno.EACCES, errno.EPERM, errno.ENOTSUP]:
     result = finish(observer)
     assert result['pidAbsentObserved'] and result['finalLivenessChecked'] and not api.calls
     assert not result['exitEventObserved'] and result['exitCategory'] == 'unknown' and len(queue.calls) == 1
+    assert not result['exitStatusDecoded']
 
 bad_summaries = [None, {}, [], positive, dict(associated_diagnostics, matchingDiagnostics=False),
     dict(associated_diagnostics, schema='unknown'), dict(associated_diagnostics, extra=True),
@@ -492,10 +517,12 @@ for diagnostics in bad_summaries:
     observer, queue, probe, timeline = create([[Event(fflags=0x84000000, status=0)]], native_os=WaitApi(0, True, 0))
     result = finish(observer, diagnostics)
     assert result['exitEventObserved'] and not result['currentRunAssociated'] and result['exitCategory'] == 'unknown'
+    assert result['exitStatusDecoded']
 for context in [False, None, 1, 'true']:
     observer, queue, probe, timeline = create([[Event(fflags=0x84000000, status=0)]], native_os=WaitApi(0, True, 0))
     result = finish(observer, verified_context=context)
     assert not result['currentRunAssociated'] and result['exitCategory'] == 'unknown'
+    assert result['exitStatusDecoded']
 for record in [None, {}, [], dict(private_context, extra=True), dict(private_context, schema='unknown'),
                dict(private_context, path='relative/result.json'), dict(private_context, path=None),
                dict(private_context, path=str(Path(sys.argv[3]).absolute()) + '\x00'),
@@ -513,8 +540,12 @@ timeline.append('cleanup')
 queue.results.append([Event(fflags=0x84000000, status=9)])
 mutable_diagnostics['stages'].clear()
 result['exitCategory'] = 'signalKill'
+result['privateContextVerified'] = False
+result['lastScopedQuerySucceeded'] = False
+result['exitStatusDecoded'] = False
 observer.observe()
 assert observer.finish(None, False) == frozen_status and frozen_status['exitCategory'] == 'waitExitZero'
+assert frozen_status['privateContextVerified'] and frozen_status['lastScopedQuerySucceeded'] and frozen_status['exitStatusDecoded']
 assert timeline[-2:] == ['close', 'cleanup'] and len(queue.calls) == 2
 
 # Execute the actual final diagnostic assembly, including a failed latest query after earlier valid data.
@@ -531,7 +562,100 @@ for context_valid, collection_valid in [(True, True), (False, True), (True, Fals
     result = json.loads(lines[1])
     assert result['currentRunAssociated'] == (context_valid and collection_valid)
     assert result['exitCategory'] == ('waitExitZero' if context_valid and collection_valid else 'unknown')
+    assert result['privateContextVerified'] == context_valid and result['lastScopedQuerySucceeded'] == collection_valid
+    assert result['exitStatusDecoded']
     assert result['exitEventObserved'] and queue.closed
+    observer_cases += 1
+
+for context_valid, collection_valid in [(True, True), (False, True), (True, False), (False, False)]:
+    for mode in ['bare', 'missing-api', 'malformed', 'permission']:
+        event = Event(fflags=0x80000000 if mode == 'bare' else 0x84000000, status=-1 if mode == 'malformed' else 0,
+            flags=0x4000 if mode == 'permission' else 0, error=errno.EACCES)
+        api = SimpleNamespace() if mode == 'missing-api' else WaitApi(0, True, 0)
+        observer, queue, probe, timeline = create([[event]], native_os=api)
+        environment = dict(globals(), process_observer=observer, verified_context=context_valid,
+            diagnostic_collection_succeeded=collection_valid, transport_nonce=nonce,
+            last_data=json.dumps([{'eventMessage': prefix + json.dumps(association_record)}]).encode())
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured): exec(finalization, environment)
+        lines = captured.getvalue().splitlines()
+        result = json.loads(lines[1])
+        assert len(lines) == 2 and len(captured.getvalue().encode()) <= 2048
+        assert result['privateContextVerified'] == context_valid and result['lastScopedQuerySucceeded'] == collection_valid
+        assert result['currentRunAssociated'] == (context_valid and collection_valid)
+        assert not result['exitStatusDecoded'] and result['exitCategory'] == 'unknown'
+        assert result['exitEventObserved'] == (mode != 'permission') and queue.closed
+        if mode == 'permission': assert result['watchDenied']
+        observer_cases += 1
+
+for guard in ['verified_context', 'collection_succeeded']:
+    for value in [False, None, 0, 1, 'true', [], [True], {}]:
+        observer, queue, probe, timeline = create([[Event(fflags=0x84000000, status=0)]], native_os=WaitApi(0, True, 0))
+        result = finish(observer, **{guard: value})
+        assert not result['currentRunAssociated'] and result['exitCategory'] == 'unknown' and result['exitStatusDecoded']
+for arguments in [(), (associated_diagnostics,), (associated_diagnostics, True)]:
+    observer, queue, probe, timeline = create([[Event(fflags=0x84000000, status=0)]], native_os=WaitApi(0, True, 0))
+    result = observer.finish(*arguments)
+    assert result['privateContextVerified'] == (len(arguments) == 2)
+    assert not result['lastScopedQuerySucceeded'] and not result['currentRunAssociated']
+    assert result['exitCategory'] == 'unknown' and result['exitStatusDecoded'] and queue.closed
+    assert observer.finish(associated_diagnostics, True, True) == result
+    observer_cases += 1
+
+# Execute the unchanged receiver loop: earlier successful reads, then a bounded terminal query failure.
+class FixtureClock:
+    def __init__(self): self.now = 0.0
+    def monotonic(self): return self.now
+    def sleep(self, seconds): self.now += seconds
+class MemoryOutput:
+    def write_bytes(self, data): self.data = data
+    def __str__(self): return 'synthetic-log'
+class AbsentFile:
+    def __init__(self, path): self.path = path
+    def is_file(self): return False
+for mode in ['decoded', 'bare']:
+    event = Event(fflags=0x84000000 if mode == 'decoded' else 0x80000000, status=0)
+    observer, queue, probe, timeline = create([[], [event]], [OSError(errno.ESRCH, 'synthetic absence')] * 51,
+        native_os=WaitApi(0, True, 0))
+    clock, output = FixtureClock(), MemoryOutput()
+    query_state = {'count': 0}
+    data = json.dumps([{'eventMessage': prefix + json.dumps(association_record)}]).encode()
+    def query():
+        query_state['count'] += 1
+        if query_state['count'] == 50:
+            clock.now = 90.0
+            raise ValueError('bounded query timeout')
+        clock.now = query_state['count'] * 1.8 - 1
+        return data
+    environment = dict(globals(), process_observer=observer, Path=AbsentFile, time=clock, deadline=90.0,
+        verified_context=True, diagnostic_collection_succeeded=False, transport_nonce=nonce,
+        last_data=b'[]', last_size=0, read_scoped_log=query, unified=output,
+        open=lambda *args, **kwargs: io.StringIO(json.dumps(private_context)), context='synthetic-context',
+        console='synthetic-console', verifier='synthetic-verifier', output='synthetic-output', prefix='TEST:',
+        subprocess=SimpleNamespace(PIPE=-1, SubprocessError=RuntimeError,
+            run=lambda *args, **kwargs: SimpleNamespace(returncode=2)))
+    captured, errors = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(captured), contextlib.redirect_stderr(errors):
+        try: exec(receiver_body, environment)
+        except SystemExit as result: assert result.code == 1
+        else: raise AssertionError('Incomplete actual receiver unexpectedly passed.')
+    lines = captured.getvalue().splitlines()
+    result = json.loads(lines[1])
+    assert len(lines) == 2 and json.loads(lines[0])['matchingDiagnostics']
+    assert environment['last_data'] == data and not environment['diagnostic_collection_succeeded']
+    assert result['privateContextVerified'] and not result['lastScopedQuerySucceeded']
+    assert result['exitStatusDecoded'] == (mode == 'decoded')
+    assert not result['currentRunAssociated'] and result['exitCategory'] == 'unknown'
+    assert result['pollCount'] == 51 and result['pidAbsentObserved'] and result['finalObservationBeforeCleanup']
+    assert query_state['count'] == 50 and len(queue.calls) == 2 and queue.closed
+    assert len(captured.getvalue().encode()) <= 2048
+    snapshot = dict(result)
+    timeline.append('cleanup')
+    result['privateContextVerified'] = False
+    result['lastScopedQuerySucceeded'] = True
+    result['exitStatusDecoded'] = not snapshot['exitStatusDecoded']
+    observer.observe()
+    assert observer.finish(None, False, True) == snapshot and timeline[-2:] == ['close', 'cleanup']
     observer_cases += 1
 with open(sys.argv[3], 'w', encoding='utf-8') as stream:
     json.dump(complete_status_summary, stream, separators=(',', ':'))
