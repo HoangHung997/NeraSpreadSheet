@@ -41,21 +41,27 @@ internal sealed class SplitFormulaRouting : IDisposable
     {
         if (_disposed || e.Handled || !e.GetCurrentPoint(_owner).Properties.IsLeftButtonPressed ||
             _owner.EditingSpreadsheet is not { IsFormulaDraft: true } editor) return false;
-        // TextPresenter and decoration visuals route through the TextBox. A click
-        // there must position/select the caret, not insert a worksheet reference.
         if (e.Source is global::Avalonia.Visual source &&
             (source is TextBox || source.GetVisualAncestors().Any(static parent => parent is TextBox))) return false;
         if (!TryTarget(e, out _, out var address)) return false;
         e.Handled = true;
-        editor.BeginPointReference(address);
-        if (editor.IsFormulaPointMode)
+        Cancel();
+        // Avalonia initially captures the hit child. Transfer capture BEFORE
+        // creating the new point anchor: the child's PointerCaptureLost handler
+        // must not cancel the point gesture that we are about to start.
+        e.Pointer.Capture(_owner);
+        try
         {
-            // This must also capture gestures starting in the editor's own pane.
-            // Otherwise subsequent coordinates stay relative to that pane after
-            // crossing a separator, producing a different reference range.
-            _editor = editor;
-            _pointer = e.Pointer;
-            e.Pointer.Capture(_owner);
+            editor.BeginPointReference(address);
+            if (editor.IsFormulaPointMode)
+            {
+                _editor = editor;
+                _pointer = e.Pointer;
+            }
+        }
+        finally
+        {
+            if (_pointer != e.Pointer) e.Pointer.Capture(null);
         }
         return true;
     }
