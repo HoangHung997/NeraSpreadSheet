@@ -12,9 +12,13 @@
   chỉ thêm dispatch boundary evidence vào true page; đã push
   `5292b9966eefa51cb0deea0245d8f79ab8f7db0d`, narrow `34180074766` Windows PASS/
   Mac actual FAIL; Dispatch trả true nhưng callback-entry chưa có.
-- Current native checkpoint `77f4c44702a9f8f3e8cb0c7d446b12271236560e` nhập riêng
+- Classifier checkpoint `77f4c44702a9f8f3e8cb0c7d446b12271236560e` nhập riêng
   C classifier đã duyệt; narrow `34182690972` Windows PASS/Mac actual FAIL.
   Classifier14categories=0, unclassifiedLines=4, inputClipped=false; cause UNKNOWN.
+- Witness checkpoint `aa103f9498c1bb841edd4d1ded68a60afa806972`, narrow
+  `34183813450`: cả hai candidate FAIL. Mac direct leaf vào/return, queued witness
+  và real Dispatch đều trả true nhưng không queued second-entry/callback thật.
+  Windows fail fixed formula-value assertion ở pha editor, trước recreation.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
 - Root cho phép riêng workflow `table-007-libreoffice.yml` và producer script;
@@ -630,7 +634,34 @@
 - Đã kiểm clean HEAD04fb850c, preserve docs04fb và imported classifier77; apply_patch
   đúng13lines rồi verify after blob3856665fc2a4a949b72607aa2ffbf9c23465a996.
   Workflow, hai launchers và actual classifier fixture byte-equal77; C sole writer.
-- Bước tiếp theo duy nhất: commit/push exact witness-v1 và chạy ONE paired narrow;
-  đọc direct leaf/queued second-entry và true callback/editor evidence riêng.
-  Extra queue có thể đổi timing; absence còn unknown, PASS chưa chứng minh cause.
-  Giữ21 desktop paths frozen và wholeB HOLD đến khi đủ actual final gates.
+- Witness-v1 đã commit/push `aa103f9498c1bb841edd4d1ded68a60afa806972`;
+  ONE paired `34183813450` đã xong (Mac `101928049783`, Windows `101928049979`).
+  Architecture/diff/preservation PASS; Mac hai builds0warnings/0errors.
+- Root/C cung cấp independent observation tại public package consumerfa96692c,
+  Mac101927081641: constructor/Loaded/dispatchAccepted có, callback/run chưa có,
+  nonce/PID/time-scoped route đã verify. Đây là root/C-reported cross-lane evidence,
+  không phải B tự verify và không chứng minh samecause/queue failure/nativecrash.
+  Không nhập C source hoặc đổi approved witness/probe.
+- Mac baseline PASS10frames; actual candidate FAIL trước result. Ordered markers:
+  direct-enter→witness-enter→direct-returned→witness-queue-enter→queue-returned-true
+  →true-dispatch-call-enter→true-dispatch-returned-true. Đúng một witness-enter tổng
+  cộng và zero sau direct-returned; không callback/invoke/catch/readiness/editor.
+  Direct leaf body có thể chạy, queued execution vẫn chưa được quan sát; không
+  chứng minh queue defect/JIT/cause. Có một draw sau true-return nhưng inline path
+  vẫn không chứng minh queue được xử lý. Selected metadata/props/packages giống77.
+- Fixed classifier14categories=0/unclassifiedLines4/inputClipped=false; matched
+  capture669bytes/5lines, không native/managed header/addressframe và không current
+  IPS. Không raw fd2 export, không suy clean exit/signal/native initialization cause.
+- Windows baseline PASS44frames/3cycles/zero failed-abandoned-stale GPU frames;
+  candidate publish PASS nhưng actual resultFAIL: AwaitPrimaryInput/cycle0/frame9,
+  System.InvalidOperationException với fixed assertion `The committed Table
+  formula value differs.` Marker tới table-editor-enter-returned, chưa tới history.
+  Preceding not-editing assertion đã qua; actual unexpected value chưa được ghi.
+  Đây là pha editor trước recreation, không gộp với historical first-reinsert
+  0xc0000409. Windows source byte-equal trước, không sửa hoặc retry.
+- Versioned sanitized artifact frozen:
+  `table-007-dispatch-witness-result-v1-aa103f94.json` (ignored). ONEaa consumed;
+  giữ SmokePage3856665f/workflow/imported classifier77, không full gates hoặc probe.
+- Bước tiếp theo duy nhất: gửi root exactaa result/artifact và nhận quyết định
+  tiếp theo; không tự triển khai thêm. Giữ21 desktop paths frozen, hai launchers
+  và classifier C sole writer; wholeB HOLD, chưa actual final gates xanh.
