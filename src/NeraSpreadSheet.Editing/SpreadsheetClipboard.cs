@@ -117,7 +117,7 @@ public sealed class SpreadsheetClipboardController
     public SpreadsheetClipboardPackage? Clipboard { get; private set; }
     public bool CanPaste => Clipboard is not null && !_isClipboardWritePending;
 
-    /// <summary>Gets whether a clipboard write or its acknowledged cut is still running.</summary>
+    /// <summary>Gets whether a host clipboard write or a synchronous/acknowledged cut is still running.</summary>
     public bool IsClipboardWritePending => _isClipboardWritePending;
 
     public SpreadsheetClipboardPackage CopyPrimarySelection()
@@ -169,9 +169,13 @@ public sealed class SpreadsheetClipboardController
     /// </summary>
     /// <remarks>
     /// This synchronous method does not write to the operating-system clipboard.
+    /// Clipboard entry points remain busy until source mutation and its callbacks finish.
+    /// If a downstream observer throws, the captured package is retained for recovery;
+    /// this method does not guarantee rollback of arbitrary observer/history failures.
     /// </remarks>
     /// <exception cref="InvalidOperationException">
-    /// The selection contains more than one range, or existing source validation fails.
+    /// A cell edit is active, the source worksheet is detached, the selection contains
+    /// more than one range, or existing source validation fails.
     /// </exception>
     public bool CutPrimarySelection()
     {
@@ -184,9 +188,29 @@ public sealed class SpreadsheetClipboardController
                 "Cannot cut multiple selection ranges. Select one range before cutting.");
         }
 
+        if (_session.Editor.IsEditing)
+        {
+            throw new InvalidOperationException("Cannot cut worksheet cells while a cell edit is active.");
+        }
+        if (!_session.Workbook.Worksheets.Contains(_session.ActiveWorksheet))
+        {
+            throw new InvalidOperationException("The source worksheet is no longer in the workbook.");
+        }
+
         EnsureSourceMergesFullySelected(_session.Selection.Ranges[0]);
-        CopyPrimarySelection();
-        return _session.ClearSelection();
+        _isClipboardWritePending = true;
+        try
+        {
+            // Do not re-enter the public Copy method while the clipboard is busy.
+            // Publish only after source preflight/package creation succeeds, then keep
+            // that recovery package safe from reentrant worksheet/history observers.
+            Clipboard = CreatePrimarySelectionPackage();
+            return _session.ClearSelection();
+        }
+        finally
+        {
+            _isClipboardWritePending = false;
+        }
     }
 
     /// <summary>

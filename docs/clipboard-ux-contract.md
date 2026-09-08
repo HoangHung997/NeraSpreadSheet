@@ -1,4 +1,4 @@
-# Contract Clipboard UX — C1-A và C1-B
+# Contract Clipboard UX — C1-A, C1-B và C1-C
 
 ## Trạng thái
 
@@ -9,6 +9,8 @@
 C1-A chặn Cut nhiều vùng. C1-B thêm đường ghi clipboard có acknowledgement
 ngay trên controller dùng chung, cùng regression cho failure/cancellation và
 completion muộn. **Mới có implementation và test code, chưa build/chạy test**.
+C1-C nối tiếp `e782ac1b51ddcd5d2e4ddada0caaa9aa396bf203`, sửa reentrancy và
+preflight của Cut đồng bộ; giữ nguyên API và đường history hiện có.
 Chưa nối các host, chưa nghiệm thu toàn bộ C1, Mục 2 hoặc Mục 3.
 Receipt C1-A và audit trước đó được giữ trong lịch sử PR/progress; không dùng
 các phát hiện đọc source thay kết quả runtime.
@@ -20,6 +22,8 @@ các phát hiện đọc source thay kết quả runtime.
 Cut từ chối selection có nhiều vùng **trước** Copy/Clear; không gộp ngầm vùng
 kề/chồng nhau và không sửa `ClearSelection()` thành chỉ xóa vùng đầu. C1-B
 bổ sung từ chối Cut giao một phần merged range; người gọi phải chọn trọn vùng.
+C1-C từ chối Cut khi editor còn mở hoặc source worksheet đã bị xóa khỏi workbook,
+trước khi thay clipboard cũ. Không tự Cancel editor hoặc chọn sheet khác để Cut.
 
 API mới trên chính `SpreadsheetClipboardController`:
 
@@ -81,6 +85,15 @@ Một writer mỗi controller. Khi đang chờ hoặc đang commit Cut, Copy/Cut
 Không đổi clipboard cũ chỉ để thể hiện busy. Sau finally, busy được giải phóng,
 event handlers tạm được gỡ và lượt sau không kế thừa invalidation.
 
+Quy tắc này áp dụng cả `CutPrimarySelection()` đồng bộ, không chỉ API async.
+C1-B chưa giữ busy quanh ClearSelection của đường đồng bộ: callback CellsChanged
+có thể gọi Copy và thay package nguồn bằng ô vừa bị xóa. C1-C giữ busy từ package
+creation đến khi ClearSelection và các callback kết thúc, rồi giải phóng bằng
+finally. Gọi private package builder để không tự vi phạm guard của public Copy.
+`CancelPendingClipboardWrite()` không hủy ngược một synchronous Cut đã bắt đầu.
+Failure preflight không thay package cũ; failure downstream vẫn giữ package nguồn
+đã publish, nhưng không được dùng điều này để nhận generic transaction rollback.
+
 `CancelPendingClipboardWrite()` gửi cancellation đúng một lần; không clear
 clipboard nội bộ/hệ điều hành. Nếu transport không hỗ trợ hủy, vẫn phải chờ
 transport thật sự kết thúc trước khi mở writer mới; acknowledgement đến muộn
@@ -120,7 +133,17 @@ File `ClipboardSafetyTests.cs` giữ nguyên 14 test C1-A, thêm class
 `ClipboardAcknowledgementTests` với **35 test methods**; tổng file là 49.
 Không giảm assertion, xóa hoặc skip test cũ.
 
-Các nhóm mới kiểm pending-write không xóa/publish sớm; lỗi sync/async transport;
+C1-C giữ file safety 49 methods không đổi và nối thêm 12 methods trong class
+`ClipboardSynchronousCutTests` của `ClipboardTests.cs`, giữ nguyên cả 5 test cũ
+trong file đó. Tổng test bổ sung của C1-A/B/C là 61 methods, **chưa chạy**.
+12 methods mới kiểm reentrant Copy/Cut/Import/Paste, async writer lồng nhau,
+editor/detached-sheet preflight, cleanup sau materialization/spill rejection,
+recovery package khi observer ném lỗi, empty Cut, đổi sheet trong observer,
+canonical Cut command và giữ redo khi từ chối editor-active Cut.
+Hai test observer failure chỉ kiểm busy cleanup/package retention, không thay
+cổng rollback/history atomicity hoặc native runtime.
+
+Các nhóm C1-B kiểm pending-write không xóa/publish sớm; lỗi sync/async transport;
 clipboard ban đầu rỗng; cancellation trước/trong write; transport không chịu hủy;
 Cancel lặp; busy/chống ghi chồng; sửa trực tiếp hoặc từ session khác; edit rồi
 Undo; đổi selection/range/sheet rồi quay lại; rename/remove/workbook changes;
@@ -137,7 +160,7 @@ dotnet test NeraSpreadSheet.Core.slnx -c Release --no-build
 ./scripts/verify-architecture.ps1
 ```
 
-**Chưa chạy những lệnh này**, chưa có 49 PASS, chưa có red-before-fix execution,
+**Chưa chạy những lệnh này**, chưa có 61 PASS cho các test bổ sung, chưa có red-before-fix execution,
 build/analyzers hoặc native acceptance. Container không có dotnet/gh; đường tải
 SDK trực tiếp không hoạt động. Đã tìm workflow offline có sẵn nhưng run
 34167427165 FAILED và artifact list rỗng; không có toolchain đã dùng thành công.
@@ -155,10 +178,16 @@ quét sparse used cells như trước; Cut thêm kiểm merge, pending lease lư
 merge và so sánh sau acknowledgement. Chưa có benchmark, không nhận cải thiện
 hiệu năng hoặc mức overhead cụ thể khi worksheet có nhiều merged ranges.
 
-Chỉ ba source/test/doc paths của PR #5: SpreadsheetClipboard.cs,
-ClipboardSafetyTests.cs, contract này. Progress riêng dùng expected-SHA lock;
+Cộng dồn PR #5 có bốn paths: SpreadsheetClipboard.cs, ClipboardTests.cs,
+ClipboardSafetyTests.cs và contract này. Riêng C1-C chỉ thay source, ClipboardTests
+và contract; safety file giữ blob `126fc3372a9cf5ac003009ac7696144d0b21b6bb`.
+Progress riêng dùng expected-SHA lock;
 không sửa root/plan/shared status, PR #1/#4, host hoặc workflow. PR giữ Draft.
 
 Rollback C1-B bằng revert commit tương ứng về checkpoint C1-A; không migration
 workbook. Revert tiếp C1-A sẽ đưa lỗi Cut nhiều vùng trở lại. Cần kiểm lại đúng
 HEAD sau rollback, không gọi việc revert là đã nghiệm thu an toàn.
+
+Rollback C1-C bằng revert commit C1-C được nêu ở PR/progress để về e782ac1b;
+không migration workbook. Sẽ mất guard synchronous reentrancy/editor/detached sheet,
+không được coi rollback là đã an toàn. C1-B và C1-A vẫn giữ trong lịch sử.
