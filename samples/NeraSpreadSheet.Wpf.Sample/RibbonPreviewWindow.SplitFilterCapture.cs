@@ -140,7 +140,19 @@ public sealed partial class RibbonPreviewWindow
                 .Where(source => source.Dispatcher == window.Dispatcher).Select(source => source.RootVisual)
                 .OfType<FrameworkElement>().SelectMany(CaptureDescendants<Border>)
                 .FirstOrDefault(element => AutomationProperties.GetAutomationId(element) == "NeraAutoFilterPagedPopup");
-            if (popup is not null && CaptureDescendants<CheckBox>(popup).Count() == 100) return popup;
+            if (popup is not null && CaptureDescendants<CheckBox>(popup).Count() == 100)
+            {
+                foreach (var id in new[] { "Clear", "Cancel", "Apply", "Previous", "Next" })
+                {
+                    var button = CaptureDescendants<Button>(popup).Single(item =>
+                        AutomationProperties.GetAutomationId(item) == "NeraAutoFilterPaged" + id);
+                    var bounds = button.TransformToAncestor(popup).TransformBounds(new Rect(0, 0, button.ActualWidth, button.ActualHeight));
+                    if (!button.IsVisible || bounds.Width <= 0 || bounds.Height <= 0 ||
+                        !new Rect(0, 0, popup.ActualWidth, popup.ActualHeight).Contains(bounds))
+                        throw new InvalidOperationException($"The filter {id} action is clipped in the native popup capture.");
+                }
+                return popup;
+            }
             await Task.Delay(20);
         }
         throw new InvalidOperationException("The native filter popup did not publish its 100-value page.");

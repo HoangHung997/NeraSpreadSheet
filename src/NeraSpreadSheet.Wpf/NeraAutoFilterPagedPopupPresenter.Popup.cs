@@ -51,7 +51,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
 
         var panel = new DockPanel
         {
-            LastChildFill = false,
+            LastChildFill = true,
         };
         root.Child = panel;
         var title = new TextBlock
@@ -205,7 +205,6 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             scroller,
             "NeraAutoFilterPagedValues");
         DockPanel.SetDock(scroller, Dock.Top);
-        panel.Children.Add(scroller);
 
         var paging = new StackPanel
         {
@@ -224,7 +223,6 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         paging.Children.Add(previous);
         paging.Children.Add(next);
         DockPanel.SetDock(paging, Dock.Bottom);
-        panel.Children.Add(paging);
 
         var footer = new StackPanel
         {
@@ -247,6 +245,9 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         footer.Children.Add(apply);
         DockPanel.SetDock(footer, Dock.Bottom);
         panel.Children.Add(footer);
+        panel.Children.Add(paging);
+        // Reserve both action rows before the value list uses the remaining height.
+        panel.Children.Add(scroller);
 
         search.TextChanged += (_, _) => { if (IsCurrentContext(context)) ScheduleSearch(search.Text); };
         sortAscending.Click += (_, _) => StartForPopup(token =>

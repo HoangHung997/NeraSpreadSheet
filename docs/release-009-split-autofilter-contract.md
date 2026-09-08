@@ -29,6 +29,8 @@ dispatcher Render; giữ frame scheduler và nested display-list semantics hiệ
   mất capture hoặc đổi host/generation hủy lần nhấn đang chờ.
 - Keyboard/command chọn header ở active pane; pointer chọn pane thực sự chứa
   nút. Mở/đóng popup không thêm history hoặc dịch selection/scroll để giả anchor.
+- Footer Xóa lọc/Hủy/Áp dụng và paging luôn giữ phần chiều cao riêng; danh sách
+  giá trị cuộn trong phần còn lại của popup, không đẩy các nút ra ngoài vùng thấy.
 - Popup giữ open-context identity gồm generation, session, worksheet, surface,
   pane và header. Sheet/surface change, unload và dispose đóng/cancel context.
   Session replacement được kiểm trước callback/mutation và khi host refresh.

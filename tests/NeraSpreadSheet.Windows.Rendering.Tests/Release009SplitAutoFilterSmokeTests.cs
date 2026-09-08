@@ -404,6 +404,19 @@ public sealed class Release009SplitAutoFilterSmokeTests
         await Drain(host);
         Assert.IsTrue(host.Presenter.IsOpen);
         Assert.IsTrue(Values(host).Count > 0);
+        var root = (FrameworkElement)Field<Popup>(host.Presenter, "_popup").Child;
+        foreach (var id in new[] { "Clear", "Cancel", "Apply", "Previous", "Next" })
+        {
+            var button = Descendants(root).OfType<Button>().Single(item =>
+                AutomationProperties.GetAutomationId(item) == "NeraAutoFilterPaged" + id);
+            var bounds = button.TransformToAncestor(root).TransformBounds(new Rect(0, 0, button.ActualWidth, button.ActualHeight));
+            Assert.IsTrue(button.IsVisible && bounds.Width > 0 && bounds.Height > 0 &&
+                new Rect(0, 0, root.ActualWidth, root.ActualHeight).Contains(bounds), $"{id} must be fully visible inside the popup.");
+            if (!button.IsEnabled) continue;
+            var hit = root.InputHitTest(new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2)) as DependencyObject;
+            while (hit is not null && !ReferenceEquals(hit, button)) hit = System.Windows.Media.VisualTreeHelper.GetParent(hit);
+            Assert.AreSame(button, hit, $"{id} must expose a native pointer target.");
+        }
     }
     private static async Task Until(Func<bool> condition)
     {
