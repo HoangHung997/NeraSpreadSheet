@@ -1,6 +1,4 @@
-using global::Avalonia;
 using global::Avalonia.Input;
-using global::Avalonia.Interactivity;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Foundation;
@@ -8,7 +6,8 @@ using NeraSpreadSheet.Layout;
 
 namespace NeraSpreadSheet.Avalonia;
 
-/// <summary>Routes cross-pane reference pointing to the one canonical draft owner.</summary>
+/// <summary>Routes references to the draft owner. The split host calls these methods
+/// directly before activation, rather than relying on sibling tunnel-handler order.</summary>
 internal sealed class SplitFormulaRouting : IDisposable
 {
     private readonly NeraSpreadsheetSplitControl _owner;
@@ -26,39 +25,45 @@ internal sealed class SplitFormulaRouting : IDisposable
             pane.FormulaProjectionOwner = () => owner.EditingSpreadsheet;
             pane.FormulaAssistanceChanged += OnFormulaChanged;
         }
-        owner.AddHandler(InputElement.PointerPressedEvent, OnPressed, RoutingStrategies.Tunnel);
-        owner.AddHandler(InputElement.PointerMovedEvent, OnMoved, RoutingStrategies.Tunnel);
-        owner.AddHandler(InputElement.PointerReleasedEvent, OnReleased, RoutingStrategies.Tunnel);
     }
     private void OnFormulaChanged(object? sender, EventArgs e)
     {
         if (_disposed) return;
         foreach (var pane in _panes) pane.InvalidateVisual();
     }
-    private void OnPressed(object? sender, PointerPressedEventArgs e)
+    public bool TryPressed(PointerPressedEventArgs e)
     {
         if (_disposed || e.Handled || !e.GetCurrentPoint(_owner).Properties.IsLeftButtonPressed ||
-            _owner.EditingSpreadsheet is not { IsFormulaDraft: true } editor) return;
-        if (!TryTarget(e, out var target, out var address) || ReferenceEquals(target, editor)) return;
+            _owner.EditingSpreadsheet is not { IsFormulaDraft: true } editor) return false;
+        if (!TryTarget(e, out var target, out var address) || ReferenceEquals(target, editor)) return false;
         e.Handled = true;
         editor.BeginPointReference(address);
-        if (!editor.IsFormulaPointMode) return;
-        _editor = editor; _pointer = e.Pointer; e.Pointer.Capture(_owner);
+        if (editor.IsFormulaPointMode)
+        {
+            _editor = editor; _pointer = e.Pointer; e.Pointer.Capture(_owner);
+        }
+        return true;
     }
-    private void OnMoved(object? sender, PointerEventArgs e)
+    public bool TryMoved(PointerEventArgs e)
     {
-        if (_disposed || _pointer != e.Pointer) return;
+        if (_disposed || _pointer != e.Pointer) return false;
         e.Handled = true;
-        if (_editor is not { IsEditing: true }) { Cancel(); return; }
+        if (_editor is not { IsEditing: true }) { Cancel(); return true; }
         if (TryTarget(e, out _, out var address)) _editor.UpdatePointReference(address);
+        return true;
     }
-    private void OnReleased(object? sender, PointerReleasedEventArgs e)
+    public bool TryReleased(PointerReleasedEventArgs e)
     {
-        if (_pointer != e.Pointer) return;
+        if (_disposed || _pointer != e.Pointer) return false;
         e.Handled = true;
         var editor = _editor;
-        Cancel();
-        if (editor?.IsEditing == true) editor.FocusEditor();
+        _editor = null;
+        var pointer = _pointer;
+        _pointer = null;
+        // EndPointReference restores the original formula-bar/editor focus.
+        editor?.EndPointReference();
+        pointer?.Capture(null);
+        return true;
     }
     private bool TryTarget(PointerEventArgs e, out NeraSpreadsheetControl? target, out CellAddress address)
     {
@@ -81,9 +86,6 @@ internal sealed class SplitFormulaRouting : IDisposable
     public void Dispose()
     {
         if (_disposed) return; Cancel(); _disposed = true;
-        _owner.RemoveHandler(InputElement.PointerPressedEvent, OnPressed);
-        _owner.RemoveHandler(InputElement.PointerMovedEvent, OnMoved);
-        _owner.RemoveHandler(InputElement.PointerReleasedEvent, OnReleased);
         foreach (var pane in _panes) { pane.FormulaAssistanceChanged -= OnFormulaChanged; pane.FormulaProjectionOwner = null; }
     }
 }

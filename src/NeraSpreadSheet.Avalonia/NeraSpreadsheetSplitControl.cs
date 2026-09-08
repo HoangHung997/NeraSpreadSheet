@@ -31,8 +31,9 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
         Background = Brushes.Gray; ClipToBounds = true;
         _panes = Enum.GetValues<SpreadsheetSplitViewPane>().Select(id => new Pane(this, id)).ToArray();
         foreach (var pane in _panes) Children.Add(pane.Root);
-        // Point-mode owns the original draft and runs before ordinary pane activation.
         _formulaRouting = new SplitFormulaRouting(this);
+        // One handler owns precedence: Avalonia reverses sibling registrations on
+        // a tunneling route, so subscription order cannot establish draft priority.
         AddHandler(PointerPressedEvent, OnPointerDown, RoutingStrategies.Tunnel);
         AddHandler(PointerMovedEvent, OnPointerMove, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, OnPointerUp, RoutingStrategies.Tunnel);
@@ -159,7 +160,9 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
     private void OnPointerDown(object? sender, PointerPressedEventArgs e)
     {
         if (e.Handled || _disposed || _session is null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
-        LastLayout = Compute(Bounds.Size); var point = e.GetPosition(this); var hit = LastLayout.HitTest(new PointD(point.X, point.Y));
+        LastLayout = Compute(Bounds.Size);
+        if (_formulaRouting.TryPressed(e)) return;
+        var point = e.GetPosition(this); var hit = LastLayout.HitTest(new PointD(point.X, point.Y));
         if (hit.RegionKind == SpreadsheetSplitHitRegionKind.Pane && hit.PaneId is { } id)
         {
             try { if (!ActivatePane((SpreadsheetSplitViewPane)id, false)) e.Handled = true; }
@@ -177,7 +180,9 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
     }
     private void OnPointerMove(object? sender, PointerEventArgs e)
     {
-        if (e.Handled || _dragPointer != e.Pointer || _session is null || _disposed) return;
+        if (e.Handled || _disposed || _session is null) return;
+        if (_formulaRouting.TryMoved(e)) return;
+        if (_dragPointer != e.Pointer) return;
         e.Handled = true; var point = e.GetPosition(this); var state = State;
         var x = _dragKind is SpreadsheetSplitHitRegionKind.VerticalSeparator or SpreadsheetSplitHitRegionKind.SeparatorIntersection ? point.X : state.SplitX;
         var y = _dragKind is SpreadsheetSplitHitRegionKind.HorizontalSeparator or SpreadsheetSplitHitRegionKind.SeparatorIntersection ? point.Y : state.SplitY;
@@ -186,7 +191,10 @@ public sealed class NeraSpreadsheetSplitControl : Panel, IDisposable
     }
     private void OnPointerUp(object? sender, PointerReleasedEventArgs e)
     {
-        if (e.Handled || _dragPointer != e.Pointer) return; e.Handled = true; FinishDrag(true);
+        if (e.Handled || _disposed) return;
+        if (_formulaRouting.TryReleased(e)) return;
+        if (_dragPointer != e.Pointer) return;
+        e.Handled = true; FinishDrag(true);
     }
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e) { _formulaRouting.Cancel(); FinishDrag(false); base.OnPointerCaptureLost(e); }
     private void FinishDrag(bool commit)
