@@ -115,6 +115,16 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner, IDisposable
 
     internal SpreadsheetSplitViewportFrame? LastFrame => _lastFrame;
 
+    internal SpreadsheetSplitViewportFrame? PresentedFrame { get; private set; }
+
+    internal event EventHandler? PresentationChanged;
+
+    private void PublishPresentedFrame()
+    {
+        PresentedFrame = _lastFrame;
+        PresentationChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     internal WpfGpuRendererDiagnostics? GpuDiagnostics =>
         _activeBackend == WpfRenderingBackend.Direct2DD3DImage
             ? new WpfGpuRendererDiagnostics(
@@ -183,6 +193,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner, IDisposable
                 _owner.Background,
                 null,
                 new Rect(0d, 0d, ActualWidth, ActualHeight));
+            PublishPresentedFrame();
             return;
         }
 
@@ -190,6 +201,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner, IDisposable
         {
             UpdateGpuSurfaceVisibility();
             _gpuSurface.SetDisplayList(displayList);
+            PublishPresentedFrame();
             return;
         }
 
@@ -203,6 +215,7 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner, IDisposable
             drawingContext,
             displayList,
             VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        PublishPresentedFrame();
     }
 
     internal void NotifyOwnerStateChanged()
@@ -211,6 +224,8 @@ internal sealed partial class NeraSpreadsheetSplitAdorner : Adorner, IDisposable
         SynchronizeSession();
         SynchronizeBackend();
         _lastFrame = null;
+        PresentedFrame = null;
+        PresentationChanged?.Invoke(this, EventArgs.Empty);
         UpdateEditorBounds();
         InvalidateMeasure();
         InvalidateArrange();

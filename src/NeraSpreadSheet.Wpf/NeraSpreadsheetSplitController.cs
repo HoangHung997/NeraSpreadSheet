@@ -74,6 +74,7 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         _adorner = new NeraSpreadsheetSplitAdorner(owner);
         _adorner.SplitChanged += OnAdornerSplitChanged;
         _adorner.PaneScrollChanged += OnAdornerPaneScrollChanged;
+        _adorner.PresentationChanged += OnAdornerPresentationChanged;
         owner.Loaded += OnOwnerLoaded;
         owner.Unloaded += OnOwnerUnloaded;
         owner.SizeChanged += OnOwnerSizeChanged;
@@ -136,6 +137,14 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
     public SpreadsheetPaneId ActivePane => GetAdorner().ActivePane;
 
     public SpreadsheetSplitViewportFrame? LastFrame => GetAdorner().LastFrame;
+
+    internal UIElement InputSurface => GetAdorner();
+
+    internal SpreadsheetSplitViewportFrame? PresentedFrame => GetAdorner().PresentedFrame;
+
+    internal event EventHandler? PresentationChanged;
+
+    internal void ActivatePresentationPane(SpreadsheetPaneId paneId) => GetAdorner().SetActivePane(paneId);
 
     public WpfGpuRendererDiagnostics? GpuDiagnostics =>
         GetAdorner().GpuDiagnostics;
@@ -292,6 +301,7 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         owner.SizeChanged -= OnOwnerSizeChanged;
         adorner.SplitChanged -= OnAdornerSplitChanged;
         adorner.PaneScrollChanged -= OnAdornerPaneScrollChanged;
+        adorner.PresentationChanged -= OnAdornerPresentationChanged;
         DetachAdorner();
         _owner = null;
         _adorner = null;
@@ -332,6 +342,7 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         _adornerLayer = layer;
         _adorner.NotifyOwnerStateChanged();
         layer.UpdateLayout();
+        PresentationChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void AttachOrThrow()
@@ -353,10 +364,14 @@ public sealed class NeraSpreadsheetSplitController : IDisposable
         {
             layer.Remove(adorner);
         }
+        PresentationChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnOwnerLoaded(object sender, RoutedEventArgs e) =>
         AttachIfPossible();
+
+    private void OnAdornerPresentationChanged(object? sender, EventArgs e) =>
+        PresentationChanged?.Invoke(this, e);
 
     private void OnOwnerUnloaded(object sender, RoutedEventArgs e) =>
         DetachAdorner();
@@ -382,6 +397,8 @@ public static class NeraSpreadsheetSplitExtensions
         NeraSpreadsheetSplitController> Controllers = new();
     private static readonly object SyncRoot = new();
 
+    internal static event EventHandler? ControllerChanged;
+
     public static NeraSpreadsheetSplitController EnableSplitPanes(
         this NeraSpreadsheetControl control,
         SpreadsheetSplitPaneMode mode = SpreadsheetSplitPaneMode.Vertical)
@@ -406,6 +423,7 @@ public static class NeraSpreadsheetSplitExtensions
             var controller = new NeraSpreadsheetSplitController(control);
             Controllers.Add(control, controller);
             controller.SetMode(mode);
+            ControllerChanged?.Invoke(control, EventArgs.Empty);
             return controller;
         }
     }
@@ -445,6 +463,7 @@ public static class NeraSpreadsheetSplitExtensions
         }
 
         controller.Dispose();
+        ControllerChanged?.Invoke(control, EventArgs.Empty);
         return true;
     }
 
@@ -458,6 +477,7 @@ public static class NeraSpreadsheetSplitExtensions
                 ReferenceEquals(current, controller))
             {
                 Controllers.Remove(control);
+                ControllerChanged?.Invoke(control, EventArgs.Empty);
             }
         }
     }

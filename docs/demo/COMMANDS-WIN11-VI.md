@@ -43,6 +43,21 @@ của host như app mẫu. Chúng không tự được thêm vào app chỉ vì 
 Tên viết rút gọn trong bảng vẫn có tiền tố `Sample.`. Ví dụ `FontSize` là
 `Sample.FontSize`; `Align.Left/Center/Right` là ba định danh riêng.
 
+## Bộ lọc trong vùng chia
+
+Nút ở tiêu đề, Alt+Down và lệnh Mở bộ lọc dùng cùng popup cho bảng và bộ lọc
+worksheet. Khi chia bốn vùng, popup theo tiêu đề và offset của vùng đang dùng;
+bấm nút trong vùng khác mở đúng cột tại vùng đó. Header cần đang hiển thị.
+Cuộn hoặc resize giữ header visible thì popup đi theo; header bị ẩn hoặc rời
+viewport thì popup đóng. Chuyển sheet/vùng hiển thị đóng popup cũ.
+
+Khi ô đang sửa, hãy xác nhận hoặc hủy bản nháp trước khi mở bộ lọc. Thao tác
+mở bộ lọc không tự commit hay hủy nội dung. Mỗi trang tối đa 100 giá trị;
+tìm kiếm và chọn giá trị dùng cùng dữ liệu phân trang hiện có. Chỉ Apply/Clear
+thành công mới thay workbook/history; đóng popup không áp dụng lựa chọn nháp.
+[Contract split AutoFilter](../release-009-split-autofilter-contract.md) ghi
+phạm vi và gates riêng; không thay nghiệm thu toàn bộ SDK/hardware.
+
 ## Thanh công thức
 
 Thanh công thức sửa cùng bản nháp với editor trong ô, hỗ trợ nhiều dòng và cả

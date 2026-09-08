@@ -42,7 +42,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         try
         {
             await Task.Delay(SearchDelay, cancellation.Token);
-            if (binding is null || !ReferenceEquals(_binding, binding))
+            if (binding is null || !IsCurrentBinding(binding))
             {
                 return;
             }
@@ -50,13 +50,17 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
                 searchText,
                 cancellation.Token);
             if (!cancellation.IsCancellationRequested &&
-                ReferenceEquals(_binding, binding))
+                IsCurrentBinding(binding))
             {
                 RebuildPage();
             }
         }
         catch (OperationCanceledException)
         {
+        }
+        catch (ObjectDisposedException) when (!IsCurrentBinding(binding))
+        {
+            // A host transition disposed this request's binding; it cannot publish into the new popup.
         }
         finally
         {
@@ -105,7 +109,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             {
             }
             cancellation.Token.ThrowIfCancellationRequested();
-            if (binding is null || !ReferenceEquals(_binding, binding))
+            if (binding is null || !IsCurrentBinding(binding))
             {
                 return;
             }
@@ -116,7 +120,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         }
         catch (Exception exception)
         {
-            if (_status is not null && ReferenceEquals(_binding, binding))
+            if (_status is not null && IsCurrentBinding(binding))
             {
                 _status.Text = exception.Message;
             }
@@ -139,7 +143,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             return;
         }
         await ApplyCurrentCriterionAsync(binding, token);
-        if (ReferenceEquals(_binding, binding)) CloseAndRefresh();
+        if (IsCurrentBinding(binding)) CloseAndRefresh();
     }
 
     private async Task ApplyCurrentCriterionAsync(
@@ -209,7 +213,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
                 PageSize,
                 token);
         }
-        if (ReferenceEquals(_binding, binding))
+        if (IsCurrentBinding(binding))
         {
             RebuildPage();
         }
@@ -239,7 +243,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
                 ? await binding.MoveNextPageAsync(token)
                 : await binding.MovePreviousPageAsync(token);
         }
-        if (ReferenceEquals(_binding, binding))
+        if (IsCurrentBinding(binding))
         {
             RebuildPage();
         }
@@ -262,7 +266,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             0,
             PageSize,
             token);
-        if (ReferenceEquals(_binding, binding))
+        if (IsCurrentBinding(binding))
         {
             RebuildPage();
         }
@@ -287,7 +291,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             return;
         }
         var page = await binding.GetDatePageAsync(parent, offset, PageSize, token);
-        if (!ReferenceEquals(_binding, binding))
+        if (!IsCurrentBinding(binding))
         {
             return;
         }
@@ -330,7 +334,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             return;
         }
         await binding.ClearColumnFilterAsync(token);
-        if (ReferenceEquals(_binding, binding)) CloseAndRefresh();
+        if (IsCurrentBinding(binding)) CloseAndRefresh();
     }
 
     private async Task SortAndCloseAsync(
@@ -346,7 +350,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
                 ? customList
                 : null,
             token);
-        if (ReferenceEquals(_binding, binding)) CloseAndRefresh();
+        if (IsCurrentBinding(binding)) CloseAndRefresh();
     }
 
     private async Task ReapplyAndCloseAsync(CancellationToken token)
@@ -354,7 +358,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         var binding = _binding;
         if (binding is null) return;
         await binding.ReapplyAsync(token);
-        if (ReferenceEquals(_binding, binding)) CloseAndRefresh();
+        if (IsCurrentBinding(binding)) CloseAndRefresh();
     }
 
     private async Task ClearSortAndCloseAsync(CancellationToken token)
@@ -362,7 +366,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         var binding = _binding;
         if (binding is null) return;
         await binding.ClearSortAsync(token);
-        if (ReferenceEquals(_binding, binding)) CloseAndRefresh();
+        if (IsCurrentBinding(binding)) CloseAndRefresh();
     }
 
     private void CancelOperations()
@@ -395,7 +399,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             {
                 if (!ReferenceEquals(_popup, popup) ||
                     !popup.IsOpen ||
-                    _searchBox is null)
+                    _searchBox is null || !IsCurrentBinding(_binding))
                 {
                     return;
                 }
@@ -404,22 +408,22 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             }));
     }
 
-    private void RestoreFocus(IInputElement? focusTarget)
+    private void RestoreFocus(IInputElement? focusTarget, FilterOpenContext context)
     {
         _control.Dispatcher.BeginInvoke(
             DispatcherPriority.Input,
             new Action(() =>
             {
-                if (_disposed)
+                if (!IsCurrentContext(context) || _popup is not null)
                 {
                     return;
                 }
-                if (focusTarget is not null &&
+                if (focusTarget is UIElement { IsVisible: true, IsEnabled: true } &&
                     Keyboard.Focus(focusTarget) is not null)
                 {
                     return;
                 }
-                _control.Focus();
+                context.Surface.Focus();
             }));
     }
 
@@ -445,5 +449,6 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         _viewport?.InvalidateMetrics();
         _control.InvalidateVisual();
         _adorner?.InvalidateVisual();
+        QueueHostRefresh();
     }
 }
