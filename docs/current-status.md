@@ -1,5 +1,19 @@
 # NeraSpreadSheet current implementation status
 
+## CẬP NHẬT 08/09 — ĐÃ GHÉP SPLIT FILTER, CHỜ SÁU GATE KẾT HỢP
+
+Root đã nhận 10 commit của nhánh A `8c9bdef9`, thành `f6ae7027..e97cdb3d`;
+cả 18 file khớp blob nguồn. Bộ lọc phân trang dùng đúng native split pane,
+giữ hành vi chỉnh sửa/history và nút thao tác không bị cắt ở cửa sổ hẹp.
+Nguồn đã qua 1.515 nonnative + 174 native tests và QA ảnh. Full CI nguồn từng
+đỏ riêng lỗi chụp Picker chung; root đã sửa test đó tại `20654456`, kiểm độc lập
+năm workflow SUCCESS và đủ chín ảnh thật. Không coi nguồn A là all-green.
+
+Bản kết hợp cần đủ sáu workflow tại đúng HEAD cuối, kể cả demo Win11. Whole B,
+Mac package runtime, final P3 và hardware acceptance vẫn OPEN; chưa 100%.
+PR #1 vẫn Draft, chưa merge hoặc publish NuGet công khai.
+[Bằng chứng, mapping và giới hạn](worklog/SPLIT_FILTER_INTEGRATION_20260908.md).
+
 ## CẬP NHẬT 08/09 — ĐANG SỬA MAPPING PICKER; FILTER ĐÃ REVIEW XONG
 
 Root đã xác định hai giả định sai trong test capture: directpeer chưa ở tọa độ

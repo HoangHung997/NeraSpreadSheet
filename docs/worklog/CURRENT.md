@@ -1,5 +1,46 @@
 # Current Work Handoff
 
+## Hiện hành — A đã ghép, chờ sáu gate tại HEAD kết hợp
+
+Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+Implementation `e97cdb3d69c7de5d10d58f5793fa5416c8832b36` nhận đúng10commits
+A8c thành `f6ae7027..e97cdb3d`; mọi18sourceblobs khớp, không conflict.
+Commit chứa checkpoint này là finalHEAD cần CI riêng; không kế thừa sourcegreen.
+[Mapping, ảnh, tests, rollback](SPLIT_FILTER_INTEGRATION_20260908.md).
+File trọng tâm: paged presenter SplitHost/Popup/Host/Operations, split hooks,
+Release009SplitAutoFilterSmokeTests, sample SplitFilterCapture và contract.
+Architecture/packaging/36transport/474resource keys/diff check PASS local;
+không local heavy build. Chưa nhận wholeB hoặc sourceC0a.
+
+Root206 đã được kiểm độc lập: full34186850320/iOS34186850295/Q34186850293/
+Winpackages34186847117/MAUI34186847115 SUCCESS. Demo deferred tới combined
+checkpoint. Windows101936814137:46MAUI PASS, actual native Ribbon PASS,
+v2mapping6refs hợp lệ, đủ9captures. Root tải/hashcheck artifact10040906335 rồi
+trực tiếp xem tất cả9ảnh, gồm actual Picker bốn themes; không chỉ testfileexists.
+Source A8c có1515+174tests PASS/0skip và ảnh footer/paging đã QA; sourcefull
+34185113478 FAIL riêng shared oldPicker, không gọi sourceA all-five-green.
+
+B87bcac30 onepair34186605968: root đọc Windows101936109965 SUCCESS,
+4records/4646bytes/unclipped, preEnter native/managed/publicdraft complete35,
+canonical-ended targetformula/value60/history1, commitArgumentObserved=false.
+Mac101936109867 vẫn FAIL/directleaf1/queued0, noactualresult. InstrumentedPASS
+không xác định intermittentcause. Native source87/ownreport521 giữ frozenHOLD.
+
+C0a6bbb26 singlecohort34186366468:10/11jobs SUCCESS (C báo iOS9frames cuối),
+Windows9/Android10 PASS; Mac101935885806 root đọc actual build0/0 và
+app-file0/unified6184, constructorEntered/Completed/Loaded/dispatchAccepted,
+callback/run/Emit0. Observer registered/EXIT/absence/finalPrecleanup=true,
+finalPIDpresent=false, polls51; noerror/denied/unavailable/clipping. Không cause,
+cleanexit/birthidentity/writability proof. Root actualfixture101935386724PASS,
+23+33+13tests; root independently chạy actual43observer fixtures trướcgrant.
+C gửi ONE read-only NOTE_EXITSTATUS proposal, root chưa grant code/probe.
+Không debugger/security/entitlements/logflags/broadreports hoặc retry mù.
+
+Sole writers giữ nguyên. C5906 phải nhận/B77import SKIP khi lanes được release;
+root parser6d6804cd và tests3b9c668b phải giữ. P3/hardware/100% vẫn OPEN.
+Một bước tiếp theo duy nhất: kiểm sáu workflows tại HEAD chứa checkpoint này,
+gồm published Win11 demo; đọc actual failure nếu đỏ, không merge/publish.
+
 ## Hiện hành — root chuyển Picker qua associated-island converter
 
 Parent1217b898723a020f777c40c4ba989afbe211ab01, branch

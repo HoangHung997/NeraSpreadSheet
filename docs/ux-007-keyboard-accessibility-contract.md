@@ -82,7 +82,20 @@ bốn palette, cùng viền native Entry/Picker ở hai chế độ high contras
 Light → HighContrastLight và Dark → HighContrastDark được kiểm tra khi control
 đang loaded; file PNG tồn tại không đủ nghiệm thu contrast.
 
-### Correction screen geometry — 08/09, chưa native acceptance
+### Correction screen geometry — native proof tại206, chờ combined gate
+
+Exact `2065445609352ebcbb4eafffb30c3f05a5493dd5`, full workflow `34186850320`,
+Windows job `101936814137` SUCCESS: 46 MAUI tests và actual Ribbon smoke PASS.
+Root đọc v2 log: bốn lần/sáu references, scale1, rendered450x33;
+peerClient(18,50) chuyển thành screen(130,154), local(6,7), popup(124,147,462,234).
+Giữ nguyên caption/palette assertions. Artifact `10040906335`, ZIP SHA256
+`2633dcc44e2f89d995016321f1fcfb798bcd2b790c603308c3187fbe1a06a16c`:
+root tải, đối chiếu digest và trực tiếp xem đủ chín PNG; bốn Picker là popup
+thật với caption/selection đúng ở Light/Dark/HighContrastLight/HighContrastDark,
+năm shell gồm narrow body clip và footer riêng. Không dùng file tồn tại thay QA.
+Năm workflow đã dispatch tại206 SUCCESS; demo deferred tới checkpoint kết hợp.
+Đây là hosted native scale1 + synthetic matrix, không physical multi-DPI/hardware
+acceptance. Bản ghép source khác phải chạy lại đủ exact-HEAD gates.
 
 **Correction tiếp theo sau numeric1217:** guard cũ không hợp lệ vì so direct
 peer/rendered bounds với full item slot, đồng thời coi RasterizedClient là screen.

@@ -1,5 +1,22 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## Checkpoint tích hợp A — source được nhận, combined acceptance còn chờ
+
+Root nhận đúng 10 commit/18 file nguồn A `8c9bdef9` lên nền `20654456`,
+thành `f6ae7027..e97cdb3d`; không conflict, mọi blob nguồn khớp. Root giữ
+parser diagnostic mới, hai test capture files và toàn bộ code B/C chưa release
+ở ngoài nhánh tích hợp. Source A full đỏ riêng old shared Picker capture;
+root đã kiểm native và chín ảnh đúng tại206 cùng năm workflow xanh. Ngoại lệ
+source này được ghi rõ, không bỏ sáu exact-combined gates hoặc lấy source
+green thay nghiệm thu. [Mapping/evidence](SPLIT_FILTER_INTEGRATION_20260908.md).
+
+A giữ source frozen, không chạy lại lỗi chung. B frozen87: Windows diagnostic
+PASS, Mac vẫn FAIL; chưa nhận whole lane. C frozen0a: package Windows/Android/
+iOS PASS, Mac quan sát kernel exit trước cleanup nhưng chưa biết nguyên nhân.
+C chỉ gửi một đề xuất read-only NOTE_EXITSTATUS, chưa grant code/probe.
+Root tiếp tục sole writer shared docs/PR; B/C không tự import Picker/parser.
+Chưa thêm task, hardware/whole B/final P3/100% vẫn OPEN.
+
 ## B — grant Windows commit evidence v2, không production correction
 
 Root đọc fullproposal/sourceevent/host/helper và primaryMAUI10.0.20 native bridge;
