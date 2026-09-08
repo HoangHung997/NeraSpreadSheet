@@ -1,5 +1,30 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## Checkpoint 08/09 — nhận A/C, chuẩn bị grant tiếp theo
+
+Root nhận C final `5d70be93` thành `389c883d..aabd359f` và A final `349cc0aa`
+thành `48f141dc..107dab01`. Các paths đã RELEASED nay do root sở hữu. C đủ sáu
+source gates, iOS native consumer 8 frames/Android 10 frames; A đủ năm gates,
+Windows native 158/0 skip, 5 final PNG root đã xem. Shared transport `30e74bef`
+giữ nguyên. Combined CI phải chạy riêng, không dùng source green thay thế.
+
+Tái dùng ba task/model hiện hành, không tạo thêm task/desktop lease:
+
+- A READ-ONLY: plan active split paged AutoFilter bằng presenter/binding/controller
+  hiện hữu; chỉ ra hit-test/header events, anchor/focus/lifecycle và exact paths
+  cần grant. Chưa được ghi SDK/sample/filter hoặc shared docs mới.
+- C READ-ONLY: plan Windows/Mac PackageReference native consumer; tái dùng actual
+  launcher của B, xác định args/env/result/exit/provenance và điều kiện chuyển
+  ownership. Không launcher thứ hai, source mutation hoặc local native/build.
+- B giữ grant actual Mac SmokePage orchestration bên dưới; dirty edits trong
+  worktree B được bảo toàn. Không mở rộng SDK/renderer/handler hoặc nới assertions.
+- Root giữ shared docs/CI và các source vừa nhận, chạy exact combined gates.
+
+Ba sự cố quota ở các turn cũ đã được tiếp tục đúng một lần ngày 08/09; không
+lặp vô hạn, đổi model hoặc consume reset. A đã phục hồi và hoàn tất handoff.
+Checklist U1–R4 giữ OPEN khi chưa đủ toàn bộ bằng chứng của từng mục; partial
+bar/iOS success không đóng whole B, P3, hardware hoặc R3 đa nền tảng.
+
 ## B chuyển từ diagnostic sang actual Mac smoke orchestration
 
 Completed-await1ff narrow33991085641: baselinePASS10, originalcandidateFAIL,

@@ -1,5 +1,20 @@
 # NeraSpreadSheet current implementation status
 
+## CẬP NHẬT 08/09 — ĐÃ GHÉP THANH CÔNG THỨC VÀ NATIVE iOS PACKAGE CONSUMER
+
+Root nhận A final `349cc0aa` và C final `5d70be93`, thành implementation kết hợp
+`107dab01`. Thanh công thức editable dùng canonical editor, hỗ trợ Enter/Alt+Enter,
+validation, text Undo/clipboard và nested argument Help trong standalone/split.
+Nguồn A có 158 native tests PASS và 5 ảnh mới đã được root xem. Nguồn C có iOS
+consumer thật 8 frames, Android 10 frames và đầy đủ cohort/public postconditions.
+Hai nguồn đều đủ exact-source gates; bản kết hợp mới cần sáu workflow riêng.
+Chi tiết/source mapping nằm ở [CURRENT](worklog/CURRENT.md).
+
+Chưa đạt 100%: B native editor/corpus, paged split filter, MAUI Windows/Mac
+package runtime, final combined performance và actual hardware acceptance còn
+OPEN. A/C chỉ chuẩn bị phạm vi kế tiếp read-only; không chồng writer của B.
+PR #1 vẫn Draft, chưa merge hoặc publish NuGet công khai.
+
 ## CẬP NHẬT 06/09 — SPLIT EDITOR ROUTING ĐÃ GHÉP; THANH CÔNG THỨC ĐANG LÀM
 
 Root76d1e68c đã xanh cả6workflows. Nhận tiếp A finaleea6 thành8eb622b5..37a55b05:

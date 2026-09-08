@@ -99,7 +99,18 @@ job101370724447. The emitted diagnostic does not distinguish a console fragment
 from a unified mismatch; neither a specific faulty stream nor an SDK emitter
 bug is established. Required assembly/provenance data must not be shortened.
 
-## Opt-in app-file result protocol — native verification pending
+## Opt-in app-file result protocol — iOS consumer source verified
+
+Source consumer `5d70be936db42dc016fe9fde051453f784727266` passed all six
+workflows. Actual iOS job `101376255364` in matrix `33992029278` built with
+zero warnings/errors, verified the compact marker/full file with 8 completed
+frames, then passed the caller's full cohort/public postconditions validator.
+Android job `101376255301` passed its unchanged transport with 10 frames.
+The linked actual-emitter fixture and shared Python CLI roundtrip passed in
+job `101375853395`, alongside 23 package and 33 transport tests. Root received
+the three owned consumer commits without importing any older shared transport.
+This releases the opt-in protocol for this caller, not generic Windows/Mac
+runtime, native editor, physical-device or combined-HEAD acceptance.
 
 iOS caller may pass fifth argument `app-file-v1`; default `marker` remains the
 legacy path. After installation the launcher obtains the actual app data
@@ -144,7 +155,8 @@ bytes, stale nonce, malformed/duplicate/nonfinite JSON, status/frame mismatch,
 missing file/marker, symbolic link rejection and actual CLI non-overwrite.
 An actual CLI regression rejects a truncated compact unified duplicate with
 complete status/frame header despite a valid console envelope and full file.
-Opt-in transport is released only for C's isolated consumer experiment until
-actual iOS consumer CI passes; ordinary root CI exercises the legacy default.
+The opt-in caller now has the exact-source iOS evidence above. Ordinary
+analytics CI still exercises the legacy default; the canonical package matrix
+exercises file mode. Every new combined HEAD must pass both paths independently.
 Rollback removes the opt-in caller flag/emitter and this optional shared path,
 not the accepted legacy transport or SDK behavior.

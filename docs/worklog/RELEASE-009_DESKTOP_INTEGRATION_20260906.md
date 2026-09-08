@@ -1,5 +1,51 @@
 # RELEASE-009 — Tích hợp desktop navigation và editor
 
+## Nhận editable formula bar — 08/09
+
+A final `349cc0aa051578b5e0b2e29790ea3dd556a7acd0` đã RELEASED 11 paths:
+sample main/FormulaBar/Commands/Capture, hai resource catalogs, hai test files,
+formula contract/private worklog và bounded demo guide. Root nhận `6d3fa4a1`
+thành `48f141dc`, rồi `349cc0aa` thành `107dab01`; không conflict/import-only.
+Cả 11 Git blobs trùng final source ngay sau nhận. SDK/navigation/filter/shared
+transport không bị thay bởi slice này; không có model hoặc dependency mới.
+
+Root đọc actual bar/main/command integration, đủ 12 native test cases,
+capture assertions, resource deltas (9 keys/catalog) và contract/limits.
+Enter dùng canonical CommitEditor trước visible navigation; native host đưa
+selection về draft anchor. Validation giữ draft/focus; point-mode không đổi
+ô đích. Window handler trước Ribbon giữ Ctrl+Z/Y/C/X/V ở TextBox; Alt+Enter
+SystemKey xử lý riêng, bare Alt giữ keytips. Same-range echo không Select lại.
+Help dùng actual metadata/caret; dispose cancel native draft trước detach.
+Không biến native routed events thành hardware keyboard proof.
+
+Root REST xác minh đủ năm exact-source workflows SUCCESS: full `33992252831`,
+iOS `33992254286`, Q `33992255482`, Windows packages `33992256564`, demo
+`33992257995`. Windows job `101376447359` có build 0 warnings/errors, 1.515
+non-Windows.Rendering tests và 158 native tests PASS, 0 skipped. Có 12 ca mới
+ở standalone/split; không bỏ existing assertions để nhận xanh.
+
+Artifact `9977034756` có 242 PNG; ZIP SHA256 được A xác minh:
+`f40665e56f30bd2b150f89896f3ab77ac8f504579774ad450c4b7a99391d52e3`.
+Root xem đủ 5 PNG mới và verify retained bytes bằng hashes:
+
+| PNG | SHA256 |
+| --- | --- |
+| release009-formula-bar-640-standalone.png | 99b5b87febda2b579356a4aa2712bff6f8e6d2c5af4bd45cf1da16237321cae2 |
+| release009-formula-bar-640-split.png | 884d334fed024bbe674e44256e1a64d71c58bb9f01227eff2d6cb28830d79cb2 |
+| release009-formula-bar-1280-standalone.png | 9fcd3c38d0cdcb48be4af4f78960a02629e6cb4e029370c00c3d7d75b0f64560 |
+| release009-formula-bar-1280-split.png | aef4305cd6ec0dcede3cef5ee64dd223f8dfe3d22c4c82f190382c9911a92394 |
+| release009-formula-bar-help.png | 283f793a7b6a80a61c33ffa9d0901bc1f615098a3f3448b05e4b3db9e23e998c |
+
+640/1280 đều thấy bốn bar controls, multiline draft/anchor B3 đúng; split
+editor ở active pane, IF argument 3 đọc được, không thấy clipping blocker.
+Đây không phải native bar/worksheet theme parity hoặc all-device acceptance.
+Bar Tab/F2 chỉ chuyển về native editor, native Tab mới nhận completion; chưa
+direct bar completion hoặc arbitrary cross-control selection direction/undo
+transfer. Paged split filter/whole B/P3/hardware vẫn OPEN. A chỉ READ-ONLY
+chuẩn bị next filter plan, chưa được write grant mới. Rollback hai received
+commits theo thứ tự ngược, không revert SDK base. Final combined sáu gates và
+published demo phải chạy lại, không lấy source349 thay source kết hợp mới.
+
 ## Nhận tiếp split routing — source eea6ba6f
 
 Root nhận 11 final paths từ `eea6ba6f84cd39f58eae3002464ff60b9d27febb`:

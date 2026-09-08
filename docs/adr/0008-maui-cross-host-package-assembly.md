@@ -1,8 +1,9 @@
 # ADR 0008 — Ghép package MAUI từ build trên nhiều hệ điều hành
 
-- Trạng thái: Accepted cho canonical package assembly; source `8b7781ca` đủ
-  sáu workflow xanh và Android native consumer PASS. Combined HEAD cần gate riêng;
-  native Windows/iOS/Mac, editor và final performance vẫn OPEN.
+- Trạng thái: Accepted cho canonical package assembly và Android/iOS native
+  public consumer: source `5d70be93` đủ sáu workflow xanh, iOS 8 frames và Android
+  10 frames. Combined HEAD cần gate riêng; native Windows/Mac, editor và final
+  performance vẫn OPEN. Các checkpoint OPEN bên dưới ghi lịch sử trước nghiệm thu.
 - Ngày: 2026-09-06.
 
 ## Quyết định

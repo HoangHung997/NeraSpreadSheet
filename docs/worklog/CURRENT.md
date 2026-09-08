@@ -1,5 +1,55 @@
 # Current Work Handoff
 
+## Hiện hành — 08/09: đã nhận thanh công thức và native iOS package consumer
+
+Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.
+Implementation kết hợp: `107dab01698d69ead6a13c9115825f43c40c577a`.
+Root nhận C `5d70be93` thành `389c883d`, `7bcc4c5a`, `aabd359f`, rồi nhận
+A `349cc0aa` thành `48f141dc`, `107dab01`. Không nhận ba import-only của C;
+bốn shared transport blobs ở `30e74bef` giữ nguyên. Workflow MAUI giữ cả trigger
+nhánh tích hợp; ADR/contract giữ lịch sử root. Không sửa workbook của người dùng.
+
+- C: đủ sáu exact-source workflow SUCCESS; actual iOS job `101376255364`
+  đạt 8 frames, Android `101376255301` đạt 10 frames; cả hai qua own cohort,
+  assembly/public postconditions sau shared transport. Manifest 8 paths đã khớp.
+- A: đủ năm exact-source workflow SUCCESS; Windows `101376447359` build
+  0 warnings/errors, 1.515 test khác và 158 native tests PASS/0 skip. Root đọc
+  đủ 12 ca mới và xem cả 5 ảnh final, đối chiếu 11 blobs và 5 image hashes.
+  Bar sửa cùng canonical draft, Enter commit, Alt+Enter newline, text shortcuts
+  riêng, Help theo actual argument; Tab/F2 chuyển về native completion.
+- Local combined: 33 transport + 23 package fixtures PASS/0 skip; architecture,
+  packaging, iOS/Android PlanOnly, Bash syntax và diff checks PASS. Build/native
+  và published demo của HEAD kết hợp mới vẫn phải được CI kiểm riêng.
+- Baseline `30e74befa9984c5fb4ac1ea00701dff85fe6c533` đã được root xác minh đủ
+  sáu workflow xanh: full `33991788158`, iOS `33991788166`, Q `33991788266`,
+  Windows packages `33991785356`, MAUI `33991785292`, demo `33991901940`.
+  Không dùng baseline này thay CI của bản mới.
+
+Hồ sơ: [desktop](RELEASE-009_DESKTOP_INTEGRATION_20260906.md),
+[MAUI](RELEASE-009_MAUI_INTEGRATION_20260906.md). Các mục pending trong private
+worklog frozen A/C là lịch sử trước final CI, được handoff đã xác minh ở đây thay thế.
+
+Ba task từng dừng do quota; root gửi đúng một lần tiếp tục cho mỗi sự cố cũ
+(A turn `01a07352-0af2-7cd2-a2ea-df5b1cca49fa`, B `01a07257-0fba-7023-a3a5-387bbe294d89`,
+C `01a07339-240e-7852-a499-cbe83d9a0d81`). A đã tiếp tục và release. Không lặp
+retry nếu cùng sự cố tái diễn. Model GPT-6 Astra/xhigh và ownership giữ nguyên.
+A đang READ-ONLY lên plan paged filter trong split; C READ-ONLY chuẩn bị native
+Windows/Mac consumer dựa trên launcher của B. B giữ writer actual Mac SmokePage
+orchestration theo grant, không SDK/renderer/handler workaround. Root là writer
+của các paths vừa nhận và shared docs/CI. Chưa grant implementation A/C mới.
+B đã phục hồi, push true candidate `6509393af67801b5217cb9b4d934681158a7a561`;
+narrow baseline/candidate runtime đang chờ, whole B HOLD. C read-only đã chỉ ra
+hai launcher Windows/Mac chưa có package protocol/output/provenance interface;
+cần B release exact paths rồi mới cấp opt-in grant, không copy launcher khác.
+
+Whole B/editor/corpus, paged split filter, MAUI Windows/Mac package runtime,
+final combined P3 và physical DPI/touch/screen-reader vẫn OPEN. Không báo 100%,
+merge PR hoặc publish NuGet công khai.
+
+Bước tiếp theo duy nhất: push HEAD chứa hồ sơ tích hợp này và xác minh đủ sáu
+workflow đúng final SHA, gồm published demo; sau đó review A/C plan để cấp
+exact-path grant không chồng B. Không tạo task hoặc automation trùng.
+
 ## Hardening opt-in protocol sau review C
 
 Root implementation `4660deec903a930c6ff64d706b24525e1106f86d` đã push,
