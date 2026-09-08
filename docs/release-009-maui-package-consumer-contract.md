@@ -38,11 +38,13 @@ combined HEAD vẫn cần gate riêng, không được thay bằng source green.
    cung cấp được. Android `am` chỉ có explicit completed marker, không cho managed
    process exit code; không ghi thành OS exit-code proof. Missing/failure marker
    không được PASS.
-   Shared Windows/Mac launchers vẫn thuộc B; Android/iOS extraction thuộc root.
+   Shared Windows/Mac launchers đã được B release; C nhận bounded opt-in grant,
+   Android/iOS extraction và strict parser vẫn thuộc root.
    Android/iOS có wiring opt-in qua shared transport được root release, luôn giữ own gate
    tối thiểu 3 completed frames và toàn bộ public postconditions. Result được ghi
    riêng `runtime-verification.json` chỉ sau khi verifier PASS. Android đã PASS
-   ở source8b; Android/iOS đã PASS ở source5d. Windows/Mac chưa có wiring native.
+   ở source8b; Android/iOS đã PASS ở source5d và combinedd73. Windows/Mac có wiring
+   opt-in mới, acceptance vẫn OPEN tới actual consumer CI ở đúng source.
    iOS đòi simctl launch status0 và explicit marker. Consumer chọn transport
    `app-file-v1` bằng argument thứ năm của shared helper; default legacy không đổi.
    Launcher tạo fresh path trong data container thực của simulator và truyền
@@ -56,6 +58,31 @@ combined HEAD vẫn cần gate riêng, không được thay bằng source green.
    đều không thành native proof. Own verifier vẫn kiểm toàn bộ source/version/feed,
    cohort nonce/target/required assembly versions/public postconditions và >=3 frames.
    Full JSON không bị cắt bớt; raw logs và đường dẫn container không được upload.
+
+## Desktop opt-in
+
+Windows thêm `-ResultPath`, `-MarkerPrefix`, `-ResultProtocol app-file-v1` cùng
+existing `-ExecutablePath`, `-TimeoutSeconds 75` và bắt `-MaximumAttempts 1`.
+Output caller khác private payload/context, phải mới trong RUNNER_TEMP. Capture
+stdout/stderr riêng bằng async reads, mỗi pipe <=2MiB và cùng process deadline;
+timeout/nonzero exit luôn FAIL dù file/marker có success. Output chỉ được xuất
+qua shared strict parser sau actual child ExitCode0; không in raw result/pipe.
+
+Mac giữ hai legacy arguments rồi thêm expected bundle ID, marker prefix và
+`app-file-v1`. Verify compiled Info.plist, executable và strict codesign trước
+cùng NSWorkspace launcher. Dùng fresh private directory trong per-bundle Mac
+container của recipe hiện hữu; chỉ app thật ghi full result mới xác minh được
+đường dẫn writable. Không dùng simctl hoặc fallback/direct executable/signing flags.
+Scoped unified query theo launched processID/time/prefix giữ complete envelope;
+không marker thì file đơn lẻ không PASS. Query <=10s/2MiB trong result bound90s;
+chỉ cleanup exact launched process, không broad file/PID search hoặc retry.
+LaunchServices callback bound30s giữ nguyên.
+
+Exit evidence: Windows `child-exit-zero-and-explicit-completed-marker`; Mac
+`launchservices-started-and-explicit-completed-marker`. Mac label không tuyên bố
+managed process ExitCode0. Cả hai vẫn phải qua same strict file protocol và own
+source/version/feed/cohort nonce/target/assembly/public postcondition gate >=3.
+New native acceptance cần whole fresh canonical cohort và sáu exact-HEAD gates.
 
 ## Matrix và giới hạn
 
@@ -96,5 +123,10 @@ hash/full file/compact envelope, existing/second write, cấu hình invalid và 
 Fixture cũng đưa output thật của Emit qua shared Python CLI và đối chiếu full
 consumer payload trả về; chỉ dùng private synthetic context, không thêm parser riêng.
 Không dùng fixture làm runtime acceptance hoặc thêm package dependency.
-Rollback bằng revert các file mới,
-không sửa shared source/launchers hoặc migration dữ liệu.
+Hosted Windows fixture chạy synthetic child thật qua launcher: valid/pipe pressure,
+missing/failure/nonzero/timeout/oversize/partial/nonce/hash/output/attempt rejection.
+Hosted Mac fixture từ chối wrong bundle, unsigned payload, existing output và
+unknown mode trước native launch. Classifier fixture13cases gọi actual diagnostic
+block và kiểm identity/privacy/bounds; không dùng prototype classifier trong test.
+Rollback reverse-revert desktop opt-in slice, giữ accepted iOS/Android protocol
+và SDK d73; không migration dữ liệu hoặc public feed publish.

@@ -23,8 +23,10 @@ internal static class Program
     private const string ProtocolVariable = "NERA_MAUI_SMOKE_PROTOCOL";
     private const string NonceVariable = "NERA_MAUI_SMOKE_NONCE";
     private const string PathVariable = "NERA_MAUI_SMOKE_RESULT";
+    private const string ChildModeVariable = "NERA_MAUI_LAUNCHER_FIXTURE";
     private static readonly string Description = string.Concat(Enumerable.Repeat("Dữ liệu kiểm chứng 🧪 ", 300));
     private static readonly string[] AssemblyNames = ["Maui", "Core", "Editing", "Formulas", "Rendering.Skia", "Ribbon.Core"];
+    private static readonly byte[] UnsignedFixtureBytes = [0, 1, 2];
 
     private static int Main()
     {
@@ -35,6 +37,8 @@ internal static class Program
             var runnerTemp = Environment.GetEnvironmentVariable("RUNNER_TEMP") ?? string.Empty;
             Require(Environment.GetEnvironmentVariable("CI") == "true" && Path.IsPathFullyQualified(runnerTemp),
                 "Emission fixtures require an isolated CI runner.");
+            var childMode = Environment.GetEnvironmentVariable(ChildModeVariable);
+            if (childMode is not null) return RunSyntheticChild(childMode);
             var root = Path.Combine(runnerTemp, "nera-maui-emission-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(root);
             DefaultShouldRetainFullMarker(root);
@@ -43,6 +47,8 @@ internal static class Program
             FileModeShouldRefuseExistingAndRepeatedEvidence(root);
             FileModeShouldRejectInvalidConfiguration(root);
             FileModeShouldPreserveFailureStatus(root);
+            WindowsLauncherShouldEnforceCompleteSingleAttemptEvidence(root);
+            MacLauncherShouldRejectInvalidIdentityAndUnsignedPayload(root);
             Console.WriteLine("Actual consumer emission fixtures passed.");
             return 0;
         }
@@ -68,6 +74,111 @@ internal static class Program
             .Select(name => new { name = "NeraSpreadSheet." + name,
                 informationalVersion = CohortIdentity.Version + "+" + CohortIdentity.SourceSha }).ToArray(),
     };
+
+    private static int RunSyntheticChild(string mode)
+    {
+        if (mode == "missing") return 0;
+        if (mode == "timeout") { Thread.Sleep(20_000); return 0; }
+        if (mode == "oversized") Console.Write(new string('x', 2 * 1024 * 1024 + 1));
+        if (mode == "pipe-pressure")
+        {
+            Console.WriteLine(new string('o', 96 * 1024));
+            Console.Error.WriteLine(new string('e', 96 * 1024));
+        }
+        if (mode == "stale-nonce") Environment.SetEnvironmentVariable(NonceVariable, new string('e', 32));
+        PackageProvenance.Emit(mode == "failure" ? "failure" : "success", 3, Details());
+        if (mode == "bad-marker") Console.WriteLine(Prefix + "{");
+        if (mode == "changed-file") File.AppendAllText(Environment.GetEnvironmentVariable(PathVariable)!, " ");
+        return mode is "nonzero" or "failure" ? 17 : 0;
+    }
+
+    private static int RunTool(string executable, IEnumerable<string> arguments, string? childMode = null)
+    {
+        var start = new ProcessStartInfo(executable)
+        {
+            UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true,
+        };
+        foreach (var argument in arguments) start.ArgumentList.Add(argument);
+        if (childMode is not null) start.Environment[ChildModeVariable] = childMode;
+        using var process = Process.Start(start) ?? throw new InvalidOperationException("Fixture tool did not start.");
+        var standardOutput = process.StandardOutput.ReadToEndAsync();
+        var standardError = process.StandardError.ReadToEndAsync();
+        if (!process.WaitForExit(45_000))
+        {
+            process.Kill(entireProcessTree: true);
+            throw new InvalidOperationException("Fixture tool exceeded its bound.");
+        }
+        Require(Task.WaitAll([standardOutput, standardError], 5_000), "Fixture tool pipes did not complete.");
+        Require(standardOutput.Result.Length + standardError.Result.Length < 32 * 1024,
+            "Fixture launcher exposed unbounded diagnostic output.");
+        return process.ExitCode;
+    }
+
+    private static void WindowsLauncherShouldEnforceCompleteSingleAttemptEvidence(string root)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        Console.WriteLine(nameof(WindowsLauncherShouldEnforceCompleteSingleAttemptEvidence));
+        var repository = Environment.GetEnvironmentVariable("GITHUB_WORKSPACE")!;
+        var executable = Environment.ProcessPath ?? throw new InvalidOperationException("Missing fixture executable.");
+        var launcher = Path.Combine(repository, "scripts", "run-maui-windows-smoke.ps1");
+        string[] modes = ["success", "pipe-pressure", "missing", "failure", "nonzero", "timeout",
+            "oversized", "bad-marker", "stale-nonce", "changed-file", "existing-output", "multiple-attempts"];
+        foreach (var mode in modes)
+        {
+            Console.WriteLine("Windows launcher case: " + mode);
+            var output = Path.Combine(root, "windows-" + mode + ".json");
+            if (mode == "existing-output") File.WriteAllText(output, "previous evidence");
+            string[] arguments = ["-NoProfile", "-NonInteractive", "-File", launcher,
+                "-ExecutablePath", executable, "-ResultPath", output, "-MarkerPrefix", Prefix,
+                "-ResultProtocol", "app-file-v1", "-MaximumAttempts", mode == "multiple-attempts" ? "2" : "1",
+                "-TimeoutSeconds", "10"];
+            var code = RunTool("pwsh", arguments, mode);
+            if (mode is "success" or "pipe-pressure")
+            {
+                Require(code == 0 && File.Exists(output), "Valid synthetic Windows transport failed.");
+                using var document = JsonDocument.Parse(File.ReadAllBytes(output));
+                CheckFullPayload(document.RootElement, "success");
+            }
+            else
+            {
+                Require(code != 0, "Invalid synthetic Windows transport passed.");
+                if (mode == "existing-output")
+                    Require(File.ReadAllText(output) == "previous evidence", "Existing Windows output was replaced.");
+                else Require(!File.Exists(output), "Rejected Windows transport published evidence.");
+            }
+        }
+    }
+
+    private static void MacLauncherShouldRejectInvalidIdentityAndUnsignedPayload(string root)
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        Console.WriteLine(nameof(MacLauncherShouldRejectInvalidIdentityAndUnsignedPayload));
+        var repository = Environment.GetEnvironmentVariable("GITHUB_WORKSPACE")!;
+        var app = Path.Combine(root, "Unsigned.app");
+        var contents = Path.Combine(app, "Contents");
+        var binaries = Path.Combine(contents, "MacOS");
+        Directory.CreateDirectory(binaries);
+        File.WriteAllText(Path.Combine(contents, "Info.plist"),
+            "<?xml version=\"1.0\"?><plist version=\"1.0\"><dict><key>CFBundleIdentifier</key>" +
+            "<string>com.neraspreadsheet.transportfixture</string><key>CFBundleExecutable</key><string>Unsigned</string></dict></plist>");
+        var executable = Path.Combine(binaries, "Unsigned");
+        File.WriteAllBytes(executable, UnsignedFixtureBytes);
+        File.SetUnixFileMode(executable, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        string[] modes = ["wrong-bundle", "unsigned", "existing-output", "unknown-protocol"];
+        foreach (var mode in modes)
+        {
+            Console.WriteLine("Mac launcher case: " + mode);
+            var output = Path.Combine(root, "mac-" + mode + ".json");
+            if (mode == "existing-output") File.WriteAllText(output, "previous evidence");
+            string[] arguments = [Path.Combine(repository, "scripts", "run-maui-maccatalyst-smoke.sh"), app, output,
+                mode == "wrong-bundle" ? "com.neraspreadsheet.different" : "com.neraspreadsheet.transportfixture", Prefix,
+                mode == "unknown-protocol" ? "unknown" : "app-file-v1"];
+            Require(RunTool("bash", arguments) != 0, "Invalid synthetic Mac transport passed.");
+            if (mode == "existing-output")
+                Require(File.ReadAllText(output) == "previous evidence", "Existing Mac output was replaced.");
+            else Require(!File.Exists(output), "Rejected Mac transport published evidence.");
+        }
+    }
 
     private static void Configure(string? protocol, string? nonce, string? path)
     {

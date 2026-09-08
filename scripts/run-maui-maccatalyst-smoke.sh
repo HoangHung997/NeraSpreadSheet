@@ -1,13 +1,77 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
-  echo "Usage: $0 <app-bundle-path> [result-json-path]" >&2
+if [ "$#" -lt 1 ] || { [ "$#" -gt 2 ] && [ "$#" -ne 5 ]; }; then
+  echo "Usage: $0 <app-bundle-path> [result-json-path] [expected-bundle-id marker-prefix app-file-v1]" >&2
   exit 64
 fi
 
 APP="$1"
 RESULT="${2:-${RUNNER_TEMP:-/tmp}/nera-maccatalyst-analytics-smoke.json}"
+PACKAGE_MODE="${5:-marker}"
+if [ "$#" -eq 5 ] && [ "$PACKAGE_MODE" != "app-file-v1" ]; then
+  echo 'Unknown Mac package result protocol.' >&2
+  exit 64
+fi
+PACKAGE_STAGE="configuration"
+package_failure() {
+  echo "Mac package transport rejected at stage=$PACKAGE_STAGE." >&2
+  exit 1
+}
+if [ "$PACKAGE_MODE" = "app-file-v1" ]; then
+  trap package_failure ERR
+  if [ "${CI:-}" != "true" ] || [ -z "${RUNNER_TEMP:-}" ] || [ "$(uname -s)" != "Darwin" ]; then package_failure; fi
+  EXPECTED_BUNDLE_ID="$3"
+  PACKAGE_PREFIX="$4"
+  if [[ ! "$EXPECTED_BUNDLE_ID" =~ ^[A-Za-z0-9][A-Za-z0-9.-]+$ ]] || [[ ! "$PACKAGE_PREFIX" =~ ^[A-Z0-9_]+:$ ]]; then package_failure; fi
+  WORK_DIR="$(mktemp -d "$RUNNER_TEMP/nera-maccatalyst-package-XXXXXX")"
+  WORK_DIR="$(cd "$WORK_DIR" && pwd -P)"
+  LAUNCHER="$WORK_DIR/LaunchNeraMacCatalystSmoke.swift"
+  INFO_PLIST="$APP/Contents/Info.plist"
+  if [ ! -d "$APP" ] || [ ! -f "$INFO_PLIST" ]; then package_failure; fi
+  PROCESS_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO_PLIST" 2>/dev/null)"
+  BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO_PLIST" 2>/dev/null)"
+  if [ "$BUNDLE_ID" != "$EXPECTED_BUNDLE_ID" ] || [[ ! "$PROCESS_NAME" =~ ^[A-Za-z0-9_.-]+$ ]]; then package_failure; fi
+  APP_EXECUTABLE="$APP/Contents/MacOS/$PROCESS_NAME"
+  if [ ! -x "$APP_EXECUTABLE" ]; then package_failure; fi
+  PACKAGE_STAGE="private-container"
+  PACKAGE_CONTEXT="$WORK_DIR/file-context.json"
+  # Reuse the existing per-bundle Mac container location, never an iOS simulator recipe.
+  # The actual app must write here successfully; no host/fallback file can replace it.
+  python3 - "$RUNNER_TEMP" "$RESULT" "$BUNDLE_ID" "$PACKAGE_CONTEXT" <<'PY'
+import json, secrets, sys, tempfile
+from pathlib import Path
+runner, output, bundle, context = sys.argv[1:]
+try:
+    runner = Path(runner).resolve(strict=True)
+    output = Path(output)
+    if (not output.is_absolute() or output.exists() or output.is_symlink()
+            or not output.parent.resolve(strict=True).is_relative_to(runner)):
+        raise ValueError('invalid private output')
+    container = Path.home() / 'Library' / 'Containers' / bundle / 'Data'
+    temporary = container / 'tmp'
+    temporary.mkdir(parents=True, exist_ok=True)
+    container = container.resolve(strict=True)
+    temporary = temporary.resolve(strict=True)
+    if not temporary.is_relative_to(container):
+        raise ValueError('invalid container parent')
+    directory = Path(tempfile.mkdtemp(prefix='nera-package-', dir=temporary)).resolve(strict=True)
+    if directory.parent != temporary:
+        raise ValueError('invalid private app directory')
+    with open(context, 'x', encoding='utf-8') as stream:
+        json.dump({'schema': 'native-result-file-context-v1', 'path': str(directory / 'result.json'),
+                   'transportNonce': secrets.token_hex(16)}, stream)
+except (OSError, ValueError):
+    print('Mac private package context setup failed.', file=sys.stderr)
+    raise SystemExit(1)
+PY
+  SANDBOX_RESULT="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["path"])' "$PACKAGE_CONTEXT")"
+  NERA_MAUI_SMOKE_NONCE="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["transportNonce"])' "$PACKAGE_CONTEXT")"
+  NERA_MAUI_SMOKE_PROTOCOL="native-result-file-v1"
+  export NERA_MAUI_SMOKE_NONCE NERA_MAUI_SMOKE_PROTOCOL
+  PACKAGE_STAGE="signature"
+  if ! codesign --verify --deep --strict --verbose=4 "$APP" >"$WORK_DIR/signature.log" 2>&1; then package_failure; fi
+else
 RESULT_FILE_NAME="nera-maccatalyst-analytics-smoke.json"
 TRACE_FILE_NAME="nera-maccatalyst-analytics-smoke.trace"
 FALLBACK_RESULT="${TMPDIR:-/tmp}/$RESULT_FILE_NAME"
@@ -82,6 +146,7 @@ if ! codesign --verify --deep --strict --verbose=4 "$APP"; then
   exit 1
 fi
 echo "Mac Catalyst strict code-signature verification: PASS"
+fi
 
 native_stderr_diagnostics() {
   python3 - "$1" "$CONTAINER_ROOT/tmp" "${APP_PID:-}" "$NERA_MAUI_NATIVE_STDERR_RUN" "${LAUNCH_DIAG_START:-}" <<'PY'
@@ -478,6 +543,7 @@ cleanup() {
   if [ -n "${APP_PID:-}" ] && kill -0 "$APP_PID" 2>/dev/null; then
     kill "$APP_PID" 2>/dev/null || true
   fi
+  if [ "$PACKAGE_MODE" = "app-file-v1" ]; then return; fi
   while IFS= read -r replacement_pid; do
     [ -n "$replacement_pid" ] || continue
     if [ "$replacement_pid" != "${APP_PID:-}" ]; then
@@ -542,11 +608,83 @@ exit(status)
 SWIFT
 
 LAUNCH_DIAG_START="$(date '+%Y-%m-%d %H:%M:%S')"
-echo "Launching Mac Catalyst smoke through LaunchServices: $APP"
+if [ "$PACKAGE_MODE" = "marker" ]; then echo "Launching Mac Catalyst smoke through LaunchServices: $APP"; fi
+PACKAGE_STAGE="launchservices"
 if LAUNCH_OUTPUT="$(xcrun swift "$LAUNCHER" "$APP" "$SANDBOX_RESULT" 2>&1)"; then
   LAUNCH_EXIT=0
 else
   LAUNCH_EXIT=$?
+fi
+if [ "$PACKAGE_MODE" = "app-file-v1" ]; then
+  if [ "$LAUNCH_EXIT" -ne 0 ]; then package_failure; fi
+  APP_PID="$(printf '%s\n' "$LAUNCH_OUTPUT" | sed -n 's/^launched_pid=//p' | tail -n 1)"
+  if ! [[ "$APP_PID" =~ ^[0-9]+$ ]]; then package_failure; fi
+  PACKAGE_STAGE="complete-bound-result"
+  python3 - "$APP_PID" "$LAUNCH_DIAG_START" "$PACKAGE_PREFIX" "$PACKAGE_CONTEXT" "$WORK_DIR" "$RESULT" "$(cd "$(dirname "$0")" && pwd -P)/verify-native-smoke-result.py" <<'PY'
+import json, os, selectors, subprocess, sys, time
+from pathlib import Path
+pid, started, prefix, context, directory, output, verifier = sys.argv[1:]
+directory = Path(directory)
+console = directory / 'console.log'
+console.touch(exist_ok=False)
+unified = directory / 'unified.json'
+deadline = time.monotonic() + 90
+last_size = 0
+
+def read_scoped_log():
+    bound = min(deadline, time.monotonic() + 10)
+    predicate = f'processID == {int(pid)} AND eventMessage CONTAINS "{prefix}"'
+    with subprocess.Popen(['/usr/bin/log', 'show', '--start', started, '--style', 'json',
+                           '--info', '--debug', '--predicate', predicate],
+                          stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as process:
+        data = bytearray()
+        try:
+            os.set_blocking(process.stdout.fileno(), False)
+            with selectors.DefaultSelector() as selector:
+                selector.register(process.stdout, selectors.EVENT_READ)
+                while selector.get_map():
+                    if time.monotonic() >= bound:
+                        raise ValueError('bounded query timeout')
+                    for key, _ in selector.select(min(0.1, max(0, bound - time.monotonic()))):
+                        chunk = os.read(key.fd, 65536)
+                        if not chunk:
+                            selector.unregister(key.fileobj)
+                            continue
+                        data.extend(chunk)
+                        if len(data) > 2 * 1024 * 1024:
+                            raise ValueError('bounded query size')
+            if process.wait(timeout=max(0.01, bound - time.monotonic())) != 0:
+                raise ValueError('scoped query failed')
+            return bytes(data)
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=2)
+
+try:
+    while time.monotonic() < deadline:
+        data = read_scoped_log()
+        last_size = len(data)
+        unified.write_bytes(data)
+        completed = subprocess.run([sys.executable, '-B', verifier, '--log', str(console),
+            '--json-log', str(unified), '--prefix', prefix, '--file-context', context,
+            '--minimum-frames', '3', '--output', output], stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, timeout=min(5, max(0.01, deadline - time.monotonic())), check=False)
+        if completed.returncode == 0:
+            print('Loaded Mac package transport passed with LaunchServices startup and a complete bound marker.')
+            raise SystemExit(0)
+        if completed.returncode != 2:
+            print('Mac package shared result verification rejected the evidence.', file=sys.stderr)
+            raise SystemExit(1)
+        time.sleep(min(1, max(0, deadline - time.monotonic())))
+    raise ValueError('completed marker missing')
+except (OSError, ValueError, subprocess.SubprocessError):
+    with open(context, encoding='utf-8') as stream:
+        has_file = Path(json.load(stream)['path']).is_file()
+    print(f'Mac package transport incomplete; app-file={int(has_file)}; unified-bytes={last_size}.', file=sys.stderr)
+    raise SystemExit(1)
+PY
+  exit 0
 fi
 printf '%s\n' "$LAUNCH_OUTPUT"
 if [ "$LAUNCH_EXIT" -ne 0 ]; then

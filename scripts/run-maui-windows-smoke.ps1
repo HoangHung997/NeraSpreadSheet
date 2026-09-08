@@ -6,10 +6,113 @@ param(
     [int]$TimeoutSeconds = 75,
 
     [ValidateRange(1, 3)]
-    [int]$MaximumAttempts = 2
+    [int]$MaximumAttempts = 2,
+
+    [string]$ResultPath,
+    [string]$MarkerPrefix,
+    [ValidateSet('marker', 'app-file-v1')]
+    [string]$ResultProtocol = 'marker'
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($ResultProtocol -eq 'app-file-v1') {
+    # Package mode owns one process and fresh bounded evidence; legacy behavior stays below.
+    $packageProcess = $null
+    $packageCancellation = [Threading.CancellationTokenSource]::new()
+    $packagePipes = @()
+    $packageStage = 'configuration'
+    try {
+        if (-not $IsWindows -or $env:CI -ne 'true' -or -not $env:RUNNER_TEMP -or
+            $MaximumAttempts -ne 1 -or $MarkerPrefix -cnotmatch '^[A-Z0-9_]+:$' -or
+            -not [IO.Path]::IsPathFullyQualified($ResultPath)) {
+            throw 'Invalid isolated package launch configuration.'
+        }
+        $packageTemp = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd([IO.Path]::DirectorySeparatorChar)
+        $packageOutput = [IO.Path]::GetFullPath($ResultPath)
+        if (-not $packageOutput.StartsWith($packageTemp + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
+            (Test-Path -LiteralPath $packageOutput) -or -not (Test-Path -LiteralPath (Split-Path -Parent $packageOutput) -PathType Container)) {
+            throw 'Package output must be new and private to this runner.'
+        }
+        $packageExecutable = Get-Item -LiteralPath $ExecutablePath
+        if ($packageExecutable.PSIsContainer -or $packageExecutable.Extension -cne '.exe') { throw 'Missing package executable.' }
+        $packageDirectory = Join-Path $packageTemp ('nera-windows-launch-' + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $packageDirectory | Out-Null
+        $packagePayload = Join-Path $packageDirectory 'payload.json'
+        $packageContext = Join-Path $packageDirectory 'context.json'
+        $packageNonce = [Guid]::NewGuid().ToString('N')
+        $packageContextBytes = [Text.UTF8Encoding]::new($false).GetBytes((@{
+            schema = 'native-result-file-context-v1'; path = $packagePayload; transportNonce = $packageNonce
+        } | ConvertTo-Json -Compress))
+        $packageContextStream = [IO.File]::Open($packageContext, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+        try { $packageContextStream.Write($packageContextBytes, 0, $packageContextBytes.Length); $packageContextStream.Flush($true) }
+        finally { $packageContextStream.Dispose() }
+        $packageStart = [Diagnostics.ProcessStartInfo]::new()
+        $packageStart.FileName = $packageExecutable.FullName
+        $packageStart.WorkingDirectory = $packageExecutable.DirectoryName
+        $packageStart.UseShellExecute = $false
+        $packageStart.RedirectStandardOutput = $true
+        $packageStart.RedirectStandardError = $true
+        $packageStart.Environment['NERA_MAUI_SMOKE_RESULT'] = $packagePayload
+        $packageStart.Environment['NERA_MAUI_SMOKE_PROTOCOL'] = 'native-result-file-v1'
+        $packageStart.Environment['NERA_MAUI_SMOKE_NONCE'] = $packageNonce
+        $packageStart.Environment['NERA_MAUI_SMOKE_ATTEMPT'] = '1'
+        $packageStage = 'process-start'
+        $packageProcess = [Diagnostics.Process]::Start($packageStart)
+        if ($null -eq $packageProcess) { throw 'Package process did not start.' }
+        $packageClock = [Diagnostics.Stopwatch]::StartNew()
+        foreach ($packagePipe in @(
+            @{ Input = $packageProcess.StandardOutput.BaseStream; Name = 'console.log' },
+            @{ Input = $packageProcess.StandardError.BaseStream; Name = 'stderr.log' }
+        )) {
+            $packageState = [pscustomobject]@{
+                Input = $packagePipe.Input
+                Output = [IO.File]::Open((Join-Path $packageDirectory $packagePipe.Name), [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+                Buffer = [byte[]]::new(8192); Total = 0L; Done = $false; Read = $null
+            }
+            $packagePipes += $packageState
+            $packageState.Read = $packageState.Input.ReadAsync($packageState.Buffer, 0, $packageState.Buffer.Length, $packageCancellation.Token)
+        }
+        $packageStage = 'bounded-process-and-pipes'
+        while (-not $packageProcess.HasExited -or @($packagePipes | Where-Object { -not $_.Done }).Count -gt 0) {
+            if ($packageClock.Elapsed.TotalSeconds -ge $TimeoutSeconds) { throw 'Package process or pipe capture timed out.' }
+            foreach ($packagePipe in $packagePipes) {
+                if ($packagePipe.Done -or -not $packagePipe.Read.IsCompleted) { continue }
+                $packageLength = $packagePipe.Read.GetAwaiter().GetResult()
+                if ($packageLength -eq 0) { $packagePipe.Done = $true; continue }
+                $packagePipe.Total += $packageLength
+                if ($packagePipe.Total -gt 2MB) { throw 'Package process output exceeded its evidence bound.' }
+                $packagePipe.Output.Write($packagePipe.Buffer, 0, $packageLength)
+                $packagePipe.Read = $packagePipe.Input.ReadAsync($packagePipe.Buffer, 0, $packagePipe.Buffer.Length, $packageCancellation.Token)
+            }
+            [Threading.Thread]::Sleep(10)
+        }
+        $packageStage = 'child-exit'
+        if ($packageProcess.ExitCode -ne 0) { throw 'Package child exited unsuccessfully.' }
+        foreach ($packagePipe in $packagePipes) { $packagePipe.Output.Dispose() }
+        $packageStage = 'strict-result'
+        & python -B (Join-Path $PSScriptRoot 'verify-native-smoke-result.py') --log (Join-Path $packageDirectory 'console.log') --log (Join-Path $packageDirectory 'stderr.log') --prefix $MarkerPrefix --file-context $packageContext --minimum-frames 3 --output $packageOutput
+        if ($LASTEXITCODE -ne 0) { throw 'Package result did not pass the shared strict verifier.' }
+        Write-Output 'Loaded Windows package transport passed with child exit zero and a complete bound result.'
+        exit 0
+    } catch {
+        # Report only a fixed stage at the process boundary; raw pipe/error text remains private.
+        [Console]::Error.WriteLine("Windows package transport rejected at stage=$packageStage.")
+        exit 1
+    } finally {
+        $packageCancellation.Cancel()
+        if ($null -ne $packageProcess) {
+            if (-not $packageProcess.HasExited) {
+                $packageProcess.Kill($true)
+                [void]$packageProcess.WaitForExit(5000)
+            }
+            foreach ($packagePipe in $packagePipes) { $packagePipe.Input.Dispose(); $packagePipe.Output.Dispose() }
+            $packageProcess.Dispose()
+        }
+        $packageCancellation.Dispose()
+    }
+}
+if ($ResultPath -or $MarkerPrefix) { throw 'Package result options require app-file-v1.' }
 
 $executable = Resolve-Path -LiteralPath $ExecutablePath
 $tempRoot = if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {

@@ -3,6 +3,8 @@ param(
     [string] $FeedDirectory,
     [switch] $RunAndroidNative,
     [switch] $RunIosNative,
+    [switch] $RunWindowsNative,
+    [switch] $RunMacNative,
     [switch] $PlanOnly
 )
 $ErrorActionPreference = 'Stop'
@@ -10,7 +12,10 @@ $mauiRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $mauiRoot 'eng/release-009-maui/Common.ps1')
 if ($RunAndroidNative -and $Platform -ne 'android') { throw 'The released Android transport requires the Android package consumer.' }
 if ($RunIosNative -and $Platform -ne 'ios') { throw 'The released iOS transport requires the iOS package consumer.' }
-if ($PlanOnly) { Write-Output 'Verify canonical feed; copy public consumer outside checkout; restore into fresh cache; verify TFM/app payload. Optional Android/iOS native execution verifies fresh cohort marker; Windows/Mac native remain OPEN.'; return }
+if ($RunWindowsNative -and $Platform -ne 'windows') { throw 'The Windows transport requires the Windows package consumer.' }
+if ($RunMacNative -and $Platform -ne 'maccatalyst') { throw 'The Mac transport requires the Mac Catalyst package consumer.' }
+$mauiRunNative = $RunAndroidNative -or $RunIosNative -or $RunWindowsNative -or $RunMacNative
+if ($PlanOnly) { Write-Output 'Verify canonical feed; copy public consumer outside checkout; restore into fresh cache; verify TFM/app payload. Requested native platform must pass its transport and fresh full cohort result; native editor remains OPEN.'; return }
 $mauiCohort = Get-MauiCohort $mauiRoot
 $mauiConfig = Get-Content -Raw -LiteralPath (Join-Path $mauiRoot 'eng/release-009-maui/cohort.json') | ConvertFrom-Json
 $mauiVerifier = Join-Path $mauiRoot 'eng/release-009-maui/package_matrix.py'
@@ -97,20 +102,29 @@ try {
         bundleId = $mauiBundleId; markerPrefix = 'NERA_PACKAGED_MAUI_SMOKE:' }) (Join-Path $mauiScratch 'launch-inputs.json')
     & python $mauiVerifier verify-app --app $mauiAppPath --build (Join-Path $mauiOutput 'build-manifest.json')
     if ($LASTEXITCODE -ne 0) { throw 'Consumer app payload verification failed.' }
-    if ($RunAndroidNative -or $RunIosNative) {
+    if ($mauiRunNative) {
         $mauiNativeResult = Join-Path $mauiScratch ($Platform + '-result-' + [Guid]::NewGuid().ToString('N') + '.json')
         # Shared transport is imported unchanged from the released root source; no retries or fallback.
         if ($RunAndroidNative) {
             & bash (Join-Path $mauiRoot 'scripts/run-maui-android-smoke.sh') $mauiAppPath $mauiBundleId 'NeraPackagedMauiSmoke' 'NERA_PACKAGED_MAUI_SMOKE:' $mauiNativeResult
-        } else {
+        } elseif ($RunIosNative) {
             & bash (Join-Path $mauiRoot 'scripts/run-maui-ios-smoke.sh') $mauiAppPath $mauiBundleId 'NERA_PACKAGED_MAUI_SMOKE:' $mauiNativeResult 'app-file-v1'
+        } elseif ($RunWindowsNative) {
+            & (Join-Path $mauiRoot 'scripts/run-maui-windows-smoke.ps1') -ExecutablePath $mauiAppPath -ResultPath $mauiNativeResult -MarkerPrefix 'NERA_PACKAGED_MAUI_SMOKE:' -ResultProtocol 'app-file-v1' -MaximumAttempts 1 -TimeoutSeconds 75
+        } else {
+            & bash (Join-Path $mauiRoot 'scripts/run-maui-maccatalyst-smoke.sh') $mauiAppPath $mauiNativeResult $mauiBundleId 'NERA_PACKAGED_MAUI_SMOKE:' 'app-file-v1'
         }
         if ($LASTEXITCODE -ne 0) { throw "$Platform native package transport failed." }
         & python $mauiVerifier verify-runtime --result $mauiNativeResult --build (Join-Path $mauiOutput 'build-manifest.json')
         if ($LASTEXITCODE -ne 0) { throw "$Platform runtime cohort or public postconditions failed." }
         Copy-Item -LiteralPath $mauiNativeResult -Destination (Join-Path $mauiOutput 'loaded-consumer.json')
-        $mauiPlatformLabel = if ($RunIosNative) { 'iOS' } else { 'Android' }
-        $mauiExitEvidence = if ($RunIosNative) { 'simctl-status-zero-and-explicit-completed-marker' } else { 'explicit-completed-marker' }
+        $mauiPlatformLabel = switch ($Platform) { 'ios' { 'iOS' } 'windows' { 'Windows' } 'maccatalyst' { 'Mac Catalyst' } 'android' { 'Android' } }
+        $mauiExitEvidence = switch ($Platform) {
+            'ios' { 'simctl-status-zero-and-explicit-completed-marker' }
+            'windows' { 'child-exit-zero-and-explicit-completed-marker' }
+            'maccatalyst' { 'launchservices-started-and-explicit-completed-marker' }
+            'android' { 'explicit-completed-marker' }
+        }
         Write-MauiJson ([ordered]@{ schemaVersion = 1; status = 'success'; platform = $Platform
             sourceSha = $mauiCohort.sourceSha; version = $mauiCohort.version; feedHash = $mauiFeed.feedHash
             nonce = $mauiNonce; appName = [IO.Path]::GetFileName($mauiAppPath)
@@ -118,5 +132,5 @@ try {
             nativeEditorCoverage = 'OPEN' }) (Join-Path $mauiOutput 'runtime-verification.json')
     }
 } finally { Pop-Location }
-if ($RunAndroidNative -or $RunIosNative) { Write-Output "$mauiPlatformLabel PackageReference consumer passed native public postconditions and exact cohort validation; native editor remains OPEN." }
+if ($mauiRunNative) { Write-Output "$mauiPlatformLabel PackageReference consumer passed native public postconditions and exact cohort validation; native editor remains OPEN." }
 else { Write-Output "$Platform PackageReference app built from the canonical feed; runtime acceptance is OPEN pending shared launcher integration." }

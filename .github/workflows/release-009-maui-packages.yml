@@ -1,8 +1,8 @@
-name: RELEASE-009 MAUI canonical packages (Android/iOS native, Windows/Mac native OPEN)
+name: RELEASE-009 MAUI canonical packages and native consumers
 
 on:
   push:
-    branches: ['feature/release-009-maui-packages', 'feature/release-009-maui-ios-consumer', 'feature/bootstrap-architecture-v0.1']
+    branches: ['feature/release-009-maui-packages', 'feature/release-009-maui-ios-consumer', 'feature/release-009-maui-desktop-consumer', 'feature/bootstrap-architecture-v0.1']
   workflow_dispatch:
 
 permissions:
@@ -31,6 +31,8 @@ jobs:
         run: python -B eng/release-009-maui/test_package_matrix.py
       - name: Validate released native result transport fixtures
         run: python -B scripts/test-native-smoke-result.py
+      - name: Validate bounded native stderr classifier
+        run: python -B eng/release-009-maui/test_native_stderr_classifier.py
       - name: Verify architecture and package metadata
         shell: pwsh
         run: |
@@ -155,6 +157,18 @@ jobs:
         with:
           name: release009-maui-feed-${{ github.sha }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/maui-feed
+      - name: Validate actual desktop transport fixtures
+        if: matrix.platform == 'windows' || matrix.platform == 'maccatalyst'
+        shell: pwsh
+        run: |
+          . ./eng/release-009-maui/Common.ps1
+          $cohort = Get-MauiCohort $env:GITHUB_WORKSPACE
+          $scratch = New-MauiScratch $cohort
+          Push-Location $scratch
+          try {
+            Assert-MauiSdk $cohort
+            Invoke-MauiDotnet @('run', '--project', (Join-Path $env:GITHUB_WORKSPACE 'eng/release-009-maui/emission-fixture/EmissionFixture.csproj'), '-c', 'Release')
+          } finally { Pop-Location }
       - name: Install workload using the exact cohort SDK
         shell: pwsh
         env:
@@ -168,9 +182,9 @@ jobs:
             Assert-MauiSdk $cohort
             Invoke-MauiDotnet @('workload', 'install', $env:NERA_WORKLOAD, '--skip-manifest-update')
           } finally { Pop-Location }
-      - name: Build isolated public consumer and run Android or iOS native package smoke
+      - name: Build isolated public consumer and run native package smoke
         shell: pwsh
-        run: ./scripts/run-release-009-maui-consumer.ps1 -Platform '${{ matrix.platform }}' -FeedDirectory '${{ runner.temp }}/maui-feed' -RunAndroidNative:('${{ matrix.platform }}' -eq 'android') -RunIosNative:('${{ matrix.platform }}' -eq 'ios')
+        run: ./scripts/run-release-009-maui-consumer.ps1 -Platform '${{ matrix.platform }}' -FeedDirectory '${{ runner.temp }}/maui-feed' -RunAndroidNative:('${{ matrix.platform }}' -eq 'android') -RunIosNative:('${{ matrix.platform }}' -eq 'ios') -RunWindowsNative:('${{ matrix.platform }}' -eq 'windows') -RunMacNative:('${{ matrix.platform }}' -eq 'maccatalyst')
       - uses: actions/upload-artifact@v4
         with:
           name: release009-maui-consumer-${{ github.sha }}-${{ github.run_attempt }}-${{ matrix.platform }}
@@ -180,8 +194,4 @@ jobs:
       - name: Report acceptance boundary
         shell: pwsh
         run: |
-          if ('${{ matrix.platform }}' -in @('android', 'ios')) {
-            '${{ matrix.platform }} native public package smoke and exact cohort/nonce/app hash verification passed. Native editor coverage remains OPEN.' >> $env:GITHUB_STEP_SUMMARY
-          } else {
-            'PackageReference consumer build complete. Native runtime and native editor coverage remain OPEN for this platform.' >> $env:GITHUB_STEP_SUMMARY
-          }
+          '${{ matrix.platform }} native public package smoke and exact cohort/nonce/app hash verification passed. Native editor coverage remains OPEN.' >> $env:GITHUB_STEP_SUMMARY

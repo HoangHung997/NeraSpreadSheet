@@ -1,8 +1,37 @@
 # RELEASE-009 MAUI — Handoff lane C
 
-## Native iOS consumer — nhánh tiếp theo
+## Desktop package consumer — 08/09 đang triển khai
 
-- Branch hiện tại: `feature/release-009-maui-ios-consumer`, từ đúng frozen source
+- Branch `feature/release-009-maui-desktop-consumer` từ exact combined
+  `d73cd2e2bcb7e2832e9a8b3fd071373b62cb2a0f`, baseline sáu gates xanh theo root.
+  Giữ iOS5d/package8b/PERFfe branches nguyên trạng; PR1 Draft/unmerged.
+- Nhận đúng Windows b50e60f9/Mac fee485b3 blobs B650 bằng apply_patch vào commit
+  riêng `5906ea9fe4d27baaa310997cfb9938ee4d194934`. **PHẢI nhận commit này khi
+  tích hợp C**, không skip như import-only các đợt Android/iOS trước.
+- Scope root: hai launchers, wrapper/workflow, existing emission-fixture project/
+  Program và ba own docs; amended thêm `test_native_stderr_classifier.py`.
+  Không sửa actual Emit/SmokePage/SDK hoặc shared parser/iOS/Android helpers.
+- Windows opt-in một process/attempt, bounded async stdout/stderr2MiB, actual
+  child exit0; Mac reuse NSWorkspace/strict codesign, fresh container result và
+  scoped complete marker, không fallback/claim OS exit. Cả hai giữ prelaunch
+  verify-app rồi full cohort/public postcondition verify-runtime >=3.
+- Hosted fixture mở rộng synthetic child/negative launcher cases, giữ sáu nhóm
+  actual Emit và actual shared CLI roundtrip. Local33shared +23package/scanner
+  PASS0skip; PowerShell/Bash/four inline Python parse, PlanOnly và architecture/
+  packaging PASS. Chưa chạy fixture build/native desktop mới; không local heavy.
+- Amended classifier theo root14 literal keys, chỉ fixed JSON sau same process/
+  run/freshness/UID/no-link guards.13 actual-implementation tests PASS0skip.
+  Diagnostic-only commit `cf4f9dac1eb8c7a45ecf366328523df834f0cd45`; immutable patch
+  `6f72d9d4fa514eaab43ffc633775331e53819f3d373a9c8a288f90993c9b0b2a` againstfee485
+  → after13287ae318dea2cc318329a76373611aefb6fe6a, fixtureSHA256
+  `77bfb99521e522b76d7924ddb1865fb5901c4b280c1a202db7a4d3beee7084a6`.
+  Root review rồi mới cấp B import; không giao full opt-in WIP hoặc B writer.
+  Khi root nhận B phải skip classifier import của B để không ghi đè C launcher.
+- Windows/Mac package native mới, native editor/whole B/P3/hardware vẫn OPEN.
+
+## Native iOS consumer — checkpoint đã nhận
+
+- Branch frozen: `feature/release-009-maui-ios-consumer`, từ đúng frozen source
   `8b7781ca44b4f9f3647c5434d02970be873d9624`; giữ nguyên nhánh package đã bàn giao.
 - Source8b đã xanh6gates: full33989004197, iOS33989005769, Q33989007405,
   Windows packages33989009301, demo33989010831, MAUI33988945365 (11jobs).
@@ -165,5 +194,5 @@ resolved/checked fixture directory. Shared imported223 blobs không đổi.
 
 ## Bước tiếp theo duy nhất
 
-Push owned app-file implementation/fixture và chạy lại toàn cohort cùng sáu gates
-tại final HEAD; chỉ bàn giao sau actual Android/iOS package native đều PASS.
+Push desktop opt-in/fixture implementation và chạy whole canonical cohort cùng
+sáu gates tại final HEAD; chỉ release sau cả bốn native consumers PASS.

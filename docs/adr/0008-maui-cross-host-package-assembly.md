@@ -82,6 +82,28 @@ full result sau shared validation vẫn qua own cohort/public postcondition gate
 Console fixture hosted-only link actual emitter để kiểm protocol, không thêm package
 hoặc workload local. Acceptance mới vẫn OPEN tới exact-source native consumer CI.
 
+## Windows/Mac transport — quyết định 08/09
+
+Baseline kết hợp d73 đã xanh đủ sáu gates, gồm Android/iOS package native.
+Nhận hai shared launcher đã được B release ở650 trong commit riêng5906ea9f;
+commit này PHẢI nhận khi tích hợp vì d73 chưa có các diagnostic delta đó.
+Thêm opt-in `app-file-v1` vào chính hai launchers, giữ legacy behavior/bounds.
+Không đổi consumer Emit/page, SDK hoặc shared strict parser đã được root nghiệm thu.
+
+Windows dùng một child process, capture hai pipe riêng bằng async reads với
+deadline và cap2MiB mỗi pipe; bắt actual ExitCode0, không retry startup cho package.
+Mac dùng cùng LaunchServices/NSWorkspace và strict codesign; private path trong
+per-bundle container như launcher hiện hữu, cần app thực sự ghi được. Query chỉ
+processID hiện tại/prefix/time window, bounded90s/2MiB, không lấy fallback file.
+Mac launch success không đo OS exit0; evidence label chỉ LaunchServices-started
+và completed marker. Full file/compact marker đều bắt buộc trước own cohort gate.
+Không thay input/render nên không thêm performance benchmark; P3 vẫn riêng.
+
+Classifier stderr bổ sung sau exact identity guards chỉ đếm14 literal indicators,
+giới hạn64KiB/128lines/4096chars/count64/output2KiB. Không suy text thành crash
+cause, effective mode hoặc clean exit. Lát chẩn đoán tách khỏi package opt-in
+để B nhận immutable sau root review; C giữ sole writer launcher lâu dài.
+
 ## Tài liệu gốc
 
 - [NuGet nuspec pack qua MSBuild](https://learn.microsoft.com/en-us/nuget/reference/msbuild-targets#packing-using-a-nuspec-file).
