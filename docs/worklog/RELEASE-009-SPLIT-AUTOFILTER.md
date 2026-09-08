@@ -24,7 +24,7 @@
   Visual QA 14 shell + popup Table/worksheet phát hiện footer Xóa lọc/Hủy/Áp dụng
   bị cắt khỏi popup540px. Chưa release source này. Follow-up reserve footer và
   paging trước last-fill list trong existing DockPanel; loaded regressions và
-  capture guard kiểm đủ5 action bounds, native hit targets. Page100/caps/binding
+  capture guard kiểm đủ5 action bounds và native hit targets ở cả1280/640. Page100/caps/binding
   không đổi; cần chạy lại native/28ảnh tại source cuối.
 
 - `835eb855dfeed8dd6f37652ed5ba1ebd81e3f650`, full `34184114570`, Windows

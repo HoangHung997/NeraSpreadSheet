@@ -150,6 +150,11 @@ public sealed partial class RibbonPreviewWindow
                     if (!button.IsVisible || bounds.Width <= 0 || bounds.Height <= 0 ||
                         !new Rect(0, 0, popup.ActualWidth, popup.ActualHeight).Contains(bounds))
                         throw new InvalidOperationException($"The filter {id} action is clipped in the native popup capture.");
+                    if (!button.IsEnabled) continue;
+                    var hit = popup.InputHitTest(new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2)) as DependencyObject;
+                    while (hit is not null && !ReferenceEquals(hit, button)) hit = System.Windows.Media.VisualTreeHelper.GetParent(hit);
+                    if (!ReferenceEquals(hit, button))
+                        throw new InvalidOperationException($"The filter {id} action is not reachable in the native popup capture.");
                 }
                 return popup;
             }
