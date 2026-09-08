@@ -75,7 +75,7 @@ jobs:
             [xml]$trx = Get-Content "$directory/avalonia.trx" -Raw
             $summary = $trx.TestRun.ResultSummary
             $counts = $summary.Counters
-            if ([int]$counts.total -lt 77 -or [int]$counts.passed -ne [int]$counts.total -or [int]$counts.executed -ne [int]$counts.total -or $summary.outcome -notin @('Completed', 'Passed')) {
+            if ([int]$counts.total -lt 125 -or [int]$counts.passed -ne [int]$counts.total -or [int]$counts.executed -ne [int]$counts.total -or $summary.outcome -notin @('Completed', 'Passed')) {
               throw "Process $pass has missing/skipped/failed tests or failed assembly cleanup."
             }
           }
@@ -130,6 +130,28 @@ jobs:
           foreach ($name in @('full-ui-window.png','full-ui-customization.png')) {
             $path = Join-Path artifacts/avalonia $name
             if (!(Test-Path $path) -or (Get-Item $path).Length -eq 0) { throw "Missing full UI capture $name." }
+          }
+      - name: Loaded Formula UX reference drag and cross-sheet picker smoke
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = 'samples/NeraSpreadSheet.Avalonia.Sample/bin/Release/net10.0/NeraSpreadSheet.Avalonia.Sample.dll'
+          if ($IsLinux) { $lines = & xvfb-run -a dotnet $app --formula-ux-smoke 2>&1 }
+          else { $lines = & dotnet $app --formula-ux-smoke 2>&1 }
+          $exitCode = $LASTEXITCODE
+          $lines | Tee-Object -FilePath artifacts/avalonia/formula-ux.log
+          if ($exitCode -ne 0) { throw "Formula UX native smoke exited $exitCode." }
+          $prefix = 'NERA_AVALONIA_FORMULA_UX_SUCCESS '
+          $records = @($lines | ForEach-Object { "$_" } | Where-Object { $_.StartsWith($prefix, [StringComparison]::Ordinal) })
+          if ($records.Count -ne 1) { throw 'Exactly one Formula UX result is required.' }
+          $result = $records[0].Substring($prefix.Length) | ConvertFrom-Json
+          $required = @('exact-source','loaded-native-window','incomplete-draft-ranges','unchanged-draft-preview','stable-reference-colors','formula-capture-render','same-pane-start-cross-pane-drag','cross-pane-draft-ownership','reverse-cross-pane-drag','real-frame-edge-autoscroll','hovered-pane-only-scroll','release-stops-point-mode','border-move-token-only','border-resize','gesture-no-workbook-edit','picker-native-open','picker-source-session-stable','picker-routed-range','picker-native-render','picker-apply-one-draft','cross-sheet-formula-commit','cross-sheet-formula-undo','picker-cancel-preserves-draft')
+          if ($result.sha -cne $env:NERA_SOURCE_SHA -or $result.nativeWindow -ne $true -or $result.routedPointerInput -ne $true -or $result.productionFrameObserved -ne $true -or $result.physicalInputTested -ne $false -or $result.assertions -ne $required.Count) { throw 'Formula UX provenance or postconditions failed.' }
+          if (@($result.checks).Count -ne $required.Count -or @(Compare-Object $required @($result.checks)).Count -ne 0) { throw 'Formula UX checks are incomplete.' }
+          foreach ($name in @('formula-ux-references.png','formula-ux-cross-sheet.png')) {
+            $path = Join-Path artifacts/avalonia $name
+            if (!(Test-Path $path) -or (Get-Item $path).Length -eq 0) { throw "Missing Formula UX capture $name." }
           }
       - name: Pack host library
         run: dotnet pack src/NeraSpreadSheet.Avalonia/NeraSpreadSheet.Avalonia.csproj -c Release --no-build -o artifacts/packages

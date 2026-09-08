@@ -19,14 +19,16 @@ public sealed class App : Application
         {
             if (desktop.Args?.Contains("--smoke", StringComparer.Ordinal) == true)
             {
-                // Keep the existing basic-host native regression as an independent gate.
+                // Preserve the existing basic-host native regression independently.
                 var window = new MainWindow(); desktop.MainWindow = window;
                 window.Opened += (_, _) => window.StartSmoke(desktop);
             }
             else
             {
                 var window = new FullShellWindow(); desktop.MainWindow = window;
-                if (desktop.Args?.Contains("--full-ui-smoke", StringComparer.Ordinal) == true)
+                if (desktop.Args?.Contains("--formula-ux-smoke", StringComparer.Ordinal) == true)
+                    window.Opened += (_, _) => window.StartFormulaSmoke(desktop);
+                else if (desktop.Args?.Contains("--full-ui-smoke", StringComparer.Ordinal) == true)
                     window.Opened += (_, _) => window.StartFullSmoke(desktop);
             }
         }
