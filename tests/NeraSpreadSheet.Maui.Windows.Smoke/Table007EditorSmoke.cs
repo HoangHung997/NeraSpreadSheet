@@ -11,8 +11,21 @@ namespace NeraSpreadSheet.Maui.Windows.Smoke;
 
 internal static class Table007EditorSmoke
 {
+    private static readonly List<object> _commitEvidence = [];
+    private static bool _commitEvidenceClipped;
+
+    internal static object CommitEvidence => new
+    {
+        schema = "table007WindowsCommitV2",
+        commitArgumentObserved = false,
+        clipped = _commitEvidenceClipped,
+        points = _commitEvidence,
+    };
+
     internal static async Task RunAsync(NeraSpreadsheetEditorHost host)
     {
+        _commitEvidence.Clear();
+        _commitEvidenceClipped = false;
         Trace("table-editor-enter");
         var view = host.Spreadsheet;
         var session = view.Session ?? throw new InvalidOperationException("The editor has no canonical session.");
@@ -34,8 +47,28 @@ internal static class Table007EditorSmoke
         Trace("table-editor-candidate-accepted");
         Require(host.CurrentEditText == "=SUM(EditorSales[[#Data],[Amount]]", "The structured reference differs.");
         Require(session.History.UndoCount == 0, "Completion changed workbook history.");
-        native.Text += ")";
-        await PressNativeAsync(host, native, 0x0D);
+        var initialEdit = session.Editor.State;
+        var initialUndoCount = session.History.UndoCount;
+        var initialRedoCount = session.History.RedoCount;
+        void Capture(string phase) => CaptureCommitEvidence(phase, host, editor, native,
+            session, sheet, initialEdit, initialUndoCount, initialRedoCount);
+        void OnCommitStateChanged(object? sender, CellEditStateChangedEventArgs e)
+        {
+            if (e.State is null) Capture("canonical-ended");
+        }
+        session.Editor.StateChanged += OnCommitStateChanged;
+        try
+        {
+            Capture("after-completion");
+            native.Text += ")";
+            await PressNativeAsync(host, native, 0x0D,
+                beforeInput: () => Capture("before-native-enter"));
+            Capture("after-native-enter");
+        }
+        finally
+        {
+            session.Editor.StateChanged -= OnCommitStateChanged;
+        }
         Trace("table-editor-enter-returned");
         Require(!session.Editor.IsEditing, "Native Enter did not commit the editor.");
         Require(Equals(sheet.GetValue(new CellAddress(6, 0)), 60d), "The committed Table formula value differs.");
@@ -114,6 +147,75 @@ internal static class Table007EditorSmoke
         Trace("table-editor-complete");
     }
 
+    private static void CaptureCommitEvidence(string phase, NeraSpreadsheetEditorHost host,
+        Editor editor, NativeTextBox native, SpreadsheetSession session, Worksheet sheet,
+        CellEditState? initialEdit, int initialUndoCount, int initialRedoCount)
+    {
+        if (_commitEvidence.Count >= 4)
+        {
+            _commitEvidenceClipped = true;
+            return;
+        }
+        var target = new CellAddress(6, 0);
+        var cell = sheet.GetCell(target);
+        var nativeText = native.Text;
+        var managedText = editor.Text;
+        var undoDelta = session.History.UndoCount - initialUndoCount;
+        var redoDelta = session.History.RedoCount - initialRedoCount;
+        _commitEvidence.Add(new
+        {
+            phase,
+            nativeText = DescribeCommitText(nativeText),
+            managedText = DescribeCommitText(managedText),
+            publicDraft = DescribeCommitText(host.CurrentEditText),
+            nativeManagedEqual = string.Equals(nativeText, managedText, StringComparison.Ordinal),
+            nativeSelectionStart = Math.Clamp(native.SelectionStart, 0, 128),
+            nativeSelectionLength = Math.Clamp(native.SelectionLength, 0, 128),
+            managedCursor = Math.Clamp(editor.CursorPosition, 0, 128),
+            managedSelectionLength = Math.Clamp(editor.SelectionLength, 0, 128),
+            nativeFocused = native.FocusState != Microsoft.UI.Xaml.FocusState.Unfocused,
+            editing = session.Editor.IsEditing,
+            sameEditState = initialEdit is not null && ReferenceEquals(session.Editor.State, initialEdit),
+            editAddressExpected = session.Editor.State?.Address == target,
+            activeCellExpected = session.Selection.ActiveCell == target,
+            sameSession = ReferenceEquals(host.Spreadsheet.Session, session),
+            sameWorksheet = ReferenceEquals(session.ActiveWorksheet, sheet),
+            targetFormula = DescribeCommitText(cell.Formula),
+            targetKind = cell.Value.Kind switch
+            {
+                CellValueKind.Blank => "Blank",
+                CellValueKind.Number => "Number",
+                CellValueKind.Text => "Text",
+                CellValueKind.Boolean => "Boolean",
+                CellValueKind.DateTime => "DateTime",
+                CellValueKind.Error => "Error",
+                _ => "Unknown",
+            },
+            targetIsExpectedNumber = Equals(cell.Value.RawValue, 60d),
+            targetIsSeedText = Equals(cell.Value.RawValue, "R7C1"),
+            sourceValuesExpected = Equals(sheet.GetValue(new CellAddress(1, 1)), 10d) &&
+                Equals(sheet.GetValue(new CellAddress(2, 1)), 20d) &&
+                Equals(sheet.GetValue(new CellAddress(3, 1)), 30d),
+            undoDelta = Math.Clamp(undoDelta, -64, 64),
+            redoDelta = Math.Clamp(redoDelta, -64, 64),
+            valuesClipped = native.SelectionStart is < 0 or > 128 || native.SelectionLength is < 0 or > 128 ||
+                editor.CursorPosition is < 0 or > 128 || editor.SelectionLength is < 0 or > 128 ||
+                undoDelta is < -64 or > 64 || redoDelta is < -64 or > 64,
+        });
+    }
+
+    private static object DescribeCommitText(string? text) => new
+    {
+        isNull = text is null,
+        isEmpty = text is "",
+        isSeedText = text is "R7C1",
+        isInitialPrefix = text is "=SUM(EditorSales[Am",
+        isCompletionPrefix = text is "=SUM(EditorSales[[#Data],[Amount]]",
+        isCompleteFormula = text is "=SUM(EditorSales[[#Data],[Amount]])",
+        length = Math.Min(text?.Length ?? 0, 128),
+        clipped = (text?.Length ?? 0) > 128,
+    };
+
     internal static void Trace(string stage)
     {
         var resultPath = Environment.GetEnvironmentVariable("NERA_MAUI_SMOKE_RESULT");
@@ -133,7 +235,8 @@ internal static class Table007EditorSmoke
             ReferenceEquals(focused, editor.Handler?.PlatformView) ? "smoke-native-focus-editor" : "smoke-native-focus-other");
     }
 
-    private static async Task PressNativeAsync(NeraSpreadsheetEditorHost host, NativeTextBox editor, byte key, bool alt = false)
+    private static async Task PressNativeAsync(NeraSpreadsheetEditorHost host, NativeTextBox editor, byte key,
+        bool alt = false, Action? beforeInput = null)
     {
         var window = host.Window?.Handler?.PlatformView as Microsoft.UI.Xaml.Window
             ?? throw new InvalidOperationException("The editor has no loaded native window.");
@@ -143,6 +246,7 @@ internal static class Table007EditorSmoke
         Require(editor.Focus(Microsoft.UI.Xaml.FocusState.Keyboard), "The native editor did not take keyboard focus.");
         await Task.Delay(80);
         Require(GetForegroundWindow() == handle, "Keyboard injection requires the smoke window to be foreground.");
+        beforeInput?.Invoke();
         try
         {
             if (alt) KeyEvent(0x12, 0, 0, 0);

@@ -716,3 +716,21 @@
   actual Windows FAIL value assertion; whole B HOLD, chưa exact-final gates xanh.
   Bước tiếp theo duy nhất: root review exact Windows diagnostic-v2 patch9bb778e4;
   chỉ triển khai/chạy nếu được cấp scope rõ. Không tự sửa production hoặc mở probe.
+
+- Root đã review full report/patch/native source và primary docs; APPROVE exact
+  diagnostic-v2 patch9bb778e4, đúng hai Windows test files + own log. Grant commit/
+  push tạo ĐÚNG MỘT existing paired TABLE007 native run; không manual paired/full/
+  iOS/Q/retry, không production/Mac/launcher/C import. C sole launcher writer có
+  watcher cohort riêng0a6bbb26, không nhập. PASS sau instrumentation không sửa cause.
+- Đã apply exact patch và verify helper after2a139c1e1e60865c0071bcd62d5d655aac1e2fec,
+  page afterb5fc515bb1981aff61ea327fdf61e2746957d546. Frozen workflow/Mac page/
+  hai launchers/classifier byte-equal aa. Full original33assertion invocations,
+  mọi Delay/KeyEvent/expected60 và history checks giữ nguyên; observer remove finally.
+- Local targeted headless: Editing controller/acceptance/structured reference
+  36/36 PASS, Formulas structured reference7/7 PASS, zero skip, build không báo
+  warning/error. Architecture và diff PASS. Windows smoke compile/analyzers và
+  actual bounded payload/privacy/cleanup vẫn phải verify trên granted native run;
+  chưa suy PASS từ source audit/headless. Không chạy desktop local do A giữ lease.
+- Bước tiếp theo duy nhất: push đúng implementation này một lần, theo dõi automatic
+  paired run tại exact HEAD, ghi Windows snapshots cùng cả hai native outcomes,
+  freeze/report về root; không tự mở biến thể hoặc retry tiếp theo.

@@ -708,6 +708,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
         {
             status = "success",
             table007Editor = _editorSmokePassed,
+            table007CommitEvidence = Table007EditorSmoke.CommitEvidence,
             frameCount = _frameCount,
             recreationCycles = ResizeSequence.Length,
             firstWidth = _firstFrameWidth,
@@ -802,6 +803,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             WriteResult(new
             {
                 status = "failure",
+                table007CommitEvidence = Table007EditorSmoke.CommitEvidence,
                 stage = _stage.ToString(),
                 cycleIndex = _cycleIndex,
                 frameCount = _frameCount,
