@@ -12,6 +12,9 @@
   chỉ thêm dispatch boundary evidence vào true page; đã push
   `5292b9966eefa51cb0deea0245d8f79ab8f7db0d`, narrow `34180074766` Windows PASS/
   Mac actual FAIL; Dispatch trả true nhưng callback-entry chưa có.
+- Current native checkpoint `77f4c44702a9f8f3e8cb0c7d446b12271236560e` nhập riêng
+  C classifier đã duyệt; narrow `34182690972` Windows PASS/Mac actual FAIL.
+  Classifier14categories=0, unclassifiedLines=4, inputClipped=false; cause UNKNOWN.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
 - Root cho phép riêng workflow `table-007-libreoffice.yml` và producer script;
@@ -577,7 +580,49 @@
 - Worklog evidence đã commit local ddb911d6 rồi cập nhật grant này; chưa push
   docs để không tự mở probe khi chưa được cấp. Source/native CI checkpoint vẫn
   `5292b9966eefa51cb0deea0245d8f79ab8f7db0d` / `34180074766` FAIL ở actual Mac.
-- Bước tiếp theo duy nhất: chờ root verify C immutable classifier-only patch /
-  fixture / hashes rồi cấp import-only riêng cho B. Chưa apply hoặc probe; giữ
-  SmokePage529/workflow byte-equal và mọi actual assertions. Giữ21 desktop paths
-  frozen, hai launcher C sole writer, wholeB HOLD; không full gates khi Mac đỏ.
+- Root đã verify/APPROVE immutable C `cf4f9dac1eb8c7a45ecf366328523df834f0cd45`,
+  patch SHA256 `6f72d9d4fa514eaab43ffc633775331e53819f3d373a9c8a288f90993c9b0b2a`.
+  Grant chỉ import exact classifier slice + fixture và ONE paired true probe;
+  C vẫn sole writer, không nhận5906 hoặc55ddb62f package opt-in.
+- B cherry-pick -x thành IMPORT-ONLY `77f4c44702a9f8f3e8cb0c7d446b12271236560e`,
+  giữ nguyên hai local docs commits ddb/baa. Chỉ hai paths được nhập:
+  `scripts/run-maui-maccatalyst-smoke.sh` fee485b3→
+  `13287ae318dea2cc318329a76373611aefb6fe6a` và
+  `eng/release-009-maui/test_native_stderr_classifier.py` blob
+  `a3243dc6f6a1b89669e7d3586956b5d43b4b549c`. Đã verify exact blobs sau import.
+  Root sẽ skip commit import-only77 khi nhận B; không ghi đè launcher C mới.
+- B đọc full actual block/190line fixture và rerun13PASS/0skip trên implementation
+  thật, gồm fixed category/schema/bounds/privacy, process/run/header/freshness/
+  UID/symlink và cleanup guards. Bash syntax, architecture, diff PASS. Đây chưa
+  phải native runtime PASS. SmokePage529/workflow/Windows launcher byte-equal.
+- Đã push77 một lần để chạy probe đã cấp; narrow `34182690972` đã xong.
+  Mac `101924799380`: baseline PASS10frames, hai builds0warnings/0errors, actual
+  candidate native FAIL trước result. Dispatcher-resolved/call-enter/returned-true
+  có, callback/invoke/catch/readiness/editor vẫn chưa có. Matched fd2 vẫn664bytes/
+  5lines; actual fixed classifier14categories=0/unclassifiedLines4/inputClipped=false.
+  Không current IPS. All-zero không chứng minh clean exit/signal/JIT/cause.
+- Windows `101924799555`: baseline PASS43/candidate PASS60frames/editor=true,
+  cả hai3cycles, zero failed/abandoned/stale GPU frames. Historical risk giữ OPEN.
+  Selected generated metadata/evaluatedprops/packages giống529; không suy full
+  file hashes bằng nhau hoặc runtime mode. Sanitized evidence mới, frozen:
+  `table-007-native-classifier-result-v1-77f4c447.json` (ignored).
+- Root xác nhận ONE77 consumed, freeze code/launchers/CI; chỉ READ-ONLY next-step
+  proposal. Source review: post-Dispatch draw dùng RequestRender→MainThread.
+  BeginInvokeOnMainThread với actual main=True; MAUI10.0.20 thực thi inline khi
+  trên main thread, nên draw đó không chứng minh queued callback đã chạy.
+  Existing Window.Created/Activated trước Loaded không chứng minh private AppKit
+  input-context initialization hoàn tất; current artifacts chưa có native proof.
+- Gửi đúng một proposal mới có version riêng, chưa áp dụng: `table-007-dispatch-
+  witness-proposal-v1-77f4c447` (.md/.patch/.json). Chỉ Mac SmokePage, thêm trace-only
+  NoInlining leaf; invoke cùng Action trực tiếp một lần rồi queue một lần trước
+  callback thật trên cùng dispatcher, fixed brackets/true-false markers. Không
+  native/UI reads/fields/editor/assertion/readiness/timeout/mode/launcher delta.
+  PatchSHA256 `f1674a15800e7c8d2cce773b829163287229b7a5293a94b65faddccf29204c30`,
+  beforea82776c5468ebeda2fa8de67e34c6b1c134c1f6d →
+  after3856665fc2a4a949b72607aa2ffbf9c23465a996; apply-check PASS, actual page frozen.
+  Queued witness vào sẽ chứng minh một queued action đã chạy, không chứng minh
+  callback thật JIT failure; không vào thì pending/entry/native termination vẫn
+  unknown. Extra enqueue đổi timing nên native PASS nếu có chưa chứng minh cause.
+- Bước tiếp theo duy nhất: nhận root review immutable witness-v1 proposal; chưa
+  apply hoặc dispatch/full gates. Giữ source77 và mọi actual assertions,21 desktop
+  paths frozen, hai launcher C sole writer, wholeB HOLD.
