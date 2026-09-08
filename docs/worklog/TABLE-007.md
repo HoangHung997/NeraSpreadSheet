@@ -665,3 +665,54 @@
 - Bước tiếp theo duy nhất: gửi root exactaa result/artifact và nhận quyết định
   tiếp theo; không tự triển khai thêm. Giữ21 desktop paths frozen, hai launchers
   và classifier C sole writer; wholeB HOLD, chưa actual final gates xanh.
+
+- Root giao READ-ONLY điều tra Windows value assertion tại helper35–42; giữ
+  Mac/page/workflow/classifier/hai launchers frozen, không probe/full gate, không
+  production/expected60/wait/retry change trước review. Source vẫn aa103f94;
+  report-only local HEAD159856ef chưa push, branch feature/table-007-editor-corpus,
+  PR #1 Draft/open/unmerged. Không ghi shared CURRENT/status do root sở hữu.
+- Đã đối chiếu actual aa/77/529: Windows helper/page, production host/key adapter,
+  canonical controller/session và launcher byte-equal. aa failure tại AwaitPrimaryInput
+  cycle0/frame9 sau Enter, trước history check; 77 và529 cùng path PASS60/62frames.
+  Không gộp failure này với historical first-reinsert0xc0000409.
+- Helper seed A7 là synthetic R7C1; B2:B4=10d/20d/30d, structured #Data/Amount
+  đúng B2:B4 nên expected double60 có cơ sở. Commit dùng MAUI Editor.Text;
+  canonical CellEditState chỉ Address/InitialText. SetFormula→History.Execute→
+  RecalculateAffected đồng bộ rồi mới State=null. Cancel cũng State=null, nên
+  not-editing không chứng minh đã commit. Actual aa draft/formula/kind/value unknown.
+- Primary MAUI10.0.20 reference handler cập nhật VirtualView từ native.Text trong
+  TextChanged; WinUI docs mô tả event này async sau render. Đây chỉ hypothesis
+  ranh giới text bridge; chưa độc lập xác minh Windows resolved package version
+  hoặc actual text convergence. Native focus check trước80ms/foreground check,
+  chưa có snapshot ngay injection. GPU input/recreation được await sau editor.
+- Existing StateChanged/ValidationFailed/CellsChanged không có actual Commit(string)
+  argument. Không thêm production hook hoặc gắn snapshot Text thành actual argument.
+- Đã gửi root đúng một proposal v2 mới, chưa apply/build/run, ba ignored artifacts
+  cùng stem table-007-windows-commit-evidence-proposal-v2-aa103f94 (.md/.patch/.json).
+  v1 chỉ draft chưa handoff. Patch SHA256
+  9bb778e40ad5418b40f9d909fa1c41978ef23251e904e47841ac01d9502dce64;
+  report SHA256 a722229749606d57ecc81be504e2d976955f3c7b1d354bae19f8f7b9d1fcb4bb;
+  manifest SHA256 b82793905204c030e643eec39925b5abdba0f8dc02e74402a5ede92638710cb0.
+- Chỉ hai proposed Windows test files: Table007EditorSmoke.cs
+  9ecc3be3f6e813f12c6d7ffb427a1527a6069ad3→2a139c1e1e60865c0071bcd62d5d655aac1e2fec;
+  SmokePage.cs54848577668f32bbb7cd2d413717243cf37aa1f4→
+  b5fc515bb1981aff61ea327fdf61e2746957d546. Bốn bounded phase: after-completion,
+  before-native-enter sau native write/foreground check, canonical-ended,
+  after-native-enter. Observer tháo trong finally; existing result JSON transport.
+- Snapshot chỉ fixed schema/phase/kind allowlist, booleans/bounded numeric:
+  native/managed/public draft completeness/equality, caret/focus, same original
+  edit/session/worksheet references, expected A7, target formula/value60/seed,
+  source10/20/30 và history delta. Max4points, text lengths/caret128/history64,
+  clipping flags; không raw text/value/formula/path/UUID. commitArgumentObserved=false.
+  sameEdit/address expected false sau State=null và active target có thể đổi sau
+  host move là behavior bình thường; không diễn giải thành identity corruption.
+- READ-ONLY review đã đọc controller/acceptance/structured-reference tests và
+  TableCompatibilityBenchmarks. Static proposal audit giữ đủ33assertion invocations
+  (34Require occurrences gồm declaration), mọi Delay/KeyEvent, expected60; event
+  remove trong finally; apply-check/diff PASS. Source chưa sửa, không build/tests/
+  native/CI mới. Instrumentation timing và native observer chưa verify runtime;
+  source observation hoặc future pass không tự chứng minh cause/fix.
+- Giữ implementation/source CI aa103f94/34183813450: actual Mac FAIL trước result,
+  actual Windows FAIL value assertion; whole B HOLD, chưa exact-final gates xanh.
+  Bước tiếp theo duy nhất: root review exact Windows diagnostic-v2 patch9bb778e4;
+  chỉ triển khai/chạy nếu được cấp scope rõ. Không tự sửa production hoặc mở probe.
