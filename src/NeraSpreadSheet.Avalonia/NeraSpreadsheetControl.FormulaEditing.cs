@@ -142,10 +142,12 @@ public sealed partial class NeraSpreadsheetControl
         if (CanInsertPointReference && InsertFormulaReference(new CellRange(address, address))) _pointAnchor = address;
         return true;
     }
-    internal bool UpdatePointReference(CellAddress address) => _pointAnchor is { } anchor && InsertFormulaReference(new CellRange(anchor, address));
+    internal bool UpdatePointReference(CellAddress address) => _referenceBorderDrag is not null
+        ? UpdateReferenceBorder(address) : _pointAnchor is { } anchor && InsertFormulaReference(new CellRange(anchor, address));
     internal void EndPointReference(bool focus = true)
     {
         StopFormulaPointerTracking();
+        EndReferenceBorder(focus);
         if (_pointAnchor is null) return; _pointAnchor = null;
         if (focus) { if (_formulaAnchor is { } anchor) anchor.Focus(); else FocusEditor(); }
     }
@@ -153,7 +155,7 @@ public sealed partial class NeraSpreadsheetControl
     {
         if (!IsFormulaDraft || !TryHitFormulaCell(point, out var address)) return false;
         CapturePointer(pointer);
-        BeginPointReference(address);
+        BeginReferenceGesture(this, point, address);
         if (_pointAnchor is not null) TrackFormulaPointer(this, point);
         else ReleasePointer();
         return true;
@@ -244,7 +246,7 @@ public sealed partial class NeraSpreadsheetControl
     }
     private void ResetFormulaAssistance()
     {
-        StopFormulaPointerTracking();
+        StopFormulaPointerTracking(); _referenceBorderDrag = null;
         _pointAnchor = null; _acknowledgedFormulaText = null; ResetProvisionalReference(); HideFormulaAssistance(); RefreshFormulaHighlights();
     }
     private void ResetProvisionalReference() { _provisionalSpan = null; _provisionalDependency = null; }

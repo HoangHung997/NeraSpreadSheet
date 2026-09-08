@@ -45,17 +45,13 @@ internal sealed class SplitFormulaRouting : IDisposable
         if (!TryTarget(e, out var target, out var address)) return false;
         e.Handled = true;
         Cancel();
-        // Transfer first: the old child's capture-lost handler must run before
-        // the new point anchor exists, especially when that child is the editor pane.
         e.Pointer.Capture(_owner);
         try
         {
-            editor.BeginPointReference(address);
+            editor.BeginReferenceGesture(target!, e.GetPosition(target), address);
             if (editor.IsFormulaPointMode)
             {
-                _editor = editor;
-                _pointer = e.Pointer;
-                _lastTarget = target;
+                _editor = editor; _pointer = e.Pointer; _lastTarget = target;
                 editor.TrackFormulaPointer(target!, e.GetPosition(target));
             }
         }
@@ -67,48 +63,33 @@ internal sealed class SplitFormulaRouting : IDisposable
         if (_disposed || _pointer != e.Pointer) return false;
         e.Handled = true;
         if (_editor is not { IsEditing: true }) { Cancel(); return true; }
-        TrackTarget(e);
-        return true;
+        TrackTarget(e); return true;
     }
     public bool TryReleased(PointerReleasedEventArgs e)
     {
         if (_disposed || _pointer != e.Pointer) return false;
         e.Handled = true;
         var editor = _editor;
-        if (editor is { IsEditing: true })
-        {
-            TrackTarget(e);
-            editor.AdvanceFormulaPointerFrame(TimeSpan.Zero);
-        }
-        _editor = null;
-        _lastTarget = null;
-        var pointer = _pointer;
-        _pointer = null;
-        editor?.EndPointReference();
-        pointer?.Capture(null);
-        return true;
+        if (editor is { IsEditing: true }) { TrackTarget(e); editor.AdvanceFormulaPointerFrame(TimeSpan.Zero); }
+        _editor = null; _lastTarget = null;
+        var pointer = _pointer; _pointer = null;
+        editor?.EndPointReference(); pointer?.Capture(null); return true;
     }
     private void TrackTarget(PointerEventArgs e)
     {
         if (_editor is null) return;
         if (TryTarget(e, out var target, out _))
         {
-            _lastTarget = target;
-            _editor.TrackFormulaPointer(target!, e.GetPosition(target));
+            _lastTarget = target; _editor.TrackFormulaPointer(target!, e.GetPosition(target));
         }
         else if (_lastTarget is not null && !new Rect(_owner.Bounds.Size).Contains(e.GetPosition(_owner)))
-        {
-            // Outside the window retain the last pane, clamp hit testing to its
-            // body and let the frame controller advance its continuous offsets.
             _editor.TrackFormulaPointer(_lastTarget, e.GetPosition(_lastTarget));
-        }
         else _editor.StopFormulaPointerTracking();
     }
     private bool TryTarget(PointerEventArgs e, out NeraSpreadsheetControl? target, out CellAddress address)
     {
         target = null; address = default;
-        var point = e.GetPosition(_owner);
-        var layout = _owner.LastLayout;
+        var point = e.GetPosition(_owner); var layout = _owner.LastLayout;
         if (layout is null) return false;
         var hit = layout.HitTest(new PointD(point.X, point.Y));
         if (hit.RegionKind != SpreadsheetSplitHitRegionKind.Pane || hit.PaneId is not { } id) return false;
@@ -119,17 +100,12 @@ internal sealed class SplitFormulaRouting : IDisposable
     {
         var pointer = _pointer; _pointer = null;
         var editor = _editor; _editor = null; _lastTarget = null;
-        editor?.EndPointReference(false);
-        pointer?.Capture(null);
+        editor?.EndPointReference(false); pointer?.Capture(null);
     }
     public void Dispose()
     {
         if (_disposed) return;
         Cancel(); _disposed = true;
-        foreach (var pane in _panes)
-        {
-            pane.FormulaAssistanceChanged -= OnFormulaChanged;
-            pane.FormulaProjectionOwner = null;
-        }
+        foreach (var pane in _panes) { pane.FormulaAssistanceChanged -= OnFormulaChanged; pane.FormulaProjectionOwner = null; }
     }
 }
