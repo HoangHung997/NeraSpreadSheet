@@ -37,6 +37,14 @@ internal sealed class SmokePage : ContentPage, IDisposable
     private int _analyticsInserted;
     private int _nativeValidationStarted;
     private int _finished;
+    private int _paintCallbackDepth;
+    private bool _pageLoadedObserved;
+    private int _orchestrationBoundaryChecks;
+    private int _initialReadyFrame;
+    private int _editorHostReadyFrame;
+    private int _analyticsReadyFrame;
+    private TaskCompletionSource? _frameReadiness;
+    private Func<bool>? _frameReadinessCondition;
     private bool _disposed;
 
     public SmokePage()
@@ -116,6 +124,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
         }
 
         _disposed = true;
+        _frameReadiness?.TrySetCanceled();
         Loaded -= OnLoaded;
         _editorHost?.Dispose();
         if (_editorHost is not null) _host.Children.Remove(_editorHost);
@@ -135,6 +144,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
     {
         SmokeTrace.Append("smoke-page-loaded-enter");
         Loaded -= OnLoaded;
+        _pageLoadedObserved = true;
         _ = MonitorRuntimeAsync();
         SmokeTrace.Append("smoke-page-monitor-started");
 
@@ -149,6 +159,15 @@ internal sealed class SmokePage : ContentPage, IDisposable
         SmokeTrace.Append("smoke-page-loaded-before-invalidate");
         view.InvalidateSurface();
         SmokeTrace.Append("smoke-page-loaded-after-invalidate");
+        SmokeTrace.Append("smoke-page-orchestration-queued");
+        if (!Dispatcher.Dispatch(() =>
+        {
+            SmokeTrace.Append("smoke-page-orchestration-enter");
+            _ = RunLoadedSmokeAsync(view);
+        }))
+        {
+            Fail(new InvalidOperationException("The loaded Mac smoke orchestration could not be dispatched."));
+        }
     }
 
     private static void OnViewLoaded(object? sender, EventArgs e)
@@ -171,40 +190,150 @@ internal sealed class SmokePage : ContentPage, IDisposable
             return;
         }
 
+        Interlocked.Increment(ref _paintCallbackDepth);
         try
         {
-            _frameCount++;
+            Interlocked.Increment(ref _frameCount);
             if (_frameCount == 1)
             {
                 SmokeTrace.Append("nera-first-paint-surface");
             }
             ValidateLoadedHost(view);
 
-            var analyticsState = Volatile.Read(ref _analyticsInserted);
-            if (analyticsState == 0)
+            // Completion never resumes orchestration inline on this paint stack.
+            if (_frameReadinessCondition?.Invoke() == true &&
+                _frameReadiness?.TrySetResult() == true)
             {
-                _ = CreateAnalyticsForNextFrameAsync(view);
-                return;
-            }
-
-            if (analyticsState < 0)
-            {
-                SmokeTrace.Append("analytics-insert-in-progress-skip-validation");
-                return;
-            }
-
-            if (analyticsState == 1 &&
-                view.AnalyticsAccessibilityNodes.Count == 2 &&
-                Interlocked.CompareExchange(ref _nativeValidationStarted, 1, 0) == 0)
-            {
-                SmokeTrace.Append("native-validation-start");
-                ValidateNativeAccessibility(view);
+                SmokeTrace.Append("smoke-completed-frame-observed");
             }
         }
         catch (Exception exception)
         {
             SmokeTrace.Append($"nera-paint-catch:{exception.GetType().FullName}");
             Fail(exception);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _paintCallbackDepth);
+        }
+    }
+
+    private async Task RunLoadedSmokeAsync(NeraSpreadsheetView view)
+    {
+        try
+        {
+            if (_disposed || Volatile.Read(ref _finished) != 0) return;
+            RequireOrchestrationBoundary();
+            SmokeTrace.Append("smoke-initial-frame-wait");
+            await WaitForCompletedFrameAsync(view);
+            RequireOrchestrationBoundary();
+            _initialReadyFrame = Volatile.Read(ref _frameCount);
+            SmokeTrace.Append("smoke-initial-frame-ready");
+
+            await CreateAnalyticsForNextFrameAsync(view);
+            if (_disposed || Volatile.Read(ref _finished) != 0) return;
+            SmokeTrace.Append("smoke-analytics-frame-wait");
+            await WaitForCompletedFrameAsync(view, additionalReady: () =>
+                Volatile.Read(ref _analyticsInserted) == 1 && view.AnalyticsAccessibilityNodes.Count == 2);
+            RequireOrchestrationBoundary();
+            _analyticsReadyFrame = Volatile.Read(ref _frameCount);
+            SmokeTrace.Append("smoke-analytics-frame-ready");
+            Require(_editorVerified, "The true native editor phase did not complete before analytics validation.");
+            Require(Interlocked.CompareExchange(ref _nativeValidationStarted, 1, 0) == 0,
+                "Native analytics validation was started more than once.");
+            SmokeTrace.Append("native-validation-start");
+            ValidateNativeAccessibility(view);
+        }
+        catch (Exception exception)
+        {
+            SmokeTrace.Append($"smoke-orchestration-catch:{exception.GetType().FullName}");
+            Fail(exception);
+        }
+    }
+
+    private void RequireOrchestrationBoundary()
+    {
+        Require(!_disposed && Volatile.Read(ref _finished) == 0,
+            "The Mac smoke orchestration has already ended.");
+        Require(_pageLoadedObserved, "The Mac smoke orchestration started before page Loaded.");
+        Require(Microsoft.Maui.ApplicationModel.MainThread.IsMainThread,
+            "The Mac smoke orchestration did not resume on the UI thread.");
+        Require(Volatile.Read(ref _paintCallbackDepth) == 0,
+            "The Mac smoke orchestration resumed inside a PaintSurface callback.");
+        Interlocked.Increment(ref _orchestrationBoundaryChecks);
+    }
+
+    private async Task WaitForCompletedFrameAsync(NeraSpreadsheetView view,
+        VisualElement? layoutHost = null, Func<bool>? additionalReady = null)
+    {
+        RequireOrchestrationBoundary();
+        Require(_frameReadiness is null, "Only one native frame readiness wait may be active.");
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var minimumFrame = Volatile.Read(ref _frameCount) + 1;
+        var frameQueued = false;
+        _frameReadiness = completion;
+        _frameReadinessCondition = () =>
+        {
+            var gpu = view.GpuContextDiagnostics;
+            return Volatile.Read(ref _frameCount) >= minimumFrame &&
+                view.IsLoaded && view.Width > 0d && view.Height > 0d &&
+                gpu.HasActiveContext && !gpu.HasActiveFrame && gpu.FramesCompleted > 0 &&
+                (layoutHost is null || (layoutHost.IsLoaded && layoutHost.Width > 0d && layoutHost.Height > 0d)) &&
+                (additionalReady?.Invoke() ?? true);
+        };
+
+        void QueueFrame(object? sender, EventArgs e)
+        {
+            if (frameQueued || completion.Task.IsCompleted) return;
+            frameQueued = true;
+            if (!view.Dispatcher.Dispatch(() =>
+            {
+                frameQueued = false;
+                if (completion.Task.IsCompleted) return;
+                if (_disposed || Volatile.Read(ref _finished) != 0)
+                {
+                    completion.TrySetCanceled();
+                    return;
+                }
+                try { view.InvalidateSurface(); }
+                catch (Exception exception) { completion.TrySetException(exception); }
+            }))
+            {
+                completion.TrySetException(new InvalidOperationException("Native frame readiness could not be dispatched."));
+            }
+        }
+
+        // Layout/Loaded events request coalesced frames. Paint only observes them;
+        // the existing overall smoke timeout still owns the failure deadline.
+        try
+        {
+            view.Loaded += QueueFrame;
+            view.SizeChanged += QueueFrame;
+            if (layoutHost is not null)
+            {
+                layoutHost.Loaded += QueueFrame;
+                layoutHost.SizeChanged += QueueFrame;
+            }
+            QueueFrame(null, EventArgs.Empty);
+            await completion.Task;
+        }
+        finally
+        {
+            void DetachReadiness()
+            {
+                view.Loaded -= QueueFrame;
+                view.SizeChanged -= QueueFrame;
+                if (layoutHost is not null)
+                {
+                    layoutHost.Loaded -= QueueFrame;
+                    layoutHost.SizeChanged -= QueueFrame;
+                }
+                _frameReadiness = null;
+                _frameReadinessCondition = null;
+            }
+
+            if (Microsoft.Maui.ApplicationModel.MainThread.IsMainThread) DetachReadiness();
+            else await view.Dispatcher.DispatchAsync(DetachReadiness);
         }
     }
 
@@ -233,8 +362,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             var session = view.Session
                 ?? throw new InvalidOperationException(
                     "The Mac Catalyst analytics smoke lost its session before analytics creation.");
-            // The first GPU paint can run while UIKit is still attaching the
-            // native window. Open/focus controls after that paint stack unwinds.
+            // Called only by loaded orchestration after an observed completed frame.
             Task? editorPhase = null;
             await view.Dispatcher.DispatchAsync(() =>
             {
@@ -243,6 +371,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             });
             Require(editorPhase is not null, "The dispatched editor phase did not start.");
             await editorPhase!;
+            RequireOrchestrationBoundary();
             _editorVerified = true;
             var sourceRange = new CellRange(
                 new CellAddress(0, 0),
@@ -283,14 +412,20 @@ internal sealed class SmokePage : ContentPage, IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private async Task RunEditorPhaseAsync(NeraSpreadsheetView view)
     {
+        RequireOrchestrationBoundary();
         SmokeTrace.Append("table-editor-host-attach-enter");
         _host.Children.Remove(view);
         SmokeTrace.Append("table-editor-bare-view-removed");
-        _editorHost = new NeraSpreadsheetEditorHost(view);
+        var editorHost = new NeraSpreadsheetEditorHost(view);
+        _editorHost = editorHost;
         SmokeTrace.Append("table-editor-host-created");
-        _host.Children.Add(_editorHost);
+        _host.Children.Add(editorHost);
         SmokeTrace.Append("table-editor-host-attach-returned");
-        await Table007EditorSmoke.RunAsync(_editorHost);
+        await WaitForCompletedFrameAsync(view, editorHost);
+        RequireOrchestrationBoundary();
+        _editorHostReadyFrame = Volatile.Read(ref _frameCount);
+        SmokeTrace.Append("table-editor-host-frame-ready");
+        await Table007EditorSmoke.RunAsync(editorHost);
     }
 
     private void ValidateNativeAccessibility(NeraSpreadsheetView view)
@@ -353,6 +488,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             status = "success",
             table007Editor = _editorVerified,
             table007NativeKeys = "UIKit InsertText Enter and marked-text guard; hardware keys pending",
+            table007Readiness = DescribeReadiness(),
             frameCount = _frameCount,
             nativeElementCount = nativeElements.Length,
             chart = DescribeNativeElement(chart),
@@ -461,6 +597,16 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Environment.Exit(0);
     }
 
+    private object DescribeReadiness() => new
+    {
+        pageLoaded = _pageLoadedObserved,
+        boundaryChecks = Volatile.Read(ref _orchestrationBoundaryChecks),
+        initialFrame = _initialReadyFrame,
+        editorHostFrame = _editorHostReadyFrame,
+        analyticsFrame = _analyticsReadyFrame,
+        paintDepth = Volatile.Read(ref _paintCallbackDepth),
+    };
+
     private void Fail(Exception exception)
     {
         if (Interlocked.Exchange(ref _finished, 1) != 0)
@@ -476,6 +622,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 frameCount = _frameCount,
                 analyticsInserted = Volatile.Read(ref _analyticsInserted),
                 nativeValidationStarted = Volatile.Read(ref _nativeValidationStarted),
+                table007Readiness = DescribeReadiness(),
                 accessibilityNodeCount = _view?.AnalyticsAccessibilityNodes.Count,
                 gpuDiagnostics = _view?.GpuContextDiagnostics,
                 error = exception.ToString(),

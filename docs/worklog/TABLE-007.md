@@ -469,6 +469,32 @@
   trong log; chỉ có source/control-flow + successful native analytics result.
 - Windows1ff101373326163 baselinePASS43frames/candidatePASS/table007Editor=true/
   62frames, cả hai3recreation cycles. Không xóa known first-reinsert risk trước đó.
-- Bước tiếp theo duy nhất: nhận scope root cho orchestration thực từ page Loaded/
-  frame readiness ngoài PaintSurface, giữ all true editor/analytics assertions;
-  giữ21 desktop paths frozen và wholeB HOLD, không tự mở variant hoặc sửa product.
+- Root cấp sửa true test harness riêng Mac SmokePage.cs; không SDK/renderer/handler.
+  Ordering trước: child Loaded→InvalidateSurface→Paint→start async editor/analytics,
+  rồi page Loaded. Ordering sau dự kiến: page Loaded→queued orchestration→observed
+  completed GPU frame/layout→true editor→observed analytics frame→native assertions.
+  Paint chỉ observe/signal bounded readiness, không khởi tạo async UI phase hoặc
+  mutate workbook. Event-driven readiness dùng existing Dispatcher/layout/frame
+  và timeout45s hiện hữu; không fixed sleep, retry, flag hoặc editor-free variant.
+  Giữ RunEditorPhase/Table007EditorSmoke và tất cả native/editor/analytics/dispose
+  assertions. Chưa sửa helper ngoài SmokePage; root yêu cầu xin exactdelta nếu cần.
+- Ngày 08/09 tiếp tục đúng một lượt sau lần giới hạn trước; nếu giới hạn lặp lại
+  thì dừng, không tự retry. Đã kiểm tra và giữ nguyên hai file dirty của lượt trước;
+  HEAD trước implementation là `48fe508952c6b4ebd76ab46aa9eac01c969eeb52`.
+- True harness đã triển khai: page Loaded queue orchestration; event-driven
+  Loaded/SizeChanged yêu cầu frame coalesced; Paint chỉ xác nhận view/host loaded,
+  positive layout và completed GPU lease rồi signal TCS với asynchronous
+  continuations. Mỗi phase kiểm tra UI thread và không nằm trong PaintSurface.
+  Sau attach reused editor host, đợi completed frame trước khi await nguyên
+  `Table007EditorSmoke.RunAsync`; sau editor mới thêm analytics và chờ frame/node
+  readiness trước native activation/assertions. Dispose hủy pending readiness;
+  subscriptions dọn trên UI thread. Result ghi readiness counters thật.
+- Static verification PASS: architecture, diff whitespace, 14 original runtime/
+  assertion methods giữ nguyên (analytics result chỉ thêm readiness evidence),
+  helper byte-equal `1ff4f358`, normal paired workflow byte-equal `eca8a6d2`;
+  không thêm Task.Delay, không còn editor/analytics orchestration trong Paint.
+  Chỉ sửa SmokePage và log này; không SDK/renderer/handler/B21. Audit script được
+  sửa encoding/parser cục bộ rồi chạy PASS; chưa có compile/runtime proof mới.
+- Bước tiếp theo duy nhất: commit/push true harness và chạy existing paired narrow
+  CI; chỉ khi candidate thật PASS mới chạy full source/corpus gates. Giữ21 desktop
+  paths frozen và wholeB HOLD, Windows intermittent risk vẫn OPEN.
