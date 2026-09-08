@@ -569,6 +569,15 @@
   Thu gọn8fixed families; prototype synthetic privacy/bounds18cases PASS,
   output lớn nhất307bytes. Đây không phải integrated launcher/native proof;
   actual capture identity/freshness/UID/symlink fixtures phải do C chạy khi tích hợp.
-- Bước tiếp theo duy nhất: nhận root review bounded stderr classifier contract;
-  giữ source529 và actual assertions, không full-source gates khi Mac đỏ. Giữ21
-  desktop paths frozen, hai launcher hiện C sole writer, wholeB HOLD.
+- Root đã chốt immutable14category spec tại f3d65d03 và giao C sole writer Mac
+  helper + một fixture path, xuất classifier-only immutable patch againstfee485b3
+  tách khỏi opt-in. Có race giữa root review14 và draft B thu gọn8; root14spec là
+  contract điều khiển, prototype8/18cases chỉ alternative tham khảo. Không sửa
+  artifacts đã handoff nữa; revision mới dùng tên/version riêng.
+- Worklog evidence đã commit local ddb911d6 rồi cập nhật grant này; chưa push
+  docs để không tự mở probe khi chưa được cấp. Source/native CI checkpoint vẫn
+  `5292b9966eefa51cb0deea0245d8f79ab8f7db0d` / `34180074766` FAIL ở actual Mac.
+- Bước tiếp theo duy nhất: chờ root verify C immutable classifier-only patch /
+  fixture / hashes rồi cấp import-only riêng cho B. Chưa apply hoặc probe; giữ
+  SmokePage529/workflow byte-equal và mọi actual assertions. Giữ21 desktop paths
+  frozen, hai launcher C sole writer, wholeB HOLD; không full gates khi Mac đỏ.
