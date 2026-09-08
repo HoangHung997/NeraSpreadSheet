@@ -19,6 +19,7 @@ using CheckBox = System.Windows.Controls.CheckBox;
 using TextBox = System.Windows.Controls.TextBox;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using Point = System.Windows.Point;
+using ButtonBase = System.Windows.Controls.Primitives.ButtonBase;
 
 namespace NeraSpreadSheet.Windows.Rendering.Tests;
 
@@ -210,12 +211,22 @@ public sealed class Release009SplitAutoFilterSmokeTests
             Assert.IsTrue(host.Presenter.TryOpenForActiveCell());
             await Ready(host);
             var oldPopup = Field<Popup>(host.Presenter, "_popup");
+            var oldSearch = Field<TextBox>(host.Presenter, "_searchBox");
+            var oldApply = Field<Button>(host.Presenter, "_applyButton");
+            var oldChoice = Values(host).First();
             Field<TextBox>(host.Presenter, "_searchBox").Text = "old request";
             host.Presenter.Close();
             Assert.IsTrue(host.Presenter.TryOpenForActiveCell());
             var newBinding = Field<NeraWpfAutoFilterPagedBinding>(host.Presenter, "_binding");
             Invoke(host.Presenter, "OnPopupClosed", oldPopup, EventArgs.Empty);
             await Ready(host);
+            oldSearch.Text = "obsolete control";
+            oldChoice.IsChecked = false;
+            Click(oldApply);
+            await Task.Delay(180);
+            Assert.AreEqual(string.Empty, newBinding.SearchText);
+            Assert.IsTrue(host.Presenter.IsOpen);
+            Assert.AreEqual(0, host.Session.History.UndoCount);
             Assert.AreSame(newBinding, Field<NeraWpfAutoFilterPagedBinding>(host.Presenter, "_binding"));
             Assert.IsTrue(Field<TextBox>(host.Presenter, "_searchBox").IsKeyboardFocusWithin);
             var original = host.Session.ActiveWorksheet;
@@ -294,6 +305,11 @@ public sealed class Release009SplitAutoFilterSmokeTests
                             Field<RibbonRuntimeController>(window, "_runtime"));
                         await Flush(host);
                         Assert.HasCount(split ? 4 : 1, Buttons(host));
+                        if (host.Split is { } fractional)
+                        {
+                            Assert.AreEqual(new PointD(0.25, 0.5), fractional.GetPaneScroll(SpreadsheetPaneId.TopLeft));
+                            Assert.AreEqual(new PointD(1.25, 1.5), fractional.GetPaneScroll(SpreadsheetPaneId.BottomRight));
+                        }
                         await verify(host);
                     }
                     finally { window.Close(); }

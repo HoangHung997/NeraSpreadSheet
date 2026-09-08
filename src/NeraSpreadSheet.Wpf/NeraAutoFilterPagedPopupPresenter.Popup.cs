@@ -15,6 +15,11 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
     private Border BuildPopupContent(
         SpreadsheetAutoFilterTarget target)
     {
+        var context = _openContext ?? throw new InvalidOperationException("A native filter context is required.");
+        void StartForPopup(Func<CancellationToken, Task> operation)
+        {
+            if (IsCurrentContext(context)) StartOperation(operation);
+        }
         var root = new Border
         {
             Width = PopupWidth,
@@ -243,22 +248,23 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
         DockPanel.SetDock(footer, Dock.Bottom);
         panel.Children.Add(footer);
 
-        search.TextChanged += (_, _) => ScheduleSearch(search.Text);
-        sortAscending.Click += (_, _) => StartOperation(token =>
+        search.TextChanged += (_, _) => { if (IsCurrentContext(context)) ScheduleSearch(search.Text); };
+        sortAscending.Click += (_, _) => StartForPopup(token =>
             SortAndCloseAsync(false, criterionInput.Text, token));
-        sortDescending.Click += (_, _) => StartOperation(token =>
+        sortDescending.Click += (_, _) => StartForPopup(token =>
             SortAndCloseAsync(true, criterionInput.Text, token));
-        reapply.Click += (_, _) => StartOperation(ReapplyAndCloseAsync);
-        clearSort.Click += (_, _) => StartOperation(ClearSortAndCloseAsync);
+        reapply.Click += (_, _) => StartForPopup(ReapplyAndCloseAsync);
+        clearSort.Click += (_, _) => StartForPopup(ClearSortAndCloseAsync);
         menuKind.SelectionChanged += (_, _) =>
         {
             if (!_rebuilding)
             {
-                StartOperation(RefreshSelectedModeAsync);
+                StartForPopup(RefreshSelectedModeAsync);
             }
         };
         search.PreviewKeyDown += (_, args) =>
         {
+            if (!IsCurrentContext(context)) return;
             if (args.Key == Key.Escape)
             {
                 Close();
@@ -266,11 +272,11 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             }
             else if (args.Key == Key.Enter)
             {
-                StartOperation(ApplyAndCloseAsync);
+                StartForPopup(ApplyAndCloseAsync);
                 args.Handled = true;
             }
         };
-        selectAll.Click += (_, _) => StartOperation(async token =>
+        selectAll.Click += (_, _) => StartForPopup(async token =>
         {
             var binding = _binding;
             if (binding is not null)
@@ -279,7 +285,7 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
                 if (IsCurrentBinding(binding)) RebuildPage();
             }
         });
-        selectNone.Click += (_, _) => StartOperation(async token =>
+        selectNone.Click += (_, _) => StartForPopup(async token =>
         {
             var binding = _binding;
             if (binding is not null)
@@ -288,16 +294,17 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
                 if (IsCurrentBinding(binding)) RebuildPage();
             }
         });
-        previous.Click += (_, _) => StartOperation(token =>
+        previous.Click += (_, _) => StartForPopup(token =>
             MovePageAsync(next: false, token));
-        next.Click += (_, _) => StartOperation(token =>
+        next.Click += (_, _) => StartForPopup(token =>
             MovePageAsync(next: true, token));
-        dateBack.Click += (_, _) => StartOperation(NavigateDateBackAsync);
-        clear.Click += (_, _) => StartOperation(ClearAndCloseAsync);
-        cancel.Click += (_, _) => Close();
-        apply.Click += (_, _) => StartOperation(ApplyAndCloseAsync);
+        dateBack.Click += (_, _) => StartForPopup(NavigateDateBackAsync);
+        clear.Click += (_, _) => StartForPopup(ClearAndCloseAsync);
+        cancel.Click += (_, _) => { if (IsCurrentContext(context)) Close(); };
+        apply.Click += (_, _) => StartForPopup(ApplyAndCloseAsync);
         root.PreviewKeyDown += (_, args) =>
         {
+            if (!IsCurrentContext(context)) return;
             var searchFocused = _searchBox?.IsKeyboardFocusWithin == true;
             var focusedValueIndex = _valueCheckBoxes.FindIndex(
                 static item => item.IsKeyboardFocusWithin);
@@ -415,6 +422,8 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
 
     private void RebuildPage()
     {
+        var context = _openContext;
+        if (context is null || !IsCurrentContext(context)) return;
         if (_binding is null ||
             _itemsPanel is null ||
             _status is null)
@@ -506,9 +515,13 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
                 checkBox,
                 Localization.Format("{0}; {1:N0} dòng", DisplayValue(item.Value), item.Count));
             checkBox.Checked += (_, _) =>
-                StartSelectionChange(pageIndex, selected: true);
+            {
+                if (IsCurrentContext(context) && _valueCheckBoxes.Contains(checkBox)) StartSelectionChange(pageIndex, selected: true);
+            };
             checkBox.Unchecked += (_, _) =>
-                StartSelectionChange(pageIndex, selected: false);
+            {
+                if (IsCurrentContext(context) && _valueCheckBoxes.Contains(checkBox)) StartSelectionChange(pageIndex, selected: false);
+            };
             _valueCheckBoxes.Add(checkBox);
             _itemsPanel.Children.Add(checkBox);
         }
@@ -539,6 +552,9 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
 
     private void RebuildDatePage()
     {
+        var context = _openContext;
+        var page = _datePage;
+        if (context is null || !IsCurrentContext(context)) return;
         if (_itemsPanel is null || _status is null || _binding is null)
         {
             return;
@@ -560,8 +576,14 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
             AutomationProperties.SetName(
                 checkBox,
                 Localization.Format("{0}; {1:N0} dòng", DisplayDateNode(node), node.Count));
-            checkBox.Checked += (_, _) => _selectedDateGroups.Add(group);
-            checkBox.Unchecked += (_, _) => _selectedDateGroups.Remove(group);
+            checkBox.Checked += (_, _) =>
+            {
+                if (IsCurrentContext(context) && ReferenceEquals(page, _datePage)) _selectedDateGroups.Add(group);
+            };
+            checkBox.Unchecked += (_, _) =>
+            {
+                if (IsCurrentContext(context) && ReferenceEquals(page, _datePage)) _selectedDateGroups.Remove(group);
+            };
             row.Children.Add(checkBox);
             if (node.HasChildren)
             {
@@ -569,8 +591,11 @@ public sealed partial class NeraAutoFilterPagedPopupPresenter
                     Localization.Get("Mở ▶"),
                     $"NeraAutoFilterDateDrill{node.Year}{node.Month}");
                 drill.MinWidth = 58d;
-                drill.Click += (_, _) => StartOperation(token =>
-                    NavigateDateIntoAsync(node, token));
+                drill.Click += (_, _) =>
+                {
+                    if (IsCurrentContext(context) && ReferenceEquals(page, _datePage))
+                        StartOperation(token => NavigateDateIntoAsync(node, token));
+                };
                 Grid.SetColumn(drill, 1);
                 row.Children.Add(drill);
             }
