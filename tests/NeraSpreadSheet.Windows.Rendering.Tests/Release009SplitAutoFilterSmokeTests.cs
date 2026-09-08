@@ -146,12 +146,12 @@ public sealed class Release009SplitAutoFilterSmokeTests
                 host.Session.ActiveWorksheet.Dimensions.SetColumnWidth(1,
                     bar.Bounds.Left - paneFrame.Pane.Bounds.Left + paneFrame.ScrollX + host.Grid.RenderTheme.TableFilterButtonMargin + 4);
                 await Flush(host);
-                var clipped = ExpectedHit(host, pane);
-                Assert.IsTrue(clipped.Bounds.Width > 0 && clipped.Bounds.Width < host.Grid.RenderTheme.TableFilterButtonExtent);
+                var clippedHeader = ExpectedHit(host, pane);
+                Assert.IsTrue(clippedHeader.Bounds.Width > 0 && clippedHeader.Bounds.Width < host.Grid.RenderTheme.TableFilterButtonExtent);
                 AssertAnchor(host, pane);
                 var chrome = SpreadsheetChromeGeometry.Calculate(host.Grid.ActualWidth, host.Grid.ActualHeight, host.Grid.RenderTheme);
                 Assert.IsFalse(host.Presenter.TryOpenAt(chrome.RowHeaderWidth + bar.Bounds.Left + 1,
-                    clipped.Bounds.Y + clipped.Bounds.Height / 2), "A partially clipped filter must not steal the scrollbar hit.");
+                    clippedHeader.Bounds.Y + clippedHeader.Bounds.Height / 2), "A partially clipped filter must not steal the scrollbar hit.");
                 host.Session.ActiveWorksheet.Dimensions.SetColumnWidth(1, 160);
                 await Flush(host);
             }
@@ -262,6 +262,7 @@ public sealed class Release009SplitAutoFilterSmokeTests
             await Flush(host);
             Assert.HasCount(0, Buttons(host));
             host.Session.ActivateWorksheet(original);
+            host.Session.Selection.SetActiveCell(Header);
             await Flush(host);
             Assert.IsTrue(host.Presenter.TryOpenForActiveCell());
             await Ready(host);
