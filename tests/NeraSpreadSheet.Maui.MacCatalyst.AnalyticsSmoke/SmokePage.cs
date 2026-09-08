@@ -179,6 +179,15 @@ internal sealed class SmokePage : ContentPage, IDisposable
                     throw;
                 }
             };
+            Action witness = WriteDispatchWitness;
+            SmokeTrace.Append("smoke-dispatch-witness-direct-enter");
+            witness();
+            SmokeTrace.Append("smoke-dispatch-witness-direct-returned");
+            SmokeTrace.Append("smoke-dispatch-witness-queue-enter");
+            var witnessDispatched = dispatcher.Dispatch(witness);
+            SmokeTrace.Append(witnessDispatched
+                ? "smoke-dispatch-witness-queue-returned-true"
+                : "smoke-dispatch-witness-queue-returned-false");
             SmokeTrace.Append("smoke-page-orchestration-dispatch-call-enter");
             dispatched = dispatcher.Dispatch(callback);
             SmokeTrace.Append(dispatched
@@ -195,6 +204,10 @@ internal sealed class SmokePage : ContentPage, IDisposable
             Fail(new InvalidOperationException("The loaded Mac smoke orchestration could not be dispatched."));
         }
     }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void WriteDispatchWitness() =>
+        SmokeTrace.Append("smoke-dispatch-witness-enter");
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void InvokeLoadedSmoke(NeraSpreadsheetView view)

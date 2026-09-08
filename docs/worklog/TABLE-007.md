@@ -623,6 +623,14 @@
   Queued witness vào sẽ chứng minh một queued action đã chạy, không chứng minh
   callback thật JIT failure; không vào thì pending/entry/native termination vẫn
   unknown. Extra enqueue đổi timing nên native PASS nếu có chưa chứng minh cause.
-- Bước tiếp theo duy nhất: nhận root review immutable witness-v1 proposal; chưa
-  apply hoặc dispatch/full gates. Giữ source77 và mọi actual assertions,21 desktop
-  paths frozen, hai launcher C sole writer, wholeB HOLD.
+- Root đã đọc proposal/patch, actual77 logs và primary MAUI10.0.20 sources;
+  APPROVE exact witness-v1 f1674a15, beforea82776c5→after3856665f, chỉ13lines
+  trong true SmokePage + own log, ONE paired baseline/true probe mới. Không sửa
+  acceptance/SDK/launcher/timeout, không retry/variant/full gates trước actual PASS.
+- Đã kiểm clean HEAD04fb850c, preserve docs04fb và imported classifier77; apply_patch
+  đúng13lines rồi verify after blob3856665fc2a4a949b72607aa2ffbf9c23465a996.
+  Workflow, hai launchers và actual classifier fixture byte-equal77; C sole writer.
+- Bước tiếp theo duy nhất: commit/push exact witness-v1 và chạy ONE paired narrow;
+  đọc direct leaf/queued second-entry và true callback/editor evidence riêng.
+  Extra queue có thể đổi timing; absence còn unknown, PASS chưa chứng minh cause.
+  Giữ21 desktop paths frozen và wholeB HOLD đến khi đủ actual final gates.
