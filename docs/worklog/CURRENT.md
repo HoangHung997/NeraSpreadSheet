@@ -1,5 +1,25 @@
 # Current Work Handoff
 
+## Dispatch hiện hành — queued witness B; root iOS diagnostic434 đang kiểm
+
+Root `434b1475db0842090c8389afd52688c409d8db92` đã push diagnostic-only parser:
+36tests/0skip, architecture/diff PASS. Parser blob6d6804cd, tests3b9c668b;
+iOS helper/Android helper giữ nguyên. CI mới full34183578378/iOS34183578371/
+Q34183578376/packages34183575876/MAUI34183575816 đang chạy; demo đã dispatch.
+C giữ transport cũ trong source lane, root giữ hai blobs mới khi integrate.
+C7iOS malformed990 vẫn FAIL; last all-six-green vẫnf3, không thừa nhận source434
+native PASS trước kết quả. PR#1 Draft/open/unmerged, chưa source A/C/wholeB receive.
+
+Root duyệt đúng witness-v1 patchf1674a15 sau actual77 classifier không đủ cause.
+Grant chỉ13lines SmokePage a82776c5→3856665f và own B log, một paired narrow;
+chi tiết [wave](UX_TABLE_COMPLETION_WAVE_20260905.md). C vẫn sole launcher writer,
+không B77 override/C5906 skip. Cfa96692c đang kiểm bounded Mac OSLog consumer;
+A sửa new tests/capture trong18paths. Không local heavy/native/user workbook writes.
+
+Bước tiếp theo duy nhất: đọc root iOS phase-labeled run34183578371 và B witness
+paired result; chọn correction dựa trên actual evidence, không lặp unchanged
+failure hoặc giảm assertions. A/C final-source review/release vẫn tiếp tục độc lập.
+
 ## Hiện hành — iOS c7 đỏ; bổ sung diagnostic-only, không nới gate
 
 Branch `feature/bootstrap-architecture-v0.1`, PR #1 Draft/open/unmerged.

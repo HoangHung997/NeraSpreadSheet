@@ -1,5 +1,35 @@
 # Đợt hoàn thiện Table / Filter / Ribbon / UX — 05/09/2026
 
+## B — grant một queued witness sau classifier77, không thay true editor
+
+Root đọc actual77 Mac101924799380 và Windows101924799555: Mac FAIL sau Dispatch
+true/no callback,14categories0/unclassified4/unclipped, không currentIPS;
+Windows baseline43/candidate60frames PASS. Một draw sau Dispatch không chứng minh
+queued callback đã chạy: MainThread.BeginInvokeOnMainThread gọi inline khi ở
+main thread theo [MAUI10.0.20 source](https://raw.githubusercontent.com/dotnet/maui/10.0.20/src/Essentials/src/MainThread/MainThread.shared.cs).
+[Apple dispatcher source](https://raw.githubusercontent.com/dotnet/maui/10.0.20/src/Core/src/Dispatching/Dispatcher.iOS.cs)
+queue rồi trả true, không xác nhận entry. Không suy signal/JIT/native cause.
+
+Root đọc toàn bộ immutable witness-v1 proposal/13-line patch, hash và actual
+apply-check. Grant đúng patch SHA256
+`f1674a15800e7c8d2cce773b829163287229b7a5293a94b65faddccf29204c30`,
+chỉ `tests/NeraSpreadSheet.Maui.MacCatalyst.AnalyticsSmoke/SmokePage.cs`:
+before `a82776c5468ebeda2fa8de67e34c6b1c134c1f6d` →
+after `3856665fc2a4a949b72607aa2ffbf9c23465a996`, cùng own TABLE-007 worklog.
+Một private static NoInlining trace-only leaf, cùng Action gọi direct một lần
+với brackets rồi queue đúng một lần trên cùng dispatcher trước unchanged true
+callback. Không UI/native reads, field/Task/editor/analytics trong leaf; không
+đổi assertions/readiness/scheduling của true callback, launcher/config/timeout.
+
+Chạy đúng một paired baseline/true-candidate narrow sau apply/verify. Không dùng
+witness thay editor/result gate hoặc full-gate dispatch trước Mac PASS. Direct
+PASS nhưng queued absent vẫn không phân biệt pending/entry/native termination;
+queued PASS nhưng true entry absent không chứng minh JIT. Extra queue thay timing:
+nếu true editor PASS vẫn chưa chứng minh correction/cause. Sau kết quả báo root,
+không tự sinh variant/retry tiếp. C vẫn sole launcher/classifier writer; immutable
+B77 import giữ nguyên và root SKIP khi nhận whole B. B local04fb850c chỉ own docs,
+native proof vẫn exact77; không gọi docs HEAD là sourcegreen.
+
 ## Điều phối 08/09 — f3 xanh; gỡ hai phạm vi bị chặn
 
 Root exact `f3d65d03ef8a52f40d116b03d37876ae3c80069e` đã SUCCESS cả sáu:
