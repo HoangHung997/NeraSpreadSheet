@@ -18,6 +18,11 @@
 
 ## Implementation checkpoint, chờ native CI
 
+- `6e8de0203029c151a10cc011eaa19c143d765e4c` đã thêm đúng amended PERF1line.
+  Full `34182884926`, Windows `101925352662` FAIL test compile CS0136 vì biến
+  clipped trùng scope trong test mới. Follow-up đổi tên local và chọn lại Header
+  trong fixture sau ActivateWorksheet (API reset selection về A1). Chưa native.
+
 - `609a54aeaa51344e9f47e080a1b4c035ae038307`, full `34181447860`:
   Windows `101921208530` build 0 warning/error, Core 1.515 PASS. Native FAIL
   existing PERF008 WPF line80: fixture unfrozen A1 scroll tới106 nhưng đòi
