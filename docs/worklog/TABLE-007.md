@@ -9,7 +9,9 @@
   historical commit giữ exact patch và evidence. Chưa có active variant tiếp.
 - True harness source `6509393af67801b5217cb9b4d934681158a7a561`: paired narrow
   `34178968589` Windows PASS/Mac actual FAIL. Root đã cấp exact diagnostic patch
-  chỉ thêm dispatch boundary evidence vào true page; chi tiết ở cuối log.
+  chỉ thêm dispatch boundary evidence vào true page; đã push
+  `5292b9966eefa51cb0deea0245d8f79ab8f7db0d`, narrow `34180074766` Windows PASS/
+  Mac actual FAIL; Dispatch trả true nhưng callback-entry chưa có.
 - Đã đọc kiến trúc, status/CURRENT, wave, Table native/structured/split contracts,
   editor/corpus tests và TableCompatibility benchmark.
 - Root cho phép riêng workflow `table-007-libreoffice.yml` và producer script;
@@ -540,6 +542,33 @@
   đã áp dụng bằng apply_patch và xác minh cả hai blob. Thêm literal call/return/
   callback/invoke markers, fixed exception category với bare rethrow, NoInlining
   wrapper; chưa đổi scheduling/readiness/editor/assertion/timeout hoặc launcher.
-- Bước tiếp theo duy nhất: commit/push exact dispatch-boundary diagnostic và chạy
-  paired baseline/true-candidate narrow mới; chưa chạy full source gates khi Mac
-  đỏ. Giữ21 desktop paths frozen, hai launcher thuộc root, wholeB HOLD.
+- Diagnostic `5292b9966eefa51cb0deea0245d8f79ab8f7db0d` đã push; narrow
+  `34180074766` đã xong (Mac `101917206388`, Windows `101917206554`).
+  Architecture/diff/preservation audit PASS; true helper, normal workflow và hai
+  released launchers byte-equal trước. Mac hai builds0/0; baseline PASS10frames,
+  actual candidate native FAIL. Marker thật đi qua dispatcher-resolved,
+  dispatch-call-enter và dispatch-returned-true, rồi thêm một draw-core-success;
+  không callback-entry/invoke/catch/readiness/editor markers. Không quan sát false
+  return hoặc synchronous throw; chưa chứng minh callback/JIT failure.
+- Không matching current-run IPS; matched fd2 vẫn664bytes/5lines, không header/
+  address frames. Selected registrar h/signatures/body hashes/maps/counts giống
+  source650, full mm hash khác:
+  `07fd5c75b87c9630eedb5de1ff7703951a05684cfbac354d2c1dd20122e21f55`.
+  Windows baseline PASS43frames/candidate PASS62frames/editor=true; cả hai3cycles,
+  zero failed/abandoned/stale GPU frames. Historical Windows risk vẫn OPEN.
+  Sanitized evidence: ignored `table-007-true-dispatch-result-5292b996.json`.
+- Gửi root đề xuất `table-007-native-stderr-classifier-proposal.md` (ignored,
+  chưa áp dụng): chỉ phân loại buffer64KiB hiện có sau exact capture guards;
+  <=128lines/4096characters mỗi line, JSON fixed keys/counts<=64 và<=2KiB, không
+  raw message/type/class/path/address/ID. Các category chỉ là text indicators,
+  không kết luận signal/JIT/cause. Launcher thuộc root; B không sửa hoặc mở CI mới.
+- Root thông báo C hiện giữ sole writer cả hai launchers từ5906ea9f để làm opt-in;
+  B chỉ READ-ONLY report. Proposal đã ghi đường root→C immutable classifier-only
+  slice→root review→B nhận exact delta, không nhập whole C opt-in/ghi đè launcher.
+  Verify5906 Mac blobfee485b3/Windowsb50e60f9 vẫn bằng B frozen sources.
+  Thu gọn8fixed families; prototype synthetic privacy/bounds18cases PASS,
+  output lớn nhất307bytes. Đây không phải integrated launcher/native proof;
+  actual capture identity/freshness/UID/symlink fixtures phải do C chạy khi tích hợp.
+- Bước tiếp theo duy nhất: nhận root review bounded stderr classifier contract;
+  giữ source529 và actual assertions, không full-source gates khi Mac đỏ. Giữ21
+  desktop paths frozen, hai launcher hiện C sole writer, wholeB HOLD.
