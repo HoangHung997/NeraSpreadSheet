@@ -13,6 +13,17 @@
 
 ## Implementation checkpoint, chờ native CI
 
+- `609a54aeaa51344e9f47e080a1b4c035ae038307`, full `34181447860`:
+  Windows `101921208530` build 0 warning/error, Core 1.515 PASS. Native FAIL
+  existing PERF008 WPF line80: fixture unfrozen A1 scroll tới106 nhưng đòi
+  binding giữ mở; contract mới đóng khi header offscreen. Đã xin root amended
+  grant đúng một dòng FreezeTopRows(1) trong WPF fixture, giữ toàn bộ assertions;
+  chưa sửa file ngoài grant. Sau77 PASS, testhost còn CLR thread-state abort,
+  nguyên nhân chưa được xác định; không gọi renderer/SDK hoặc test mới là PASS.
+- Owned test follow-up bổ sung partial-header/scrollbar exclusion, bar draft
+  refusal, actual unload/reattach và dispatcher drain sau Close trước shutdown.
+  Chờ quyết định fixture trước dispatch tiếp, không lặp CI biết chắc còn conflict.
+
 - Checkpoint `ee8fbea5b1f0c8c40da1190e8173668912036b53` full CI `34181243092`:
   Core SUCCESS; Windows job `101920628361` FAIL compile test vì ButtonBase trùng
   WPF/WinForms global using. Chưa chạy native/capture; follow-up thêm WPF alias.
@@ -53,5 +64,6 @@
 - Không documentation-only churn sau final CI: exact-final SHA/run IDs/17-blob
   manifest/capture hashes và giới hạn sẽ gửi root trong final handoff; root ghi
   kết quả cuối ở shared docs khi tích hợp.
-- Một bước tiếp theo: push checkpoint, chạy source CI để xử lý native/build/
-  capture failures, xác minh đủ năm workflows tại SHA cuối rồi bàn giao RELEASED.
+- Một bước tiếp theo: nhận amended grant của root cho WPF PERF008 frozen-header
+  fixture; sau đó áp đúng phạm vi được duyệt và chạy source CI để xử lý native
+  abort/capture, rồi xác minh đủ năm workflows tại SHA cuối trước RELEASED.
