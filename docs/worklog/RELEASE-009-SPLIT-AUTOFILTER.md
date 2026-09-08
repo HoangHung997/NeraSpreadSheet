@@ -18,6 +18,15 @@
 
 ## Implementation checkpoint, chờ native CI
 
+- `80d98b0754fc8116879eb9a38a9956309fdc7212`, full `34184469464`, Windows
+  `101929924108`: native step PASS và capture tạo artifact `10040111964`,
+  270 PNG/28 mới, ZIP SHA256 `6e34a9c7df00a487a346c2adb1de25c26916efde7db888f0bf58c7d2bc342b23`.
+  Visual QA 14 shell + popup Table/worksheet phát hiện footer Xóa lọc/Hủy/Áp dụng
+  bị cắt khỏi popup540px. Chưa release source này. Follow-up reserve footer và
+  paging trước last-fill list trong existing DockPanel; loaded regressions và
+  capture guard kiểm đủ5 action bounds, native hit targets. Page100/caps/binding
+  không đổi; cần chạy lại native/28ảnh tại source cuối.
+
 - `835eb855dfeed8dd6f37652ed5ba1ebd81e3f650`, full `34184114570`, Windows
   `101928908214`: 172 PASS/2 FAIL/0 skip trong đủ174 native. First OS click,
   lost-capture, AltDown/command ở từng pane và toàn bộ geometry/zoom đều qua;
