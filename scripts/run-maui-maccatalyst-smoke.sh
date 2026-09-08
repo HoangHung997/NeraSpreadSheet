@@ -86,10 +86,56 @@ echo "Mac Catalyst strict code-signature verification: PASS"
 native_stderr_diagnostics() {
   python3 - "$1" "$CONTAINER_ROOT/tmp" "${APP_PID:-}" "$NERA_MAUI_NATIVE_STDERR_RUN" "${LAUNCH_DIAG_START:-}" <<'PY'
 import datetime
+import json
 import os
 from pathlib import Path
 import re
 import sys
+
+
+def classify_stderr(data):
+    """Count bounded literal indicators; never infer a crash cause or emit source text."""
+    clipped = len(data) >= 64 * 1024
+    lines = data[:64 * 1024].decode("utf-8", errors="replace").splitlines()[1:]
+    clipped = clipped or len(lines) >= 128
+    categories = (
+        "objcDuplicateClassText", "objcClassMetadataText", "objcUncaughtExceptionText",
+        "managedUnhandledText", "aotJitRestrictionText", "runtimeAssertionText", "dynamicLoaderText",
+        "sigsegvText", "sigabrtText", "sigbusText", "typeLoadExceptionText",
+        "invalidProgramExceptionText", "missingMethodExceptionText", "typeInitializationExceptionText",
+    )
+    result = {"schema": "nativeStderrClassificationV1", **dict.fromkeys(categories, 0),
+              "unclassifiedLines": 0, "inputClipped": clipped}
+    for original in lines[:128]:
+        result["inputClipped"] = result["inputClipped"] or len(original) >= 4096
+        line = original[:4096].casefold()
+        def token(value):
+            return re.search(r"(?<![A-Za-z0-9_.])" + re.escape(value.casefold()) + r"(?![A-Za-z0-9_.])", line) is not None
+        matches = {
+            "objcDuplicateClassText": "is implemented in both" in line and "one of the two" in line,
+            "objcClassMetadataText": ("has corrupt data pointer" in line or
+                ("future class" in line and "superclass" in line) or
+                ("superclass" in line and "is not a class object" in line)),
+            "objcUncaughtExceptionText": ("terminating app due to uncaught exception" in line or
+                "terminating due to uncaught exception" in line),
+            "managedUnhandledText": "unhandled managed exception" in line or "unhandled exception:" in line,
+            "aotJitRestrictionText": ("attempting to jit compile method" in line and "aot-only" in line) or
+                "failed to load aot module" in line,
+            "runtimeAssertionText": ("assertion at" in line and "not met" in line) or "assertion failed:" in line,
+            "dynamicLoaderText": "library not loaded:" in line or "symbol not found:" in line or
+                ("dyld" in line and "missing symbol" in line),
+            "sigsegvText": token("SIGSEGV"), "sigabrtText": token("SIGABRT"), "sigbusText": token("SIGBUS"),
+            "typeLoadExceptionText": token("System.TypeLoadException"),
+            "invalidProgramExceptionText": token("System.InvalidProgramException"),
+            "missingMethodExceptionText": token("System.MissingMethodException"),
+            "typeInitializationExceptionText": token("System.TypeInitializationException"),
+        }
+        for key, matched in matches.items():
+            if matched:
+                result[key] = min(64, result[key] + 1)
+        if line.strip() and not any(matches.values()):
+            result["unclassifiedLines"] = min(64, result["unclassifiedLines"] + 1)
+    return result
 
 
 def method_frames(raw):
@@ -134,12 +180,17 @@ def main():
         if stat.st_uid != os.getuid() or stat.st_mtime < launch:
             return
         with path.open("rb") as stream:
-            raw = stream.read(64 * 1024).decode("utf-8", errors="replace")
+            captured = stream.read(64 * 1024)
+            raw = captured.decode("utf-8", errors="replace")
         if raw.splitlines()[0] != "NERA_NATIVE_STDERR_V1:" + pid + ":" + run_key:
             return
         if action == "cleanup":
             path.unlink()
         elif action == "read":
+            classification = json.dumps(classify_stderr(captured), separators=(",", ":"))
+            if len(classification.encode("utf-8")) > 2048:
+                raise ValueError("classifier output bound")
+            print(classification)
             frames = method_frames(raw)
             print("Native stderr capture matched the current process and run.")
             print("Native stderr shape: bytes=" + str(len(raw.encode("utf-8")))
