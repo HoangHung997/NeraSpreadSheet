@@ -95,7 +95,7 @@ khác result prefix; file + diagnostics không thể PASS. Mac opt-in ghi chính
 result vào OSLog sau durable close, trùng nội dung console. Default/non-Mac giữ
 transport cũ; native branch phải được actual hosted compile/runtime xác minh.
 
-## Đề xuất local observer vòng đời process — chưa được phép push/probe
+## Observer vòng đời process — lịch sử đề xuất trước source 0a
 
 Sau fa native Mac đã ghi constructor/Loaded/dispatchAccepted nhưng chưa callback,
 root chỉ cấp implementation cục bộ cho observer trong existing package receiver.
@@ -123,6 +123,72 @@ registration ESRCH/EACCES/unsupported/EV_ERROR, event sai, liveness errors/noeve
 caps/privacy và snapshot trước cleanup. CLI test giữ full valid file + diagnostics/
 lifetime-only ở pending/no output. Hosted C# build và actual Mac API vẫn chưa chạy
 cho local patch; root phải review exact patch/hash trước commit/push/native run.
+
+## Trạng thái thoát Darwin — bản vá cục bộ sau source 0a
+
+Source `0a6bbb265c0142c52ccea8f73278f1a19a9deb67`, canonical run `34186366468`,
+đã compile/chạy observer thật: kernel EXIT và PID vắng mặt được ghi nhận trước
+cleanup; Mac vẫn FAIL vì không có complete bound result. Root chỉ cấp sửa cục bộ
+trong package observer/diagnostic assembly, actual extracted fixtures và hai own
+docs. Remote giữ 0a; bản vá sau đây chưa commit/push hoặc chạy native/CI.
+
+Observer đăng ký một lần `NOTE_EXIT | NOTE_EXITSTATUS`. Chỉ Darwin mới dùng
+numeric `0x04000000` khi Python không expose `KQ_NOTE_EXITSTATUS`; nếu có,
+constant phải là integer đúng giá trị, không nhận Boolean. Platform/API không
+hỗ trợ hoặc constant sai không thử đăng ký khác. Denied/unsupported giữ riêng
+các cờ vòng đời và signal0 cuối; không fallback registration hoặc retry.
+
+Chỉ đọc `event.data` sau exact PID/filter/allowed flags, request đúng cả hai cờ
+và event echo cả hai. Bare NOTE_EXIT vẫn chỉ chứng minh EXIT, data không được
+đọc. EV_ERROR data chỉ là errno. Integer 0..65535 được giải mã bằng native
+`os.WIFEXITED`, `WEXITSTATUS`, `WIFSIGNALED`, `WTERMSIG`; API thiếu/không hoạt
+động hoặc dữ liệu/type không hợp lệ trả `unknown` và giữ bằng chứng EXIT.
+
+Summary `nativePackageProcessLifetimeV1` giữ các trường cũ và thêm đúng hai
+trường: `exitCategory` và `currentRunAssociated`. Category chỉ thuộc danh sách
+`unknown`, `waitExitZero`, `waitExitNonzero`, `signalAbort`, `signalSegv`,
+`signalBus`, `signalKill`, `signalTerm`, `signalOther`. Không xuất numeric status,
+signal, PID, nonce, đường dẫn, thời gian, stack hoặc exception text. Tổng stage
+và lifetime summaries vẫn <=2KiB.
+
+Association dùng chính entry guards hiện hữu (CI, bundle/executable/signature,
+LaunchServices success, positive PID), private context đúng schema/path tuyệt
+đối/32 lower-hex nonce, và kết quả query processID/time/prefix hiện hữu. Diagnostic
+summary phải đúng toàn bộ schema/stage keys, có ít nhất một nonce-matched stage,
+counts là integer0..64, absolute path đã quan sát, không missing parent/rejected/
+invalid/clipped data. Lần query cuối bị lỗi hoặc thiếu bằng chứng thì association
+false và category `unknown`, kể cả status đã đọc được. Snapshot được đóng băng
+trước cleanup; sửa input/return object hoặc gọi finish lần nữa không đổi kết quả.
+
+`waitExitZero` chỉ là low-eight-bit exit status bằng0, không phải clean exit,
+smoke PASS hay đã chạy callback. `signalAbort` không chứng minh native/managed
+unhandled exception. Association không là birth identity; khoảng trống giữa
+LaunchServices và đăng ký watcher/PID reuse còn UNKNOWN. Không thay once/poll
+timeout0/cap128/90s deadline, launch/scheduling/log flags/SDK/shared parser hoặc
+full file + compact marker/cohort/public postcondition acceptance. Không đọc IPS,
+stderr mới, tìm replacement process hay đổi security/signing/entitlements.
+
+Căn cứ là Apple XNU `f6217f891ac0bb64f3d375211650a4c1ff8ca1ea`,
+`xnu-12377.1.9`, được Apple map tới macOS26.0; runner0a là macOS26.6.2/25G83,
+chưa chứng minh kernel/SDK của runner khớp source này. Public header và kernel
+implementation cho phép parent hoặc caller được phép signal target; `cansignal`
+chỉ kiểm quyền, không gửi SIGKILL. Cùng source vẫn có man page nói child-only;
+khác biệt tài liệu này và runtime compatibility phải được giữ rõ khi review.
+
+- [Public event.h và NOTE_EXITSTATUS](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/sys/event.h#L273).
+- [Quyền đăng ký và event data](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/kern/kern_event.c#L1116).
+- [Kernel gửi wait status16bit](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/kern/kern_exit.c#L2561).
+- [Wait-status encoding](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/sys/wait.h#L144) và [Darwin signal values](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/sys/signal.h).
+- [Man page cùng source](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/man/man2/kqueue.2#L549).
+
+157 fixture cases extract actual code/finalization, fake kernel/probe/native wait API với status0,
+nonzero, signals/core bit, bare data poison, request/echo mismatch, unavailable
+API/platform, permission/malformed/correlation failures, privacy/bounds và frozen
+snapshot trước cleanup. Actual shared CLI vẫn từ chối diagnostics/status-only
+dù full file hợp lệ. Fake APIs không là native proof; C# hosted compile/native
+runtime cần grant riêng sau root review immutable patch/hash. Không thay render,
+input hoặc workbook nên không thêm benchmark; P3/hardware vẫn là gate riêng.
+Rollback bản vá này chỉ reverse bốn owned-file deltas về0a; không migration.
 
 ## Matrix và giới hạn
 

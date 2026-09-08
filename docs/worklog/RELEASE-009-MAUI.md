@@ -1,6 +1,48 @@
 # RELEASE-009 MAUI — Handoff lane C
 
-## Desktop package consumer — 08/09 đang triển khai
+## Hiện hành — 08/09: local NOTE_EXITSTATUS, chờ root review
+
+- Branch `feature/release-009-maui-desktop-consumer`, HEAD/remote giữ
+  `0a6bbb265c0142c52ccea8f73278f1a19a9deb67`; PR1 Draft/open/unmerged.
+  Bản vá trạng thái thoát chưa commit/push/native/cohort. Root chỉ cấp bốn paths:
+  package observer/diagnostic assembly trong Mac launcher, actual extracted
+  emission-fixture Program, own package contract và worklog này. Shared
+  CURRENT/status/parser/tests/iOS/Android và B classifier/capture giữ nguyên.
+- Implementation0a đã chạy canonical `34186366468`:10/11jobs SUCCESS. Fixtures
+  `101935386724`, cả5producers và assemble `101935796386` PASS. Windows
+  `101935885584`9frames/child exit0, Android `101935885568`10frames, iOS
+  `101935885582`9frames; cả3 qua own cohort/nonce/app hash/public postconditions.
+  Mac `101935885806` build0warnings/0errors nhưng FAIL complete-bound-result;
+  app-file0/unified6184, chỉ constructor entered/completed, Loaded, dispatchAccepted.
+  Watch registered, kernel EXIT và PID absent trước cleanup; final check có,
+  PID không còn, pollCount51, không denied/unavailable/error/limit. Không có
+  cause/status/birth proof từ0a; không chạy thêm năm compatibility workflows.
+- Local delta request NOTE_EXIT|NOTE_EXITSTATUS một lần, Darwin-only constant
+  đã đối chiếu Apple public source. Native wait APIs giải mã thành fixed category;
+  bare NOTE_EXIT/EV_ERROR không thành status, API/data không hợp lệ về UNKNOWN.
+  Association Boolean dùng verified launch/private context và finite nonce-matched
+  diagnostics; lỗi query cuối/missing/rejected/invalid/clipped evidence mask category
+  thành UNKNOWN. Giữ lifetime flags, once/timeout0/cap128/90s/frozen precleanup,
+  <=2KiB tổng summary và strict result/cohort gate. Không đổi app/SDK/launch/
+  scheduling/signing/log flags hoặc import root Picker/parser/B capture.
+- Apple source pinned `f6217f891ac0bb64f3d375211650a4c1ff8ca1ea` là macOS26.0,
+  runner0a26.6.2/25G83 chưa được xác minh khớp. Public header/kernel cho phép
+  caller được quyền signal; man page cùng source vẫn nói child-only. Status0
+  chỉ low8bit zero, không là clean exit/smoke success; signal không là root cause.
+- Local:157 actual extracted observer/status/finalization cases PASS; fake kernel,
+  liveness và wait APIs, không native probe. Actual shared CLI kiểm status-only
+  pending2/no output, explicit failure1/no output, complete marker0/output PASS.
+  Existing33transport+23package+13classifier PASS/0skip; architecture/packaging,
+  Bash/PowerShell parser và inline Python syntax PASS. Boundary review xác nhận
+  exactly4owned paths, launch/Swift/cleanup/legacy/classifier/formatter/query/
+  observation loop/strict verifier và9frozen files không đổi. Không local .NET
+  restore/build/native hoặc xóa cache để lấy dung lượng. C# compile và actual
+  Darwin status availability/permissions vẫn chưa được kiểm ở bản vá mới.
+  Các checkpoint fa/dd phía dưới là lịch sử, không thay bằng chứng cho bản vá này.
+- Một bước tiếp theo duy nhất: root review một immutable four-path patch/hash,
+  after blobs và actual-fixture receipt rồi quyết định grant tiếp; C HOLD.
+
+## Desktop package consumer — lịch sử trước source0a
 
 - Hiện hành: branch giữ HEAD/remote `fa96692c096caab2d9b6a5c8db7d972c792d9056`,
   PR1 Draft/unmerged; **local observer patch chưa commit/push và chưa chạy native**.

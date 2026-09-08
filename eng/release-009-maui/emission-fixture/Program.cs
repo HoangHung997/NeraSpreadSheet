@@ -144,8 +144,13 @@ internal static class Program
         var observerStart = source.IndexOf("# BEGIN PACKAGE PROCESS OBSERVER", StringComparison.Ordinal);
         var observerEnd = source.IndexOf("# END PACKAGE PROCESS OBSERVER", StringComparison.Ordinal);
         Require(observerStart >= 0 && observerEnd > observerStart, "Missing actual process lifetime observer.");
+        var finalStart = source.IndexOf("# BEGIN PACKAGE PROCESS FINALIZATION", StringComparison.Ordinal);
+        var finalEnd = source.IndexOf("# END PACKAGE PROCESS FINALIZATION", StringComparison.Ordinal);
+        Require(finalStart >= 0 && finalEnd > finalStart, "Missing actual process diagnostic finalization.");
+        var finalization = source[finalStart..finalEnd].Replace("\n    ", "\n", StringComparison.Ordinal);
         var script = Path.Combine(root, "diagnostic-fixture.py");
-        File.WriteAllText(script, "import json, os, sys\n" + source[start..end] + source[observerStart..observerEnd] +
+        File.WriteAllText(script, "import json, os, sys\nfrom pathlib import Path\n" + source[start..end] + source[observerStart..observerEnd] +
+            "\nfinalization = " + JsonSerializer.Serialize(finalization) + "\n" +
             DiagnosticSummaryFixture + ProcessObserverFixture);
         var inputs = Path.Combine(root, "diagnostic-inputs.json");
         File.WriteAllBytes(inputs, JsonSerializer.SerializeToUtf8Bytes(messages));
@@ -215,16 +220,26 @@ for data in [b'{', b'{}', b'null', b'\xff', b'[' * 1100 + b']' * 1100]:
     private const string ProcessObserverFixture = """
 
 from types import SimpleNamespace
+import contextlib
+import io
 observer_cases = 0
 target_pid = 987654321
+association_record = dict(original, parentExists=True)
+associated_diagnostics = summarize([prefix + json.dumps(association_record)])
+private_context = {'schema': 'native-result-file-context-v1', 'path': str(Path(sys.argv[3]).absolute()),
+                   'transportNonce': nonce}
+assert package_context_verified(private_context)
 class Event:
-    def __init__(self, ident=target_pid, filter=-5, flags=0, fflags=0x80000000, error=None):
+    def __init__(self, ident=target_pid, filter=-5, flags=0, fflags=0x80000000, error=None, status=None):
         self.ident, self.filter, self.flags, self.fflags = ident, filter, flags, fflags
-        self.error = error
+        self.error, self.status, self.data_reads = error, status, 0
     @property
     def data(self):
-        assert self.flags & 0x4000, 'Normal exit data must never be inspected.'
-        return self.error
+        self.data_reads += 1
+        if self.flags & 0x4000: return self.error
+        assert self.fflags == 0x84000000, 'Bare NOTE_EXIT data must never be inspected.'
+        if isinstance(self.status, Exception): raise self.status
+        return self.status
 class Queue:
     def __init__(self, results, timeline):
         self.results, self.timeline, self.calls = list(results), timeline, []
@@ -233,7 +248,7 @@ class Queue:
         assert not self.closed and maximum == 1 and timeout == 0
         if not self.calls:
             assert len(changes) == 1 and changes[0].ident == target_pid
-            assert changes[0].filter == -5 and changes[0].flags == 0x11 and changes[0].fflags == 0x80000000
+            assert changes[0].filter == -5 and changes[0].flags == 0x11 and changes[0].fflags == 0x84000000
         else:
             assert changes is None
         self.calls.append(changes)
@@ -259,17 +274,20 @@ class Probe:
         self.timeline.append('probe')
         result = self.results.pop(0) if self.results else None
         if isinstance(result, Exception): raise result
-def create(events, probes=()):
+def create(events, probes=(), **options):
     timeline = []
     queue, probe = Queue(events, timeline), Probe(probes, timeline)
-    return PackageProcessLifetimeObserver(target_pid, Backend(queue), probe), queue, probe, timeline
+    return PackageProcessLifetimeObserver(target_pid, Backend(queue), probe, platform='darwin', **options), queue, probe, timeline
 expected_keys = {'schema', 'watchRegistered', 'registrationAbsent', 'watchDenied', 'watchUnavailable',
     'observerError', 'exitEventObserved', 'pidAbsentObserved', 'livenessDenied', 'finalLivenessChecked',
-    'pidPresentAtFinalCheck', 'finalObservationBeforeCleanup', 'pollLimitReached', 'pollCount'}
-def finish(observer):
+    'pidPresentAtFinalCheck', 'finalObservationBeforeCleanup', 'pollLimitReached', 'pollCount',
+    'exitCategory', 'currentRunAssociated'}
+categories = {'unknown', 'waitExitZero', 'waitExitNonzero', 'signalAbort', 'signalSegv', 'signalBus',
+              'signalKill', 'signalTerm', 'signalOther'}
+def finish(observer, diagnostics=associated_diagnostics, verified_context=True):
     global observer_cases
     observer_cases += 1
-    result = observer.finish()
+    result = observer.finish(diagnostics, verified_context)
     encoded = json.dumps(result, separators=(',', ':'))
     largest_stages = dict(positive, stages=dict.fromkeys(positive['stages'], 64))
     combined = encoded + '\n' + json.dumps(largest_stages, separators=(',', ':')) + '\n'
@@ -277,7 +295,9 @@ def finish(observer):
     assert nonce not in encoded and set(result) == expected_keys
     assert result['schema'] == 'nativePackageProcessLifetimeV1'
     assert type(result['pollCount']) is int and 0 <= result['pollCount'] <= 128
-    assert all(type(value) is bool for key, value in result.items() if key not in ('schema', 'pollCount'))
+    assert result['exitCategory'] in categories
+    assert result['currentRunAssociated'] or result['exitCategory'] == 'unknown'
+    assert all(type(value) is bool for key, value in result.items() if key not in ('schema', 'pollCount', 'exitCategory'))
     assert observer.finish() == result
     observer.observe()
     assert observer.finish() == result
@@ -318,7 +338,7 @@ for failure in [OSError(errno.EINVAL, '/private/secret'), [Event(ident=1)]]:
     assert finish(observer)['observerError'] and not observer.finish()['exitEventObserved']
 
 probe = Probe([], [])
-unavailable = finish(PackageProcessLifetimeObserver(target_pid, SimpleNamespace(), probe))
+unavailable = finish(PackageProcessLifetimeObserver(target_pid, SimpleNamespace(), probe, platform='darwin'))
 assert unavailable['watchUnavailable'] and not unavailable['watchRegistered']
 for code, field in [(errno.ESRCH, 'pidAbsentObserved'), (errno.EACCES, 'livenessDenied'),
                     (errno.EPERM, 'livenessDenied'), (errno.EINVAL, 'observerError')]:
@@ -349,7 +369,7 @@ observer, queue, probe, timeline = create([[]])
 backend = Backend(queue)
 def unavailable_queue(): raise NotImplementedError('/private/unavailable')
 backend.kqueue = unavailable_queue
-assert finish(PackageProcessLifetimeObserver(target_pid, backend, probe))['watchUnavailable']
+assert finish(PackageProcessLifetimeObserver(target_pid, backend, probe, platform='darwin'))['watchUnavailable']
 observer, queue, probe, timeline = create([[]])
 for _ in range(1000): observer.observe()
 bounded = finish(observer)
@@ -357,10 +377,164 @@ assert bounded['pollCount'] == 128 and bounded['pollLimitReached']
 assert len(queue.calls) == 129 and len(probe.calls) == 128 and queue.closed
 for invalid_pid in [0, -1, True, '987654321']:
     probe = Probe([], [])
-    invalid = finish(PackageProcessLifetimeObserver(invalid_pid, SimpleNamespace(), probe))
+    invalid = finish(PackageProcessLifetimeObserver(invalid_pid, SimpleNamespace(), probe, platform='darwin'))
     assert invalid['observerError'] and not probe.calls and not invalid['finalObservationBeforeCleanup']
+    assert not invalid['currentRunAssociated']
+
+# Fixed fixture responses exercise the actual classifier without calling any native process API.
+class WaitApi:
+    def __init__(self, status, exited, value):
+        self.status, self.exited, self.value, self.calls = status, exited, value, []
+    def check(self, status, method):
+        assert type(status) is int and status == self.status
+        self.calls.append(method)
+    def WIFEXITED(self, status):
+        self.check(status, 'exited')
+        return self.exited
+    def WIFSIGNALED(self, status):
+        self.check(status, 'signaled')
+        return not self.exited
+    def WEXITSTATUS(self, status):
+        self.check(status, 'code')
+        assert self.exited
+        return self.value
+    def WTERMSIG(self, status):
+        self.check(status, 'signal')
+        assert not self.exited
+        return self.value
+
+status_cases = [(0, True, 0, 'waitExitZero'), (0x1100, True, 17, 'waitExitNonzero'),
+    (0xff00, True, 255, 'waitExitNonzero'), (6, False, 6, 'signalAbort'),
+    (11, False, 11, 'signalSegv'), (10, False, 10, 'signalBus'), (9, False, 9, 'signalKill'),
+    (15, False, 15, 'signalTerm'), (4, False, 4, 'signalOther'), (5, False, 5, 'signalOther'),
+    (0x86, False, 6, 'signalAbort'), (0x8b, False, 11, 'signalSegv')]
+for status, exited, value, category in status_cases:
+    event, api = Event(fflags=0x84000000, status=status), WaitApi(status, exited, value)
+    observer, queue, probe, timeline = create([[event]], native_os=api)
+    result = finish(observer)
+    assert result['exitCategory'] == category and result['exitEventObserved'] and result['currentRunAssociated']
+    assert event.data_reads == 1 and len(api.calls) == 3 and len(queue.calls) == 1
+    if status == 0:
+        complete_status_summary = dict(result)
+
+# Request/echo mismatches must not touch status; kernel exit evidence remains independent.
+for fflags, change_request in [(0x80000000, False), (0x84000000, True)]:
+    event, api = Event(fflags=fflags, status=AssertionError('Unrequested status read.')), WaitApi(0, True, 0)
+    observer, queue, probe, timeline = create([[], [event]], native_os=api)
+    if change_request: observer._requested_flags = 0x80000000
+    result = finish(observer)
+    assert result['exitEventObserved'] and result['exitCategory'] == 'unknown' and event.data_reads == 0
+    assert not api.calls and len(queue.calls) == 2
+for fflags in [0x04000000, 0xC4000000, True]:
+    event = Event(fflags=fflags, status=AssertionError('Invalid echo status read.'))
+    observer, queue, probe, timeline = create([[event]])
+    result = finish(observer)
+    assert result['observerError'] and not result['exitEventObserved'] and event.data_reads == 0
+
+for status in [None, True, False, -1, 65536, 2 ** 80, 1.0, '0', {}, [],
+               OSError(errno.EIO, '/private/status'), ValueError('/private/status'), NotImplementedError()]:
+    event, api = Event(fflags=0x84000000, status=status), WaitApi(0, True, 0)
+    observer, queue, probe, timeline = create([[event]], native_os=api)
+    result = finish(observer)
+    assert result['exitEventObserved'] and result['exitCategory'] == 'unknown' and not api.calls
+for method in ['WIFEXITED', 'WEXITSTATUS', 'WIFSIGNALED', 'WTERMSIG']:
+    api, event = WaitApi(0, True, 0), Event(fflags=0x84000000, status=AssertionError('Unavailable API data read.'))
+    setattr(api, method, None)
+    observer, queue, probe, timeline = create([[event]], native_os=api)
+    assert finish(observer)['exitCategory'] == 'unknown' and event.data_reads == 0 and not api.calls
+for method, value in [('WIFEXITED', 1), ('WIFSIGNALED', 0), ('WIFSIGNALED', True),
+                      ('WEXITSTATUS', True), ('WEXITSTATUS', -1), ('WEXITSTATUS', 256),
+                      ('WTERMSIG', True), ('WTERMSIG', 0), ('WTERMSIG', 127)]:
+    api = WaitApi(0, method != 'WTERMSIG', 0)
+    setattr(api, method, lambda status, value=value: value)
+    observer, queue, probe, timeline = create([[Event(fflags=0x84000000, status=0)]], native_os=api)
+    assert finish(observer)['exitCategory'] == 'unknown'
+for failure in [OSError(errno.ENOSYS, '/private/api'), NotImplementedError(), ValueError('/private/api')]:
+    api = WaitApi(0, True, 0)
+    def failed_api(status, failure=failure): raise failure
+    api.WIFEXITED = failed_api
+    observer, queue, probe, timeline = create([[Event(fflags=0x84000000, status=0)]], native_os=api)
+    assert finish(observer)['exitCategory'] == 'unknown'
+
+for platform in ['win32', 'linux', 'freebsd14', '', None]:
+    queue, probe = Queue([], []), Probe([], [])
+    observer = PackageProcessLifetimeObserver(target_pid, Backend(queue), probe, platform=platform)
+    result = finish(observer)
+    assert result['watchUnavailable'] and result['exitCategory'] == 'unknown' and not queue.calls
+    assert len(probe.calls) == 1 and result['finalLivenessChecked']
+for exposed in [0x04000000, True, -1, 0, 0x02000000, '0x04000000']:
+    queue, probe = Queue([], []), Probe([], [])
+    backend = Backend(queue)
+    backend.KQ_NOTE_EXITSTATUS = exposed
+    observer = PackageProcessLifetimeObserver(target_pid, backend, probe, platform='darwin')
+    result = finish(observer)
+    assert result['watchRegistered'] == (type(exposed) is int and exposed == 0x04000000)
+    assert bool(queue.calls) == result['watchRegistered']
+    assert result['exitCategory'] == 'unknown'
+for code in [errno.EACCES, errno.EPERM, errno.ENOTSUP]:
+    api, event = WaitApi(0, True, 0), Event(flags=0x4000, fflags=0x84000000, error=code, status=0)
+    observer, queue, probe, timeline = create([[event]], [OSError(errno.ESRCH, '/private/absent')], native_os=api)
+    result = finish(observer)
+    assert result['pidAbsentObserved'] and result['finalLivenessChecked'] and not api.calls
+    assert not result['exitEventObserved'] and result['exitCategory'] == 'unknown' and len(queue.calls) == 1
+
+bad_summaries = [None, {}, [], positive, dict(associated_diagnostics, matchingDiagnostics=False),
+    dict(associated_diagnostics, schema='unknown'), dict(associated_diagnostics, extra=True),
+    dict(associated_diagnostics, stages={}), dict(associated_diagnostics, stages=[]),
+    dict(associated_diagnostics, stages=dict.fromkeys(associated_diagnostics['stages'], 0))]
+for key in ['missingParentObserved', 'rejectedDiagnostics', 'invalidLogData', 'inputClipped']:
+    for value in [True, 0, None]: bad_summaries.append(dict(associated_diagnostics, **{key: value}))
+for key in ['matchingDiagnostics', 'absolutePathObserved']:
+    for value in [False, 1, None]: bad_summaries.append(dict(associated_diagnostics, **{key: value}))
+for count in [True, -1, 65, 1.0, '1']:
+    bad_summaries.append(dict(associated_diagnostics, stages=dict(associated_diagnostics['stages'], constructorEntered=count)))
+for diagnostics in bad_summaries:
+    observer, queue, probe, timeline = create([[Event(fflags=0x84000000, status=0)]], native_os=WaitApi(0, True, 0))
+    result = finish(observer, diagnostics)
+    assert result['exitEventObserved'] and not result['currentRunAssociated'] and result['exitCategory'] == 'unknown'
+for context in [False, None, 1, 'true']:
+    observer, queue, probe, timeline = create([[Event(fflags=0x84000000, status=0)]], native_os=WaitApi(0, True, 0))
+    result = finish(observer, verified_context=context)
+    assert not result['currentRunAssociated'] and result['exitCategory'] == 'unknown'
+for record in [None, {}, [], dict(private_context, extra=True), dict(private_context, schema='unknown'),
+               dict(private_context, path='relative/result.json'), dict(private_context, path=None),
+               dict(private_context, path=str(Path(sys.argv[3]).absolute()) + '\x00'),
+               dict(private_context, transportNonce=''), dict(private_context, transportNonce='D' * 32),
+               dict(private_context, transportNonce='g' * 32), dict(private_context, transportNonce=32)]:
+    assert not package_context_verified(record)
+    observer, queue, probe, timeline = create([[Event(fflags=0x84000000, status=0)]], native_os=WaitApi(0, True, 0))
+    assert finish(observer, verified_context=package_context_verified(record))['exitCategory'] == 'unknown'
+
+observer, queue, probe, timeline = create([[], [Event(fflags=0x84000000, status=0)]], native_os=WaitApi(0, True, 0))
+mutable_diagnostics = json.loads(json.dumps(associated_diagnostics))
+result = finish(observer, mutable_diagnostics)
+frozen_status = dict(result)
+timeline.append('cleanup')
+queue.results.append([Event(fflags=0x84000000, status=9)])
+mutable_diagnostics['stages'].clear()
+result['exitCategory'] = 'signalKill'
+observer.observe()
+assert observer.finish(None, False) == frozen_status and frozen_status['exitCategory'] == 'waitExitZero'
+assert timeline[-2:] == ['close', 'cleanup'] and len(queue.calls) == 2
+
+# Execute the actual final diagnostic assembly, including a failed latest query after earlier valid data.
+for context_valid, collection_valid in [(True, True), (False, True), (True, False), (False, False)]:
+    observer, queue, probe, timeline = create([[Event(fflags=0x84000000, status=0)]], native_os=WaitApi(0, True, 0))
+    environment = dict(globals(), process_observer=observer, verified_context=context_valid,
+        diagnostic_collection_succeeded=collection_valid, transport_nonce=nonce,
+        last_data=json.dumps([{'eventMessage': prefix + json.dumps(association_record)}]).encode())
+    captured = io.StringIO()
+    with contextlib.redirect_stdout(captured): exec(finalization, environment)
+    assert len(captured.getvalue().encode()) <= 2048
+    lines = captured.getvalue().splitlines()
+    assert len(lines) == 2 and json.loads(lines[0])['matchingDiagnostics']
+    result = json.loads(lines[1])
+    assert result['currentRunAssociated'] == (context_valid and collection_valid)
+    assert result['exitCategory'] == ('waitExitZero' if context_valid and collection_valid else 'unknown')
+    assert result['exitEventObserved'] and queue.closed
+    observer_cases += 1
 with open(sys.argv[3], 'w', encoding='utf-8') as stream:
-    json.dump(immediate, stream, separators=(',', ':'))
+    json.dump(complete_status_summary, stream, separators=(',', ':'))
 print('Actual process observer fixture cases passed:', observer_cases)
 """;
 

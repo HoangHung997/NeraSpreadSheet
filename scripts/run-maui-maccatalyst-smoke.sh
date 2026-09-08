@@ -697,12 +697,41 @@ import errno
 import select
 
 
+def package_context_verified(record):
+    """Check the private context already created after target bundle validation."""
+    if (not isinstance(record, dict) or set(record) != {'schema', 'path', 'transportNonce'} or
+            record['schema'] != 'native-result-file-context-v1' or type(record['path']) is not str or
+            type(record['transportNonce']) is not str):
+        return False
+    nonce = record['transportNonce']
+    return (len(nonce) == 32 and all(character in '0123456789abcdef' for character in nonce) and
+            '\x00' not in record['path'] and Path(record['path']).is_absolute())
+
+
+def package_run_associated(diagnostics, verified_context):
+    """Associate finite diagnostics with this launch; this never proves process birth identity."""
+    expected = summarize_package_diagnostics(b'[]', '0' * 32)
+    if verified_context is not True or not isinstance(diagnostics, dict) or set(diagnostics) != set(expected):
+        return False
+    if (diagnostics['schema'] != expected['schema'] or diagnostics['matchingDiagnostics'] is not True or
+            diagnostics['absolutePathObserved'] is not True or any(diagnostics[key] is not False for key in
+            ('missingParentObserved', 'rejectedDiagnostics', 'invalidLogData', 'inputClipped'))):
+        return False
+    stages = diagnostics['stages']
+    return (isinstance(stages, dict) and set(stages) == set(expected['stages']) and
+            all(type(count) is int and 0 <= count <= 64 for count in stages.values()) and
+            any(count > 0 for count in stages.values()))
+
+
 class PackageProcessLifetimeObserver:
     """Observe one numeric PID without changing result acceptance or inferring birth identity."""
-    def __init__(self, target_pid, backend=select, signal_probe=os.kill):
+    def __init__(self, target_pid, backend=select, signal_probe=os.kill, native_os=os, platform=sys.platform):
         self._pid = target_pid
         self._backend = backend
         self._probe = signal_probe
+        self._native_os = native_os
+        self._status_category = 'unknown'
+        self._requested_flags = 0
         self._queue = None
         self._usable = False
         self._frozen = False
@@ -712,6 +741,7 @@ class PackageProcessLifetimeObserver:
             'observerError': False, 'exitEventObserved': False, 'pidAbsentObserved': False,
             'livenessDenied': False, 'finalLivenessChecked': False, 'pidPresentAtFinalCheck': False,
             'finalObservationBeforeCleanup': False, 'pollLimitReached': False, 'pollCount': 0,
+            'exitCategory': 'unknown', 'currentRunAssociated': False,
         }
         self._valid_pid = type(target_pid) is int and target_pid > 0
         if not self._valid_pid:
@@ -719,13 +749,20 @@ class PackageProcessLifetimeObserver:
             return
         required = ('kqueue', 'kevent', 'KQ_FILTER_PROC', 'KQ_NOTE_EXIT',
                     'KQ_EV_ADD', 'KQ_EV_ONESHOT', 'KQ_EV_ERROR')
-        if not all(hasattr(backend, name) for name in required):
+        if platform != 'darwin' or not all(hasattr(backend, name) for name in required):
             self._state['watchUnavailable'] = True
             return
         try:
+            # Darwin public event.h at Apple XNU f6217f891ac0bb64f3d375211650a4c1ff8ca1ea.
+            # Python may omit this constant. The source is macOS 26.0, not an exact runner kernel claim.
+            self._status_flag = 0x04000000
+            exposed = getattr(backend, 'KQ_NOTE_EXITSTATUS', self._status_flag)
+            if type(exposed) is not int or exposed != self._status_flag:
+                raise ValueError('unexpected Darwin exit-status constant')
+            self._requested_flags = backend.KQ_NOTE_EXIT | self._status_flag
             self._queue = backend.kqueue()
             event = backend.kevent(target_pid, filter=backend.KQ_FILTER_PROC,
-                flags=backend.KQ_EV_ADD | backend.KQ_EV_ONESHOT, fflags=backend.KQ_NOTE_EXIT)
+                flags=backend.KQ_EV_ADD | backend.KQ_EV_ONESHOT, fflags=self._requested_flags)
             self._usable = self._consume(self._queue.control([event], 1, 0), registration=True)
             self._state['watchRegistered'] = self._usable
         except NotImplementedError:
@@ -766,14 +803,44 @@ class PackageProcessLifetimeObserver:
                 else:
                     self._state['observerError'] = True
                 return False
-            if event.fflags != self._backend.KQ_NOTE_EXIT:
+            if event.fflags not in (self._backend.KQ_NOTE_EXIT, self._backend.KQ_NOTE_EXIT | self._status_flag):
                 raise ValueError('unexpected process event')
-            # Never read or publish a normal event's data as an exit status.
             self._state['exitEventObserved'] = True
+            self._status_category = self._classify_status(event)
             return True
         except (AttributeError, TypeError, ValueError, OverflowError):
             self._state['observerError'] = True
             return False
+
+    def _classify_status(self, event):
+        # Bare NOTE_EXIT data and EV_ERROR errno are never wait status.
+        expected = self._backend.KQ_NOTE_EXIT | self._status_flag
+        if self._requested_flags != expected or event.fflags != expected:
+            return 'unknown'
+        methods = ('WIFEXITED', 'WEXITSTATUS', 'WIFSIGNALED', 'WTERMSIG')
+        if not all(callable(getattr(self._native_os, name, None)) for name in methods):
+            return 'unknown'
+        try:
+            status = event.data
+            if type(status) is not int or not 0 <= status <= 0xffff:
+                return 'unknown'
+            exited = self._native_os.WIFEXITED(status)
+            signaled = self._native_os.WIFSIGNALED(status)
+            if type(exited) is not bool or type(signaled) is not bool or exited == signaled:
+                return 'unknown'
+            if exited:
+                code = self._native_os.WEXITSTATUS(status)
+                if type(code) is int and 0 <= code <= 255:
+                    return 'waitExitZero' if code == 0 else 'waitExitNonzero'
+            else:
+                signal = self._native_os.WTERMSIG(status)
+                if type(signal) is int and 1 <= signal < 127:
+                    # Fixed Darwin sys/signal.h values from the same pinned Apple source.
+                    return {6: 'signalAbort', 11: 'signalSegv', 10: 'signalBus',
+                            9: 'signalKill', 15: 'signalTerm'}.get(signal, 'signalOther')
+        except (OSError, AttributeError, TypeError, ValueError, OverflowError, NotImplementedError):
+            return 'unknown'
+        return 'unknown'
 
     def observe(self, final=False):
         if self._frozen or not self._valid_pid:
@@ -806,7 +873,7 @@ class PackageProcessLifetimeObserver:
         except (TypeError, ValueError, OverflowError):
             self._state['observerError'] = True
 
-    def finish(self):
+    def finish(self, diagnostics=None, verified_context=False):
         if not self._frozen:
             try:
                 self.observe(final=True)
@@ -820,6 +887,9 @@ class PackageProcessLifetimeObserver:
                         self._state['observerError'] = True
                     self._queue = None
                     self._usable = False
+                self._state['currentRunAssociated'] = self._valid_pid and package_run_associated(diagnostics, verified_context)
+                if self._state['currentRunAssociated']:
+                    self._state['exitCategory'] = self._status_category
         return dict(self._state)
 # END PACKAGE PROCESS OBSERVER
 
@@ -831,8 +901,12 @@ unified = directory / 'unified.json'
 deadline = time.monotonic() + 90
 last_size = 0
 last_data = b'[]'
+diagnostic_collection_succeeded = False
 with open(context, encoding='utf-8') as stream:
-    transport_nonce = json.load(stream)['transportNonce']
+    file_context = json.load(stream)
+    transport_nonce = file_context['transportNonce']
+# Receiver entry is already guarded by CI, bundle/executable/signature, launch success and positive PID.
+verified_context = package_context_verified(file_context)
 
 def read_scoped_log():
     bound = min(deadline, time.monotonic() + 10)
@@ -869,7 +943,9 @@ process_observer = PackageProcessLifetimeObserver(int(pid))
 try:
     while time.monotonic() < deadline:
         process_observer.observe()
+        diagnostic_collection_succeeded = False
         data = read_scoped_log()
+        diagnostic_collection_succeeded = True
         last_data = data
         last_size = len(data)
         unified.write_bytes(data)
@@ -891,11 +967,14 @@ except (OSError, ValueError, subprocess.SubprocessError):
     print(f'Mac package transport incomplete; app-file={int(has_file)}; unified-bytes={last_size}.', file=sys.stderr)
     raise SystemExit(1)
 finally:
+    # BEGIN PACKAGE PROCESS FINALIZATION
     # Freeze and close the watcher before this process returns to Bash's cleanup trap.
-    lifetime = process_observer.finish()
+    diagnostics = summarize_package_diagnostics(last_data, transport_nonce)
+    lifetime = process_observer.finish(diagnostics, verified_context and diagnostic_collection_succeeded)
     # This fixed summary is diagnostic only. The independent strict result parser decides acceptance.
-    print(json.dumps(summarize_package_diagnostics(last_data, transport_nonce), separators=(',', ':')))
+    print(json.dumps(diagnostics, separators=(',', ':')))
     print(json.dumps(lifetime, separators=(',', ':')))
+    # END PACKAGE PROCESS FINALIZATION
 PY
   exit 0
 fi
