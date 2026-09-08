@@ -20,6 +20,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     public SmokePage()
     {
+        PackageProvenance.TraceMac("constructorEntered");
         var workbook = new Workbook();
         var sheet = workbook.Worksheets[0];
         sheet.SetValue(default, "Code");
@@ -38,6 +39,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
         Content = _root;
         _host.Spreadsheet.PaintSurface += OnFrame;
         Loaded += OnLoaded;
+        PackageProvenance.TraceMac("constructorCompleted");
     }
 
     // The public event follows the SDK GPU lease completion; keep the cross-thread count atomic.
@@ -45,13 +47,20 @@ internal sealed class SmokePage : ContentPage, IDisposable
 
     private void OnLoaded(object? sender, EventArgs e)
     {
+        PackageProvenance.TraceMac("loadedEntered");
         Loaded -= OnLoaded;
         // Always leave the native Loaded/paint stack before any workbook mutation.
-        Dispatcher.Dispatch(() => _ = RunAsync());
+        var accepted = Dispatcher.Dispatch(() =>
+        {
+            PackageProvenance.TraceMac("dispatchCallbackEntered");
+            _ = RunAsync();
+        });
+        PackageProvenance.TraceMac(accepted ? "dispatchAccepted" : "dispatchRejected");
     }
 
     private async Task RunAsync()
     {
+        PackageProvenance.TraceMac("runEntered");
         var stage = "native-frames";
         try
         {
@@ -60,6 +69,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
                 view.InvalidateSurface);
             PackageProvenance.Require(view.Handler?.PlatformView is not null && view.GRContext is not null &&
                 _ribbon.Handler?.PlatformView is not null, "Public package hosts did not attach native handlers.");
+            PackageProvenance.TraceMac("nativeFramesCompleted");
             var session = _host.Session!;
             stage = "controller-edit-undo-cancel";
             var address = new CellAddress(1, 2);
@@ -75,6 +85,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             PackageProvenance.Require(session.Editor.Cancel() && !session.Editor.IsEditing &&
                 session.ActiveWorksheet.GetCell(address) == before && session.History.UndoCount == history,
                 "Controller Cancel mutated workbook state.");
+            PackageProvenance.TraceMac("controllerCompleted");
             stage = "native-filter-values";
             PackageProvenance.Require(_host.TryOpenFilter(_tableId, _columnId), "Packaged filter did not open.");
             await UntilAsync(() => Descendants(_host).OfType<CheckBox>().Count(box =>
@@ -83,6 +94,7 @@ internal sealed class SmokePage : ContentPage, IDisposable
             PackageProvenance.Require(_host.IsFilterSheetOpen, "Filter closed before loading its actual values.");
             _host.CloseFilterSheet();
             PackageProvenance.Require(!_host.IsFilterSheetOpen, "Filter close did not complete.");
+            PackageProvenance.TraceMac("filterCompleted");
             var width = view.Width;
             stage = "actual-resize";
             var framesBeforeResize = view.GpuContextDiagnostics.FramesCompleted;
@@ -90,21 +102,26 @@ internal sealed class SmokePage : ContentPage, IDisposable
             _host.HorizontalOptions = LayoutOptions.Start;
             await UntilAsync(() => view.Width < width * 0.8d &&
                 view.GpuContextDiagnostics.FramesCompleted > framesBeforeResize, view.InvalidateSurface);
+            PackageProvenance.TraceMac("resizeCompleted");
             view.HasRenderLoop = false;
             stage = "idle-gpu";
             var gpu = await WaitForIdleGpuAsync(view);
             PackageProvenance.Require(gpu.FramesCompleted >= 3 && gpu.FramesFailed == 0 && !gpu.HasActiveFrame,
                 "Package GPU lifecycle did not finish healthy frames.");
+            PackageProvenance.TraceMac("gpuCompleted");
             stage = "assembly-provenance";
             var assemblies = PackageProvenance.VerifyLoadedAssemblies();
+            PackageProvenance.TraceMac("provenanceCompleted");
             stage = "dispose";
             Dispose();
+            PackageProvenance.TraceMac("disposeCompleted");
             PackageProvenance.Emit("success", Volatile.Read(ref _frames), new { assemblies, gpu, controllerEditUndo = true,
                 filterValues = 20, actualResize = true, publicApiOnly = true });
             Environment.Exit(0);
         }
         catch (Exception exception)
         {
+            PackageProvenance.TraceMac("failureCaught");
             // Never serialize exception messages/stack traces containing runner paths.
             PackageProvenance.Emit("failure", Volatile.Read(ref _frames), new { stage, exceptionType = exception.GetType().FullName });
             Environment.Exit(1);

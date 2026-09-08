@@ -104,6 +104,13 @@ giới hạn64KiB/128lines/4096chars/count64/output2KiB. Không suy text thành 
 cause, effective mode hoặc clean exit. Lát chẩn đoán tách khỏi package opt-in
 để B nhận immutable sau root review; C giữ sole writer launcher lâu dài.
 
+Sau actual Mac dd job101922679905 build0/0 nhưng file0/unified rỗng, root cho phép
+chẩn đoán finite stages trong hai existing consumer files và đưa exact compact
+envelope vào public `CoreFoundation.OSLog`. Không đổi execution mode, scheduling,
+assertions hoặc signature. Chỉ ghi native result sau full file đã đóng; separate
+diagnostics không là acceptance. Formatter và launcher summary có hosted fixtures;
+native compile/runtime vẫn cần CI mới. [Binding gốc](https://github.com/dotnet/macios/blob/main/src/CoreFoundation/OSLog.cs).
+
 ## Tài liệu gốc
 
 - [NuGet nuspec pack qua MSBuild](https://learn.microsoft.com/en-us/nuget/reference/msbuild-targets#packing-using-a-nuspec-file).

@@ -47,6 +47,7 @@ internal static class Program
             FileModeShouldRefuseExistingAndRepeatedEvidence(root);
             FileModeShouldRejectInvalidConfiguration(root);
             FileModeShouldPreserveFailureStatus(root);
+            MacDiagnosticsShouldBeFinitePrivateAndNeverAuthorizeResults(root);
             WindowsLauncherShouldEnforceCompleteSingleAttemptEvidence(root);
             MacLauncherShouldRejectInvalidIdentityAndUnsignedPayload(root);
             Console.WriteLine("Actual consumer emission fixtures passed.");
@@ -113,6 +114,98 @@ internal static class Program
             "Fixture launcher exposed unbounded diagnostic output.");
         return process.ExitCode;
     }
+
+    private static void MacDiagnosticsShouldBeFinitePrivateAndNeverAuthorizeResults(string root)
+    {
+        Console.WriteLine(nameof(MacDiagnosticsShouldBeFinitePrivateAndNeverAuthorizeResults));
+        string[] stages = ["constructorEntered", "constructorCompleted", "loadedEntered", "dispatchAccepted",
+            "dispatchRejected", "dispatchCallbackEntered", "runEntered", "nativeFramesCompleted", "controllerCompleted",
+            "filterCompleted", "resizeCompleted", "gpuCompleted", "provenanceCompleted", "disposeCompleted",
+            "failureCaught", "emitEntered", "contextValidated", "payloadClosed", "envelopePublished"];
+        var messages = stages.Select(stage => PackageProvenance.FormatMacDiagnostic(stage, Protocol,
+            TransportNonce, pathIsAbsolute: true, parentExists: false)).ToArray();
+        Require(messages.All(message => message is not null && message.Length < 512 &&
+            !message.Contains(Description, StringComparison.Ordinal)), "Diagnostic formatter exceeded its finite scope.");
+        foreach (var stage in new[] { "", "unknown", "runEntered/private/secret", new string('x', 1024) })
+            Require(PackageProvenance.FormatMacDiagnostic(stage, Protocol, TransportNonce, true, true) is null,
+                "Diagnostic formatter accepted a free-form stage.");
+        foreach (var nonce in new[] { null, "", "short", new string('D', 32), new string('g', 32) })
+            Require(PackageProvenance.FormatMacDiagnostic(stages[0], Protocol, nonce, true, true) is null,
+                "Diagnostic formatter accepted an invalid nonce.");
+        Require(PackageProvenance.FormatMacDiagnostic(stages[0], null, TransportNonce, true, true) is null &&
+            PackageProvenance.FormatMacDiagnostic(stages[0], "unknown", TransportNonce, true, true) is null,
+            "Diagnostic formatter changed default or unknown protocols.");
+
+        var repository = Environment.GetEnvironmentVariable("GITHUB_WORKSPACE")!;
+        var source = File.ReadAllText(Path.Combine(repository, "scripts", "run-maui-maccatalyst-smoke.sh"));
+        var start = source.IndexOf("# BEGIN PACKAGE DIAGNOSTIC SUMMARY", StringComparison.Ordinal);
+        var end = source.IndexOf("# END PACKAGE DIAGNOSTIC SUMMARY", StringComparison.Ordinal);
+        Require(start >= 0 && end > start, "Missing actual diagnostic summary implementation.");
+        var script = Path.Combine(root, "diagnostic-fixture.py");
+        File.WriteAllText(script, "import json, sys\n" + source[start..end] + DiagnosticSummaryFixture);
+        var inputs = Path.Combine(root, "diagnostic-inputs.json");
+        File.WriteAllBytes(inputs, JsonSerializer.SerializeToUtf8Bytes(messages));
+        string[] arguments = ["-B", script, inputs, TransportNonce];
+        Require(RunTool("python", arguments) == 0, "Actual diagnostic summary failed its privacy or bounds fixture.");
+
+        var payload = Path.Combine(root, "diagnostic-only-payload.json");
+        Configure(Protocol, TransportNonce, payload);
+        Capture(() => PackageProvenance.Emit("success", 3, Details()));
+        var context = Path.Combine(root, "diagnostic-only-context.json");
+        File.WriteAllBytes(context, JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            schema = "native-result-file-context-v1", path = payload, transportNonce = TransportNonce,
+        }));
+        var console = Path.Combine(root, "diagnostic-only-console.log");
+        File.WriteAllText(console, string.Empty);
+        var unified = Path.Combine(root, "diagnostic-only-unified.json");
+        File.WriteAllBytes(unified, JsonSerializer.SerializeToUtf8Bytes(messages.Select(message => new { eventMessage = message })));
+        var output = Path.Combine(root, "diagnostic-only-verified.json");
+        string[] verify = ["-B", Path.Combine(repository, "scripts", "verify-native-smoke-result.py"),
+            "--log", console, "--json-log", unified, "--prefix", Prefix, "--file-context", context,
+            "--minimum-frames", "3", "--output", output];
+        Require(RunTool("python", verify) == 2 && !File.Exists(output),
+            "Diagnostic-only log and full file incorrectly authorized a native result.");
+    }
+
+    private const string DiagnosticSummaryFixture = """
+
+with open(sys.argv[1], encoding='utf-8') as stream:
+    messages = json.load(stream)
+nonce = sys.argv[2]
+prefix = 'NERA_PACKAGED_MAUI_DIAGNOSTIC:'
+def summarize(items):
+    data = json.dumps([{'eventMessage': item} for item in items]).encode()
+    result = summarize_package_diagnostics(data, nonce)
+    encoded = json.dumps(result, separators=(',', ':'))
+    assert len(encoded.encode()) <= 2048 and nonce not in encoded and 'private' not in encoded
+    assert set(result) == {'schema', 'stages', 'matchingDiagnostics', 'absolutePathObserved',
+        'missingParentObserved', 'rejectedDiagnostics', 'invalidLogData', 'inputClipped'}
+    assert all(type(count) is int and 0 <= count <= 64 for count in result['stages'].values())
+    return result
+positive = summarize(messages)
+assert positive['matchingDiagnostics'] and positive['absolutePathObserved'] and positive['missingParentObserved']
+assert all(count == 1 for count in positive['stages'].values())
+assert not positive['rejectedDiagnostics'] and not positive['inputClipped']
+original = json.loads(messages[0][len(prefix):])
+for key, value in [('stage', 'private-unknown'), ('transportNonce', 'e' * 32), ('pathIsAbsolute', 1),
+                   ('parentExists', 0), ('schema', 'unknown'), ('stage', []), ('extra', '/private/secret')]:
+    record = dict(original)
+    record[key] = value
+    rejected = summarize([prefix + json.dumps(record)])
+    assert rejected['rejectedDiagnostics'] and not rejected['matchingDiagnostics']
+for message in [prefix + '{}', prefix + 'null', prefix + '{', 'private ' + messages[0],
+                messages[0] + ' private', prefix + '{"stage":"private","stage":"runEntered"}',
+                prefix + 'x' * 1024]:
+    rejected = summarize([message])
+    assert rejected['rejectedDiagnostics'] and not rejected['matchingDiagnostics']
+assert summarize([messages[0]] * 129)['inputClipped']
+assert summarize([messages[0]] * 129)['stages']['constructorEntered'] == 64
+assert summarize(['NERA_PACKAGED_MAUI_SMOKE:{"status":"success"}'])['matchingDiagnostics'] is False
+assert summarize_package_diagnostics(b'x' * (2 * 1024 * 1024 + 1), nonce)['inputClipped']
+for data in [b'{', b'{}', b'null', b'\xff', b'[' * 1100 + b']' * 1100]:
+    assert summarize_package_diagnostics(data, nonce)['invalidLogData']
+""";
 
     private static void WindowsLauncherShouldEnforceCompleteSingleAttemptEvidence(string root)
     {

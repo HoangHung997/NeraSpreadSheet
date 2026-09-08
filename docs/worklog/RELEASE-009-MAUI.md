@@ -2,6 +2,23 @@
 
 ## Desktop package consumer — 08/09 đang triển khai
 
+- Exact checkpoint `dd6eafda50f5e98bb51fe23a9e0312525be70868` có năm existing gates
+  SUCCESS: full34182133420, iOS34182134752, Q34182135997, Windows packages34182137232,
+  demo34182138742. Core1515/native desktop158 và local33+23+13 PASS0skip.
+  MAUI34181795895: common fixture/5producers/assembler PASS; Windows101922679855
+  đạt9frames/child exit0, Android101922679875 đạt11frames, iOS101922679851 đạt8frames,
+  cùng own cohort/public postconditions. Mac101922679905 fixture/cleanup/build0/0
+  PASS nhưng actual90s FAIL: app-file0/unified array rỗng. Không suy root cause.
+- Root amended thêm CHỈ actual `PackageProvenance.cs` và `SmokePage.cs` vào scope:
+  finite Mac stage diagnostics và public CoreFoundation.OSLog, same compact envelope
+  sau actual CreateNew/Write/Flush/close. Không đổi scheduling/await/assertions/
+  config/SDK/signing hoặc shared parser. Summary riêng <=2KiB chỉ fixed counts/
+  booleans, exact process/time/transport nonce; private log không upload.
+  Linked fixture kiểm actual finite formatter, actual launcher summarizer và actual
+  strict CLI từ chối diagnostic-only dù full payload hợp lệ. Native branch chưa
+  nghiệm thu; source mới phải qua whole cohort/sáu gates, không dùng dd thay.
+- Root đã review/approve immutable cf4f9dac cho B import-only rồi một paired probe;
+  C giữ classifier block/fixture byte-equal. Không nhận B import ghi đè launcher C.
 - Branch `feature/release-009-maui-desktop-consumer` từ exact combined
   `d73cd2e2bcb7e2832e9a8b3fd071373b62cb2a0f`, baseline sáu gates xanh theo root.
   Giữ iOS5d/package8b/PERFfe branches nguyên trạng; PR1 Draft/unmerged.

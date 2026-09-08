@@ -84,6 +84,17 @@ managed process ExitCode0. Cả hai vẫn phải qua same strict file protocol v
 source/version/feed/cohort nonce/target/assembly/public postcondition gate >=3.
 New native acceptance cần whole fresh canonical cohort và sáu exact-HEAD gates.
 
+Mac dd checkpoint chưa tạo file/marker dù LaunchServices đã trả về process.
+Root cấp diagnostic-only extension trong actual consumer: 19 stage literals, mỗi
+event gắn current transport nonce và hai Boolean về absolute path/parent tồn tại;
+không ghi đường dẫn, exception text hay environment dump. Tối đa64 events qua
+CoreFoundation.OSLog; summary hiện hữu chỉ xét <=128 scoped records, <=512chars/
+record trong cùng2MiB/90s query, fixed schema/counts/booleans <=2KiB. Unknown/
+foreign/duplicate/malformed data không thành stage evidence. Diagnostic prefix
+khác result prefix; file + diagnostics không thể PASS. Mac opt-in ghi chính compact
+result vào OSLog sau durable close, trùng nội dung console. Default/non-Mac giữ
+transport cũ; native branch phải được actual hosted compile/runtime xác minh.
+
 ## Matrix và giới hạn
 
 | Target | Host build | Probe dự kiến |

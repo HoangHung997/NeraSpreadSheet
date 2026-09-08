@@ -628,6 +628,70 @@ if [ "$PACKAGE_MODE" = "app-file-v1" ]; then
   python3 - "$APP_PID" "$LAUNCH_DIAG_START" "$PACKAGE_PREFIX" "$PACKAGE_CONTEXT" "$WORK_DIR" "$RESULT" "$(cd "$(dirname "$0")" && pwd -P)/verify-native-smoke-result.py" <<'PY'
 import json, os, selectors, subprocess, sys, time
 from pathlib import Path
+
+# BEGIN PACKAGE DIAGNOSTIC SUMMARY
+def summarize_package_diagnostics(data, expected_nonce):
+    """Summarize only current, finite diagnostic records; never authorize a result."""
+    stages = (
+        'constructorEntered', 'constructorCompleted', 'loadedEntered', 'dispatchAccepted',
+        'dispatchRejected', 'dispatchCallbackEntered', 'runEntered', 'nativeFramesCompleted',
+        'controllerCompleted', 'filterCompleted', 'resizeCompleted', 'gpuCompleted',
+        'provenanceCompleted', 'disposeCompleted', 'failureCaught', 'emitEntered',
+        'contextValidated', 'payloadClosed', 'envelopePublished',
+    )
+    result = {'schema': 'nativePackageDiagnosticsV1', 'stages': dict.fromkeys(stages, 0),
+              'matchingDiagnostics': False, 'absolutePathObserved': False, 'missingParentObserved': False,
+              'rejectedDiagnostics': False, 'invalidLogData': False, 'inputClipped': False}
+    diagnostic_prefix = 'NERA_PACKAGED_MAUI_DIAGNOSTIC:'
+    def strict_object(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError('duplicate diagnostic field')
+            value[key] = item
+        return value
+    if len(data) > 2 * 1024 * 1024:
+        result['inputClipped'] = True
+        return result
+    try:
+        events = json.loads(data, object_pairs_hook=strict_object)
+        if not isinstance(events, list):
+            raise ValueError('invalid diagnostic log')
+    except (ValueError, UnicodeError, RecursionError):
+        result['invalidLogData'] = True
+        return result
+    result['inputClipped'] = len(events) > 128
+    for event in events[:128]:
+        if not isinstance(event, dict):
+            result['invalidLogData'] = True
+            continue
+        message = event.get('eventMessage')
+        if not isinstance(message, str) or diagnostic_prefix not in message:
+            continue
+        if len(message) > 512:
+            result['inputClipped'] = True
+            result['rejectedDiagnostics'] = True
+            continue
+        try:
+            if not message.startswith(diagnostic_prefix):
+                raise ValueError('invalid diagnostic prefix')
+            record = json.loads(message[len(diagnostic_prefix):], object_pairs_hook=strict_object)
+            if (not isinstance(record, dict) or set(record) !=
+                    {'schema', 'stage', 'transportNonce', 'pathIsAbsolute', 'parentExists'} or
+                    record['schema'] != 'native-package-diagnostic-v1' or
+                    record['transportNonce'] != expected_nonce or record['stage'] not in stages or
+                    type(record['pathIsAbsolute']) is not bool or type(record['parentExists']) is not bool):
+                raise ValueError('invalid current diagnostic')
+            stage = record['stage']
+            result['stages'][stage] = min(64, result['stages'][stage] + 1)
+            result['matchingDiagnostics'] = True
+            result['absolutePathObserved'] |= record['pathIsAbsolute']
+            result['missingParentObserved'] |= not record['parentExists']
+        except (ValueError, TypeError, RecursionError):
+            result['rejectedDiagnostics'] = True
+    return result
+# END PACKAGE DIAGNOSTIC SUMMARY
+
 pid, started, prefix, context, directory, output, verifier = sys.argv[1:]
 directory = Path(directory)
 console = directory / 'console.log'
@@ -635,10 +699,14 @@ console.touch(exist_ok=False)
 unified = directory / 'unified.json'
 deadline = time.monotonic() + 90
 last_size = 0
+last_data = b'[]'
+with open(context, encoding='utf-8') as stream:
+    transport_nonce = json.load(stream)['transportNonce']
 
 def read_scoped_log():
     bound = min(deadline, time.monotonic() + 10)
-    predicate = f'processID == {int(pid)} AND eventMessage CONTAINS "{prefix}"'
+    predicate = (f'processID == {int(pid)} AND (eventMessage CONTAINS "{prefix}" OR '
+                 'eventMessage CONTAINS "NERA_PACKAGED_MAUI_DIAGNOSTIC:")')
     with subprocess.Popen(['/usr/bin/log', 'show', '--start', started, '--style', 'json',
                            '--info', '--debug', '--predicate', predicate],
                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as process:
@@ -669,6 +737,7 @@ def read_scoped_log():
 try:
     while time.monotonic() < deadline:
         data = read_scoped_log()
+        last_data = data
         last_size = len(data)
         unified.write_bytes(data)
         completed = subprocess.run([sys.executable, '-B', verifier, '--log', str(console),
@@ -688,6 +757,9 @@ except (OSError, ValueError, subprocess.SubprocessError):
         has_file = Path(json.load(stream)['path']).is_file()
     print(f'Mac package transport incomplete; app-file={int(has_file)}; unified-bytes={last_size}.', file=sys.stderr)
     raise SystemExit(1)
+finally:
+    # This fixed summary is diagnostic only. The independent strict result parser decides acceptance.
+    print(json.dumps(summarize_package_diagnostics(last_data, transport_nonce), separators=(',', ':')))
 PY
   exit 0
 fi
