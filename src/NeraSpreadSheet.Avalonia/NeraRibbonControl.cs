@@ -21,6 +21,7 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
     private readonly RibbonRuntimeController _runtime;
     private readonly RibbonResponsiveLayoutEngine _layoutEngine = new();
     private readonly NeraAvaloniaIconProvider _icons = new();
+    private readonly NeraRibbonResources _chrome = new();
     private readonly DockPanel _root = new();
     private readonly StackPanel _top = new() { Orientation = Orientation.Horizontal, Spacing = 3 };
     private readonly TabControl _tabs = new();
@@ -40,6 +41,8 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
     public NeraRibbonControl(RibbonRuntimeController runtime)
     {
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
+        Resources.MergedDictionaries.Add(_chrome);
+        _chrome.Apply(_iconTheme);
         DockPanel.SetDock(_top, Dock.Top);
         _root.Children.Add(_top);
         var content = new Grid();
@@ -49,6 +52,7 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
         _theme.Child = _root;
         Content = _theme;
         UseLayoutRounding = true;
+        FontFamily = new FontFamily("Segoe UI, Inter, $Default");
         FontSize = 12;
         SetIdentity(this, "nera-ribbon", "Ribbon NeraSpreadSheet");
         SetIdentity(_top, "ribbon-top-bar", "Thanh Tệp và truy cập nhanh");
@@ -145,9 +149,11 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
             ClosePopups();
             var dark = _iconTheme is NeraIconTheme.Dark or NeraIconTheme.HighContrastDark;
             _theme.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
-            Background = dark ? new SolidColorBrush(Color.FromRgb(32, 35, 41)) : Brushes.White;
-            Foreground = dark ? Brushes.White : Brushes.Black;
+            _chrome.Apply(_iconTheme);
+            Background = _chrome.Brush("Surface");
+            Foreground = _chrome.Brush("Foreground");
             _root.Background = Background;
+            _top.Background = _chrome.Brush("TopSurface");
             var scale = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
             LayoutSnapshot = _layoutEngine.Layout(_runtime.Snapshot,
                 new RibbonLayoutRequest(Bounds.Width > 0 ? Bounds.Width * scale : double.PositiveInfinity, scale, _selectedTabId)
@@ -234,11 +240,11 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
             {
                 Text = group.Presentation.Caption, FontSize = 10.5, TextAlignment = TextAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis, Width = canvas.Width,
-                Height = group.CaptionHeight / LayoutSnapshot.Scale,
+                Height = group.CaptionHeight / LayoutSnapshot.Scale, Foreground = _chrome.Brush("Muted"),
             };
             Canvas.SetTop(caption, group.CaptionY / LayoutSnapshot.Scale);
             canvas.Children.Add(caption);
-            var border = new Border { Child = canvas, BorderBrush = Brushes.Gray, BorderThickness = new Thickness(0, 0, 1, 0) };
+            var border = new Border { Child = canvas, BorderBrush = _chrome.Brush("Divider"), BorderThickness = new Thickness(0, 0, 1, 0) };
             SetIdentity(border, "ribbon-group-" + group.Presentation.Id, group.Presentation.Caption);
             groups.Children.Add(border);
         }
@@ -265,7 +271,7 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
         _backstage.Children.Clear();
         _backstage.ColumnDefinitions = new ColumnDefinitions("190,*");
         _backstage.MinHeight = 260;
-        var rail = new StackPanel { Spacing = 4, Margin = new Thickness(8) };
+        var rail = new StackPanel { Spacing = 4, Margin = new Thickness(8), Background = _chrome.Brush("Rail") };
         _backstage.Children.Add(rail);
         var entries = _runtime.Snapshot.Backstage;
         var selected = entries.FirstOrDefault(item => item.CommandId == _selectedBackstageId) ?? (entries.Count > 0 ? entries[0] : null);
@@ -279,6 +285,7 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
                 if (tip is not null) caption += $" [{tip}]";
             }
             var button = new Button { Content = caption, IsEnabled = command.IsEnabled, HorizontalAlignment = HorizontalAlignment.Stretch, Height = 36 };
+            if (selected?.CommandId == command.CommandId) button.Background = _chrome.Brush("Checked");
             SetIdentity(button, "ribbon-backstage-" + command.CommandId.Value, command.Caption);
             button.Click += (_, _) => { _selectedBackstageId = command.CommandId; BuildBackstage(); };
             rail.Children.Add(button);
@@ -308,7 +315,7 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
         var popup = new Popup
         {
             PlacementTarget = target, Placement = PlacementMode.Bottom, IsLightDismissEnabled = true,
-            Child = new Border { Child = content, Background = Background, BorderBrush = Brushes.Gray, BorderThickness = new Thickness(1), Padding = new Thickness(6) },
+            Child = new Border { Child = content, Background = Background, BorderBrush = _chrome.Brush("Divider"), BorderThickness = new Thickness(1), Padding = new Thickness(6), CornerRadius = new CornerRadius(4) },
         };
         LogicalChildren.Add(popup);
         _popups.Add(popup);

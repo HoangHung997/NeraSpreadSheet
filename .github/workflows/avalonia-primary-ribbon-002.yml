@@ -1,0 +1,99 @@
+name: Avalonia primary Ribbon 002
+on:
+  push:
+    branches: ['feature/avalonia-primary-ribbon-002']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: primary-ribbon-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  desktop:
+    name: Ribbon visual ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    env:
+      NERA_SOURCE_SHA: ${{ github.sha }}
+      NERA_AVALONIA_ARTIFACTS: artifacts/avalonia
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Linux native display dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libx11-6 libice6 libsm6 libfontconfig1 libxcb1 libxrender1 libxrandr2 libxi6 libgl1 libegl1 fonts-dejavu-core
+      - name: Release provenance counterexamples and dependency closure
+        shell: pwsh
+        run: |
+          python scripts/verify-avalonia-release.py --self-test
+          if ($LASTEXITCODE -ne 0) { throw 'Release gate self-test failed.' }
+          python scripts/verify-avalonia-release.py
+          if ($LASTEXITCODE -ne 0) { throw 'Release closure failed.' }
+      - name: Restore
+        run: dotnet restore NeraSpreadSheet.Avalonia.slnx
+      - name: Build and analyzers
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory artifacts/build -Force | Out-Null
+          dotnet build NeraSpreadSheet.Avalonia.slnx -c Release --no-restore -bl:artifacts/build/ribbon.binlog 2>&1 | Tee-Object artifacts/build/ribbon.log
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
+          python scripts/verify-avalonia-release.py --build-log artifacts/build/ribbon.log --report artifacts/build/release-graph.json
+          if ($LASTEXITCODE -ne 0) { throw 'Release DLL provenance failed.' }
+      - name: Existing regressions and new chrome tests in five independent processes
+        shell: pwsh
+        run: |
+          for ($pass = 1; $pass -le 5; $pass++) {
+            $directory = "artifacts/tests/pass-$pass"
+            New-Item -ItemType Directory $directory -Force | Out-Null
+            dotnet test tests/NeraSpreadSheet.Avalonia.Tests/NeraSpreadSheet.Avalonia.Tests.csproj -c Release --no-build --no-restore --logger 'trx;LogFileName=ribbon.trx' --results-directory $directory 2>&1 | Tee-Object "$directory/test.log"
+            if ($LASTEXITCODE -ne 0) { throw "Qualification process $pass failed, no retries." }
+            [xml]$trx = Get-Content "$directory/ribbon.trx" -Raw
+            $counts = $trx.TestRun.ResultSummary.Counters
+            if ([int]$counts.total -lt 135 -or [int]$counts.passed -ne [int]$counts.total -or [int]$counts.executed -ne [int]$counts.total) { throw 'Missing, skipped or failed tests.' }
+          }
+      - name: Architecture
+        shell: pwsh
+        run: ./scripts/verify-architecture.ps1
+      - name: Existing native window and Formula UX regressions
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory artifacts/avalonia -Force | Out-Null
+          $app = 'samples/NeraSpreadSheet.Avalonia.Sample/bin/Release/net10.0/NeraSpreadSheet.Avalonia.Sample.dll'
+          $modes = @(
+            @{ Argument = '--smoke'; Prefix = 'NERA_AVALONIA_SMOKE_SUCCESS '; Minimum = 12 },
+            @{ Argument = '--full-ui-smoke'; Prefix = 'NERA_AVALONIA_FULL_UI_SUCCESS '; Minimum = 23 },
+            @{ Argument = '--formula-ux-smoke'; Prefix = 'NERA_AVALONIA_FORMULA_UX_SUCCESS '; Minimum = 23 }
+          )
+          foreach ($mode in $modes) {
+            if ($IsLinux) { $lines = & xvfb-run -a dotnet $app $mode.Argument 2>&1 }
+            else { $lines = & dotnet $app $mode.Argument 2>&1 }
+            $exit = $LASTEXITCODE
+            $lines | Tee-Object "artifacts/avalonia/$($mode.Argument.TrimStart('-')).log"
+            if ($exit -ne 0) { throw "Native $($mode.Argument) exited $exit." }
+            $records = @($lines | ForEach-Object { "$_" } | Where-Object { $_.StartsWith($mode.Prefix, [StringComparison]::Ordinal) })
+            if ($records.Count -ne 1) { throw 'Expected exactly one success record.' }
+            $result = $records[0].Substring($mode.Prefix.Length) | ConvertFrom-Json
+            if ($result.sha -cne $env:NERA_SOURCE_SHA -or $result.assertions -lt $mode.Minimum -or !$result.nativeWindow) { throw 'Native evidence postconditions failed.' }
+          }
+          foreach ($name in @('native-window.png', 'full-ui-window.png', 'full-ui-customization.png', 'formula-ux-references.png', 'formula-ux-cross-sheet.png')) {
+            if (!(Test-Path "artifacts/avalonia/$name") -or (Get-Item "artifacts/avalonia/$name").Length -eq 0) { throw "Missing $name." }
+          }
+      - name: Pack SDK including theme resources
+        run: dotnet pack src/NeraSpreadSheet.Avalonia/NeraSpreadSheet.Avalonia.csproj -c Release --no-build -o artifacts/packages
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: primary-ribbon-${{ matrix.os }}-${{ github.sha }}
+          path: artifacts/
+          if-no-files-found: warn
