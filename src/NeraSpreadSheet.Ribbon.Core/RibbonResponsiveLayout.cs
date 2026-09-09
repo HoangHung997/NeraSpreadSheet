@@ -131,6 +131,15 @@ public sealed record RibbonLayoutRequest
     /// </summary>
     public Func<string, bool>? IsIconAvailable { get; init; }
 
+    /// <summary>
+    /// Rounds each occupied group width up to a physical pixel before deciding
+    /// whether it fits. Also reserves upward-rounded group gaps and overflow
+    /// chrome. Enable for hosts which round native desired sizes separately;
+    /// otherwise fractional widths can accumulate beyond the available width.
+    /// Item measurements and existing default layout behavior are unchanged.
+    /// </summary>
+    public bool RoundGroupWidthsToPixels { get; init; }
+
     private static void ValidateMetrics(RibbonLayoutMetrics metrics, double scale)
     {
         double[] values =
@@ -295,8 +304,6 @@ public sealed class RibbonResponsiveLayoutEngine
         RibbonTabPresentation tab,
         RibbonLayoutRequest request)
     {
-        var metrics = request.Metrics;
-        var scale = request.Scale;
         var states = tab.Groups.Select((group, index) => new GroupState(
             group, index, request)).ToArray();
         var collapseOrder = states
@@ -310,7 +317,7 @@ public sealed class RibbonResponsiveLayoutEngine
         {
             foreach (var state in collapseOrder)
             {
-                if (Measure(states, metrics, scale) <= request.AvailableWidth)
+                if (Measure(states, request) <= request.AvailableWidth)
                 {
                     break;
                 }
@@ -329,15 +336,19 @@ public sealed class RibbonResponsiveLayoutEngine
         return new RibbonTabLayout(
             tab,
             Array.AsReadOnly(groups),
-            Measure(states, metrics, scale),
+            Measure(states, request),
             states.Any(static state => state.IsOverflow));
     }
 
     private static double Measure(
         IReadOnlyList<GroupState> states,
-        RibbonLayoutMetrics metrics,
-        double scale)
+        RibbonLayoutRequest request)
     {
+        var metrics = request.Metrics;
+        var scale = request.Scale;
+        var spacing = request.RoundGroupWidthsToPixels
+            ? Math.Ceiling(metrics.Spacing * scale)
+            : metrics.Spacing * scale;
         var width = 0d;
         var inlineCount = 0;
         var hasOverflow = false;
@@ -353,14 +364,16 @@ public sealed class RibbonResponsiveLayoutEngine
         }
         if (inlineCount > 1)
         {
-            width += (inlineCount - 1) * metrics.Spacing * scale;
+            width += (inlineCount - 1) * spacing;
         }
         if (hasOverflow)
         {
-            width += metrics.OverflowWidth * scale;
+            width += request.RoundGroupWidthsToPixels
+                ? Math.Ceiling(metrics.OverflowWidth * scale)
+                : metrics.OverflowWidth * scale;
             if (inlineCount > 0)
             {
-                width += metrics.Spacing * scale;
+                width += spacing;
             }
         }
         return width;
@@ -508,6 +521,10 @@ public sealed class RibbonResponsiveLayoutEngine
             if (!double.IsFinite(groupWidth * _request.Scale))
             {
                 throw new InvalidOperationException("Ribbon group geometry must remain finite after applying scale.");
+            }
+            if (_request.RoundGroupWidthsToPixels)
+            {
+                groupWidth = Math.Ceiling(groupWidth * _request.Scale) / _request.Scale;
             }
             for (var index = 0; index < launchers.Count; index++)
                 placements[launchers[index]] = new Placement(groupWidth - metrics.GroupPadding -

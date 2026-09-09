@@ -171,7 +171,7 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
             var scale = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
             LayoutSnapshot = _layoutEngine.Layout(_runtime.Snapshot,
                 new RibbonLayoutRequest(Bounds.Width > 0 ? Bounds.Width * scale : double.PositiveInfinity, scale, _selectedTabId)
-                { IsIconAvailable = key => ResolveIcon(key, 16) is not null });
+                { IsIconAvailable = key => ResolveIcon(key, 16) is not null, RoundGroupWidthsToPixels = UseLayoutRounding });
             _selectedTabId = LayoutSnapshot.SelectedTabId;
             BuildTopBar();
             _tabs.Items.Clear();
@@ -393,7 +393,9 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (_runtime is not null && !_disposed && change.Property == BoundsProperty && change.GetOldValue<Rect>().Width != change.GetNewValue<Rect>().Width) ScheduleRebuild();
+        if (_runtime is not null && !_disposed &&
+            ((change.Property == BoundsProperty && change.GetOldValue<Rect>().Width != change.GetNewValue<Rect>().Width) ||
+             change.Property == UseLayoutRoundingProperty)) ScheduleRebuild();
     }
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) { base.OnAttachedToVisualTree(e); ScheduleRebuild(); }
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) { ClosePopups(); base.OnDetachedFromVisualTree(e); }
