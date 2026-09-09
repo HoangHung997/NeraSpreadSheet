@@ -16,6 +16,7 @@ internal static class PackageAudit
 {
     private static readonly XNamespace Main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
     private static readonly string[] SheetFeatures = ["conditionalFormatting", "sheetViews", "mergeCells", "autoFilter", "dataValidations", "tableParts", "drawing", "extLst", "pageSetup", "definedNames"];
+    private static readonly string[] StyleFeatures = ["dxfs", "numFmts", "fonts", "fills", "borders", "cellXfs", "extLst"];
     internal static PackageSnapshot Inspect(byte[] bytes)
     {
         using var stream = new MemoryStream(bytes, writable: false);
@@ -38,17 +39,16 @@ internal static class PackageAudit
                 foreach (var name in SheetFeatures)
                     featureHashes.Add(entry.FullName + "#" + name, Digest(new XElement("audit", root.Elements(Main + name).Select(element => new XElement(element)))));
             else if (root.Name == Main + "styleSheet")
-            {
-                foreach (var name in new[] { "dxfs", "numFmts", "fonts", "fills", "borders", "cellXfs", "extLst" })
+                foreach (var name in StyleFeatures)
                     featureHashes.Add(entry.FullName + "#" + name, Digest(new XElement("audit", root.Elements(Main + name).Select(element => new XElement(element)))));
-            }
             else if (root.Name == Main + "workbook")
                 featureHashes.Add(entry.FullName + "#definedNames", Digest(new XElement("audit", root.Elements(Main + "definedNames").Select(element => new XElement(element)))));
         }
         stream.Position = 0;
         using var document = SpreadsheetDocument.Open(stream, false);
         var workbook = document.WorkbookPart ?? throw new InvalidDataException("Office package has no workbook part.");
-        var table = workbook.Workbook.GetFirstChild<S.Sheets>() ?? throw new InvalidDataException("Workbook has no sheets collection.");
+        var workbookRoot = workbook.Workbook ?? throw new InvalidDataException("Workbook markup is missing.");
+        var table = workbookRoot.GetFirstChild<S.Sheets>() ?? throw new InvalidDataException("Workbook has no sheets collection.");
         var sheets = new List<SheetInventory>();
         foreach (var element in table.Elements<S.Sheet>())
         {
@@ -101,16 +101,18 @@ internal static class PackageAudit
         output.Position = 0;
         using (var document = SpreadsheetDocument.Open(output, true))
         {
-            var styles = document.WorkbookPart!.WorkbookStylesPart!;
+            var workbookPart = document.WorkbookPart ?? throw new InvalidDataException("Synthetic workbook part is missing.");
+            var workbookRoot = workbookPart.Workbook ?? throw new InvalidDataException("Synthetic workbook markup is missing.");
+            var styles = workbookPart.WorkbookStylesPart ?? throw new InvalidDataException("Synthetic style part is missing.");
             var xml = ReadPart(styles); var root = xml.Root!; root.Elements(Main + "dxfs").Remove();
             var dxfs = new XElement(Main + "dxfs", new XAttribute("count", 1),
                 new XElement(Main + "dxf", new XElement(Main + "font", new XElement(Main + "color", new XAttribute("rgb", "FFCC1122")))));
             var next = root.Elements().FirstOrDefault(element => element.Name.LocalName is "tableStyles" or "colors" or "extLst");
             if (next is null) root.Add(dxfs); else next.AddBeforeSelf(dxfs); WritePart(styles, xml);
-            var sheetElements = document.WorkbookPart.Workbook.GetFirstChild<S.Sheets>()!.Elements<S.Sheet>().ToArray();
+            var sheetElements = workbookRoot.GetFirstChild<S.Sheets>()!.Elements<S.Sheet>().ToArray();
             for (var index = 1; index < 6; index++)
             {
-                var part = document.WorkbookPart.GetPartById(sheetElements[index].Id!.Value!); var sheetXml = ReadPart(part);
+                var part = workbookPart.GetPartById(sheetElements[index].Id!.Value!); var sheetXml = ReadPart(part);
                 for (var rule = 1; rule <= (index == 5 ? 5 : 6); rule++)
                     sheetXml.Root!.Add(new XElement(Main + "conditionalFormatting", new XAttribute("sqref", "A1:A1048576 C2:C17"),
                         new XElement(Main + "cfRule", new XAttribute("type", "duplicateValues"), new XAttribute("priority", rule), new XAttribute("dxfId", 0))));

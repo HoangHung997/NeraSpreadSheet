@@ -19,6 +19,8 @@ internal static class Program
     private static readonly OpenXmlImportOptions Compatibility = new() { PreserveUnknownParts = true };
     private static readonly OpenXmlExportOptions Preserve = new() { PreserveUnknownParts = true };
     private static readonly byte[] Sentinel = Encoding.UTF8.GetBytes("NERA-AUDIT-DESTINATION-SENTINEL");
+    private static readonly bool[] Modes = [false, true];
+    private static readonly string[] Edits = ["value", "formula", "base-style"];
     private static readonly string[] StructuralScenarios = ["insert-row", "delete-row", "insert-column", "delete-column", "rename-sheet"];
     private static readonly string[] Notes =
     [
@@ -29,6 +31,7 @@ internal static class Program
         "Only visible/overscan viewports are composed. Whole-column conditional ranges are never expanded by the harness.",
         "All edit/structural probes load independent in-memory copies. The input path is never opened for writing.",
         "XML equality and retained parts do not prove opaque references remain semantically correct after structural edits.",
+        "Cell fingerprints cover sheet order/names, stored values/formulas and effective base styles, NOT dimensions, selection, history, full formatting or full atomic rollback.",
         "No public SDK source, H2, demo, shared status or another lane is modified by this audit.",
     ];
 
@@ -51,18 +54,16 @@ internal static class Program
             if (new FileInfo(args[0]).Length > 64L * 1024 * 1024) throw new InvalidDataException("Audit input exceeds its 64 MiB limit.");
             input = await File.ReadAllBytesAsync(args[0]);
         }
-        report.InputBytes = input.Length;
-        report.InputSha256 = Hash(input);
+        report.InputBytes = input.Length; report.InputSha256 = Hash(input);
         PackageSnapshot? raw = null;
-        await Observe("raw-package-inventory", async () => { raw = PackageAudit.Inspect(input); await Task.CompletedTask; return raw; });
-        foreach (var preserve in new[] { false, true })
+        await Observe("raw-package-inventory", () => { raw = PackageAudit.Inspect(input); return Task.FromResult<object?>(raw); });
+        foreach (var preserve in Modes)
         {
             var mode = preserve ? "compatibility" : "strict";
             await Observe("workbook-import-" + mode, async () =>
             {
                 using var stream = new MemoryStream(input, writable: false);
-                var workbook = await Serializer.LoadAsync(stream, new OpenXmlImportOptions { PreserveUnknownParts = preserve });
-                return Summarize(workbook);
+                return Summarize(await Serializer.LoadAsync(stream, new OpenXmlImportOptions { PreserveUnknownParts = preserve }));
             });
             await Observe("session-import-" + mode, async () =>
             {
@@ -73,36 +74,32 @@ internal static class Program
         }
         await Observe("extension-independent-stream", async () =>
         {
-            var first = Path.Combine(args[1], "extension-probe.dlda");
-            var second = Path.Combine(args[1], "extension-probe.xlsx");
+            var first = Path.Combine(args[1], "extension-probe.dlda"); var second = Path.Combine(args[1], "extension-probe.xlsx");
             await File.WriteAllBytesAsync(first, input); await File.WriteAllBytesAsync(second, input);
             try
             {
                 await using var a = File.OpenRead(first); await using var b = File.OpenRead(second);
                 var wa = await Serializer.LoadAsync(a, Compatibility); var wb = await Serializer.LoadAsync(b, Compatibility);
-                return new { identicalInputBytes = Hash(await File.ReadAllBytesAsync(first)) == Hash(await File.ReadAllBytesAsync(second)), identicalImportedModel = Fingerprint(wa) == Fingerprint(wb) };
+                return new { identicalInputBytes = Hash(await File.ReadAllBytesAsync(first)) == Hash(await File.ReadAllBytesAsync(second)), identicalImportedCellsAndBaseStyles = Fingerprint(wa) == Fingerprint(wb) };
             }
             finally { File.Delete(first); File.Delete(second); }
         });
         await Observe("workbook-no-edit-three-save-cycles", async () =>
         {
-            var workbook = await LoadWorkbook(input);
-            var before = Fingerprint(workbook);
-            var comparisons = new List<object>();
+            var workbook = await LoadWorkbook(input); var before = Fingerprint(workbook); var comparisons = new List<object>();
             for (var index = 0; index < 3; index++)
             {
                 using var output = new MemoryStream(); await Serializer.SaveAsync(workbook, output, Preserve);
                 var bytes = output.ToArray(); var reloaded = await LoadWorkbook(bytes);
-                comparisons.Add(new { cycle = index + 1, modelUnchanged = before == Fingerprint(reloaded), package = PackageAudit.Compare(raw, PackageAudit.Inspect(bytes)) });
+                comparisons.Add(new { cycle = index + 1, cellsAndBaseStylesUnchanged = before == Fingerprint(reloaded), package = PackageAudit.Compare(raw, PackageAudit.Inspect(bytes)) });
                 if (index == 1) workbook = reloaded;
             }
             return comparisons;
         });
-        foreach (var edit in new[] { "value", "formula", "base-style" })
+        foreach (var edit in Edits)
             await Observe("edit-save-reload-" + edit, async () =>
             {
-                var workbook = await LoadWorkbook(input); var sheet = workbook.Worksheets[0];
-                var address = PickCell(sheet); var original = sheet.GetCell(address);
+                var workbook = await LoadWorkbook(input); var sheet = workbook.Worksheets[0]; var address = PickCell(sheet); var original = sheet.GetCell(address);
                 if (edit == "value") sheet.SetValue(address, "NERA_AUDIT_EDIT");
                 else if (edit == "formula") sheet.SetFormula(address, "=1+2");
                 else
@@ -113,14 +110,14 @@ internal static class Program
                 var expected = Fingerprint(workbook);
                 using var output = new MemoryStream(); await Serializer.SaveAsync(workbook, output, Preserve);
                 var bytes = output.ToArray(); var loaded = await LoadWorkbook(bytes);
-                return new { cell = address.ToString(), replacedKind = original.Value.Kind.ToString(), modelRoundTripEqual = expected == Fingerprint(loaded), package = PackageAudit.Compare(raw, PackageAudit.Inspect(bytes)) };
+                return new { cell = address.ToString(), replacedKind = original.Value.Kind.ToString(), cellsAndBaseStylesRoundTripEqual = expected == Fingerprint(loaded), package = PackageAudit.Compare(raw, PackageAudit.Inspect(bytes)) };
             });
         await Observe("session-save-and-reload", async () =>
         {
             var session = await LoadSession(input); var before = Fingerprint(session.Workbook);
             using var output = new MemoryStream(); await SessionSerializer.SaveSessionAsync(session, output, Preserve);
             var bytes = output.ToArray(); var reload = await LoadSession(bytes);
-            return new { modelRoundTripEqual = before == Fingerprint(reload.Workbook), package = PackageAudit.Compare(raw, PackageAudit.Inspect(bytes)) };
+            return new { cellsAndBaseStylesRoundTripEqual = before == Fingerprint(reload.Workbook), package = PackageAudit.Compare(raw, PackageAudit.Inspect(bytes)) };
         });
         await Observe("shared-viewport-every-sheet", async () =>
         {
@@ -131,12 +128,12 @@ internal static class Program
                 session.ActivateWorksheet(sheet);
                 for (var index = 0; index < 3; index++)
                 {
-                    var clock = Stopwatch.StartNew();
-                    var frame = viewport.Compose(index * 13.25, index * 41.75, 960, 540, 64);
-                    frames.Add(new { sheet = sheet.Name, frame = index, composeMs = clock.Elapsed.TotalMilliseconds, counts = CountCommands(frame.DisplayList, 0) });
+                    var clock = Stopwatch.StartNew(); var frame = viewport.Compose(index * 13.25, index * 41.75, 960, 540, 64);
+                    var elapsed = clock.Elapsed.TotalMilliseconds;
+                    frames.Add(new { sheet = sheet.Name, frame = index, composeMs = elapsed, counts = CountCommands(frame.DisplayList, 0) });
                 }
             }
-            return new { workbookUnchanged = before == Fingerprint(session.Workbook), frames, nativeBackendTested = false };
+            return new { cellsAndBaseStylesUnchanged = before == Fingerprint(session.Workbook), frames, nativeBackendTested = false };
         });
         await Observe("recalculate-cache-comparison", async () =>
         {
@@ -150,8 +147,7 @@ internal static class Program
         });
         await Observe("incremental-edit-five-samples", async () =>
         {
-            var session = await LoadSession(input); var sheet = session.ActiveWorksheet; var address = PickCell(sheet);
-            var samples = new List<double>();
+            var session = await LoadSession(input); var address = PickCell(session.ActiveWorksheet); var samples = new List<double>();
             for (var index = 0; index < 5; index++)
             {
                 var timer = Stopwatch.StartNew(); session.SetValue(address, 701 + index); samples.Add(timer.Elapsed.TotalMilliseconds);
@@ -162,6 +158,8 @@ internal static class Program
             await Observe("structural-" + scenario, async () =>
             {
                 var session = await LoadSession(input); var workbook = session.Workbook;
+                var targetName = raw?.Sheets.FirstOrDefault(sheet => sheet.Rules.Count > 0)?.Name;
+                if (targetName is not null) session.ActivateWorksheet(workbook.GetWorksheet(targetName));
                 var before = Fingerprint(workbook); var accepted = false; string? operationError = null;
                 try
                 {
@@ -171,12 +169,12 @@ internal static class Program
                         case "delete-row": session.Structure.DeleteRows(1); break;
                         case "insert-column": session.Structure.InsertColumns(1); break;
                         case "delete-column": session.Structure.DeleteColumns(1); break;
-                        default: workbook.RenameWorksheet(workbook.Worksheets[0], "NERA_AUDIT_RENAMED"); break;
+                        default: workbook.RenameWorksheet(session.ActiveWorksheet, "NERA_AUDIT_RENAMED"); break;
                     }
                     accepted = true;
                 }
                 catch (Exception exception) { operationError = exception.GetType().Name + ": " + exception.Message; }
-                var unchangedAfterOperation = before == Fingerprint(workbook);
+                var cellsUnchangedAfterOperation = before == Fingerprint(workbook);
                 using var output = new MemoryStream(); output.Write(Sentinel); output.Position = 0;
                 var saved = false; object? comparison = null; string? saveError = null;
                 try
@@ -185,11 +183,11 @@ internal static class Program
                     comparison = PackageAudit.Compare(raw, PackageAudit.Inspect(output.ToArray()));
                 }
                 catch (Exception exception) { saveError = exception.GetType().Name + ": " + exception.Message; }
-                bool? undoRestoredModel = null;
-                if (accepted && scenario != "rename-sheet") { session.Undo(); undoRestoredModel = before == Fingerprint(workbook); }
-                return new { accepted, operationError, unchangedAfterOperation, saved, saveError,
+                bool? undoRestoredCellsAndBaseStyles = null;
+                if (accepted && scenario != "rename-sheet") { session.Undo(); undoRestoredCellsAndBaseStyles = before == Fingerprint(workbook); }
+                return new { targetSheet = targetName, accepted, operationError, cellsUnchangedAfterOperation, saved, saveError,
                     destinationUnchangedOnRejection = !saved && output.ToArray().AsSpan().SequenceEqual(Sentinel),
-                    undoRestoredModel, comparison,
+                    undoRestoredCellsAndBaseStyles, fullAtomicRollbackNotAsserted = true, comparison,
                     opaqueSemantics = accepted && saved ? "NOT_PROVEN: unchanged opaque sqref/formulas after a structural operation may be stale." : "Review atomic refusal and destination integrity separately." };
             });
         var originalIntact = synthetic || report.InputSha256 == Hash(await File.ReadAllBytesAsync(args[0]));
@@ -200,7 +198,9 @@ internal static class Program
         if (synthetic)
         {
             var inventoryValid = raw?.Sheets.Count == 6 && raw.Sheets.Sum(sheet => sheet.Rules.Count) == 29;
-            var strictFailure = report.Results.Single(result => result.Id == "workbook-import-strict").Status == "FAILED";
+            var strictResult = report.Results.Single(result => result.Id == "workbook-import-strict");
+            var strictFailure = strictResult.Status == "FAILED" && strictResult.ErrorType == typeof(InvalidDataException).FullName &&
+                strictResult.Error?.Contains("duplicateValues", StringComparison.Ordinal) == true;
             var compatibilitySuccess = report.Results.Single(result => result.Id == "workbook-import-compatibility").Status == "EXECUTED";
             if (!inventoryValid || !strictFailure || !compatibilitySuccess) return 1;
             Console.WriteLine("NERA_AUDIT_HARNESS_SELFTEST_SUCCESS synthetic=true realWorkbookTested=false"); return 0;
@@ -211,16 +211,15 @@ internal static class Program
         async Task Observe(string id, Func<Task<object?>> action)
         {
             var clock = Stopwatch.StartNew();
-            try { report.Results.Add(new Probe(id, "EXECUTED", clock.Elapsed.TotalMilliseconds, await action(), null, null)); }
-            catch (Exception exception)
+            try
             {
-                report.Results.Add(new Probe(id, "FAILED", clock.Elapsed.TotalMilliseconds, null, exception.GetType().FullName, exception.Message));
+                var detail = await action();
+                report.Results.Add(new Probe(id, "EXECUTED", clock.Elapsed.TotalMilliseconds, detail, null, null));
             }
-            // Flush after each probe so later process timeouts do not erase earlier observations.
+            catch (Exception exception) { report.Results.Add(new Probe(id, "FAILED", clock.Elapsed.TotalMilliseconds, null, exception.GetType().FullName, exception.Message)); }
             await WriteReport(args[1], report);
         }
     }
-
     private static async Task<Workbook> LoadWorkbook(byte[] bytes)
     {
         using var stream = new MemoryStream(bytes, writable: false); return await Serializer.LoadAsync(stream, Compatibility);
@@ -230,15 +229,14 @@ internal static class Program
         using var stream = new MemoryStream(bytes, writable: false); return await SessionSerializer.LoadSessionAsync(stream, Compatibility);
     }
     private static CellAddress PickCell(Worksheet sheet) => sheet.EnumerateUsedCells()
-        .Where(pair => pair.Value.Formula is null && !sheet.MergedCells.TryGetContaining(pair.Key, out _))
-        .Select(static pair => pair.Key).FirstOrDefault();
+        .Where(pair => pair.Value.Formula is null && !sheet.MergedCells.TryGetContaining(pair.Key, out _)).Select(static pair => pair.Key).FirstOrDefault();
     private static object Summarize(Workbook workbook) => new
     {
         sheets = workbook.Worksheets.Select(sheet => new { sheet.Name, sheet.UsedCellCount, sheet.ConditionalFormattingRuleCount,
             formulas = sheet.EnumerateUsedCells().Count(pair => pair.Value.Formula is not null),
             cachedErrors = sheet.EnumerateUsedCells().Count(pair => pair.Value.Value.Kind == CellValueKind.Error),
             mergedRanges = sheet.MergedCells.Ranges.Count, tableCount = sheet.TableCount }).ToArray(),
-        dateSystem = workbook.DateSystem.ToString(), fingerprint = Fingerprint(workbook),
+        dateSystem = workbook.DateSystem.ToString(), cellAndBaseStyleFingerprint = Fingerprint(workbook),
         modeledConditionalRuleKinds = Enum.GetNames<ConditionalFormattingRuleType>(),
     };
     private static string Fingerprint(Workbook workbook)
@@ -254,12 +252,11 @@ internal static class Program
             }
         }
         return Convert.ToHexString(hash.GetHashAndReset());
-        void Append(string text) { hash.AppendData(Encoding.UTF8.GetBytes(text)); hash.AppendData(new byte[] { 0 }); }
+        void Append(string text) { hash.AppendData(Encoding.UTF8.GetBytes(text)); hash.AppendData("\0"u8); }
     }
     private static Dictionary<string, CellValue> FormulaValues(Workbook workbook) => workbook.Worksheets
         .SelectMany(sheet => sheet.EnumerateUsedCells().Where(pair => pair.Value.Formula is not null)
-            .Select(pair => new KeyValuePair<string, CellValue>(sheet.Name + "!" + pair.Key, pair.Value.Value)))
-        .ToDictionary();
+            .Select(pair => new KeyValuePair<string, CellValue>(sheet.Name + "!" + pair.Key, pair.Value.Value))).ToDictionary();
     private static object CountCommands(DisplayList list, int depth)
     {
         if (depth > 64) throw new InvalidDataException("Nested display list exceeds audit depth limit.");
@@ -271,7 +268,7 @@ internal static class Program
     {
         await File.WriteAllTextAsync(Path.Combine(directory, "report.json"), JsonSerializer.Serialize(report, Json));
         var builder = new StringBuilder("# Báo cáo audit khả năng đọc/lưu XLSX của NeraSpreadSheet\n\n");
-        builder.AppendLine($"- HEAD kiểm thử: `{report.SourceSha}`\n- Loại dữ liệu: **{(report.Synthetic ? "FIXTURE TỔNG HỢP — KHÔNG PHẢI FILE NGƯỜI DÙNG" : "FILE ĐẦU VÀO") }**\n- Trạng thái: **{report.State}**\n- SHA256 đầu vào: `{report.InputSha256 ?? "CHƯA ĐỌC ĐƯỢC BYTE"}`\n- Dung lượng: {report.InputBytes} byte\n");
+        builder.AppendLine(CultureInfo.InvariantCulture, $"- HEAD kiểm thử: `{report.SourceSha}`\n- Loại dữ liệu: **{(report.Synthetic ? "FIXTURE TỔNG HỢP — KHÔNG PHẢI FILE NGƯỜI DÙNG" : "FILE ĐẦU VÀO")}**\n- Trạng thái: **{report.State}**\n- SHA256 đầu vào: `{report.InputSha256 ?? "CHƯA ĐỌC ĐƯỢC BYTE"}`\n- Dung lượng: {report.InputBytes} byte\n");
         builder.AppendLine("`EXECUTED` chỉ có nghĩa thao tác chạy xong, không tự chứng minh Excel tương thích. Đọc các giá trị false, khác biệt XML và giới hạn trong report.json.\n");
         builder.AppendLine("| Probe | Kết quả | Thời gian ms |\n|---|---|---:|");
         foreach (var probe in report.Results) builder.AppendLine(CultureInfo.InvariantCulture, $"| {probe.Id} | {probe.Status} | {probe.ElapsedMs:F3} |");
