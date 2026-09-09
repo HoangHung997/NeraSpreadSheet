@@ -38,9 +38,28 @@ jobs:
               if text.count(old) != expected:
                   raise ValueError(f'Preparation repair drift: expected {expected} occurrences of {old!r}')
               text = text.replace(old, new)
+          old = "    tree=api('git/trees',dict(base_tree=base_tree,tree=entries))['sha']"
+          new = """    workflow_entries = []
+              code_entries = []
+              for entry in entries:
+                  if entry['path'].startswith('.github/workflows/'):
+                      prepared = {key: value for key, value in entry.items() if key != 'content'}
+                      if 'content' in entry:
+                          prepared['sha'] = api('git/blobs', dict(content=entry['content'], encoding='utf-8'))['sha']
+                      workflow_entries.append(prepared)
+                  else:
+                      code_entries.append(entry)
+              tree=api('git/trees',dict(base_tree=base_tree,tree=code_entries))['sha']"""
+          if text.count(old) != 1:
+              raise ValueError('Materializer tree handoff anchor changed')
+          text = text.replace(old, new)
+          old = 'changedPaths=names,refUpdated=False)'
+          if text.count(old) != 1:
+              raise ValueError('Materializer receipt anchor changed')
+          text = text.replace(old, 'changedPaths=names,workflowEntries=workflow_entries,refUpdated=False)')
           compile(text, str(p), 'exec')
           p.write_text(text, encoding='utf-8', newline='\n')
-          print('Verified preparer repairs; all source replacement-count guards remain active.')
+          print('Verified preparer repairs. Workflow tree entries require the connector; no runner ref update.')
           PY
       - name: Apply exact guarded source edits
         run: python eng/ribbon-dialogs-003/prepare.py
@@ -90,7 +109,7 @@ jobs:
           dotnet test tests/NeraSpreadSheet.Editing.Tests/NeraSpreadSheet.Editing.Tests.csproj -c Release --logger 'trx;LogFileName=editing.trx' --results-directory artifacts/preparation 2>&1 | tee artifacts/preparation/editing.log
           dotnet test tests/NeraSpreadSheet.Avalonia.Tests/NeraSpreadSheet.Avalonia.Tests.csproj -c Release --no-build --logger 'trx;LogFileName=avalonia.trx' --results-directory artifacts/preparation 2>&1 | tee artifacts/preparation/avalonia.log
           python -B -m unittest discover -s scripts/check-out -p 'test_*.py' -v
-      - name: Create reviewed commit object only; connector must advance the temporary ref
+      - name: Create code commit object and workflow handoff only; connector must advance the temporary ref
         env:
           GH_TOKEN: ${{ github.token }}
         run: python eng/ribbon-dialogs-003/prepare.py --materialize
