@@ -1,0 +1,43 @@
+name: Prepare Ribbon dialogs 003 source (temporary)
+on:
+  push:
+    branches: [feature/ribbon-dialogs-003]
+permissions:
+  contents: write
+concurrency:
+  group: ribbon-dialogs-003-prepare
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Apply exact guarded source edits
+        run: python eng/ribbon-dialogs-003/prepare.py
+      - name: Build and analyze the prepared source
+        run: |
+          mkdir -p artifacts/preparation
+          dotnet build NeraSpreadSheet.Avalonia.slnx -c Release 2>&1 | tee artifacts/preparation/build.log
+      - name: Test shared formatting and native control contracts
+        run: |
+          dotnet test tests/NeraSpreadSheet.Editing.Tests/NeraSpreadSheet.Editing.Tests.csproj -c Release --logger 'trx;LogFileName=editing.trx' --results-directory artifacts/preparation 2>&1 | tee artifacts/preparation/editing.log
+          dotnet test tests/NeraSpreadSheet.Avalonia.Tests/NeraSpreadSheet.Avalonia.Tests.csproj -c Release --no-build --logger 'trx;LogFileName=avalonia.trx' --results-directory artifacts/preparation 2>&1 | tee artifacts/preparation/avalonia.log
+          python -B -m unittest discover -s scripts/check-out -p 'test_*.py' -v
+      - name: Create reviewed commit object only; connector must advance the temporary ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python eng/ribbon-dialogs-003/prepare.py --materialize
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ribbon-dialogs-prepared-${{ github.sha }}
+          path: artifacts/preparation
+          if-no-files-found: warn
