@@ -8,7 +8,9 @@ public sealed partial class RibbonPreviewWindow
     [
         new RibbonTabDefinition("home", "Trang đầu",
         [
-            Group("clipboard", "Bảng tạm", 100, Large("Edit.Paste"), Item("Edit.Cut"), Item("Edit.Copy"), Item("Cell.ClearContents")),
+            Group("clipboard", "Bảng tạm", 100, Large("Edit.Paste"), Item("Edit.PasteValues"),
+                Item("Edit.PasteFormulas"), Item("Edit.PasteFormats"), Item("Edit.Cut"), Item("Edit.Copy"),
+                Item("Edit.CancelCopyMode"), Item("Cell.ClearContents")),
             Group("font", "Phông chữ", 90, Choice("Sample.Font", 122), Choice("Sample.FontSize", 64), Item("Sample.Borders"),
                 Toggle("Cell.Format.Bold"), Toggle("Cell.Format.Italic"), Toggle("Sample.Underline"),
                 Color("Sample.Fill"), Color("Sample.FontColor")),

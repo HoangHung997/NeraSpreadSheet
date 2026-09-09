@@ -15,7 +15,7 @@ namespace NeraSpreadSheet.Windows.Rendering.Tests;
 
 [TestClass]
 [DoNotParallelize]
-public sealed class Release009RibbonCommandSmokeTests
+public sealed partial class Release009RibbonCommandSmokeTests
 {
     [TestMethod]
     [Timeout(60_000)]
@@ -26,7 +26,8 @@ public sealed class Release009RibbonCommandSmokeTests
             RibbonCommandCatalogAudit.ValidateExact(session.Commands, runtime.Definition,
                 RibbonProductionCommandCatalog.CommandIds);
             RibbonCommandCatalogAudit.Validate(registry, runtime.Definition, registry.RegisteredCommandIds);
-            Assert.HasCount(49, session.Commands.RegisteredCommandIds);
+            // 49 existing capabilities plus the four integrated clipboard commands.
+            Assert.HasCount(53, session.Commands.RegisteredCommandIds);
             var hostIds = registry.RegisteredCommandIds.Except(session.Commands.RegisteredCommandIds).ToArray();
             Assert.HasCount(36, hostIds);
             Assert.IsTrue(hostIds.All(id => id.Value.StartsWith("Sample.", StringComparison.Ordinal)));

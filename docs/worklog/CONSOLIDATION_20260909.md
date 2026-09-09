@@ -72,3 +72,31 @@ chỉ trong lệnh restore local do DNS, không đổi build/policy CI của rep
 nhưng toàn run đỏ nên không publish/promote/delete. Mọi source cũ và main vẫn
 giữ nguyên. Tiếp theo chạy đầy đủ umbrella trên commit sửa cuối; chỉ promote
 main sau exact-source green rồi chạy gate main trước publication/archive/delete.
+
+## CI87a — nối thêm definition của sample WPF bảo trì, không bỏ native gate
+
+Ở `87a34b2cf75f9121f463571ac7ae510ddf5a10ef`, full Core/Commands đã PASS
+(139 Commands cases). Windows native job102421793049 có134PASS/52FAIL/0skip;
+mọi failure được log cùng constructor audit: bốn Clipboard command chưa có
+placement trong `RibbonPreviewWindow.CreateDefinition`, dù catalog chuẩn đã
+được cập nhật. Published demo102421793238 cùng run34337817494 dừng với managed
+exception trước capture. Giữ nguyên `RibbonCommandCatalogAudit.Validate` và
+native assertions; thêm bốn placement thật vào sample, không xóa capability.
+Test đếm registry cập nhật49→53 tương ứng bốn API tích hợp; thêm bốn native
+cases để thực thi Values/Formulas/Formats/Undo và Cancel không sửa dữ liệu.
+Không gọi đây là toàn bộ H1 OS clipboard hoặc phát triển UI legacy mới.
+
+Local Windows restore không chạy được vì offline cache không có WindowsDesktop/
+Windows SDK reference và Vortice; không có local Windows compile/native PASS.
+Commands139 đã chạy, nhưng final source vẫn cần fresh exact-head Actions.
+
+Đã mở và xem ảnh Windows của22336 trong container hoạt động trở lại. Phát hiện
+hai lỗi ở đường capture: fixedwidth1280 vượt client1028 và chụp customization
+ngay sau Apply reset ItemsSources. Source87a đã giải phóng width trước whole-window,
+đợi native item realization rồi xác minh cấu trúc/QAT có TextBlock hiển thị.
+Giữ84layouts/109images, thêm5assertions thành203. Local Avalonia sample build0/0,
+Linux/Xvfb visual203PASS trên workingtree đã kiểm hash; ảnh sửa được xem trực tiếp.
+Đây không phải Excel pixel oracle hoặc physical input; file mã87a cần CI đúngSHA.
+
+Chưa promote main, publish release hay xóa nhánh tại checkpoint này. Mọi failure,
+cohort và artifact cũ được giữ; prepared/controller commits không phải source PASS.

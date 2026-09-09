@@ -30,8 +30,9 @@ dotnet run --project samples/NeraSpreadSheet.Wpf.Sample -- --ribbon-preview
 ```
 
 Sample có Trang đầu, Chèn, Bố trí trang, Công thức, Dữ liệu, Xem lại, Xem và
-Thiết kế Bảng theo selection; Tệp là Backstage. Bốn mươi chín command đã đăng ký
-trong session được tái sử dụng với cùng handlers/identities. Các command host
+Thiết kế Bảng theo selection; Tệp là Backstage. Các command đã đăng ký
+trong session được tái sử dụng với cùng handlers/identities; manifest hiện tại
+là 53 command sau khi nối bốn Clipboard command trong consolidation 20260909. Các command host
 trong sample chỉ gọi API có sẵn: cell styles, print settings/preview, formula
 editing/help, filter, zoom, table rename và totals. Save ghi vào file tạm cùng
 thư mục và chỉ thay bản đích sau khi serialize thành công.
@@ -50,9 +51,12 @@ history semantics của session. Không tạo worksheet model hoặc transaction
 read-only; editable formula bar/demo packaging thuộc R2 tiếp theo, chưa gọi
 sample này là bản demo hoàn thiện. Row này chưa thêm lệnh add/rename/delete sheet.
 
-`RibbonProductionCommandCatalog` là manifest của 49 command session có
-sẵn, không thêm khả năng chưa đăng ký. Factory mặc định giữ tab/command IDs
-cũ và đánh dấu năm command chính là large. Sample minh họa cách host lắp thêm
+`RibbonProductionCommandCatalog` là manifest của 53 command session có
+sẵn: 49 command nền và bốn command Clipboard được nối trong consolidation
+20260909. Giữ nguyên audit exact, không thêm khả năng chưa đăng ký. Sample
+WPF bảo trì có placement cho Paste Values/Formulas/Formats và Cancel Copy
+Mode; đây là nối shared command đã có, chưa phải nghiệm thu H1 clipboard OS.
+Factory mặc định giữ tab/command IDs cũ và đánh dấu năm command chính là large. Sample minh họa cách host lắp thêm
 command trong cùng public definition/runtime; không phải model hay presenter
 mới của SDK.
 
