@@ -398,7 +398,7 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
                 throw new InvalidDataException("The XLSX sheet view contains invalid selection, zoom or pane state.", exception);
             }
         }
-        var workbookView = document.WorkbookPart?.Workbook.GetFirstChild<BookViews>()?
+        var workbookView = document.WorkbookPart?.Workbook?.GetFirstChild<BookViews>()?
             .Elements<WorkbookView>().ElementAtOrDefault(checked((int)viewId));
         if (workbookView?.ActiveTab?.Value is { } activeTab)
         {

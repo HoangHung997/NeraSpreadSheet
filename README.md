@@ -1,65 +1,37 @@
 # NeraSpreadSheet
 
-> Engineering SDK; chưa phải bản phát hành production hoặc tương đương toàn bộ Excel.
+SDK bảng tính độc lập; **Avalonia là UI chính cho tất cả ứng dụng mới**. WPF/WinForms/MAUI giữ bảo trì và tích hợp ứng dụng cũ, không tiếp tục ba bộ UI mới song song.
 
-## Hướng phát triển hiện hành — Avalonia-first
+## Bắt đầu tại đây
 
-**Tất cả ứng dụng mới trong hệ sinh thái dùng Avalonia.** `NeraSpreadSheet.Avalonia`
-là bộ SDK UI chính. Engine bảng tính vẫn độc lập với UI: workbook sparse, công thức,
-editing/history, formatting, viewport/layout và OpenXML dùng chung.
+### [Mở thư mục Check out — ảnh giao diện và tải bản chạy thử](Check%20out/README.md)
 
-**WPF, WinForms và MAUI tạm dừng phát triển tính năng UI mới**, giữ làm các gói
-bảo trì/tích hợp tùy chọn cho ứng dụng cũ. Không xóa các host/package/API hoặc bỏ
-CI; các sửa lỗi dữ liệu/bảo mật và regression vẫn theo ownership. Không cần viết
-một app WPF rồi một app MAUI riêng để đưa app mới lên nhiều nền tảng.
+Chỉ theo dõi nhánh **`main`**. Bản tải về luôn có source SHA, checksum và liên kết CI; đây là bản engineering preview, không phải chứng nhận tương thích toàn bộ Excel.
 
-AI và contributor phải đọc [quyết định Avalonia-first](docs/avalonia-first-ui-strategy.md)
-và `AGENTS.md`. Định hướng không đồng nghĩa mọi feature/platform đã nghiệm thu;
-đọc [CURRENT](docs/worklog/CURRENT.md) và worklog của task ở exact branch được dùng.
-Root Codex sở hữu shared status/worklog. Không khởi động lại task đang pause chỉ
-vì README mô tả capability.
+| Bạn cần | Nơi xem |
+|---|---|
+| Ảnh Ribbon/bảng tính và gói chạy thử không cần Visual Studio | [Check out](Check%20out/README.md) |
+| Sơ đồ module, engine độc lập UI | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| Quy tắc cho AI/người phát triển | [AGENTS.md](AGENTS.md) |
+| Nguồn đã hợp nhất và các phần vẫn còn mở | [Báo cáo hợp nhất](docs/worklog/CONSOLIDATION_20260909.md) |
+| Khôi phục mã từ nhánh cũ | [Danh mục lưu trữ](Check%20out/branches.md) |
+| Chiến lược UI | [Avalonia-first](docs/avalonia-first-ui-strategy.md) |
 
-## Build engine và chạy Avalonia
+## Build từ source
 
-```powershell
-dotnet restore NeraSpreadSheet.Core.slnx
-dotnet build NeraSpreadSheet.Core.slnx -c Release --no-restore
+Dùng SDK theo `global.json`. Các solution có phạm vi khác nhau, không phải bản sao engine:
+
+```sh
+dotnet build NeraSpreadSheet.Core.slnx -c Release
 dotnet test NeraSpreadSheet.Core.slnx -c Release --no-build
-./scripts/verify-architecture.ps1
-
 dotnet build NeraSpreadSheet.Avalonia.slnx -c Release
 dotnet run --project samples/NeraSpreadSheet.Avalonia.Sample -c Release
 ```
 
-Dùng SDK đã pin trong `global.json`. Sample desktop không phải bằng chứng Android,
-iOS hay browser đã chạy; những nền tảng đó cần packaging/runtime gates riêng.
-Theme/control thuộc SDK, ứng dụng cấu hình command và nghiệp vụ của mình.
+`NeraSpreadSheet.slnx` giữ các desktop host Windows và backend tương ứng. Core/OpenXML có thể dùng không khởi tạo UI. Không đưa Avalonia/OpenXML types vào Core/Formulas.
 
-## Lịch sử kiểm chứng — không thay trạng thái HEAD hiện tại
+## Phạm vi tương thích
 
-| Snapshot khóa catalog công thức | Số lượng |
-|---|---:|
-| Eager/versioned | 468 |
-| AST/reference-aware | 40 |
-| Dynamic-array unique | 38 |
-| Tổng tên trong catalog đã khóa | 546/546 |
+Đọc dữ liệu, tính/vẽ đúng và bảo toàn tính năng chưa hỗ trợ là ba khả năng riêng. Engine có sparse workbook, formula catalog, editing/Undo, layout/viewport và XLSX preservation. Không coi mở được workbook, có đủ nút Ribbon hay CI xanh là tương đương hoàn toàn Excel.
 
-Con số catalog không phải tỷ lệ tương thích Excel. Báo cáo M2/F001–F019/Q001 trước
-đây là checkpoint lịch sử; không dùng số test hoặc CI cũ làm evidence cho HEAD mới.
-Các đặc tính dùng chung gồm pixel scrolling, dynamic arrays, XLSX preservation,
-printing/PDF và Function Extension SDK theo contract của từng module.
-
-## Mốc UI để đối chiếu
-
-WPF được giữ làm tham chiếu visual và consumer regression, không phải UI chính
-cho app mới:
-
-```powershell
-dotnet run --project samples/NeraSpreadSheet.Wpf.Sample -- --ribbon-preview
-./scripts/capture-ribbon-visual.ps1
-```
-
-Xem [Ribbon visual contract](docs/ribbon-visual-contract.md),
-[responsive contract](docs/ribbon-responsive-layout-contract.md) và
-[locale/initial view requirements](docs/excel-locale-initial-view-requirements.md).
-Mở được XLSX, render đúng và bảo toàn khi lưu là ba mức nghiệm thu riêng.
+Clipboard/view-state shared được ghép để kiểm thử; H1 host wiring, locale/no-op edit, native Mac diagnostics, hardware/accessibility và kiểm chứng workbook người dùng còn cần các checkpoint riêng. Các báo cáo cũ trong `docs/worklog` là lịch sử, không phải hàng đợi AI đang chạy.

@@ -1,7 +1,5 @@
 name: Excel file audit
 on:
-  push:
-    branches: ['feature/excel-file-audit-20260909']
   workflow_dispatch:
 permissions:
   contents: read

@@ -17,7 +17,7 @@
     <VersionPrefix>0.1.0</VersionPrefix>
     <PackageProjectUrl>https://github.com/HoangHung997/NeraSpreadSheet</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>spreadsheet;excel;xlsx;openxml;pdf;wpf;winforms;maui</PackageTags>
+    <PackageTags>avalonia;spreadsheet;excel;xlsx;openxml;pdf;wpf;winforms;maui</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

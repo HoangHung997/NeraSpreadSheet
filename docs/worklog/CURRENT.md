@@ -1,5 +1,9 @@
 # Current Work Handoff
 
+> **Hồ sơ lịch sử trước hợp nhất.** Chỉ đạo nhánh và handoff hiện hành ở [CONSOLIDATION_20260909](CONSOLIDATION_20260909.md).
+> Không tiếp tục queue/lease/nhánh trong các checkpoint cũ dưới đây. Source canonical là `main`; xem `Check out`.
+
+
 ## Yêu cầu mới được xếp hàng — không đổi công việc hiện tại
 
 Đã đọc [comment5579073325](https://github.com/HoangHung997/NeraSpreadSheet/pull/1#issuecomment-5579073325)

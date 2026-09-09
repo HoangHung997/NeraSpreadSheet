@@ -1,8 +1,6 @@
 name: PERF-008 isolated paired acceptance
 
 on:
-  push:
-    branches: ['feature/perf-008-harness']
   workflow_dispatch:
     inputs:
       baseline_sha:

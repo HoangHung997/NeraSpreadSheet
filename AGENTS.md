@@ -87,24 +87,19 @@ Quy tắc cứng:
 - API công khai mới phải có tests và XML docs khi behavior không hiển nhiên.
 - Tên test không dùng dấu gạch dưới để tránh analyzer violations; dùng dạng `MethodShouldExpectedResultWhenCondition` hoặc tên mô tả tương đương.
 
-## 6. Quy trình Git
+## 6. Quy trình Git — chỉ đạo hợp nhất ngày 09/09/2026
 
-- `main`: ổn định; cấm commit trực tiếp.
-- `develop`: tích hợp.
-- Tính năng: `feature/<slug>`.
-- Sửa lỗi: `fix/<slug>`.
-- Phát hành: `release/<version>`.
+- `main` là nhánh canonical duy nhất được giữ lâu dài. Không còn `develop` hoặc nhánh lane dài hạn.
+- Mọi AI/người dùng bắt đầu đọc `Check out/README.md` và `docs/worklog/CONSOLIDATION_20260909.md`.
+- Nhánh cũ đã lưu tại các tag `archive/consolidation-20260909/*`; mapping đầy đủ ở `Check out/branches.json`. Không tự tạo lại nhánh đã lưu trữ hoặc tiếp tục queue/lease lịch sử.
+- Làm thay đổi trên local branch/worktree tạm; nhánh remote phục vụ review phải có phạm vi được chủ repo giao và được dọn sau integration. Không commit code trực tiếp trên main, không rewrite/force-push lịch sử.
+- Giữ một writer khi cập nhật main. Chỉ fast-forward/integrate source đã kiểm đúng SHA; branch cleanup phải kiểm expected-SHA và archive trước, không xóa commit chưa bảo tồn.
+- `Check out` là cửa xem ảnh/tải bản thử nghiệm. Binary nặng nằm ở GitHub Releases, không commit zip/exe vào source tree. Mỗi gói chứa thư mục `Check out` và manifest/hash/source SHA.
+- Workflow `Check out — integrated SDK and test applications` điều phối nguyên các gate Core, legacy hosts, OpenXML, package consumers, Avalonia và native smoke. Không bỏ gate để thu gọn danh sách workflow.
+- Hợp nhất source không có nghĩa nghiệm thu whole-B/Mac runtime, H1, locale, physical hardware hoặc 100% tương thích Excel. Các trạng thái còn mở phải được ghi riêng.
+- Không publish NuGet công khai hoặc thay lịch ngoài phạm vi được giao. Maintenance WPF/WinForms/MAUI vẫn giữ; phát triển UI mới ưu tiên Avalonia.
 
-Mỗi pull request phải có:
-
-- tóm tắt thay đổi;
-- test/benchmark đã chạy;
-- rủi ro và giới hạn còn lại;
-- phương án rollback;
-- ảnh/video nếu thay đổi UI và môi trường cho phép;
-- số liệu trước/sau nếu thay đổi render/scroll performance.
-
-PR #1 hiện là Draft; không merge khi exact-head CI đỏ hoặc chưa xác định.
+Mỗi checkpoint ghi exact source, delta, test/smoke/benchmark thực chạy, hạn chế, rollback và ảnh khi đổi UI. Không gọi preservation là tính đúng tính năng.
 
 ## 7. Cổng hoàn thành
 

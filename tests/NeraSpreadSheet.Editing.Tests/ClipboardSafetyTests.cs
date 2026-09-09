@@ -757,7 +757,13 @@ public sealed class ClipboardAcknowledgementTests
         var previous = session.Clipboard.Clipboard;
         var writer = new DeferredWriter();
         var pending = session.Clipboard.CopyToClipboardAsync(writer.WriteAsync, cut: true).AsTask();
-        session.ActiveWorksheet.MergedCells.Add(new CellRange(new CellAddress(4, 4), new CellAddress(5, 5)));
+        // The public read-only view currently exposes a mutable backing collection.
+        // Exercise a mutation without Worksheet.Version changing, not the normal MergeCells API.
+        var version = session.ActiveWorksheet.Version;
+        var ranges = session.ActiveWorksheet.MergedCells.Ranges as ICollection<CellRange>
+            ?? throw new AssertFailedException("Expected the current mutable range backing collection.");
+        ranges.Add(new CellRange(new CellAddress(4, 4), new CellAddress(5, 5)));
+        Assert.AreEqual(version, session.ActiveWorksheet.Version);
         writer.Acknowledge();
 
         Assert.IsFalse(await pending);

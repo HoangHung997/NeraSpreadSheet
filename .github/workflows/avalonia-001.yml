@@ -1,18 +1,6 @@
 name: Avalonia desktop host
 
 on:
-  push:
-    branches: ['feature/avalonia-001-host']
-  pull_request:
-    branches: [main, develop]
-    paths:
-      - 'src/NeraSpreadSheet.Avalonia/**'
-      - 'samples/NeraSpreadSheet.Avalonia.Sample/**'
-      - 'tests/NeraSpreadSheet.Avalonia.Tests/**'
-      - 'eng/avalonia-packages.props'
-      - 'NeraSpreadSheet.Avalonia.slnx'
-      - 'scripts/verify-avalonia-release.py'
-      - '.github/workflows/avalonia-001.yml'
   workflow_dispatch:
 
 permissions:

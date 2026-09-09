@@ -1,8 +1,8 @@
 name: Avalonia primary Ribbon 002
 on:
-  push:
-    branches: ['feature/avalonia-primary-ribbon-002']
+  workflow_call:
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:

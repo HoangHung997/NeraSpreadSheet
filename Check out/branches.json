@@ -1,0 +1,595 @@
+{
+  "schema": 1,
+  "approvedPurpose": "User-directed one-canonical-branch consolidation, 2026-09-09",
+  "defaultBranch": "main",
+  "temporaryBranch": "feature/consolidate-checkout-001",
+  "rootSha": "2e80250b1b1c51ad56a415d1bbeb70d7b2e85f25",
+  "requiredSources": [
+    "2e80250b1b1c51ad56a415d1bbeb70d7b2e85f25",
+    "c4a63fc19a4a45f515175ea542a0e1569e16fa5a",
+    "197d666022a8c05991f70202c7e9defc0c36e513",
+    "84d71084a7cfc070cb8c80a87e2645101b44b462"
+  ],
+  "pullRequests": [
+    {
+      "number": 1,
+      "sha": "2e80250b1b1c51ad56a415d1bbeb70d7b2e85f25"
+    },
+    {
+      "number": 4,
+      "sha": "f890ae2610e0e08175e45ea1b0d8bb7650a24754"
+    },
+    {
+      "number": 5,
+      "sha": "197d666022a8c05991f70202c7e9defc0c36e513"
+    },
+    {
+      "number": 6,
+      "sha": "84d71084a7cfc070cb8c80a87e2645101b44b462"
+    },
+    {
+      "number": 7,
+      "sha": "c4a63fc19a4a45f515175ea542a0e1569e16fa5a"
+    }
+  ],
+  "branches": [
+    {
+      "name": "Các-phần-Ribbon/Bars/QAT,-Table/Filter,-split,-hỗ-trợ-nhập-công-thức-và-clipboard-l",
+      "sha": "d73cd2e2bcb7e2832e9a8b3fd071373b62cb2a0f",
+      "archiveTag": "archive/consolidation-20260909/001",
+      "disposition": "already-contained",
+      "reason": "Exact commit is an ancestor of the accepted root source.",
+      "branchOnly": 0,
+      "rootOnly": 22
+    },
+    {
+      "name": "ai/chatgpt/q003b-ios",
+      "sha": "95435d8f0502e1c4a6fad3384c4ae47c7e9e88b4",
+      "archiveTag": "archive/consolidation-20260909/002",
+      "disposition": "already-contained",
+      "reason": "Exact commit is an ancestor of the accepted root source.",
+      "branchOnly": 0,
+      "rootOnly": 288
+    },
+    {
+      "name": "ai/chatgpt/q003b-mac",
+      "sha": "1c700aaf7b73113d3cbbe8e8c6093bdc3fce404d",
+      "archiveTag": "archive/consolidation-20260909/003",
+      "disposition": "already-contained",
+      "reason": "Exact commit is an ancestor of the accepted root source.",
+      "branchOnly": 0,
+      "rootOnly": 301
+    },
+    {
+      "name": "ai/chatgpt/q003c-analytics-openxml",
+      "sha": "72a5566249f96daf2ee72bd2b98e730d3d9b0fef",
+      "archiveTag": "archive/consolidation-20260909/004",
+      "disposition": "already-contained",
+      "reason": "Exact commit is an ancestor of the accepted root source.",
+      "branchOnly": 0,
+      "rootOnly": 282
+    },
+    {
+      "name": "ai/chatgpt/q003d-pivot-openxml",
+      "sha": "7da2171ca87cca7f7e997ee4f36bb9ed3888c63e",
+      "archiveTag": "archive/consolidation-20260909/005",
+      "disposition": "already-contained",
+      "reason": "Exact commit is an ancestor of the accepted root source.",
+      "branchOnly": 0,
+      "rootOnly": 269
+    },
+    {
+      "name": "ai/chatgpt/q004a-chart-openxml",
+      "sha": "c7715f70b7acf656f77cf629958b684b01d91ad8",
+      "archiveTag": "archive/consolidation-20260909/006",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 3,
+      "rootOnly": 288
+    },
+    {
+      "name": "ai/codex/ribbon-bars-customization",
+      "sha": "d2d009cc909a3f16b242a282444ae8011727fa31",
+      "archiveTag": "archive/consolidation-20260909/007",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 1,
+      "rootOnly": 328
+    },
+    {
+      "name": "ai/codex/ribbon-bars-persistence",
+      "sha": "f31223e0a82b24b4da0dd0426741d1bcff99c67d",
+      "archiveTag": "archive/consolidation-20260909/008",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 2,
+      "rootOnly": 328
+    },
+    {
+      "name": "ai/codex/ribbon-bars-presentation",
+      "sha": "fb2284907ad3659e7b7aae6d8ecacaccc29415e4",
+      "archiveTag": "archive/consolidation-20260909/009",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 3,
+      "rootOnly": 328
+    },
+    {
+      "name": "ai/codex/ribbon-bars-runtime",
+      "sha": "8e95f7a3000bee1a515101369c61cb09e613d286",
+      "archiveTag": "archive/consolidation-20260909/010",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 4,
+      "rootOnly": 328
+    },
+    {
+      "name": "ai/codex/ribbon-customization-ui",
+      "sha": "7f8471e15ef0189bd192e6ac3fbc3515e2b41894",
+      "archiveTag": "archive/consolidation-20260909/011",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 6,
+      "rootOnly": 328
+    },
+    {
+      "name": "ai/codex/ribbon-desktop-presenters",
+      "sha": "3a6f7e54e17ca5d996a469653672fc9375a72010",
+      "archiveTag": "archive/consolidation-20260909/012",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 5,
+      "rootOnly": 328
+    },
+    {
+      "name": "ai/codex/ribbon-keyboard",
+      "sha": "c4d61f70e5ebac7f4b302cc17427ce1994b5813d",
+      "archiveTag": "archive/consolidation-20260909/013",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 7,
+      "rootOnly": 328
+    },
+    {
+      "name": "automation/f011-apply",
+      "sha": "aaa8572c009c07c03a20c15320a7c09523be6c94",
+      "archiveTag": "archive/consolidation-20260909/014",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 15,
+      "rootOnly": 599
+    },
+    {
+      "name": "automation/f012-apply",
+      "sha": "b9546521ca3b48ec3dba2b91eeedd33501ea8ff8",
+      "archiveTag": "archive/consolidation-20260909/015",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 12,
+      "rootOnly": 592
+    },
+    {
+      "name": "automation/f018-local-cli-bootstrap",
+      "sha": "e92d91d4dee7523923dac65ffbf9c3f7a47d0190",
+      "archiveTag": "archive/consolidation-20260909/016",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 4,
+      "rootOnly": 575
+    },
+    {
+      "name": "automation/f018-materialized",
+      "sha": "3ebc6f9e643858f58aa76d82f4978045a41e73bb",
+      "archiveTag": "archive/consolidation-20260909/017",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 3,
+      "rootOnly": 575
+    },
+    {
+      "name": "automation/f019-materialize",
+      "sha": "700725679005ac653b5acb54db882f1c19755214",
+      "archiveTag": "archive/consolidation-20260909/018",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 1,
+      "rootOnly": 572
+    },
+    {
+      "name": "automation/f019-materialized",
+      "sha": "677c1a79cbc0d6c22cd02ed8faeb5a73e29bbc3c",
+      "archiveTag": "archive/consolidation-20260909/019",
+      "disposition": "already-contained",
+      "reason": "Exact commit is an ancestor of the accepted root source.",
+      "branchOnly": 0,
+      "rootOnly": 569
+    },
+    {
+      "name": "bootstrap/architecture-v0.1",
+      "sha": "3106d6a05eca189db0da616659ed4efd740d26d1",
+      "archiveTag": "archive/consolidation-20260909/020",
+      "disposition": "already-contained",
+      "reason": "Exact commit is an ancestor of the accepted root source.",
+      "branchOnly": 0,
+      "rootOnly": 1493
+    },
+    {
+      "name": "coordination/ai-work-queue",
+      "sha": "f67a056bf121e9a63521c7b63409bb24d7340a53",
+      "archiveTag": "archive/consolidation-20260909/021",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 89,
+      "rootOnly": 346
+    },
+    {
+      "name": "develop",
+      "sha": "3106d6a05eca189db0da616659ed4efd740d26d1",
+      "archiveTag": "archive/consolidation-20260909/022",
+      "disposition": "already-contained",
+      "reason": "Exact commit is an ancestor of the accepted root source.",
+      "branchOnly": 0,
+      "rootOnly": 1493
+    },
+    {
+      "name": "diagnostic/f010-generated",
+      "sha": "b9d7169c78927a6c8a32c394e22c969ecdd38576",
+      "archiveTag": "archive/consolidation-20260909/023",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 1,
+      "rootOnly": 602
+    },
+    {
+      "name": "feature/avalonia-001-host",
+      "sha": "f890ae2610e0e08175e45ea1b0d8bb7650a24754",
+      "archiveTag": "archive/consolidation-20260909/024",
+      "disposition": "integration-source",
+      "reason": "Source included in the consolidated candidate; final combined tests required.",
+      "branchOnly": 32,
+      "rootOnly": 28
+    },
+    {
+      "name": "feature/avalonia-primary-ribbon-002",
+      "sha": "c4a63fc19a4a45f515175ea542a0e1569e16fa5a",
+      "archiveTag": "archive/consolidation-20260909/025",
+      "disposition": "integration-source",
+      "reason": "Source included in the consolidated candidate; final combined tests required.",
+      "branchOnly": 41,
+      "rootOnly": 28
+    },
+    {
+      "name": "feature/bootstrap-architecture-v0.1",
+      "sha": "2e80250b1b1c51ad56a415d1bbeb70d7b2e85f25",
+      "archiveTag": "archive/consolidation-20260909/026",
+      "disposition": "integration-source",
+      "reason": "Source included in the consolidated candidate; final combined tests required.",
+      "branchOnly": 0,
+      "rootOnly": 0
+    },
+    {
+      "name": "feature/chatgpt-clipboard-view-state",
+      "sha": "197d666022a8c05991f70202c7e9defc0c36e513",
+      "archiveTag": "archive/consolidation-20260909/027",
+      "disposition": "integration-source",
+      "reason": "Source included in the consolidated candidate; final combined tests required.",
+      "branchOnly": 6,
+      "rootOnly": 0
+    },
+    {
+      "name": "feature/chatgpt-clipboard-view-state-plan",
+      "sha": "c03bcb29788294734af4cca199c8fdb4a8e05afb",
+      "archiveTag": "archive/consolidation-20260909/028",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 4,
+      "rootOnly": 0
+    },
+    {
+      "name": "feature/chatgpt-clipboard-view-state-progress",
+      "sha": "22a9a2ac70d8b990f8dcc929f807e86a1e018963",
+      "archiveTag": "archive/consolidation-20260909/029",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 15,
+      "rootOnly": 0
+    },
+    {
+      "name": "feature/excel-file-audit-20260909",
+      "sha": "84d71084a7cfc070cb8c80a87e2645101b44b462",
+      "archiveTag": "archive/consolidation-20260909/030",
+      "disposition": "integration-source",
+      "reason": "Source included in the consolidated candidate; final combined tests required.",
+      "branchOnly": 3,
+      "rootOnly": 0
+    },
+    {
+      "name": "feature/excel-format-editing-help",
+      "sha": "106df1ff8725757e125a4172ced6bb49e3c708f5",
+      "archiveTag": "archive/consolidation-20260909/031",
+      "disposition": "already-contained",
+      "reason": "Exact commit is an ancestor of the accepted root source.",
+      "branchOnly": 0,
+      "rootOnly": 159
+    },
+    {
+      "name": "feature/filter-005-rich-semantics",
+      "sha": "cbec438d07f55f6e8c162dffa7f38be1353a6505",
+      "archiveTag": "archive/consolidation-20260909/032",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 2,
+      "rootOnly": 154
+    },
+    {
+      "name": "feature/filter-006-native-ux",
+      "sha": "690faad3a5878f829835c9925b774b253d4f5dab",
+      "archiveTag": "archive/consolidation-20260909/033",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 4,
+      "rootOnly": 148
+    },
+    {
+      "name": "feature/filter-007-sort-accessibility",
+      "sha": "022cfd8f0a63f02377d3365e91c54e0ae52a4de2",
+      "archiveTag": "archive/consolidation-20260909/034",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 4,
+      "rootOnly": 136
+    },
+    {
+      "name": "feature/perf-008-harness",
+      "sha": "fe01586468d455c2ec26cc084e523c32c4c31baa",
+      "archiveTag": "archive/consolidation-20260909/035",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 7,
+      "rootOnly": 84
+    },
+    {
+      "name": "feature/release-009-formula-bar",
+      "sha": "349cc0aa051578b5e0b2e29790ea3dd556a7acd0",
+      "archiveTag": "archive/consolidation-20260909/036",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 2,
+      "rootOnly": 30
+    },
+    {
+      "name": "feature/release-009-maui-desktop-consumer",
+      "sha": "a7f1b4543791ddf2fc69c6e3e43e01add9fd38ff",
+      "archiveTag": "archive/consolidation-20260909/037",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 9,
+      "rootOnly": 22
+    },
+    {
+      "name": "feature/release-009-maui-ios-consumer",
+      "sha": "5d70be936db42dc016fe9fde051453f784727266",
+      "archiveTag": "archive/consolidation-20260909/038",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 16,
+      "rootOnly": 57
+    },
+    {
+      "name": "feature/release-009-maui-packages",
+      "sha": "8b7781ca44b4f9f3647c5434d02970be873d9624",
+      "archiveTag": "archive/consolidation-20260909/039",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 10,
+      "rootOnly": 57
+    },
+    {
+      "name": "feature/release-009-navigation-shell",
+      "sha": "bed515b7250e165936c5b59e975abbf9923285b4",
+      "archiveTag": "archive/consolidation-20260909/040",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 4,
+      "rootOnly": 57
+    },
+    {
+      "name": "feature/release-009-split-autofilter",
+      "sha": "8c9bdef9a1355646955a6785a5a2a7dd66e506c3",
+      "archiveTag": "archive/consolidation-20260909/041",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 10,
+      "rootOnly": 22
+    },
+    {
+      "name": "feature/release-009-split-editor-routing",
+      "sha": "eea6ba6f84cd39f58eae3002464ff60b9d27febb",
+      "archiveTag": "archive/consolidation-20260909/042",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 6,
+      "rootOnly": 46
+    },
+    {
+      "name": "feature/ribbon-007-responsive-layout",
+      "sha": "44bd0dc76539bdff477b1306df59c83dd3df7831",
+      "archiveTag": "archive/consolidation-20260909/043",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 2,
+      "rootOnly": 154
+    },
+    {
+      "name": "feature/ribbon-008-item-model",
+      "sha": "99cb3ccc1da2099ccf16b757c0a440d8477b4fa1",
+      "archiveTag": "archive/consolidation-20260909/044",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 6,
+      "rootOnly": 148
+    },
+    {
+      "name": "feature/ribbon-009-contextual-qat",
+      "sha": "d25fdb8f1deb0a860e092da2d56c87d34324372c",
+      "archiveTag": "archive/consolidation-20260909/045",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 6,
+      "rootOnly": 136
+    },
+    {
+      "name": "feature/ribbon-010-customization",
+      "sha": "9aeed672cea94db3d4c2d0ecb4a4f55a85e1dbaf",
+      "archiveTag": "archive/consolidation-20260909/046",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 2,
+      "rootOnly": 125
+    },
+    {
+      "name": "feature/ribbon-iconography-ux",
+      "sha": "34a81c5d45c2b28397c1688ae665cce0d0e8dfe7",
+      "archiveTag": "archive/consolidation-20260909/047",
+      "disposition": "already-contained",
+      "reason": "Exact commit is an ancestor of the accepted root source.",
+      "branchOnly": 0,
+      "rootOnly": 156
+    },
+    {
+      "name": "feature/ribbon-table-filter-ux-plan",
+      "sha": "284ccb76e5f69e170356ffc66915dd6e290b68fb",
+      "archiveTag": "archive/consolidation-20260909/048",
+      "disposition": "already-contained",
+      "reason": "Exact commit is an ancestor of the accepted root source.",
+      "branchOnly": 0,
+      "rootOnly": 118
+    },
+    {
+      "name": "feature/ribbon-visual-011",
+      "sha": "7cfcfdfc6f337da1b37ca05b9254b903a33f32d2",
+      "archiveTag": "archive/consolidation-20260909/049",
+      "disposition": "already-contained",
+      "reason": "Exact commit is an ancestor of the accepted root source.",
+      "branchOnly": 0,
+      "rootOnly": 109
+    },
+    {
+      "name": "feature/table-004-style-engine",
+      "sha": "ed01ed6b1243ea41490dc4ac3b4d38411dcc0892",
+      "archiveTag": "archive/consolidation-20260909/050",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 3,
+      "rootOnly": 125
+    },
+    {
+      "name": "feature/table-005-contextual-design",
+      "sha": "cf923db2bf88d9f67f980b4f78a3364bcfddbe47",
+      "archiveTag": "archive/consolidation-20260909/051",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 3,
+      "rootOnly": 119
+    },
+    {
+      "name": "feature/table-006-compat-hardening",
+      "sha": "7f73a97dce349d934f86dc4a13dad22d200acdeb",
+      "archiveTag": "archive/consolidation-20260909/052",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 6,
+      "rootOnly": 119
+    },
+    {
+      "name": "feature/table-006-native-compat",
+      "sha": "4ae7731fbc35362809fd9fb4027b53fdbfb6ebdc",
+      "archiveTag": "archive/consolidation-20260909/053",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 5,
+      "rootOnly": 96
+    },
+    {
+      "name": "feature/table-007-editor-corpus",
+      "sha": "87bcac30a55d1371fe3d6baf1d464288675b2bbf",
+      "archiveTag": "archive/consolidation-20260909/054",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 37,
+      "rootOnly": 84
+    },
+    {
+      "name": "feature/table-ribbon-012-integration",
+      "sha": "d283a55bf2d9ca9bc107c7ada05c8a0c4763e511",
+      "archiveTag": "archive/consolidation-20260909/055",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 6,
+      "rootOnly": 108
+    },
+    {
+      "name": "feature/ux-006-visual-localization",
+      "sha": "292a48d19435e76589c1f0eaa12302e94ace5a48",
+      "archiveTag": "archive/consolidation-20260909/056",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 4,
+      "rootOnly": 96
+    },
+    {
+      "name": "feature/ux-007-keyboard-a11y",
+      "sha": "24d130c6c477f5c91b0202303aee5e3ecb730a9e",
+      "archiveTag": "archive/consolidation-20260909/057",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 7,
+      "rootOnly": 84
+    },
+    {
+      "name": "feature/ux-008-paged-filter-accessibility",
+      "sha": "258a9f92db09a35ee73063ec08133ad3384fb18a",
+      "archiveTag": "archive/consolidation-20260909/058",
+      "disposition": "patch-equivalent",
+      "reason": "Every branch-only patch already appears in root by git cherry.",
+      "branchOnly": 2,
+      "rootOnly": 3
+    },
+    {
+      "name": "fix/excel-compatibility-001",
+      "sha": "2e80250b1b1c51ad56a415d1bbeb70d7b2e85f25",
+      "archiveTag": "archive/consolidation-20260909/059",
+      "disposition": "already-contained",
+      "reason": "Exact commit is an ancestor of the accepted root source.",
+      "branchOnly": 0,
+      "rootOnly": 0
+    },
+    {
+      "name": "main",
+      "sha": "3106d6a05eca189db0da616659ed4efd740d26d1",
+      "archiveTag": "archive/consolidation-20260909/060",
+      "disposition": "previous-main",
+      "reason": "Previous default snapshot; kept as a rollback anchor, main itself is not deleted.",
+      "branchOnly": 0,
+      "rootOnly": 1493
+    },
+    {
+      "name": "probe-do-not-use",
+      "sha": "1b4f869e96179bb34eed854daed9b8aa354c6e85",
+      "archiveTag": "archive/consolidation-20260909/061",
+      "disposition": "archive-only",
+      "reason": "Historical, partial, diagnostic or superseded work. All original commits retained; not blindly replayed into product.",
+      "branchOnly": 2,
+      "rootOnly": 1248
+    },
+    {
+      "name": "tmp-do-not-use-f018-probe",
+      "sha": "0c6f8d5938b50485fa93023e9311261850b7d592",
+      "archiveTag": "archive/consolidation-20260909/062",
+      "disposition": "already-contained",
+      "reason": "Exact commit is an ancestor of the accepted root source.",
+      "branchOnly": 0,
+      "rootOnly": 575
+    }
+  ]
+}

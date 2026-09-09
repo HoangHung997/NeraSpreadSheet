@@ -1,5 +1,9 @@
 # NeraSpreadSheet current implementation status
 
+> **Hồ sơ lịch sử trước hợp nhất.** Chỉ đạo nhánh và handoff hiện hành ở [CONSOLIDATION_20260909](worklog/CONSOLIDATION_20260909.md).
+> Không tiếp tục queue/lease/nhánh trong các checkpoint cũ dưới đây. Source canonical là `main`; xem `Check out`.
+
+
 ## CẬP NHẬT 08/09 — UX-008 ĐÃ TÍCH HỢP, CHỜ CI KẾT HỢP
 
 Root nhận hai commit kiểm thử accessibility của popup bộ lọc phân trang thành

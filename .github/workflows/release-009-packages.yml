@@ -1,8 +1,7 @@
 name: RELEASE-009 packaged Windows SDK consumer
 
 on:
-  push:
-    branches: ['feature/bootstrap-architecture-v0.1']
+  workflow_call:
   workflow_dispatch:
 
 permissions:

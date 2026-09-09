@@ -1,11 +1,7 @@
 name: Q003C analytics OpenXML gate
 
 on:
-  push:
-    branches:
-      - 'ai/chatgpt/q003c-analytics-openxml'
-  pull_request:
-    branches: [main, develop]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
