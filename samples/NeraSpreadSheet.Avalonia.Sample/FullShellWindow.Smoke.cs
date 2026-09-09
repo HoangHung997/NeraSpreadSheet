@@ -18,6 +18,7 @@ namespace NeraSpreadSheet.Avalonia.Sample;
 
 public sealed partial class FullShellWindow
 {
+    private static readonly string[] ProductTabIds = ["home", "insert", "page-layout", "formulas", "data", "review", "view"];
     private DispatcherTimer? _smokeTimer;
     internal void StartFullSmoke(IClassicDesktopStyleApplicationLifetime lifetime)
     {
@@ -38,7 +39,9 @@ public sealed partial class FullShellWindow
                 }
                 Check("exact-source", sha is { Length: 40 } && sha.All(Uri.IsHexDigit));
                 Check("loaded-window", _split.ActiveSpreadsheet.RenderedFrameCount > 0);
-                Check("ribbon-projection", _ribbon.LayoutSnapshot.Tabs.Count == 3);
+                // The richer product preset intentionally replaces the old three-tab fixture.
+                // Assert identities/order, not merely a larger count or a weaker minimum.
+                Check("ribbon-projection", _ribbon.LayoutSnapshot.Tabs.Select(tab => tab.Presentation.Id).SequenceEqual(ProductTabIds));
                 Check("native-menu", _menu.NativeControl is Menu);
                 var workbook = new Workbook(); workbook.AddWorksheet("Khác");
                 _split.Session = new SpreadsheetSession(workbook);

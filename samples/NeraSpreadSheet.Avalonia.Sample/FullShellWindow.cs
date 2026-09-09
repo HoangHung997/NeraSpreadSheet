@@ -9,14 +9,13 @@ using NeraSpreadSheet.Bars.Core;
 using NeraSpreadSheet.Commands;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
-using NeraSpreadSheet.Iconography;
 using NeraSpreadSheet.OpenXml;
 using NeraSpreadSheet.Ribbon.Core;
 
 namespace NeraSpreadSheet.Avalonia.Sample;
 
 /// <summary>Runnable native shell using one workbook/session and the SDK's
-/// existing canonical draft. The sample does not own a separate editor model.</summary>
+/// canonical draft. The sample does not own a separate editor model.</summary>
 public sealed partial class FullShellWindow : Window, IDisposable
 {
     private static readonly string[] ExcelPatterns = ["*.xlsx"];
@@ -42,15 +41,21 @@ public sealed partial class FullShellWindow : Window, IDisposable
 
     public FullShellWindow()
     {
-        Title = "NeraSpreadSheet — Avalonia Ribbon"; Width = 1280; Height = 800; MinWidth = 740; MinHeight = 480;
+        Title = "NeraSpreadSheet — Avalonia"; Width = 1280; Height = 800; MinWidth = 740; MinHeight = 480;
         _split.Session = CreateWorkbook(); RegisterCommands();
-        _runtime = new RibbonRuntimeController(CreateDefinition(), _registry); _ribbon = new NeraRibbonControl(_runtime);
+        _runtime = new RibbonRuntimeController(NeraSpreadsheetRibbonPreset.Create(_registry), _registry);
+        _ribbon = new NeraRibbonControl(_runtime);
         _menu = new NeraBarPresenter(new BarRuntimeController(new BarDefinition("main-menu", BarKind.MainMenu,
             [BarItemDefinition.Submenu("Tệp", [BarItemDefinition.Command("Shell.Open"), BarItemDefinition.Command("Shell.Save")], "file"),
              BarItemDefinition.Submenu("Chỉnh sửa", [BarItemDefinition.Command("Edit.Undo"), BarItemDefinition.Command("Edit.Redo"), BarItemDefinition.Command("Edit.Copy"), BarItemDefinition.Command("Edit.Paste")], "edit")]), _registry));
         _ribbon.BindShortcuts(this); _menu.BindShortcuts(this);
-        _ribbon.CommandActivationFailed += OnCommandFailure; _menu.CommandActivationFailed += OnCommandFailure; _ribbon.CustomizationRequested += OnCustomizationRequested;
-        var root = new DockPanel(); DockPanel.SetDock(_menu.NativeControl, Dock.Top); root.Children.Add(_menu.NativeControl);
+        _ribbon.CommandActivationFailed += OnCommandFailure; _menu.CommandActivationFailed += OnCommandFailure;
+        _ribbon.CustomizationRequested += OnCustomizationRequested;
+        var root = new DockPanel();
+        // Menu remains an independently tested SDK consumer, but is opt-in in
+        // this Ribbon-first shell rather than duplicating the File surface.
+        _menu.NativeControl.IsVisible = false;
+        DockPanel.SetDock(_menu.NativeControl, Dock.Top); root.Children.Add(_menu.NativeControl);
         DockPanel.SetDock(_ribbon, Dock.Top); root.Children.Add(_ribbon);
         var bar = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), Margin = new Thickness(6) };
         bar.Children.Add(_address); Grid.SetColumn(_formula, 1); bar.Children.Add(_formula);
@@ -59,7 +64,10 @@ public sealed partial class FullShellWindow : Window, IDisposable
         reference.Click += (_, _) => ShowFormulaReferencePicker();
         Grid.SetColumn(reference, 2); bar.Children.Add(reference);
         DockPanel.SetDock(bar, Dock.Top); root.Children.Add(bar);
-        DockPanel.SetDock(_status, Dock.Bottom); root.Children.Add(_status); DockPanel.SetDock(_tabs, Dock.Bottom); root.Children.Add(_tabs);
+        DockPanel.SetDock(_status, Dock.Bottom); root.Children.Add(_status);
+        var tabScroll = new ScrollViewer { Content = _tabs, HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        DockPanel.SetDock(tabScroll, Dock.Bottom); root.Children.Add(tabScroll);
         root.Children.Add(_split); Content = root;
         AutomationProperties.SetAutomationId(_formula, "nera-shell-formula-bar"); AutomationProperties.SetName(_formula, "Thanh công thức");
         _formula.GotFocus += OnFormulaFocus; _formula.TextChanged += OnFormulaTextChanged; _formula.PropertyChanged += OnFormulaSelectionChanged;
@@ -76,42 +84,6 @@ public sealed partial class FullShellWindow : Window, IDisposable
     public NeraRibbonControl Ribbon => _ribbon;
     private NeraSpreadsheetControl DraftOwner => _split.EditingSpreadsheet ?? _split.ActiveSpreadsheet;
 
-    private void RegisterCommands()
-    {
-        AddAsync("Shell.Open", "Mở XLSX", OpenAsync, "Ctrl+O", "file.open"); AddAsync("Shell.Save", "Lưu XLSX", SaveAsync, "Ctrl+S", "file.save");
-        Add("Edit.Undo", "Hoàn tác", () => Session.Undo(), "Ctrl+Z"); Add("Edit.Redo", "Làm lại", () => Session.Redo(), "Ctrl+Y");
-        AddAsync("Edit.Copy", "Sao chép", async () => { await _split.ActiveSpreadsheet.CopyToClipboardAsync(); }, "Ctrl+C");
-        AddAsync("Edit.Cut", "Cắt", async () => { await _split.ActiveSpreadsheet.CopyToClipboardAsync(true); }, "Ctrl+X");
-        AddAsync("Edit.Paste", "Dán", async () => { await _split.ActiveSpreadsheet.PasteFromClipboardAsync(); }, "Ctrl+V");
-        Add("Cell.Bold", "Đậm", () => Session.Styles.ToggleBold(), "Ctrl+B"); Add("Cell.Italic", "Nghiêng", () => Session.Styles.ToggleItalic(), "Ctrl+I");
-        Add("Cell.Clear", "Xóa nội dung", () => Session.ClearSelection()); Add("Formula.Calculate", "Tính lại", () => Session.Recalculate(), "F9");
-        Add("View.Freeze", "Cố định khung", () => Session.View.FreezeAtActiveCell()); Add("View.Unfreeze", "Bỏ cố định", () => Session.View.Unfreeze());
-        Add("View.Split.None", "Bỏ chia", () => _split.SetMode(SpreadsheetSplitViewMode.None)); Add("View.Split.Vertical", "Chia dọc", () => _split.SetMode(SpreadsheetSplitViewMode.Vertical));
-        Add("View.Split.Horizontal", "Chia ngang", () => _split.SetMode(SpreadsheetSplitViewMode.Horizontal)); Add("View.Split.Both", "Chia bốn", () => _split.SetMode(SpreadsheetSplitViewMode.Both));
-        Add("View.Split.Undo", "Hoàn tác chia khung", () => _split.UndoSplit()); Add("View.Split.Redo", "Làm lại chia khung", () => _split.RedoSplit());
-        Add("View.ZoomIn", "Phóng to", () => _split.SetZoom(Math.Min(4, _split.ActiveSpreadsheet.Zoom + 0.1)));
-        Add("View.ZoomOut", "Thu nhỏ", () => _split.SetZoom(Math.Max(0.25, _split.ActiveSpreadsheet.Zoom - 0.1))); Add("View.ZoomReset", "100%", () => _split.SetZoom(1));
-        Add("View.Theme", "Sáng/tối Ribbon", () =>
-        {
-            _ribbon.IconTheme = _ribbon.IconTheme == NeraIconTheme.Light ? NeraIconTheme.Dark : NeraIconTheme.Light; _menu.IconTheme = _ribbon.IconTheme;
-        });
-    }
-    private void Add(string id, string caption, Action action, string? shortcut = null, string? icon = null) => AddAsync(id, caption, () => { action(); return Task.CompletedTask; }, shortcut, icon);
-    private void AddAsync(string id, string caption, Func<Task> action, string? shortcut = null, string? icon = null) =>
-        _registry.Register(new CommandDescriptor(id, caption, iconKey: icon, shortcut: shortcut), new ShellCommand(this, action));
-    private static RibbonDefinition CreateDefinition() => new(
-        [new RibbonTabDefinition("home", "Trang đầu",
-            [new RibbonGroupDefinition("clipboard", "Bảng tạm", [new RibbonItemDefinition("Edit.Paste", IsLarge: true), new RibbonItemDefinition("Edit.Cut"), new RibbonItemDefinition("Edit.Copy")]),
-             new RibbonGroupDefinition("edit", "Chỉnh sửa", [new RibbonItemDefinition("Edit.Undo"), new RibbonItemDefinition("Edit.Redo"), new RibbonItemDefinition("Cell.Clear")]),
-             new RibbonGroupDefinition("font", "Phông chữ", [new RibbonItemDefinition("Cell.Bold"), new RibbonItemDefinition("Cell.Italic")])]),
-         new RibbonTabDefinition("formulas", "Công thức", [new RibbonGroupDefinition("calculation", "Tính toán", [new RibbonItemDefinition("Formula.Calculate", IsLarge: true)])]),
-         new RibbonTabDefinition("view", "Xem",
-            [new RibbonGroupDefinition("split", "Chia cửa sổ", [new RibbonItemDefinition("View.Split.Both", IsLarge: true), new RibbonItemDefinition("View.Split.Vertical"), new RibbonItemDefinition("View.Split.Horizontal"), new RibbonItemDefinition("View.Split.None"), new RibbonItemDefinition("View.Split.Undo"), new RibbonItemDefinition("View.Split.Redo")]),
-             new RibbonGroupDefinition("freeze", "Cố định", [new RibbonItemDefinition("View.Freeze"), new RibbonItemDefinition("View.Unfreeze")]),
-             new RibbonGroupDefinition("zoom", "Thu phóng", [new RibbonItemDefinition("View.ZoomIn"), new RibbonItemDefinition("View.ZoomOut"), new RibbonItemDefinition("View.ZoomReset"), new RibbonItemDefinition("View.Theme")])])],
-        [], [new RibbonCommandSurfaceItem("Shell.Save", "1"), new RibbonCommandSurfaceItem("Edit.Undo", "2"), new RibbonCommandSurfaceItem("Edit.Redo", "3")],
-        [new RibbonCommandSurfaceItem("Shell.Open", "O"), new RibbonCommandSurfaceItem("Shell.Save", "S")]);
-
     private void OnFormulaFocus(object? sender, RoutedEventArgs e)
     {
         if (_updating || _busy || _closed) return;
@@ -125,7 +97,8 @@ public sealed partial class FullShellWindow : Window, IDisposable
     private void PushFormulaDraft()
     {
         if (_updating || _busy || _closed || !_formula.IsFocused || _split.EditingSpreadsheet is not { } editor) return;
-        var text = _formula.Text ?? string.Empty; editor.UpdateEditorDraft(text, Math.Clamp(_formula.SelectionStart, 0, text.Length), Math.Clamp(_formula.SelectionEnd, 0, text.Length));
+        var text = _formula.Text ?? string.Empty;
+        editor.UpdateEditorDraft(text, Math.Clamp(_formula.SelectionStart, 0, text.Length), Math.Clamp(_formula.SelectionEnd, 0, text.Length));
     }
     private void OnFormulaKeyDown(object? sender, KeyEventArgs e)
     {
@@ -179,7 +152,8 @@ public sealed partial class FullShellWindow : Window, IDisposable
         _tabs.Children.Clear();
         foreach (var worksheet in Session.Workbook.Worksheets)
         {
-            var button = new Button { Content = worksheet.Name, IsEnabled = !_busy };
+            var button = new Button { Content = worksheet.Name, IsEnabled = !_busy,
+                FontWeight = ReferenceEquals(worksheet, Session.ActiveWorksheet) ? global::Avalonia.Media.FontWeight.SemiBold : global::Avalonia.Media.FontWeight.Normal };
             button.Click += (_, _) =>
             {
                 if (_busy || _closed) return;
@@ -196,13 +170,18 @@ public sealed partial class FullShellWindow : Window, IDisposable
         if (_busy || _closed) return;
         var editor = new NeraRibbonCustomizationControl(_runtime);
         var window = new Window { Title = "Tùy biến Ribbon và QAT", Width = 1050, Height = 700, Content = editor };
-        editor.Cancelled += (_, _) => window.Close(); _dialogs.Add(window); window.Closed += (_, _) => _dialogs.Remove(window); window.Show(this);
+        editor.Cancelled += (_, _) => window.Close(); TrackWindow(window); window.Show(this);
+    }
+    private void TrackWindow(Window window)
+    {
+        _dialogs.Add(window); window.Closed += (_, _) => _dialogs.Remove(window);
     }
     private async Task OpenAsync() => await RunIo(async () =>
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions { Title = "Mở bảng tính", FileTypeFilter = ExcelTypes, AllowMultiple = false });
         if (_closed || files.Count == 0) return;
-        await using var stream = await files[0].OpenReadAsync(); var loaded = await _serializer.LoadSessionAsync(stream, new OpenXmlImportOptions());
+        await using var stream = await files[0].OpenReadAsync();
+        var loaded = await _serializer.LoadSessionAsync(stream, new OpenXmlImportOptions());
         if (!_closed) _split.Session = loaded;
     });
     private async Task SaveAsync() => await RunIo(async () =>
@@ -254,19 +233,5 @@ public sealed partial class FullShellWindow : Window, IDisposable
         try { Close(); if (IsVisible && !_closed) throw new InvalidOperationException("Window closing was cancelled."); ReleaseResources(); }
         finally { _disposing = false; }
         GC.SuppressFinalize(this);
-    }
-    private sealed class ShellCommand : ICommandHandler
-    {
-        private readonly FullShellWindow _owner;
-        private readonly Func<Task> _action;
-        public ShellCommand(FullShellWindow owner, Func<Task> action) { _owner = owner; _action = action; }
-        public bool CanExecute(CommandContext context) => !_owner._busy && !_owner._closed;
-        public async ValueTask ExecuteAsync(CommandContext context)
-        {
-            context.CancellationToken.ThrowIfCancellationRequested();
-            if (_owner._split.EditingSpreadsheet is { } editor && !editor.CommitEditor()) throw new InvalidOperationException("Dữ liệu chưa hợp lệ; bản nháp vẫn được giữ.");
-            await _action(); _owner._commandExecutions++;
-            if (!_owner._closed) { _owner.RefreshSelection(); _owner._menu.Runtime.Refresh(); }
-        }
     }
 }
