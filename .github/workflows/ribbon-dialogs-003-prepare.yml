@@ -7,6 +7,9 @@ permissions:
 concurrency:
   group: ribbon-dialogs-003-prepare
   cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -20,6 +23,25 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
+      - name: Repair the two verified stale workflow anchors in the temporary preparer
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('eng/ribbon-dialogs-003/prepare.py')
+          text = p.read_text(encoding='utf-8')
+          fixes = {
+              "@('smoke', 'full-ui-smoke', 'formula-ux-smoke', 'ribbon-visual-smoke')": "@('smoke','full-ui-smoke','formula-ux-smoke','ribbon-visual-smoke')",
+              'Published Ribbon evidence validation failed.': 'Published image provenance failed.',
+          }
+          for old, new in fixes.items():
+              expected = 1 if old.startswith('@(') else 2
+              if text.count(old) != expected:
+                  raise ValueError(f'Preparation repair drift: expected {expected} occurrences of {old!r}')
+              text = text.replace(old, new)
+          compile(text, str(p), 'exec')
+          p.write_text(text, encoding='utf-8', newline='\n')
+          print('Verified preparer repairs; all source replacement-count guards remain active.')
+          PY
       - name: Apply exact guarded source edits
         run: python eng/ribbon-dialogs-003/prepare.py
       - name: Build and analyze the prepared source
