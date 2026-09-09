@@ -1,4 +1,4 @@
-# Contract Clipboard UX — C1-A, C1-B và C1-C
+# Contract Clipboard UX — C1 đang triển khai, chưa nghiệm thu
 
 ## Trạng thái
 
@@ -80,7 +80,7 @@ phạm vi đó vẫn cần review/grant riêng, không được tự gọi DONE.
 
 ## 3. Busy, hủy và vòng đời
 
-Một writer mỗi controller. Khi đang chờ hoặc đang commit Cut, Copy/Cut/Import
+Một writer mỗi session (kể cả controller phụ). Khi đang chờ hoặc đang commit Cut, Copy/Cut/Import
 đồng bộ và writer thứ hai bị từ chối; CanPaste=false và Paste trả false.
 Không đổi clipboard cũ chỉ để thể hiện busy. Sau finally, busy được giải phóng,
 event handlers tạm được gỡ và lượt sau không kế thừa invalidation.
@@ -117,8 +117,8 @@ parser, validation hoặc format transport. Paste Special, transpose/skip blanks
 viền nguồn copy và trạng thái command catalog thuộc bước sau, chưa triển khai.
 
 Protection policy không bị suy diễn từ style Locked (không tương đương sheet
-đang được bảo vệ). Host phải thực thi quyền sửa thực tế trước transport/commit;
-shared protection acceptance đầy đủ vẫn OPEN. C1-B không cấp quyền sửa host
+đang được bảo vệ). Hook CutAuthorization ở mục 7 kiểm quyền do host cung cấp
+trước transport/commit; protection acceptance đầu-cuối vẫn OPEN. C1-B không cấp quyền sửa host
 và không tự thay model/serializer ngoài danh sách file giao việc.
 
 WPF/WinForms/MAUI/Avalonia vẫn cần grant path/API/baseline của coordinator.
@@ -191,3 +191,59 @@ HEAD sau rollback, không gọi việc revert là đã nghiệm thu an toàn.
 Rollback C1-C bằng revert commit C1-C được nêu ở PR/progress để về e782ac1b;
 không migration workbook. Sẽ mất guard synchronous reentrancy/editor/detached sheet,
 không được coi rollback là đã an toàn. C1-B và C1-A vẫn giữ trong lịch sử.
+
+## 7. Kiểm quyền Cut và một thao tác ghi cho mỗi session
+
+Bổ sung sau checkpoint `142140b8b9415a2dad67a99b166de317d044d443`:
+
+```csharp
+Func<Worksheet, CellRange, bool>? CutAuthorization { get; set; }
+```
+
+Đây là điểm nối chính sách **do host/caller cung cấp** vào đường Cut đang có,
+không phải model protection thứ hai. Query nhận đúng worksheet instance và toàn
+bộ range nguồn. Query phải thuần, không đổi selection/dữ liệu, không mở hộp thoại
+và không thực hiện clipboard operation; có thể được gọi hai lần cho một Cut.
+False từ chối bằng InvalidOperationException; exception của provider được truyền
+ra. Không publish package mới hoặc xóa nguồn khi chưa được phép.
+
+Cut đồng bộ kiểm quyền trước khi tạo package và trước khi publish/xóa. Cut async
+kiểm trước transport và sau acknowledgement, ngay trước commit. Thu hồi quyền
+trong lúc chờ, kể cả qua trạng thái phía sau cùng delegate, phải được kiểm lại.
+Thay chính delegate qua bất kỳ controller nào của session làm lượt đang chờ mất
+hiệu lực; đổi policy thành null lúc đang chờ không cho phép lượt cũ tự tiếp tục.
+Sau callback lại kiểm lease; callback vô tình đổi sheet rồi quay lại, editor,
+selection hoặc nội dung không được khiến Cut xóa nguồn mới. Thay đổi do callback
+sai contract tự gây ra không được tự rollback hoặc nhận là do Cut thực hiện.
+
+Null giữ chính sách do caller quản lý như trước; **không có nghĩa XLSX đã được
+xác nhận không protection**. Host có dữ liệu chỉ đọc/bảo vệ phải gắn chính sách
+thật vào hook. Chưa nhập SheetProtection từ XLSX; không suy protected chỉ từ style
+Locked. Hook này chỉ kiểm Cut, không tự kiểm quyền cho Paste, edit trực tiếp hay
+Undo/Redo. Vì host vẫn chưa được cấp lượt sửa, chưa có bằng chứng nghiệm thu
+protection đầu-cuối trên các UI. Không được dùng sự tồn tại của hook để gọi
+protection/native acceptance DONE.
+
+Busy, invalidation, cancellation và CutAuthorization dùng chung qua controller
+canonical của **cùng SpreadsheetSession**. Public constructor tạo controller phụ
+không tạo một writer slot/quyền Cut độc lập. Controller phụ giữ package của mình
+như API cũ, nhưng Copy/Cut/Import và writer lồng bị chặn trong lúc một controller
+khác đang ghi; CanPaste/Paste phản ánh cùng busy gate. Controller phụ được gửi
+Cancel cho lượt đang chờ của session; gate chỉ mở khi transport thật sự kết thúc.
+Hai session khác nhau không dùng chung gate/policy. Không thêm static/global
+state, không coi gate này là khóa OS clipboard toàn ứng dụng hoặc thread safety.
+
+17 test methods mới trong ClipboardCutAuthorizationTests kiểm: từ chối sync/
+async trước transport; thu hồi/thay/xóa policy khi chờ; provider exception trước/
+sau acknowledgement; callback đổi nguồn/sheet; recheck trước publication; Cut
+được phép và Undo/Redo một bước; Copy không bị quyền Cut chặn; controller phụ
+không bypass policy/busy và có thể yêu cầu cancellation; query reentrancy;
+independent sessions. Giữ nguyên bytes của ClipboardTests.cs cũ (17 methods) và
+không sửa ClipboardSafetyTests.cs (49 methods), DynamicArrayClipboardTests.cs.
+Tổng test C1 bổ sung đến checkpoint này: **78 methods đã viết, CHƯA CHẠY**.
+
+Tài liệu và kiểm SHA/diff không thay build/test/CI. Runtime .NET/native và CI đúng
+HEAD vẫn cần thực thi. Không đề nghị người dùng nghiệm thu khi các cổng này chưa
+đạt; bản ghi hiện tại chỉ là checkpoint source. Rollback riêng bổ sung này bằng
+revert commit tương ứng trên PR #5, không migration workbook; quay lại checkpoint
+trước sẽ bỏ hook và cho phép controller phụ có busy gate độc lập như trước.

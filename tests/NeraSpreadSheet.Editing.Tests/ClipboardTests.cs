@@ -444,3 +444,437 @@ public sealed class ClipboardSynchronousCutTests
         return ValueTask.CompletedTask;
     }
 }
+
+
+[TestClass]
+public sealed class ClipboardCutAuthorizationTests
+{
+    [TestMethod]
+    public void DeniedSynchronousCutShouldPreserveSourceClipboardAndHistory()
+    {
+        var session = CreateSession();
+        var previous = session.Clipboard.Clipboard;
+        var version = session.ActiveWorksheet.Version;
+        var calls = 0;
+        session.Clipboard.CutAuthorization = (worksheet, range) =>
+        {
+            calls++;
+            Assert.AreSame(session.ActiveWorksheet, worksheet);
+            Assert.AreEqual(new CellRange(default, default), range);
+            return false;
+        };
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => session.Clipboard.CutPrimarySelection());
+
+        Assert.AreEqual(1, calls);
+        Assert.AreEqual(version, session.ActiveWorksheet.Version);
+        AssertUnchanged(session, previous);
+    }
+
+    [TestMethod]
+    public async Task DeniedAsynchronousCutShouldNotInvokeTransport()
+    {
+        var session = CreateSession();
+        var previous = session.Clipboard.Clipboard;
+        var writes = 0;
+        session.Clipboard.CutAuthorization = (_, _) => false;
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+            await session.Clipboard.CopyToClipboardAsync((_, _) =>
+            {
+                writes++;
+                return ValueTask.CompletedTask;
+            }, cut: true));
+
+        Assert.AreEqual(0, writes);
+        AssertUnchanged(session, previous);
+    }
+
+    [TestMethod]
+    public async Task RevokedCutPermissionDuringWriteShouldPreserveSourceAndOldPackage()
+    {
+        var session = CreateSession();
+        var previous = session.Clipboard.Clipboard;
+        var allowed = true;
+        var queries = 0;
+        session.Clipboard.CutAuthorization = (_, _) => { queries++; return allowed; };
+        var writer = new DeferredWriter();
+        var pending = session.Clipboard.CopyToClipboardAsync(writer.WriteAsync, cut: true).AsTask();
+        Assert.AreEqual(1, writer.Calls);
+        Assert.AreEqual(1, queries);
+        allowed = false;
+        writer.Release();
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => pending);
+
+        Assert.AreEqual(2, queries);
+        AssertUnchanged(session, previous);
+    }
+
+    [TestMethod]
+    public async Task ReplacingPolicyThroughAnotherControllerShouldInvalidatePendingCut()
+    {
+        var session = CreateSession();
+        var previous = session.Clipboard.Clipboard;
+        session.Clipboard.CutAuthorization = (_, _) => true;
+        var writer = new DeferredWriter();
+        var pending = session.Clipboard.CopyToClipboardAsync(writer.WriteAsync, cut: true).AsTask();
+        var secondary = new SpreadsheetClipboardController(session);
+        secondary.CutAuthorization = (_, _) => false;
+        Assert.AreSame(secondary.CutAuthorization, session.Clipboard.CutAuthorization);
+        writer.Release();
+
+        Assert.IsFalse(await pending);
+
+        AssertUnchanged(session, previous);
+    }
+
+    [TestMethod]
+    public async Task RemovingPolicyWhilePendingShouldNotAuthorizeAnOldCut()
+    {
+        var session = CreateSession();
+        var previous = session.Clipboard.Clipboard;
+        session.Clipboard.CutAuthorization = (_, _) => true;
+        var writer = new DeferredWriter();
+        var pending = session.Clipboard.CopyToClipboardAsync(writer.WriteAsync, cut: true).AsTask();
+        session.Clipboard.CutAuthorization = null;
+        writer.Release();
+
+        Assert.IsFalse(await pending);
+
+        AssertUnchanged(session, previous);
+    }
+
+    [TestMethod]
+    public async Task AuthorizationFailureAfterAcknowledgementShouldNotPublishOrClear()
+    {
+        var session = CreateSession();
+        var previous = session.Clipboard.Clipboard;
+        var calls = 0;
+        session.Clipboard.CutAuthorization = (_, _) =>
+            ++calls == 1 ? true : throw new InvalidOperationException("Policy unavailable");
+        var writer = new DeferredWriter();
+        var pending = session.Clipboard.CopyToClipboardAsync(writer.WriteAsync, cut: true).AsTask();
+        writer.Release();
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => pending);
+
+        Assert.AreEqual("Policy unavailable", exception.Message);
+        Assert.AreEqual(2, calls);
+        AssertUnchanged(session, previous);
+    }
+
+    [TestMethod]
+    public async Task AuthorizationFailureBeforeTransportShouldReleaseTheSessionGate()
+    {
+        var session = CreateSession();
+        var previous = session.Clipboard.Clipboard;
+        var writes = 0;
+        session.Clipboard.CutAuthorization = (_, _) =>
+            throw new InvalidOperationException("Policy unavailable");
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+            await session.Clipboard.CopyToClipboardAsync((_, _) =>
+            {
+                writes++;
+                return ValueTask.CompletedTask;
+            }, cut: true));
+
+        Assert.AreEqual(0, writes);
+        AssertUnchanged(session, previous);
+        session.Clipboard.CutAuthorization = null;
+        Assert.IsTrue(session.Clipboard.CutPrimarySelection());
+        Assert.IsTrue(session.Undo());
+        Assert.AreEqual("original", session.ActiveWorksheet.GetValue(default));
+        Assert.IsFalse(session.Undo());
+    }
+
+    [TestMethod]
+    public async Task AcknowledgedCutShouldRecheckItsLeaseAfterAuthorizationCallback()
+    {
+        var session = CreateSession();
+        var previous = session.Clipboard.Clipboard;
+        var queries = 0;
+        session.Clipboard.CutAuthorization = (worksheet, _) =>
+        {
+            if (++queries == 2)
+            {
+                worksheet.SetValue(default, "new value from policy callback");
+            }
+            return true;
+        };
+        var writer = new DeferredWriter();
+        var pending = session.Clipboard.CopyToClipboardAsync(writer.WriteAsync, cut: true).AsTask();
+        writer.Release();
+
+        Assert.IsFalse(await pending);
+
+        Assert.AreEqual("new value from policy callback", session.ActiveWorksheet.GetValue(default));
+        Assert.AreSame(previous, session.Clipboard.Clipboard);
+        Assert.IsFalse(session.Clipboard.IsClipboardWritePending);
+        Assert.IsFalse(session.Undo());
+    }
+
+    [TestMethod]
+    public void SynchronousAuthorizationShouldNotRetargetCutAfterSheetRoundTrip()
+    {
+        var session = CreateSession();
+        var first = session.ActiveWorksheet;
+        var second = session.Workbook.AddWorksheet("Second");
+        var previous = session.Clipboard.Clipboard;
+        session.Clipboard.CutAuthorization = (_, _) =>
+        {
+            session.ActivateWorksheet(second);
+            session.ActivateWorksheet(first);
+            return true;
+        };
+
+        Assert.IsFalse(session.Clipboard.CutPrimarySelection());
+
+        Assert.AreSame(first, session.ActiveWorksheet);
+        AssertUnchanged(session, previous);
+        Assert.IsTrue(second.GetCell(default).IsEmpty);
+    }
+
+    [TestMethod]
+    public void SynchronousCutShouldRecheckPermissionBeforePublishingPackage()
+    {
+        var session = CreateSession();
+        var previous = session.Clipboard.Clipboard;
+        var queries = 0;
+        session.Clipboard.CutAuthorization = (_, _) => ++queries == 1;
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => session.Clipboard.CutPrimarySelection());
+
+        Assert.AreEqual(2, queries);
+        AssertUnchanged(session, previous);
+    }
+
+    [TestMethod]
+    public async Task AllowedCutShouldCheckExactRangeTwiceAndKeepSingleUndoRedo()
+    {
+        var session = CreateSession();
+        var worksheet = session.ActiveWorksheet;
+        var range = new CellRange(default, new CellAddress(0, 1));
+        session.Selection.Select(range);
+        var queries = 0;
+        session.Clipboard.CutAuthorization = (source, selected) =>
+        {
+            queries++;
+            Assert.AreSame(worksheet, source);
+            Assert.AreEqual(range, selected);
+            Assert.IsTrue(session.Clipboard.IsClipboardWritePending);
+            return true;
+        };
+
+        Assert.IsTrue(await session.Clipboard.CopyToClipboardAsync(Acknowledge, cut: true));
+
+        Assert.AreEqual(2, queries);
+        var package = session.Clipboard.Clipboard;
+        Assert.IsNotNull(package);
+        Assert.AreEqual(range, package.SourceRange);
+        Assert.AreEqual("original", package.GetCell(0, 0).Value.RawValue);
+        Assert.IsTrue(worksheet.GetCell(default).IsEmpty);
+        Assert.AreEqual("outside", worksheet.GetValue(new CellAddress(0, 2)));
+        Assert.IsTrue(session.Undo());
+        Assert.AreEqual("original", worksheet.GetValue(default));
+        Assert.IsFalse(session.Undo());
+        Assert.IsTrue(session.Redo());
+        Assert.IsTrue(worksheet.GetCell(default).IsEmpty);
+        Assert.IsFalse(session.Redo());
+    }
+
+    [TestMethod]
+    public async Task CopyShouldRemainAvailableWhenCutPolicyDeniesMutation()
+    {
+        var session = CreateSession();
+        var queries = 0;
+        session.Clipboard.CutAuthorization = (_, _) => { queries++; return false; };
+
+        Assert.IsTrue(await session.Clipboard.CopyToClipboardAsync(Acknowledge));
+        session.Clipboard.CopyPrimarySelection();
+
+        Assert.AreEqual(0, queries);
+        Assert.AreEqual("original", session.ActiveWorksheet.GetValue(default));
+        Assert.IsFalse(session.Undo());
+    }
+
+    [TestMethod]
+    public void AnotherControllerShouldNotBypassTheSessionCutPolicy()
+    {
+        var session = CreateSession();
+        var secondary = new SpreadsheetClipboardController(session);
+        var previous = secondary.ImportTabSeparatedText("secondary package");
+        session.Clipboard.CutAuthorization = (_, _) => false;
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => secondary.CutPrimarySelection());
+
+        Assert.AreSame(previous, secondary.Clipboard);
+        Assert.AreEqual("original", session.ActiveWorksheet.GetValue(default));
+        Assert.IsFalse(session.Clipboard.IsClipboardWritePending);
+        Assert.IsFalse(session.Undo());
+    }
+
+    [TestMethod]
+    public async Task AllControllersInSessionShouldRejectOverlappingClipboardOperations()
+    {
+        var session = CreateSession();
+        var secondary = new SpreadsheetClipboardController(session);
+        var previous = secondary.ImportTabSeparatedText("secondary package");
+        var writer = new DeferredWriter();
+        var pending = session.Clipboard.CopyToClipboardAsync(writer.WriteAsync).AsTask();
+        var createdWhilePending = new SpreadsheetClipboardController(session);
+        try
+        {
+            Assert.IsTrue(secondary.IsClipboardWritePending);
+            Assert.IsTrue(createdWhilePending.IsClipboardWritePending);
+            Assert.IsFalse(secondary.CanPaste);
+            Assert.ThrowsExactly<InvalidOperationException>(() => secondary.CopyPrimarySelection());
+            Assert.ThrowsExactly<InvalidOperationException>(() => secondary.CutPrimarySelection());
+            Assert.ThrowsExactly<InvalidOperationException>(() => secondary.ImportTabSeparatedText("wrong"));
+            Assert.IsFalse(secondary.Paste(new CellAddress(3, 3)));
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+                await createdWhilePending.CopyToClipboardAsync(Acknowledge));
+        }
+        finally
+        {
+            writer.Release();
+            await pending;
+        }
+
+        Assert.AreSame(previous, secondary.Clipboard);
+        Assert.IsFalse(secondary.IsClipboardWritePending);
+        Assert.IsTrue(secondary.CanPaste);
+        Assert.AreEqual("original", session.ActiveWorksheet.GetValue(default));
+        Assert.IsTrue(session.ActiveWorksheet.GetCell(new CellAddress(3, 3)).IsEmpty);
+        Assert.IsFalse(session.Undo());
+    }
+
+    [TestMethod]
+    public async Task CancellationThroughAnotherControllerShouldKeepGateUntilWriterSettles()
+    {
+        var session = CreateSession();
+        var previous = session.Clipboard.Clipboard;
+        var writer = new DeferredWriter();
+        var pending = session.Clipboard.CopyToClipboardAsync(writer.WriteAsync, cut: true).AsTask();
+        var secondary = new SpreadsheetClipboardController(session);
+        try
+        {
+            Assert.IsTrue(secondary.CancelPendingClipboardWrite());
+            Assert.IsFalse(session.Clipboard.CancelPendingClipboardWrite());
+            Assert.IsTrue(secondary.IsClipboardWritePending);
+            Assert.IsFalse(pending.IsCompleted);
+            Assert.ThrowsExactly<InvalidOperationException>(() => secondary.CopyPrimarySelection());
+        }
+        finally
+        {
+            writer.Release();
+        }
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => pending);
+
+        AssertUnchanged(session, previous);
+        Assert.IsFalse(secondary.IsClipboardWritePending);
+    }
+
+    [TestMethod]
+    public void AuthorizationQueryShouldNotBypassBusyByCreatingAnotherController()
+    {
+        var session = CreateSession();
+        var checks = 0;
+        session.Clipboard.CutAuthorization = (_, _) =>
+        {
+            var nested = new SpreadsheetClipboardController(session);
+            checks++;
+            Assert.IsTrue(nested.IsClipboardWritePending);
+            Assert.ThrowsExactly<InvalidOperationException>(() => nested.CopyPrimarySelection());
+            return true;
+        };
+
+        Assert.IsTrue(session.Clipboard.CutPrimarySelection());
+
+        Assert.AreEqual(2, checks);
+        Assert.IsTrue(session.Undo());
+        Assert.AreEqual("original", session.ActiveWorksheet.GetValue(default));
+        Assert.IsFalse(session.Undo());
+    }
+
+    [TestMethod]
+    public async Task SeparateSessionsShouldNotSharePermissionOrBusyState()
+    {
+        var first = CreateSession();
+        var second = CreateSession();
+        first.Clipboard.CutAuthorization = (_, _) => false;
+        var writer = new DeferredWriter();
+        var pending = first.Clipboard.CopyToClipboardAsync(writer.WriteAsync).AsTask();
+        try
+        {
+            Assert.IsNull(second.Clipboard.CutAuthorization);
+            Assert.IsFalse(second.Clipboard.IsClipboardWritePending);
+            Assert.IsTrue(second.Clipboard.CutPrimarySelection());
+        }
+        finally
+        {
+            writer.Release();
+            await pending;
+        }
+
+        Assert.AreEqual("original", first.ActiveWorksheet.GetValue(default));
+        Assert.IsTrue(second.ActiveWorksheet.GetCell(default).IsEmpty);
+        Assert.IsFalse(first.Undo());
+        Assert.IsTrue(second.Undo());
+    }
+
+    private static SpreadsheetSession CreateSession()
+    {
+        var workbook = new Workbook();
+        var worksheet = workbook.Worksheets[0];
+        worksheet.SetValue(default, "original");
+        worksheet.SetValue(new CellAddress(0, 2), "outside");
+        var session = new SpreadsheetSession(workbook);
+        session.Clipboard.ImportTabSeparatedText("previous package");
+        return session;
+    }
+
+    private static void AssertUnchanged(
+        SpreadsheetSession session,
+        SpreadsheetClipboardPackage? previous)
+    {
+        Assert.AreEqual("original", session.ActiveWorksheet.GetValue(default));
+        Assert.AreEqual("outside", session.ActiveWorksheet.GetValue(new CellAddress(0, 2)));
+        Assert.AreSame(previous, session.Clipboard.Clipboard);
+        Assert.IsFalse(session.Clipboard.IsClipboardWritePending);
+        Assert.IsTrue(session.Clipboard.CanPaste);
+        Assert.IsFalse(session.Undo());
+        Assert.IsFalse(session.Redo());
+    }
+
+    private static ValueTask Acknowledge(
+        SpreadsheetClipboardPackage package,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.CompletedTask;
+    }
+
+    private sealed class DeferredWriter
+    {
+        private readonly TaskCompletionSource _completion =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int Calls { get; private set; }
+
+        public async ValueTask WriteAsync(
+            SpreadsheetClipboardPackage package,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            // Deliberately ignore cancellation until release: the session must remain
+            // busy until the actual native transport has settled, not just the request.
+            await _completion.Task;
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        public void Release() => _completion.TrySetResult();
+    }
+}

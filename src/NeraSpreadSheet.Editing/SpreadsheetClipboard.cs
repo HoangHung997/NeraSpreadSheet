@@ -103,9 +103,11 @@ public sealed class SpreadsheetClipboardController
     public const long DefaultMaximumMaterializedCells = 1_000_000;
     private readonly SpreadsheetSession _session;
     private readonly long _maximumMaterializedCells;
-    private bool _isClipboardWritePending;
-    private bool _pendingWriteInvalidated;
-    private Action? _cancelPendingWrite;
+    private readonly ClipboardOperationState _operationState = new();
+
+    // A session owns its canonical controller. Additional public controller instances
+    // keep their own packages, but must not bypass that session's operation/policy gate.
+    private ClipboardOperationState OperationState => _session.Clipboard._operationState;
 
     public SpreadsheetClipboardController(SpreadsheetSession session, long maximumMaterializedCells = DefaultMaximumMaterializedCells)
     {
@@ -115,10 +117,40 @@ public sealed class SpreadsheetClipboardController
     }
 
     public SpreadsheetClipboardPackage? Clipboard { get; private set; }
-    public bool CanPaste => Clipboard is not null && !_isClipboardWritePending;
+    public bool CanPaste => Clipboard is not null && !OperationState.IsPending;
 
-    /// <summary>Gets whether a host clipboard write or a synchronous/acknowledged cut is still running.</summary>
-    public bool IsClipboardWritePending => _isClipboardWritePending;
+    /// <summary>Gets whether any clipboard controller in this session is writing or cutting.</summary>
+    public bool IsClipboardWritePending => OperationState.IsPending;
+
+    /// <summary>
+    /// Gets or sets the session-wide, side-effect-free authorization query for cutting
+    /// a complete source range. False rejects the cut before publication or mutation.
+    /// </summary>
+    /// <remarks>
+    /// The host supplies its current read-only/protection policy. Null preserves the
+    /// existing caller-managed policy; it is not evidence that an XLSX sheet is unprotected.
+    /// The query runs before transport and again before an acknowledged cut commits.
+    /// Exceptions propagate without publishing the pending package or clearing its source.
+    /// Assign on the owning context. Replacing the query invalidates a pending operation;
+    /// changes behind the same query are rechecked at commit. Do not mutate session state
+    /// from the query. This hook governs Cut, not all edits, Paste, or history operations.
+    /// </remarks>
+    public Func<Worksheet, CellRange, bool>? CutAuthorization
+    {
+        get => OperationState.CutAuthorization;
+        set
+        {
+            if (ReferenceEquals(OperationState.CutAuthorization, value))
+            {
+                return;
+            }
+            OperationState.CutAuthorization = value;
+            if (OperationState.IsPending)
+            {
+                OperationState.Invalidated = true;
+            }
+        }
+    }
 
     public SpreadsheetClipboardPackage CopyPrimarySelection()
     {
@@ -175,7 +207,7 @@ public sealed class SpreadsheetClipboardController
     /// </remarks>
     /// <exception cref="InvalidOperationException">
     /// A cell edit is active, the source worksheet is detached, the selection contains
-    /// more than one range, or existing source validation fails.
+    /// more than one range, the cut policy denies the range, or source validation fails.
     /// </exception>
     public bool CutPrimarySelection()
     {
@@ -197,19 +229,39 @@ public sealed class SpreadsheetClipboardController
             throw new InvalidOperationException("The source worksheet is no longer in the workbook.");
         }
 
-        EnsureSourceMergesFullySelected(_session.Selection.Ranges[0]);
-        _isClipboardWritePending = true;
+        var worksheet = _session.ActiveWorksheet;
+        var range = _session.Selection.Ranges[0];
+        EnsureSourceMergesFullySelected(range);
+        var lease = CaptureWriteLease(worksheet, range);
+        OperationState.IsPending = true;
+        OperationState.Invalidated = false;
+        _session.ActiveWorksheetChanged += OnPendingWriteContextChanged;
+        _session.Editor.StateChanged += OnPendingWriteContextChanged;
         try
         {
-            // Do not re-enter the public Copy method while the clipboard is busy.
-            // Publish only after source preflight/package creation succeeds, then keep
-            // that recovery package safe from reentrant worksheet/history observers.
-            Clipboard = CreatePrimarySelectionPackage();
+            EnsureCutAuthorized(worksheet, range);
+            if (!IsWriteLeaseCurrent(lease))
+            {
+                return false;
+            }
+            var package = CreatePrimarySelectionPackage();
+            EnsureCutAuthorized(worksheet, range);
+            if (!IsWriteLeaseCurrent(lease))
+            {
+                return false;
+            }
+
+            // Do not publish a rejected package. Once the clear begins, retain the
+            // source package even if a downstream observer throws during mutation.
+            Clipboard = package;
             return _session.ClearSelection();
         }
         finally
         {
-            _isClipboardWritePending = false;
+            _session.ActiveWorksheetChanged -= OnPendingWriteContextChanged;
+            _session.Editor.StateChanged -= OnPendingWriteContextChanged;
+            OperationState.Invalidated = false;
+            OperationState.IsPending = false;
         }
     }
 
@@ -231,7 +283,8 @@ public sealed class SpreadsheetClipboardController
     /// <remarks>
     /// Call on the session's owning context; this controller is not thread-safe.
     /// The continuation intentionally retains that context. Until the writer settles,
-    /// even after cancellation is requested, another clipboard operation is rejected.
+    /// even after cancellation is requested, every controller in this session rejects
+    /// another clipboard operation. CutAuthorization must allow both preflight and commit.
     /// Hosts must cancel on detach/disposal and arbitrate Esc against their editor/IME.
     /// This method does not choose an OS format or bypass host protection policy.
     /// </remarks>
@@ -258,28 +311,25 @@ public sealed class SpreadsheetClipboardController
         {
             EnsureSourceMergesFullySelected(range);
         }
-        var lease = new ClipboardWriteLease(
-            worksheet,
-            worksheet.Name,
-            worksheet.Version,
-            _session.Workbook.Version,
-            worksheet.Dimensions.Version,
-            _session.Selection.Version,
-            _session.Selection.ActiveCell,
-            _session.Selection.AnchorCell,
-            range,
-            _session.View.Version,
-            worksheet.MergedCells.Ranges.ToArray());
-        var package = CreatePrimarySelectionPackage();
+        var lease = CaptureWriteLease(worksheet, range);
         using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _isClipboardWritePending = true;
-        _pendingWriteInvalidated = false;
-        _cancelPendingWrite = linkedCancellation.Cancel;
+        OperationState.IsPending = true;
+        OperationState.Invalidated = false;
+        OperationState.CancelPending = linkedCancellation.Cancel;
         _session.ActiveWorksheetChanged += OnPendingWriteContextChanged;
         _session.Editor.StateChanged += OnPendingWriteContextChanged;
         try
         {
+            if (cut)
+            {
+                EnsureCutAuthorized(worksheet, range);
+            }
             linkedCancellation.Token.ThrowIfCancellationRequested();
+            if (!IsWriteLeaseCurrent(lease))
+            {
+                return false;
+            }
+            var package = CreatePrimarySelectionPackage();
             // Do not ConfigureAwait(false): mutation must return to the owning UI context.
             await writeAsync(package, linkedCancellation.Token).ConfigureAwait(true);
             linkedCancellation.Token.ThrowIfCancellationRequested();
@@ -288,9 +338,21 @@ public sealed class SpreadsheetClipboardController
                 return false;
             }
 
+            if (cut)
+            {
+                EnsureCutAuthorized(worksheet, range);
+                linkedCancellation.Token.ThrowIfCancellationRequested();
+                // A host query must be pure, but never clear a different/new source
+                // if a query inadvertently changes the session while authorizing it.
+                if (!IsWriteLeaseCurrent(lease))
+                {
+                    return false;
+                }
+            }
+
             // The transport has acknowledged this package. Do not discard it if a
             // later session/history subscriber throws after worksheet mutation begins.
-            _cancelPendingWrite = null;
+            OperationState.CancelPending = null;
             Clipboard = package;
             return !cut || _session.ClearSelection();
         }
@@ -298,9 +360,9 @@ public sealed class SpreadsheetClipboardController
         {
             _session.ActiveWorksheetChanged -= OnPendingWriteContextChanged;
             _session.Editor.StateChanged -= OnPendingWriteContextChanged;
-            _cancelPendingWrite = null;
-            _pendingWriteInvalidated = false;
-            _isClipboardWritePending = false;
+            OperationState.CancelPending = null;
+            OperationState.Invalidated = false;
+            OperationState.IsPending = false;
         }
     }
 
@@ -314,21 +376,43 @@ public sealed class SpreadsheetClipboardController
     /// </remarks>
     public bool CancelPendingClipboardWrite()
     {
-        if (_cancelPendingWrite is not { } cancel)
+        if (OperationState.CancelPending is not { } cancel)
         {
             return false;
         }
-        _cancelPendingWrite = null;
-        _pendingWriteInvalidated = true;
+        OperationState.CancelPending = null;
+        OperationState.Invalidated = true;
         cancel();
         return true;
     }
 
     private void OnPendingWriteContextChanged(object? sender, EventArgs e) =>
-        _pendingWriteInvalidated = true;
+        OperationState.Invalidated = true;
+
+    private ClipboardWriteLease CaptureWriteLease(Worksheet worksheet, CellRange range) =>
+        new(
+            worksheet,
+            worksheet.Name,
+            worksheet.Version,
+            _session.Workbook.Version,
+            worksheet.Dimensions.Version,
+            _session.Selection.Version,
+            _session.Selection.ActiveCell,
+            _session.Selection.AnchorCell,
+            range,
+            _session.View.Version,
+            worksheet.MergedCells.Ranges.ToArray());
+
+    private void EnsureCutAuthorized(Worksheet worksheet, CellRange range)
+    {
+        if (OperationState.CutAuthorization is { } authorize && !authorize(worksheet, range))
+        {
+            throw new InvalidOperationException("The current clipboard policy does not allow cutting this range.");
+        }
+    }
 
     private bool IsWriteLeaseCurrent(ClipboardWriteLease lease) =>
-        !_pendingWriteInvalidated &&
+        !OperationState.Invalidated &&
         !_session.Editor.IsEditing &&
         ReferenceEquals(_session.ActiveWorksheet, lease.Worksheet) &&
         _session.Workbook.Worksheets.Contains(lease.Worksheet) &&
@@ -346,7 +430,7 @@ public sealed class SpreadsheetClipboardController
 
     private void EnsureClipboardIdle()
     {
-        if (_isClipboardWritePending)
+        if (OperationState.IsPending)
         {
             throw new InvalidOperationException("A clipboard write is already in progress.");
         }
@@ -360,6 +444,14 @@ public sealed class SpreadsheetClipboardController
             throw new InvalidOperationException(
                 "Cannot cut part of a merged range. Select the complete merged range.");
         }
+    }
+
+    private sealed class ClipboardOperationState
+    {
+        public bool IsPending { get; set; }
+        public bool Invalidated { get; set; }
+        public Action? CancelPending { get; set; }
+        public Func<Worksheet, CellRange, bool>? CutAuthorization { get; set; }
     }
 
     private sealed record ClipboardWriteLease(
@@ -411,7 +503,7 @@ public sealed class SpreadsheetClipboardController
 
     public bool Paste(CellAddress destination)
     {
-        if (Clipboard is null || _isClipboardWritePending)
+        if (Clipboard is null || OperationState.IsPending)
         {
             return false;
         }
