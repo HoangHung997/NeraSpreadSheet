@@ -1,5 +1,21 @@
 # NeraSpreadSheet — Quy tắc bắt buộc cho Codex và tác nhân lập trình
 
+## 0. Ưu tiên sản phẩm hiện hành — 09/09/2026
+
+Đọc [Avalonia-first](docs/avalonia-first-ui-strategy.md). Mọi app mới của hệ sinh
+thái dùng Avalonia; `NeraSpreadSheet.Avalonia` là SDK UI chính. Core/engine vẫn
+độc lập và có thể dùng không UI. **Tạm dừng phát triển tính năng UI mới cho WPF,
+WinForms và MAUI**; giữ các host/package/API cũ để bảo trì và tích hợp ứng dụng
+cũ. Không xóa source/backend hoặc bỏ CI, không tự tuyên bố EOL/migrate app.
+Thay đổi shared engine vẫn phải bảo toàn các consumer đang giữ.
+
+Được tiếp tục cải thiện Ribbon Avalonia theo chỉ đạo mới; không tự mở lại các
+lane Table/Filter khác, thay lịch, chiếm ownership hoặc sửa source của tác nhân
+khác. Root Codex sở hữu shared status/CURRENT/assignment. Task riêng viết own
+worklog và handoff; chỉ Root cập nhật tiến độ toàn dự án. Các entry lịch sử
+“ba presenter” không supersede định hướng mới, và định hướng mới không tự xóa
+correctness/hardware/release holds.
+
 ## 1. Đọc trước khi sửa
 
 Trước mỗi nhiệm vụ phải đọc tối thiểu:
@@ -33,8 +49,8 @@ Platform backend / Platform host / OpenXml
 
 Quy tắc cứng:
 
-- `Foundation`, `Core`, `Formulas`, `Interaction`, `Layout`, `Scrolling` không reference WPF, WinForms, MAUI, Direct2D, Skia hoặc Open XML.
-- WPF, WinForms và MAUI không reference lẫn nhau.
+- `Foundation`, `Core`, `Formulas`, `Interaction`, `Layout`, `Scrolling` không reference Avalonia, WPF, WinForms, MAUI, Direct2D, Skia hoặc Open XML.
+- Avalonia, WPF, WinForms và MAUI không reference lẫn nhau.
 - Backend render không sở hữu workbook, selection hay calculation engine.
 - Open XML chỉ chuyển đổi dữ liệu; không trở thành workbook model nội bộ.
 - Không thêm package mới nếu chưa có lý do và ADR/decision note tương ứng.
@@ -101,11 +117,13 @@ Một nhiệm vụ chưa hoàn thành nếu thiếu một trong các mục sau:
 5. cập nhật contract/status/worklog khi behavior thay đổi;
 6. không có secret, đường dẫn máy cá nhân, Machine ID, token hoặc dữ liệu nhạy cảm;
 7. báo cáo rõ phần chưa triển khai, không dùng stub để giả vờ hoàn thiện backend;
-8. GitHub Actions phải xanh tại đúng HEAD cuối, không chỉ ở một commit cha.
+8. GitHub Actions phải xanh tại đúng HEAD cuối, không chỉ ở một commit cha;
+9. Ribbon/visual changes phải có ảnh thật và geometry/state checks; functional tests không thay visual review.
 
 ## 8. Handoff khi gần hết ngữ cảnh
 
-Trước khi dừng phải cập nhật `docs/worklog/CURRENT.md` gồm:
+Root coordinator cập nhật `docs/worklog/CURRENT.md`. Tác nhân task riêng không
+ghi đè file đó: cập nhật own task worklog và gửi receipt để Root fold gồm:
 
 - branch, PR và commit hiện tại;
 - implementation commit và CI run đã xác minh;
