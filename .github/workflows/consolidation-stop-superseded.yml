@@ -1,0 +1,71 @@
+name: Stop only superseded consolidation CI
+on:
+  push:
+    branches: [feature/consolidate-checkout-001]
+    paths: [.github/workflows/consolidation-stop-superseded.yml]
+permissions:
+  actions: write
+  contents: write
+jobs:
+  control:
+    if: github.repository == 'HoangHung997/NeraSpreadSheet'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Cancel obsolete intermediate runs, retain logs, prepare identical final tree
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json,os,subprocess,time
+          from pathlib import Path
+          repo='HoangHung997/NeraSpreadSheet';parent=os.environ['SOURCE_SHA']
+          def api(path,data=None):
+              args=['gh','api','repos/'+repo+'/'+path]
+              if data is not None: args+=['--method','POST','--input','-']
+              text=subprocess.check_output(args,input=None if data is None else json.dumps(data),text=True)
+              return json.loads(text) if text.strip() else None
+          commit=api('git/commits/'+parent)
+          if [p['sha'] for p in commit['parents']]!=['672b6d1c19242f92ce4c4609170a1fa8c7eeb1a0']:
+              raise RuntimeError('Unexpected control parent')
+          receipt=[]
+          def cancel(run_id,sha):
+              run=api('actions/runs/'+str(run_id))
+              if run['head_sha']!=sha or run['head_branch']!='feature/consolidate-checkout-001' or run['path']!='.github/workflows/check-out.yml':
+                  raise RuntimeError('Refusing to affect an unrelated workflow')
+              item=dict(id=run_id,sha=sha,status=run['status'],conclusion=run['conclusion'])
+              if run['status']!='completed':
+                  result=subprocess.run(['gh','api','--method','POST',f'repos/{repo}/actions/runs/{run_id}/cancel'],capture_output=True,text=True)
+                  if result.returncode and api('actions/runs/'+str(run_id))['status']!='completed':
+                      raise RuntimeError(result.stderr)
+                  item['cancelRequested']=True
+              receipt.append(item)
+          # Known-red intermediate code; never delete the run, logs or artifacts.
+          cancel(34335728409,'11646bcc896c2d5a4f7394fd77bf3b7eda6dec6e')
+          # This commit only carries the controller; its umbrella is not evidence.
+          for attempt in range(15):
+              own=api('actions/runs?head_sha='+parent+'&per_page=10')['workflow_runs']
+              targets=[r for r in own if r['path']=='.github/workflows/check-out.yml']
+              if targets:
+                  for run in targets:cancel(run['id'],parent)
+                  break
+              time.sleep(2)
+          else:raise RuntimeError('Cannot identify the intermediate control umbrella')
+          base=api('git/commits/672b6d1c19242f92ce4c4609170a1fa8c7eeb1a0')
+          final=api('git/commits',dict(message='chore(ci): remove one-shot controller before final consolidated qualification',tree=base['tree']['sha'],parents=[parent]))
+          output=Path('controller-receipt');output.mkdir()
+          (output/'receipt.json').write_text(json.dumps(dict(runs=receipt,preparedSha=final['sha'],tree=base['tree']['sha'],treeIdenticalTo='672b6d1c19242f92ce4c4609170a1fa8c7eeb1a0',remoteRefMoved=False),indent=2)+'\n')
+          print('PREPARED_FINAL '+final['sha']+' TREE '+base['tree']['sha'])
+          print('No quality gate changed; canceled intermediate runs are not PASS. No main/ref/release/archive/branch deletion action. Final source must receive a fresh complete Check out run.')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: consolidation-controller-receipt-${{ github.sha }}
+          path: controller-receipt/
+          if-no-files-found: error
+          retention-days: 30
