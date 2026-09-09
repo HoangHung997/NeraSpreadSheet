@@ -1,0 +1,77 @@
+name: Consolidation read-only inventory
+
+on:
+  push:
+    branches: [feature/consolidate-checkout-001]
+    paths: [.github/workflows/consolidate-checkout-audit.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Snapshot public refs without changing any remote branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p inventory
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+          git ls-remote --heads origin > inventory/remote-heads.tsv
+          git for-each-ref --format='%(refname)%09%(objectname)' refs/tags > inventory/existing-tags.tsv
+          gh api --paginate --slurp "repos/$REPO/pulls?state=all&per_page=100" > inventory/pull-requests.json
+          gh api --paginate --slurp "repos/$REPO/branches?per_page=100" > inventory/branches-api.json
+          gh api "repos/$REPO" --jq '{full_name,default_branch,archived,visibility}' > inventory/repository.json
+          python - <<'PY'
+          import json, subprocess, pathlib, os
+          out = pathlib.Path('inventory')
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+          def ancestor(first, second):
+              result = subprocess.run(['git','merge-base','--is-ancestor',first,second], check=False)
+              if result.returncode not in (0,1): raise RuntimeError('Invalid Git ancestry')
+              return result.returncode == 0
+          root = '2e80250b1b1c51ad56a415d1bbeb70d7b2e85f25'
+          avalonia = 'c4a63fc19a4a45f515175ea542a0e1569e16fa5a'
+          rows = []
+          for line in (out/'remote-heads.tsv').read_text().splitlines():
+              sha, ref = line.split('\t',1)
+              name = ref.removeprefix('refs/heads/')
+              local = 'refs/remotes/origin/' + name
+              if git('rev-parse',local) != sha: raise RuntimeError('Remote moved during capture: '+name)
+              counts = git('rev-list','--left-right','--count',root+'...'+sha).split()
+              commits = git('log','--format=%H%x09%s',root+'..'+sha).splitlines()
+              paths = git('diff','--name-status',root+'...'+sha).splitlines()
+              rows.append(dict(name=name,sha=sha,containedInRoot=ancestor(sha,root),
+                  containedInAvalonia=ancestor(sha,avalonia),rootOnly=int(counts[0]),branchOnly=int(counts[1]),
+                  uniqueCommits=commits,pathsSinceMergeBase=paths))
+          (out/'branch-inventory.json').write_text(json.dumps(dict(schema=1,sourceSha=os.environ['SOURCE_SHA'],rootSha=root,
+              avaloniaSha=avalonia,branches=rows),ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(dict(branches=len(rows),containedInRoot=sum(r['containedInRoot'] for r in rows),
+              containedInAvalonia=sum(r['containedInAvalonia'] for r in rows)),indent=2))
+          PY
+          git bundle create inventory/repository.bundle --all
+          git bundle verify inventory/repository.bundle
+          sha256sum inventory/repository.bundle > inventory/repository.bundle.sha256
+          printf '%s\n' "$SOURCE_SHA" > inventory/source-sha.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: consolidation-inventory-${{ github.sha }}
+          path: inventory/
+          retention-days: 30
+          if-no-files-found: error
