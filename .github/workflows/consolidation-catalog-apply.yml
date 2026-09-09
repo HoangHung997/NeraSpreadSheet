@@ -1,0 +1,107 @@
+name: Prepare bounded consolidation catalog fix
+on:
+  push:
+    branches: [feature/consolidate-checkout-001]
+    paths: [.github/workflows/consolidation-catalog-apply.yml]
+permissions:
+  contents: write
+jobs:
+  prepare:
+    if: github.repository == 'HoangHung997/NeraSpreadSheet'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Create reviewed source object without moving any branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          REPO='HoangHung997/NeraSpreadSheet'
+          def git(*args): return subprocess.check_output(['git',*args],text=True).strip()
+          def api(route,data):
+              return json.loads(subprocess.check_output(['gh','api','--method','POST',f'repos/{REPO}/git/{route}','--input','-'],input=json.dumps(data),text=True))
+          parent=git('rev-parse','HEAD')
+          if git('rev-parse','HEAD^')!='22336d1f2bf1adebb54d6b3205b917a539b1a956': raise ValueError('Unexpected immutable baseline')
+          def replace(path,old,new):
+              p=Path(path);s=p.read_text()
+              if s.count(old)!=1: raise ValueError('Patch anchor mismatch: '+path)
+              p.write_text(s.replace(old,new,1),encoding='utf-8')
+          catalog='src/NeraSpreadSheet.Ribbon.Core/RibbonProductionCommandCatalog.cs'
+          replace(catalog,'"Edit.Undo", "Edit.Redo", "Edit.Copy", "Edit.Cut", "Edit.Paste",','"Edit.Undo", "Edit.Redo", "Edit.Copy", "Edit.Cut", "Edit.Paste",\n        "Edit.PasteValues", "Edit.PasteFormulas", "Edit.PasteFormats", "Edit.CancelCopyMode",')
+          replace(catalog,'"Edit.Paste", "Edit.Cut", "Edit.Copy", "Edit.Undo", "Edit.Redo"),','"Edit.Paste", "Edit.PasteValues", "Edit.PasteFormulas", "Edit.PasteFormats",\n                "Edit.Cut", "Edit.Copy", "Edit.CancelCopyMode", "Edit.Undo", "Edit.Redo"),')
+          items=[('Edit.PasteValues','Dán giá trị','Paste values'),('Edit.PasteFormulas','Dán công thức','Paste formulas'),('Edit.PasteFormats','Dán định dạng','Paste formats'),('Edit.CancelCopyMode','Hủy chế độ sao chép','Cancel copy mode')]
+          localization='src/NeraSpreadSheet.Commands/PresentationLocalization.cs'
+          needle='            ["Edit.Paste"] = "Paste",'
+          replace(localization,needle,needle+'\n'+''.join(f'            ["{id}"] = "{vi}",\n' for id,vi,en in items).rstrip())
+          resources=[]
+          for name,column in [('PresentationStrings.resx',1),('PresentationStrings.en.resx',2)]:
+              path='src/NeraSpreadSheet.Commands/'+name;resources.append(path)
+              s=Path(path).read_text()
+              if any('name="'+vi+'"' in s for _,vi,_ in items): raise ValueError('Resource already exists')
+              replace(path,'</root>',''.join(f'  <data name="{vi}" xml:space="preserve"><value>{entry[column]}</value></data>\n' for entry in items for id,vi,en in [entry])+'</root>')
+          worklog='docs/worklog/CONSOLIDATION_20260909.md'
+          with Path(worklog).open('a',encoding='utf-8') as f:
+              f.write('''
+          ## Lỗi tích hợp được phát hiện bởi CI22336 — giữ gate, sửa catalog thật
+
+          Run `34333709901` trên `22336d1f2bf1adebb54d6b3205b917a539b1a956` không
+          đạt cổng kết hợp. Core/Windows và isolated Windows PackageReference consumer
+          báo bốn session commands chưa có trong audited manifest: `Edit.PasteValues`,
+          `Edit.PasteFormulas`, `Edit.PasteFormats`, `Edit.CancelCopyMode`.
+          Root cause là ghép PR5 đăng ký command mới với Ribbon production catalog cũ;
+          không phải lý do để xóa command, bỏ audit hoặc bỏ legacy gates.
+          Android package consumer mất process trước result marker. Source constructor
+          cũng chạy audit này trước Loaded/catch; đây là đường lỗi phù hợp, không gọi
+          log thiếu marker là bằng chứng root cause đã được xác nhận. Cần fresh native run.
+
+          Bản sửa bổ sung đủ bốn stable IDs và placement, nối resource tiếng Việt/Anh
+          và default-caption map; giữ nguyên `ValidateExact`, shortcut/handler/history.
+          Cancel không đăng ký Esc toàn cục. Thêm tám regression cases về reachability,
+          localization/host override, dispatch ba kiểu Paste/Undo và cancel không sửa ô.
+          Commands chạy local .NET10.0.400/runtime10.0.11:139PASS/0skip; không lấy local
+          hoặc CI cha thay final integration. Package cache offline; audit NuGet bị tắt
+          chỉ trong lệnh restore local do DNS, không đổi build/policy CI của repository.
+
+          22336 đã có Avalonia153x5 ba OS và actual self-contained app smoke ba OS PASS,
+          nhưng toàn run đỏ nên không publish/promote/delete. Mọi source cũ và main vẫn
+          giữ nguyên. Tiếp theo chạy đầy đủ umbrella trên commit sửa cuối; chỉ promote
+          main sau exact-source green rồi chạy gate main trước publication/archive/delete.
+          ''')
+          control='.github/workflows/consolidation-catalog-apply.yml'
+          Path(control).unlink()
+          subprocess.run(['git','add','-u'],check=True)
+          subprocess.run(['git','diff','--cached','--check'],check=True)
+          paths=git('diff','--cached','--name-only').splitlines()
+          allowed={catalog,localization,*resources,worklog,control}
+          if set(paths)!=allowed: raise ValueError('Unexpected change set')
+          elements=[]
+          for path in paths:
+              if path==control: elements.append(dict(path=path,mode='100644',type='blob',sha=None));continue
+              blob=api('blobs',dict(content=Path(path).read_text(),encoding='utf-8'))
+              if blob['sha']!=git('hash-object',path): raise ValueError('Blob receipt mismatch')
+              elements.append(dict(path=path,mode='100644',type='blob',sha=blob['sha']))
+          tree=api('trees',dict(base_tree=git('rev-parse','HEAD^{tree}'),tree=elements))
+          if tree['sha']!=git('write-tree'): raise ValueError('Tree receipt mismatch')
+          commit=api('commits',dict(message='fix(integration): reconcile shared clipboard commands and localized Ribbon catalog',tree=tree['sha'],parents=[parent]))
+          output=Path('prepared');output.mkdir()
+          (output/'source-sha.txt').write_text(commit['sha']+'\n')
+          (output/'source-tree.txt').write_text(tree['sha']+'\n')
+          (output/'reviewed.patch').write_text(git('diff','--cached','--binary')+'\n')
+          subprocess.run(['git','fetch','origin',commit['sha']],check=True)
+          subprocess.run(['git','update-ref','refs/heads/prepared-catalog-fix',commit['sha']],check=True)
+          subprocess.run(['git','bundle','create',str(output/'repository.bundle'),'--all'],check=True)
+          print('PREPARED_SOURCE '+commit['sha']+' TREE '+tree['sha'])
+          print('No remote ref moved, no branch deleted, no release published. Connector must verify then fast-forward the task branch before exact-source CI.')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: consolidation-catalog-prepared-${{ github.sha }}
+          path: prepared/
+          if-no-files-found: error
+          retention-days: 30
