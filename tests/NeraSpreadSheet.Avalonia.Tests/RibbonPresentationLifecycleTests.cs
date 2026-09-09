@@ -47,11 +47,15 @@ public sealed class RibbonPresentationLifecycleTests
     });
 
     [TestMethod]
-    public Task InactiveTabCommandShouldStillResolveItsShortcutWithoutMaterializingTheTab() => AvaloniaTestEnvironment.OnUiAsync(async () =>
+    public Task InactiveTabCommandShouldStillResolveItsShortcutWithoutMaterializingTheTab() => AvaloniaTestEnvironment.OnUiAsync(() =>
     {
         using var fixture = new Fixture();
         var before = fixture.Ribbon.NativeBodyBuildCount;
-        Assert.IsTrue(await fixture.Ribbon.TryActivateShortcutAsync("Ctrl+F9"));
+        // This fixture deliberately has a synchronous CompletedTask handler.
+        // Never convert the Action-based UI test callback to async void.
+        var activation = fixture.Ribbon.TryActivateShortcutAsync("Ctrl+F9");
+        Assert.IsTrue(activation.IsCompletedSuccessfully);
+        Assert.IsTrue(activation.Result);
         Assert.AreEqual(1, fixture.Handler.Count);
         Assert.AreEqual("tab0", fixture.Ribbon.SelectedTabId);
         Assert.IsNull(((TabItem)fixture.Ribbon.NativeTabControl.Items[5]!).Content);

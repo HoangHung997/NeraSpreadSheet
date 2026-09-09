@@ -60,12 +60,12 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Qualification process $pass failed, no retries." }
             [xml]$trx = Get-Content "$directory/ribbon.trx" -Raw
             $counts = $trx.TestRun.ResultSummary.Counters
-            if ([int]$counts.total -lt 135 -or [int]$counts.passed -ne [int]$counts.total -or [int]$counts.executed -ne [int]$counts.total) { throw 'Missing, skipped or failed tests.' }
+            if ([int]$counts.total -lt 146 -or [int]$counts.passed -ne [int]$counts.total -or [int]$counts.executed -ne [int]$counts.total) { throw 'Missing, skipped or failed tests.' }
           }
       - name: Architecture
         shell: pwsh
         run: ./scripts/verify-architecture.ps1
-      - name: Existing native window and Formula UX regressions
+      - name: Existing native regressions and dedicated Ribbon visual matrix
         shell: pwsh
         run: |
           New-Item -ItemType Directory artifacts/avalonia -Force | Out-Null
@@ -73,7 +73,8 @@ jobs:
           $modes = @(
             @{ Argument = '--smoke'; Prefix = 'NERA_AVALONIA_SMOKE_SUCCESS '; Minimum = 12 },
             @{ Argument = '--full-ui-smoke'; Prefix = 'NERA_AVALONIA_FULL_UI_SUCCESS '; Minimum = 23 },
-            @{ Argument = '--formula-ux-smoke'; Prefix = 'NERA_AVALONIA_FORMULA_UX_SUCCESS '; Minimum = 23 }
+            @{ Argument = '--formula-ux-smoke'; Prefix = 'NERA_AVALONIA_FORMULA_UX_SUCCESS '; Minimum = 23 },
+            @{ Argument = '--ribbon-visual-smoke'; Prefix = 'NERA_AVALONIA_RIBBON_VISUAL_SUCCESS '; Minimum = 190 }
           )
           foreach ($mode in $modes) {
             if ($IsLinux) { $lines = & xvfb-run -a dotnet $app $mode.Argument 2>&1 }
@@ -89,8 +90,19 @@ jobs:
           foreach ($name in @('native-window.png', 'full-ui-window.png', 'full-ui-customization.png', 'formula-ux-references.png', 'formula-ux-cross-sheet.png')) {
             if (!(Test-Path "artifacts/avalonia/$name") -or (Get-Item "artifacts/avalonia/$name").Length -eq 0) { throw "Missing $name." }
           }
+          python scripts/verify-avalonia-ribbon-visual.py artifacts/avalonia/ribbon-visual $env:NERA_SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Ribbon visual matrix or image provenance failed.' }
       - name: Pack SDK including theme resources
         run: dotnet pack src/NeraSpreadSheet.Avalonia/NeraSpreadSheet.Avalonia.csproj -c Release --no-build -o artifacts/packages
+      - name: Checkout immutable baseline for the paired synthetic measurement
+        uses: actions/checkout@v6
+        with:
+          ref: 2c27bd65e2b6022a374560165821921078982241
+          path: ribbon-probe-baseline
+          persist-credentials: false
+      - name: Measure identical Ribbon rebuild workload before and after
+        shell: pwsh
+        run: ./scripts/measure-avalonia-ribbon-rebuild.ps1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
