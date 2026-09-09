@@ -1,0 +1,164 @@
+name: Avalonia desktop host
+
+on:
+  push:
+    branches: ['feature/avalonia-001-host']
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/NeraSpreadSheet.Avalonia/**'
+      - 'samples/NeraSpreadSheet.Avalonia.Sample/**'
+      - 'tests/NeraSpreadSheet.Avalonia.Tests/**'
+      - 'eng/avalonia-packages.props'
+      - 'NeraSpreadSheet.Avalonia.slnx'
+      - 'scripts/verify-avalonia-release.py'
+      - '.github/workflows/avalonia-001.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avalonia-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    name: Avalonia ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      NERA_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      NERA_AVALONIA_ARTIFACTS: artifacts/avalonia
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Install native Linux display dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libx11-6 libice6 libsm6 libfontconfig1 libxcb1 libxrender1 libxrandr2 libxi6 libgl1 libegl1 fonts-dejavu-core
+      - name: Release gate counterexamples
+        run: python scripts/verify-avalonia-release.py --self-test
+      - name: Verify transitive project closure before build
+        run: python scripts/verify-avalonia-release.py
+      - name: Restore isolated Avalonia solution
+        run: dotnet restore NeraSpreadSheet.Avalonia.slnx
+      - name: Build with repository analyzers and warnings as errors
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path artifacts/build -Force | Out-Null
+          dotnet build NeraSpreadSheet.Avalonia.slnx -c Release --no-restore -bl:artifacts/build/avalonia.binlog 2>&1 | Tee-Object -FilePath artifacts/build/avalonia.log
+          if ($LASTEXITCODE -ne 0) { throw 'Avalonia Release build failed.' }
+      - name: Verify every Nera output is Release and sample copies match
+        run: python scripts/verify-avalonia-release.py --build-log artifacts/build/avalonia.log --report artifacts/build/release-graph.json
+      - name: Headless regressions and fixed five-process lifecycle qualification
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # All five processes must pass. Stop on any failure; this is not a retry loop.
+          for ($pass = 1; $pass -le 5; $pass++) {
+            $directory = "artifacts/tests/pass-$pass"
+            New-Item -ItemType Directory -Path $directory -Force | Out-Null
+            dotnet test tests/NeraSpreadSheet.Avalonia.Tests/NeraSpreadSheet.Avalonia.Tests.csproj -c Release --no-build --no-restore --logger 'trx;LogFileName=avalonia.trx' --results-directory $directory 2>&1 | Tee-Object -FilePath "$directory/test.log"
+            if ($LASTEXITCODE -ne 0) { throw "Headless qualification process $pass failed; no retry permitted." }
+            [xml]$trx = Get-Content "$directory/avalonia.trx" -Raw
+            $summary = $trx.TestRun.ResultSummary
+            $counts = $summary.Counters
+            if ([int]$counts.total -lt 125 -or [int]$counts.passed -ne [int]$counts.total -or [int]$counts.executed -ne [int]$counts.total -or $summary.outcome -notin @('Completed', 'Passed')) {
+              throw "Process $pass has missing/skipped/failed tests or failed assembly cleanup."
+            }
+          }
+      - name: Verify existing architecture boundaries
+        shell: pwsh
+        run: ./scripts/verify-architecture.ps1
+      - name: Verify Avalonia host isolation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $hostProject = Get-Content src/NeraSpreadSheet.Avalonia/NeraSpreadSheet.Avalonia.csproj -Raw
+          if ($hostProject -match 'NeraSpreadSheet\.(Wpf|WinForms|Maui|Rendering\.Skia|Rendering\.Direct2D)|SkiaSharp|UseWPF|UseWindowsForms|UseMaui') { throw 'Avalonia host crossed a platform boundary.' }
+          foreach ($name in @('Foundation', 'Core', 'Formulas', 'Editing', 'Interaction', 'Layout', 'Scrolling', 'Viewport', 'Rendering.Abstractions', 'Rendering.Spreadsheet')) {
+            $text = Get-Content "src/NeraSpreadSheet.$name/NeraSpreadSheet.$name.csproj" -Raw
+            if ($text -match 'Avalonia') { throw "Avalonia dependency leaked into $name." }
+          }
+      - name: Loaded native window smoke and capture
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path artifacts/avalonia -Force | Out-Null
+          $app = 'samples/NeraSpreadSheet.Avalonia.Sample/bin/Release/net10.0/NeraSpreadSheet.Avalonia.Sample.dll'
+          if ($IsLinux) { $lines = & xvfb-run -a dotnet $app --smoke 2>&1 }
+          else { $lines = & dotnet $app --smoke 2>&1 }
+          $exitCode = $LASTEXITCODE
+          $lines | Tee-Object -FilePath artifacts/avalonia/native.log
+          if ($exitCode -ne 0) { throw "Native smoke exited $exitCode." }
+          $prefix = 'NERA_AVALONIA_SMOKE_SUCCESS '
+          $records = @($lines | ForEach-Object { "$_" } | Where-Object { $_.StartsWith($prefix, [StringComparison]::Ordinal) })
+          if ($records.Count -ne 1) { throw 'Exactly one native success record is required.' }
+          $result = $records[0].Substring($prefix.Length) | ConvertFrom-Json
+          if ($result.sha -cne $env:NERA_SOURCE_SHA -or $result.framesBefore -lt 1 -or $result.assertions -lt 11 -or !$result.nativeWindow) { throw 'Native result postconditions failed.' }
+          if (!(Test-Path artifacts/avalonia/native-window.png) -or (Get-Item artifacts/avalonia/native-window.png).Length -eq 0) { throw 'Native capture is missing.' }
+      - name: Loaded full Ribbon split formula and OS clipboard smoke
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = 'samples/NeraSpreadSheet.Avalonia.Sample/bin/Release/net10.0/NeraSpreadSheet.Avalonia.Sample.dll'
+          if ($IsLinux) { $lines = & xvfb-run -a dotnet $app --full-ui-smoke 2>&1 }
+          else { $lines = & dotnet $app --full-ui-smoke 2>&1 }
+          $exitCode = $LASTEXITCODE
+          $lines | Tee-Object -FilePath artifacts/avalonia/full-ui.log
+          if ($exitCode -ne 0) { throw "Full UI native smoke exited $exitCode." }
+          $prefix = 'NERA_AVALONIA_FULL_UI_SUCCESS '
+          $records = @($lines | ForEach-Object { "$_" } | Where-Object { $_.StartsWith($prefix, [StringComparison]::Ordinal) })
+          if ($records.Count -ne 1) { throw 'Exactly one full UI result is required.' }
+          $result = $records[0].Substring($prefix.Length) | ConvertFrom-Json
+          $required = @('exact-source','loaded-window','ribbon-projection','native-menu','native-ribbon-dispatch','ribbon-bar-shortcut-once','os-copy','os-paste','os-paste-value','os-paste-undo','formula-suggestion','formula-completion','formula-argument-help','formula-bar-one-draft','reference-highlights','draft-no-commit','four-stable-panes','independent-fractional-scroll','customization-no-op','customization-apply','customization-json','native-icon-cache','native-icon-fallback')
+          if ($result.sha -cne $env:NERA_SOURCE_SHA -or !$result.osClipboard -or !$result.nativeWindow -or $result.physicalInputTested -ne $false -or $result.assertions -ne $required.Count) { throw 'Full UI evidence postconditions failed.' }
+          if (@($result.checks).Count -ne $required.Count -or @(Compare-Object $required @($result.checks)).Count -ne 0) { throw 'Full UI feature checks are incomplete.' }
+          foreach ($name in @('full-ui-window.png','full-ui-customization.png')) {
+            $path = Join-Path artifacts/avalonia $name
+            if (!(Test-Path $path) -or (Get-Item $path).Length -eq 0) { throw "Missing full UI capture $name." }
+          }
+      - name: Loaded Formula UX reference drag and cross-sheet picker smoke
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = 'samples/NeraSpreadSheet.Avalonia.Sample/bin/Release/net10.0/NeraSpreadSheet.Avalonia.Sample.dll'
+          if ($IsLinux) { $lines = & xvfb-run -a dotnet $app --formula-ux-smoke 2>&1 }
+          else { $lines = & dotnet $app --formula-ux-smoke 2>&1 }
+          $exitCode = $LASTEXITCODE
+          $lines | Tee-Object -FilePath artifacts/avalonia/formula-ux.log
+          if ($exitCode -ne 0) { throw "Formula UX native smoke exited $exitCode." }
+          $prefix = 'NERA_AVALONIA_FORMULA_UX_SUCCESS '
+          $records = @($lines | ForEach-Object { "$_" } | Where-Object { $_.StartsWith($prefix, [StringComparison]::Ordinal) })
+          if ($records.Count -ne 1) { throw 'Exactly one Formula UX result is required.' }
+          $result = $records[0].Substring($prefix.Length) | ConvertFrom-Json
+          $required = @('exact-source','loaded-native-window','incomplete-draft-ranges','unchanged-draft-preview','stable-reference-colors','formula-capture-render','same-pane-start-cross-pane-drag','cross-pane-draft-ownership','reverse-cross-pane-drag','real-frame-edge-autoscroll','hovered-pane-only-scroll','release-stops-point-mode','border-move-token-only','border-resize','gesture-no-workbook-edit','picker-native-open','picker-source-session-stable','picker-routed-range','picker-native-render','picker-apply-one-draft','cross-sheet-formula-commit','cross-sheet-formula-undo','picker-cancel-preserves-draft')
+          if ($result.sha -cne $env:NERA_SOURCE_SHA -or $result.nativeWindow -ne $true -or $result.routedPointerInput -ne $true -or $result.productionFrameObserved -ne $true -or $result.physicalInputTested -ne $false -or $result.assertions -ne $required.Count) { throw 'Formula UX provenance or postconditions failed.' }
+          if (@($result.checks).Count -ne $required.Count -or @(Compare-Object $required @($result.checks)).Count -ne 0) { throw 'Formula UX checks are incomplete.' }
+          foreach ($name in @('formula-ux-references.png','formula-ux-cross-sheet.png')) {
+            $path = Join-Path artifacts/avalonia $name
+            if (!(Test-Path $path) -or (Get-Item $path).Length -eq 0) { throw "Missing Formula UX capture $name." }
+          }
+      - name: Pack host library
+        run: dotnet pack src/NeraSpreadSheet.Avalonia/NeraSpreadSheet.Avalonia.csproj -c Release --no-build -o artifacts/packages
+      - name: Upload exact-source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avalonia-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/
+          if-no-files-found: warn

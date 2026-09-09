@@ -1,38 +1,65 @@
 # NeraSpreadSheet
 
-> M2 engineering foundation; not a production release.
+> Engineering SDK; chưa phải bản phát hành production hoặc tương đương toàn bộ Excel.
 
-NeraSpreadSheet is an independent spreadsheet SDK for WPF, WinForms and .NET MAUI with sparse workbook storage, continuous pixel scrolling, dynamic arrays, XLSX preservation, printing/PDF and Function Extension SDK v1.0.
+## Hướng phát triển hiện hành — Avalonia-first
 
-## Current validated snapshot
+**Tất cả ứng dụng mới trong hệ sinh thái dùng Avalonia.** `NeraSpreadSheet.Avalonia`
+là bộ SDK UI chính. Engine bảng tính vẫn độc lập với UI: workbook sparse, công thức,
+editing/history, formatting, viewport/layout và OpenXML dùng chung.
 
-| Item | Value |
-|---|---:|
-| Eager/versioned functions | 468 |
-| AST/reference-aware functions | 40 |
-| Dynamic-array unique functions | 38 |
-| **Total functions** | **546 / 546 locked catalog names** |
-| Formula/hardening tests | 522/522 |
-| Formula implementation | DONE — F001–F019, exact-head CI #922 green |
-| Pull request | #1 Draft, unmerged |
+**WPF, WinForms và MAUI tạm dừng phát triển tính năng UI mới**, giữ làm các gói
+bảo trì/tích hợp tùy chọn cho ứng dụng cũ. Không xóa các host/package/API hoặc bỏ
+CI; các sửa lỗi dữ liệu/bảo mật và regression vẫn theo ownership. Không cần viết
+một app WPF rồi một app MAUI riêng để đưa app mới lên nhiều nền tảng.
 
-Formula implementation is now closed at 546/546 locked catalog names. Q001 starts the post-formula hardening phase with a checked-in differential corpus plus deterministic arithmetic, dependency and malformed-input fuzzing. Q001 passes 518/518 formula/hardening tests, 1,079/1,079 Core-solution tests and architecture verification. The next active item is Q002 workbook/editing state-model fuzz plus an OpenXML round-trip differential corpus.
+AI và contributor phải đọc [quyết định Avalonia-first](docs/avalonia-first-ui-strategy.md)
+và `AGENTS.md`. Định hướng không đồng nghĩa mọi feature/platform đã nghiệm thu;
+đọc [CURRENT](docs/worklog/CURRENT.md) và worklog của task ở exact branch được dùng.
+Root Codex sở hữu shared status/worklog. Không khởi động lại task đang pause chỉ
+vì README mô tả capability.
 
-Build and validation:
+## Build engine và chạy Avalonia
 
 ```powershell
-dotnet restore .\NeraSpreadSheet.Core.slnx
-dotnet build .\NeraSpreadSheet.Core.slnx -c Release --no-restore
-dotnet test .\NeraSpreadSheet.Core.slnx -c Release --no-build
+dotnet restore NeraSpreadSheet.Core.slnx
+dotnet build NeraSpreadSheet.Core.slnx -c Release --no-restore
+dotnet test NeraSpreadSheet.Core.slnx -c Release --no-build
 ./scripts/verify-architecture.ps1
+
+dotnet build NeraSpreadSheet.Avalonia.slnx -c Release
+dotnet run --project samples/NeraSpreadSheet.Avalonia.Sample -c Release
 ```
 
-Ribbon SDK preview và bộ chụp visual regression:
+Dùng SDK đã pin trong `global.json`. Sample desktop không phải bằng chứng Android,
+iOS hay browser đã chạy; những nền tảng đó cần packaging/runtime gates riêng.
+Theme/control thuộc SDK, ứng dụng cấu hình command và nghiệp vụ của mình.
+
+## Lịch sử kiểm chứng — không thay trạng thái HEAD hiện tại
+
+| Snapshot khóa catalog công thức | Số lượng |
+|---|---:|
+| Eager/versioned | 468 |
+| AST/reference-aware | 40 |
+| Dynamic-array unique | 38 |
+| Tổng tên trong catalog đã khóa | 546/546 |
+
+Con số catalog không phải tỷ lệ tương thích Excel. Báo cáo M2/F001–F019/Q001 trước
+đây là checkpoint lịch sử; không dùng số test hoặc CI cũ làm evidence cho HEAD mới.
+Các đặc tính dùng chung gồm pixel scrolling, dynamic arrays, XLSX preservation,
+printing/PDF và Function Extension SDK theo contract của từng module.
+
+## Mốc UI để đối chiếu
+
+WPF được giữ làm tham chiếu visual và consumer regression, không phải UI chính
+cho app mới:
 
 ```powershell
 dotnet run --project samples/NeraSpreadSheet.Wpf.Sample -- --ribbon-preview
 ./scripts/capture-ribbon-visual.ps1
 ```
 
-Phạm vi và command thật được ghi trong
-[Ribbon visual contract](docs/ribbon-visual-contract.md).
+Xem [Ribbon visual contract](docs/ribbon-visual-contract.md),
+[responsive contract](docs/ribbon-responsive-layout-contract.md) và
+[locale/initial view requirements](docs/excel-locale-initial-view-requirements.md).
+Mở được XLSX, render đúng và bảo toàn khi lưu là ba mức nghiệm thu riêng.

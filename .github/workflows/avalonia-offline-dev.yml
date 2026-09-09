@@ -1,0 +1,67 @@
+name: Avalonia offline validation toolchain
+on:
+  push:
+    branches: ['feature/avalonia-001-host']
+    paths: ['.github/workflows/avalonia-offline-dev.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DOTNET_INSTALL_DIR: /tmp/nera-dotnet
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Restore public pinned dependencies
+        run: dotnet restore NeraSpreadSheet.Avalonia.slnx
+      - name: Archive SDK and public package cache, never credentials or user configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p offline/sdk offline/packages
+          root="$(dirname "$(readlink -f "$(command -v dotnet)")")"
+          dotnet --info > offline/sdk/sdk-info.txt
+          git rev-parse HEAD > offline/sdk/source-sha.txt
+          tar -czf offline/sdk/dotnet.tar.gz -C "$root" .
+          tar -czf offline/packages/packages.tar.gz -C "$HOME/.nuget/packages" .
+          sha256sum offline/sdk/dotnet.tar.gz > offline/sdk/sha256.txt
+          sha256sum offline/packages/packages.tar.gz > offline/packages/sha256.txt
+          split -b 300M -d offline/packages/packages.tar.gz offline/packages/part-
+          sha256sum offline/packages/part-* > offline/packages/parts-sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avalonia-offline-sdk-${{ github.sha }}
+          path: offline/sdk/
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avalonia-offline-packages-a-${{ github.sha }}
+          path: |
+            offline/packages/part-00
+            offline/packages/*sha256.txt
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avalonia-offline-packages-b-${{ github.sha }}
+          path: offline/packages/part-01
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avalonia-offline-packages-c-${{ github.sha }}
+          path: offline/packages/part-02
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error

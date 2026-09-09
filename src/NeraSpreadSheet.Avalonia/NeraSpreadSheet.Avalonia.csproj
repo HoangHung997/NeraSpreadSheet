@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../eng/avalonia-packages.props" />
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Description>Avalonia desktop host for the shared NeraSpreadSheet engine.</Description>
+    <PackageId>NeraSpreadSheet.Avalonia</PackageId>
+    <PackageTags>$(PackageTags);avalonia</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <ProjectReference Include="../NeraSpreadSheet.Core/NeraSpreadSheet.Core.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Editing/NeraSpreadSheet.Editing.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Foundation/NeraSpreadSheet.Foundation.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Interaction/NeraSpreadSheet.Interaction.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Layout/NeraSpreadSheet.Layout.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Scrolling/NeraSpreadSheet.Scrolling.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Rendering.Abstractions/NeraSpreadSheet.Rendering.Abstractions.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Rendering.Spreadsheet/NeraSpreadSheet.Rendering.Spreadsheet.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Viewport/NeraSpreadSheet.Viewport.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Commands/NeraSpreadSheet.Commands.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Bars.Core/NeraSpreadSheet.Bars.Core.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Ribbon.Core/NeraSpreadSheet.Ribbon.Core.csproj" />
+    <ProjectReference Include="../NeraSpreadSheet.Iconography/NeraSpreadSheet.Iconography.csproj" />
+    <InternalsVisibleTo Include="NeraSpreadSheet.Avalonia.Tests" />
+  </ItemGroup>
+</Project>
