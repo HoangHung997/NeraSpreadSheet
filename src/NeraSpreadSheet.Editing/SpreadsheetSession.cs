@@ -133,12 +133,24 @@ public sealed class SpreadsheetSession
             return;
         }
 
-        Editor.Cancel();
-        AnalyticsInteraction.ClearSelection();
-        ActiveWorksheet = worksheet;
-        Selection.SetActiveCell(default);
-        View.NotifyActiveWorksheetChanged();
-        ActiveWorksheetChanged?.Invoke(this, EventArgs.Empty);
+        var restored = View.BeginWorksheetActivation(worksheet);
+        try
+        {
+            Editor.Cancel();
+            AnalyticsInteraction.ClearSelection();
+            ActiveWorksheet = worksheet;
+            Selection.Restore(restored.Selection);
+            View.NotifyActiveWorksheetChanged();
+            ActiveWorksheetChanged?.Invoke(this, EventArgs.Empty);
+            View.CompleteWorksheetActivation();
+        }
+        catch
+        {
+            // Do not publish a successful completion from a finally block: a
+            // second observer failure would hide the original activation error.
+            View.AbortWorksheetActivation();
+            throw;
+        }
     }
 
     public void SetValue(CellAddress address, object? value)
