@@ -74,10 +74,12 @@ def prepare():
         'private Control BuildItem(RibbonItemLayout item) => item.Presentation.Kind switch',
         'private Control BuildItem(RibbonItemLayout item) => item.Presentation.Definition.IsDialogLauncher ? BuildDialogLauncher(item) : item.Presentation.Kind switch')
     path='src/NeraSpreadSheet.Avalonia/NeraRibbonControl.cs'
-    replace(path,'Width = canvas.Width, Height = group.CaptionHeight / scale',
-        'Width = group.Items.Any(item => item.Presentation.Definition.IsDialogLauncher) ? Math.Max(0, group.Items.Where(item => item.Presentation.Definition.IsDialogLauncher).Min(item => item.X) / scale - 2) : canvas.Width, Height = group.CaptionHeight / scale')
-    replace(path,'            Canvas.SetTop(caption, group.CaptionY / scale);',
-        '            SetIdentity(caption, "ribbon-group-caption-" + group.Presentation.Id, group.Presentation.Caption);\n            Canvas.SetTop(caption, group.CaptionY / scale);')
+    # The canonical presenter uses LayoutSnapshot.Scale, and width/height are
+    # on separate lines. Keep exact-match guards; do not hide a missing edit.
+    replace(path,'TextTrimming = TextTrimming.CharacterEllipsis, Width = canvas.Width,',
+        'TextTrimming = TextTrimming.CharacterEllipsis, Width = group.Items.Any(item => item.Presentation.Definition.IsDialogLauncher) ? Math.Max(0, group.Items.Where(item => item.Presentation.Definition.IsDialogLauncher).Min(item => item.X) / LayoutSnapshot.Scale - 2) : canvas.Width,')
+    replace(path,'            Canvas.SetTop(caption, group.CaptionY / LayoutSnapshot.Scale);',
+        '            SetIdentity(caption, "ribbon-group-caption-" + group.Presentation.Id, group.Presentation.Caption);\n            Canvas.SetTop(caption, group.CaptionY / LayoutSnapshot.Scale);')
     path='src/NeraSpreadSheet.Avalonia/NeraSpreadsheetRibbonPreset.cs'
     text=(ROOT/path).read_text(); start=text.index('        static RibbonGroupDefinition Group('); end=text.index('\n        void AddTab(', start)
     old=text[start:end]
@@ -116,12 +118,16 @@ def prepare():
     {''')
     replace(path,'var axisPatch = CellStylePatch.FromDifference(', 'var axisPatch = explicitPatch ?? CellStylePatch.FromDifference(')
     path='samples/NeraSpreadSheet.Avalonia.Sample/FullShellWindow.Ribbon.cs'
-    marker='    private static string ColorKey'
-    text=(ROOT/path).read_text(); end=text.index(marker); before=text[:end]; pos=before.rfind('\n    }')
-    # The last method before ColorKey must be RegisterCommands, never another method.
-    if 'Choice("Ui.Theme"' not in before[pos-1200:pos]: raise ValueError('RegisterCommands boundary drift')
-    before=before[:pos]+'\n        RegisterDialogCommands();'+before[pos:]
-    (ROOT/path).write_text(before+text[end:],encoding='utf-8')
+    # Register against the exact final statement of RegisterCommands instead of
+    # searching for a ColorKey helper which does not exist in the current shell.
+    replace(path,'''            () => ChoiceState((_ribbon?.IconTheme ?? NeraIconTheme.Light).ToString(), ThemeChoices));
+    }
+
+    private ICommandHandler ResolveSessionHandler''', '''            () => ChoiceState((_ribbon?.IconTheme ?? NeraIconTheme.Light).ToString(), ThemeChoices));
+        RegisterDialogCommands();
+    }
+
+    private ICommandHandler ResolveSessionHandler''')
     path='samples/NeraSpreadSheet.Avalonia.Sample/Program.cs'
     replace(path,'                if (desktop.Args?.Contains("--ribbon-visual-smoke", StringComparer.Ordinal) == true)',
         '''                if (desktop.Args?.Contains("--dialogs-smoke", StringComparer.Ordinal) == true)
