@@ -15,6 +15,9 @@ namespace NeraSpreadSheet.Avalonia.Tests;
 [TestClass]
 public sealed class RibbonChromeTests
 {
+    private static readonly double[] TestWidths = [1024d, 1280d, 1600d];
+    private static readonly string[] TestCommandIds = ["Chrome.Action", "Chrome.Toggle", "Chrome.Choice"];
+
     [TestMethod]
     public Task TabsShouldHaveRibbonDensityInsteadOfPageHeadingDefaults() => AvaloniaTestEnvironment.OnUiAsync(() =>
     {
@@ -112,7 +115,7 @@ public sealed class RibbonChromeTests
     public Task NativeSlotsShouldMatchSharedGeometryAcrossSupportedWidths() => AvaloniaTestEnvironment.OnUiAsync(() =>
     {
         using var fixture = new Fixture();
-        foreach (var width in new[] { 1024d, 1280d, 1600d })
+        foreach (var width in TestWidths)
         {
             fixture.Window.Width = width; fixture.Ribbon.Width = width;
             fixture.Window.UpdateLayout(); fixture.Ribbon.Rebuild(); fixture.Window.UpdateLayout();
@@ -131,7 +134,7 @@ public sealed class RibbonChromeTests
         public Fixture()
         {
             var registry = new CommandRegistry(); Handler = new Handler();
-            foreach (var id in new[] { "Chrome.Action", "Chrome.Toggle", "Chrome.Choice" })
+            foreach (var id in TestCommandIds)
                 registry.Register(new CommandDescriptor(id, id, iconKey: "file.save"), new BoundHandler(Handler, id));
             var definition = new RibbonDefinition(
                 [new RibbonTabDefinition("home", "Trang đầu", [new RibbonGroupDefinition("test", "Định dạng",
