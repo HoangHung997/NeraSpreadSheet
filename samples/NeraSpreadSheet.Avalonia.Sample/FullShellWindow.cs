@@ -168,7 +168,7 @@ public sealed partial class FullShellWindow : Window, IDisposable
     private void OnCustomizationRequested(object? sender, EventArgs e)
     {
         if (_busy || _closed) return;
-        var editor = new NeraRibbonCustomizationControl(_runtime);
+        var editor = new NeraRibbonCustomizationControl(_runtime) { IconTheme = _ribbon.IconTheme };
         var window = new Window { Title = "Tùy biến Ribbon và QAT", Width = 1050, Height = 700, Content = editor };
         editor.Cancelled += (_, _) => window.Close(); TrackWindow(window); window.Show(this);
     }

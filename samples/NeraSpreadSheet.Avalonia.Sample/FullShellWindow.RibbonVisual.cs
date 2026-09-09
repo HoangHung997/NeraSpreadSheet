@@ -7,6 +7,7 @@ using global::Avalonia.Controls;
 using global::Avalonia.Controls.ApplicationLifetimes;
 using global::Avalonia.Controls.Primitives;
 using global::Avalonia.Input;
+using global::Avalonia.Interactivity;
 using global::Avalonia.Media.Imaging;
 using global::Avalonia.Threading;
 using global::Avalonia.VisualTree;
@@ -40,6 +41,16 @@ public sealed partial class FullShellWindow
             Check("exact-source", sha is { Length: 40 } && sha.All(Uri.IsHexDigit));
             await SettleRibbonAsync();
             Check("native-window", IsVisible && _split.ActiveSpreadsheet.RenderedFrameCount > 0);
+            var missingIcons = new List<string>();
+            foreach (var id in _registry.RegisteredCommandIds)
+            {
+                if (!_registry.TryResolve(id, out var descriptor, out _) || descriptor is null)
+                    throw new InvalidOperationException("Missing sample command: " + id);
+                if (descriptor.IconKey is { } key && !NeraIconCatalog.TryGetDescriptor(key, out _))
+                    missingIcons.Add(id.Value + "=" + key);
+            }
+            if (missingIcons.Count > 0) throw new InvalidOperationException("Sample command icons are missing: " + string.Join(", ", missingIcons));
+            Check("all-sample-icon-keys-resolve", missingIcons.Count == 0);
             var sheet = Session.ActiveWorksheet;
             var version = sheet.Version;
             var selectionVersion = Session.Selection.Capture().Version;
@@ -90,13 +101,15 @@ public sealed partial class FullShellWindow
                 CaptureRibbonScene(_ribbon, $"{theme}-backstage", 1, directory, captures);
                 _ribbon.CloseBackstage(); await SettleRibbonAsync();
 
-                var editor = new NeraRibbonCustomizationControl(_runtime) { IconTheme = theme };
-                var dialog = new Window { Title = "Nera — tùy biến Ribbon", Width = 1040, Height = 650, Content = editor };
-                dialog.Show(this);
+                var dialogCount = _dialogs.Count;
+                FindRibbonControl<Button>("ribbon-customize").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Check($"customization-open-{theme}", _dialogs.Count == dialogCount + 1);
+                var dialog = _dialogs.Last();
+                var editor = dialog.Content as NeraRibbonCustomizationControl ?? throw new InvalidOperationException("Customization command opened the wrong content.");
                 try
                 {
                     await Dispatcher.UIThread.InvokeAsync(dialog.UpdateLayout, DispatcherPriority.Background);
-                    Check($"customization-no-edit-{theme}", !editor.HasChanges && ReferenceEquals(editor.Apply(), originalCustomization));
+                    Check($"customization-no-edit-{theme}", editor.IconTheme == theme && !editor.HasChanges && ReferenceEquals(editor.Apply(), originalCustomization));
                     CaptureRibbonScene(dialog, $"{theme}-customization", 1, directory, captures);
                 }
                 finally { dialog.Close(); }

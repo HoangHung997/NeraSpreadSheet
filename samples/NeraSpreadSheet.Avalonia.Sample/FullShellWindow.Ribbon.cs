@@ -50,9 +50,9 @@ public sealed partial class FullShellWindow
         Add("Cell.Bold", "Đậm", () => Session.Styles.ToggleBold(), "Ctrl+B", "font.bold", () => new CommandState(true, Session.Styles.ActiveCellStyle.Font.Weight >= 600));
         Add("Cell.Italic", "Nghiêng", () => Session.Styles.ToggleItalic(), "Ctrl+I", "font.italic", () => new CommandState(true, Session.Styles.ActiveCellStyle.Font.Italic));
         Add("Cell.Clear", "Xóa nội dung", () => Session.ClearSelection(), icon: "cell.clear");
-        Add("Formula.Calculate", "Tính lại", () => Session.Recalculate(), "F9", "formula.calculate");
-        Add("View.Freeze", "Cố định khung", () => Session.View.FreezeAtActiveCell(), icon: "view.freeze");
-        Add("View.Unfreeze", "Bỏ cố định", () => Session.View.Unfreeze(), icon: "view.freeze");
+        Add("Formula.Calculate", "Tính lại", () => Session.Recalculate(), "F9", "formula.calculate-now");
+        Add("View.Freeze", "Cố định khung", () => Session.View.FreezeAtActiveCell(), icon: "view.freeze-panes");
+        Add("View.Unfreeze", "Bỏ cố định", () => Session.View.Unfreeze(), icon: "view.unfreeze-panes");
         Add("View.Split.None", "Bỏ chia", () => _split.SetMode(SpreadsheetSplitViewMode.None), icon: "view.split");
         Add("View.Split.Vertical", "Chia dọc", () => _split.SetMode(SpreadsheetSplitViewMode.Vertical), icon: "view.split");
         Add("View.Split.Horizontal", "Chia ngang", () => _split.SetMode(SpreadsheetSplitViewMode.Horizontal), icon: "view.split");
@@ -154,7 +154,13 @@ public sealed partial class FullShellWindow
         else if (value == "none") ApplyStyle(style => style with { Border = new CellBorderStyle() });
         else ApplyStyle(style => style with { Border = style.Border with { Bottom = new CellBorderSide { Style = CellBorderLineStyle.Thin, Width = 1, Color = new ColorRgba(105, 120, 132) } } });
     }
-    private void SetRibbonTheme(NeraIconTheme theme) { _ribbon.IconTheme = theme; _menu.IconTheme = theme; }
+    private void SetRibbonTheme(NeraIconTheme theme)
+    {
+        _ribbon.IconTheme = theme;
+        _menu.IconTheme = theme;
+        foreach (var dialog in _dialogs)
+            if (dialog.Content is NeraRibbonCustomizationControl editor) editor.IconTheme = theme;
+    }
     private void SetPageSetup(Func<SpreadsheetPageSetup, SpreadsheetPageSetup> change)
     {
         var sheet = Session.ActiveWorksheet; var before = sheet.GetPrintSettings();
