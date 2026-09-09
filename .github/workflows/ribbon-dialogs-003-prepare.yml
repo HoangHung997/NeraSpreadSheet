@@ -48,17 +48,18 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          def change(name, old, new):
-              p = Path('src/NeraSpreadSheet.Avalonia') / name
+          def change(path, old, new):
+              p = Path(path)
               text = p.read_text(encoding='utf-8')
               if text.count(old) != 1:
-                  raise ValueError(f'API/lifetime source drift in {name}: {old!r}')
+                  raise ValueError(f'API/lifetime source drift in {path}: {old!r}')
               p.write_text(text.replace(old, new), encoding='utf-8', newline='\n')
-          change('NeraSettingsDialog.cs', 'Watermark = L(', 'PlaceholderText = L(')
+          change('src/NeraSpreadSheet.Avalonia/NeraSettingsDialog.cs', 'Watermark = L(', 'PlaceholderText = L(')
           for name in ('NeraFormatCellsDialog', 'NeraPageSetupDialog'):
-              change(name + '.cs', f'public sealed class {name} : NeraSettingsDialog',
+              path = 'src/NeraSpreadSheet.Avalonia/' + name + '.cs'
+              change(path, f'public sealed class {name} : NeraSettingsDialog',
                   f'public sealed class {name} : NeraSettingsDialog, IDisposable')
-              change(name + '.cs', '    protected override bool TryApply()', '''    /// <summary>Releases target subscriptions even when this dialog has never been shown.
+              change(path, '    protected override bool TryApply()', '''    /// <summary>Releases target subscriptions even when this dialog has never been shown.
               /// Call on the UI thread. Closing a shown dialog also releases its draft.</summary>
               public void Dispose()
               {
@@ -69,6 +70,12 @@ jobs:
               }
 
               protected override bool TryApply()''')
+          change('samples/NeraSpreadSheet.Avalonia.Sample/FullShellWindow.DialogSmoke.cs',
+              'using System.Text.Json;\n', 'using System.Text.Json;\nusing global::Avalonia;\n')
+          path = 'tests/NeraSpreadSheet.Avalonia.Tests/SettingsDialogTests.cs'
+          change(path, 'public sealed class SettingsDialogTests\n{',
+              'public sealed class SettingsDialogTests\n{\n    private static readonly bool[] CancelModes = [false, true];')
+          change(path, 'foreach (var escape in new[] { false, true })', 'foreach (var escape in CancelModes)')
           PY
       - name: Build and analyze the prepared source
         run: |
