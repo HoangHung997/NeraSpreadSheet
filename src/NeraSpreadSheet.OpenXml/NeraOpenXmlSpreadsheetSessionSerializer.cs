@@ -1,10 +1,12 @@
 using System.Globalization;
 using System.Xml;
 using System.Xml.Linq;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
+using NeraSpreadSheet.Interaction;
 using NeraWorksheet = NeraSpreadSheet.Core.Worksheet;
 using OpenXmlWorksheet = DocumentFormat.OpenXml.Spreadsheet.Worksheet;
 
@@ -148,48 +150,160 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         foreach (var mapping in EnumerateWorksheetMappings(document, session.Workbook))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var state = session.View.GetSplitState(mapping.Worksheet);
-            ReplaceStandardSheetView(mapping.WorksheetPart, mapping.Worksheet, state);
+            PatchStandardSheetView(document, mapping.WorksheetPart, mapping.Worksheet,
+                session.View.GetWorksheetState(mapping.Worksheet));
+        }
+        var workbook = document.WorkbookPart?.Workbook
+            ?? throw new InvalidDataException("Workbook XML is missing.");
+        var activeIndex = session.Workbook.Worksheets.ToList().IndexOf(session.ActiveWorksheet);
+        var bookViews = workbook.GetFirstChild<BookViews>();
+        if (bookViews is not null || activeIndex != 0)
+        {
+            bookViews ??= EnsureBookViews(workbook);
+            var viewId = SelectedWorkbookViewId(document, session.Workbook);
+            var view = bookViews.Elements<WorkbookView>().ElementAtOrDefault(checked((int)viewId))
+                ?? throw new InvalidDataException("A sheet view refers to an absent workbook view.");
+            view.ActiveTab = checked((uint)activeIndex);
+            workbook.Save();
         }
     }
 
-    private static void ReplaceStandardSheetView(
-        WorksheetPart worksheetPart,
-        NeraWorksheet worksheet,
-        SpreadsheetSplitViewState state)
+    private static BookViews EnsureBookViews(DocumentFormat.OpenXml.Spreadsheet.Workbook workbook)
     {
-        var openXmlWorksheet = worksheetPart.Worksheet
-            ?? throw new InvalidDataException("The XLSX worksheet part does not contain worksheet markup.");
-        foreach (var existing in openXmlWorksheet.Elements<SheetViews>().ToArray())
+        var views = workbook.GetFirstChild<BookViews>();
+        if (views is null)
         {
-            existing.Remove();
+            views = new BookViews(new WorkbookView());
+            workbook.AddChild(views, true);
         }
-        if (!state.HasSplitPanes)
+        else if (!views.Elements<WorkbookView>().Any())
         {
-            openXmlWorksheet.Save();
-            return;
+            views.Append(new WorkbookView());
         }
-
-        var sheetView = new SheetView { WorkbookViewId = 0U };
-        var pane = new Pane
-        {
-            State = PaneStateValues.Split,
-            ActivePane = ToOpenXmlPane(state.ActivePane),
-            TopLeftCell = ResolveStandardTopLeftCell(worksheet, state),
-        };
-        if (state.SplitX is { } splitX)
-        {
-            pane.HorizontalSplit = Math.Max(1d, splitX * TwipsPerPixel);
-        }
-        if (state.SplitY is { } splitY)
-        {
-            pane.VerticalSplit = Math.Max(1d, splitY * TwipsPerPixel);
-        }
-        sheetView.Append(pane);
-        var sheetViews = new SheetViews(sheetView);
-        openXmlWorksheet.PrependChild(sheetViews);
-        openXmlWorksheet.Save();
+        return views;
     }
+
+    private static SheetView? SelectedSheetView(WorksheetPart part) =>
+        part.Worksheet?.GetFirstChild<SheetViews>()?.Elements<SheetView>().LastOrDefault();
+
+    private static uint SelectedWorkbookViewId(SpreadsheetDocument document, Workbook workbook) =>
+        EnumerateWorksheetMappings(document, workbook)
+            .Select(mapping => SelectedSheetView(mapping.WorksheetPart)?.WorkbookViewId?.Value)
+            .FirstOrDefault(id => id.HasValue) ?? 0U;
+
+    private static void PatchStandardSheetView(SpreadsheetDocument document, WorksheetPart part,
+        NeraWorksheet worksheet, SpreadsheetWorksheetViewState viewState)
+    {
+        var xml = part.Worksheet ?? throw new InvalidDataException("Worksheet XML is missing.");
+        if (xml.Elements<SheetViews>().Skip(1).Any())
+            throw new InvalidDataException("A worksheet contains duplicate SheetViews collections.");
+        var views = xml.GetFirstChild<SheetViews>();
+        var view = views?.Elements<SheetView>().LastOrDefault();
+        if (view is null && !HasPersistentViewState(viewState)) return;
+        if (view is null)
+        {
+            EnsureBookViews(document.WorkbookPart?.Workbook ?? throw new InvalidDataException("Workbook XML is missing."));
+            views ??= new SheetViews();
+            if (views.Parent is null) xml.AddChild(views, true);
+            view = new SheetView { WorkbookViewId = 0U };
+            views.Append(view);
+        }
+        var workbookXml = document.WorkbookPart?.Workbook ?? throw new InvalidDataException("Workbook XML is missing.");
+        var bookViews = workbookXml.GetFirstChild<BookViews>();
+        var viewId = view.WorkbookViewId?.Value ?? 0U;
+        if (bookViews is null && viewId == 0U) bookViews = EnsureBookViews(workbookXml);
+        if (bookViews is null || viewId >= bookViews.Elements<WorkbookView>().Count())
+            throw new InvalidDataException("A worksheet view refers to an absent workbook view.");
+        view.WorkbookViewId ??= 0U;
+        // The workbook serializer preserves the original XML envelope. Patch only the
+        // selected view; never remove its siblings, view ID, extension children or unknown attributes.
+        var state = viewState.SplitState;
+        var pane = view.GetFirstChild<Pane>();
+        var frozen = viewState.FrozenRows > 0 || viewState.FrozenColumns > 0;
+        PaneValues activePane;
+        if (state.HasSplitPanes || frozen)
+        {
+            pane ??= new Pane();
+            if (pane.Parent is null) view.AddChild(pane, true);
+            if (state.HasSplitPanes)
+            {
+                pane.State = PaneStateValues.Split;
+                pane.HorizontalSplit = state.SplitX is { } x ? Math.Max(1d, x * TwipsPerPixel) : null;
+                pane.VerticalSplit = state.SplitY is { } y ? Math.Max(1d, y * TwipsPerPixel) : null;
+                activePane = ToOpenXmlPane(state.ActivePane);
+                pane.TopLeftCell = ResolveStandardTopLeftCell(worksheet, state);
+            }
+            else
+            {
+                pane.State = PaneStateValues.Frozen;
+                pane.HorizontalSplit = viewState.FrozenColumns > 0 ? (double)viewState.FrozenColumns : null;
+                pane.VerticalSplit = viewState.FrozenRows > 0 ? (double)viewState.FrozenRows : null;
+                activePane = viewState.FrozenRows > 0 && viewState.FrozenColumns > 0 ? PaneValues.BottomRight :
+                    viewState.FrozenRows > 0 ? PaneValues.BottomLeft : PaneValues.TopRight;
+                pane.TopLeftCell = ResolveViewportCell(worksheet, viewState, includeFreeze: true);
+            }
+            pane.ActivePane = activePane;
+        }
+        else
+        {
+            pane?.Remove();
+            activePane = PaneValues.TopLeft;
+        }
+        view.TopLeftCell = ResolveViewportCell(worksheet, viewState, includeFreeze: false);
+        view.ZoomScale = checked((uint)Math.Round(viewState.Zoom * 100d, MidpointRounding.AwayFromZero));
+        var selection = view.Elements<Selection>().FirstOrDefault(item =>
+            (item.Pane?.Value ?? PaneValues.TopLeft) == activePane);
+        if (selection is null)
+        {
+            if (view.Elements<Selection>().Count() >= 4)
+                throw new InvalidDataException("Cannot add a fifth pane selection to a sheet view.");
+            selection = new Selection();
+            view.AddChild(selection, true);
+        }
+        selection.Pane = state.HasSplitPanes || frozen ? activePane : null;
+        var snapshot = viewState.Selection;
+        var selectedRanges = snapshot.Ranges.ToArray();
+        if (selectedRanges.Length > 1024)
+            throw new InvalidDataException("Worksheet view persistence supports at most 1024 selection ranges.");
+        var activeRange = selection.ActiveCellId?.Value;
+        if (activeRange is null || activeRange.Value >= selectedRanges.Length ||
+            !selectedRanges[checked((int)activeRange.Value)].Contains(snapshot.ActiveCell))
+        {
+            var index = Array.FindIndex(selectedRanges, range => range.Contains(snapshot.ActiveCell));
+            if (index < 0) throw new InvalidDataException("The active cell must belong to a selected range.");
+            activeRange = checked((uint)index);
+        }
+        selection.ActiveCell = snapshot.ActiveCell.ToA1();
+        selection.ActiveCellId = activeRange.Value;
+        selection.SequenceOfReferences = new ListValue<StringValue>
+        {
+            InnerText = string.Join(" ", selectedRanges.Select(FormatRange)),
+        };
+        xml.Save();
+    }
+
+    private static string ResolveViewportCell(NeraWorksheet worksheet, SpreadsheetWorksheetViewState state, bool includeFreeze)
+    {
+        var offsetX = state.OffsetX;
+        var offsetY = state.OffsetY;
+        if (includeFreeze)
+        {
+            offsetX += GetAxisOffset(state.FrozenColumns, worksheet.Dimensions.DefaultColumnWidth,
+                worksheet.Dimensions.GetColumnOverrides(), worksheet.Dimensions.GetHiddenColumnRanges());
+            offsetY += GetAxisOffset(state.FrozenRows, worksheet.Dimensions.DefaultRowHeight,
+                worksheet.Dimensions.GetRowOverrides(), worksheet.Dimensions.GetHiddenRowRanges());
+        }
+        return ResolveStandardTopLeftCell(worksheet, default(SpreadsheetSplitViewState)
+            .WithPaneScroll(SpreadsheetSplitViewPane.TopLeft, offsetX, offsetY));
+    }
+
+    private static bool HasPersistentViewState(SpreadsheetWorksheetViewState state) =>
+        state.Zoom != 1d || state.SplitState != default || state.FrozenRows != 0 || state.FrozenColumns != 0 ||
+        state.Selection.ActiveCell != default || state.Selection.AnchorCell != default ||
+        state.Selection.Ranges.Count != 1 || state.Selection.Ranges[0] != new CellRange(default, default);
+
+    private static string FormatRange(CellRange range) => range.TopLeft == range.BottomRight
+        ? range.TopLeft.ToA1() : $"{range.TopLeft.ToA1()}:{range.BottomRight.ToA1()}";
 
     private static string ResolveStandardTopLeftCell(
         NeraWorksheet worksheet,
@@ -200,7 +314,7 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
             SpreadsheetSplitViewMode.Vertical => state.TopRightScroll,
             SpreadsheetSplitViewMode.Horizontal => state.BottomLeftScroll,
             SpreadsheetSplitViewMode.Both => state.BottomRightScroll,
-            _ => default,
+            _ => state.TopLeftScroll,
         };
         var rowIndex = FindAxisIndexAtOffset(
             scroll.OffsetY,
@@ -217,22 +331,88 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         return new CellAddress(rowIndex, columnIndex).ToA1();
     }
 
-    private static void ImportStandardSplitViews(
-        SpreadsheetDocument document,
-        SpreadsheetSession session)
+    private static void ImportStandardSplitViews(SpreadsheetDocument document, SpreadsheetSession session)
     {
         foreach (var mapping in EnumerateWorksheetMappings(document, session.Workbook))
         {
-            var state = ReadStandardSplitView(mapping.WorksheetPart, mapping.Worksheet);
-            if (state != default)
+            var view = SelectedSheetView(mapping.WorksheetPart);
+            if (view is null) continue;
+            var pane = view.GetFirstChild<Pane>();
+            var split = ReadStandardSplitView(mapping.WorksheetPart, mapping.Worksheet);
+            var frozen = pane?.State?.Value == PaneStateValues.Frozen || pane?.State?.Value == PaneStateValues.FrozenSplit;
+            var frozenRows = frozen ? ParseFreezeCount(pane?.VerticalSplit?.Value, SpreadsheetLimits.MaxRows) : 0;
+            var frozenColumns = frozen ? ParseFreezeCount(pane?.HorizontalSplit?.Value, SpreadsheetLimits.MaxColumns) : 0;
+            var topLeft = !split.HasSplitPanes && frozen ? pane?.TopLeftCell?.Value : view.TopLeftCell?.Value;
+            if (TryParseStandardScroll(topLeft, mapping.Worksheet, out var scroll))
             {
-                session.View.SetSplitState(
-                    mapping.Worksheet,
-                    state,
-                    SpreadsheetSplitViewChangeKind.State,
-                    source: null);
+                if (frozen)
+                {
+                    scroll = new SpreadsheetPaneScrollOffset(
+                        Math.Max(0, scroll.OffsetX - GetAxisOffset(frozenColumns, mapping.Worksheet.Dimensions.DefaultColumnWidth,
+                            mapping.Worksheet.Dimensions.GetColumnOverrides(), mapping.Worksheet.Dimensions.GetHiddenColumnRanges())),
+                        Math.Max(0, scroll.OffsetY - GetAxisOffset(frozenRows, mapping.Worksheet.Dimensions.DefaultRowHeight,
+                            mapping.Worksheet.Dimensions.GetRowOverrides(), mapping.Worksheet.Dimensions.GetHiddenRowRanges())));
+                }
+                split = split.WithPaneScroll(SpreadsheetSplitViewPane.TopLeft, scroll.OffsetX, scroll.OffsetY);
+            }
+            var activePane = pane?.ActivePane?.Value ?? PaneValues.TopLeft;
+            var selection = view.Elements<Selection>().FirstOrDefault(item => (item.Pane?.Value ?? PaneValues.TopLeft) == activePane)
+                ?? view.Elements<Selection>().FirstOrDefault();
+            var ranges = ParseViewRanges(selection?.SequenceOfReferences?.InnerText);
+            var active = CellAddress.TryParseA1(selection?.ActiveCell?.Value, out var cell) ? cell : ranges[0].TopLeft;
+            if (!ranges.Any(range => range.Contains(active)))
+                throw new InvalidDataException("The selected view's active cell is outside its ranges.");
+            var activeRangeId = selection?.ActiveCellId?.Value ?? 0U;
+            var anchor = activeRangeId < ranges.Length && ranges[checked((int)activeRangeId)].Contains(active)
+                ? ranges[checked((int)activeRangeId)].TopLeft : ranges.First(range => range.Contains(active)).TopLeft;
+            var zoom = view.ZoomScale?.Value is { } percent ? percent / 100d : 1d;
+            try
+            {
+                session.View.SetWorksheetState(mapping.Worksheet, new SpreadsheetWorksheetViewState(
+                    new SelectionSnapshot(active, anchor, ranges, 0), zoom, split, frozenRows, frozenColumns));
+            }
+            catch (ArgumentException exception)
+            {
+                throw new InvalidDataException("The XLSX sheet view contains invalid selection, zoom or pane state.", exception);
             }
         }
+        var viewId = SelectedWorkbookViewId(document, session.Workbook);
+        var workbookView = document.WorkbookPart?.Workbook.GetFirstChild<BookViews>()?
+            .Elements<WorkbookView>().ElementAtOrDefault(checked((int)viewId));
+        if (workbookView?.ActiveTab?.Value is { } activeTab && activeTab < session.Workbook.Worksheets.Count)
+            session.ActivateWorksheet(session.Workbook.Worksheets[checked((int)activeTab)]);
+    }
+
+    private static int ParseFreezeCount(double? value, int limit)
+    {
+        if (value is null) return 0;
+        if (!double.IsFinite(value.Value) || value < 0 || value >= limit || value != Math.Truncate(value.Value))
+            throw new InvalidDataException("Frozen row/column counts must be finite integral worksheet indices.");
+        return checked((int)value.Value);
+    }
+
+    private static CellRange[] ParseViewRanges(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return [new CellRange(default, default)];
+        if (text.Length > 65536) throw new InvalidDataException("Worksheet selection text exceeds the supported limit.");
+        var tokens = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length > 1024) throw new InvalidDataException("A worksheet view has too many selection ranges.");
+        return tokens.Select(token =>
+        {
+            var ends = token.Replace("$", string.Empty, StringComparison.Ordinal).Split(':');
+            if (ends.Length == 2 && ends.All(end => end.Length > 0 && end.All(char.IsAsciiLetter)) &&
+                CellAddress.TryParseA1(ends[0] + "1", out var firstColumn) && CellAddress.TryParseA1(ends[1] + "1", out var lastColumn))
+                return new CellRange(firstColumn, new CellAddress(SpreadsheetLimits.MaxRows - 1, lastColumn.ColumnIndex));
+            if (ends.Length == 2 && ends.All(end => end.Length > 0 && end.All(char.IsAsciiDigit)) &&
+                int.TryParse(ends[0], NumberStyles.None, CultureInfo.InvariantCulture, out var firstRow) &&
+                int.TryParse(ends[1], NumberStyles.None, CultureInfo.InvariantCulture, out var lastRow) &&
+                firstRow > 0 && lastRow > 0 && firstRow <= SpreadsheetLimits.MaxRows && lastRow <= SpreadsheetLimits.MaxRows)
+                return new CellRange(new CellAddress(firstRow - 1, 0), new CellAddress(lastRow - 1, SpreadsheetLimits.MaxColumns - 1));
+            if (ends.Length > 2 || !CellAddress.TryParseA1(ends[0], out var first) ||
+                !CellAddress.TryParseA1(ends[^1], out var last))
+                throw new InvalidDataException($"Unsupported worksheet selection reference '{token}'.");
+            return new CellRange(first, last);
+        }).ToArray();
     }
 
     private static SpreadsheetSplitViewState ReadStandardSplitView(
@@ -339,10 +519,11 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         var states = session.Workbook.Worksheets
             .Select(worksheet => new WorksheetSplitState(
                 worksheet.Name,
-                session.View.GetSplitState(worksheet)))
-            .Where(static item => item.State != default)
+                session.View.GetSplitState(worksheet),
+                session.View.GetWorksheetState(worksheet)))
+            .Where(static item => HasPersistentViewState(item.ViewState!))
             .ToArray();
-        if (states.Length == 0)
+        if (states.Length == 0 && ReferenceEquals(session.ActiveWorksheet, session.Workbook.Worksheets[0]))
         {
             return;
         }
@@ -350,7 +531,8 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         cancellationToken.ThrowIfCancellationRequested();
         var root = new XElement(
             NeraNamespace + "worksheetViews",
-            new XAttribute("version", "1"));
+            new XAttribute("version", "1"),
+            new XAttribute("activeWorksheet", session.ActiveWorksheet.Name));
         foreach (var item in states)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -393,6 +575,17 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
                 new XAttribute("offsetX", FormatDouble(scroll.OffsetX)),
                 new XAttribute("offsetY", FormatDouble(scroll.OffsetY))));
         }
+        if (item.ViewState is { } view)
+        {
+            if (view.Selection.Ranges.Count > 1024)
+                throw new InvalidDataException("Worksheet view persistence supports at most 1024 selection ranges.");
+            element.Add(new XAttribute("zoom", FormatDouble(view.Zoom)),
+                new XAttribute("frozenRows", view.FrozenRows), new XAttribute("frozenColumns", view.FrozenColumns));
+            element.Add(new XElement(NeraNamespace + "selection",
+                new XAttribute("active", view.Selection.ActiveCell.ToA1()),
+                new XAttribute("anchor", view.Selection.AnchorCell.ToA1()),
+                view.Selection.Ranges.Select(range => new XElement(NeraNamespace + "range", new XAttribute("ref", FormatRange(range))))));
+        }
         return element;
     }
 
@@ -406,7 +599,8 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
             return;
         }
 
-        var states = new Dictionary<string, SpreadsheetSplitViewState>(StringComparer.OrdinalIgnoreCase);
+        var states = new Dictionary<string, (SpreadsheetSplitViewState Split, XElement Element)>(StringComparer.OrdinalIgnoreCase);
+        string? activeWorksheet = null;
         foreach (var part in workbookPart.CustomXmlParts.Where(static part => string.Equals(
                      part.ContentType,
                      NeraViewStateContentType,
@@ -415,6 +609,7 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
             using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
             using var reader = XmlReader.Create(stream, new XmlReaderSettings
             {
+                MaxCharactersInDocument = 16L * 1024L * 1024L,
                 DtdProcessing = DtdProcessing.Prohibit,
                 XmlResolver = null,
                 CloseInput = false,
@@ -424,10 +619,14 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
             {
                 continue;
             }
+            if ((string?)documentXml.Root.Attribute("version") is { } version && version != "1")
+                throw new InvalidDataException("Unsupported native worksheet-view metadata version.");
+            activeWorksheet = (string?)documentXml.Root.Attribute("activeWorksheet") ?? activeWorksheet;
             foreach (var worksheetElement in documentXml.Root.Elements(NeraNamespace + "worksheet"))
             {
                 var item = DeserializeWorksheetState(worksheetElement);
-                states[item.WorksheetName] = item.State;
+                if (!states.TryAdd(item.WorksheetName, (item.State, worksheetElement)))
+                    throw new InvalidDataException("Duplicate native worksheet view entries.");
             }
         }
 
@@ -435,13 +634,44 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         {
             if (states.TryGetValue(worksheet.Name, out var state))
             {
-                session.View.SetSplitState(
-                    worksheet,
-                    state,
-                    SpreadsheetSplitViewChangeKind.State,
-                    source: null);
+                var fallback = session.View.GetWorksheetState(worksheet);
+                session.View.SetWorksheetState(worksheet, ReadNativeWorksheetState(state.Element, state.Split, fallback));
             }
         }
+        if (activeWorksheet is not null)
+        {
+            var selected = session.Workbook.Worksheets.FirstOrDefault(worksheet =>
+                string.Equals(worksheet.Name, activeWorksheet, StringComparison.OrdinalIgnoreCase));
+            if (selected is null) throw new InvalidDataException("Native view metadata refers to an absent active worksheet.");
+            session.ActivateWorksheet(selected);
+        }
+    }
+
+    private static SpreadsheetWorksheetViewState ReadNativeWorksheetState(XElement element,
+        SpreadsheetSplitViewState split, SpreadsheetWorksheetViewState fallback)
+    {
+        var name = (string?)element.Attribute("name") ?? string.Empty;
+        var zoom = ParseOptionalDouble(element.Attribute("zoom"), name, "zoom") ?? fallback.Zoom;
+        var rows = element.Attribute("frozenRows") is { } rowAttribute
+            ? ParseFreezeCount(ParseRequiredDouble(rowAttribute, name, "frozenRows"), SpreadsheetLimits.MaxRows) : fallback.FrozenRows;
+        var columns = element.Attribute("frozenColumns") is { } columnAttribute
+            ? ParseFreezeCount(ParseRequiredDouble(columnAttribute, name, "frozenColumns"), SpreadsheetLimits.MaxColumns) : fallback.FrozenColumns;
+        var selection = fallback.Selection;
+        if (element.Element(NeraNamespace + "selection") is { } selected)
+        {
+            var rangeElements = selected.Elements(NeraNamespace + "range").Take(1025).ToArray();
+            if (rangeElements.Length == 0 || rangeElements.Length > 1024)
+                throw new InvalidDataException("Native selection range count is invalid.");
+            var ranges = ParseViewRanges(string.Join(" ", rangeElements.Select(range =>
+                (string?)range.Attribute("ref") ?? throw new InvalidDataException("Native selection range is missing its reference."))));
+            if (!CellAddress.TryParseA1((string?)selected.Attribute("active"), out var active) ||
+                !CellAddress.TryParseA1((string?)selected.Attribute("anchor"), out var anchor) ||
+                !ranges.Any(range => range.Contains(active)))
+                throw new InvalidDataException("Native active/anchor selection metadata is invalid.");
+            selection = new SelectionSnapshot(active, anchor, ranges, 0);
+        }
+        try { return new SpreadsheetWorksheetViewState(selection, zoom, split, rows, columns); }
+        catch (ArgumentException exception) { throw new InvalidDataException("Native worksheet view state is invalid.", exception); }
     }
 
     private static WorksheetSplitState DeserializeWorksheetState(XElement element)
@@ -685,5 +915,6 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
 
     private sealed record WorksheetSplitState(
         string WorksheetName,
-        SpreadsheetSplitViewState State);
+        SpreadsheetSplitViewState State,
+        SpreadsheetWorksheetViewState? ViewState = null);
 }

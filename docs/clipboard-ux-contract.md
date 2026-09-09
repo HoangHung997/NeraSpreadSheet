@@ -1,249 +1,134 @@
-# Contract Clipboard UX — C1 đang triển khai, chưa nghiệm thu
+# Clipboard dùng chung — C1/C2, batch 09/09/2026
 
-## Trạng thái
+## Trạng thái và thứ tự kiểm thử
 
-Đợt `CHATGPT-CLIPBOARD-VIEW-20260908`; baseline
-`2e80250b1b1c51ad56a415d1bbeb70d7b2e85f25`. C1-A implementation là
-`5cf3e7decc640f917e75d17d892a091c3588fddd`; C1-B nối tiếp commit này trong PR #5.
+Queue `CHATGPT-CLIPBOARD-VIEW-20260908`, source trước batch
+`709f69f9c819d45ceb7a12646929faf1052d5a8b`.
 
-C1-A chặn Cut nhiều vùng. C1-B thêm đường ghi clipboard có acknowledgement
-ngay trên controller dùng chung, cùng regression cho failure/cancellation và
-completion muộn. **Mới có implementation và test code, chưa build/chạy test**.
-C1-C nối tiếp `e782ac1b51ddcd5d2e4ddada0caaa9aa396bf203`, sửa reentrancy và
-preflight của Cut đồng bộ; giữ nguyên API và đường history hiện có.
-Chưa nối các host, chưa nghiệm thu toàn bộ C1, Mục 2 hoặc Mục 3.
-Receipt C1-A và audit trước đó được giữ trong lịch sử PR/progress; không dùng
-các phát hiện đọc source thay kết quả runtime.
+Chỉ đạo trực tiếp ngày 09/09/2026: giữ các mục chưa nghiệm thu ở trạng thái
+pending, triển khai C1/C2/V1/V2 trước, sau đó chạy CI trên HEAD kết hợp.
+Không chờ C1 CI xanh mới viết C2; không dispatch CI từng bước. Đây không phải
+miễn kiểm thử hoặc cho phép thay assertion/workflow. Source/test có trong PR
+không đồng nghĩa đã build, chạy test, tích hợp hoặc nghiệm thu UI.
 
-## 1. API trong session và API ghi clipboard host
+Receipt C1 trước batch được bảo toàn tại progress commit
+`9ef916c9c3f365f00829b431e22b72147f4ea25e`. 78 test C1 đã bổ sung trước batch
+được giữ nguyên; không gọi số test đã viết là số PASS. H1 và các host vẫn ngoài
+quyền ghi của worker trong batch này.
 
-`CopyPrimarySelection()` vẫn copy vùng đầu vào clipboard nội bộ.
-`CutPrimarySelection()` vẫn là thao tác đồng bộ, không tự ghi OS clipboard.
-Cut từ chối selection có nhiều vùng **trước** Copy/Clear; không gộp ngầm vùng
-kề/chồng nhau và không sửa `ClearSelection()` thành chỉ xóa vùng đầu. C1-B
-bổ sung từ chối Cut giao một phần merged range; người gọi phải chọn trọn vùng.
-C1-C từ chối Cut khi editor còn mở hoặc source worksheet đã bị xóa khỏi workbook,
-trước khi thay clipboard cũ. Không tự Cancel editor hoặc chọn sheet khác để Cut.
+## C1 — Các bảo vệ được giữ
 
-API mới trên chính `SpreadsheetClipboardController`:
+Cut chỉ nhận một vùng, từ chối trước mutation khi editor đang mở, worksheet đã
+bị xóa, phạm vi quá lớn, chọn một phần merge/spill hoặc policy không cho phép.
+Không sửa ClearSelection thành chỉ xóa vùng đầu để che lỗi multi-range.
 
-```csharp
-ValueTask<bool> CopyToClipboardAsync(
-    Func<SpreadsheetClipboardPackage, CancellationToken, ValueTask> writeAsync,
-    bool cut = false,
-    CancellationToken cancellationToken = default);
-bool IsClipboardWritePending { get; }
-bool CancelPendingClipboardWrite();
-```
+`CopyToClipboardAsync` dùng package builder và session/history hiện có. Host
+cung cấp callback ghi/flush clipboard thật. Trước acknowledgement không publish
+package mới và không xóa nguồn. Sau acknowledgement phải còn đúng worksheet
+instance/name/membership, workbook/worksheet/dimensions/selection/view versions,
+merge snapshot và selection. Đổi sheet/editor rồi quay lại vẫn invalidates.
 
-Cùng một private package builder phục vụ Copy nội bộ và API mới; không tạo
-controller/session/workbook hoặc history pipeline thứ hai. Bước xóa được
-thực hiện qua `SpreadsheetSession.ClearSelection()` và history hiện có.
+`CutAuthorization` được hỏi trước transport và trước commit; callback phải thuần.
+Quyền, busy, invalidation và cancellation được dùng chung giữa các controller
+thuộc cùng session. Controller phụ không mở writer slot riêng; session khác độc
+lập. Khi yêu cầu hủy, busy chỉ hết lúc transport thực sự kết thúc, kể cả transport
+bỏ qua cancellation. Hủy không xóa clipboard OS hoặc recovery package.
 
-Host cung cấp `writeAsync` thật. Callback chỉ thành công sau khi OS đã nhận
-dữ liệu và hoàn tất flush bắt buộc của nền tảng; phải truyền lỗi/cancellation
-ra ngoài. Callback không được gọi Copy/Cut/Import/Paste trên controller hoặc
-tự ClearSelection. Callback giả trong test không phải bằng chứng OS runtime.
+API đồng bộ vẫn là clipboard trong session, không tự ghi OS. C1 chưa có nghiệm
+thu native/OS/protection đầu-cuối; giữ recovery package khi observer ném lỗi
+không phải bảo đảm rollback mọi lỗi của history, recalculation hoặc subscriber.
 
-## 2. Chuẩn bị, acknowledgement và commit
+## C2 — Một pipeline Paste và bốn chế độ thật
 
-API mới chỉ nhận một vùng chữ nhật và không chạy trong lúc cell editor đang
-hoạt động. Validate worksheet còn trong workbook, complete spill, giới hạn
-materialization và (khi Cut) complete merged ranges trước khi gọi transport.
+`Paste(destination)` và lệnh `Edit.Paste` gọi chế độ All. Các overload với
+`SpreadsheetClipboardPasteMode` và các lệnh PasteValues/PasteFormulas/PasteFormats
+cùng gọi một đường preflight → edit operation → Session.Execute/history.
+Không có workbook, clipboard engine hay history song song.
 
-Package được tạo riêng nhưng **chưa publish** vào thuộc tính Clipboard.
-Trong lúc transport chờ, dữ liệu, selection và clipboard package cũ không
-bị thao tác này thay đổi; history chưa nhận thao tác xóa.
+| Chế độ | Giá trị/công thức | Style trực tiếp của ô | Merge và validation |
+|---|---|---|---|
+| All | Chép value và formula; dịch A1 tương đối, giữ phần tuyệt đối/string literal | Chép từ nguồn | Thay merge được phủ trọn; chuyển validation bị giao với vùng nguồn, giữ phần rule ngoài vùng đích |
+| Values | Chỉ value cached tại lúc Copy, không giữ formula | Giữ style đích | Giữ metadata đích; không ghi sai vào merge không tương thích |
+| Formulas | Chép formula hoặc literal của nguồn; cùng translator với All | Giữ style đích | Giữ metadata đích; spill tái sinh từ owner |
+| Formats | Giữ nguyên value/formula đích; không chạy recalculation | Chép style nguồn, kể cả reset về default | Giữ metadata đích |
 
-Sau callback thành công, kiểm cancellation và lease nguồn: đúng Worksheet
-instance, worksheet còn trong Workbook, tên sheet, Worksheet.Version,
-Workbook.Version, Dimensions.Version, Selection.Version/active/anchor/range,
-View.Version và snapshot merged ranges. Đổi sheet rồi quay lại hoặc mở editor
-rồi Cancel cũng làm lease cũ mất hiệu lực nhờ event invalidation tạm thời.
-Đặc biệt, không dùng riêng Workbook.Version để suy rằng nội dung ô chưa đổi.
+Blanks được ghi thật, không tự Skip blanks. Values dùng snapshot cached riêng
+cho cả spill children trong cùng package; không tính lại workbook lúc Copy.
+Formula text nhập từ bên ngoài không có cached value: Values bị vô hiệu hóa và
+API từ chối thay vì tự biến thành ô trống. TSV formula giữ nguyên địa chỉ khi
+paste, không dịch như package nội bộ.
 
-Lease hết hiệu lực: trả false, không publish package và không xóa ô; dữ liệu
-mới do session khác sửa được giữ nguyên. Transport có thể đã ghi OS clipboard,
-vì vậy false không đồng nghĩa OS clipboard chưa đổi. Host phải gắn stamp/token
-với đúng package đã được chấp nhận, không tái dùng private stamp cũ.
+Chỉ sao chép style trực tiếp của ô; không chuyển kích thước hàng/cột, axis-style
+spans hoặc metadata toàn worksheet. Bulk Paste chuyển/bảo toàn validation rules
+như bảng trên, không gọi cơ chế cảnh báo của cell editor cho từng giá trị dán.
+Transpose và Skip blanks **chưa hỗ trợ**, không có command/menu giả cho chúng.
 
-Lease hợp lệ: publish package đã được acknowledgement, rồi nếu Cut thì gọi
-ClearSelection. Copy trả true; Cut trả kết quả ClearSelection. Cut vùng rỗng
-vẫn có thể đã ghi/publish package nhưng trả false và không tạo history, giữ
-hành vi API đồng bộ cũ. Không coi false luôn là lỗi transport.
+## Preflight, merge, history và quyền ghi
 
-Transport exception/cancellation trước commit không làm mất package cũ.
-Exception của subscriber/session sau khi xóa đã bắt đầu vẫn được truyền ra;
-package đã được acknowledgement không bị bỏ đi để còn nguồn phục hồi. Đây
-không phải bảo đảm rollback nguyên tử cho mọi exception trong history/model;
-phạm vi đó vẫn cần review/grant riêng, không được tự gọi DONE.
+Đích luôn là một rectangle theo tọa độ destination và kích thước package; các
+vùng chọn bổ sung không làm tăng phạm vi được ghi. CanPaste cũ giữ nghĩa có
+payload nội bộ sử dụng được; command-state dùng CanPasteSpecial để xét thêm
+editor, membership, bounds và chế độ. CanCopy/CanCut chặn nhiều vùng tại command
+boundary. Query trạng thái không tự thực thi callback quyền do ứng dụng cấp.
 
-## 3. Busy, hủy và vòng đời
+Preflight kiểm bounds/materialization, editor, worksheet identity, spill, merge
+và `PasteAuthorization(worksheet, range, mode)`. Quyền callback không phải model
+SheetProtection và null không chứng minh workbook không bảo vệ. Recheck lease
+sau callback; callback tự đổi dữ liệu không được khiến paste ghi vào nguồn mới.
 
-Một writer mỗi session (kể cả controller phụ). Khi đang chờ hoặc đang commit Cut, Copy/Cut/Import
-đồng bộ và writer thứ hai bị từ chối; CanPaste=false và Paste trả false.
-Không đổi clipboard cũ chỉ để thể hiện busy. Sau finally, busy được giải phóng,
-event handlers tạm được gỡ và lượt sau không kế thừa invalidation.
+Partial merge bị từ chối trước mutation. All tạm bỏ các merge được phủ trọn để
+SetCellsOperation không redirect interior writes lên anchor, sau đó phục hồi
+metadata trong cùng history entry. Merge đích mới không được giao table/filter.
+Values/Formulas/Formats không ghi vào các merged ranges đích không khớp nguồn.
 
-Quy tắc này áp dụng cả `CutPrimarySelection()` đồng bộ, không chỉ API async.
-C1-B chưa giữ busy quanh ClearSelection của đường đồng bộ: callback CellsChanged
-có thể gọi Copy và thay package nguồn bằng ô vừa bị xóa. C1-C giữ busy từ package
-creation đến khi ClearSelection và các callback kết thúc, rồi giải phóng bằng
-finally. Gọi private package builder để không tự vi phạm guard của public Copy.
-`CancelPendingClipboardWrite()` không hủy ngược một synchronous Cut đã bắt đầu.
-Failure preflight không thay package cũ; failure downstream vẫn giữ package nguồn
-đã publish, nhưng không được dùng điều này để nhận generic transaction rollback.
+Validation rules được clip/translate với anchor mới; phần rule ngoài đích được
+trừ bằng các rectangle sparse, không materialize toàn sheet. Rule nguồn được
+cấp ID mới; Undo/Redo giữ đúng snapshot trước/sau. Lỗi preflight không thêm
+history hoặc đổi ô. Metadata transaction có recovery; lỗi recovery tiếp theo
+được báo cùng lỗi gốc. Không tuyên bố atomicity cho callback tùy ý hoặc lỗi
+recalculation xảy ra sau khi history đã nhận operation.
 
-`CancelPendingClipboardWrite()` gửi cancellation đúng một lần; không clear
-clipboard nội bộ/hệ điều hành. Nếu transport không hỗ trợ hủy, vẫn phải chờ
-transport thật sự kết thúc trước khi mở writer mới; acknowledgement đến muộn
-sau yêu cầu hủy không được xóa nguồn. Không mở writer mới chỉ vì timeout để
-rồi transport cũ ghi đè OS clipboard của lượt mới.
+## State, clipboard OS và kết quả trả về muộn
 
-Mọi entry và continuation dùng context sở hữu session; controller không phải
-thread-safe. Await cố ý giữ SynchronizationContext. Host phải marshal đúng UI
-context, arbitrate Esc sau editor/IME/popup, và gọi Cancel khi detach/dispose.
-Host không được coi Cancel là bằng chứng native write đã kết thúc.
+`SpreadsheetClipboardState` tách source workbook/worksheet/range và PayloadId
+khỏi selection hiện hành; có version, operation, busy, copy mode, status và lỗi.
+StateChanged cho phép adapter cập nhật chrome; host vẫn phải theo dõi selection,
+editor và lifecycle để query command availability đúng lúc.
 
-## 4. Merge, spill, protection và phạm vi chưa xong
+`CancelCopyMode()` dừng đánh dấu nguồn, giữ payload và không clear OS clipboard.
+Editor đang mở được ưu tiên; không đăng ký Esc toàn cục trong command catalog.
+IME/popup và native input arbitration thuộc H1.
 
-Cut một phần merge bị từ chối trước khi đổi clipboard. Cut đầy đủ merge xóa
-nội dung qua đường hiện có, giữ topology merge ở source; Undo khôi phục nội
-dung. Chưa thêm khả năng vận chuyển/tạo merge ở đích Paste.
+`PasteFromClipboardAsync` luôn nhận kết quả đọc thật từ callback host, không tự
+thay clipboard OS không đọc được bằng package cũ. Chỉ dùng lại private package
+khi đã có acknowledgement, PayloadId/text khớp và generation chưa bị mất quyền
+sở hữu. `NotifyExternalClipboardChanged` phải được host gọi khi OS ownership
+thực sự đổi; invalidates private leases của session nhưng không bỏ recovery data.
 
-Complete-spill preflight và package chứa owner formula/child style vẫn dùng
-code hiện có; partial spill bị từ chối. Chưa thay formula translation, TSV
-parser, validation hoặc format transport. Paste Special, transpose/skip blanks,
-viền nguồn copy và trạng thái command catalog thuộc bước sau, chưa triển khai.
+Read thất bại/hủy hoặc source context thay đổi trong khi await không ghi ô.
+Pending writer/reader cùng dùng session gate. Callback phải giữ owning context;
+controller không thread-safe và gate không phải khóa OS toàn ứng dụng. Trạng
+thái ownership là lease do host xác nhận, không phải polling clipboard tự động.
 
-Protection policy không bị suy diễn từ style Locked (không tương đương sheet
-đang được bảo vệ). Hook CutAuthorization ở mục 7 kiểm quyền do host cung cấp
-trước transport/commit; protection acceptance đầu-cuối vẫn OPEN. C1-B không cấp quyền sửa host
-và không tự thay model/serializer ngoài danh sách file giao việc.
+Stale/empty Cut trả false không có nghĩa OS clipboard chưa đổi. Command catalog
+hiện gọi pipeline nội bộ; nối native transport và phản hồi lỗi từng UI vẫn H1.
 
-WPF/WinForms/MAUI/Avalonia vẫn cần grant path/API/baseline của coordinator.
-Chưa thay luồng clipboard hiện tại của chúng, chưa giải quyết toàn bộ native
-exception routing, external clipboard replacement, rich/TSV ownership, Esc/IME,
-đa cửa sổ hoặc runtime UI. Không lấy shared code làm bằng chứng host đã an toàn.
-V1/V2/H1 và integration evidence vẫn OPEN; C2 chỉ bắt đầu sau C1 regression xanh.
+## Kiểm thử và bàn giao
 
-## 5. Regression và lệnh kiểm tra
+Thêm `ClipboardPasteSpecialTests`: các mode, cache/spill, blanks/styles,
+merge anchor, validation Undo/Redo, quyền/bounds, nguồn copy độc lập selection,
+đọc chậm/hủy/ownership replacement và native-token/text checks. Các ca dùng
+transport điều khiển bằng TaskCompletionSource, không là bằng chứng OS thật.
 
-File `ClipboardSafetyTests.cs` giữ nguyên 14 test C1-A, thêm class
-`ClipboardAcknowledgementTests` với **35 test methods**; tổng file là 49.
-Không giảm assertion, xóa hoặc skip test cũ.
+Chưa có .NET build/analyzers, regression execution, native smoke hay benchmark
+của batch trong môi trường worker. Kiểm hash/diff/lexer không thay compiler.
+Không sửa renderer/scroll loop; overhead snapshot/merge/rule cần đo ở gate phù hợp.
 
-C1-C giữ file safety 49 methods không đổi và nối thêm 12 methods trong class
-`ClipboardSynchronousCutTests` của `ClipboardTests.cs`, giữ nguyên cả 5 test cũ
-trong file đó. Tổng test bổ sung của C1-A/B/C là 61 methods, **chưa chạy**.
-12 methods mới kiểm reentrant Copy/Cut/Import/Paste, async writer lồng nhau,
-editor/detached-sheet preflight, cleanup sau materialization/spill rejection,
-recovery package khi observer ném lỗi, empty Cut, đổi sheet trong observer,
-canonical Cut command và giữ redo khi từ chối editor-active Cut.
-Hai test observer failure chỉ kiểm busy cleanup/package retention, không thay
-cổng rollback/history atomicity hoặc native runtime.
+Sau khi source C1/C2/V1/V2 ổn định, chạy build/Editing/OpenXML/Core/architecture
+và CI hiện có đúng SHA kết hợp; giữ full suite và mọi assertion. CI cũ không thay
+CI mới. H1, actual protection, downstream failure atomicity và nghiệm thu native
+vẫn được ghi pending riêng, không đóng bằng test shared.
 
-Các nhóm C1-B kiểm pending-write không xóa/publish sớm; lỗi sync/async transport;
-clipboard ban đầu rỗng; cancellation trước/trong write; transport không chịu hủy;
-Cancel lặp; busy/chống ghi chồng; sửa trực tiếp hoặc từ session khác; edit rồi
-Undo; đổi selection/range/sheet rồi quay lại; rename/remove/workbook changes;
-dimensions/view/editor lifecycle; stale Copy; partial/full merge và spill;
-empty Cut; formula/style/paste translation; null writer; callback reentrancy
-và cleanup để lượt sau hoạt động bình thường. Fake transport dùng
-TaskCompletionSource để điều khiển acknowledgement, không dùng sleep/retry.
-
-```powershell
-dotnet restore NeraSpreadSheet.Core.slnx
-dotnet build NeraSpreadSheet.Core.slnx -c Release --no-restore
-dotnet test tests/NeraSpreadSheet.Editing.Tests/NeraSpreadSheet.Editing.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~Clipboard"
-dotnet test NeraSpreadSheet.Core.slnx -c Release --no-build
-./scripts/verify-architecture.ps1
-```
-
-**Chưa chạy những lệnh này**, chưa có 61 PASS cho các test bổ sung, chưa có red-before-fix execution,
-build/analyzers hoặc native acceptance. Container không có dotnet/gh; đường tải
-SDK trực tiếp không hoạt động. Đã tìm workflow offline có sẵn nhưng run
-34167427165 FAILED và artifact list rỗng; không có toolchain đã dùng thành công.
-
-Kiểm SHA, số test, whitespace và kiểm từ vựng chỉ là kiểm tĩnh, không thay C#
-compiler/test runner. Cần dispatch workflow `ci.yml` hiện có trên source SHA cuối,
-đọc actual build/analyzer/Editing/native/architecture outcomes; không nhận CI
-của commit cha hoặc tạo run thành công là test PASS. Không đổi base PR, workflow
-hay acceptance để ép xanh.
-
-## 6. Hiệu năng, bàn giao và rollback
-
-Không đổi render/scroll hoặc thêm dependency/package. Package creation vẫn
-quét sparse used cells như trước; Cut thêm kiểm merge, pending lease lưu snapshot
-merge và so sánh sau acknowledgement. Chưa có benchmark, không nhận cải thiện
-hiệu năng hoặc mức overhead cụ thể khi worksheet có nhiều merged ranges.
-
-Cộng dồn PR #5 có bốn paths: SpreadsheetClipboard.cs, ClipboardTests.cs,
-ClipboardSafetyTests.cs và contract này. Riêng C1-C chỉ thay source, ClipboardTests
-và contract; safety file giữ blob `126fc3372a9cf5ac003009ac7696144d0b21b6bb`.
-Progress riêng dùng expected-SHA lock;
-không sửa root/plan/shared status, PR #1/#4, host hoặc workflow. PR giữ Draft.
-
-Rollback C1-B bằng revert commit tương ứng về checkpoint C1-A; không migration
-workbook. Revert tiếp C1-A sẽ đưa lỗi Cut nhiều vùng trở lại. Cần kiểm lại đúng
-HEAD sau rollback, không gọi việc revert là đã nghiệm thu an toàn.
-
-Rollback C1-C bằng revert commit C1-C được nêu ở PR/progress để về e782ac1b;
-không migration workbook. Sẽ mất guard synchronous reentrancy/editor/detached sheet,
-không được coi rollback là đã an toàn. C1-B và C1-A vẫn giữ trong lịch sử.
-
-## 7. Kiểm quyền Cut và một thao tác ghi cho mỗi session
-
-Bổ sung sau checkpoint `142140b8b9415a2dad67a99b166de317d044d443`:
-
-```csharp
-Func<Worksheet, CellRange, bool>? CutAuthorization { get; set; }
-```
-
-Đây là điểm nối chính sách **do host/caller cung cấp** vào đường Cut đang có,
-không phải model protection thứ hai. Query nhận đúng worksheet instance và toàn
-bộ range nguồn. Query phải thuần, không đổi selection/dữ liệu, không mở hộp thoại
-và không thực hiện clipboard operation; có thể được gọi hai lần cho một Cut.
-False từ chối bằng InvalidOperationException; exception của provider được truyền
-ra. Không publish package mới hoặc xóa nguồn khi chưa được phép.
-
-Cut đồng bộ kiểm quyền trước khi tạo package và trước khi publish/xóa. Cut async
-kiểm trước transport và sau acknowledgement, ngay trước commit. Thu hồi quyền
-trong lúc chờ, kể cả qua trạng thái phía sau cùng delegate, phải được kiểm lại.
-Thay chính delegate qua bất kỳ controller nào của session làm lượt đang chờ mất
-hiệu lực; đổi policy thành null lúc đang chờ không cho phép lượt cũ tự tiếp tục.
-Sau callback lại kiểm lease; callback vô tình đổi sheet rồi quay lại, editor,
-selection hoặc nội dung không được khiến Cut xóa nguồn mới. Thay đổi do callback
-sai contract tự gây ra không được tự rollback hoặc nhận là do Cut thực hiện.
-
-Null giữ chính sách do caller quản lý như trước; **không có nghĩa XLSX đã được
-xác nhận không protection**. Host có dữ liệu chỉ đọc/bảo vệ phải gắn chính sách
-thật vào hook. Chưa nhập SheetProtection từ XLSX; không suy protected chỉ từ style
-Locked. Hook này chỉ kiểm Cut, không tự kiểm quyền cho Paste, edit trực tiếp hay
-Undo/Redo. Vì host vẫn chưa được cấp lượt sửa, chưa có bằng chứng nghiệm thu
-protection đầu-cuối trên các UI. Không được dùng sự tồn tại của hook để gọi
-protection/native acceptance DONE.
-
-Busy, invalidation, cancellation và CutAuthorization dùng chung qua controller
-canonical của **cùng SpreadsheetSession**. Public constructor tạo controller phụ
-không tạo một writer slot/quyền Cut độc lập. Controller phụ giữ package của mình
-như API cũ, nhưng Copy/Cut/Import và writer lồng bị chặn trong lúc một controller
-khác đang ghi; CanPaste/Paste phản ánh cùng busy gate. Controller phụ được gửi
-Cancel cho lượt đang chờ của session; gate chỉ mở khi transport thật sự kết thúc.
-Hai session khác nhau không dùng chung gate/policy. Không thêm static/global
-state, không coi gate này là khóa OS clipboard toàn ứng dụng hoặc thread safety.
-
-17 test methods mới trong ClipboardCutAuthorizationTests kiểm: từ chối sync/
-async trước transport; thu hồi/thay/xóa policy khi chờ; provider exception trước/
-sau acknowledgement; callback đổi nguồn/sheet; recheck trước publication; Cut
-được phép và Undo/Redo một bước; Copy không bị quyền Cut chặn; controller phụ
-không bypass policy/busy và có thể yêu cầu cancellation; query reentrancy;
-independent sessions. Giữ nguyên bytes của ClipboardTests.cs cũ (17 methods) và
-không sửa ClipboardSafetyTests.cs (49 methods), DynamicArrayClipboardTests.cs.
-Tổng test C1 bổ sung đến checkpoint này: **78 methods đã viết, CHƯA CHẠY**.
-
-Tài liệu và kiểm SHA/diff không thay build/test/CI. Runtime .NET/native và CI đúng
-HEAD vẫn cần thực thi. Không đề nghị người dùng nghiệm thu khi các cổng này chưa
-đạt; bản ghi hiện tại chỉ là checkpoint source. Rollback riêng bổ sung này bằng
-revert commit tương ứng trên PR #5, không migration workbook; quay lại checkpoint
-trước sẽ bỏ hook và cho phép controller phụ có busy gate độc lập như trước.
+Rollback batch bằng revert commit batch trong PR #5; không migration workbook.
+Metadata native mới chỉ thêm fields tùy chọn vào format version 1. Revert các
+bản C1 cũ riêng biệt có thể đưa nguy cơ mất dữ liệu multi-range trở lại.

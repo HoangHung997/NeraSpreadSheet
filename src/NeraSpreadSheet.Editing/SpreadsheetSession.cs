@@ -133,12 +133,20 @@ public sealed class SpreadsheetSession
             return;
         }
 
-        Editor.Cancel();
-        AnalyticsInteraction.ClearSelection();
-        ActiveWorksheet = worksheet;
-        Selection.SetActiveCell(default);
-        View.NotifyActiveWorksheetChanged();
-        ActiveWorksheetChanged?.Invoke(this, EventArgs.Empty);
+        var restored = View.BeginWorksheetActivation(worksheet);
+        try
+        {
+            Editor.Cancel();
+            AnalyticsInteraction.ClearSelection();
+            ActiveWorksheet = worksheet;
+            Selection.Restore(restored.Selection);
+            View.NotifyActiveWorksheetChanged();
+            ActiveWorksheetChanged?.Invoke(this, EventArgs.Empty);
+        }
+        finally
+        {
+            View.CompleteWorksheetActivation();
+        }
     }
 
     public void SetValue(CellAddress address, object? value)

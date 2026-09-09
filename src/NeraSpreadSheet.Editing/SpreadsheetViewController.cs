@@ -109,6 +109,7 @@ public sealed partial class SpreadsheetViewController
             throw new ArgumentOutOfRangeException(nameof(frozenColumns));
         }
 
+        if (IsRestoringWorksheetView) return false;
         var worksheet = _session.ActiveWorksheet;
         ValidateMergedBoundaries(worksheet, frozenRows, frozenColumns);
         var current = GetFreezeState(worksheet);
@@ -160,6 +161,7 @@ public sealed partial class SpreadsheetViewController
     {
         ValidateWorksheet(worksheet);
         ValidateChangeKind(changeKind);
+        if (IsRestoringWorksheetView) return false;
         var current = GetSplitState(worksheet);
         if (current == state)
         {

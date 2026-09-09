@@ -10,7 +10,7 @@ public sealed record SpreadsheetClipboardCell(
     CellAddress SourceAddress,
     CellData Data);
 
-public sealed class SpreadsheetClipboardPackage
+public sealed partial class SpreadsheetClipboardPackage
 {
     private readonly Dictionary<(int Row, int Column), SpreadsheetClipboardCell> _cells;
 
@@ -18,7 +18,9 @@ public sealed class SpreadsheetClipboardPackage
         string sourceWorksheetName,
         CellRange sourceRange,
         IEnumerable<SpreadsheetClipboardCell> cells,
-        bool translateFormulasOnPaste = true)
+        bool translateFormulasOnPaste = true,
+        Worksheet? sourceWorksheet = null,
+        Workbook? sourceWorkbook = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceWorksheetName);
         ArgumentNullException.ThrowIfNull(cells);
@@ -26,6 +28,7 @@ public sealed class SpreadsheetClipboardPackage
         SourceRange = sourceRange;
         TranslateFormulasOnPaste = translateFormulasOnPaste;
         _cells = cells.ToDictionary(cell => (cell.RowOffset, cell.ColumnOffset));
+        InitializeMetadata(sourceWorksheet, sourceWorkbook);
     }
 
     public string SourceWorksheetName { get; }
@@ -98,7 +101,7 @@ public sealed class SpreadsheetClipboardPackage
     }
 }
 
-public sealed class SpreadsheetClipboardController
+public sealed partial class SpreadsheetClipboardController
 {
     public const long DefaultMaximumMaterializedCells = 1_000_000;
     private readonly SpreadsheetSession _session;
@@ -117,7 +120,7 @@ public sealed class SpreadsheetClipboardController
     }
 
     public SpreadsheetClipboardPackage? Clipboard { get; private set; }
-    public bool CanPaste => Clipboard is not null && !OperationState.IsPending;
+    public bool CanPaste => IsPublishedPayloadCurrent && !OperationState.IsPending;
 
     /// <summary>Gets whether any clipboard controller in this session is writing or cutting.</summary>
     public bool IsClipboardWritePending => OperationState.IsPending;
@@ -155,8 +158,9 @@ public sealed class SpreadsheetClipboardController
     public SpreadsheetClipboardPackage CopyPrimarySelection()
     {
         EnsureClipboardIdle();
-        Clipboard = CreatePrimarySelectionPackage();
-        return Clipboard;
+        PublishPackage(CreatePrimarySelectionPackage(), SpreadsheetClipboardOperation.Copy, false);
+        SignalStateChanged();
+        return Clipboard!;
     }
 
     private SpreadsheetClipboardPackage CreatePrimarySelectionPackage()
@@ -193,7 +197,9 @@ public sealed class SpreadsheetClipboardController
         return new SpreadsheetClipboardPackage(
             worksheet.Name,
             range,
-            cells);
+            cells,
+            sourceWorksheet: worksheet,
+            sourceWorkbook: _session.Workbook);
     }
 
     /// <summary>
@@ -239,22 +245,33 @@ public sealed class SpreadsheetClipboardController
         _session.Editor.StateChanged += OnPendingWriteContextChanged;
         try
         {
+            SignalStateChanged();
             EnsureCutAuthorized(worksheet, range);
             if (!IsWriteLeaseCurrent(lease))
             {
-                return false;
+                return RejectStaleClipboard();
             }
             var package = CreatePrimarySelectionPackage();
             EnsureCutAuthorized(worksheet, range);
             if (!IsWriteLeaseCurrent(lease))
             {
-                return false;
+                return RejectStaleClipboard();
             }
 
             // Do not publish a rejected package. Once the clear begins, retain the
             // source package even if a downstream observer throws during mutation.
-            Clipboard = package;
+            PublishPackage(package, SpreadsheetClipboardOperation.Cut, false);
             return _session.ClearSelection();
+        }
+        catch (OperationCanceledException exception)
+        {
+            RecordClipboardFailure(exception, canceled: true);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            RecordClipboardFailure(exception, canceled: false);
+            throw;
         }
         finally
         {
@@ -262,6 +279,7 @@ public sealed class SpreadsheetClipboardController
             _session.Editor.StateChanged -= OnPendingWriteContextChanged;
             OperationState.Invalidated = false;
             OperationState.IsPending = false;
+            SignalStateChanged();
         }
     }
 
@@ -320,6 +338,7 @@ public sealed class SpreadsheetClipboardController
         _session.Editor.StateChanged += OnPendingWriteContextChanged;
         try
         {
+            SignalStateChanged();
             if (cut)
             {
                 EnsureCutAuthorized(worksheet, range);
@@ -327,7 +346,7 @@ public sealed class SpreadsheetClipboardController
             linkedCancellation.Token.ThrowIfCancellationRequested();
             if (!IsWriteLeaseCurrent(lease))
             {
-                return false;
+                return RejectStaleClipboard();
             }
             var package = CreatePrimarySelectionPackage();
             // Do not ConfigureAwait(false): mutation must return to the owning UI context.
@@ -335,7 +354,7 @@ public sealed class SpreadsheetClipboardController
             linkedCancellation.Token.ThrowIfCancellationRequested();
             if (!IsWriteLeaseCurrent(lease))
             {
-                return false;
+                return RejectStaleClipboard();
             }
 
             if (cut)
@@ -346,15 +365,25 @@ public sealed class SpreadsheetClipboardController
                 // if a query inadvertently changes the session while authorizing it.
                 if (!IsWriteLeaseCurrent(lease))
                 {
-                    return false;
+                    return RejectStaleClipboard();
                 }
             }
 
             // The transport has acknowledged this package. Do not discard it if a
             // later session/history subscriber throws after worksheet mutation begins.
             OperationState.CancelPending = null;
-            Clipboard = package;
+            PublishPackage(package, cut ? SpreadsheetClipboardOperation.Cut : SpreadsheetClipboardOperation.Copy, true);
             return !cut || _session.ClearSelection();
+        }
+        catch (OperationCanceledException exception)
+        {
+            RecordClipboardFailure(exception, canceled: true);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            RecordClipboardFailure(exception, canceled: false);
+            throw;
         }
         finally
         {
@@ -363,6 +392,7 @@ public sealed class SpreadsheetClipboardController
             OperationState.CancelPending = null;
             OperationState.Invalidated = false;
             OperationState.IsPending = false;
+            SignalStateChanged();
         }
     }
 
@@ -401,7 +431,8 @@ public sealed class SpreadsheetClipboardController
             _session.Selection.AnchorCell,
             range,
             _session.View.Version,
-            worksheet.MergedCells.Ranges.ToArray());
+            worksheet.MergedCells.Ranges.ToArray(),
+            _session.Selection.Ranges.ToArray());
 
     private void EnsureCutAuthorized(Worksheet worksheet, CellRange range)
     {
@@ -423,8 +454,7 @@ public sealed class SpreadsheetClipboardController
         _session.Selection.Version == lease.SelectionVersion &&
         _session.Selection.ActiveCell == lease.ActiveCell &&
         _session.Selection.AnchorCell == lease.AnchorCell &&
-        _session.Selection.Ranges.Count == 1 &&
-        _session.Selection.Ranges[0] == lease.Range &&
+        _session.Selection.Ranges.SequenceEqual(lease.SelectionRanges) &&
         _session.View.Version == lease.ViewVersion &&
         lease.Worksheet.MergedCells.Ranges.SequenceEqual(lease.MergedRanges);
 
@@ -448,10 +478,16 @@ public sealed class SpreadsheetClipboardController
 
     private sealed class ClipboardOperationState
     {
+        public SpreadsheetClipboardStatus LastStatus { get; set; }
+        public Exception? LastError { get; set; }
         public bool IsPending { get; set; }
         public bool Invalidated { get; set; }
         public Action? CancelPending { get; set; }
         public Func<Worksheet, CellRange, bool>? CutAuthorization { get; set; }
+        public Func<Worksheet, CellRange, SpreadsheetClipboardPasteMode, bool>? PasteAuthorization { get; set; }
+        public long ExternalGeneration { get; set; }
+        public long StateVersion { get; set; }
+        public EventHandler? Changed { get; set; }
     }
 
     private sealed record ClipboardWriteLease(
@@ -465,12 +501,22 @@ public sealed class SpreadsheetClipboardController
         CellAddress AnchorCell,
         CellRange Range,
         long ViewVersion,
-        CellRange[] MergedRanges);
+        CellRange[] MergedRanges,
+        CellRange[] SelectionRanges);
 
     public SpreadsheetClipboardPackage ImportTabSeparatedText(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
         EnsureClipboardIdle();
+        PublishPackage(CreateExternalPackage(text), SpreadsheetClipboardOperation.External, false);
+        SignalStateChanged();
+        return Clipboard!;
+    }
+
+    private SpreadsheetClipboardPackage CreateExternalPackage(string text)
+    {
+        if (text.Length > 16 * 1024 * 1024)
+            throw new InvalidOperationException("Clipboard text exceeds the 16 Mi-character limit.");
         var rows = ParseTabSeparatedText(text);
         var rowCount = Math.Max(1, rows.Count);
         var columnCount = Math.Max(1, rows.Max(row => row.Count));
@@ -491,55 +537,17 @@ public sealed class SpreadsheetClipboardController
             }
         }
 
-        Clipboard = new SpreadsheetClipboardPackage(
+        return new SpreadsheetClipboardPackage(
             "ExternalText",
             logicalRange,
             cells,
             translateFormulasOnPaste: false);
-        return Clipboard;
     }
 
     public bool PasteAtActiveCell() => Paste(_session.Selection.ActiveCell);
 
-    public bool Paste(CellAddress destination)
-    {
-        if (Clipboard is null || OperationState.IsPending)
-        {
-            return false;
-        }
-        EnsureTargetFits(Clipboard, destination);
-        EnsureMaterializationLimit(Clipboard.SourceRange);
-        var pastedRange = CreateTargetRange(Clipboard, destination);
-        EnsureTargetDoesNotIntersectSpill(pastedRange);
-
-        var updates = new List<KeyValuePair<CellAddress, CellData>>(checked(Clipboard.RowCount * Clipboard.ColumnCount));
-        for (var rowOffset = 0; rowOffset < Clipboard.RowCount; rowOffset++)
-        {
-            for (var columnOffset = 0; columnOffset < Clipboard.ColumnCount; columnOffset++)
-            {
-                var targetAddress = new CellAddress(destination.RowIndex + rowOffset, destination.ColumnIndex + columnOffset);
-                CellData data;
-                if (Clipboard.TryGetStoredCell(rowOffset, columnOffset, out var stored))
-                {
-                    var formula = stored.Data.Formula;
-                    if (formula is not null && Clipboard.TranslateFormulasOnPaste)
-                    {
-                        formula = FormulaReferenceTranslator.Translate(formula, stored.SourceAddress, targetAddress);
-                    }
-                    data = new CellData(stored.Data.Value, formula, stored.Data.StyleId);
-                }
-                else
-                {
-                    data = CellData.Empty;
-                }
-                updates.Add(new KeyValuePair<CellAddress, CellData>(targetAddress, data));
-            }
-        }
-
-        _session.Execute(new SetCellsOperation(_session.ActiveWorksheet, updates, "Paste cells"));
-        _session.Selection.Select(pastedRange);
-        return true;
-    }
+    public bool Paste(CellAddress destination) =>
+        Paste(destination, SpreadsheetClipboardPasteMode.All);
 
     private static CellData ParseExternalCell(string text)
     {
