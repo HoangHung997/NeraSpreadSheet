@@ -349,6 +349,10 @@ public sealed partial class SpreadsheetClipboardController
                 return RejectStaleClipboard();
             }
             var package = CreatePrimarySelectionPackage();
+            // A write attempt can replace OS data even when it later throws or
+            // returns after cancellation. Retire all prior native ownership leases
+            // before calling transport; in-process recovery packages stay intact.
+            OperationState.OsGeneration++;
             // Do not ConfigureAwait(false): mutation must return to the owning UI context.
             await writeAsync(package, linkedCancellation.Token).ConfigureAwait(true);
             linkedCancellation.Token.ThrowIfCancellationRequested();
@@ -486,6 +490,7 @@ public sealed partial class SpreadsheetClipboardController
         public Func<Worksheet, CellRange, bool>? CutAuthorization { get; set; }
         public Func<Worksheet, CellRange, SpreadsheetClipboardPasteMode, bool>? PasteAuthorization { get; set; }
         public long ExternalGeneration { get; set; }
+        public long OsGeneration { get; set; }
         public long StateVersion { get; set; }
         public EventHandler? Changed { get; set; }
     }

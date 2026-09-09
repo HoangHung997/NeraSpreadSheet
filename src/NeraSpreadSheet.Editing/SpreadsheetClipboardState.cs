@@ -90,6 +90,7 @@ public sealed partial class SpreadsheetClipboardController
     private bool _copyMode;
     private bool _hasOsOwnership;
     private long _publishedGeneration;
+    private long _osOwnershipGeneration;
 
     public event EventHandler? StateChanged
     {
@@ -100,11 +101,14 @@ public sealed partial class SpreadsheetClipboardController
     public SpreadsheetClipboardState State => new(
         OperationState.StateVersion, _clipboardOperation, OperationState.IsPending, CanPasteSpecial(SpreadsheetClipboardPasteMode.All),
         _copyMode && IsPublishedPayloadCurrent, Clipboard?.PayloadId, Clipboard?.SourceWorkbook,
-        Clipboard?.SourceWorksheet, Clipboard?.SourceRange, _hasOsOwnership && IsPublishedPayloadCurrent,
+        Clipboard?.SourceWorksheet, Clipboard?.SourceRange, HasCurrentOsOwnership,
         OperationState.IsPending ? SpreadsheetClipboardStatus.Busy : OperationState.LastStatus, OperationState.LastError);
 
     private bool IsPublishedPayloadCurrent => Clipboard is not null &&
         _publishedGeneration == OperationState.ExternalGeneration;
+
+    private bool HasCurrentOsOwnership => _hasOsOwnership && IsPublishedPayloadCurrent &&
+        _osOwnershipGeneration == OperationState.OsGeneration;
 
     /// <summary>Queries basic command availability without evaluating a host authorization callback.</summary>
     public bool CanCopy => !OperationState.IsPending && !_session.Editor.IsEditing &&
@@ -160,6 +164,7 @@ public sealed partial class SpreadsheetClipboardController
     public void NotifyExternalClipboardChanged()
     {
         OperationState.ExternalGeneration++;
+        OperationState.OsGeneration++;
         OperationState.LastStatus = SpreadsheetClipboardStatus.Stale;
         if (OperationState.IsPending) OperationState.Invalidated = true;
         _copyMode = false;
@@ -176,6 +181,7 @@ public sealed partial class SpreadsheetClipboardController
         _publishedGeneration = OperationState.ExternalGeneration;
         _copyMode = operation is SpreadsheetClipboardOperation.Copy or SpreadsheetClipboardOperation.Cut;
         _hasOsOwnership = osOwned;
+        _osOwnershipGeneration = OperationState.OsGeneration;
     }
 
     private bool RejectStaleClipboard()
@@ -258,12 +264,23 @@ public sealed partial class SpreadsheetClipboardController
             var data = await readAsync(cancellation.Token).ConfigureAwait(true);
             cancellation.Token.ThrowIfCancellationRequested();
             if (!IsWriteLeaseCurrent(lease)) return RejectStaleClipboard();
-            if (data is null) return false;
+            if (data is null)
+            {
+                ObserveExternalClipboardReplacement();
+                return false;
+            }
+            var native = HasCurrentOsOwnership && data.PayloadId == Clipboard!.PayloadId &&
+                string.Equals(data.Text, Clipboard.ToTabSeparatedText(), StringComparison.Ordinal);
+            if (!native)
+            {
+                // A successful read has disproved the old private ownership lease.
+                // Revoke it even if parsing, authorization or paste later fails. Keep
+                // the old package only as recovery data, never as an implicit fallback.
+                ObserveExternalClipboardReplacement();
+            }
             ArgumentNullException.ThrowIfNull(data.Text);
             if (data.Text.Length > 16 * 1024 * 1024)
                 throw new InvalidOperationException("Clipboard text exceeds the 16 Mi-character limit.");
-            var native = _hasOsOwnership && IsPublishedPayloadCurrent && data.PayloadId == Clipboard!.PayloadId &&
-                string.Equals(data.Text, Clipboard.ToTabSeparatedText(), StringComparison.Ordinal);
             var package = native ? Clipboard! : CreateExternalPackage(data.Text);
             cancellation.Token.ThrowIfCancellationRequested();
             return ApplyPaste(package, lease.ActiveCell, mode, lease, publishExternal: !native, cancellation.Token);
@@ -287,6 +304,17 @@ public sealed partial class SpreadsheetClipboardController
             OperationState.IsPending = false;
             SignalStateChanged();
         }
+    }
+
+    private void ObserveExternalClipboardReplacement()
+    {
+        // Unlike the external notification API, this observation belongs to the
+        // current read. Do not invalidate its destination lease or cancel it.
+        OperationState.ExternalGeneration++;
+        OperationState.OsGeneration++;
+        OperationState.LastStatus = SpreadsheetClipboardStatus.Stale;
+        _copyMode = false;
+        _hasOsOwnership = false;
     }
 
     private void EnsurePasteContext()
@@ -357,7 +385,7 @@ public sealed partial class SpreadsheetClipboardController
         if (!IsWriteLeaseCurrent(lease)) return RejectStaleClipboard();
         cancellationToken.ThrowIfCancellationRequested();
         OperationState.CancelPending = null;
-        if (publishExternal) PublishPackage(package, SpreadsheetClipboardOperation.External, true);
+        if (publishExternal) PublishPackage(package, SpreadsheetClipboardOperation.External, false);
         _session.Execute(operation);
         // A model observer may switch sheets or move the selection. Never overwrite that newer intent.
         if (ReferenceEquals(_session.ActiveWorksheet, worksheet) && _session.Selection.Version == lease.SelectionVersion)

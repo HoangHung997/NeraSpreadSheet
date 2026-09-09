@@ -45,9 +45,9 @@ Workbook serializer đã giữ envelope XLSX khi PreserveUnknownParts=true. Sess
 serializer tái sử dụng envelope đó, không tạo workbook/XML preservation store
 thứ hai. SheetViews không còn bị xóa cả collection khi lưu.
 
-Chọn SheetView cuối theo đường import hiện có và patch đúng view đó. Giữ
-WorkbookViewId, sibling views, attributes/extension children không do state mới
-quản lý. Pane/selection được chèn qua AddChild theo schema order thay vì prepend
+Chọn WorkbookViewId một lần theo view cuối của sheet đầu tiên có view, rồi
+đọc/patch đúng ID đó trên tất cả sheet. Giữ sibling views và attributes/extension
+children không do state mới quản lý. Pane/selection được chèn qua AddChild theo schema order thay vì prepend
 trước sheetPr/dimension. View ID không được tự reset về 0 khi view đã tồn tại;
 reference đến workbook view không tồn tại bị từ chối. WorkbookView tương ứng
 được cập nhật ActiveTab; các workbook views khác được giữ.
@@ -99,3 +99,37 @@ có runtime .NET khả dụng tại lúc viết; kết quả execution vẫn pen
 Rollback: revert batch commit, không migration workbook. Reader cũ hiểu pane
 fields version 1 nhưng không sử dụng các optional fields mới. Revert cũng bỏ
 bảo vệ SheetViews mới, không được gọi là trạng thái đã nghiệm thu.
+
+## Rà soát batch007 — cập nhật viewport và binding cửa sổ
+
+SetWorksheetViewport chỉ cập nhật zoom/TopLeftScroll, không gọi đường restore
+selection hoặc normalize hidden/merged cell. Cuộn không được tự dời active cell,
+phát lại freeze không đổi hoặc tạo history. Zoom-only phát WorksheetViewChanged
+và tăng View.Version; đổi offset phát PaneScroll, giữ source tag và feedback guard.
+Đặt đúng trạng thái hiện hành không phát event. Full SetWorksheetState vẫn
+normalize, nhưng so sánh trạng thái đã normalize trước khi ghi cache.
+
+View snapshot từ chối active cell nằm ngoài tất cả selected ranges trước khi
+nhận vào cache; anchor vẫn được bảo toàn riêng. Nếu callback trong activation
+ném lỗi, giải phóng feedback guard và giữ nguyên lỗi; không phát completion giả
+trong finally. Đây không phải rollback mọi side effect do callback tùy ý gây ra.
+
+Session serializer chọn WorkbookViewId ban đầu một lần, từ view cuối của sheet
+đầu tiên có view, rồi đọc/patch đúng ID đó trên tất cả worksheet. Thứ tự XML
+SheetView khác nhau trên các sheet không được làm trộn các cửa sổ. Sheet thiếu
+view cùng ID nhận state mặc định; khi cần ghi state thì thêm đúng ID, không sửa
+view thuộc cửa sổ khác. Kiểm ID có workbook view tương ứng. Mappings đếm
+WorksheetPart thực, giữ chỉ số Sheet gốc để map ActiveTab; không dùng chỉ số grid
+worksheet để vô tình chọn nhầm non-grid sheet. Điều này không mở rộng workbook
+serializer thành hỗ trợ đầy đủ chart-sheet/topology preservation.
+
+Thêm 8 tests SpreadsheetWorksheetViewStateRegressionTests và 8 tests
+WorksheetViewStateWindowBindingTests: viewport không đổi selection/freeze,
+source tag/guard/no-op/error paths; thứ tự view đảo giữa hai sheet, view thiếu,
+ID không tồn tại, duplicate SheetViews và hai vòng lưu/nạp. Các assertion schema
+và toàn bộ tests chưa được chạy. Không giảm assertion/test cũ.
+
+Cross-session inactive structural identity remapping và H1 vẫn cần typed
+transaction/host grant. Không giả lập structural signal bằng CellsChanged hoặc
+lấy những sửa lỗi binding này để đóng các phần đó. Chưa có build, benchmark,
+native smoke hoặc exact-head CI cho batch007.

@@ -7,8 +7,8 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
 using NeraSpreadSheet.Interaction;
+using NeraWorkbook = NeraSpreadSheet.Core.Workbook;
 using NeraWorksheet = NeraSpreadSheet.Core.Worksheet;
-using OpenXmlWorksheet = DocumentFormat.OpenXml.Spreadsheet.Worksheet;
 
 namespace NeraSpreadSheet.OpenXml;
 
@@ -147,20 +147,24 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         SpreadsheetSession session,
         CancellationToken cancellationToken)
     {
-        foreach (var mapping in EnumerateWorksheetMappings(document, session.Workbook))
+        var mappings = EnumerateWorksheetMappings(document, session.Workbook).ToArray();
+        // Select one workbook window for the entire session. SheetView order may
+        // differ from sheet to sheet; choosing Last() separately mixes windows.
+        var viewId = SelectedWorkbookViewId(document, session.Workbook);
+        foreach (var mapping in mappings)
         {
             cancellationToken.ThrowIfCancellationRequested();
             PatchStandardSheetView(document, mapping.WorksheetPart, mapping.Worksheet,
-                session.View.GetWorksheetState(mapping.Worksheet));
+                session.View.GetWorksheetState(mapping.Worksheet), viewId);
         }
         var workbook = document.WorkbookPart?.Workbook
             ?? throw new InvalidDataException("Workbook XML is missing.");
-        var activeIndex = session.Workbook.Worksheets.ToList().IndexOf(session.ActiveWorksheet);
+        var activeIndex = mappings.Single(mapping =>
+            ReferenceEquals(mapping.Worksheet, session.ActiveWorksheet)).SheetIndex;
         var bookViews = workbook.GetFirstChild<BookViews>();
         if (bookViews is not null || activeIndex != 0)
         {
             bookViews ??= EnsureBookViews(workbook);
-            var viewId = SelectedWorkbookViewId(document, session.Workbook);
             var view = bookViews.Elements<WorkbookView>().ElementAtOrDefault(checked((int)viewId))
                 ?? throw new InvalidDataException("A sheet view refers to an absent workbook view.");
             view.ActiveTab = checked((uint)activeIndex);
@@ -183,29 +187,45 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
         return views;
     }
 
-    private static SheetView? SelectedSheetView(WorksheetPart part) =>
-        part.Worksheet?.GetFirstChild<SheetViews>()?.Elements<SheetView>().LastOrDefault();
+    private static SheetView? SelectedSheetView(WorksheetPart part, uint workbookViewId)
+    {
+        var worksheet = part.Worksheet;
+        if (worksheet?.Elements<SheetViews>().Skip(1).Any() == true)
+            throw new InvalidDataException("A worksheet contains duplicate SheetViews collections.");
+        return worksheet?.GetFirstChild<SheetViews>()?.Elements<SheetView>()
+            .LastOrDefault(view => (view.WorkbookViewId?.Value ?? 0U) == workbookViewId);
+    }
 
-    private static uint SelectedWorkbookViewId(SpreadsheetDocument document, Workbook workbook) =>
-        EnumerateWorksheetMappings(document, workbook)
-            .Select(mapping => SelectedSheetView(mapping.WorksheetPart)?.WorkbookViewId?.Value)
-            .FirstOrDefault(id => id.HasValue) ?? 0U;
+    private static uint SelectedWorkbookViewId(SpreadsheetDocument document, NeraWorkbook workbook)
+    {
+        // Keep the established initial-window choice, then bind every other sheet
+        // to that same ID. Never derive an independent window choice per sheet.
+        var id = EnumerateWorksheetMappings(document, workbook)
+            .Select(mapping => mapping.WorksheetPart.Worksheet?.GetFirstChild<SheetViews>()?
+                .Elements<SheetView>().LastOrDefault()?.WorkbookViewId?.Value)
+            .FirstOrDefault(value => value.HasValue) ?? 0U;
+        var count = document.WorkbookPart?.Workbook?.GetFirstChild<BookViews>()?
+            .Elements<WorkbookView>().Count() ?? 0;
+        if (id > int.MaxValue || (count == 0 ? id != 0U : id >= count))
+            throw new InvalidDataException("A worksheet view refers to an absent workbook view.");
+        return id;
+    }
 
     private static void PatchStandardSheetView(SpreadsheetDocument document, WorksheetPart part,
-        NeraWorksheet worksheet, SpreadsheetWorksheetViewState viewState)
+        NeraWorksheet worksheet, SpreadsheetWorksheetViewState viewState, uint workbookViewId)
     {
         var xml = part.Worksheet ?? throw new InvalidDataException("Worksheet XML is missing.");
         if (xml.Elements<SheetViews>().Skip(1).Any())
             throw new InvalidDataException("A worksheet contains duplicate SheetViews collections.");
         var views = xml.GetFirstChild<SheetViews>();
-        var view = views?.Elements<SheetView>().LastOrDefault();
+        var view = SelectedSheetView(part, workbookViewId);
         if (view is null && !HasPersistentViewState(viewState)) return;
         if (view is null)
         {
             EnsureBookViews(document.WorkbookPart?.Workbook ?? throw new InvalidDataException("Workbook XML is missing."));
             views ??= new SheetViews();
             if (views.Parent is null) xml.AddChild(views, true);
-            view = new SheetView { WorkbookViewId = 0U };
+            view = new SheetView { WorkbookViewId = workbookViewId };
             views.Append(view);
         }
         var workbookXml = document.WorkbookPart?.Workbook ?? throw new InvalidDataException("Workbook XML is missing.");
@@ -333,12 +353,14 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
 
     private static void ImportStandardSplitViews(SpreadsheetDocument document, SpreadsheetSession session)
     {
-        foreach (var mapping in EnumerateWorksheetMappings(document, session.Workbook))
+        var viewId = SelectedWorkbookViewId(document, session.Workbook);
+        var mappings = EnumerateWorksheetMappings(document, session.Workbook).ToArray();
+        foreach (var mapping in mappings)
         {
-            var view = SelectedSheetView(mapping.WorksheetPart);
+            var view = SelectedSheetView(mapping.WorksheetPart, viewId);
             if (view is null) continue;
             var pane = view.GetFirstChild<Pane>();
-            var split = ReadStandardSplitView(mapping.WorksheetPart, mapping.Worksheet);
+            var split = ReadStandardSplitView(view, mapping.Worksheet);
             var frozen = pane?.State?.Value == PaneStateValues.Frozen || pane?.State?.Value == PaneStateValues.FrozenSplit;
             var frozenRows = frozen ? ParseFreezeCount(pane?.VerticalSplit?.Value, SpreadsheetLimits.MaxRows) : 0;
             var frozenColumns = frozen ? ParseFreezeCount(pane?.HorizontalSplit?.Value, SpreadsheetLimits.MaxColumns) : 0;
@@ -376,11 +398,13 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
                 throw new InvalidDataException("The XLSX sheet view contains invalid selection, zoom or pane state.", exception);
             }
         }
-        var viewId = SelectedWorkbookViewId(document, session.Workbook);
         var workbookView = document.WorkbookPart?.Workbook.GetFirstChild<BookViews>()?
             .Elements<WorkbookView>().ElementAtOrDefault(checked((int)viewId));
-        if (workbookView?.ActiveTab?.Value is { } activeTab && activeTab < session.Workbook.Worksheets.Count)
-            session.ActivateWorksheet(session.Workbook.Worksheets[checked((int)activeTab)]);
+        if (workbookView?.ActiveTab?.Value is { } activeTab)
+        {
+            var mapping = mappings.FirstOrDefault(item => item.SheetIndex == activeTab);
+            if (mapping is not null) session.ActivateWorksheet(mapping.Worksheet);
+        }
     }
 
     private static int ParseFreezeCount(double? value, int limit)
@@ -416,12 +440,10 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
     }
 
     private static SpreadsheetSplitViewState ReadStandardSplitView(
-        WorksheetPart worksheetPart,
+        SheetView sheetView,
         NeraWorksheet worksheet)
     {
-        var sheetViews = worksheetPart.Worksheet?.GetFirstChild<SheetViews>();
-        var sheetView = sheetViews?.Elements<SheetView>().LastOrDefault();
-        var pane = sheetView?.GetFirstChild<Pane>();
+        var pane = sheetView.GetFirstChild<Pane>();
         if (pane is null)
         {
             return default;
@@ -746,14 +768,14 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
 
     private static IEnumerable<WorksheetMapping> EnumerateWorksheetMappings(
         SpreadsheetDocument document,
-        Workbook workbook)
+        NeraWorkbook workbook)
     {
         var workbookPart = document.WorkbookPart
             ?? throw new InvalidDataException("The XLSX package does not contain a workbook part.");
         var sheets = workbookPart.Workbook?.GetFirstChild<Sheets>()?.Elements<Sheet>().ToArray()
             ?? throw new InvalidDataException("The XLSX workbook does not contain a sheets collection.");
-        var count = Math.Min(sheets.Length, workbook.Worksheets.Count);
-        for (var index = 0; index < count; index++)
+        var worksheetIndex = 0;
+        for (var index = 0; index < sheets.Length; index++)
         {
             var relationshipId = sheets[index].Id?.Value;
             if (string.IsNullOrWhiteSpace(relationshipId) ||
@@ -761,8 +783,17 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
             {
                 continue;
             }
-            yield return new WorksheetMapping(workbook.Worksheets[index], worksheetPart);
+            if (worksheetIndex >= workbook.Worksheets.Count)
+                throw new InvalidDataException("The XLSX worksheet collection does not match the session workbook.");
+            // Chart sheets are not loaded as grid worksheets. Count actual
+            // WorksheetParts only, while retaining the original ActiveTab index.
+            var worksheet = workbook.Worksheets[worksheetIndex++];
+            if (!string.Equals(sheets[index].Name?.Value, worksheet.Name, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("The XLSX worksheet binding does not match the session workbook.");
+            yield return new WorksheetMapping(worksheet, worksheetPart, index);
         }
+        if (worksheetIndex != workbook.Worksheets.Count)
+            throw new InvalidDataException("The XLSX worksheet collection does not match the session workbook.");
     }
 
     private static SpreadsheetSplitViewMode ResolveMode(double? splitX, double? splitY) =>
@@ -911,7 +942,8 @@ public sealed class NeraOpenXmlSpreadsheetSessionSerializer : IOpenXmlSpreadshee
 
     private sealed record WorksheetMapping(
         NeraWorksheet Worksheet,
-        WorksheetPart WorksheetPart);
+        WorksheetPart WorksheetPart,
+        int SheetIndex);
 
     private sealed record WorksheetSplitState(
         string WorksheetName,

@@ -132,3 +132,25 @@ vẫn được ghi pending riêng, không đóng bằng test shared.
 Rollback batch bằng revert commit batch trong PR #5; không migration workbook.
 Metadata native mới chỉ thêm fields tùy chọn vào format version 1. Revert các
 bản C1 cũ riêng biệt có thể đưa nguy cơ mất dữ liệu multi-range trở lại.
+
+## Rà soát batch007 — quyền sở hữu không đồng nghĩa dữ liệu phục hồi
+
+Một lần thử ghi OS có thể đã thay clipboard trước khi flush thất bại. Vì vậy,
+ngay trước khi gọi transport, controller tăng generation quyền sở hữu OS dùng
+chung trong session. Gói cũ vẫn giữ để phục hồi, nhưng stamp cũ không còn được
+nhận là một lần ghi OS còn hiệu lực. Ghi thành công từ controller phụ cũng làm
+stamp của controller cũ mất hiệu lực mà không xóa package trong bộ nhớ.
+
+Khi callback đọc thành công trả về dữ liệu khác payload/token/text hiện hành,
+hoặc không có dữ liệu văn bản, các lease private cũ bị vô hiệu hóa ngay. Việc này
+xảy ra trước parse, Values hoặc PasteAuthorization: lỗi/deny sau đó không được
+vô tình bật lại fallback private cũ. Một lần đọc lỗi trước khi có observation
+không bị nhận là bằng chứng clipboard đã đổi. Dữ liệu external được dán thành
+công có thể làm payload nội bộ mới, nhưng không được nhận HasOsOwnership=true;
+đọc clipboard không phải ghi clipboard.
+
+Thêm 10 tests ClipboardOwnershipRegressionTests cho các trường hợp trên,
+bao gồm controller phụ, transport thất bại, stale acknowledgement, formula
+translation và history. Đây là test code, CHƯA CHẠY. Không suy nghiệm thu OS
+thật hoặc khóa liên-session từ các fake transport này. Các giới hạn H1, actual
+protection và downstream transaction nêu trên vẫn OPEN.

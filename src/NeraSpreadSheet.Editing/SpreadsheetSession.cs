@@ -142,10 +142,14 @@ public sealed class SpreadsheetSession
             Selection.Restore(restored.Selection);
             View.NotifyActiveWorksheetChanged();
             ActiveWorksheetChanged?.Invoke(this, EventArgs.Empty);
-        }
-        finally
-        {
             View.CompleteWorksheetActivation();
+        }
+        catch
+        {
+            // Do not publish a successful completion from a finally block: a
+            // second observer failure would hide the original activation error.
+            View.AbortWorksheetActivation();
+            throw;
         }
     }
 

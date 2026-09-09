@@ -12,6 +12,8 @@ public sealed class SpreadsheetWorksheetViewState
         ArgumentNullException.ThrowIfNull(selection);
         ArgumentNullException.ThrowIfNull(selection.Ranges);
         if (selection.Ranges.Count == 0) throw new ArgumentException("A view requires at least one selected range.", nameof(selection));
+        if (!selection.Ranges.Any(range => range.Contains(selection.ActiveCell)))
+            throw new ArgumentException("The active cell must belong to a selected range.", nameof(selection));
         if (!double.IsFinite(zoom) || zoom < 0.1d || zoom > 4d) throw new ArgumentOutOfRangeException(nameof(zoom));
         if (frozenRows < 0 || frozenRows >= SpreadsheetLimits.MaxRows) throw new ArgumentOutOfRangeException(nameof(frozenRows));
         if (frozenColumns < 0 || frozenColumns >= SpreadsheetLimits.MaxColumns) throw new ArgumentOutOfRangeException(nameof(frozenColumns));
@@ -76,8 +78,8 @@ public sealed partial class SpreadsheetViewController
         if (IsRestoringWorksheetView) return false;
         ValidateMergedBoundaries(worksheet, state.FrozenRows, state.FrozenColumns);
         var current = GetWorksheetState(worksheet);
-        if (SameState(current, state)) return false;
         var normalized = NormalizeState(worksheet, state);
+        if (SameState(current, normalized)) return false;
         _worksheetViews[worksheet] = normalized;
         if (normalized.SplitState == default) _splitStates.Remove(worksheet);
         else _splitStates[worksheet] = normalized.SplitState;
@@ -105,7 +107,28 @@ public sealed partial class SpreadsheetViewController
         var next = new SpreadsheetWorksheetViewState(state.Selection, zoom,
             state.SplitState.WithPaneScroll(SpreadsheetSplitViewPane.TopLeft, offsetX, offsetY),
             state.FrozenRows, state.FrozenColumns);
-        return SetWorksheetState(worksheet, next, source);
+        if (IsRestoringWorksheetView ||
+            state.Zoom == next.Zoom && state.SplitState == next.SplitState)
+            return false;
+
+        // Viewport input must not normalize or restore the selection, republish
+        // unchanged freeze boundaries, or touch workbook/history. In particular,
+        // scrolling while an active cell is hidden must not move that active cell.
+        _worksheetViews[worksheet] = next;
+        var scrollChanged = state.SplitState != next.SplitState;
+        if (next.SplitState == default) _splitStates.Remove(worksheet);
+        else _splitStates[worksheet] = next.SplitState;
+        IsRestoringWorksheetView = true;
+        try
+        {
+            if (scrollChanged)
+                PublishSplit(worksheet, next.SplitState, SpreadsheetSplitViewChangeKind.PaneScroll, source);
+            else
+                Version++;
+            WorksheetViewChanged?.Invoke(this, new(worksheet, GetWorksheetState(worksheet), source));
+        }
+        finally { IsRestoringWorksheetView = false; }
+        return true;
     }
 
     /// <summary>Clamps only this worksheet using actual viewport maximum offsets supplied by its host.</summary>
@@ -128,6 +151,8 @@ public sealed partial class SpreadsheetViewController
         IsRestoringWorksheetView = true;
         return state;
     }
+
+    internal void AbortWorksheetActivation() => IsRestoringWorksheetView = false;
 
     internal void CompleteWorksheetActivation()
     {
