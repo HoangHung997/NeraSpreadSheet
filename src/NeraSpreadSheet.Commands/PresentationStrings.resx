@@ -1407,4 +1407,8 @@ Chọn một mục bên phải để đổi hiển thị hoặc kích thước.<
   <data name="Đối số {0}: {1} — {2}" xml:space="preserve"><value>Đối số {0}: {1} — {2}</value></data>
   <data name="Kết thúc chỉnh sửa ô trước khi mở bộ lọc." xml:space="preserve"><value>Kết thúc chỉnh sửa ô trước khi mở bộ lọc.</value></data>
   <data name="Chọn ô thuộc bộ lọc và giữ tiêu đề hiển thị trong vùng đang dùng." xml:space="preserve"><value>Chọn ô thuộc bộ lọc và giữ tiêu đề hiển thị trong vùng đang dùng.</value></data>
+  <data name="Dán giá trị" xml:space="preserve"><value>Dán giá trị</value></data>
+  <data name="Dán công thức" xml:space="preserve"><value>Dán công thức</value></data>
+  <data name="Dán định dạng" xml:space="preserve"><value>Dán định dạng</value></data>
+  <data name="Hủy chế độ sao chép" xml:space="preserve"><value>Hủy chế độ sao chép</value></data>
 </root>

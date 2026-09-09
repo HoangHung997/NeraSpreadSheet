@@ -11,6 +11,7 @@ public static class RibbonProductionCommandCatalog
     public static IReadOnlyList<CommandId> CommandIds { get; } = Array.AsReadOnly<CommandId>(
     [
         "Edit.Undo", "Edit.Redo", "Edit.Copy", "Edit.Cut", "Edit.Paste",
+        "Edit.PasteValues", "Edit.PasteFormulas", "Edit.PasteFormats", "Edit.CancelCopyMode",
         "Cell.ClearContents", "Cell.Format.Bold", "Cell.Format.Italic",
         "Cell.Merge", "Cell.Unmerge", "Formula.RecalculateWorkbook",
         "Data.SortAscending", "Data.SortDescending",
@@ -36,7 +37,8 @@ public static class RibbonProductionCommandCatalog
         Func<CommandItem, RibbonGalleryPreview?>? tableStylePreview) => Localized(new(
         [
             CreateTab("home", "Trang đầu", "clipboard", "Bảng tạm",
-                "Edit.Paste", "Edit.Cut", "Edit.Copy", "Edit.Undo", "Edit.Redo"),
+                "Edit.Paste", "Edit.PasteValues", "Edit.PasteFormulas", "Edit.PasteFormats",
+                "Edit.Cut", "Edit.Copy", "Edit.CancelCopyMode", "Edit.Undo", "Edit.Redo"),
             CreateTab("format", "Định dạng", "cells", "Ô",
                 "Cell.ClearContents", "Cell.Format.Bold", "Cell.Format.Italic",
                 "Cell.Merge", "Cell.Unmerge"),

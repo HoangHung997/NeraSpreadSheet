@@ -47,3 +47,28 @@ Main chỉ nhận candidate đã qua exact-SHA gates. Không force-push main ho�
 Khôi phục bằng fetch tags và detached/local worktree từ tag đã ghi. Rollback sản phẩm bằng revert integration/fix commits có review; không xóa archive tags, không reset --hard/force-push main. Không có workbook migration từ nhiệm vụ này.
 
 Bước tiếp theo duy nhất: xác minh Check out ở main có CI của chính SHA, đủ gói/ảnh/checksum rồi review H1/locale như một task riêng trên main; không tự mở lại nhánh cũ.
+
+## Lỗi tích hợp được phát hiện bởi CI22336 — giữ gate, sửa catalog thật
+
+Run `34333709901` trên `22336d1f2bf1adebb54d6b3205b917a539b1a956` không
+đạt cổng kết hợp. Core/Windows và isolated Windows PackageReference consumer
+báo bốn session commands chưa có trong audited manifest: `Edit.PasteValues`,
+`Edit.PasteFormulas`, `Edit.PasteFormats`, `Edit.CancelCopyMode`.
+Root cause là ghép PR5 đăng ký command mới với Ribbon production catalog cũ;
+không phải lý do để xóa command, bỏ audit hoặc bỏ legacy gates.
+Android package consumer mất process trước result marker. Source constructor
+cũng chạy audit này trước Loaded/catch; đây là đường lỗi phù hợp, không gọi
+log thiếu marker là bằng chứng root cause đã được xác nhận. Cần fresh native run.
+
+Bản sửa bổ sung đủ bốn stable IDs và placement, nối resource tiếng Việt/Anh
+và default-caption map; giữ nguyên `ValidateExact`, shortcut/handler/history.
+Cancel không đăng ký Esc toàn cục. Thêm tám regression cases về reachability,
+localization/host override, dispatch ba kiểu Paste/Undo và cancel không sửa ô.
+Commands chạy local .NET10.0.400/runtime10.0.11:139PASS/0skip; không lấy local
+hoặc CI cha thay final integration. Package cache offline; audit NuGet bị tắt
+chỉ trong lệnh restore local do DNS, không đổi build/policy CI của repository.
+
+22336 đã có Avalonia153x5 ba OS và actual self-contained app smoke ba OS PASS,
+nhưng toàn run đỏ nên không publish/promote/delete. Mọi source cũ và main vẫn
+giữ nguyên. Tiếp theo chạy đầy đủ umbrella trên commit sửa cuối; chỉ promote
+main sau exact-source green rồi chạy gate main trước publication/archive/delete.
