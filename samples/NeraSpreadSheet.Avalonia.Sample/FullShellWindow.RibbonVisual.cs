@@ -118,6 +118,16 @@ public sealed partial class FullShellWindow
             Width = 1280; _ribbon.Width = 1280; _ribbon.SelectTab("home"); await SettleRibbonAsync();
             foreach (var scale in RibbonRasterScales)
                 CaptureRibbonScene(_ribbon, "Light-home-raster-" + scale.ToString("0.##", CultureInfo.InvariantCulture), scale, directory, captures);
+            // Matrix widths are deliberate off-screen test constraints. Release
+            // them before capturing the real client: a runner can clamp Window.Width
+            // to its display, otherwise an oversized Ribbon is centred and cropped.
+            _ribbon.ClearValue(WidthProperty);
+            await SettleRibbonAsync();
+            var client = Content as Control ?? throw new InvalidOperationException("Missing shell client.");
+            var ribbonOrigin = _ribbon.TranslatePoint(default, client)
+                ?? throw new InvalidOperationException("Detached Ribbon before client capture.");
+            Check("full-window-ribbon-contained", ribbonOrigin.X >= -0.6 &&
+                ribbonOrigin.X + _ribbon.Bounds.Width <= client.Bounds.Width + 0.6);
             CaptureRibbonScene(this, "full-window", 1, directory, captures);
             Check("no-workbook-mutation", sheet.Version == version && ReferenceEquals(sheet, Session.ActiveWorksheet));
             Check("no-selection-mutation", Session.Selection.Capture().Version == selectionVersion);
