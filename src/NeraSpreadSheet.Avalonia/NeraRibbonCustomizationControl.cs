@@ -104,7 +104,7 @@ public sealed class NeraRibbonCustomizationControl : UserControl
         Background = _chrome.Brush("Surface"); Foreground = _chrome.Brush("Foreground");
         _themeScope.RequestedThemeVariant = _iconTheme is NeraIconTheme.Dark or NeraIconTheme.HighContrastDark ? ThemeVariant.Dark : ThemeVariant.Light;
     }
-    private Control CreateColumn(string caption, Control content)
+    private Grid CreateColumn(string caption, Control content)
     {
         var grid = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Margin = new Thickness(4, 0) };
         grid.Children.Add(new TextBlock { Text = _runtime.Localization.Get(caption), FontWeight = global::Avalonia.Media.FontWeight.SemiBold, Margin = new Thickness(4, 0, 4, 6) });
