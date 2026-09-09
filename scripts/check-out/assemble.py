@@ -43,7 +43,7 @@ def assemble(source, output, sha, repo, run_id, publish):
         platforms[rid] = {key: meta[key] for key in ('filename', 'bytes', 'sha256')}
         if rid == 'win-x64':
             (evidence / 'Images').mkdir(exist_ok=True)
-            for name in ('ribbon-light.png','ribbon-dark.png','full-window.png','customization.png'):
+            for name in ('ribbon-light.png', 'ribbon-dark.png', 'full-window.png', 'customization.png', 'format-number.png', 'format-font.png', 'format-alignment.png', 'format-border.png', 'format-fill.png', 'page-setup.png', 'page-margins.png', 'page-sheet.png', 'zoom-dialog.png'):
                 shutil.copy2(meta_path.parent / name, output / name)
                 shutil.copy2(meta_path.parent / name, evidence / 'Images' / name)
     packages = list((source / 'sdk-packages').glob('*.nupkg'))

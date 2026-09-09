@@ -209,7 +209,11 @@ public sealed partial class FullShellWindow
                 var origin = control.TranslatePoint(default, nativeGroup) ?? throw new InvalidOperationException("Detached command.");
                 Require(Math.Abs(origin.X - item.X / snapshot.Scale) <= 0.6 && Math.Abs(origin.Y - item.Y / snapshot.Scale) <= 0.6, "command position " + id);
                 Require(Math.Abs(control.Bounds.Width - item.Width / snapshot.Scale) <= 0.6 && Math.Abs(control.Bounds.Height - item.Height / snapshot.Scale) <= 0.6, "command bounds " + id);
-                Require(origin.Y + control.Bounds.Height <= group.CaptionY / snapshot.Scale + 0.6, "caption area intrusion " + id);
+                if (item.Presentation.Definition.IsDialogLauncher)
+                    Require(Math.Abs(origin.Y - group.CaptionY / snapshot.Scale) <= 0.6 &&
+                        origin.X + control.Bounds.Width <= nativeGroup.Bounds.Width + 0.6 &&
+                        control.Bounds.Width >= 18 && control.Bounds.Height >= 18, "caption launcher geometry " + id);
+                else Require(origin.Y + control.Bounds.Height <= group.CaptionY / snapshot.Scale + 0.6, "caption area intrusion " + id);
                 if (item.Presentation.Command.IconKey is { } key)
                 {
                     Require(NeraIconCatalog.TryGetDescriptor(key, out _), "missing catalog icon " + key);

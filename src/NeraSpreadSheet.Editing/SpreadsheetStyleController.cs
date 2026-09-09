@@ -112,9 +112,20 @@ public sealed class SpreadsheetStyleController
             "Set cell borders");
     }
 
-    public void ApplyToSelection(
-        Func<CellStyle, CellStyle> transform,
-        string description)
+    /// <summary>Applies explicit properties, including values already equal to the
+    /// active cell. Whole-axis mutations must not infer this intent from one cell.</summary>
+    public void ApplyPatchToSelection(CellStylePatch patch, string description)
+    {
+        ArgumentNullException.ThrowIfNull(patch);
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        if (!patch.IsEmpty) ApplyToSelectionCore(patch.Apply, description, patch);
+    }
+
+    public void ApplyToSelection(Func<CellStyle, CellStyle> transform, string description) =>
+        ApplyToSelectionCore(transform, description, null);
+
+    private void ApplyToSelectionCore(
+        Func<CellStyle, CellStyle> transform, string description, CellStylePatch? explicitPatch)
     {
         ArgumentNullException.ThrowIfNull(transform);
         ArgumentException.ThrowIfNullOrWhiteSpace(description);
@@ -129,7 +140,7 @@ public sealed class SpreadsheetStyleController
         var transformedActiveStyle = transform(activeStyle) ??
             throw new InvalidOperationException(
                 "Style transform returned null.");
-        var axisPatch = CellStylePatch.FromDifference(
+        var axisPatch = explicitPatch ?? CellStylePatch.FromDifference(
             activeStyle,
             transformedActiveStyle);
         var axisMutations = new List<WorksheetAxisStyleMutation>();

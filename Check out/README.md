@@ -32,6 +32,17 @@ Link này không dùng URL tạm trong chat hay artifact tự hết hạn. Trư�
 ### Tùy biến Ribbon
 ![Tùy biến Ribbon](https://github.com/HoangHung997/NeraSpreadSheet/releases/download/check-out-latest/customization.png)
 
+## Hộp thoại cài đặt nhóm Ribbon
+
+Ở **Trang đầu**, nhấn mũi tên nhỏ góc dưới bên phải nhóm **Số**, **Phông chữ** hoặc **Căn chỉnh** để mở đúng thẻ trong **Định dạng ô**. `Ctrl+1` mở Định dạng ô. Có thêm thẻ Đường viền/Màu nền. Ở **Bố trí trang** có Thiết lập trang/Tùy chọn in; ở **Xem** có Thu phóng.
+
+![Định dạng số](https://github.com/HoangHung997/NeraSpreadSheet/releases/download/check-out-latest/format-number.png)
+![Phông chữ](https://github.com/HoangHung997/NeraSpreadSheet/releases/download/check-out-latest/format-font.png)
+![Căn chỉnh](https://github.com/HoangHung997/NeraSpreadSheet/releases/download/check-out-latest/format-alignment.png)
+![Thiết lập trang](https://github.com/HoangHung997/NeraSpreadSheet/releases/download/check-out-latest/page-setup.png)
+
+OK áp dụng các thuộc tính đã chỉnh qua Undo/Redo; Cancel/Esc không áp dụng. Dialog đọc vùng hiện hành; vùng lớn không bị materialize để lấy thông tin. Đây là tập dialog đầu tiên, không phải toàn bộ Format Cells/Print/Protection của Excel. Xem [phạm vi và giới hạn](../docs/worklog/RIBBON_DIALOGS_003.md).
+
 ## Sau khi giải nén
 
 ```text

@@ -274,9 +274,10 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
             var caption = new TextBlock
             {
                 Text = group.Presentation.Caption, FontSize = 10.5, TextAlignment = TextAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis, Width = canvas.Width,
+                TextTrimming = TextTrimming.CharacterEllipsis, Width = group.Items.Any(item => item.Presentation.Definition.IsDialogLauncher) ? Math.Max(0, group.Items.Where(item => item.Presentation.Definition.IsDialogLauncher).Min(item => item.X) / LayoutSnapshot.Scale - 2) : canvas.Width,
                 Height = group.CaptionHeight / LayoutSnapshot.Scale, Foreground = _chrome.Brush("Muted"),
             };
+            SetIdentity(caption, "ribbon-group-caption-" + group.Presentation.Id, group.Presentation.Caption);
             Canvas.SetTop(caption, group.CaptionY / LayoutSnapshot.Scale);
             canvas.Children.Add(caption);
             // Draw the divider as an overlay inside the allocated group, rather

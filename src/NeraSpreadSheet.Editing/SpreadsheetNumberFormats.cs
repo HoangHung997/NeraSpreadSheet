@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace NeraSpreadSheet.Editing;
 
 /// <summary>Number-format choices for the formatting UI. Codes remain culture-independent;

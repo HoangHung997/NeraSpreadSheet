@@ -90,10 +90,14 @@ class PackageTests(unittest.TestCase):
         (self.visual/'manifest.json').write_text('{}')
         for name in ('Light-1024-home.png','Dark-1024-home.png','full-window.png','Light-customization.png'):
             (self.visual/name).write_bytes(b'synthetic image, not a native screenshot')
+        dialogs=self.images/'dialogs';dialogs.mkdir()
+        for name in ('number', 'font', 'alignment', 'border', 'fill', 'page', 'margins', 'sheet', 'zoom'):
+            (dialogs/('Light-'+name+'.png')).write_bytes(b'synthetic delivery fixture, not native screenshot')
         self.prefixes={ 'smoke':('NERA_AVALONIA_SMOKE_SUCCESS ',12),
             'full-ui-smoke':('NERA_AVALONIA_FULL_UI_SUCCESS ',23),
             'formula-ux-smoke':('NERA_AVALONIA_FORMULA_UX_SUCCESS ',23),
-            'ribbon-visual-smoke':('NERA_AVALONIA_RIBBON_VISUAL_SUCCESS ',198)}
+            'ribbon-visual-smoke':('NERA_AVALONIA_RIBBON_VISUAL_SUCCESS ',198),
+            'dialogs-smoke':('NERA_AVALONIA_DIALOGS_SUCCESS ',80)}
         for name,(prefix,count) in self.prefixes.items():
             (self.images/(name+'.log')).write_text(prefix+json.dumps(dict(sha=SHA,nativeWindow=True,assertions=count))+'\n')
         (self.root/'docs').mkdir();(self.root/'docs/third-party-notices.md').write_text('synthetic notice')
@@ -125,6 +129,15 @@ class PackageTests(unittest.TestCase):
     def testMissingSmokeCannotProduceDownload(self):
         (self.images/'formula-ux-smoke.log').unlink()
         with self.assertRaises(FileNotFoundError):self.pack()
+
+    def testMissingDialogSmokeCannotProduceDownload(self):
+        (self.images/'dialogs-smoke.log').unlink()
+        with self.assertRaises(FileNotFoundError):self.pack()
+
+    def testWrongDialogHeadCannotProduceDownload(self):
+        prefix,count=self.prefixes['dialogs-smoke']
+        (self.images/'dialogs-smoke.log').write_text(prefix+json.dumps(dict(sha=OLD,nativeWindow=True,assertions=count)))
+        with self.assertRaisesRegex(ValueError,'evidence'):self.pack()
 
     def testFrameworkDependentAppCannotBeCalledSelfContained(self):
         (self.app/'libhostfxr.so').unlink()

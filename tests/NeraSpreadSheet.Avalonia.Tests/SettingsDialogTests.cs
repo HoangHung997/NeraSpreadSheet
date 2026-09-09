@@ -18,6 +18,7 @@ namespace NeraSpreadSheet.Avalonia.Tests;
 [TestClass]
 public sealed class SettingsDialogTests
 {
+    private static readonly bool[] CancelModes = [false, true];
     [TestMethod]
     [DataRow(NeraFormatCellsTab.Number)]
     [DataRow(NeraFormatCellsTab.Font)]
@@ -50,7 +51,7 @@ public sealed class SettingsDialogTests
     [TestMethod]
     public Task CancelAndEscapeShouldDiscardPendingFormatting() => AvaloniaTestEnvironment.OnUiAsync(() =>
     {
-        foreach (var escape in new[] { false, true })
+        foreach (var escape in CancelModes)
         {
             var session = new SpreadsheetSession(new Workbook()); var version = session.ActiveWorksheet.Version;
             using var fixture = new DialogFixture(new NeraFormatCellsDialog(session));

@@ -72,6 +72,13 @@ public sealed record RibbonItemDefinition(
         UsesLegacyAutomaticToggle = false;
     }
 
+    /// <summary>Places this ordinary registered command in the group caption footer.
+    /// Customization, overflow and keyboard routing retain its normal command identity.</summary>
+    public bool IsDialogLauncher { get; private init; }
+
+    public static RibbonItemDefinition DialogLauncher(CommandId commandId, int order = int.MaxValue) =>
+        new(commandId, RibbonItemKind.Button, order: order) { IsDialogLauncher = true };
+
     public RibbonItemKind Kind { get; private init; } = RibbonItemKind.Button;
 
     public string? AutomationName { get; private init; }
@@ -92,7 +99,7 @@ public sealed record RibbonItemDefinition(
         new(id, order);
 
     internal RibbonItemDefinition WithLayout(bool isLarge, int order) =>
-        this with { IsLarge = isLarge, Order = order };
+        this with { IsLarge = !IsDialogLauncher && isLarge, Order = order };
 
     private static string NormalizeSeparatorId(string separatorId)
     {

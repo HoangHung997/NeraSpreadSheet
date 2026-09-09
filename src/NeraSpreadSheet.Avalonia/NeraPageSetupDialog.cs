@@ -10,7 +10,7 @@ public enum NeraPageSetupTab { Page, Margins, Sheet }
 
 /// <summary>Page Setup over canonical worksheet print settings. Local fields stay pending
 /// until OK and untouched imported metadata is preserved without lossy unit conversion.</summary>
-public sealed class NeraPageSetupDialog : NeraSettingsDialog
+public sealed class NeraPageSetupDialog : NeraSettingsDialog, IDisposable
 {
     private readonly SpreadsheetPageSetupDraft _draft;
     private readonly WorksheetPrintSettings _initial;
@@ -34,6 +34,16 @@ public sealed class NeraPageSetupDialog : NeraSettingsDialog
         catch { _draft.Dispose(); throw; }
     }
     public NeraPageSetupTab SelectedPageTab => (NeraPageSetupTab)_tabs.SelectedIndex;
+    /// <summary>Releases target subscriptions even when this dialog has never been shown.
+    /// Call on the UI thread. Closing a shown dialog also releases its draft.</summary>
+    public void Dispose()
+    {
+        global::Avalonia.Threading.Dispatcher.UIThread.VerifyAccess();
+        _draft.Dispose();
+        if (IsVisible) Close(false);
+        GC.SuppressFinalize(this);
+    }
+
     protected override bool TryApply()
     {
         if (_contextIsCurrent?.Invoke() == false || !_draft.IsCurrent)
@@ -46,7 +56,7 @@ public sealed class NeraPageSetupDialog : NeraSettingsDialog
     {
         _updates.Add(id, update);
         void Mark(bool changed) { if (changed) _dirty.Add(id); else _dirty.Remove(id); }
-        if (input is TextBox text) { var initial = text.Text; text.TextChanged += (_, _) => Mark(text.Text != initial); }
+        if (input is TextBox text) { var initial = text.Text; text.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) Mark(text.Text != initial); }; }
         else if (input is ComboBox choice) { var initial = Selected(choice); choice.SelectionChanged += (_, e) => { if (ReferenceEquals(e.Source, choice)) Mark(Selected(choice) != initial); }; }
         else if (input is CheckBox check) { var initial = check.IsChecked; check.IsCheckedChanged += (_, _) => Mark(check.IsChecked != initial); }
     }

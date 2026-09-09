@@ -139,6 +139,7 @@ public sealed partial class FullShellWindow
             () => ChoiceState((_split.ActiveSpreadsheet.Zoom * 100).ToString(CultureInfo.InvariantCulture), ZoomChoices));
         Choice("Ui.Theme", "Giao diện", "ribbon.customize", value => SetRibbonTheme(Enum.Parse<NeraIconTheme>(value)),
             () => ChoiceState((_ribbon?.IconTheme ?? NeraIconTheme.Light).ToString(), ThemeChoices));
+        RegisterDialogCommands();
     }
 
     private ICommandHandler ResolveSessionHandler(CommandId id) => Session.Commands.TryResolve(id, out _, out var handler) && handler is not null

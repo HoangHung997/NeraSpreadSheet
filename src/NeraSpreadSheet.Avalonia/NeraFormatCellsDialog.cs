@@ -13,7 +13,7 @@ public enum NeraFormatCellsTab { Number, Font, Alignment, Border, Fill }
 
 /// <summary>Reusable Format Cells UI. Native controls edit only a pending property patch;
 /// OK uses the existing shared formatting transaction. Cancel and previews do not mutate cells.</summary>
-public sealed class NeraFormatCellsDialog : NeraSettingsDialog
+public sealed class NeraFormatCellsDialog : NeraSettingsDialog, IDisposable
 {
     private readonly SpreadsheetFormatCellsDraft _draft;
     private readonly SpreadsheetSession _session;
@@ -21,6 +21,7 @@ public sealed class NeraFormatCellsDialog : NeraSettingsDialog
     private readonly Dictionary<string, Func<CellStylePatch, CellStylePatch>> _updates = [];
     private readonly HashSet<string> _dirty = [];
     private readonly TabControl _tabs = new();
+    private string? _numberParameterError;
 
     public NeraFormatCellsDialog(SpreadsheetSession session, NeraFormatCellsTab initialTab = NeraFormatCellsTab.Number,
         PresentationLocalization? localization = null, NeraIconTheme theme = NeraIconTheme.Light, Func<bool>? contextIsCurrent = null)
@@ -46,10 +47,21 @@ public sealed class NeraFormatCellsDialog : NeraSettingsDialog
 
     public NeraFormatCellsTab SelectedFormatTab => (NeraFormatCellsTab)_tabs.SelectedIndex;
     public bool HasPendingChanges => _dirty.Count > 0;
+    /// <summary>Releases target subscriptions even when this dialog has never been shown.
+    /// Call on the UI thread. Closing a shown dialog also releases its draft.</summary>
+    public void Dispose()
+    {
+        global::Avalonia.Threading.Dispatcher.UIThread.VerifyAccess();
+        _draft.Dispose();
+        if (IsVisible) Close(false);
+        GC.SuppressFinalize(this);
+    }
+
     protected override bool TryApply()
     {
         if (_contextIsCurrent?.Invoke() == false || !_draft.IsCurrent)
             throw new InvalidOperationException(L("Vùng chọn hoặc trang tính đã thay đổi. Hãy mở lại hộp thoại."));
+        if (_numberParameterError is not null) throw new ArgumentException(_numberParameterError);
         var patch = new CellStylePatch();
         foreach (var key in _updates.Keys)
             if (_dirty.Contains(key)) patch = _updates[key](patch);
@@ -62,9 +74,10 @@ public sealed class NeraFormatCellsDialog : NeraSettingsDialog
     private void Bind(string key, Control control, Func<CellStylePatch, CellStylePatch> update)
     {
         _updates.Add(key, update);
-        if (control is TextBox text) text.TextChanged += (_, _) => _dirty.Add(key);
-        else if (control is ComboBox choice) choice.SelectionChanged += (_, e) => { if (ReferenceEquals(e.Source, choice)) _dirty.Add(key); };
-        else if (control is CheckBox check) check.IsCheckedChanged += (_, _) => _dirty.Add(key);
+        void Mark(bool changed) { if (changed) _dirty.Add(key); else _dirty.Remove(key); }
+        if (control is TextBox text) { var initial = text.Text; text.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) Mark(text.Text != initial); }; }
+        else if (control is ComboBox choice) { var initial = Selected(choice); choice.SelectionChanged += (_, e) => { if (ReferenceEquals(e.Source, choice)) Mark(Selected(choice) != initial); }; }
+        else if (control is CheckBox check) { var initial = check.IsChecked; check.IsCheckedChanged += (_, _) => Mark(check.IsChecked != initial); }
     }
     private StackPanel BuildNumber()
     {
@@ -100,21 +113,26 @@ public sealed class NeraFormatCellsDialog : NeraSettingsDialog
         }
         void Generate()
         {
+            _numberParameterError = null;
             if (!Enum.TryParse<SpreadsheetNumberFormatCategory>(Selected(category), out var selected) || selected == SpreadsheetNumberFormatCategory.Custom) return;
-            try { code.Text = SpreadsheetNumberFormats.Create(selected, ReadInteger(decimals, 0, 15), thousands.IsChecked == true, currency.Text ?? string.Empty, parentheses.IsChecked == true); }
-            catch (ArgumentException) { preview.Text = L("Thông số tạo định dạng chưa hợp lệ."); }
+            try
+            {
+                var hasDecimals = selected is SpreadsheetNumberFormatCategory.Number or SpreadsheetNumberFormatCategory.Currency or SpreadsheetNumberFormatCategory.Accounting or SpreadsheetNumberFormatCategory.Percentage or SpreadsheetNumberFormatCategory.Scientific;
+                code.Text = SpreadsheetNumberFormats.Create(selected, hasDecimals ? ReadInteger(decimals, 0, 15) : 2, thousands.IsChecked == true, currency.Text ?? string.Empty, parentheses.IsChecked == true);
+            }
+            catch (ArgumentException) { _numberParameterError = L("Thông số tạo định dạng chưa hợp lệ."); preview.Text = _numberParameterError; }
         }
         category.SelectionChanged += (_, e) => { if (ReferenceEquals(e.Source, category)) Generate(); };
-        decimals.TextChanged += (_, _) => Generate(); currency.TextChanged += (_, _) => Generate();
+        decimals.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) Generate(); }; currency.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) Generate(); };
         thousands.IsCheckedChanged += (_, _) => Generate(); parentheses.IsCheckedChanged += (_, _) => Generate();
-        code.TextChanged += (_, _) => Preview(); Preview();
+        code.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) Preview(); }; Preview();
         return panel;
     }
     private StackPanel BuildFont()
     {
         var panel = Panel();
         var family = TextField(panel, "format-font-family", "Phông chữ", CommonText(style => style.Font.Family));
-        Bind("family", family, patch => { ArgumentException.ThrowIfNullOrWhiteSpace(family.Text); return patch with { FontFamily = family.Text.Trim() }; });
+        Bind("family", family, patch => { var value = family.Text; ArgumentException.ThrowIfNullOrWhiteSpace(value); return patch with { FontFamily = value.Trim() }; });
         var size = TextField(panel, "format-font-size", "Cỡ chữ", CommonNumber(style => style.Font.Size));
         Bind("size", size, patch => patch with { FontSize = ReadNumber(size, 1, 409) });
         var bold = CheckField(panel, "format-font-bold", "Đậm", CommonFlag(style => style.Font.Weight >= 600));

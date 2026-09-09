@@ -18,7 +18,7 @@ public abstract class NeraSettingsDialog : Window
 {
     private readonly TextBlock _error = new() { TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private bool _confirming;
-    protected readonly DockPanel DialogBody = new() { Margin = new Thickness(16) };
+    protected DockPanel DialogBody { get; } = new() { Margin = new Thickness(16) };
     protected PresentationLocalization Localization { get; }
     protected NeraSettingsDialog(string titleKey, string id, PresentationLocalization? localization, NeraIconTheme theme)
     {
@@ -68,7 +68,7 @@ public abstract class NeraSettingsDialog : Window
     protected static StackPanel Panel() => new() { Spacing = 10, Margin = new Thickness(10) };
     protected TextBox TextField(Panel parent, string id, string label, string? text)
     {
-        var input = new TextBox { Text = text, MinWidth = 130, Watermark = L("Giữ nguyên / nhiều giá trị") };
+        var input = new TextBox { Text = text, MinWidth = 130, PlaceholderText = L("Giữ nguyên / nhiều giá trị") };
         Identify(input, id, L(label)); AddField(parent, label, input); return input;
     }
     protected ComboBox ChoiceField(Panel parent, string id, string label, IEnumerable<(string Id, string Caption)> values, string? current)

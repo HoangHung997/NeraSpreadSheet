@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using global::Avalonia;
 using global::Avalonia.Automation;
 using global::Avalonia.Controls;
 using global::Avalonia.Controls.ApplicationLifetimes;

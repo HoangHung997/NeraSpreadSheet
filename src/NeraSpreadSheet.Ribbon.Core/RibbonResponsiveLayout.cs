@@ -406,7 +406,7 @@ public sealed class RibbonResponsiveLayoutEngine
             var changed = false;
             for (var index = 0; index < Sizes.Length; index++)
             {
-                if (Sizes[index] < targetSize)
+                if (!Presentation.Items[index].Definition.IsDialogLauncher && Sizes[index] < targetSize)
                 {
                     reduced[index] = targetSize;
                     changed = true;
@@ -430,6 +430,7 @@ public sealed class RibbonResponsiveLayoutEngine
             var scale = _request.Scale;
             var contentHeight = metrics.RowCount * metrics.RowHeight +
                 (metrics.RowCount - 1) * metrics.RowSpacing;
+            var captionHeight = Presentation.Items.Any(item => item.Definition.IsDialogLauncher) ? Math.Max(18d, metrics.GroupCaptionHeight) : metrics.GroupCaptionHeight;
             var items = Presentation.Items.Select((item, index) =>
                 new RibbonItemLayout(
                     item,
@@ -437,11 +438,10 @@ public sealed class RibbonResponsiveLayoutEngine
                     _packing.Placements[index].Width * scale)
                 {
                     X = _packing.Placements[index].X * scale,
-                    Y = (metrics.GroupPadding + _packing.Placements[index].Row *
-                        (metrics.RowHeight + metrics.RowSpacing)) * scale,
-                    Height = (_packing.Placements[index].RowSpan == metrics.RowCount
-                        ? contentHeight
-                        : metrics.RowHeight) * scale,
+                    Y = (item.Definition.IsDialogLauncher ? metrics.GroupPadding + contentHeight :
+                        metrics.GroupPadding + _packing.Placements[index].Row * (metrics.RowHeight + metrics.RowSpacing)) * scale,
+                    Height = (item.Definition.IsDialogLauncher ? captionHeight :
+                        _packing.Placements[index].RowSpan == metrics.RowCount ? contentHeight : metrics.RowHeight) * scale,
                     Row = _packing.Placements[index].Row,
                     RowSpan = _packing.Placements[index].RowSpan,
                     Column = _packing.Placements[index].Column,
@@ -461,9 +461,9 @@ public sealed class RibbonResponsiveLayoutEngine
                 Array.AsReadOnly(items),
                 IsOverflow ? 0d : _packing.Width * scale)
             {
-                Height = (2d * metrics.GroupPadding + contentHeight + metrics.GroupCaptionHeight) * scale,
+                Height = (2d * metrics.GroupPadding + contentHeight + captionHeight) * scale,
                 CaptionY = (metrics.GroupPadding + contentHeight) * scale,
-                CaptionHeight = metrics.GroupCaptionHeight * scale,
+                CaptionHeight = captionHeight * scale,
             };
         }
 
@@ -476,8 +476,11 @@ public sealed class RibbonResponsiveLayoutEngine
             var columnStart = 0;
             var columnWidth = 0d;
             var x = metrics.GroupPadding;
+            var launchers = new List<int>();
+            var launcherSize = Math.Max(18d, metrics.GroupCaptionHeight);
             for (var index = 0; index < sizes.Length; index++)
             {
+                if (Presentation.Items[index].Definition.IsDialogLauncher) { launchers.Add(index); continue; }
                 var span = sizes[index] == RibbonItemSize.Large ||
                     Presentation.Items[index].Kind is RibbonItemKind.Gallery or RibbonItemKind.Separator
                         ? metrics.RowCount : 1;
@@ -498,21 +501,25 @@ public sealed class RibbonResponsiveLayoutEngine
             {
                 FinishColumn(sizes.Length);
             }
-            var commandWidth = sizes.Length == 0 ? 0d : x - metrics.GroupPadding - metrics.Spacing;
+            var commandWidth = sizes.Length == launchers.Count ? 0d : x - metrics.GroupPadding - metrics.Spacing;
             var chromeWidth = Math.Max(metrics.GroupChromeWidth, 2d * metrics.GroupPadding);
-            var widthWithCaption = Math.Max(commandWidth, MeasureCaption(Presentation.Caption));
+            var widthWithCaption = Math.Max(commandWidth, MeasureCaption(Presentation.Caption) + launchers.Count * (launcherSize + 2d));
             var groupWidth = widthWithCaption + chromeWidth;
             if (!double.IsFinite(groupWidth * _request.Scale))
             {
                 throw new InvalidOperationException("Ribbon group geometry must remain finite after applying scale.");
             }
+            for (var index = 0; index < launchers.Count; index++)
+                placements[launchers[index]] = new Placement(groupWidth - metrics.GroupPadding -
+                    (launchers.Count - index) * (launcherSize + 2d) + 2d, launcherSize, metrics.RowCount, 1, -1);
             return new Packing(placements, groupWidth);
 
             void FinishColumn(int end)
             {
                 for (var itemIndex = columnStart; itemIndex < end; itemIndex++)
                 {
-                    placements[itemIndex] = placements[itemIndex] with { Width = columnWidth };
+                    if (!Presentation.Items[itemIndex].Definition.IsDialogLauncher)
+                        placements[itemIndex] = placements[itemIndex] with { Width = columnWidth };
                 }
                 x += columnWidth + metrics.Spacing;
                 row = 0;
@@ -523,7 +530,7 @@ public sealed class RibbonResponsiveLayoutEngine
         }
 
         private bool HasCaption(int index, RibbonItemSize size) =>
-            Presentation.Items[index].Kind != RibbonItemKind.Separator &&
+            !Presentation.Items[index].Definition.IsDialogLauncher && Presentation.Items[index].Kind != RibbonItemKind.Separator &&
             (size != RibbonItemSize.Compact || !_hasIcons[index] ||
                 Presentation.Items[index].Kind is RibbonItemKind.ComboBox or RibbonItemKind.ColorPicker or RibbonItemKind.Gallery);
 

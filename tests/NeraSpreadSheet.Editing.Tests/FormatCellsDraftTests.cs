@@ -8,6 +8,7 @@ namespace NeraSpreadSheet.Editing.Tests;
 [TestClass]
 public sealed class FormatCellsDraftTests
 {
+    private static readonly int[] ExpectedManualBreaks = [20];
     [TestMethod]
     public void NumberPatchShouldPreserveMixedFontsValuesFormulasAndCreateOneUndo()
     {
@@ -158,7 +159,7 @@ public sealed class FormatCellsDraftTests
         Assert.AreEqual(1, session.History.UndoCount);
         Assert.AreEqual(original.PageSetup.Margins, sheet.GetPrintSettings().PageSetup.Margins);
         Assert.AreEqual(original.PrintArea, sheet.GetPrintSettings().PrintArea); Assert.AreEqual("Existing", sheet.GetPrintSettings().PageSetup.OddHeader);
-        CollectionAssert.AreEqual(new[] { 20 }, sheet.GetPrintSettings().PageSetup.ManualRowBreaks.ToArray());
+        CollectionAssert.AreEqual(ExpectedManualBreaks, sheet.GetPrintSettings().PageSetup.ManualRowBreaks.ToArray());
         session.Undo(); Assert.AreEqual(SpreadsheetPageOrientation.Portrait, sheet.GetPrintSettings().PageSetup.Orientation);
         session.Redo(); Assert.AreEqual(SpreadsheetPageOrientation.Landscape, sheet.GetPrintSettings().PageSetup.Orientation);
     }

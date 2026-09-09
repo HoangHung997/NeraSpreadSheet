@@ -1411,4 +1411,100 @@ Chọn một mục bên phải để đổi hiển thị hoặc kích thước.<
   <data name="Dán công thức" xml:space="preserve"><value>Dán công thức</value></data>
   <data name="Dán định dạng" xml:space="preserve"><value>Dán định dạng</value></data>
   <data name="Hủy chế độ sao chép" xml:space="preserve"><value>Hủy chế độ sao chép</value></data>
+  <data name="Định dạng ô" xml:space="preserve"><value>Định dạng ô</value></data>
+  <data name="Không thể áp dụng" xml:space="preserve"><value>Không thể áp dụng</value></data>
+  <data name="Đồng ý" xml:space="preserve"><value>Đồng ý</value></data>
+  <data name="Giữ nguyên / nhiều giá trị" xml:space="preserve"><value>Giữ nguyên / nhiều giá trị</value></data>
+  <data name="Giá trị phải nằm trong khoảng {0} đến {1}." xml:space="preserve"><value>Giá trị phải nằm trong khoảng {0} đến {1}.</value></data>
+  <data name="Cần nhập số nguyên." xml:space="preserve"><value>Cần nhập số nguyên.</value></data>
+  <data name="Loại định dạng" xml:space="preserve"><value>Loại định dạng</value></data>
+  <data name="Số chữ số thập phân" xml:space="preserve"><value>Số chữ số thập phân</value></data>
+  <data name="Phân cách hàng nghìn" xml:space="preserve"><value>Phân cách hàng nghìn</value></data>
+  <data name="Ký hiệu tiền tệ" xml:space="preserve"><value>Ký hiệu tiền tệ</value></data>
+  <data name="Số âm trong ngoặc" xml:space="preserve"><value>Số âm trong ngoặc</value></data>
+  <data name="Mã định dạng" xml:space="preserve"><value>Mã định dạng</value></data>
+  <data name="Mẫu hiển thị" xml:space="preserve"><value>Mẫu hiển thị</value></data>
+  <data name="Mã định dạng chưa hợp lệ." xml:space="preserve"><value>Mã định dạng chưa hợp lệ.</value></data>
+  <data name="Thông số tạo định dạng chưa hợp lệ." xml:space="preserve"><value>Thông số tạo định dạng chưa hợp lệ.</value></data>
+  <data name="Gạch ngang" xml:space="preserve"><value>Gạch ngang</value></data>
+  <data name="Không" xml:space="preserve"><value>Không</value></data>
+  <data name="Đơn" xml:space="preserve"><value>Đơn</value></data>
+  <data name="Kép" xml:space="preserve"><value>Kép</value></data>
+  <data name="Chỉ số" xml:space="preserve"><value>Chỉ số</value></data>
+  <data name="Chỉ số trên" xml:space="preserve"><value>Chỉ số trên</value></data>
+  <data name="Chỉ số dưới" xml:space="preserve"><value>Chỉ số dưới</value></data>
+  <data name="Màu chữ (#RRGGBB)" xml:space="preserve"><value>Màu chữ (#RRGGBB)</value></data>
+  <data name="Căn ngang" xml:space="preserve"><value>Căn ngang</value></data>
+  <data name="Căn dọc" xml:space="preserve"><value>Căn dọc</value></data>
+  <data name="Thu nhỏ vừa ô" xml:space="preserve"><value>Thu nhỏ vừa ô</value></data>
+  <data name="Thụt lề" xml:space="preserve"><value>Thụt lề</value></data>
+  <data name="Góc xoay chữ" xml:space="preserve"><value>Góc xoay chữ</value></data>
+  <data name="Mẫu đường viền" xml:space="preserve"><value>Mẫu đường viền</value></data>
+  <data name="Không viền" xml:space="preserve"><value>Không viền</value></data>
+  <data name="Tất cả đường viền" xml:space="preserve"><value>Tất cả đường viền</value></data>
+  <data name="Viền dưới" xml:space="preserve"><value>Viền dưới</value></data>
+  <data name="Kiểu nét" xml:space="preserve"><value>Kiểu nét</value></data>
+  <data name="Mảnh" xml:space="preserve"><value>Mảnh</value></data>
+  <data name="Vừa" xml:space="preserve"><value>Vừa</value></data>
+  <data name="Dày" xml:space="preserve"><value>Dày</value></data>
+  <data name="Nét đứt" xml:space="preserve"><value>Nét đứt</value></data>
+  <data name="Nét chấm" xml:space="preserve"><value>Nét chấm</value></data>
+  <data name="Nét đôi" xml:space="preserve"><value>Nét đôi</value></data>
+  <data name="Màu viền (#RRGGBB)" xml:space="preserve"><value>Màu viền (#RRGGBB)</value></data>
+  <data name="Dùng màu nền" xml:space="preserve"><value>Dùng màu nền</value></data>
+  <data name="Màu nền (#RRGGBB)" xml:space="preserve"><value>Màu nền (#RRGGBB)</value></data>
+  <data name="Chung" xml:space="preserve"><value>Chung</value></data>
+  <data name="Tiền tệ" xml:space="preserve"><value>Tiền tệ</value></data>
+  <data name="Kế toán" xml:space="preserve"><value>Kế toán</value></data>
+  <data name="Thời gian" xml:space="preserve"><value>Thời gian</value></data>
+  <data name="Phân số" xml:space="preserve"><value>Phân số</value></data>
+  <data name="Khoa học" xml:space="preserve"><value>Khoa học</value></data>
+  <data name="Văn bản" xml:space="preserve"><value>Văn bản</value></data>
+  <data name="Lấp đầy" xml:space="preserve"><value>Lấp đầy</value></data>
+  <data name="Căn đều" xml:space="preserve"><value>Căn đều</value></data>
+  <data name="Giữa vùng chọn" xml:space="preserve"><value>Giữa vùng chọn</value></data>
+  <data name="Phân bố đều" xml:space="preserve"><value>Phân bố đều</value></data>
+  <data name="Trên" xml:space="preserve"><value>Trên</value></data>
+  <data name="Giữa" xml:space="preserve"><value>Giữa</value></data>
+  <data name="Dưới" xml:space="preserve"><value>Dưới</value></data>
+  <data name="Trang" xml:space="preserve"><value>Trang</value></data>
+  <data name="Trang tính" xml:space="preserve"><value>Trang tính</value></data>
+  <data name="Ngang" xml:space="preserve"><value>Ngang</value></data>
+  <data name="Khổ giấy từ file" xml:space="preserve"><value>Khổ giấy từ file</value></data>
+  <data name="Chế độ co giãn" xml:space="preserve"><value>Chế độ co giãn</value></data>
+  <data name="Tỷ lệ phần trăm" xml:space="preserve"><value>Tỷ lệ phần trăm</value></data>
+  <data name="Vừa số trang" xml:space="preserve"><value>Vừa số trang</value></data>
+  <data name="Tỷ lệ in (%)" xml:space="preserve"><value>Tỷ lệ in (%)</value></data>
+  <data name="Số trang theo chiều rộng" xml:space="preserve"><value>Số trang theo chiều rộng</value></data>
+  <data name="Số trang theo chiều cao" xml:space="preserve"><value>Số trang theo chiều cao</value></data>
+  <data name="Lề trái (mm)" xml:space="preserve"><value>Lề trái (mm)</value></data>
+  <data name="Lề phải (mm)" xml:space="preserve"><value>Lề phải (mm)</value></data>
+  <data name="Lề trên (mm)" xml:space="preserve"><value>Lề trên (mm)</value></data>
+  <data name="Lề dưới (mm)" xml:space="preserve"><value>Lề dưới (mm)</value></data>
+  <data name="Đầu trang (mm)" xml:space="preserve"><value>Đầu trang (mm)</value></data>
+  <data name="Cuối trang (mm)" xml:space="preserve"><value>Cuối trang (mm)</value></data>
+  <data name="Giữa trang theo chiều ngang" xml:space="preserve"><value>Giữa trang theo chiều ngang</value></data>
+  <data name="Giữa trang theo chiều dọc" xml:space="preserve"><value>Giữa trang theo chiều dọc</value></data>
+  <data name="In tiêu đề hàng cột" xml:space="preserve"><value>In tiêu đề hàng cột</value></data>
+  <data name="Nội dung đầu trang" xml:space="preserve"><value>Nội dung đầu trang</value></data>
+  <data name="Nội dung cuối trang" xml:space="preserve"><value>Nội dung cuối trang</value></data>
+  <data name="Thu phóng (%)" xml:space="preserve"><value>Thu phóng (%)</value></data>
+  <data name="Nhập ít nhất một chiều số trang." xml:space="preserve"><value>Nhập ít nhất một chiều số trang.</value></data>
+  <data name="Vùng chọn hoặc trang tính đã thay đổi. Hãy mở lại hộp thoại." xml:space="preserve"><value>Vùng chọn hoặc trang tính đã thay đổi. Hãy mở lại hộp thoại.</value></data>
+  <data name="Ô trống hoặc ô có nhiều định dạng: chỉ thuộc tính bạn chỉnh sẽ thay đổi." xml:space="preserve"><value>Ô trống hoặc ô có nhiều định dạng: chỉ thuộc tính bạn chỉnh sẽ thay đổi.</value></data>
+  <data name="Vùng lớn: không quét toàn bộ ô. Chỉ thuộc tính bạn chỉnh sẽ thay đổi." xml:space="preserve"><value>Vùng lớn: không quét toàn bộ ô. Chỉ thuộc tính bạn chỉnh sẽ thay đổi.</value></data>
+  <data name="Mẫu dùng bộ định dạng hiện tại; mã tùy chỉnh và căn khoảng trắng kế toán chưa đảm bảo giống Excel hoàn toàn. Giá trị và công thức gốc không đổi." xml:space="preserve"><value>Mẫu dùng bộ định dạng hiện tại; mã tùy chỉnh và căn khoảng trắng kế toán chưa đảm bảo giống Excel hoàn toàn. Giá trị và công thức gốc không đổi.</value></data>
+  <data name="Phông chữ cần có trên máy chạy. Các thuộc tính không chỉnh được giữ nguyên." xml:space="preserve"><value>Phông chữ cần có trên máy chạy. Các thuộc tính không chỉnh được giữ nguyên.</value></data>
+  <data name="Gộp ô là lệnh riêng trên Ribbon; không tự gộp hoặc xóa dữ liệu khi căn chỉnh." xml:space="preserve"><value>Gộp ô là lệnh riêng trên Ribbon; không tự gộp hoặc xóa dữ liệu khi căn chỉnh.</value></data>
+  <data name="Đường viền áp dụng cho từng ô. Chọn một mẫu để thay toàn bộ đường viền; không chọn thì giữ nguyên." xml:space="preserve"><value>Đường viền áp dụng cho từng ô. Chọn một mẫu để thay toàn bộ đường viền; không chọn thì giữ nguyên.</value></data>
+  <data name="Mẫu tô khác trong file được giữ khi không chỉnh; thay màu nền sẽ dùng màu đặc." xml:space="preserve"><value>Mẫu tô khác trong file được giữ khi không chỉnh; thay màu nền sẽ dùng màu đặc.</value></data>
+  <data name="Để trống số trang để tự động. Tỷ lệ in không thay đổi mức thu phóng trên màn hình." xml:space="preserve"><value>Để trống số trang để tự động. Tỷ lệ in không thay đổi mức thu phóng trên màn hình.</value></data>
+  <data name="Vùng in, tiêu đề lặp và ngắt trang từ file được giữ nguyên. Chưa có trình soạn đầu/cuối trang đầy đủ như Excel." xml:space="preserve"><value>Vùng in, tiêu đề lặp và ngắt trang từ file được giữ nguyên. Chưa có trình soạn đầu/cuối trang đầy đủ như Excel.</value></data>
+  <data name="Chỉ thay đổi chế độ xem, không thay đổi dữ liệu hoặc tỷ lệ in." xml:space="preserve"><value>Chỉ thay đổi chế độ xem, không thay đổi dữ liệu hoặc tỷ lệ in.</value></data>
+  <data name="Định dạng ô: Số" xml:space="preserve"><value>Định dạng ô: Số</value></data>
+  <data name="Định dạng ô: Phông chữ" xml:space="preserve"><value>Định dạng ô: Phông chữ</value></data>
+  <data name="Định dạng ô: Căn chỉnh" xml:space="preserve"><value>Định dạng ô: Căn chỉnh</value></data>
+  <data name="Thiết lập trang nâng cao" xml:space="preserve"><value>Thiết lập trang nâng cao</value></data>
+  <data name="Tùy chọn trang tính khi in" xml:space="preserve"><value>Tùy chọn trang tính khi in</value></data>
+  <data name="Thiết lập thu phóng" xml:space="preserve"><value>Thiết lập thu phóng</value></data>
 </root>

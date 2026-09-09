@@ -10,7 +10,7 @@ namespace NeraSpreadSheet.Avalonia;
 
 public sealed partial class NeraRibbonControl
 {
-    private Control BuildItem(RibbonItemLayout item) => item.Presentation.Kind switch
+    private Control BuildItem(RibbonItemLayout item) => item.Presentation.Definition.IsDialogLauncher ? BuildDialogLauncher(item) : item.Presentation.Kind switch
     {
         RibbonItemKind.Separator => new Border { Background = Brushes.Gray, Margin = new Thickness(1, 3) },
         RibbonItemKind.ComboBox or RibbonItemKind.ColorPicker => BuildCombo(item),

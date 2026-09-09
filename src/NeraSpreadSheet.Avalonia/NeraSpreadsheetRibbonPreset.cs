@@ -99,8 +99,19 @@ public static class NeraSpreadsheetRibbonPreset
             return resolved is null ? null : new RibbonItemDefinition(resolved, kind, isLarge: large,
                 measurement: width is { } requested ? _ => requested : null);
         }
-        static RibbonGroupDefinition Group(string id, string caption, int priority, params RibbonItemDefinition?[] items) =>
-            new(id, caption, items.OfType<RibbonItemDefinition>(), 0, priority) { CaptionResourceKey = caption };
+        RibbonGroupDefinition Group(string id, string caption, int priority, params RibbonItemDefinition?[] items)
+        {
+            var result = items.OfType<RibbonItemDefinition>().ToList();
+            var launcher = id switch
+            {
+                "number" => "Ui.Dialog.Number", "font" => "Ui.Dialog.Font", "alignment" => "Ui.Dialog.Alignment",
+                "page-setup" => "Ui.Dialog.PageSetup", "print-options" => "Ui.Dialog.PrintOptions", "zoom" => "Ui.Dialog.Zoom",
+                _ => null,
+            };
+            if (launcher is not null && Available(new CommandId(launcher))) result.Add(RibbonItemDefinition.DialogLauncher(launcher));
+            return new RibbonGroupDefinition(id, caption, result, 0, priority) { CaptionResourceKey = caption };
+        }
+
         void AddTab(string id, string caption, params RibbonGroupDefinition[] groups)
         {
             var populated = groups.Where(group => group.Items.Count > 0).ToArray();

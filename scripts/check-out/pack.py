@@ -27,6 +27,7 @@ def pack(root, app, images, output, sha, rid, run_url):
         'full-ui-smoke': ('NERA_AVALONIA_FULL_UI_SUCCESS ', 23),
         'formula-ux-smoke': ('NERA_AVALONIA_FORMULA_UX_SUCCESS ', 23),
         'ribbon-visual-smoke': ('NERA_AVALONIA_RIBBON_VISUAL_SUCCESS ', 190),
+        'dialogs-smoke': ('NERA_AVALONIA_DIALOGS_SUCCESS ', 70),
     }
     smokes = {}
     for name, (prefix, minimum) in requirements.items():
@@ -73,6 +74,8 @@ def pack(root, app, images, output, sha, rid, run_url):
     for target, source in {'ribbon-light.png':'Light-1024-home.png', 'ribbon-dark.png':'Dark-1024-home.png',
                            'full-window.png':'full-window.png', 'customization.png':'Light-customization.png'}.items():
         shutil.copy2(images / 'ribbon-visual' / source, output / target)
+    for target, source in {'format-number.png': 'number', 'format-font.png': 'font', 'format-alignment.png': 'alignment', 'format-border.png': 'border', 'format-fill.png': 'fill', 'page-setup.png': 'page', 'page-margins.png': 'margins', 'page-sheet.png': 'sheet', 'zoom-dialog.png': 'zoom'}.items():
+        shutil.copy2(images / 'dialogs' / ('Light-' + source + '.png'), output / target)
     shutil.rmtree(output / 'staging')
     print(json.dumps(dict(sourceSha=sha, rid=rid, package=filename, sha256=digest(output / filename))))
 
