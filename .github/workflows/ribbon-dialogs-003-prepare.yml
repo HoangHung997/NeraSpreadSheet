@@ -76,6 +76,10 @@ jobs:
           change(path, 'public sealed class SettingsDialogTests\n{',
               'public sealed class SettingsDialogTests\n{\n    private static readonly bool[] CancelModes = [false, true];')
           change(path, 'foreach (var escape in new[] { false, true })', 'foreach (var escape in CancelModes)')
+          path = 'tests/NeraSpreadSheet.Editing.Tests/FormatCellsDraftTests.cs'
+          change(path, 'public sealed class FormatCellsDraftTests\n{',
+              'public sealed class FormatCellsDraftTests\n{\n    private static readonly int[] ExpectedManualBreaks = [20];')
+          change(path, 'CollectionAssert.AreEqual(new[] { 20 },', 'CollectionAssert.AreEqual(ExpectedManualBreaks,')
           PY
       - name: Build and analyze the prepared source
         run: |
