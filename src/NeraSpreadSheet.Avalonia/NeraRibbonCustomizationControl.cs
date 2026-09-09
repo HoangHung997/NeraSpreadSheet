@@ -3,7 +3,9 @@ using global::Avalonia.Automation;
 using global::Avalonia.Controls;
 using global::Avalonia.Controls.Templates;
 using global::Avalonia.Layout;
+using global::Avalonia.Styling;
 using NeraSpreadSheet.Commands;
+using NeraSpreadSheet.Iconography;
 using NeraSpreadSheet.Ribbon.Core;
 
 namespace NeraSpreadSheet.Avalonia;
@@ -14,16 +16,19 @@ public sealed class NeraRibbonCustomizationControl : UserControl
 {
     private readonly RibbonRuntimeController _runtime;
     private readonly RibbonCustomizationPolicy _policy;
+    private readonly NeraRibbonResources _chrome = new();
+    private readonly ThemeVariantScope _themeScope = new();
     private readonly ListBox _catalog = new();
     private readonly ListBox _entries = new();
     private readonly ListBox _qat = new();
     private readonly TextBox _caption = new() { PlaceholderText = "Tên tab hoặc nhóm" };
-    private readonly TextBox _json = new() { AcceptsReturn = true, MinHeight = 90, TextWrapping = global::Avalonia.Media.TextWrapping.Wrap };
+    private readonly TextBox _json = new() { AcceptsReturn = true, MinHeight = 90, MaxHeight = 160, TextWrapping = global::Avalonia.Media.TextWrapping.Wrap };
     private readonly TextBlock _error = new() { TextWrapping = global::Avalonia.Media.TextWrapping.Wrap };
     private RibbonCustomizationSession _session;
     private RibbonCustomization? _baseline;
     private bool _changed;
     private bool _qatOverride;
+    private NeraIconTheme _iconTheme = NeraIconTheme.Light;
 
     public NeraRibbonCustomizationControl(RibbonRuntimeController runtime, RibbonCustomizationPolicy? policy = null)
     {
@@ -32,16 +37,19 @@ public sealed class NeraRibbonCustomizationControl : UserControl
         _baseline = runtime.Customization;
         _session = CreateSession(_baseline);
         _qatOverride = _baseline?.HasQuickAccessToolbarOverride == true;
+        Resources.MergedDictionaries.Add(_chrome);
+        ApplyTheme();
         var root = new DockPanel { Margin = new Thickness(12) };
         var bottom = new StackPanel { Spacing = 6 };
         DockPanel.SetDock(bottom, Dock.Bottom); root.Children.Add(bottom);
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        var actions = new WrapPanel { Orientation = Orientation.Horizontal };
         actions.Children.Add(Button("Áp dụng", () => Apply()));
         actions.Children.Add(Button("Hủy thay đổi", Cancel));
         actions.Children.Add(Button("Khôi phục mặc định", Reset));
-        actions.Children.Add(Button("Xuất JSON", () => _json.Text = ExportJson()));
-        actions.Children.Add(Button("Nhập JSON", () => ImportJson(_json.Text ?? string.Empty)));
-        bottom.Children.Add(_error); bottom.Children.Add(actions); bottom.Children.Add(_json);
+        var transfer = new Expander { Header = runtime.Localization.Get("Nhập / xuất cấu hình JSON"), Content = _json };
+        actions.Children.Add(Button("Xuất JSON", () => { _json.Text = ExportJson(); transfer.IsExpanded = true; }));
+        actions.Children.Add(Button("Nhập JSON", () => { transfer.IsExpanded = true; ImportJson(_json.Text ?? string.Empty); }));
+        bottom.Children.Add(_error); bottom.Children.Add(actions); bottom.Children.Add(transfer);
         var header = new StackPanel { Spacing = 6 };
         DockPanel.SetDock(header, Dock.Top); root.Children.Add(header);
         header.Children.Add(_caption);
@@ -74,10 +82,33 @@ public sealed class NeraRibbonCustomizationControl : UserControl
         });
         _qat.ItemTemplate = new FuncDataTemplate<CommandId>((id, _) => new TextBlock { Text = Caption(id), Margin = new Thickness(4) });
         _catalog.ItemsSource = runtime.CommandCatalog.Entries;
-        columns.Children.Add(_catalog); Grid.SetColumn(_entries, 1); columns.Children.Add(_entries); Grid.SetColumn(_qat, 2); columns.Children.Add(_qat);
+        var catalogColumn = CreateColumn("Danh mục lệnh", _catalog);
+        var structureColumn = CreateColumn("Cấu trúc Ribbon", _entries);
+        var qatColumn = CreateColumn("Thanh truy cập nhanh", _qat);
+        columns.Children.Add(catalogColumn); Grid.SetColumn(structureColumn, 1); columns.Children.Add(structureColumn); Grid.SetColumn(qatColumn, 2); columns.Children.Add(qatColumn);
         AutomationProperties.SetName(_catalog, "Danh mục lệnh"); AutomationProperties.SetName(_entries, "Cấu trúc Ribbon"); AutomationProperties.SetName(_qat, "Thanh truy cập nhanh");
         AutomationProperties.SetAutomationId(this, "nera-ribbon-customization");
-        root.Children.Add(columns); Content = root; Refresh();
+        root.Children.Add(columns); _themeScope.Child = root; Content = _themeScope; Refresh();
+    }
+
+    /// <summary>Scoped presentation theme. Changing it neither modifies the profile
+    /// nor creates an Apply/Cancel transaction. It never changes application resources.</summary>
+    public NeraIconTheme IconTheme
+    {
+        get => _iconTheme;
+        set { VerifyAccess(); if (_iconTheme == value) return; _ = NeraRibbonPalette.For(value); _iconTheme = value; ApplyTheme(); }
+    }
+    private void ApplyTheme()
+    {
+        _chrome.Apply(_iconTheme);
+        Background = _chrome.Brush("Surface"); Foreground = _chrome.Brush("Foreground");
+        _themeScope.RequestedThemeVariant = _iconTheme is NeraIconTheme.Dark or NeraIconTheme.HighContrastDark ? ThemeVariant.Dark : ThemeVariant.Light;
+    }
+    private Control CreateColumn(string caption, Control content)
+    {
+        var grid = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Margin = new Thickness(4, 0) };
+        grid.Children.Add(new TextBlock { Text = _runtime.Localization.Get(caption), FontWeight = global::Avalonia.Media.FontWeight.SemiBold, Margin = new Thickness(4, 0, 4, 6) });
+        Grid.SetRow(content, 1); grid.Children.Add(content); return grid;
     }
     public IReadOnlyList<RibbonCustomizationEntry> Entries => _session.GetLocalizedEntries(_runtime.Localization);
     public IReadOnlyList<CommandId> QuickAccessToolbar => _session.QuickAccessToolbar;
@@ -144,7 +175,7 @@ public sealed class NeraRibbonCustomizationControl : UserControl
     private string RequiredCaption() => string.IsNullOrWhiteSpace(_caption.Text) ? throw new InvalidOperationException("Nhập tên tab hoặc nhóm.") : _caption.Text;
     private Button Button(string caption, Action action)
     {
-        var button = new Button { Content = _runtime.Localization.Get(caption), Margin = new Thickness(2) };
+        var button = new Button { Content = _runtime.Localization.Get(caption), Margin = new Thickness(2), Padding = new Thickness(8, 5), MinHeight = 28 };
         button.Click += (_, _) =>
         {
             try { action(); _error.Text = string.Empty; }

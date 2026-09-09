@@ -19,6 +19,7 @@ public sealed class NeraBarPresenter : IDisposable
 {
     private readonly BarRuntimeController _runtime;
     private readonly NeraAvaloniaIconProvider _icons = new();
+    private readonly NeraRibbonResources _chrome = new();
     private readonly List<IDisposable> _shortcutBindings = [];
     private int _refreshQueued;
     private bool _disposed;
@@ -34,6 +35,7 @@ public sealed class NeraBarPresenter : IDisposable
             BarKind.ContextMenu => new ContextMenu(),
             _ => throw new ArgumentOutOfRangeException(nameof(runtime)),
         };
+        NativeControl.Resources.MergedDictionaries.Add(_chrome);
         _runtime.SnapshotChanged += OnSnapshotChanged;
         Rebuild();
     }
@@ -93,12 +95,14 @@ public sealed class NeraBarPresenter : IDisposable
     {
         VerifyUsable();
         Interlocked.Exchange(ref _refreshQueued, 0);
+        _chrome.Apply(_iconTheme);
         var focused = TopLevel.GetTopLevel(NativeControl)?.FocusManager?.GetFocusedElement();
         var focusId = focused is Control control && NativeControl.GetVisualDescendants().Contains(control)
             ? AutomationProperties.GetAutomationId(control) : null;
         CloseMenus();
         if (NativeControl is StackPanel panel)
         {
+            panel.Background = _chrome.Brush("TopSurface");
             panel.Children.Clear();
             foreach (var item in _runtime.Snapshot.Items) panel.Children.Add(CreateItem(item, true));
         }
@@ -115,12 +119,15 @@ public sealed class NeraBarPresenter : IDisposable
     private Control CreateItem(BarItemPresentation item, bool toolbar)
     {
         if (item.Kind == BarItemKind.Separator)
-            return toolbar ? new Border { Width = 1, Background = Brushes.Gray, Margin = new Thickness(3) } : new Separator();
+            return toolbar ? new Border { Width = 1, Background = _chrome.Brush("Divider"), Margin = new Thickness(3) } : new Separator();
         if (item.Kind == BarItemKind.Submenu)
         {
-            var menu = new MenuItem { Header = item.Caption, IsEnabled = item.IsEnabled };
-            foreach (var child in item.Children) menu.Items.Add(CreateItem(child, false));
-            if (!toolbar) return menu;
+            if (!toolbar)
+            {
+                var menu = new MenuItem { Header = item.Caption, IsEnabled = item.IsEnabled };
+                foreach (var child in item.Children) menu.Items.Add(CreateItem(child, false));
+                return menu;
+            }
             var button = new Button { Content = item.Caption + " ⌄", IsEnabled = item.IsEnabled };
             var popup = new ContextMenu();
             foreach (var child in item.Children) popup.Items.Add(CreateItem(child, false));

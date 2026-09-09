@@ -37,6 +37,7 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
     private bool _backstageOpen;
     private bool _showTopBar = true;
     private NeraIconTheme _iconTheme = NeraIconTheme.Light;
+    private Func<NeraIconRequest, IImage?>? _iconRequestResolver;
 
     public NeraRibbonControl(RibbonRuntimeController runtime)
     {
@@ -79,7 +80,19 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
     }
     public bool IsMinimized { get => _runtime.IsMinimized; set { VerifyUsable(); _runtime.SetMinimized(value); } }
     public Func<CommandId, CommandContext>? CommandContextFactory { get; set; }
-    public Func<NeraIconRequest, IImage?>? IconRequestResolver { get; set; }
+    /// <summary>Reprojects icon/caption fallback when the caller changes its resolver.
+    /// Returned images remain owned by the caller. Native sizes are requested in pixels.</summary>
+    public Func<NeraIconRequest, IImage?>? IconRequestResolver
+    {
+        get => _iconRequestResolver;
+        set
+        {
+            VerifyUsable();
+            if (ReferenceEquals(_iconRequestResolver, value)) return;
+            _iconRequestResolver = value;
+            Rebuild();
+        }
+    }
     public event EventHandler<NeraAvaloniaCommandActivationFailedEventArgs>? CommandActivationFailed;
     public event EventHandler? CustomizationRequested;
     public NeraIconTheme IconTheme
@@ -87,6 +100,7 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
         get => _iconTheme;
         set { VerifyUsable(); if (_iconTheme != value) { _iconTheme = value; Rebuild(); } }
     }
+    internal long NativeBodyBuildCount { get; private set; }
 
     public IDisposable BindShortcuts(InputElement owner)
     {
@@ -165,12 +179,9 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
             {
                 var caption = tab.Presentation.Caption;
                 if (KeyTipScope == RibbonKeyTipScope.Tabs && _runtime.KeyTips.TabTips.TryGetValue(tab.Presentation.Id, out var tip)) caption += $" [{tip}]";
-                var native = new TabItem
-                {
-                    Header = caption, Tag = tab.Presentation.Id,
-                    Content = IsMinimized ? null : BuildGroups(tab),
-                    Padding = new Thickness(12, 5),
-                };
+                // Preserve every native tab identity and the complete shared command
+                // snapshot. Only the selected tab needs native command controls.
+                var native = new TabItem { Header = caption, Tag = tab.Presentation.Id, Padding = new Thickness(12, 5) };
                 SetIdentity(native, "ribbon-tab-" + tab.Presentation.Id, tab.Presentation.Caption);
                 native.PointerPressed += (_, _) =>
                 {
@@ -179,12 +190,34 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
                 _tabs.Items.Add(native);
                 if (string.Equals(_selectedTabId, tab.Presentation.Id, StringComparison.OrdinalIgnoreCase)) _tabs.SelectedItem = native;
             }
-            BuildBackstage();
+            MaterializeSelectedTab();
+            _backstage.Children.Clear();
+            if (_backstageOpen) BuildBackstage();
             _backstage.IsVisible = _backstageOpen;
             _tabs.IsVisible = !_backstageOpen;
         }
         finally { _rebuilding = false; }
         RestoreFocusId(focused);
+    }
+
+    private void MaterializeSelectedTab()
+    {
+        foreach (var native in _tabs.Items.OfType<TabItem>())
+        {
+            var selected = string.Equals(native.Tag as string, _selectedTabId, StringComparison.OrdinalIgnoreCase);
+            if (!selected || IsMinimized || _backstageOpen) native.Content = null;
+            else if (native.Content is null)
+            {
+                var layout = LayoutSnapshot.Tabs.First(tab => string.Equals(tab.Presentation.Id, _selectedTabId, StringComparison.OrdinalIgnoreCase));
+                native.Content = BuildGroups(layout);
+            }
+        }
+    }
+
+    private object ChromeIcon(string key, string fallback)
+    {
+        var image = ResolveIcon(key, 16);
+        return image is null ? fallback : new Image { Source = image, Width = 16, Height = 16 };
     }
 
     private void BuildTopBar()
@@ -210,11 +243,12 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
             button.Click += async (_, _) => await ActivateCommandAsync(command.CommandId);
             _top.Children.Add(button);
         }
-        var minimize = new Button { Content = IsMinimized ? "⌄" : "⌃", MinWidth = 28, Height = 28 };
-        SetIdentity(minimize, "ribbon-minimize", Localize("Thu gọn Ribbon"));
+        var minimize = new Button { Content = ChromeIcon(IsMinimized ? "ribbon.expand" : "ribbon.collapse", IsMinimized ? "⌄" : "⌃"), MinWidth = 28, Height = 28 };
+        SetIdentity(minimize, "ribbon-minimize", Localize(IsMinimized ? "Mở rộng Ribbon" : "Thu gọn Ribbon"));
+        ToolTip.SetTip(minimize, Localize(IsMinimized ? "Mở rộng Ribbon" : "Thu gọn Ribbon"));
         minimize.Click += (_, _) => IsMinimized = !IsMinimized;
         _top.Children.Add(minimize);
-        var customize = new Button { Content = "⚙", MinWidth = 28, Height = 28 };
+        var customize = new Button { Content = ChromeIcon("ribbon.customize", "⚙"), MinWidth = 28, Height = 28 };
         SetIdentity(customize, "ribbon-customize", Localize("Tùy biến Ribbon"));
         ToolTip.SetTip(customize, Localize("Tùy biến Ribbon"));
         customize.Click += (_, _) => CustomizationRequested?.Invoke(this, EventArgs.Empty);
@@ -223,6 +257,7 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
 
     private StackPanel BuildGroups(RibbonTabLayout tab)
     {
+        NativeBodyBuildCount++;
         var groups = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, ClipToBounds = true };
         foreach (var group in tab.Groups.Where(static item => item.Mode != RibbonGroupLayoutMode.Overflow))
         {
@@ -244,7 +279,15 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
             };
             Canvas.SetTop(caption, group.CaptionY / LayoutSnapshot.Scale);
             canvas.Children.Add(caption);
-            var border = new Border { Child = canvas, BorderBrush = _chrome.Brush("Divider"), BorderThickness = new Thickness(0, 0, 1, 0) };
+            // Draw the divider as an overlay inside the allocated group, rather
+            // than adding another DIP outside the shared layout width.
+            canvas.Children.Add(new Border
+            {
+                Width = 1, Height = Math.Max(0, canvas.Height - 8), Background = _chrome.Brush("Divider"),
+                [Canvas.LeftProperty] = Math.Max(0, canvas.Width - 1), [Canvas.TopProperty] = 4,
+                IsHitTestVisible = false,
+            });
+            var border = new Border { Child = canvas };
             SetIdentity(border, "ribbon-group-" + group.Presentation.Id, group.Presentation.Caption);
             groups.Children.Add(border);
         }
@@ -332,7 +375,13 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
     }
     private void OnSelectedTabChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (!_rebuilding && ReferenceEquals(e.Source, _tabs) && _tabs.SelectedItem is TabItem { Tag: string id }) _selectedTabId = id;
+        if (_rebuilding || !ReferenceEquals(e.Source, _tabs) || _tabs.SelectedItem is not TabItem { Tag: string id }) return;
+        ClosePopups();
+        _selectedTabId = id;
+        LayoutSnapshot = LayoutSnapshot with { SelectedTabId = id };
+        _rebuilding = true;
+        try { MaterializeSelectedTab(); }
+        finally { _rebuilding = false; }
     }
     private void OnSnapshotChanged(object? sender, EventArgs e) => ScheduleRebuild();
     private void ScheduleRebuild()
@@ -359,7 +408,7 @@ public sealed partial class NeraRibbonControl : UserControl, IDisposable
     private IImage? ResolveIcon(string key, int size)
     {
         var request = new NeraIconRequest(key, size, _iconTheme);
-        return IconRequestResolver?.Invoke(request) ?? _icons.Resolve(request);
+        return _iconRequestResolver?.Invoke(request) ?? _icons.Resolve(request);
     }
     private string Localize(string value) => _runtime.Localization.Get(value);
     private static string ToolTipText(CommandPresentation command) => (command.Tooltip ?? command.Caption) + (string.IsNullOrWhiteSpace(command.Shortcut) ? string.Empty : $" ({command.Shortcut})");
