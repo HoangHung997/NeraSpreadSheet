@@ -19,7 +19,7 @@ public sealed partial class FullShellWindow
     {
         if (_settingsOpen) return;
         var session = Session; var pane = _split.ActiveSpreadsheet;
-        var dialog = new NeraFormatCellsDialog(session, tab, _runtime.Localization, _ribbon.IconTheme,
+        using var dialog = new NeraFormatCellsDialog(session, tab, _runtime.Localization, _ribbon.IconTheme,
             () => !_closed && ReferenceEquals(Session, session) && ReferenceEquals(_split.ActiveSpreadsheet, pane));
         await ShowSettingsAsync(dialog, pane);
     }
@@ -27,7 +27,7 @@ public sealed partial class FullShellWindow
     {
         if (_settingsOpen) return;
         var session = Session; var pane = _split.ActiveSpreadsheet;
-        var dialog = new NeraPageSetupDialog(session, tab, _runtime.Localization, _ribbon.IconTheme,
+        using var dialog = new NeraPageSetupDialog(session, tab, _runtime.Localization, _ribbon.IconTheme,
             () => !_closed && ReferenceEquals(Session, session));
         await ShowSettingsAsync(dialog, pane);
     }
@@ -42,10 +42,18 @@ public sealed partial class FullShellWindow
     }
     private async Task<bool> ShowSettingsAsync(NeraSettingsDialog dialog, NeraSpreadsheetControl pane)
     {
-        _settingsOpen = true; TrackWindow(dialog); _runtime.Refresh();
-        try { return await dialog.ShowDialog<bool>(this); }
+        _settingsOpen = true;
+        try
+        {
+            TrackWindow(dialog);
+            _runtime.Refresh();
+            return await dialog.ShowDialog<bool>(this);
+        }
         finally
         {
+            // ShowDialog can fail before a Closed event. Do not retain a dead
+            // window or leave commands disabled after that startup failure.
+            _dialogs.Remove(dialog);
             _settingsOpen = false;
             if (!_closed) { _runtime.Refresh(); if (ReferenceEquals(_split.ActiveSpreadsheet, pane)) pane.Focus(); }
         }

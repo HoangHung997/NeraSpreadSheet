@@ -163,6 +163,13 @@ public sealed partial class FullShellWindow
         catch (Exception exception)
         {
             Console.Error.WriteLine("NERA_AVALONIA_RIBBON_VISUAL_FAILURE " + exception);
+            try
+            {
+                var directory = Path.Combine(Environment.GetEnvironmentVariable("NERA_AVALONIA_ARTIFACTS") ?? "artifacts/avalonia", "ribbon-visual-failure");
+                Directory.CreateDirectory(directory);
+                CaptureRibbonScene(_ribbon, "failed-layout", 1, directory, []);
+            }
+            catch (Exception captureException) { Console.Error.WriteLine("RIBBON_FAILURE_CAPTURE_UNAVAILABLE " + captureException.Message); }
             lifetime.Shutdown(1);
         }
     }
@@ -198,7 +205,8 @@ public sealed partial class FullShellWindow
             Require(Math.Abs(nativeGroup.Bounds.Width - group.Width / snapshot.Scale) <= 0.6, "group width " + group.Presentation.Id);
             var groupOrigin = nativeGroup.TranslatePoint(default, _ribbon) ?? throw new InvalidOperationException("Detached group.");
             var bounds = new Rect(groupOrigin, nativeGroup.Bounds.Size);
-            Require(bounds.Left >= -0.6 && bounds.Right <= _ribbon.Bounds.Width + 0.6, "group clipping");
+            Require(bounds.Left >= -0.6 && bounds.Right <= _ribbon.Bounds.Width + 0.6,
+                FormattableString.Invariant($"group clipping: {theme}/{width}/{tabId}/{group.Presentation.Id}; left={bounds.Left:R}; right={bounds.Right:R}; nativeWidth={_ribbon.Bounds.Width:R}; inline={layout.InlineWidth:R}; available={snapshot.AvailableWidth:R}; scale={snapshot.Scale:R}; parent={(nativeGroup.Parent as Control)?.Bounds}; groups={string.Join(",", layout.Groups.Select(item => item.Presentation.Id + ":" + item.Width.ToString("R", CultureInfo.InvariantCulture)))}"));
             Require(groupBounds.All(previous => previous.Intersect(bounds).Width <= 0.6), "group overlap");
             groupBounds.Add(bounds);
             foreach (var item in group.Items)
