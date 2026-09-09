@@ -44,6 +44,32 @@ jobs:
           PY
       - name: Apply exact guarded source edits
         run: python eng/ribbon-dialogs-003/prepare.py
+      - name: Fix verified API and ownership build errors without suppressing analyzers
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          def change(name, old, new):
+              p = Path('src/NeraSpreadSheet.Avalonia') / name
+              text = p.read_text(encoding='utf-8')
+              if text.count(old) != 1:
+                  raise ValueError(f'API/lifetime source drift in {name}: {old!r}')
+              p.write_text(text.replace(old, new), encoding='utf-8', newline='\n')
+          change('NeraSettingsDialog.cs', 'Watermark = L(', 'PlaceholderText = L(')
+          for name in ('NeraFormatCellsDialog', 'NeraPageSetupDialog'):
+              change(name + '.cs', f'public sealed class {name} : NeraSettingsDialog',
+                  f'public sealed class {name} : NeraSettingsDialog, IDisposable')
+              change(name + '.cs', '    protected override bool TryApply()', '''    /// <summary>Releases target subscriptions even when this dialog has never been shown.
+              /// Call on the UI thread. Closing a shown dialog also releases its draft.</summary>
+              public void Dispose()
+              {
+                  global::Avalonia.Threading.Dispatcher.UIThread.VerifyAccess();
+                  _draft.Dispose();
+                  if (IsVisible) Close(false);
+                  GC.SuppressFinalize(this);
+              }
+
+              protected override bool TryApply()''')
+          PY
       - name: Build and analyze the prepared source
         run: |
           mkdir -p artifacts/preparation
