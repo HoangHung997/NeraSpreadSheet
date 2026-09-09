@@ -26,6 +26,8 @@ internal static class PackageAudit
         if (total > 512L * 1024 * 1024) throw new InvalidDataException("Audit expanded ZIP exceeds 512 MiB.");
         var partHashes = new Dictionary<string, string>(StringComparer.Ordinal);
         var featureHashes = new Dictionary<string, string>(StringComparer.Ordinal);
+        var normalizedFeatures = new Dictionary<string, string>(StringComparer.Ordinal);
+        var partRoots = new Dictionary<string, string>(StringComparer.Ordinal);
         var richTextRuns = 0;
         foreach (var entry in zip.Entries)
         {
@@ -34,15 +36,13 @@ internal static class PackageAudit
             if (!entry.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase) && !entry.FullName.EndsWith(".rels", StringComparison.OrdinalIgnoreCase)) continue;
             using var xmlStream = entry.Open(); var xml = Read(xmlStream);
             var root = xml.Root ?? throw new InvalidDataException("An XML part has no root.");
+            partRoots.Add(entry.FullName, root.Name.ToString());
             richTextRuns += root.Descendants(Main + "r").Count();
             if (root.Name == Main + "worksheet")
-                foreach (var name in SheetFeatures)
-                    featureHashes.Add(entry.FullName + "#" + name, Digest(new XElement("audit", root.Elements(Main + name).Select(element => new XElement(element)))));
+                foreach (var name in SheetFeatures) AddFeature(entry.FullName, root, name);
             else if (root.Name == Main + "styleSheet")
-                foreach (var name in StyleFeatures)
-                    featureHashes.Add(entry.FullName + "#" + name, Digest(new XElement("audit", root.Elements(Main + name).Select(element => new XElement(element)))));
-            else if (root.Name == Main + "workbook")
-                featureHashes.Add(entry.FullName + "#definedNames", Digest(new XElement("audit", root.Elements(Main + "definedNames").Select(element => new XElement(element)))));
+                foreach (var name in StyleFeatures) AddFeature(entry.FullName, root, name);
+            else if (root.Name == Main + "workbook") AddFeature(entry.FullName, root, "definedNames");
         }
         stream.Position = 0;
         using var document = SpreadsheetDocument.Open(stream, false);
@@ -69,22 +69,39 @@ internal static class PackageAudit
             zip.Entries.Count(entry => entry.FullName.StartsWith("xl/media/", StringComparison.Ordinal)),
             zip.Entries.Count(entry => entry.FullName.StartsWith("xl/charts/", StringComparison.Ordinal) && entry.FullName.EndsWith(".xml", StringComparison.Ordinal)),
             zip.Entries.Count(entry => entry.FullName.StartsWith("xl/pivot", StringComparison.Ordinal) && entry.FullName.EndsWith(".xml", StringComparison.Ordinal)),
-            partHashes, featureHashes);
+            partHashes, featureHashes, normalizedFeatures, partRoots);
+
+        void AddFeature(string path, XElement root, string name)
+        {
+            var fragment = new XElement("audit", root.Elements(Main + name).Select(element => new XElement(element)));
+            featureHashes.Add(path + "#" + name, Digest(fragment));
+            normalizedFeatures.Add(path + "#" + name, Digest(NormalizeNamesAndAttributes(fragment, 0)));
+        }
     }
     internal static object Compare(PackageSnapshot? before, PackageSnapshot after)
     {
         if (before is null) throw new InvalidOperationException("No original package inventory is available.");
         var lost = before.PartSha256.Keys.Except(after.PartSha256.Keys, StringComparer.Ordinal).ToArray();
+        var added = after.PartSha256.Keys.Except(before.PartSha256.Keys, StringComparer.Ordinal).ToArray();
         var changed = before.PartSha256.Keys.Intersect(after.PartSha256.Keys, StringComparer.Ordinal).Where(key => before.PartSha256[key] != after.PartSha256[key]).ToArray();
         var changedFeatures = before.FeatureSha256.Keys.Where(key => !after.FeatureSha256.TryGetValue(key, out var digest) || before.FeatureSha256[key] != digest).ToArray();
+        var normalizedChanges = before.NormalizedFeatureSha256.Keys.Where(key => !after.NormalizedFeatureSha256.TryGetValue(key, out var digest) || before.NormalizedFeatureSha256[key] != digest).ToArray();
+        var removedPartClassification = lost.Select(path => new
+        {
+            path, rootName = before.PartXmlRoots.GetValueOrDefault(path),
+            possibleReplacementPaths = added.Where(candidate => before.PartXmlRoots.TryGetValue(path, out var name) && after.PartXmlRoots.GetValueOrDefault(candidate) == name).ToArray(),
+            note = "Matching XML root names are only candidates for regeneration, not proof that payload or relationships were preserved.",
+        }).ToArray();
         return new
         {
             rulesBefore = before.Sheets.Sum(sheet => sheet.Rules.Count), rulesAfter = after.Sheets.Sum(sheet => sheet.Rules.Count),
             dxfsBefore = before.DifferentialStyles, dxfsAfter = after.DifferentialStyles,
             richTextRunsBefore = before.RichTextRuns, richTextRunsAfter = after.RichTextRuns,
-            lostParts = lost, byteChangedParts = changed, changedXmlFeatureSnapshots = changedFeatures,
-            conditionalAndDxfXmlUnchanged = !changedFeatures.Any(key => key.EndsWith("#conditionalFormatting", StringComparison.Ordinal) || key.EndsWith("#dxfs", StringComparison.Ordinal)),
-            interpretation = "A changed XML hash requires semantic review; preserved XML does not prove valid reference rebasing after structural edits.",
+            lostParts = lost, addedParts = added, removedPartClassification, byteChangedParts = changed, changedXmlFeatureSnapshots = changedFeatures,
+            conditionalAndDxfXmlUnchanged = !changedFeatures.Any(IsConditionalOrDxf),
+            changedExpandedNameFeatureSnapshots = normalizedChanges,
+            conditionalAndDxfExpandedStructureUnchanged = !normalizedChanges.Any(IsConditionalOrDxf),
+            interpretation = "The normalized comparison ignores xmlns declarations and attribute order but retains expanded names, text and child order. It does not resolve QName-valued text/attributes or prove extension/reference semantics. Changed part paths may be regenerated metadata; review payload and relationships before reporting loss.",
         };
     }
     internal static async Task<byte[]> CreateSyntheticAsync()
@@ -121,6 +138,7 @@ internal static class PackageAudit
         }
         return output.ToArray();
     }
+    private static bool IsConditionalOrDxf(string key) => key.EndsWith("#conditionalFormatting", StringComparison.Ordinal) || key.EndsWith("#dxfs", StringComparison.Ordinal);
     private static XDocument ReadPart(OpenXmlPart part) { using var stream = part.GetStream(FileMode.Open, FileAccess.Read); return Read(stream); }
     private static XDocument Read(Stream stream)
     {
@@ -132,9 +150,26 @@ internal static class PackageAudit
         using var stream = part.GetStream(FileMode.Create, FileAccess.Write);
         using var writer = XmlWriter.Create(stream, new XmlWriterSettings { Encoding = new UTF8Encoding(false) }); xml.Save(writer);
     }
+    private static XElement NormalizeNamesAndAttributes(XElement element, int depth)
+    {
+        if (depth > 128) throw new InvalidDataException("XML feature exceeds the audit normalization depth limit.");
+        var result = new XElement(element.Name);
+        foreach (var attribute in element.Attributes().Where(attribute => !attribute.IsNamespaceDeclaration)
+                     .OrderBy(attribute => attribute.Name.NamespaceName, StringComparer.Ordinal).ThenBy(attribute => attribute.Name.LocalName, StringComparer.Ordinal))
+            result.Add(new XAttribute(attribute.Name, attribute.Value));
+        foreach (var node in element.Nodes())
+        {
+            if (node is XElement child) result.Add(NormalizeNamesAndAttributes(child, depth + 1));
+            else if (node is XText text) result.Add(new XText(text.Value));
+            else if (node is XComment comment) result.Add(new XComment(comment.Value));
+            else if (node is XProcessingInstruction instruction) result.Add(new XProcessingInstruction(instruction.Target, instruction.Data));
+        }
+        return result;
+    }
     private static string Digest(XElement xml) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(xml.ToString(SaveOptions.DisableFormatting))));
 }
 internal sealed record RuleInventory(string? Sqref, string? Type, string? Priority, string? DxfId, string? StopIfTrue);
 internal sealed record SheetInventory(string Name, string PartUri, int XmlCells, int FormulaCells, int CachedErrors, int Tables, IReadOnlyList<RuleInventory> Rules);
 internal sealed record PackageSnapshot(int Parts, long ExpandedBytes, IReadOnlyList<SheetInventory> Sheets, int DifferentialStyles, int RichTextRuns,
-    int MediaParts, int ChartParts, int PivotParts, Dictionary<string, string> PartSha256, Dictionary<string, string> FeatureSha256);
+    int MediaParts, int ChartParts, int PivotParts, Dictionary<string, string> PartSha256, Dictionary<string, string> FeatureSha256,
+    Dictionary<string, string> NormalizedFeatureSha256, Dictionary<string, string> PartXmlRoots);
