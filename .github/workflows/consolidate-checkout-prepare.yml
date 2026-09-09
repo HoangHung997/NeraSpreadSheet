@@ -1,0 +1,102 @@
+name: Prepare reviewed consolidation candidate
+
+on:
+  push:
+    branches: [feature/consolidate-checkout-001]
+    paths: [.github/workflows/consolidate-checkout-prepare.yml]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: consolidation-inventory-5d4131245d281164fd747c0192ca5e71e0f96c03
+          run-id: 34329250330
+          github-token: ${{ github.token }}
+          path: /tmp/consolidation-inventory
+      - name: Confirm original source refs; genuine merges on the task branch only
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*'
+          test "$(git rev-parse origin/feature/consolidate-checkout-001)" = "$SOURCE_SHA"
+          python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          rows=json.loads(Path('/tmp/consolidation-inventory/branch-inventory.json').read_text())['branches']
+          for row in rows:
+              if row['name']=='feature/consolidate-checkout-001':continue
+              actual=subprocess.check_output(['git','rev-parse','refs/remotes/origin/'+row['name']],text=True).strip()
+              if actual!=row['sha']:raise RuntimeError('Source advanced: '+row['name'])
+          PY
+          git merge --no-ff -m 'Merge Avalonia host and primary Ribbon into consolidation candidate' c4a63fc19a4a45f515175ea542a0e1569e16fa5a
+          git merge --no-ff -m 'Merge shared clipboard and worksheet view-state for combined validation' 197d666022a8c05991f70202c7e9defc0c36e513
+          git merge --no-ff -m 'Merge reusable XLSX audit tooling without claiming private workbook acceptance' 84d71084a7cfc070cb8c80a87e2645101b44b462
+      - name: Apply readable reviewed integration corrections and delivery files
+        run: |
+          python eng/consolidation-001/materialize.py
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          path=Path('tests/NeraSpreadSheet.OpenXml.Tests/WorksheetViewStatePersistenceTests.cs')
+          s=path.read_text();old='var workbook = document.WorkbookPart!.Workbook;'
+          if s.count(old)!=1:raise ValueError('Expected fixture Workbook nullability context')
+          path.write_text(s.replace(old,'var workbook = document.WorkbookPart!.Workbook ?? throw new AssertFailedException("Expected workbook fixture markup.");'))
+          expected={
+          '.github/workflows/check-out.yml':'8b87b7a58c24ad12c4886cc70c62e5cdbced25a0',
+          'scripts/check-out/archive-branches.py':'3e69d512f9bb555f8d6dc55fe4f78ec0bb371d9e',
+          'scripts/check-out/assemble.py':'59cac0b5cd4ffa2a1de4d17f913d03bda32423e0',
+          'scripts/check-out/pack.py':'276a065139647040441b3ffe8d686270d1fe77a7',
+          'scripts/check-out/test_delivery.py':'38e74233eecee303729cbe40badd7a433dceb87b',
+          'src/NeraSpreadSheet.OpenXml/NeraOpenXmlSpreadsheetSessionSerializer.cs':'d41ec3dd57ffe4603e1638480f91c4d7ddb901a5',
+          'tests/NeraSpreadSheet.Editing.Tests/ClipboardSafetyTests.cs':'1c340799c4efc37bf1c7dff01ffee239e6d0723f',
+          'tests/NeraSpreadSheet.OpenXml.Tests/WorksheetViewStatePersistenceTests.cs':'4b4622298c1949697e9c1451693f5256af52b247',
+          'tests/NeraSpreadSheet.OpenXml.Tests/WorksheetViewStateWindowBindingTests.cs':'af023b39a5d05638996a661a573774a5b1c0661b'}
+          for name,expected_hash in expected.items():
+              actual=subprocess.check_output(['git','hash-object',name],text=True).strip()
+              if actual!=expected_hash:raise RuntimeError('Reviewed local source mismatch: '+name+' '+actual)
+          print('Every product/test/delivery source blob matches the locally reviewed source.')
+          PY
+          python -B -m unittest discover -s scripts/check-out -p 'test_*.py' -v
+          git diff --check
+      - name: Remove one-time transport and commit only to the candidate branch
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          rm -r eng/consolidation-001
+          rm .github/workflows/consolidate-checkout-prepare.yml
+          git add --all
+          git diff --cached --check
+          git commit -m 'feat(repo): consolidate navigation, safe branch archives and Check out test delivery'
+          test "$(git ls-remote origin refs/heads/feature/consolidate-checkout-001 | cut -f1)" = "$SOURCE_SHA"
+          git push origin HEAD:refs/heads/feature/consolidate-checkout-001
+          echo "Prepared source $(git rev-parse HEAD). No .NET CI acceptance claimed; a connector freeze push will trigger exact-head qualification." >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain source receipt for inspection even when preparation fails
+        if: always()
+        run: |
+          mkdir -p /tmp/consolidation-result
+          git rev-parse HEAD > /tmp/consolidation-result/source-sha.txt
+          git diff --binary > /tmp/consolidation-result/uncommitted.patch
+          git ls-files -s > /tmp/consolidation-result/tree-index.txt
+          git bundle create /tmp/consolidation-result/repository.bundle --all
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: consolidation-prepared-${{ github.sha }}
+          path: /tmp/consolidation-result/
+          if-no-files-found: error

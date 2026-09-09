@@ -1,0 +1,28 @@
+    [TestMethod]
+    [DataRow(false, false)]
+    [DataRow(false, true)]
+    [DataRow(true, false)]
+    [DataRow(true, true)]
+    public async Task OpaqueSiblingRetentionShouldRequireBothImportAndExportOptIn(bool capture, bool preserve)
+    {
+        Assert.IsFalse(new OpenXmlImportOptions().PreserveUnknownParts);
+        Assert.IsFalse(new OpenXmlExportOptions().PreserveUnknownParts);
+        await using var source = await CreateStandardFixture();
+        var serializer = new NeraOpenXmlSpreadsheetSessionSerializer();
+        var session = await serializer.LoadSessionAsync(source, new OpenXmlImportOptions { PreserveUnknownParts = capture });
+        Assert.AreEqual(new CellAddress(8, 7), session.Selection.ActiveCell);
+        await using var result = new MemoryStream();
+        await serializer.SaveSessionAsync(session, result, new OpenXmlExportOptions { PreserveUnknownParts = preserve });
+        result.Position = 0;
+        using var document = SpreadsheetDocument.Open(result, false);
+        var views = FirstPart(document).Worksheet!.GetFirstChild<SheetViews>()!.Elements<SheetView>().ToArray();
+        Assert.AreEqual(capture && preserve ? 2 : 1, views.Length);
+        if (capture && preserve)
+        {
+            Assert.AreEqual(70U, views[0].ZoomScale!.Value);
+            Assert.AreEqual("keep", views[1].GetAttribute("marker", TestNamespace).Value);
+            Assert.IsNotNull(views[1].GetFirstChild<ExtensionList>());
+        }
+        Assert.AreEqual("H9", views[^1].Elements<Selection>().Single().ActiveCell!.Value);
+    }
+

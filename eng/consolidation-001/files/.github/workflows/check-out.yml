@@ -1,0 +1,173 @@
+name: Check out — integrated SDK and test applications
+
+on:
+  push:
+    branches: [main, feature/consolidate-checkout-001]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: check-out-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  delivery-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify delivery and destructive-operation counterexamples
+        run: python -B -m unittest discover -s scripts/check-out -p 'test_*.py' -v
+
+  core-and-hosts:
+    uses: ./.github/workflows/ci.yml
+  openxml:
+    uses: ./.github/workflows/q003c-openxml-analytics-gate.yml
+  ios:
+    uses: ./.github/workflows/chatgpt-ios-analytics-smoke.yml
+  windows-packages:
+    uses: ./.github/workflows/release-009-packages.yml
+  maui-packages:
+    uses: ./.github/workflows/release-009-maui-packages.yml
+  legacy-demo:
+    uses: ./.github/workflows/release-009-demo.yml
+  avalonia:
+    uses: ./.github/workflows/avalonia-primary-ribbon-002.yml
+
+  applications:
+    name: Publish and smoke ${{ matrix.rid }}
+    needs: [delivery-tests, avalonia]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: macos-latest
+            rid: osx-arm64
+    env:
+      NERA_SOURCE_SHA: ${{ github.sha }}
+      NERA_AVALONIA_ARTIFACTS: artifacts/published-images
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Linux native libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libx11-6 libice6 libsm6 libfontconfig1 libxcb1 libxrender1 libxrandr2 libxi6 libgl1 libegl1 fonts-dejavu-core
+      - name: Publish a self-contained application, not only the SDK DLL
+        run: dotnet publish samples/NeraSpreadSheet.Avalonia.Sample/NeraSpreadSheet.Avalonia.Sample.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishTrimmed=false -p:PublishSingleFile=false -o artifacts/app
+      - name: Execute the actual published application and keep native evidence
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory artifacts/published-images -Force | Out-Null
+          $app = Join-Path $pwd 'artifacts/app/NeraSpreadSheet.Avalonia.Sample'
+          if ($IsWindows) { $app += '.exe' }
+          foreach ($mode in @('smoke','full-ui-smoke','formula-ux-smoke','ribbon-visual-smoke')) {
+            if ($IsLinux) { $lines = & xvfb-run -a $app "--$mode" 2>&1 }
+            else { $lines = & $app "--$mode" 2>&1 }
+            $exit = $LASTEXITCODE
+            $lines | Tee-Object "artifacts/published-images/$mode.log"
+            if ($exit -ne 0) { throw "Published application $mode failed: $exit" }
+          }
+          python scripts/verify-avalonia-ribbon-visual.py artifacts/published-images/ribbon-visual $env:NERA_SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Published image provenance failed.' }
+      - name: Build the Check out folder and downloadable ZIP
+        run: python scripts/check-out/pack.py --root . --app artifacts/app --images artifacts/published-images --output artifacts/delivery --sha ${{ github.sha }} --rid ${{ matrix.rid }} --run-url https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: check-out-${{ matrix.rid }}-${{ github.sha }}
+          path: artifacts/delivery/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Keep actual failure logs without pretending they are a package
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-out-failure-${{ matrix.rid }}-${{ github.sha }}
+          path: artifacts/published-images/
+          if-no-files-found: warn
+
+  assemble:
+    name: Verified Check out download centre
+    needs: [delivery-tests, core-and-hosts, openxml, ios, windows-packages, maui-packages, legacy-demo, avalonia, applications]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: check-out-*-${{ github.sha }}
+          path: incoming/
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdk-packages
+          path: incoming/sdk-packages
+      - uses: actions/download-artifact@v4
+        with:
+          name: primary-ribbon-windows-latest-${{ github.sha }}
+          path: incoming/ribbon-sdk
+      - name: Assemble exact-source downloads; publish prerelease only from validated main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.sha }}
+          SOURCE_REF: ${{ github.ref }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          extra=()
+          if [ "$SOURCE_REF" = 'refs/heads/main' ]; then extra+=(--publish); fi
+          python scripts/check-out/assemble.py --source incoming --output delivery --sha "$SOURCE_SHA" --repo "$REPO" --run-id "$RUN_ID" "${extra[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Check-out-index-${{ github.sha }}
+          path: |
+            delivery/CHECKOUT.json
+            delivery/SHA256SUMS.txt
+            delivery/Nera-Check-out-evidence.zip
+            delivery/Nera-SDK-packages.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  one-time-branch-cleanup:
+    name: Archive and remove superseded branches (once)
+    needs: assemble
+    if: github.ref == 'refs/heads/main' && github.repository == 'HoangHung997/NeraSpreadSheet'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Archive first, verify exact leases, close integrated PRs, then delete
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/check-out/archive-branches.py --manifest 'Check out/branches.json' --sha ${{ github.sha }} --repo ${{ github.repository }} --run-url https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }} --apply
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: consolidation-cleanup-${{ github.sha }}
+          path: consolidation-result.json
+          if-no-files-found: warn
