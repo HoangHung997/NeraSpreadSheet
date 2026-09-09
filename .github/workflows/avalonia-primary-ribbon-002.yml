@@ -74,7 +74,8 @@ jobs:
             @{ Argument = '--smoke'; Prefix = 'NERA_AVALONIA_SMOKE_SUCCESS '; Minimum = 12 },
             @{ Argument = '--full-ui-smoke'; Prefix = 'NERA_AVALONIA_FULL_UI_SUCCESS '; Minimum = 23 },
             @{ Argument = '--formula-ux-smoke'; Prefix = 'NERA_AVALONIA_FORMULA_UX_SUCCESS '; Minimum = 23 },
-            @{ Argument = '--ribbon-visual-smoke'; Prefix = 'NERA_AVALONIA_RIBBON_VISUAL_SUCCESS '; Minimum = 190 }
+            @{ Argument = '--ribbon-visual-smoke'; Prefix = 'NERA_AVALONIA_RIBBON_VISUAL_SUCCESS '; Minimum = 190 },
+            @{ Argument = '--dialogs-smoke'; Prefix = 'NERA_AVALONIA_DIALOGS_SUCCESS '; Minimum = 70 }
           )
           foreach ($mode in $modes) {
             if ($IsLinux) { $lines = & xvfb-run -a dotnet $app $mode.Argument 2>&1 }
@@ -92,6 +93,8 @@ jobs:
           }
           python scripts/verify-avalonia-ribbon-visual.py artifacts/avalonia/ribbon-visual $env:NERA_SOURCE_SHA
           if ($LASTEXITCODE -ne 0) { throw 'Ribbon visual matrix or image provenance failed.' }
+          python scripts/verify-avalonia-dialogs.py artifacts/avalonia/dialogs $env:NERA_SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Dialog image provenance failed.' }
       - name: Pack SDK including theme resources
         run: dotnet pack src/NeraSpreadSheet.Avalonia/NeraSpreadSheet.Avalonia.csproj -c Release --no-build -o artifacts/packages
       - name: Checkout immutable baseline for the paired synthetic measurement

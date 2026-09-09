@@ -2,7 +2,7 @@ name: Check out — integrated SDK and test applications
 
 on:
   push:
-    branches: [main, feature/consolidate-checkout-001]
+    branches: [main, feature/ribbon-dialogs-003]
   workflow_dispatch:
 
 permissions:
@@ -75,7 +75,7 @@ jobs:
           New-Item -ItemType Directory artifacts/published-images -Force | Out-Null
           $app = Join-Path $pwd 'artifacts/app/NeraSpreadSheet.Avalonia.Sample'
           if ($IsWindows) { $app += '.exe' }
-          foreach ($mode in @('smoke','full-ui-smoke','formula-ux-smoke','ribbon-visual-smoke')) {
+          foreach ($mode in @('smoke', 'full-ui-smoke', 'formula-ux-smoke', 'ribbon-visual-smoke', 'dialogs-smoke')) {
             if ($IsLinux) { $lines = & xvfb-run -a $app "--$mode" 2>&1 }
             else { $lines = & $app "--$mode" 2>&1 }
             $exit = $LASTEXITCODE
@@ -84,6 +84,8 @@ jobs:
           }
           python scripts/verify-avalonia-ribbon-visual.py artifacts/published-images/ribbon-visual $env:NERA_SOURCE_SHA
           if ($LASTEXITCODE -ne 0) { throw 'Published image provenance failed.' }
+          python scripts/verify-avalonia-dialogs.py artifacts/published-images/dialogs $env:NERA_SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Published dialog evidence validation failed.' }
       - name: Build the Check out folder and downloadable ZIP
         run: python scripts/check-out/pack.py --root . --app artifacts/app --images artifacts/published-images --output artifacts/delivery --sha ${{ github.sha }} --rid ${{ matrix.rid }} --run-url https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
       - uses: actions/upload-artifact@v4
