@@ -110,6 +110,15 @@ public sealed partial class FullShellWindow
                 {
                     await Dispatcher.UIThread.InvokeAsync(dialog.UpdateLayout, DispatcherPriority.Background);
                     Check($"customization-no-edit-{theme}", editor.IconTheme == theme && !editor.HasChanges && ReferenceEquals(editor.Apply(), originalCustomization));
+                    // Apply refreshes both ItemsSources. Let native item containers
+                    // realize again before the evidence capture, not just the catalog.
+                    await Dispatcher.UIThread.InvokeAsync(dialog.UpdateLayout, DispatcherPriority.Background);
+                    var lists = dialog.GetVisualDescendants().OfType<ListBox>().ToArray();
+                    var structure = lists.Single(list => AutomationProperties.GetName(list) == "Cấu trúc Ribbon");
+                    var qat = lists.Single(list => AutomationProperties.GetName(list) == "Thanh truy cập nhanh");
+                    Check($"customization-items-rendered-{theme}", structure.ItemCount > 0 && qat.ItemCount > 0 &&
+                        structure.GetVisualDescendants().OfType<TextBlock>().Any(text => !string.IsNullOrWhiteSpace(text.Text)) &&
+                        qat.GetVisualDescendants().OfType<TextBlock>().Any(text => !string.IsNullOrWhiteSpace(text.Text)));
                     CaptureRibbonScene(dialog, $"{theme}-customization", 1, directory, captures);
                 }
                 finally { dialog.Close(); }
