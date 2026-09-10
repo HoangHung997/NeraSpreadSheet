@@ -24,6 +24,20 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
+      - name: Keep the adversarial fixture outside internal Core implementation types
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          core = Path('src/NeraSpreadSheet.Core/ConditionalFormatting.cs').read_text()
+          if 'public const int MaxRulesPerWorksheet = 100_000;' not in core:
+              raise ValueError('The rule limit changed; review the boundary fixture explicitly.')
+          path = Path('eng/xlsx-compat-004/DxfCompatibilityTests.stage')
+          text = path.read_text()
+          old = 'WorksheetConditionalFormattingCollection.MaxRulesPerWorksheet + 1'
+          if text.count(old) != 1:
+              raise ValueError('Boundary fixture drift')
+          path.write_text(text.replace(old, '100_001'), encoding='utf-8')
+          PY
       - name: Apply reviewed guarded source edits
         run: python eng/xlsx-compat-004/prepare.py
       - name: Build and analyze prepared source
