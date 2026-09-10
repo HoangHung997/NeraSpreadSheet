@@ -116,7 +116,7 @@ public sealed partial class NeraRibbonControl
         // an empty ComboBox merely because the host's common-value list is sparse.
         if (combo.SelectedItem is null && !string.IsNullOrWhiteSpace(command.SelectedValue))
         {
-            var caption = command.DisplayText ?? command.SelectedValue;
+            var caption = command.SelectedValue;
             if (command.CommandId.Value == "Ui.Zoom" && !caption.EndsWith('%')) caption += "%";
             var current = new ComboBoxItem { Content = caption, Tag = command.SelectedValue, IsEnabled = command.IsEnabled };
             SetIdentity(current, $"ribbon-command-{command.CommandId.Value}-choice-current", caption);
