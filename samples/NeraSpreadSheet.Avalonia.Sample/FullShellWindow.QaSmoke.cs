@@ -68,13 +68,14 @@ public sealed partial class FullShellWindow
             CaptureRibbonScene(_ribbon, "qa-zoom-110", 1, directory, captures);
 
             // Per-sheet native view state. Add distant sparse cells so the host
-            // has real scroll extents; these direct fixture writes predate the
-            // history assertions and do not simulate user edits.
+            // has real scroll extents. Capture history before the entire A/B view
+            // sequence so the regression proves view state does not create Undo.
             var session = Session;
             var first = session.Workbook.Worksheets[0];
             var second = session.Workbook.Worksheets[1];
             first.SetValue(new CellAddress(220, 24), "extent-a");
             second.SetValue(new CellAddress(260, 28), "extent-b");
+            var historyBeforeView = session.History.UndoCount;
             session.ActivateWorksheet(first);
             session.Selection.SetActiveCell(new CellAddress(9, 4));
             _split.SetZoom(1.35);
@@ -97,6 +98,7 @@ public sealed partial class FullShellWindow
             Check("view-b-zoom", Math.Abs(_split.ActiveSpreadsheet.Zoom - secondState.Zoom) < 1e-9);
             Check("view-b-scroll-x", Math.Abs(_split.ActiveSpreadsheet.ScrollSnapshot.OffsetX - secondState.OffsetX) < 1e-9);
             Check("view-b-scroll-y", Math.Abs(_split.ActiveSpreadsheet.ScrollSnapshot.OffsetY - secondState.OffsetY) < 1e-9);
+            Check("view-switching-no-undo", session.History.UndoCount == historyBeforeView);
 
             // Create a Table through the actual Ribbon command and verify the
             // shared contextual Table Design projection becomes visible.
@@ -117,7 +119,8 @@ public sealed partial class FullShellWindow
             Check("filter-target", session.TryResolveActiveAutoFilterTarget(out var target));
             Check("filter-command", await _ribbon.ActivateCommandAsync("Ui.Filter"));
             await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
-            Check("filter-window-open", _filterWindow is { IsVisible: true });
+            _filterWindow?.UpdateLayout();
+            Check("filter-window-open", _filterWindow is { IsVisible: true, Bounds.Width: > 0, Bounds.Height: > 0 });
             Check("filter-page-bounded", _filterWindow!.Snapshot.Values.Count <= NeraAutoFilterWindow.PageSize);
             CaptureRibbonScene(_filterWindow, "qa-filter-window", 1, directory, captures);
             _filterWindow.Close(false);
@@ -160,7 +163,6 @@ public sealed partial class FullShellWindow
             var reloaded = await _serializer.LoadSessionAsync(output, OpenXmlImportOptions.ForMode(OpenXmlImportMode.Compatibility));
             Check("roundtrip-table", reloaded.ActiveWorksheet.TableCount == 1 && reloaded.ActiveWorksheet.Tables[0].Name == tableName);
             Check("roundtrip-formula", reloaded.ActiveWorksheet.GetFormula(new CellAddress(3, 3)) is { Length: > 0 });
-            Check("no-history-from-view-switching", session.History.UndoCount > 0 && session.History.UndoCount < 20);
 
             Check("captures-complete", captures.Count == QaRibbonWidths.Length + 3);
             var manifest = new
