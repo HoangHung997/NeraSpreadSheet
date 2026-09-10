@@ -64,14 +64,14 @@ public sealed partial class NeraSpreadsheetControl : Control, IDisposable
             RefreshFormulaHighlights(); Refresh(); SessionChanged?.Invoke(this, EventArgs.Empty);
         }
     }
-    /// <summary>Visual zoom 25%–400%, independent of worksheet dimensions.</summary>
+    /// <summary>Visual zoom 10%–400%, independent of worksheet dimensions.</summary>
     public double Zoom
     {
         get => _zoom;
         set
         {
             VerifyUsable();
-            if (!double.IsFinite(value) || value < 0.25 || value > 4) throw new ArgumentOutOfRangeException(nameof(value), "Zoom must be between 0.25 and 4.");
+            if (!double.IsFinite(value) || value < 0.1 || value > 4) throw new ArgumentOutOfRangeException(nameof(value), "Zoom must be between 0.1 and 4.");
             if (_zoom == value) return;
             SetAndRaise(ZoomProperty, ref _zoom, value); Refresh(); ZoomChanged?.Invoke(this, EventArgs.Empty);
         }
