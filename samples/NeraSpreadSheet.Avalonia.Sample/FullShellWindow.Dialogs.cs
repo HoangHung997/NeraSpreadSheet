@@ -13,6 +13,7 @@ public sealed partial class FullShellWindow
         AddAsync("Ui.Dialog.PageSetup", "Thiết lập trang nâng cao", () => ShowPageSetupAsync(NeraPageSetupTab.Page), state: DialogState);
         AddAsync("Ui.Dialog.PrintOptions", "Tùy chọn trang tính khi in", () => ShowPageSetupAsync(NeraPageSetupTab.Sheet), state: DialogState);
         AddAsync("Ui.Dialog.Zoom", "Thiết lập thu phóng", ShowZoomAsync, state: DialogState);
+        RegisterQaGapCommands();
     }
     private CommandState DialogState() => new(!_settingsOpen);
     private async Task ShowFormatCellsAsync(NeraFormatCellsTab tab)
