@@ -96,12 +96,17 @@ class PackageTests(unittest.TestCase):
         compatibility=self.images/'compatibility';compatibility.mkdir()
         for name in ('compatibility-open.png','compatibility-edited.png','compatibility-rejected.png'):
             (compatibility/name).write_bytes(b'synthetic delivery fixture, not a native image')
+        qa=self.images/'qa-gaps';qa.mkdir()
+        (qa/'manifest.json').write_text('{}')
+        for name in ('qa-home-768.png','qa-home-820.png','qa-home-1024.png','qa-home-1366.png','qa-home-1920.png','qa-zoom-110.png','qa-table-design.png','qa-filter-window.png'):
+            (qa/name).write_bytes(b'synthetic QA delivery fixture, not a native image')
         self.prefixes={ 'smoke':('NERA_AVALONIA_SMOKE_SUCCESS ',12),
             'full-ui-smoke':('NERA_AVALONIA_FULL_UI_SUCCESS ',23),
             'formula-ux-smoke':('NERA_AVALONIA_FORMULA_UX_SUCCESS ',23),
             'ribbon-visual-smoke':('NERA_AVALONIA_RIBBON_VISUAL_SUCCESS ',198),
             'dialogs-smoke':('NERA_AVALONIA_DIALOGS_SUCCESS ',80),
-            'compatibility-smoke':('NERA_AVALONIA_COMPATIBILITY_SUCCESS ',38)}
+            'compatibility-smoke':('NERA_AVALONIA_COMPATIBILITY_SUCCESS ',38),
+            'qa-gaps-smoke':('NERA_AVALONIA_QA_GAPS_SUCCESS ',40)}
         for name,(prefix,count) in self.prefixes.items():
             (self.images/(name+'.log')).write_text(prefix+json.dumps(dict(sha=SHA,nativeWindow=True,assertions=count))+'\n')
         (self.root/'docs').mkdir();(self.root/'docs/third-party-notices.md').write_text('synthetic notice')
@@ -116,8 +121,10 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(packing.digest(archive),meta['sha256'])
         with zipfile.ZipFile(archive) as zip:
             self.assertIn('Check out/App/NeraSpreadSheet.Avalonia.Sample',zip.namelist())
+            self.assertIn('Check out/Images/qa-gaps/qa-table-design.png',zip.namelist())
             report=json.loads(zip.read('Check out/Reports/package.json'))
             self.assertEqual(SHA,report['sourceSha']);self.assertFalse(report['physicalInputTested'])
+            self.assertIn('qa-gaps-smoke',report['smokes'])
             self.assertTrue(all(name.startswith('Check out/') for name in zip.namelist()))
 
     def testWrongHeadCannotProduceDownload(self):
@@ -151,6 +158,19 @@ class PackageTests(unittest.TestCase):
         prefix,count=self.prefixes['compatibility-smoke']
         (self.images/'compatibility-smoke.log').write_text(prefix+json.dumps(dict(sha=OLD,nativeWindow=True,assertions=count)))
         with self.assertRaisesRegex(ValueError,'evidence'):self.pack()
+
+    def testMissingQaGapSmokeCannotProduceDownload(self):
+        (self.images/'qa-gaps-smoke.log').unlink()
+        with self.assertRaises(FileNotFoundError):self.pack()
+
+    def testWrongQaGapHeadCannotProduceDownload(self):
+        prefix,count=self.prefixes['qa-gaps-smoke']
+        (self.images/'qa-gaps-smoke.log').write_text(prefix+json.dumps(dict(sha=OLD,nativeWindow=True,assertions=count)))
+        with self.assertRaisesRegex(ValueError,'evidence'):self.pack()
+
+    def testMissingQaImageManifestCannotProduceDownload(self):
+        (self.images/'qa-gaps/manifest.json').unlink()
+        with self.assertRaises(FileNotFoundError):self.pack()
 
     def testFrameworkDependentAppCannotBeCalledSelfContained(self):
         (self.app/'libhostfxr.so').unlink()
