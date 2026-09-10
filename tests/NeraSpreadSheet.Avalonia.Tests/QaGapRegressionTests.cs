@@ -127,7 +127,7 @@ public sealed class QaGapRegressionTests
     {
         private static readonly CommandItem[] Items = [new("100", "100%"), new("125", "125%")];
         public bool CanExecute(CommandContext context) => true;
-        public CommandState GetState(CommandContext context) => new(true, null, null, "110", Items);
+        public CommandState GetState(CommandContext context) => new(true, null, null, "110.00000000000001", Items);
         public ValueTask ExecuteAsync(CommandContext context) => ValueTask.CompletedTask;
     }
 }
