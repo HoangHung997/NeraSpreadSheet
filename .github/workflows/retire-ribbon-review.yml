@@ -1,0 +1,124 @@
+name: Retire integrated Ribbon review branch (one time)
+on:
+  push:
+    branches: [feature/ribbon-dialogs-003]
+    paths: [.github/workflows/retire-ribbon-review.yml]
+permissions:
+  contents: write
+  actions: write
+  pull-requests: read
+concurrency:
+  group: retire-ribbon-dialogs-003
+  cancel-in-progress: false
+jobs:
+  retire:
+    if: github.repository == 'HoangHung997/NeraSpreadSheet' && github.ref == 'refs/heads/feature/ribbon-dialogs-003'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      QUALIFIED_MAIN_RUN: '34435751389'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Verify exact main release, archive, then retire only PR9 review branch
+        shell: bash
+        run: |
+          python - <<'PY_RETIRE'
+          """Retire only the integrated PR9 review branch after exact-main publication."""
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import subprocess
+          import time
+
+          REPO='HoangHung997/NeraSpreadSheet'
+          BRANCH='feature/ribbon-dialogs-003'
+          SOURCE='54067a37f7d91ab8c0ae42671e39bfef9c9ea273'
+          WORKFLOW='.github/workflows/retire-ribbon-review.yml'
+          PREFIX='archive/ribbon-dialogs-003/20260910/'
+
+
+          def validate(main, branch, candidate, parent, changed, pr_state, release_sha, run_sha, run_branch, run_status):
+              if not re.fullmatch('[0-9a-f]{40}',candidate) or candidate==SOURCE:raise ValueError('Invalid retirement commit')
+              if main!=SOURCE or branch!=candidate or parent!=SOURCE:raise ValueError('Source or review branch moved')
+              if changed!={WORKFLOW}:raise ValueError('Retirement commit contains product changes')
+              if pr_state!='closed':raise ValueError('PR9 must be closed after integration')
+              if release_sha!=SOURCE or run_sha!=SOURCE or run_branch!='main' or run_status!='success':raise ValueError('Missing exact-main release qualification')
+              return {'refs/tags/'+PREFIX+'source':SOURCE,'refs/tags/'+PREFIX+'retirement':candidate}
+
+
+          def output(*args):return subprocess.check_output(args,text=True).strip()
+          def api(endpoint):return json.loads(output('gh','api',f'repos/{REPO}/'+endpoint))
+          def refs(kind):
+              return {ref:sha for line in output('git','ls-remote','--'+kind,'origin').splitlines()
+                      for sha,ref in [line.split('\t',1)] if not ref.endswith('^{}')}
+
+
+          def main():
+              if os.environ.get('GITHUB_REPOSITORY')!=REPO or os.environ.get('GITHUB_REF_NAME')!=BRANCH:raise ValueError('Unexpected repository/ref')
+              candidate=os.environ['GITHUB_SHA'];run_id=os.environ['QUALIFIED_MAIN_RUN']
+              if not run_id.isdecimal():raise ValueError('Invalid qualification run')
+              current=refs('heads');wanted={'refs/heads/main':SOURCE,'refs/heads/'+BRANCH:candidate}
+              if current!=wanted:raise ValueError('Remote head set differs from reviewed two-branch scope')
+              parent=output('git','rev-parse',candidate+'^')
+              changed=set(output('git','diff','--name-only',SOURCE,candidate).splitlines())
+              pr=api('pulls/9')
+              if pr['head']['ref']!=BRANCH or pr['base']['ref']!='main':raise ValueError('PR9 identity mismatch')
+              release=api('releases/tags/check-out-latest')
+              if release['draft'] or not release['prerelease'] or SOURCE not in (release.get('body') or ''):raise ValueError('Unpublished source')
+              required={'CHECKOUT.json','SHA256SUMS.txt','Nera-Avalonia-win-x64.zip','Nera-Avalonia-linux-x64.zip','Nera-Avalonia-osx-arm64.zip','Nera-Check-out-evidence.zip','Nera-SDK-packages.zip'}
+              if not required <= {asset['name'] for asset in release['assets'] if asset['size']>0}:raise ValueError('Missing release downloads')
+              published=api('git/ref/tags/check-out-latest')['object']
+              if published['type']=='tag':published=api('git/tags/'+published['sha'])['object']
+              run=api('actions/runs/'+run_id)
+              plan=validate(current['refs/heads/main'],current['refs/heads/'+BRANCH],candidate,parent,changed,pr['state'],published['sha'],run['head_sha'],run['head_branch'],run['conclusion'])
+              if run['status']!='completed' or run['path']!='.github/workflows/check-out.yml':raise ValueError('Wrong or incomplete qualification')
+              subprocess.run(['git','merge-base','--is-ancestor',SOURCE,'origin/main'],check=True)
+              for page in range(1,101):
+                  pulls=api(f'pulls?state=open&per_page=100&page={page}')
+                  if any(p[side]['ref']==BRANCH for p in pulls for side in ('head','base')):raise ValueError('Open PR still depends on review branch')
+                  if len(pulls)<100:break
+              else:raise ValueError('Open PR pagination limit')
+              existing=refs('tags')
+              for tag,sha in plan.items():
+                  if tag in existing and existing[tag]!=sha:raise ValueError('Archive collision')
+              if refs('heads')!=current:raise ValueError('Writer raced pre-archive check')
+              additions=[sha+':'+tag for tag,sha in plan.items() if tag not in existing]
+              if additions:subprocess.run(['git','push','--atomic','origin',*additions],check=True)
+              verified=refs('tags')
+              if any(verified.get(tag)!=sha for tag,sha in plan.items()):raise ValueError('Archive verification failed')
+              if refs('heads')!=current:raise ValueError('Writer raced deletion check')
+              target='refs/heads/'+BRANCH
+              # Exact-value DELETE lease, not history rewriting or a main force-push.
+              subprocess.run(['git','push','--atomic','--force-with-lease='+target+':'+candidate,'origin',':'+target],check=True)
+              after=refs('heads')
+              if after!={'refs/heads/main':SOURCE}:raise ValueError('Unexpected remaining branch state')
+              # This admin-only push also starts the canonical branch pipeline. Cancel only
+              # that redundant sibling run, never the approved source/main qualification.
+              cancelled=[]
+              for _ in range(6):
+                  runs=api('actions/runs?head_sha='+candidate+'&per_page=100')['workflow_runs']
+                  siblings=[r for r in runs if r['head_sha']==candidate and r['head_branch']==BRANCH and r['path']=='.github/workflows/check-out.yml' and r['event']=='push']
+                  for r in siblings:
+                      if r['status'] in ('queued','in_progress','waiting','requested','pending'):
+                          result=subprocess.run(['gh','api','--method','POST',f'repos/{REPO}/actions/runs/{r["id"]}/cancel'],check=False,capture_output=True,text=True)
+                          if result.returncode==0:cancelled.append(r['id'])
+                  if siblings:break
+                  time.sleep(2)
+              report=dict(sourceSha=SOURCE,qualifiedMainRun=run_id,retirementSha=candidate,archiveRefs=plan,deletedBranch=BRANCH,remainingBranches=after,cancelledAdminOnlyRuns=cancelled)
+              Path('retirement-result.json').write_text(json.dumps(report,indent=2)+'\n')
+              print(json.dumps(report))
+
+
+          if __name__=='__main__':main()
+          PY_RETIRE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ribbon-review-retirement-${{ github.sha }}
+          path: retirement-result.json
+          if-no-files-found: warn
