@@ -194,17 +194,56 @@ internal sealed partial class SmokePage
         var bounds = text.TransformToVisual(root).TransformBounds(new global::Windows.Foundation.Rect(0d, 0d, text.ActualWidth, text.ActualHeight));
         var scaleX = width / root.ActualWidth;
         var scaleY = height / root.ActualHeight;
-        var matches = 0;
-        for (var y = Math.Clamp((int)Math.Ceiling(bounds.Top * scaleY), 0, height);
-            y < Math.Clamp((int)Math.Floor(bounds.Bottom * scaleY), 0, height); y++)
-        for (var x = Math.Clamp((int)Math.Ceiling(bounds.Left * scaleX), 0, width);
-            x < Math.Clamp((int)Math.Floor(bounds.Right * scaleX), 0, width); x++)
+        var left = Math.Clamp((int)Math.Ceiling(bounds.Left * scaleX), 0, width);
+        var right = Math.Clamp((int)Math.Floor(bounds.Right * scaleX), 0, width);
+        var top = Math.Clamp((int)Math.Ceiling(bounds.Top * scaleY), 0, height);
+        var bottom = Math.Clamp((int)Math.Floor(bounds.Bottom * scaleY), 0, height);
+        Require(right > left && bottom > top, $"Picker caption has no raster bounds: '{text.Text}', bounds={bounds}.");
+
+        // ClearType/grayscale anti-aliasing can leave no pixel within a small RGB
+        // distance of the logical foreground brush even when the glyph is visibly
+        // rendered. Estimate the local background from the four corners of the
+        // TextBlock raster rectangle and require a meaningful population of opaque
+        // pixels that departs from that background in the direction of the declared
+        // foreground. This keeps the test tied to the actual caption bounds and
+        // foreground while allowing renderer/runner anti-aliasing differences.
+        var corners = new[] { (left, top), (right - 1, top), (left, bottom - 1), (right - 1, bottom - 1) };
+        var backgroundB = 0d;
+        var backgroundG = 0d;
+        var backgroundR = 0d;
+        foreach (var (x, y) in corners)
         {
             var offset = ((y * width) + x) * 4;
-            if (pixels[offset + 3] > 200 && Math.Abs(pixels[offset] - color.B) < 35 &&
-                Math.Abs(pixels[offset + 1] - color.G) < 35 && Math.Abs(pixels[offset + 2] - color.R) < 35) matches++;
+            backgroundB += pixels[offset];
+            backgroundG += pixels[offset + 1];
+            backgroundR += pixels[offset + 2];
         }
-        Require(matches >= 8, $"The open Picker capture omitted caption pixels for '{text.Text}': matches={matches}, bounds={bounds}, root={root.ActualWidth}x{root.ActualHeight}, bitmap={width}x{height}, color={color}.");
+        backgroundB /= corners.Length;
+        backgroundG /= corners.Length;
+        backgroundR /= corners.Length;
+
+        var matches = 0;
+        var strongestContrast = 0d;
+        for (var y = top; y < bottom; y++)
+        for (var x = left; x < right; x++)
+        {
+            var offset = ((y * width) + x) * 4;
+            if (pixels[offset + 3] <= 200) continue;
+            var db = pixels[offset] - backgroundB;
+            var dg = pixels[offset + 1] - backgroundG;
+            var dr = pixels[offset + 2] - backgroundR;
+            var contrast = Math.Sqrt((db * db) + (dg * dg) + (dr * dr));
+            strongestContrast = Math.Max(strongestContrast, contrast);
+            if (contrast < 12d) continue;
+
+            var foregroundDistance = Math.Sqrt(
+                Math.Pow(pixels[offset] - color.B, 2d) +
+                Math.Pow(pixels[offset + 1] - color.G, 2d) +
+                Math.Pow(pixels[offset + 2] - color.R, 2d));
+            var backgroundDistance = contrast;
+            if (foregroundDistance <= backgroundDistance + 48d) matches++;
+        }
+        Require(matches >= 8, $"The open Picker capture omitted caption pixels for '{text.Text}': matches={matches}, strongestContrast={strongestContrast:F1}, bounds={bounds}, root={root.ActualWidth}x{root.ActualHeight}, bitmap={width}x{height}, foreground={color}, background=({backgroundR:F0},{backgroundG:F0},{backgroundB:F0}).");
     }
 
     private static Microsoft.UI.Xaml.Controls.TextBlock? FindNativeCustomizationText(Microsoft.UI.Xaml.DependencyObject root)
