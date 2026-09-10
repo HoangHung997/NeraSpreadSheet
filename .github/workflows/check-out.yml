@@ -2,7 +2,7 @@ name: Check out — integrated SDK and test applications
 
 on:
   push:
-    branches: [main, feature/ribbon-dialogs-003]
+    branches: [main, fix/qa-gaps-005]
   workflow_dispatch:
 
 permissions:
@@ -75,7 +75,7 @@ jobs:
           New-Item -ItemType Directory artifacts/published-images -Force | Out-Null
           $app = Join-Path $pwd 'artifacts/app/NeraSpreadSheet.Avalonia.Sample'
           if ($IsWindows) { $app += '.exe' }
-          foreach ($mode in @('smoke', 'full-ui-smoke', 'formula-ux-smoke', 'ribbon-visual-smoke', 'dialogs-smoke', 'compatibility-smoke')) {
+          foreach ($mode in @('smoke', 'full-ui-smoke', 'formula-ux-smoke', 'ribbon-visual-smoke', 'dialogs-smoke', 'compatibility-smoke', 'qa-gaps-smoke')) {
             if ($IsLinux) { $lines = & xvfb-run -a $app "--$mode" 2>&1 }
             else { $lines = & $app "--$mode" 2>&1 }
             $exit = $LASTEXITCODE
@@ -88,6 +88,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Published dialog evidence validation failed.' }
           python scripts/verify-avalonia-compatibility.py artifacts/published-images/compatibility $env:NERA_SOURCE_SHA
           if ($LASTEXITCODE -ne 0) { throw 'Published compatibility evidence failed.' }
+          python scripts/verify-avalonia-qa-gaps.py artifacts/published-images/qa-gaps $env:NERA_SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Published QA gaps evidence failed.' }
       - name: Build the Check out folder and downloadable ZIP
         run: python scripts/check-out/pack.py --root . --app artifacts/app --images artifacts/published-images --output artifacts/delivery --sha ${{ github.sha }} --rid ${{ matrix.rid }} --run-url https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
       - uses: actions/upload-artifact@v4
