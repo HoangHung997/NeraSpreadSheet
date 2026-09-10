@@ -8,6 +8,7 @@ using global::Avalonia.Threading;
 using global::Avalonia.VisualTree;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Editing;
+using NeraSpreadSheet.Iconography;
 using NeraSpreadSheet.OpenXml;
 using NeraSpreadSheet.Ribbon.Core;
 
@@ -16,6 +17,7 @@ namespace NeraSpreadSheet.Avalonia.Sample;
 public sealed partial class FullShellWindow
 {
     private static readonly int[] QaRibbonWidths = [768, 820, 1024, 1366, 1920];
+    private static readonly string[] QaCellFormatChoices = ["column-hide", "column-unhide", "row-hide", "row-unhide"];
 
     /// <summary>
     /// Scripted native regression for QA-GAPS-005. Routed command activation is
@@ -145,8 +147,7 @@ public sealed partial class FullShellWindow
             _ribbon.SelectTab("home"); _runtime.Refresh(); await SettleRibbonAsync();
             var format = _runtime.Snapshot.Tabs.SelectMany(tab => tab.Groups).SelectMany(group => group.Items)
                 .Single(item => item.Command.CommandId.Value == "Ui.CellsFormat").Command;
-            Check("format-menu-four-actions", format.SelectableItems.Select(item => item.Value).Order().SequenceEqual(
-                new[] { "column-hide", "column-unhide", "row-hide", "row-unhide" }));
+            Check("format-menu-four-actions", format.SelectableItems.Select(item => item.Value).Order().SequenceEqual(QaCellFormatChoices));
             session.Selection.SetActiveCell(new CellAddress(20, 0));
             Check("row-hide", await _ribbon.ActivateChoiceAsync("Ui.CellsFormat", "row-hide") && first.Dimensions.IsRowHidden(20));
             Check("row-unhide", await _ribbon.ActivateChoiceAsync("Ui.CellsFormat", "row-unhide") && !first.Dimensions.IsRowHidden(20));
