@@ -461,20 +461,20 @@ internal static class SpreadsheetTableCommandCatalog
                         : null);
             });
         Register(registry, session, SpreadsheetTableCommandIds.InsertRow, "Chèn hàng Bảng",
-            "structure.row.insert", state => new CommandState(state.IsInTable),
+            "row.insert", state => new CommandState(state.IsInTable),
             (_, _) => session.TableDesign.InsertRow());
         Register(registry, session, SpreadsheetTableCommandIds.DeleteRow, "Xóa hàng Bảng",
-            "structure.row.delete", state => new CommandState(
+            "row.delete", state => new CommandState(
                 state.IsInTable && state.Range is { } range &&
                 session.Selection.ActiveCell.RowIndex >=
                     range.Top + (state.HasHeaders ? 1 : 0) &&
                 (!state.HasTotalsRow || session.Selection.ActiveCell.RowIndex < range.Bottom)),
             (_, _) => session.TableDesign.DeleteRow());
         Register(registry, session, SpreadsheetTableCommandIds.InsertColumn, "Chèn cột Bảng",
-            "structure.column.insert", state => new CommandState(state.IsInTable),
+            "column.insert", state => new CommandState(state.IsInTable),
             (_, parameter) => session.TableDesign.InsertColumn(parameter as string));
         Register(registry, session, SpreadsheetTableCommandIds.DeleteColumn, "Xóa cột Bảng",
-            "structure.column.delete", state => new CommandState(
+            "column.delete", state => new CommandState(
                 state.IsInTable && state.ColumnId is not null &&
                 state.Range is { ColumnCount: > 1 }),
             (_, _) => session.TableDesign.DeleteColumn());
