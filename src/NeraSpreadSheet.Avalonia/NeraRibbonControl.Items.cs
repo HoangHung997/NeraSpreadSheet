@@ -1,3 +1,4 @@
+using System.Globalization;
 using global::Avalonia;
 using global::Avalonia.Controls;
 using global::Avalonia.Controls.Primitives;
@@ -97,6 +98,10 @@ public sealed partial class NeraRibbonControl
     private ComboBox BuildCombo(RibbonItemLayout item)
     {
         var command = item.Presentation.Command;
+        var selectedValue = command.SelectedValue;
+        if (command.CommandId.Value == "Ui.Zoom" &&
+            double.TryParse(selectedValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var zoomPercent))
+            selectedValue = Math.Round(zoomPercent, 6).ToString("0.######", CultureInfo.InvariantCulture);
         var combo = new ComboBox { IsEnabled = command.IsEnabled, Padding = new Thickness(3, 1), MinHeight = 0 };
         foreach (var choice in command.SelectableItems)
         {
@@ -109,16 +114,16 @@ public sealed partial class NeraRibbonControl
             }
             var native = new ComboBoxItem { Content = content, Tag = choice.Value, IsEnabled = choice.IsEnabled };
             SetIdentity(native, $"ribbon-command-{command.CommandId.Value}-choice-{choice.Value}", choice.Caption); combo.Items.Add(native);
-            if (string.Equals(command.SelectedValue, choice.Value, StringComparison.Ordinal)) combo.SelectedItem = native;
+            if (string.Equals(selectedValue, choice.Value, StringComparison.Ordinal)) combo.SelectedItem = native;
         }
         // Composite command values may be valid even when they are not one of the
         // preset choices (for example ZoomIn turns 100% into 110%). Do not render
         // an empty ComboBox merely because the host's common-value list is sparse.
-        if (combo.SelectedItem is null && !string.IsNullOrWhiteSpace(command.SelectedValue))
+        if (combo.SelectedItem is null && !string.IsNullOrWhiteSpace(selectedValue))
         {
-            var caption = command.SelectedValue;
+            var caption = selectedValue;
             if (command.CommandId.Value == "Ui.Zoom" && !caption.EndsWith('%')) caption += "%";
-            var current = new ComboBoxItem { Content = caption, Tag = command.SelectedValue, IsEnabled = command.IsEnabled };
+            var current = new ComboBoxItem { Content = caption, Tag = selectedValue, IsEnabled = command.IsEnabled };
             SetIdentity(current, $"ribbon-command-{command.CommandId.Value}-choice-current", caption);
             combo.Items.Insert(0, current);
             combo.SelectedItem = current;
