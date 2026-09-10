@@ -29,6 +29,7 @@ def pack(root, app, images, output, sha, rid, run_url):
         'ribbon-visual-smoke': ('NERA_AVALONIA_RIBBON_VISUAL_SUCCESS ', 190),
         'dialogs-smoke': ('NERA_AVALONIA_DIALOGS_SUCCESS ', 70),
         'compatibility-smoke': ('NERA_AVALONIA_COMPATIBILITY_SUCCESS ', 30),
+        'qa-gaps-smoke': ('NERA_AVALONIA_QA_GAPS_SUCCESS ', 35),
     }
     smokes = {}
     for name, (prefix, minimum) in requirements.items():
@@ -38,6 +39,8 @@ def pack(root, app, images, output, sha, rid, run_url):
         smokes[name] = records[0]
     if not (images / 'ribbon-visual/manifest.json').is_file():
         raise FileNotFoundError('Missing Ribbon image manifest')
+    if not (images / 'qa-gaps/manifest.json').is_file():
+        raise FileNotFoundError('Missing QA gaps image manifest')
     output.mkdir(parents=True, exist_ok=True)
     staging = output / 'staging' / 'Check out'
     if staging.exists():
@@ -58,7 +61,8 @@ def pack(root, app, images, output, sha, rid, run_url):
         'Linux cần desktop/X11 và các thư viện hệ thống; macOS là bản ARM64 chưa ký/notarize.\n'
         'Không tắt bảo vệ hệ điều hành toàn cục. Đây không phải bộ cài hoặc bản production.\n'
         'Images chứa ảnh thật của gói đã publish; Reports chứa source, smoke, checksums.\n'
-        'Chưa chứng nhận full Excel fidelity, H1/locale, phần cứng, IME hay screen reader.\n', encoding='utf-8')
+        'QA gaps gồm Alt+Enter/keytips, view từng sheet, Table/Filter, zoom động và Hide/Unhide.\n'
+        'Chưa chứng nhận full Excel fidelity, phần cứng, IME hay screen reader.\n', encoding='utf-8')
     files = {p.relative_to(staging).as_posix(): digest(p) for p in sorted(staging.rglob('*')) if p.is_file()}
     evidence = dict(schema='nera.check-out.package.v1', sourceSha=sha, rid=rid, runUrl=run_url,
                     selfContained=True, smokes=smokes, files=files, physicalInputTested=False)
@@ -79,6 +83,14 @@ def pack(root, app, images, output, sha, rid, run_url):
         shutil.copy2(images / 'dialogs' / ('Light-' + source + '.png'), output / target)
     for name in ('compatibility-open.png','compatibility-edited.png','compatibility-rejected.png'):
         shutil.copy2(images / 'compatibility' / name, output / name)
+    for target, source in {
+        'qa-ribbon-768.png': 'qa-home-768.png',
+        'qa-ribbon-820.png': 'qa-home-820.png',
+        'qa-zoom-110.png': 'qa-zoom-110.png',
+        'qa-table-design.png': 'qa-table-design.png',
+        'qa-filter-window.png': 'qa-filter-window.png',
+    }.items():
+        shutil.copy2(images / 'qa-gaps' / source, output / target)
     shutil.rmtree(output / 'staging')
     print(json.dumps(dict(sourceSha=sha, rid=rid, package=filename, sha256=digest(output / filename))))
 
