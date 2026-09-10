@@ -103,12 +103,20 @@ public sealed class NeraWorksheetViewStateBinding : IDisposable
                 if (_single.Zoom != state.Zoom) _single.Zoom = state.Zoom;
                 _single.ScrollTo(state.OffsetX, state.OffsetY);
             }
-            else
+            else if (_split is not null)
             {
-                foreach (var pane in _panes)
+                // Each native pane resets its local scroll when the active worksheet
+                // changes. Reapply the session-owned per-worksheet pane offsets after
+                // that reset. While Begin/CompleteWorksheetActivation holds the restore
+                // guard, these ScrollTo notifications cannot feed stale offsets back
+                // into the session model.
+                foreach (var paneId in Enum.GetValues<SpreadsheetSplitViewPane>())
+                {
+                    var pane = _split.GetPane(paneId);
                     if (pane.Zoom != state.Zoom) pane.Zoom = state.Zoom;
-                // NeraSpreadsheetSplitControl already restores all four pane
-                // offsets/topology from Session.View.SplitState on worksheet change.
+                    var scroll = state.SplitState.GetPaneScroll(paneId);
+                    pane.ScrollTo(scroll.OffsetX, scroll.OffsetY);
+                }
             }
         }
         finally { _synchronizing = false; }
