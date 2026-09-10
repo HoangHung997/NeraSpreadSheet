@@ -12,7 +12,7 @@ public sealed class NeraZoomDialog : NeraSettingsDialog
     public NeraZoomDialog(double zoom, PresentationLocalization? localization = null, NeraIconTheme theme = NeraIconTheme.Light)
         : base("Thu phóng", "nera-zoom-dialog", localization, theme)
     {
-        if (!double.IsFinite(zoom) || zoom <= 0) throw new ArgumentOutOfRangeException(nameof(zoom));
+        if (!double.IsFinite(zoom) || zoom < 0.1 || zoom > 4) throw new ArgumentOutOfRangeException(nameof(zoom));
         Width = 560; Height = 260; MinHeight = 220;
         var panel = Panel();
         _percent = TextField(panel, "zoom-percent", "Thu phóng (%)", (zoom * 100).ToString("G", Localization.Culture));
@@ -20,5 +20,5 @@ public sealed class NeraZoomDialog : NeraSettingsDialog
         DialogBody.Children.Add(panel); Zoom = zoom;
     }
     public double Zoom { get; private set; }
-    protected override bool TryApply() { Zoom = ReadNumber(_percent, 25, 400) / 100; return true; }
+    protected override bool TryApply() { Zoom = ReadNumber(_percent, 10, 400) / 100; return true; }
 }
