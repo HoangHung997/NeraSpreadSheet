@@ -67,6 +67,8 @@ public sealed partial class FullShellWindow
             var sheetVersion = Session.ActiveWorksheet.Version;
             Check("disabled-command-not-executed", !await _ribbon.ActivateCommandAsync("Structure.Row.Insert"));
             Check("disabled-command-no-mutation", Session.ActiveWorksheet.Version == sheetVersion);
+            CheckIoReady("opened", Check);
+            await VerifyIoRecoveryAsync(Check);
             var directory = Path.Combine(Environment.GetEnvironmentVariable("NERA_AVALONIA_ARTIFACTS") ?? "artifacts/avalonia", "compatibility");
             Directory.CreateDirectory(directory);
             CaptureRibbonScene(this, "compatibility-open", 1, directory, captures);
@@ -107,6 +109,7 @@ public sealed partial class FullShellWindow
             Check("failed-load-keeps-cell", Equals(Session.ActiveWorksheet.GetValue(new CellAddress(2, 0)), 2468.75));
             Check("failed-load-identifies-displayed-file", _compatibilityText.Text?.Contains("Vẫn đang hiển thị: Synthetic-inner-borders.dlda", StringComparison.Ordinal) == true);
             Check("input-reenabled", _split.IsEnabled && _formula.IsEnabled && !_busy);
+            CheckIoReady("rejected-file", Check);
             CaptureRibbonScene(this, "compatibility-rejected", 1, directory, captures);
             Check("captures-complete", captures.Count == 3);
             var evidence = new

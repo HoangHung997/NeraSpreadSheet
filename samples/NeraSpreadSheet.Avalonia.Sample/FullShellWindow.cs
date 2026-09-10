@@ -195,8 +195,32 @@ public sealed partial class FullShellWindow : Window, IDisposable
     });
     private async Task RunIo(Func<Task> operation)
     {
-        if (_busy || _closed) return; _busy = true; _split.IsEnabled = false; _formula.IsEnabled = false;
-        try { await operation(); } finally { _busy = false; if (!_closed) { _split.IsEnabled = true; _formula.IsEnabled = true; } }
+        ArgumentNullException.ThrowIfNull(operation);
+        if (_busy || _closed) return;
+        _busy = true;
+        try
+        {
+            RefreshIoPresentation();
+            await operation();
+        }
+        finally
+        {
+            _busy = false;
+            if (!_closed) RefreshIoPresentation();
+        }
+    }
+    private void RefreshIoPresentation()
+    {
+        // A newly loaded session builds its sheet tabs while I/O is busy. Both
+        // those native buttons and the command snapshots must be re-enabled
+        // after success, cancellation or failure, without waiting for a cell edit.
+        // Do not rebuild tabs here: that would discard native focus unnecessarily.
+        _split.IsEnabled = !_busy;
+        _formula.IsEnabled = !_busy;
+        _tabs.IsEnabled = !_busy;
+        foreach (var button in _tabs.Children.OfType<Button>()) button.IsEnabled = !_busy;
+        _runtime.Refresh();
+        _menu.Runtime.Refresh();
     }
     private static SpreadsheetSession CreateWorkbook()
     {
