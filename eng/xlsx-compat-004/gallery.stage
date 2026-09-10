@@ -1,0 +1,145 @@
+TARGET=scripts/check-out/gallery.py
+"""Bounded collection of every PNG capture from this run into Check out/Images.
+Published images are checked against the executable package's own manifest.
+Other native captures retain their run/category provenance without asserting
+pixel equality or individual Excel-oracle verification.
+"""
+import hashlib
+import html
+import json
+from pathlib import Path, PurePosixPath
+import re
+import stat
+import struct
+from urllib.parse import quote
+import zipfile
+
+MAX_IMAGE_BYTES=24*1024*1024
+MAX_TOTAL_BYTES=1024*1024*1024
+MAX_IMAGES=10000
+
+
+def safe_path(value):
+    if not value or '\\' in value or '\x00' in value or ':' in value:
+        raise ValueError('Unsafe capture path')
+    path=PurePosixPath(value)
+    if path.is_absolute() or any(part in ('', '.', '..') for part in value.split('/')):
+        raise ValueError('Unsafe capture path')
+    return path
+
+
+def png_size(data):
+    if len(data)<24 or len(data)>MAX_IMAGE_BYTES or data[:8]!=b'\x89PNG\r\n\x1a\n' or data[12:16]!=b'IHDR':
+        raise ValueError('Invalid capture PNG')
+    width,height=struct.unpack('>II',data[16:24])
+    if not (0<width<=16384 and 0<height<=16384):raise ValueError('Invalid capture dimensions')
+    return width,height
+
+
+class Gallery:
+    def __init__(self, root, sha, run_url):
+        if not re.fullmatch('[0-9a-f]{40}',sha):raise ValueError('Missing immutable capture source')
+        self.root=Path(root)
+        self.root.mkdir(parents=True,exist_ok=True)
+        self.sha=sha
+        self.run_url=run_url
+        self.records=[]
+        self.paths=set()
+        self.total_bytes=0
+
+    def add(self, relative, data, origin, expected=None):
+        path=safe_path(relative)
+        key=path.as_posix().casefold()
+        if key in self.paths:raise ValueError('Duplicate capture path')
+        width,height=png_size(data)
+        digest=hashlib.sha256(data).hexdigest()
+        if expected is not None and digest!=expected:raise ValueError('Capture hash mismatch')
+        if len(self.records)>=MAX_IMAGES or self.total_bytes+len(data)>MAX_TOTAL_BYTES:
+            raise ValueError('Capture collection exceeds safety budget')
+        target=self.root.joinpath(*path.parts)
+        target.parent.mkdir(parents=True,exist_ok=True)
+        if target.exists() or target.is_symlink():raise ValueError('Refusing to overwrite capture')
+        target.write_bytes(data)
+        self.paths.add(key)
+        self.total_bytes+=len(data)
+        self.records.append(dict(path=path.as_posix(),sha256=digest,bytes=len(data),width=width,height=height,
+            origin=origin,sourceSha=self.sha,packageHashChecked=expected is not None))
+
+    def published(self, package, rid):
+        start=len(self.records)
+        with zipfile.ZipFile(package) as archive:
+            entries=self._entries(archive)
+            report_name='Check out/Reports/package.json'
+            report_entry=entries.get(report_name)
+            if report_entry is None or report_entry.file_size>16*1024*1024:raise ValueError('Missing package image provenance')
+            report=json.loads(archive.read(report_entry))
+            if report.get('sourceSha')!=self.sha or report.get('rid')!=rid:raise ValueError('Package capture source mismatch')
+            files=report['files']
+            for name,entry in entries.items():
+                if name.startswith('Check out/Images/') and name.lower().endswith('.png'):
+                    if entry.file_size>MAX_IMAGE_BYTES:raise ValueError('Capture exceeds size budget')
+                    member=name[len('Check out/'):]
+                    expected=files.get(member)
+                    if not isinstance(expected,str) or not re.fullmatch('[0-9a-f]{64}',expected):raise ValueError('Capture missing from package manifest')
+                    self.add('Published/'+rid+'/'+name[len('Check out/Images/'):],archive.read(entry),'published/'+rid,expected)
+        if len(self.records)==start:raise ValueError('No published captures for '+rid)
+
+    def directory(self, source, label):
+        safe_path(label)
+        source=Path(source)
+        if not source.is_dir() or source.is_symlink():raise ValueError('Missing capture category: '+label)
+        start=len(self.records)
+        for path in sorted(source.rglob('*')):
+            if path.is_symlink():raise ValueError('Capture directory contains a symbolic link')
+            if not path.is_file():continue
+            relative=path.relative_to(source).as_posix()
+            if path.suffix.lower()=='.png':
+                if path.stat().st_size>MAX_IMAGE_BYTES:raise ValueError('Capture exceeds size budget')
+                self.add('CI/'+label+'/'+relative,path.read_bytes(),'ci/'+label)
+            elif path.suffix.lower()=='.zip':
+                with zipfile.ZipFile(path) as archive:
+                    for name,entry in self._entries(archive).items():
+                        if name.lower().endswith('.png'):
+                            if entry.file_size>MAX_IMAGE_BYTES:raise ValueError('Capture exceeds size budget')
+                            self.add('CI/'+label+'/'+relative+'.contents/'+name,archive.read(entry),'ci/'+label)
+        if len(self.records)==start:raise ValueError('Empty capture category: '+label)
+
+    @staticmethod
+    def _entries(archive):
+        entries={}
+        for item in archive.infolist():
+            name=item.filename.rstrip('/')
+            safe_path(name)
+            if stat.S_ISLNK(item.external_attr>>16):raise ValueError('Archive capture is a symbolic link')
+            if item.is_dir():continue
+            key=name.casefold()
+            if key in entries:raise ValueError('Duplicate archive entry')
+            entries[key]=item
+        return {item.filename:item for item in entries.values()}
+
+    def finish(self):
+        records=sorted(self.records,key=lambda entry:entry['path'])
+        groups={}
+        for record in records:groups.setdefault(record['origin'],[]).append(record)
+        report=dict(schema='nera.check-out.images.v1',sourceSha=self.sha,workflowUrl=self.run_url,
+            imageCount=len(records),totalBytes=self.total_bytes,groups={key:len(items) for key,items in groups.items()},
+            captures=records,excelOracleTested=False,allImagesVisuallyReviewed=False)
+        (self.root/'index.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+        body=['<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
+            '<title>Nera — Check out / Images</title>',
+            '<style>body{font:15px system-ui;margin:24px;background:#f4f6f8;color:#18232c}header{position:sticky;top:0;background:#f4f6f8;padding:12px;z-index:1}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}figure{margin:0;padding:12px;background:white;border:1px solid #c9d3dc;border-radius:8px}img{max-width:100%;height:220px;object-fit:contain}figcaption{overflow-wrap:anywhere}code{font-size:12px}summary{font-size:18px;font-weight:600;margin:20px 0}a{color:#156082}</style>',
+            '<header><h1>Check out / Images</h1><p>Tất cả ảnh PNG trong các bộ bằng chứng của bản build này. Nhấn ảnh để xem kích thước gốc.</p>',
+            '<p>Source: <code>'+html.escape(self.sha)+'</code> · '+str(len(records))+' ảnh</p>',
+            '<p>Ảnh từ smoke tự động không phải chứng nhận giống Excel hoặc kiểm thử thao tác vật lý. Đối chiếu hash tại <a href="index.json">index.json</a>.</p></header>']
+        for group,items in groups.items():
+            body.append('<details open><summary>'+html.escape(group)+' — '+str(len(items))+' ảnh</summary><div class="grid">')
+            for entry in items:
+                url=quote(entry['path'],safe='/')
+                caption=html.escape(entry['path'])
+                body.append('<figure><a href="'+url+'"><img loading="lazy" src="'+url+'" alt="'+caption+'"></a><figcaption>'+caption+'<br><code>'+entry['sha256']+'</code></figcaption></figure>')
+            body.append('</div></details>')
+        body.append('</html>')
+        (self.root/'index.html').write_text('\n'.join(body),encoding='utf-8')
+        (self.root/'README.md').write_text('# Check out / Images\n\nSource `'+self.sha+'` — '+str(len(records))+' ảnh.\n\nMở **index.html** bằng trình duyệt để xem toàn bộ; không cần máy chủ hay Internet. Hash và nguồn của từng ảnh ở index.json.\n\n'+
+            '\n'.join('- '+key+': '+str(len(items)) for key,items in groups.items())+'\n',encoding='utf-8')
+        return report

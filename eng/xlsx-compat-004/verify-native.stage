@@ -1,0 +1,35 @@
+TARGET=scripts/verify-avalonia-compatibility.py
+"""Verify the bounded native XLSX regression evidence without claiming an Excel oracle."""
+import hashlib
+import json
+from pathlib import Path
+import struct
+import sys
+
+
+def verify(folder, sha):
+    root=Path(folder)
+    report=json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+    if report.get('schema')!='nera.xlsx.compatibility.native.v1' or report.get('sha')!=sha:
+        raise ValueError('Compatibility evidence source mismatch')
+    if not report.get('nativeWindow') or not report.get('syntheticFixture') or report.get('realWorkbookTested') or report.get('innerBordersRendered'):
+        raise ValueError('Invalid native compatibility acceptance boundary')
+    checks=report['checks']
+    if len(checks)<30 or len(set(checks))!=len(checks) or report['assertions']!=len(checks):
+        raise ValueError('Incomplete compatibility assertions')
+    required={'strict-classifies-unsupported','vertical-warning','horizontal-warning','saved-protected-formatting','repeated-save-preservation','failed-load-keeps-session','failed-load-identifies-displayed-file'}
+    if not required.issubset(checks):raise ValueError('Missing required native scenarios')
+    captures=report['captures']
+    expected={'compatibility-open.png','compatibility-edited.png','compatibility-rejected.png'}
+    if len(captures)!=3 or {item['name'] for item in captures}!=expected:raise ValueError('Missing compatibility captures')
+    for item in captures:
+        path=root/item['name']
+        if path.is_symlink() or not path.is_file() or path.stat().st_size>16*1024*1024:raise ValueError('Invalid image')
+        data=path.read_bytes()
+        if hashlib.sha256(data).hexdigest()!=item['sha256'] or data[:8]!=b'\x89PNG\r\n\x1a\n':raise ValueError('Image hash/type mismatch')
+        width,height=struct.unpack('>II',data[16:24])
+        if (width,height)!=(item['width'],item['height']) or not (300<=width<=4096 and 200<=height<=4096):raise ValueError('Invalid capture dimensions')
+    print('Verified native compatibility source, scenarios and three image hashes; no real workbook/Excel parity claim.')
+
+
+if __name__=='__main__':verify(sys.argv[1],sys.argv[2])
