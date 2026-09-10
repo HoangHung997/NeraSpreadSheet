@@ -1,35 +1,70 @@
 # RIBBON-DIALOGS-003 — nút mở cài đặt nhóm và hộp thoại Avalonia
 
-Chỉ đạo chủ repository 09/09/2026: tiếp tục Ribbon, thêm nút góc dưới phải nhóm như Excel; Number/Font/Alignment và các nhóm phù hợp. Baseline main `66730639278f4304cf0493aa85c0c499df3e8ab7`. Main vẫn canonical; PR #9 / `feature/ribbon-dialogs-003` chỉ là nhánh review tạm cho task này, không mở lại queue đã archive.
+Chỉ đạo chủ repository: tiếp tục Ribbon, bổ sung nút góc dưới bên phải nhóm như Excel và các hộp thoại tương ứng. Baseline main: `66730639278f4304cf0493aa85c0c499df3e8ab7`. Nhánh `feature/ribbon-dialogs-003` / PR #9 là nhánh review tạm của task này; không mở lại các hàng đợi đã lưu trữ. Main vẫn là nguồn canonical.
+
+## Cập nhật 10/09: đã xác minh CI của 15518cee, đang sửa đồng bộ tab Số
+
+Run **34362424590** (push, attempt 1) tại **15518ceeb521022d7a7a12f7457f8d6ccdab3d79** đã hoàn tất SUCCESS. Trong 29 job có 28 SUCCESS và một job cleanup SKIPPED đúng điều kiện không phải main. Toàn bộ bảy workflow chất lượng, ba host Avalonia, ba gói ứng dụng self-contained và bước tập hợp download centre đều đạt.
+
+Đã đọc trực tiếp log Windows Avalonia job `102502513289`: build 0 warning / 0 error; đồ thị 18 project Release đầy đủ, 17 DLL trong sample khớp nguồn; 179 test chạy trong năm tiến trình độc lập đều PASS, không skip; kiểm tra kiến trúc PASS. Native smoke: cơ bản 12, full UI 23, Formula UX 23; Ribbon 203 điều kiện / 84 bố cục / 109 ảnh; dialog 80 điều kiện / 36 ảnh.
+
+Đã đọc log actual published Windows job `102504220867`: executable trong `artifacts/app` chạy đủ năm smoke trên đúng source 155. SHA256 của **inner application ZIP** là `84b0f8c4c322eb3023500796af43f4bcba48ef4715a3fd6781551b94f4b4bc20`. **Outer artifact** `10108699906` có 82.585.110 byte và SHA256 `e7ad29908bc04fa8d768d3e4e54e3ab3c39c474d237a8dadda29127069c6fba9`. Không lẫn checksum của hai lớp ZIP.
+
+Artifact index `10108870075` và ứng dụng Windows đã tải qua connector. Local unzip/PNG review vẫn timeout: không nhận đã tự tính lại hash hoặc xem ảnh. Verifier ghi `visualReviewPerformed=false` rõ ràng. Không chạy lại run đỏ đến khi xanh; kết quả chuẩn bị mã không thay cho kết quả của commit sản phẩm.
+
+### Bổ sung trong commit chứa tài liệu này
+
+Có 24 trường hợp regression mới trong `NumberDialogSynchronizationTests`, cùng phần sửa tab Số:
+
+- Khôi phục các trường điều khiển từ mã chính xác do generator hiện có hỗ trợ: số thường, phần trăm, khoa học, ngày/giờ, phân số và văn bản. Ví dụ `#,##0.000` mở đúng loại Số, ba chữ số thập phân và phân nhóm hàng nghìn. Không tự ghi lại mã khi mở hộp thoại.
+- Chỉ nhận diện các dạng canonical đã biết. Mã có locale, tiền tệ/custom phức tạp hoặc vùng chọn nhiều định dạng tiếp tục giữ nguyên văn ở Custom. Đây là khôi phục trường UI, không phải parser XLSX hoặc formatting engine thứ hai.
+- Chỉ bật tham số phù hợp: số chữ số thập phân cho các loại có phần lẻ; ký hiệu tiền tệ cho Currency/Accounting; số âm trong ngoặc cho Number/Currency. Tham số không liên quan không được chặn một mã hợp lệ.
+- Gõ mã trực tiếp chuyển sang Custom, xóa lỗi còn lại của bộ sinh mã và vô hiệu hóa các helper không liên quan. Mã tùy chỉnh sai vẫn bị validator cũ từ chối. Cập nhật từ generator không bị nhận nhầm thành nhập tay hoặc tạo vòng sự kiện.
+- `HasPendingChanges` phản ánh cả tham số generator chưa hợp lệ. Trả mã về đúng nội dung ban đầu không tạo Undo hoặc làm mất Redo. Preview và chuyển loại định dạng không chuyển giá trị/công thức của ô.
+- Tách phần Number thành partial `NeraFormatCellsDialog.Number.cs`, giữ các tab khác và shared engine. Không sửa workflow, bỏ gate, thay main hoặc tăng quyền runner.
+
+**CI xanh của 155 không áp dụng cho commit chứa bổ sung mới này.** Phải chạy canonical Check out mới tại đúng HEAD. Ảnh và gói main/latest vẫn ở baseline 667 cho đến khi hoàn tất qualification, review và integration.
 
 ## Phạm vi implementation
 
-Launcher là metadata `RibbonItemDefinition.IsDialogLauncher` của item hiện hữu, tạo bằng `DialogLauncher(CommandId)`. Không có model Ribbon/dispatcher thứ hai. Layout dành ô trong caption, không lấn command body, giữ overflow/minimized/keytips/customization. Nhiều launcher trong một custom group được xếp cạnh nhau thay vì chồng lên nhau. Preset chỉ quảng bá capability đã có handler.
+Launcher là metadata `RibbonItemDefinition.IsDialogLauncher` của item hiện hữu, tạo bằng `DialogLauncher(CommandId)`. Không có model Ribbon hoặc dispatcher thứ hai. Shared layout dành vị trí trong hàng caption, không lấn command body, giữ overflow, minimized, keytips và customization. Nhiều launcher trong một nhóm tùy chỉnh được xếp cạnh nhau, không chồng lên nhau. Preset chỉ hiện capability có handler thật.
 
-SDK Avalonia có Format Cells (Số/Phông chữ/Căn chỉnh/Đường viền/Màu nền), Page Setup (Trang/Lề/Trang tính) và Zoom. Sample nối sáu command: Number (`Ctrl+1`), Font, Alignment, Page Setup, Print Options, Zoom. Border/Fill nằm trong Format Cells, không thêm nhóm giả trên Ribbon. Không triển khai UI mới đồng loạt WPF/WinForms/MAUI.
+SDK Avalonia cung cấp:
 
-Draft giữ session/worksheet/selection/version, vô hiệu khi đổi target, chặn stale callbacks và double apply. Preview không ghi vào cell/style catalog. OK gọi operation/history hiện hữu; Cancel/Esc/X không ghi. Dialog không đổi kiểu dữ liệu hoặc công thức. Mixed selection chỉ sửa thuộc tính đã thay; quét common values tối đa 4096 ô, vùng lớn hiển thị unknown và không materialize toàn sheet. API `SpreadsheetStyleController.ApplyPatchToSelection` xử lý ý định explicit whole-column ngay cả khi active cell đã bằng giá trị đích nhưng các ô khác khác định dạng. API transform cũ giữ nguyên mặc định.
+| Hộp thoại | Các tab/chức năng |
+|---|---|
+| Format Cells | Số, Phông chữ, Căn chỉnh, Đường viền, Màu nền |
+| Page Setup | Trang, Lề, Trang tính |
+| Zoom | Tỷ lệ xem; không thay dữ liệu hoặc tỷ lệ in |
 
-Number format dùng code chuẩn không phụ thuộc culture; preview qua `ExcelCellValueFormatter` với culture host. Validate cấu trúc giới hạn 255 ký tự/4 sections; KHÔNG phải parser đầy đủ mọi custom directive Excel. Cỡ chữ, indent, rotation, màu, giấy, margin, scaling đều có validation. Thông số helper số không hợp lệ phải chặn OK, không lén áp dụng code hợp lệ trước đó. Khi trả trường nhập về nguyên nội dung ban đầu thì không tạo edit/không mất Redo. Margin không chỉnh giữ nguyên precision inch trong file. Page Setup giữ metadata vùng in/tiêu đề lặp/ngắt trang chưa chỉnh; Zoom chỉ thuộc view, không tạo workbook Undo.
+Sample nối sáu command: Number (`Ctrl+1`), Font, Alignment, Page Setup, Print Options và Zoom. Border/Fill thuộc Format Cells, không tạo thêm nhóm giả. Không phát triển các hộp thoại mới song song cho WPF/WinForms/MAUI.
 
-Format/Page dialogs có `IDisposable` trên UI thread để giải phóng draft kể cả chưa Show; Closed cũng giải phóng. Sample dùng `using` và finally, không để lại subscription, tracked window hay trạng thái disabled khi ShowDialog lỗi trước Closed. Các API dialog vẫn trả kết quả riêng, không nạp workbook/engine thứ hai.
+Draft giữ session, worksheet, selection và version, vô hiệu khi mục tiêu thay đổi; chặn callback cũ và áp dụng hai lần. Preview không ghi vào ô hoặc style catalog. OK sử dụng operation/history hiện hữu; Cancel/Esc/X không ghi. Vùng chọn nhiều định dạng chỉ nhận thuộc tính người dùng sửa. Việc đọc giá trị chung giới hạn tối đa 4.096 ô; vùng lớn hiển thị unknown, không mở rộng toàn sheet.
 
-## Đã sửa sau khi thực thi, không bỏ gate
+`SpreadsheetStyleController.ApplyPatchToSelection` xử lý ý định áp dụng thuộc tính cụ thể cho nguyên cột kể cả khi active cell đã bằng giá trị đích nhưng các ô khác chưa bằng. API transform cũ giữ nguyên mặc định.
 
-1. Temporary preparer tìm sai anchor caption/workflow/shell. Đã đối chiếu source, giữ replacement-count guards. Bash pipeline phải truyền mã lỗi build/test qua `tee`.
-2. Avalonia 12.1.2 yêu cầu `PlaceholderText` thay `Watermark`; sửa ownership CA1001 bằng Dispose, import extension đúng namespace và dùng fixture arrays tĩnh theo CA1861. Không tắt analyzer.
-3. Run `34358105484` chuẩn bị source đã build 0 warning/error, Editing431/Avalonia170/Python20 PASS. Runner token không có quyền đưa workflow vào tree: code tree và workflow blobs được handoff cho connector có quyền, không tăng quyền runner hay gọi CI chuẩn bị là CI của final source. Temp preparer/workflow đã gỡ khỏi tree từ `b3e44e21`.
-4. Bản actual `1d0154efe3847990411a7de771effa57b84246d5`, run `34360093619`: Ubuntu build0warning/error, Avalonia175 ×5 PASS/0skip, architecture và native basic/full/formula PASS, nhưng **Ribbon visual FAIL**. Log job102494551150 chỉ rõ Light/820/home/editing right821 > client820; shared widths 96.5+349.5+92+134+66+72 + gaps =820 nhưng hai native desired widths bị làm tròn lên riêng. Đây là lỗi geometry thật; không nới ngưỡng0.6 hoặc bỏ item.
-5. Sửa bằng `RibbonLayoutRequest.RoundGroupWidthsToPixels` opt-in: ngân sách tính từng group và dự phòng gaps/overflow theo physical pixels trước khi chọn compact/overflow. Chỉ width chrome bị làm tròn, không thay item measurement hay document scroll. Avalonia chọn theo `UseLayoutRounding`; request mặc định false giữ hành vi legacy. Bổ sung fixture từ sáu width đã đo và native tests tại819/820/821/1024; giữ đầy đủ command/launcher trong snapshot, kể cả overflow.
+Mã định dạng chuẩn không phụ thuộc culture. Preview dùng `ExcelCellValueFormatter` và culture của host. Validator giới hạn 255 ký tự / bốn section và kiểm tra cấu trúc; không phải toàn bộ ngữ pháp format của Excel. Các trường cỡ chữ, thụt lề, góc xoay, màu, giấy, lề và tỷ lệ đều có validation. Lề không chỉnh giữ độ chính xác inch trong file. Page Setup giữ vùng in, tiêu đề lặp và ngắt trang không sửa.
 
-## Ranh giới chưa nhận
+Format/Page dialogs có `IDisposable` trên UI thread để giải phóng draft kể cả khi chưa Show; Closed cũng giải phóng. Sample dùng `using` và `finally`, không giữ đăng ký sự kiện, cửa sổ đã hỏng hoặc trạng thái disabled khi ShowDialog lỗi trước Closed.
 
-Chưa có mọi dialog/tính năng Excel: border editor mới có preset từng ô (không phải engine vẽ cạnh ngoài của vùng); Fill hỗ trợ màu đặc; chưa có worksheet protection enforcement, complete custom-number rendering/Accounting spacing, header/footer designer, print-area picker, clipboard task pane, full Find/Replace/Sort dialogs. Không bỏ các tính năng source đang có. H1 clipboard, locale editing round-trip, IME/phần cứng/screen-reader và native Mac backlog của consolidation vẫn OPEN. Không lấy preview number format của dialog để tuyên bố đã sửa tất cả locale editor/TSV.
+## Lịch sử lỗi đã sửa — không hạ tiêu chuẩn kiểm thử
+
+1. Script chuẩn bị tìm sai các đoạn caption, workflow và shell. Đã đối chiếu source thật, giữ kiểm tra số lần thay thế. Bash pipeline phải truyền mã lỗi build/test qua `tee`.
+2. Sửa `Watermark` thành `PlaceholderText` theo Avalonia đang dùng; giải quyết CA1001 bằng Dispose, import đúng namespace và sử dụng mảng fixture tĩnh cho CA1861. Không tắt analyzer.
+3. Run `34358105484` chuẩn bị source: build 0 warning/error, Editing 431 / Avalonia 170 / Python 20 PASS. Runner không có quyền đưa workflow vào tree, nên chuyển code tree và workflow blobs cho connector có quyền; không tăng quyền runner. Script/workflow tạm được gỡ từ `b3e44e21`.
+4. Commit `1d0154efe3847990411a7de771effa57b84246d5`, run `34360093619`: Ubuntu 175 test × năm lượt PASS, nhưng Ribbon visual FAIL. Log `102494551150` cho thấy Light/820/home/editing kết thúc ở 821 trong client 820. Sáu nhóm có độ rộng 96,5 / 349,5 / 92 / 134 / 66 / 72; hai nhóm lẻ bị native làm tròn lên riêng. Không nới dung sai 0,6 hoặc bỏ item.
+5. Commit 155 bổ sung `RibbonLayoutRequest.RoundGroupWidthsToPixels` dạng opt-in: ngân sách group/gap/overflow tính theo pixel vật lý trước khi thu gọn. Chỉ sửa chrome, không thay item measurement hoặc vị trí cuộn. Mặc định legacy vẫn false. Có fixture từ số đo thật và native test tại 819/820/821/1.024. Qualification 155 đã xác nhận bản sửa.
+
+## Ranh giới còn mở
+
+Chưa có mọi hộp thoại/tính năng Excel: border editor hiện dùng preset từng ô, chưa là trình sửa cạnh ngoài của cả vùng; Fill chỉ sửa màu đặc; chưa có thực thi bảo vệ worksheet, rendering toàn bộ custom format/Accounting spacing, trình thiết kế đầu/cuối trang, chọn vùng in, clipboard task pane hoặc đầy đủ Find/Replace/Sort dialogs.
+
+H1 clipboard, locale editor/TSV, IME, phần cứng, screen reader và backlog native Mac vẫn OPEN. Không dùng preview số trong dialog để tuyên bố đã sửa toàn bộ locale hoặc tương thích Excel hoàn toàn.
 
 ## Kiểm tra và bàn giao
 
-Shared draft/number/page tests, native-control dialog/rounding/lifecycle tests, OpenXML formatting round-trip, launcher geometry/overflow tests cùng toàn bộ regression cũ. `--dialogs-smoke` chạy registered modal commands, Cancel, invalid input, real formatting/Undo/Redo, stale selection và 36 captures (9 views ×4 themes). Manifest gắn exact SHA/hashes/native window; scripted activation không phải vật lý mouse/keyboard hay Excel oracle. Gate chạy cả build sample và actual self-contained published app. `Check out` nhận9ảnh dialog riêng cùng app/images/reports/licenses, không bỏ số liệu nguồn hoặc dùng ảnh cũ giả làm bản mới.
+Giữ các test draft/number/page, native dialog/lifecycle/rounding, OpenXML round-trip, launcher geometry/overflow và toàn bộ regression cũ. `--dialogs-smoke` chạy các command modal đã đăng ký, Cancel, dữ liệu sai, định dạng/Undo/Redo, stale target và 36 ảnh (chín trang × bốn theme). Manifest có exact SHA/hash/native window; scripted input không phải kiểm thử chuột/bàn phím vật lý hoặc Excel oracle.
 
-**Bản chứa thay đổi này vẫn cần qualification tại đúng SHA cuối.** Kết quả actual run/test/image review ghi trong PR receipt sau khi chạy; không kế thừa PASS của working tree chuẩn bị/commit cha. Môi trường shell/Python local đang timeout; không dùng điều đó để nói connector không ghi được, và không nhận đã xem ảnh mới nếu chỉ đọc log. Nếu qualification đỏ, main/latest giữ baseline cũ.
+Cả sample build và executable self-contained đều chạy gate. Gói Check out chứa chín ảnh dialog riêng cùng App, Images, Reports và Licenses. Kết quả final HEAD ghi vào PR receipt sau khi chạy; không kế thừa PASS của working tree/commit cha. Connector đọc, ghi và CI hoạt động; timeout local là vấn đề riêng. Không nhận đã xem ảnh khi chỉ đọc log. Nếu qualification đỏ, giữ main/latest cũ.
 
-Rollback bằng reviewed revert, không force rewrite main hoặc xóa archive. Không migration workbook, không publish nuget.org, không thay lịch ngoài repo. Một bước tiếp theo: chạy canonical Check out trên HEAD có pixel-budget fix, đọc actual native Ribbon/dialog results rồi kiểm ảnh trước integration/delivery.
+Rollback bằng reviewed revert, không force-rewrite main hoặc xóa archive. Không migration workbook, không publish nuget.org, không thay lịch ngoài repository. Bước tiếp theo: xác minh canonical Check out ở HEAD mới, review ảnh rồi cập nhật bản bàn giao đúng source.

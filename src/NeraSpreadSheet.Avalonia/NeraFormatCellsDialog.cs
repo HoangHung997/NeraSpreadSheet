@@ -13,7 +13,7 @@ public enum NeraFormatCellsTab { Number, Font, Alignment, Border, Fill }
 
 /// <summary>Reusable Format Cells UI. Native controls edit only a pending property patch;
 /// OK uses the existing shared formatting transaction. Cancel and previews do not mutate cells.</summary>
-public sealed class NeraFormatCellsDialog : NeraSettingsDialog, IDisposable
+public sealed partial class NeraFormatCellsDialog : NeraSettingsDialog, IDisposable
 {
     private readonly SpreadsheetFormatCellsDraft _draft;
     private readonly SpreadsheetSession _session;
@@ -46,7 +46,7 @@ public sealed class NeraFormatCellsDialog : NeraSettingsDialog, IDisposable
     }
 
     public NeraFormatCellsTab SelectedFormatTab => (NeraFormatCellsTab)_tabs.SelectedIndex;
-    public bool HasPendingChanges => _dirty.Count > 0;
+    public bool HasPendingChanges => _dirty.Count > 0 || _numberParameterError is not null;
     /// <summary>Releases target subscriptions even when this dialog has never been shown.
     /// Call on the UI thread. Closing a shown dialog also releases its draft.</summary>
     public void Dispose()
@@ -78,55 +78,6 @@ public sealed class NeraFormatCellsDialog : NeraSettingsDialog, IDisposable
         if (control is TextBox text) { var initial = text.Text; text.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) Mark(text.Text != initial); }; }
         else if (control is ComboBox choice) { var initial = Selected(choice); choice.SelectionChanged += (_, e) => { if (ReferenceEquals(e.Source, choice)) Mark(Selected(choice) != initial); }; }
         else if (control is CheckBox check) { var initial = check.IsChecked; check.IsCheckedChanged += (_, _) => Mark(check.IsChecked != initial); }
-    }
-    private StackPanel BuildNumber()
-    {
-        var panel = Panel();
-        Note(panel, _draft.IsSelectionInspected ? "Ô trống hoặc ô có nhiều định dạng: chỉ thuộc tính bạn chỉnh sẽ thay đổi." : "Vùng lớn: không quét toàn bộ ô. Chỉ thuộc tính bạn chỉnh sẽ thay đổi.");
-        var current = CommonText(style => style.NumberFormat.FormatCode);
-        var categories = Enum.GetValues<SpreadsheetNumberFormatCategory>().Select(value => (value.ToString(), CategoryCaption(value)));
-        var category = ChoiceField(panel, "format-category", "Loại định dạng", categories, current == "General" ? "General" : "Custom");
-        var decimals = TextField(panel, "format-decimals", "Số chữ số thập phân", "2");
-        var thousands = CheckField(panel, "format-thousands", "Phân cách hàng nghìn", true); thousands.IsThreeState = false;
-        var currency = TextField(panel, "format-currency", "Ký hiệu tiền tệ", "₫");
-        var parentheses = CheckField(panel, "format-negative", "Số âm trong ngoặc", false); parentheses.IsThreeState = false;
-        var code = TextField(panel, "format-code", "Mã định dạng", current);
-        var preview = new TextBlock { TextWrapping = TextWrapping.Wrap, MinHeight = 40, FontSize = 18 };
-        Identify(preview, "format-preview", L("Mẫu hiển thị")); panel.Children.Add(preview);
-        Note(panel, "Mẫu dùng bộ định dạng hiện tại; mã tùy chỉnh và căn khoảng trắng kế toán chưa đảm bảo giống Excel hoàn toàn. Giá trị và công thức gốc không đổi.");
-        Bind("number", code, patch =>
-        {
-            var value = code.Text?.Trim();
-            SpreadsheetNumberFormats.Validate(value ?? string.Empty);
-            return patch with { NumberFormatCode = value };
-        });
-        void Preview()
-        {
-            var value = _draft.PreviewValue.IsBlank ? CellValue.FromObject(1234.567) : _draft.PreviewValue;
-            try
-            {
-                if (string.IsNullOrWhiteSpace(code.Text)) { preview.Text = L("Giữ nguyên / nhiều giá trị"); return; }
-                SpreadsheetNumberFormats.Validate(code.Text);
-                preview.Text = L("Mẫu hiển thị") + ": " + ExcelCellValueFormatter.Format(value, code.Text, _session.Workbook.DateSystem, Localization.Culture);
-            }
-            catch (ArgumentException) { preview.Text = L("Mã định dạng chưa hợp lệ."); }
-        }
-        void Generate()
-        {
-            _numberParameterError = null;
-            if (!Enum.TryParse<SpreadsheetNumberFormatCategory>(Selected(category), out var selected) || selected == SpreadsheetNumberFormatCategory.Custom) return;
-            try
-            {
-                var hasDecimals = selected is SpreadsheetNumberFormatCategory.Number or SpreadsheetNumberFormatCategory.Currency or SpreadsheetNumberFormatCategory.Accounting or SpreadsheetNumberFormatCategory.Percentage or SpreadsheetNumberFormatCategory.Scientific;
-                code.Text = SpreadsheetNumberFormats.Create(selected, hasDecimals ? ReadInteger(decimals, 0, 15) : 2, thousands.IsChecked == true, currency.Text ?? string.Empty, parentheses.IsChecked == true);
-            }
-            catch (ArgumentException) { _numberParameterError = L("Thông số tạo định dạng chưa hợp lệ."); preview.Text = _numberParameterError; }
-        }
-        category.SelectionChanged += (_, e) => { if (ReferenceEquals(e.Source, category)) Generate(); };
-        decimals.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) Generate(); }; currency.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) Generate(); };
-        thousands.IsCheckedChanged += (_, _) => Generate(); parentheses.IsCheckedChanged += (_, _) => Generate();
-        code.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) Preview(); }; Preview();
-        return panel;
     }
     private StackPanel BuildFont()
     {
