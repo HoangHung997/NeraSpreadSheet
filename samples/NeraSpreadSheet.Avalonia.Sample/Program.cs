@@ -28,10 +28,12 @@ public sealed class App : Application
             else
             {
                 var window = new FullShellWindow(); desktop.MainWindow = window;
-                if (desktop.Args?.Contains("--compatibility-smoke", StringComparer.Ordinal) == true)
+                if (desktop.Args?.Contains("--qa-gaps-smoke", StringComparer.Ordinal) == true)
+                    window.Opened += (_, _) => StartRibbonAfterNativeFrame(window, desktop, qaGaps: true);
+                else if (desktop.Args?.Contains("--compatibility-smoke", StringComparer.Ordinal) == true)
                     window.Opened += (_, _) => StartRibbonAfterNativeFrame(window, desktop, compatibility: true);
                 else if (desktop.Args?.Contains("--dialogs-smoke", StringComparer.Ordinal) == true)
-                    window.Opened += (_, _) => StartRibbonAfterNativeFrame(window, desktop, true);
+                    window.Opened += (_, _) => StartRibbonAfterNativeFrame(window, desktop, dialogs: true);
                 else if (desktop.Args?.Contains("--ribbon-visual-smoke", StringComparer.Ordinal) == true)
                     window.Opened += (_, _) => StartRibbonAfterNativeFrame(window, desktop);
                 else if (desktop.Args?.Contains("--formula-ux-smoke", StringComparer.Ordinal) == true)
@@ -42,7 +44,12 @@ public sealed class App : Application
         }
         base.OnFrameworkInitializationCompleted();
     }
-    private static void StartRibbonAfterNativeFrame(FullShellWindow window, IClassicDesktopStyleApplicationLifetime lifetime, bool dialogs = false, bool compatibility = false)
+    private static void StartRibbonAfterNativeFrame(
+        FullShellWindow window,
+        IClassicDesktopStyleApplicationLifetime lifetime,
+        bool dialogs = false,
+        bool compatibility = false,
+        bool qaGaps = false)
     {
         var deadline = Stopwatch.StartNew();
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
@@ -52,7 +59,10 @@ public sealed class App : Application
             timer.Stop();
             // The smoke checks the actual count and fails if the deadline elapsed
             // without a frame. Waiting alone is never treated as render evidence.
-            if (compatibility) window.StartCompatibilitySmoke(lifetime); else if (dialogs) window.StartDialogsSmoke(lifetime); else window.StartRibbonVisualSmoke(lifetime);
+            if (qaGaps) window.StartQaGapsSmoke(lifetime);
+            else if (compatibility) window.StartCompatibilitySmoke(lifetime);
+            else if (dialogs) window.StartDialogsSmoke(lifetime);
+            else window.StartRibbonVisualSmoke(lifetime);
         };
         window.Closed += (_, _) => timer.Stop();
         timer.Start();
