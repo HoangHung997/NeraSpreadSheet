@@ -40,8 +40,9 @@ public static class NeraSpreadsheetRibbonPreset
             Group("number", "Số", 70,
                 Item("Ui.Number", RibbonItemKind.ComboBox, width: 126), Item("Ui.Percent"), Item("Ui.Decimal")),
             Group("cells", "Ô", 40,
-                Item("Structure.Row.Insert"), Item("Structure.Row.Delete"), Item("Structure.Row.Hide"),
-                Item("Structure.Column.Insert"), Item("Structure.Column.Delete"), Item("Structure.Column.Hide")),
+                Item("Structure.Row.Insert"), Item("Structure.Row.Delete"),
+                Item("Structure.Column.Insert"), Item("Structure.Column.Delete"),
+                Item("Ui.CellsFormat", RibbonItemKind.DropDown)),
             Group("editing", "Chỉnh sửa", 20,
                 Item("Cell.ClearContents", alias: "Cell.Clear"), Item("Edit.Undo"), Item("Edit.Redo")));
         AddTab("insert", "Chèn",
@@ -62,6 +63,7 @@ public static class NeraSpreadsheetRibbonPreset
             Group("formula-audit", "Kiểm tra công thức", 50, Item("Ui.Errors")));
         AddTab("data", "Dữ liệu",
             Group("sort", "Sắp xếp", 100, Item("Data.SortAscending", large: true), Item("Data.SortDescending")),
+            Group("filter", "Lọc", 95, Item("Ui.Filter", large: true), Item("Ui.FilterClear"), Item("Ui.FilterReapply")),
             Group("data-tools", "Công cụ dữ liệu", 60, Item("Ui.Statistics"), Item("Insert.Pivot.Sum")));
         AddTab("review", "Xem lại",
             Group("audit", "Kiểm tra dữ liệu", 100, Item("Ui.Errors", large: true), Item("Ui.Statistics")),
