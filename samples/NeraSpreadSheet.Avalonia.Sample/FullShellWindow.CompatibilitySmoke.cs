@@ -1,4 +1,3 @@
-TARGET=samples/NeraSpreadSheet.Avalonia.Sample/FullShellWindow.CompatibilitySmoke.cs
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Xml.Linq;

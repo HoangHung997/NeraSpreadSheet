@@ -128,6 +128,35 @@ public sealed partial class TableNativeProducerCorpusTests
         session.Workbook.TableStyles.AddOrReplaceCustom(new TableStyleDefinition("custom:Native", "Native",
             [new TableStyleElement(TableStyleElementType.HeaderRow, new TableStyleFormat { FontWeight = 700, FillColor = TableStyleColor.FromRgb(blue) })]));
         session.Tables.SetStyle(table.Id, "Native");
+        if (opaque)
+        {
+            using var rejected = new MemoryStream(); rejected.Write(source); rejected.Position = 3;
+            var before = rejected.ToArray();
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                new NeraOpenXmlSpreadsheetSessionSerializer().SaveSessionAsync(session, rejected,
+                    new OpenXmlExportOptions { PreserveUnknownParts = true }));
+            CollectionAssert.AreEqual(before, rejected.ToArray());
+            Assert.AreEqual(3L, rejected.Position);
+            Assert.AreEqual(1, sheet.ConditionalFormattingRuleCount, "Failed save must not silently discard the in-memory addition.");
+            var retained = await Load(source, true);
+            retained.SetValue(new CellAddress(7, 7), 1234.5);
+            for (var cycle = 0; cycle < 3; cycle++)
+            {
+                var bytes = await Save(retained, true);
+                AssertSchemaValid(bytes);
+                AssertTableGraphPreserved(source, bytes);
+                using var stream = new MemoryStream(bytes);
+                using var document = SpreadsheetDocument.Open(stream, false);
+                var rule = ReadXml(document.WorkbookPart!.WorksheetParts.Single()).Descendants(S + "cfRule").Single();
+                Assert.AreEqual("duplicateValues", (string?)rule.Attribute("type"));
+                Assert.AreEqual("0", (string?)rule.Attribute("dxfId"));
+                Assert.AreEqual("9", (string?)rule.Attribute("priority"));
+                Assert.AreEqual("General", (string?)ReadXml(document.WorkbookPart.WorkbookStylesPart!).Descendants(S + "dxf").First().Element(S + "numFmt")?.Attribute("formatCode"));
+                retained = await Load(bytes, true);
+                Assert.AreEqual(1234.5, retained.ActiveWorksheet.GetValue(new CellAddress(7, 7)));
+            }
+            return;
+        }
         int? previousCount = null;
         for (var cycle = 0; cycle < 3; cycle++)
         {

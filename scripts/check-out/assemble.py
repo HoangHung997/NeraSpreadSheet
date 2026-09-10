@@ -8,6 +8,8 @@ import re
 import shutil
 import subprocess
 import zipfile
+import gallery
+import verify_compatibility_probe
 
 
 def digest(path):
@@ -26,6 +28,7 @@ def assemble(source, output, sha, repo, run_id, publish):
     evidence = output / 'evidence' / 'Check out'
     evidence.mkdir(parents=True)
     platforms = {}
+    images = gallery.Gallery(evidence / 'Images', sha, f'https://github.com/{repo}/actions/runs/{run_id}')
     for rid in ('win-x64', 'linux-x64', 'osx-arm64'):
         candidates = list(source.glob(f'check-out-{rid}-{sha}/package.json'))
         if len(candidates) != 1:
@@ -41,11 +44,17 @@ def assemble(source, output, sha, repo, run_id, publish):
         (evidence / 'Reports').mkdir(exist_ok=True)
         shutil.copy2(meta_path, evidence / 'Reports' / (rid + '.json'))
         platforms[rid] = {key: meta[key] for key in ('filename', 'bytes', 'sha256')}
+        images.published(package, rid)
         if rid == 'win-x64':
             (evidence / 'Images').mkdir(exist_ok=True)
-            for name in ('ribbon-light.png', 'ribbon-dark.png', 'full-window.png', 'customization.png', 'format-number.png', 'format-font.png', 'format-alignment.png', 'format-border.png', 'format-fill.png', 'page-setup.png', 'page-margins.png', 'page-sheet.png', 'zoom-dialog.png'):
+            for name in ('ribbon-light.png', 'ribbon-dark.png', 'full-window.png', 'customization.png', 'format-number.png', 'format-font.png', 'format-alignment.png', 'format-border.png', 'format-fill.png', 'page-setup.png', 'page-margins.png', 'page-sheet.png', 'zoom-dialog.png', 'compatibility-open.png', 'compatibility-edited.png', 'compatibility-rejected.png'):
                 shutil.copy2(meta_path.parent / name, output / name)
                 shutil.copy2(meta_path.parent / name, evidence / 'Images' / name)
+    for category in ('Avalonia-build','Legacy-SDK','MAUI-Ribbon','MAUI-Filter','Legacy-demo'):
+        images.directory(source / 'additional-images' / category, category)
+    image_report = images.finish()
+    verify_compatibility_probe.verify(source / 'compatibility-probe', sha)
+    shutil.copytree(source / 'compatibility-probe', evidence / 'Reports/Compatibility-probe')
     packages = list((source / 'sdk-packages').glob('*.nupkg'))
     packages += list((source / 'ribbon-sdk' / 'packages').glob('NeraSpreadSheet.Avalonia.*.nupkg'))
     if len(packages) < 18 or not any(p.name.startswith('NeraSpreadSheet.Avalonia.') for p in packages):
@@ -60,6 +69,7 @@ def assemble(source, output, sha, repo, run_id, publish):
     report = dict(schema='nera.check-out.v1', sourceSha=sha, workflowRun=run_id,
         workflowUrl=f'https://github.com/{repo}/actions/runs/{run_id}', platforms=platforms,
         sdkPackages=sorted(p.name for p in packages),
+        screenshots=dict(count=image_report["imageCount"], groups=image_report["groups"], index="Check out/Images/index.html"),
         requiredGates=['Core and legacy hosts','OpenXML','iOS analytics','Windows packages','MAUI packages',
                        'legacy demo','Avalonia Ribbon','published native app smoke'],
         physicalInputTested=False, excelParityClaimed=False,
@@ -67,7 +77,7 @@ def assemble(source, output, sha, repo, run_id, publish):
                    'native Mac investigations','hardware/IME/accessibility acceptance','full Excel fidelity'])
     (output / 'CHECKOUT.json').write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n')
     shutil.copy2(output / 'CHECKOUT.json', evidence / 'Reports/CHECKOUT.json')
-    (evidence / 'README.txt').write_text('Ảnh và manifest của đúng source; xem workflowUrl trong Reports/CHECKOUT.json để đọc toàn bộ CI. Không phải chứng nhận Excel parity.\n',encoding='utf-8')
+    (evidence / 'README.txt').write_text('Mở Check out/Images/index.html để xem TẤT CẢ ảnh của từng nền tảng/host. Ảnh và manifest của đúng source; xem workflowUrl trong Reports/CHECKOUT.json để đọc toàn bộ CI. Không phải chứng nhận Excel parity.\n',encoding='utf-8')
     with zipfile.ZipFile(output / 'Nera-Check-out-evidence.zip','w',zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(evidence.rglob('*')):
             if path.is_file(): archive.write(path,path.relative_to(evidence.parent).as_posix())

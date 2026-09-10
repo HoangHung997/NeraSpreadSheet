@@ -18,7 +18,7 @@ namespace NeraSpreadSheet.Avalonia.Sample;
 /// canonical draft. The sample does not own a separate editor model.</summary>
 public sealed partial class FullShellWindow : Window, IDisposable
 {
-    private static readonly string[] ExcelPatterns = ["*.xlsx"];
+    private static readonly string[] ExcelPatterns = ["*.xlsx", "*.dlda"];
     private static readonly IReadOnlyList<FilePickerFileType> ExcelTypes = Array.AsReadOnly<FilePickerFileType>([new FilePickerFileType("Excel") { Patterns = ExcelPatterns }]);
     private readonly NeraSpreadsheetSplitControl _split = new();
     private readonly CommandRegistry _registry = new();
@@ -65,6 +65,7 @@ public sealed partial class FullShellWindow : Window, IDisposable
         Grid.SetColumn(reference, 2); bar.Children.Add(reference);
         DockPanel.SetDock(bar, Dock.Top); root.Children.Add(bar);
         DockPanel.SetDock(_status, Dock.Bottom); root.Children.Add(_status);
+        InstallCompatibilityNotice(root);
         var tabScroll = new ScrollViewer { Content = _tabs, HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         DockPanel.SetDock(tabScroll, Dock.Bottom); root.Children.Add(tabScroll);
@@ -181,15 +182,14 @@ public sealed partial class FullShellWindow : Window, IDisposable
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions { Title = "Mở bảng tính", FileTypeFilter = ExcelTypes, AllowMultiple = false });
         if (_closed || files.Count == 0) return;
         await using var stream = await files[0].OpenReadAsync();
-        var loaded = await _serializer.LoadSessionAsync(stream, new OpenXmlImportOptions());
-        if (!_closed) _split.Session = loaded;
+        await OpenCompatibleStreamAsync(stream, files[0].Name);
     });
     private async Task SaveAsync() => await RunIo(async () =>
     {
         var session = Session;
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions { Title = "Lưu bảng tính", SuggestedFileName = "NeraSpreadSheet.xlsx", DefaultExtension = "xlsx", FileTypeChoices = ExcelTypes });
         if (_closed || file is null) return;
-        using var staging = new MemoryStream(); await _serializer.SaveSessionAsync(session, staging, new OpenXmlExportOptions()); if (_closed) return; staging.Position = 0;
+        using var staging = new MemoryStream(); await SaveCompatibleStreamAsync(session, staging); if (_closed) return; staging.Position = 0;
         await using var destination = await file.OpenWriteAsync(); if (!destination.CanSeek) throw new NotSupportedException("Thiết bị lưu phải hỗ trợ seek.");
         destination.Position = 0; await staging.CopyToAsync(destination); destination.SetLength(staging.Length); await destination.FlushAsync();
     });

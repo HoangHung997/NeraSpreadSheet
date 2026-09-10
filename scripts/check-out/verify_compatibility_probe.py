@@ -1,4 +1,3 @@
-TARGET=scripts/check-out/verify_compatibility_probe.py
 """Compare a paired synthetic serializer probe; never attribute H2 latency from it."""
 import json
 from pathlib import Path

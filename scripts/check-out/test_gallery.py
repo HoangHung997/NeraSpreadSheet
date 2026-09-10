@@ -1,4 +1,3 @@
-TARGET=scripts/check-out/test_gallery.py
 """Synthetic gallery provenance/path tests. No external files or requests."""
 import base64
 import hashlib

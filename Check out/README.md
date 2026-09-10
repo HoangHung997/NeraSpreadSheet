@@ -61,3 +61,12 @@ Gói nặng giữ tại Releases, **không** cho vào Git history để tránh l
 
 [Hợp nhất, sửa lỗi build và các giới hạn](../docs/worklog/CONSOLIDATION_20260909.md) · [Nhánh cũ/mốc khôi phục](branches.md).
 Không dùng việc thu gọn nhánh để xóa source thử nghiệm chưa đạt: mã đó nằm ở archive tags, không được nhập lại mù vào main.
+
+
+## Toàn bộ ảnh của từng bản build
+
+Mở **[Check out/Images](Images/README.md)**. Gói `Nera-Check-out-evidence.zip` chứa **toàn bộ ảnh PNG** trong cùng lượt CI: ứng dụng self-contained Windows/Linux/macOS, ma trận Avalonia, SDK cũ và các smoke MAUI/demo. Sau khi giải nén, mở **`Check out/Images/index.html`** để duyệt ảnh; `index.json` ghi nguồn/hash cho từng ảnh. Không chỉ còn vài ảnh Windows xem nhanh.
+
+**Tương thích XLSX:** bản có checkpoint XLSX-COMPAT-004 mở `.xlsx`/`.dlda` theo chế độ Compatibility, thông báo các định dạng chỉ bảo toàn (ví dụ `dxf/border/vertical`, `horizontal`, rule chưa hỗ trợ). Khi mở lỗi, banner nói rõ workbook cũ vẫn đang hiển thị. Không chạy macro, không tự hỗ trợ XLS/XLSB/CSV; chưa tuyên bố vẽ inner borders hoặc duplicate/unique đúng như Excel. Xem [phạm vi và giới hạn](../docs/worklog/XLSX_COMPAT_004.md).
+
+Chỉ dùng source SHA trong `CHECKOUT.json` để xác định bản tải. Nếu main/latest chưa cập nhật, file review mới ở artifact `Check-out-index-<SHA>` của [workflow Check out](https://github.com/HoangHung997/NeraSpreadSheet/actions/workflows/check-out.yml); không lấy link latest cũ làm bằng chứng fix mới. Các source branch tạm không phải nhánh phát triển dài hạn.

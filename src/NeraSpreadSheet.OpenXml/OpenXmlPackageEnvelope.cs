@@ -11,13 +11,17 @@ internal sealed class OpenXmlPackageEnvelope
 {
     private readonly byte[] _packageBytes;
     private readonly WorksheetBinding[] _worksheets;
+    private readonly OpenXmlOpaqueFormattingGuard? _formattingGuard;
+    public bool PreservesOpaqueFormatting => _formattingGuard is not null;
 
     private OpenXmlPackageEnvelope(
         byte[] packageBytes,
-        WorksheetBinding[] worksheets)
+        WorksheetBinding[] worksheets, Workbook workbook)
     {
         _packageBytes = packageBytes;
         _worksheets = worksheets;
+        if (OpenXmlImportDiagnostics.Get(workbook).RequiresMetadataPreservation)
+            _formattingGuard = new OpenXmlOpaqueFormattingGuard(workbook);
     }
 
     public IReadOnlyList<WorksheetBinding> Worksheets => _worksheets;
@@ -44,6 +48,7 @@ internal sealed class OpenXmlPackageEnvelope
     public void ValidateWorkbookTopology(Workbook workbook)
     {
         ArgumentNullException.ThrowIfNull(workbook);
+        _formattingGuard?.Validate(workbook);
         if (workbook.Worksheets.Count != _worksheets.Length)
         {
             throw new InvalidOperationException(
@@ -104,6 +109,11 @@ internal sealed class OpenXmlPackageEnvelope
         if (validatePackageGraph)
         {
             OpenXmlPackageGraphValidator.Validate(document);
+            if (OpenXmlPackageEnvelopeStore.TryGet(workbook, out var original) && original.PreservesOpaqueFormatting)
+            {
+                original.ValidateWorkbookTopology(workbook);
+                OpenXmlOpaqueFormattingGuard.ValidateOutput(original._packageBytes, document, original.Worksheets);
+            }
         }
 
         var workbookPart = document.WorkbookPart
@@ -158,7 +168,7 @@ internal sealed class OpenXmlPackageEnvelope
 
         return new OpenXmlPackageEnvelope(
             packageBytes,
-            bindings);
+            bindings, workbook);
     }
 
     internal sealed record WorksheetBinding(
@@ -196,6 +206,7 @@ internal static class OpenXmlPackageEnvelopeStore
 
     public static void Detach(Workbook workbook)
     {
+        OpenXmlImportDiagnostics.Detach(workbook);
         ArgumentNullException.ThrowIfNull(workbook);
         lock (Sync)
         {

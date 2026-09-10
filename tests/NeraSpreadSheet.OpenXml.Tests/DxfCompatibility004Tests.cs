@@ -1,4 +1,3 @@
-TARGET=tests/NeraSpreadSheet.OpenXml.Tests/DxfCompatibility004Tests.cs
 using System.Globalization;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml.Packaging;
@@ -131,7 +130,7 @@ public sealed class DxfCompatibility004Tests
     {
         using var source = await Fixture("vertical", noRules: true);
         ModifySheet(source, root => root.Add(new XElement(S + "conditionalFormatting", new XAttribute("sqref", "A1:A1048576"),
-            Enumerable.Range(1, WorksheetConditionalFormattingCollection.MaxRulesPerWorksheet + 1).Select(priority =>
+            Enumerable.Range(1, 100_001).Select(priority =>
                 new XElement(S + "cfRule", new XAttribute("type", "duplicateValues"), new XAttribute("dxfId", 0), new XAttribute("priority", priority))))));
         var exception = await Assert.ThrowsExactlyAsync<InvalidDataException>(() => new NeraOpenXmlWorkbookSerializer().LoadAsync(source, Compatibility));
         Assert.IsTrue(OpenXmlImportDiagnostics.TryGetFailure(exception, out var problem));

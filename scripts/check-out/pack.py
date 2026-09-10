@@ -28,6 +28,7 @@ def pack(root, app, images, output, sha, rid, run_url):
         'formula-ux-smoke': ('NERA_AVALONIA_FORMULA_UX_SUCCESS ', 23),
         'ribbon-visual-smoke': ('NERA_AVALONIA_RIBBON_VISUAL_SUCCESS ', 190),
         'dialogs-smoke': ('NERA_AVALONIA_DIALOGS_SUCCESS ', 70),
+        'compatibility-smoke': ('NERA_AVALONIA_COMPATIBILITY_SUCCESS ', 30),
     }
     smokes = {}
     for name, (prefix, minimum) in requirements.items():
@@ -76,6 +77,8 @@ def pack(root, app, images, output, sha, rid, run_url):
         shutil.copy2(images / 'ribbon-visual' / source, output / target)
     for target, source in {'format-number.png': 'number', 'format-font.png': 'font', 'format-alignment.png': 'alignment', 'format-border.png': 'border', 'format-fill.png': 'fill', 'page-setup.png': 'page', 'page-margins.png': 'margins', 'page-sheet.png': 'sheet', 'zoom-dialog.png': 'zoom'}.items():
         shutil.copy2(images / 'dialogs' / ('Light-' + source + '.png'), output / target)
+    for name in ('compatibility-open.png','compatibility-edited.png','compatibility-rejected.png'):
+        shutil.copy2(images / 'compatibility' / name, output / name)
     shutil.rmtree(output / 'staging')
     print(json.dumps(dict(sourceSha=sha, rid=rid, package=filename, sha256=digest(output / filename))))
 

@@ -93,11 +93,15 @@ class PackageTests(unittest.TestCase):
         dialogs=self.images/'dialogs';dialogs.mkdir()
         for name in ('number', 'font', 'alignment', 'border', 'fill', 'page', 'margins', 'sheet', 'zoom'):
             (dialogs/('Light-'+name+'.png')).write_bytes(b'synthetic delivery fixture, not native screenshot')
+        compatibility=self.images/'compatibility';compatibility.mkdir()
+        for name in ('compatibility-open.png','compatibility-edited.png','compatibility-rejected.png'):
+            (compatibility/name).write_bytes(b'synthetic delivery fixture, not a native image')
         self.prefixes={ 'smoke':('NERA_AVALONIA_SMOKE_SUCCESS ',12),
             'full-ui-smoke':('NERA_AVALONIA_FULL_UI_SUCCESS ',23),
             'formula-ux-smoke':('NERA_AVALONIA_FORMULA_UX_SUCCESS ',23),
             'ribbon-visual-smoke':('NERA_AVALONIA_RIBBON_VISUAL_SUCCESS ',198),
-            'dialogs-smoke':('NERA_AVALONIA_DIALOGS_SUCCESS ',80)}
+            'dialogs-smoke':('NERA_AVALONIA_DIALOGS_SUCCESS ',80),
+            'compatibility-smoke':('NERA_AVALONIA_COMPATIBILITY_SUCCESS ',38)}
         for name,(prefix,count) in self.prefixes.items():
             (self.images/(name+'.log')).write_text(prefix+json.dumps(dict(sha=SHA,nativeWindow=True,assertions=count))+'\n')
         (self.root/'docs').mkdir();(self.root/'docs/third-party-notices.md').write_text('synthetic notice')
@@ -137,6 +141,15 @@ class PackageTests(unittest.TestCase):
     def testWrongDialogHeadCannotProduceDownload(self):
         prefix,count=self.prefixes['dialogs-smoke']
         (self.images/'dialogs-smoke.log').write_text(prefix+json.dumps(dict(sha=OLD,nativeWindow=True,assertions=count)))
+        with self.assertRaisesRegex(ValueError,'evidence'):self.pack()
+
+    def testMissingCompatibilitySmokeCannotProduceDownload(self):
+        (self.images/'compatibility-smoke.log').unlink()
+        with self.assertRaises(FileNotFoundError):self.pack()
+
+    def testWrongCompatibilityHeadCannotProduceDownload(self):
+        prefix,count=self.prefixes['compatibility-smoke']
+        (self.images/'compatibility-smoke.log').write_text(prefix+json.dumps(dict(sha=OLD,nativeWindow=True,assertions=count)))
         with self.assertRaisesRegex(ValueError,'evidence'):self.pack()
 
     def testFrameworkDependentAppCannotBeCalledSelfContained(self):

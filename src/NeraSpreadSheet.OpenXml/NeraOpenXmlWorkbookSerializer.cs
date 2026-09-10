@@ -111,7 +111,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 envelope,
                 generatedBytes,
                 cancellationToken);
-        if (envelope is not null)
+        if (envelope is not null && !envelope.PreservesOpaqueFormatting)
         {
             outputBytes = OpenXmlDataValidationPackagePatcher.Patch(
                 outputBytes,
@@ -249,6 +249,8 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         {
             workbook.AddWorksheet("Sheet1");
         }
+        if (differentialStyles is OpenXmlDifferentialImport diagnostics)
+            OpenXmlImportDiagnostics.Attach(workbook, diagnostics);
         return workbook;
     }
 

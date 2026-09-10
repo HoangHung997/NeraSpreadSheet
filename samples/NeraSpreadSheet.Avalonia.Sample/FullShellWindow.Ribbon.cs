@@ -71,7 +71,7 @@ public sealed partial class FullShellWindow
             _registry.Register(new CommandDescriptor(entry.Id, entry.Caption, entry.Caption, descriptor.IconKey, descriptor.Shortcut)
                 { CaptionResourceKey = entry.Caption, TooltipResourceKey = entry.Caption },
                 new ShellHandler(this, context => ResolveSessionHandler(entry.Id).ExecuteAsync(context),
-                    context => ResolveSessionHandler(entry.Id) is IStatefulCommandHandler stateful ? stateful.GetState(context) : new CommandState(ResolveSessionHandler(entry.Id).CanExecute(context))));
+                    context => RestrictMetadataCommand(entry.Id) ? CommandState.Disabled : ResolveSessionHandler(entry.Id) is IStatefulCommandHandler stateful ? stateful.GetState(context) : new CommandState(ResolveSessionHandler(entry.Id).CanExecute(context))));
         }
         Choice("Ui.FontFamily", "Phông chữ", "font.family", value => ApplyStyle(s => s with { Font = s.Font with { Family = value } }),
             () => ChoiceState(Session.Styles.ActiveCellStyle.Font.Family, FontChoices));

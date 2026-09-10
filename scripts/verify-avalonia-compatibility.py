@@ -1,4 +1,3 @@
-TARGET=scripts/verify-avalonia-compatibility.py
 """Verify the bounded native XLSX regression evidence without claiming an Excel oracle."""
 import hashlib
 import json

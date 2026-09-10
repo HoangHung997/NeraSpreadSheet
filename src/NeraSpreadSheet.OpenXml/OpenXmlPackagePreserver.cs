@@ -169,13 +169,13 @@ internal static class OpenXmlPackagePreserver
                     workbook.Worksheets[index].Name);
             }
 
-            var preserveConditionalFormatting = worksheetPairs.Any(
+            var preserveConditionalFormatting = envelope.PreservesOpaqueFormatting || worksheetPairs.Any(
                 static pair => ContainsUnsupportedConditionalFormatting(
                     pair.Preserved));
             var preserveTableDifferentialStyles = ContainsTableDifferentialStyleReferences(preservedWorkbookPart);
             var preserveDifferentialStyles = preserveConditionalFormatting || preserveTableDifferentialStyles;
             PatchStyles(preservedWorkbookPart, generatedWorkbookPart, preserveDifferentialStyles);
-            var differentialStyleMap = preserveTableDifferentialStyles
+            var differentialStyleMap = preserveTableDifferentialStyles && !envelope.PreservesOpaqueFormatting
                 ? OpenXmlDifferentialStyleRemapper.MergeGeneratedStyles(preservedWorkbookPart, generatedWorkbookPart)
                 : null;
             foreach (var pair in worksheetPairs)

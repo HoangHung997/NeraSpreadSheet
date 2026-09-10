@@ -1,4 +1,3 @@
-TARGET=docs/worklog/XLSX_COMPAT_004.md
 # XLSX-COMPAT-004 — inner border import và toàn bộ ảnh tại Check out
 
 ## Chỉ đạo và nguồn

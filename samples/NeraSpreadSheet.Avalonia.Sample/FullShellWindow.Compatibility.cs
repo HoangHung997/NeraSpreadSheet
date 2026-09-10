@@ -1,4 +1,3 @@
-TARGET=samples/NeraSpreadSheet.Avalonia.Sample/FullShellWindow.Compatibility.cs
 using global::Avalonia;
 using global::Avalonia.Automation;
 using global::Avalonia.Controls;
@@ -68,6 +67,9 @@ public sealed partial class FullShellWindow
             throw;
         }
     }
+
+    private Task SaveCompatibleStreamAsync(NeraSpreadSheet.Editing.SpreadsheetSession session, Stream destination) =>
+        _serializer.SaveSessionAsync(session, destination, new OpenXmlExportOptions { PreserveUnknownParts = true });
 
     private bool RestrictMetadataCommand(CommandId id) =>
         OpenXmlImportDiagnostics.Get(Session.Workbook).RequiresMetadataPreservation &&

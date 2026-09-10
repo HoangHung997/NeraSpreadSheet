@@ -283,8 +283,9 @@ public sealed class RichAutoFilterRoundTripTests
             worksheet.Descendants(SpreadsheetNamespace + "colorFilter")
                 .Single()
                 .SetAttributeValue("dxfId", 1);
-            var sheetData = worksheet.Root!.Element(SpreadsheetNamespace + "sheetData")!;
-            sheetData.AddAfterSelf(new XElement(
+            var filterAnchor = worksheet.Root!.Element(SpreadsheetNamespace + "sortState") ??
+                worksheet.Root.Element(SpreadsheetNamespace + "autoFilter")!;
+            filterAnchor.AddAfterSelf(new XElement(
                 SpreadsheetNamespace + "conditionalFormatting",
                 new XAttribute("sqref", "A1"),
                 new XElement(
@@ -299,6 +300,7 @@ public sealed class RichAutoFilterRoundTripTests
                         new XElement(SpreadsheetNamespace + "color", new XAttribute("rgb", "FF00FF00"))))));
             Save(worksheetPart, worksheet);
         }
+        AssertSchemaValid(source);
         source.Position = 0;
         var loaded = await serializer.LoadAsync(
             source,

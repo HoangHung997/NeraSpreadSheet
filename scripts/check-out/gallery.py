@@ -1,4 +1,3 @@
-TARGET=scripts/check-out/gallery.py
 """Bounded collection of every PNG capture from this run into Check out/Images.
 Published images are checked against the executable package's own manifest.
 Other native captures retain their run/category provenance without asserting
