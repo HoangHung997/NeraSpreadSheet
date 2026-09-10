@@ -75,7 +75,7 @@ jobs:
           New-Item -ItemType Directory artifacts/published-images -Force | Out-Null
           $app = Join-Path $pwd 'artifacts/app/NeraSpreadSheet.Avalonia.Sample'
           if ($IsWindows) { $app += '.exe' }
-          foreach ($mode in @('smoke', 'full-ui-smoke', 'formula-ux-smoke', 'ribbon-visual-smoke', 'dialogs-smoke')) {
+          foreach ($mode in @('smoke', 'full-ui-smoke', 'formula-ux-smoke', 'ribbon-visual-smoke', 'dialogs-smoke', 'compatibility-smoke')) {
             if ($IsLinux) { $lines = & xvfb-run -a $app "--$mode" 2>&1 }
             else { $lines = & $app "--$mode" 2>&1 }
             $exit = $LASTEXITCODE
@@ -86,6 +86,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Published image provenance failed.' }
           python scripts/verify-avalonia-dialogs.py artifacts/published-images/dialogs $env:NERA_SOURCE_SHA
           if ($LASTEXITCODE -ne 0) { throw 'Published dialog evidence validation failed.' }
+          python scripts/verify-avalonia-compatibility.py artifacts/published-images/compatibility $env:NERA_SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Published compatibility evidence failed.' }
       - name: Build the Check out folder and downloadable ZIP
         run: python scripts/check-out/pack.py --root . --app artifacts/app --images artifacts/published-images --output artifacts/delivery --sha ${{ github.sha }} --rid ${{ matrix.rid }} --run-url https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
       - uses: actions/upload-artifact@v4
@@ -103,9 +105,41 @@ jobs:
           path: artifacts/published-images/
           if-no-files-found: warn
 
+  compatibility-probe:
+    name: Paired sparse XLSX compatibility measurement
+    needs: delivery-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: 2742459e9e26b1153c438d7c623778e7c8364957
+          path: compatibility-probe-baseline
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Run the identical 100000-cell serializer probe on both source revisions
+        run: |
+          mkdir -p artifacts/compatibility-probe
+          cp -R benchmarks/NeraSpreadSheet.CompatibilityProbe compatibility-probe-baseline/benchmarks/
+          diff -r benchmarks/NeraSpreadSheet.CompatibilityProbe compatibility-probe-baseline/benchmarks/NeraSpreadSheet.CompatibilityProbe
+          dotnet run --project compatibility-probe-baseline/benchmarks/NeraSpreadSheet.CompatibilityProbe -c Release -- 2742459e9e26b1153c438d7c623778e7c8364957 artifacts/compatibility-probe/before.json
+          dotnet run --project benchmarks/NeraSpreadSheet.CompatibilityProbe -c Release -- ${{ github.sha }} artifacts/compatibility-probe/after.json
+          python scripts/check-out/verify_compatibility_probe.py artifacts/compatibility-probe ${{ github.sha }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-probe-${{ github.sha }}
+          path: artifacts/compatibility-probe
+          if-no-files-found: error
+
   assemble:
     name: Verified Check out download centre
-    needs: [delivery-tests, core-and-hosts, openxml, ios, windows-packages, maui-packages, legacy-demo, avalonia, applications]
+    needs: [delivery-tests, core-and-hosts, openxml, ios, windows-packages, maui-packages, legacy-demo, avalonia, applications, compatibility-probe]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -128,6 +162,30 @@ jobs:
         with:
           name: primary-ribbon-windows-latest-${{ github.sha }}
           path: incoming/ribbon-sdk
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: primary-ribbon-*-${{ github.sha }}
+          path: incoming/additional-images/Avalonia-build
+      - uses: actions/download-artifact@v4
+        with:
+          name: ribbon-visual-matrix
+          path: incoming/additional-images/Legacy-SDK
+      - uses: actions/download-artifact@v4
+        with:
+          name: maui-windows-ribbon-ux007
+          path: incoming/additional-images/MAUI-Ribbon
+      - uses: actions/download-artifact@v4
+        with:
+          name: maui-windows-table-filter-ux006
+          path: incoming/additional-images/MAUI-Filter
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-009-win11-x64-demo-${{ github.sha }}
+          path: incoming/additional-images/Legacy-demo
+      - uses: actions/download-artifact@v4
+        with:
+          name: compatibility-probe-${{ github.sha }}
+          path: incoming/compatibility-probe
       - name: Assemble exact-source downloads; publish prerelease only from validated main
         env:
           GH_TOKEN: ${{ github.token }}

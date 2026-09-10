@@ -73,6 +73,7 @@ internal static partial class OpenXmlConditionalFormattingCodec
             var reference = (string?)container.Attribute("sqref");
             ValidateReferenceBudget(reference, worksheet.Name);
             var ranges = ParseRanges(reference);
+            var schemaValidated = false;
             foreach (var element in container.Elements(SpreadsheetNamespace + "cfRule"))
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -86,13 +87,13 @@ internal static partial class OpenXmlConditionalFormattingCodec
                 _ = ParseOptionalBoolean((string?)element.Attribute("stopIfTrue"));
                 if (!IsSupportedRuleType(type) || OpenXmlDxfCompatibility.UnmodeledRule(container, element))
                 {
-                    OpenXmlDxfCompatibility.ValidateOpaque(container, differentialStyle: false, worksheet.Name);
+                    ValidateContainerOnce();
                     Opaque(OpenXmlImportDiagnostics.Unsupported("conditionalFormatting/" + type, worksheet.Name, reference, priority, style));
                     continue;
                 }
                 if (style is null)
                 {
-                    OpenXmlDxfCompatibility.ValidateOpaque(container, differentialStyle: false, worksheet.Name);
+                    ValidateContainerOnce();
                     Opaque(OpenXmlImportDiagnostics.Unsupported("conditionalFormatting/no-dxf", worksheet.Name, reference, priority));
                     continue;
                 }
@@ -106,6 +107,18 @@ internal static partial class OpenXmlConditionalFormattingCodec
                     continue;
                 }
                 parsed.Add(rule);
+            }
+
+            void ValidateContainerOnce()
+            {
+                // A single sqref container can hold many rules. Validating the
+                // complete container once per rule would be quadratic in markup,
+                // even though cell storage remains sparse. Validate the immutable
+                // container once, but still check each rule's references above.
+                if (schemaValidated) return;
+                cancellationToken.ThrowIfCancellationRequested();
+                OpenXmlDxfCompatibility.ValidateOpaque(container, differentialStyle: false, worksheet.Name);
+                schemaValidated = true;
             }
         }
         if (parsed.Count == 0) return;
