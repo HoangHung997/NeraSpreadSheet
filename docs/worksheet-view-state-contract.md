@@ -15,7 +15,7 @@ Scroll vẫn nằm trong SpreadsheetSplitViewState hiện có: TopLeftScroll cũ
 standalone scroll khi mode None. Không có FirstVisibleRow/Column, không snap
 fractional offsets hoặc tạo scrolling engine mới. Native metadata giữ các offset
 ẩn của những pane chưa hiện. Zoom model nhận 10%–400% để giữ miền chuẩn XLSX;
-những host hiện giới hạn 25% phải được nối/chốt policy riêng trong H1.
+host phải dùng cùng miền hoặc công bố policy hẹp hơn một cách có chủ đích.
 
 ActivateWorksheet chụp sheet cũ, lấy state sheet mới, hủy editor cũ và restore
 selection trước khi phát các thông báo view/worksheet. IsRestoringWorksheetView
@@ -87,14 +87,14 @@ split/freeze. Thêm OpenXML tests cho load/save/load exact native, unsplit multi
 view/unknown metadata, update/clear pane có giới hạn, standard freeze, old native
 compatibility và OpenXmlValidator/schema order. Test code không là test PASS.
 
-H1 chưa nối các host vào API mới; source WPF/WinForms/MAUI/Avalonia, input/raw
-render/timer, native transport và workflows không đổi. Không dùng shared state
-hoặc round-trip test thay nghiệm thu native, performance hoặc hardware.
+H1 cho **WPF/WinForms/MAUI** vẫn chưa được nối/nghiệm thu lại với API view-state
+mới. Avalonia được xử lý riêng trong QA-GAPS-005 bằng binding host trực tiếp; cho
+đến khi exact-head CI/native smoke của checkpoint đó đạt, không dùng source code
+đơn thuần để tuyên bố host đã PASS. Không suy rộng kết quả Avalonia sang host cũ.
 
 Chỉ chạy CI sau HEAD kết hợp cuối theo chỉ đạo người dùng ngày 09/09/2026;
 không giảm assertion hoặc nhận CI của commit cha. Gate cần .NET build/analyzers,
-Editing/OpenXML/Core suite, architecture và exact-head workflows. Worker không
-có runtime .NET khả dụng tại lúc viết; kết quả execution vẫn pending.
+Editing/OpenXML/Core suite, architecture và exact-head workflows.
 
 Rollback: revert batch commit, không migration workbook. Reader cũ hiểu pane
 fields version 1 nhưng không sử dụng các optional fields mới. Revert cũng bỏ
@@ -126,10 +126,27 @@ serializer thành hỗ trợ đầy đủ chart-sheet/topology preservation.
 Thêm 8 tests SpreadsheetWorksheetViewStateRegressionTests và 8 tests
 WorksheetViewStateWindowBindingTests: viewport không đổi selection/freeze,
 source tag/guard/no-op/error paths; thứ tự view đảo giữa hai sheet, view thiếu,
-ID không tồn tại, duplicate SheetViews và hai vòng lưu/nạp. Các assertion schema
-và toàn bộ tests chưa được chạy. Không giảm assertion/test cũ.
+ID không tồn tại, duplicate SheetViews và hai vòng lưu/nạp. Không giảm assertion/test cũ.
 
-Cross-session inactive structural identity remapping và H1 vẫn cần typed
-transaction/host grant. Không giả lập structural signal bằng CellsChanged hoặc
-lấy những sửa lỗi binding này để đóng các phần đó. Chưa có build, benchmark,
-native smoke hoặc exact-head CI cho batch007.
+Cross-session inactive structural identity remapping vẫn cần typed transaction/host
+grant. Không giả lập structural signal bằng CellsChanged hoặc lấy những sửa lỗi
+binding này để đóng các phần đó.
+
+## QA-GAPS-005 — binding Avalonia UI chính
+
+`NeraWorksheetViewStateBinding` là lớp host Avalonia mỏng, không phải view engine
+thứ hai. Với host đơn, `ViewportChanged`/`ZoomChanged` ghi OffsetX/OffsetY/Zoom
+vào `SpreadsheetViewController` theo Worksheet identity. Với split host, các pane
+vẫn ghi scroll vào `SpreadsheetSplitViewState` hiện hữu; binding đồng bộ zoom và
+sau worksheet activation reapply chính xác các pane offset đã lưu vì mỗi native
+pane reset local scroll khi đổi worksheet.
+
+FullShell tạo binding sau khi cửa sổ mở và dispose khi đóng. Selection được
+`SpreadsheetSession.ActivateWorksheet` restore trước event; split/freeze do
+shared View controller phát. Binding dùng restore/source guards nên A→B→A không
+được tạo cell edit, recalc hoặc Undo. Zoom Avalonia được căn cùng domain 10%–400%
+của model; ComboBox hiển thị cả giá trị động ngoài danh sách preset, ví dụ 110%.
+
+Acceptance native riêng chạy A→B→A/B với selection, fractional scroll và zoom,
+đồng thời kiểm Undo count không đổi. Kết quả thực thi thuộc worklog
+`QA_GAPS_005.md`; đoạn này chỉ mô tả contract/source và không thay exact-head CI.
