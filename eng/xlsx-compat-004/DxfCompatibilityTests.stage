@@ -1,0 +1,255 @@
+TARGET=tests/NeraSpreadSheet.OpenXml.Tests/DxfCompatibility004Tests.cs
+using System.Globalization;
+using System.Xml.Linq;
+using DocumentFormat.OpenXml.Packaging;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Editing;
+
+namespace NeraSpreadSheet.OpenXml.Tests;
+
+[TestClass]
+public sealed class DxfCompatibility004Tests
+{
+    private static readonly XNamespace S = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+    private static readonly byte[] DestinationSentinel = [17, 29, 41, 53];
+    private static readonly OpenXmlImportOptions Compatibility = OpenXmlImportOptions.ForMode(OpenXmlImportMode.Compatibility);
+    private static readonly OpenXmlExportOptions Preserve = new() { PreserveUnknownParts = true };
+
+    [TestMethod]
+    public void ExplicitModesShouldNotChangeExistingDefaults()
+    {
+        Assert.IsFalse(new OpenXmlImportOptions().PreserveUnknownParts);
+        Assert.IsFalse(new OpenXmlExportOptions().PreserveUnknownParts);
+        Assert.IsFalse(OpenXmlImportOptions.ForMode(OpenXmlImportMode.Strict).PreserveUnknownParts);
+        Assert.IsTrue(Compatibility.PreserveUnknownParts);
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => OpenXmlImportOptions.ForMode((OpenXmlImportMode)99));
+    }
+
+    [TestMethod]
+    [DataRow("vertical")]
+    [DataRow("horizontal")]
+    public async Task StrictShouldClassifyInnerBordersAsUnsupportedRatherThanCorrupt(string side)
+    {
+        using var source = await Fixture(side);
+        var original = source.ToArray();
+        var exception = await Assert.ThrowsExactlyAsync<InvalidDataException>(() => new NeraOpenXmlWorkbookSerializer().LoadAsync(source, new OpenXmlImportOptions()));
+        Assert.IsTrue(OpenXmlImportDiagnostics.TryGetFailure(exception, out var problem));
+        Assert.AreEqual(OpenXmlImportProblemKind.UnsupportedFeature, problem.Kind);
+        StringAssert.Contains(problem.Feature, side);
+        CollectionAssert.AreEqual(original, source.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("vertical", "expression")]
+    [DataRow("horizontal", "expression")]
+    [DataRow("vertical", "duplicateValues")]
+    [DataRow("horizontal", "uniqueValues")]
+    public async Task CompatibilityShouldRetainSlotsRulesAndExtensionsAcrossRepeatedEditedSaves(string side, string ruleType)
+    {
+        using var source = await Fixture(side, ruleType, fiveSheets: true);
+        var originalBytes = source.ToArray();
+        var original = Inspect(source);
+        source.Position = 0;
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        var workbook = await serializer.LoadAsync(source, Compatibility);
+        var report = OpenXmlImportDiagnostics.Get(workbook);
+        Assert.IsTrue(report.RequiresMetadataPreservation);
+        Assert.IsTrue(report.Warnings.Any(warning => warning.Feature == "dxf/border/" + side && warning.DifferentialStyleId == 0));
+        Assert.IsTrue(report.Warnings.Any(warning => warning.WorksheetName == "Synthetic 1" && warning.Reference == "A1:A1048576 C2:C5" && warning.Priority == 1));
+        Assert.AreEqual(5, workbook.Worksheets.Count);
+        Assert.AreEqual(1, workbook.Worksheets[0].ConditionalFormattingRuleCount);
+        Assert.AreEqual(1234.5, workbook.Worksheets[0].GetValue(default));
+        CollectionAssert.AreEqual(originalBytes, source.ToArray());
+        var session = new SpreadsheetSession(workbook);
+        session.SetValue(default, 2468.75);
+        session.SetFormula(new CellAddress(1, 2), "=A1+2");
+        session.Styles.SetNumberFormat("#,##0.000");
+        for (var cycle = 0; cycle < 3; cycle++)
+        {
+            using var output = new MemoryStream();
+            await serializer.SaveAsync(workbook, output, Preserve);
+            AssertProjectionEqual(original, Inspect(output));
+            output.Position = 0;
+            if (cycle == 1) workbook = await serializer.LoadAsync(output, Compatibility);
+        }
+        Assert.AreEqual(2468.75, workbook.Worksheets[0].GetValue(default));
+        Assert.AreEqual("=A1+2", workbook.Worksheets[0].GetFormula(new CellAddress(1, 2)));
+        Assert.AreEqual("#,##0.000", workbook.Worksheets[0].GetEffectiveStyle(default, workbook.Styles).NumberFormat.FormatCode);
+    }
+
+    [TestMethod]
+    public async Task UnusedOpaqueDxfShouldStillSurviveWithoutAnUnknownRule()
+    {
+        using var source = await Fixture("vertical", noRules: true);
+        var before = Inspect(source); source.Position = 0;
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        var workbook = await serializer.LoadAsync(source, Compatibility);
+        Assert.AreEqual(0, workbook.Worksheets[0].ConditionalFormattingRuleCount);
+        using var output = new MemoryStream();
+        await serializer.SaveAsync(workbook, output, Preserve);
+        AssertProjectionEqual(before, Inspect(output));
+    }
+
+    [TestMethod]
+    [DataRow("vertical", false)]
+    [DataRow("vertical", true)]
+    [DataRow("horizontal", false)]
+    [DataRow("horizontal", true)]
+    public async Task InvalidInnerBorderShouldFailEvenInCompatibility(string side, bool preserve)
+    {
+        using var source = await Fixture(side);
+        ModifyStyles(source, root => root.Descendants(S + side).Single().SetAttributeValue("style", "not-a-line-style"));
+        var exception = await Assert.ThrowsExactlyAsync<InvalidDataException>(() => new NeraOpenXmlWorkbookSerializer()
+            .LoadAsync(source, new OpenXmlImportOptions { PreserveUnknownParts = preserve }));
+        Assert.IsTrue(OpenXmlImportDiagnostics.TryGetFailure(exception, out var problem));
+        Assert.AreEqual(OpenXmlImportProblemKind.InvalidMarkup, problem.Kind);
+    }
+
+    [TestMethod]
+    public async Task InvalidKnownFontShouldNotBeHiddenByAnOtherwiseOpaqueBorder()
+    {
+        using var source = await Fixture("vertical");
+        ModifyStyles(source, root => root.Element(S + "dxfs")!.Elements().First()
+            .AddFirst(new XElement(S + "font", new XElement(S + "sz", new XAttribute("val", "broken")))));
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => new NeraOpenXmlWorkbookSerializer().LoadAsync(source, Compatibility));
+    }
+
+    [TestMethod]
+    [DataRow("dxfId", "99")]
+    [DataRow("priority", "0")]
+    [DataRow("type", "not-an-excel-rule")]
+    public async Task OpaqueRulesShouldStillValidateMetadata(string attribute, string value)
+    {
+        using var source = await Fixture("vertical", "duplicateValues");
+        ModifySheet(source, root => root.Elements(S + "conditionalFormatting").First().Element(S + "cfRule")!.SetAttributeValue(attribute, value));
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => new NeraOpenXmlWorkbookSerializer().LoadAsync(source, Compatibility));
+    }
+
+    [TestMethod]
+    public async Task OpaqueRulesShouldCountTowardsTheSafetyLimit()
+    {
+        using var source = await Fixture("vertical", noRules: true);
+        ModifySheet(source, root => root.Add(new XElement(S + "conditionalFormatting", new XAttribute("sqref", "A1:A1048576"),
+            Enumerable.Range(1, WorksheetConditionalFormattingCollection.MaxRulesPerWorksheet + 1).Select(priority =>
+                new XElement(S + "cfRule", new XAttribute("type", "duplicateValues"), new XAttribute("dxfId", 0), new XAttribute("priority", priority))))));
+        var exception = await Assert.ThrowsExactlyAsync<InvalidDataException>(() => new NeraOpenXmlWorkbookSerializer().LoadAsync(source, Compatibility));
+        Assert.IsTrue(OpenXmlImportDiagnostics.TryGetFailure(exception, out var problem));
+        Assert.AreEqual(OpenXmlImportProblemKind.SafetyLimit, problem.Kind);
+    }
+
+    [TestMethod]
+    [DataRow("rename")]
+    [DataRow("dimensions")]
+    [DataRow("differential-style")]
+    [DataRow("insert-row")]
+    public async Task UnsafeMetadataSaveShouldRejectBeforeTouchingDestination(string mutation)
+    {
+        using var source = await Fixture("vertical");
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        var workbook = await serializer.LoadAsync(source, Compatibility);
+        var sheet = workbook.Worksheets[0];
+        if (mutation == "rename") workbook.RenameWorksheet(sheet, "Renamed");
+        else if (mutation == "dimensions") sheet.Dimensions.SetColumnWidth(0, 300);
+        else if (mutation == "differential-style") sheet.DifferentialStyles.Intern(new CellStylePatch { FontSize = 17 });
+        else new SpreadsheetSession(workbook).Structure.InsertRows(0, 1);
+        using var output = new MemoryStream(); output.Write(DestinationSentinel); output.Position = 2;
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => serializer.SaveAsync(workbook, output, Preserve));
+        CollectionAssert.AreEqual(DestinationSentinel, output.ToArray());
+        Assert.AreEqual(2L, output.Position);
+    }
+
+    [TestMethod]
+    public async Task PlainWorksheetShouldNotAcquireOpaqueMetadataRestrictions()
+    {
+        var serializer = new NeraOpenXmlWorkbookSerializer();
+        var workbook = new Workbook(); workbook.Worksheets[0].SetValue(default, 1);
+        using var source = new MemoryStream(); await serializer.SaveAsync(workbook, source, new OpenXmlExportOptions()); source.Position = 0;
+        var loaded = await serializer.LoadAsync(source, Compatibility);
+        Assert.IsFalse(OpenXmlImportDiagnostics.Get(loaded).RequiresMetadataPreservation);
+        loaded.RenameWorksheet(loaded.Worksheets[0], "Allowed");
+        using var output = new MemoryStream(); await serializer.SaveAsync(loaded, output, Preserve);
+    }
+
+    [TestMethod]
+    public async Task CancelledImportShouldNotReturnAnEmptyWorkbook()
+    {
+        using var source = await Fixture("vertical");
+        using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => new NeraOpenXmlWorkbookSerializer().LoadAsync(source, Compatibility, cancellation.Token));
+    }
+
+    private static async Task<MemoryStream> Fixture(string side, string ruleType = "expression", bool fiveSheets = false, bool noRules = false)
+    {
+        var workbook = new Workbook(createDefaultWorksheet: false);
+        for (var index = 0; index < (fiveSheets ? 5 : 1); index++)
+        {
+            var sheet = workbook.AddWorksheet("Synthetic " + (index + 1).ToString(CultureInfo.InvariantCulture));
+            sheet.SetValue(default, 1234.5); sheet.SetValue(new CellAddress(1, 1), 42);
+            sheet.SetFormula(new CellAddress(1, 2), "=B2*2");
+        }
+        var output = new MemoryStream(); await new NeraOpenXmlWorkbookSerializer().SaveAsync(workbook, output, new OpenXmlExportOptions());
+        output.Position = 0;
+        using (var document = SpreadsheetDocument.Open(output, true))
+        {
+            var styles = document.WorkbookPart!.WorkbookStylesPart!; var styleXml = Read(styles);
+            var dxfs = new XElement(S + "dxfs", new XAttribute("count", 2),
+                new XElement(S + "dxf", new XElement(S + "border", new XElement(S + side, new XAttribute("style", "thin"), new XElement(S + "color", new XAttribute("rgb", "FF156082"))))),
+                new XElement(S + "dxf", new XElement(S + "font", new XElement(S + "color", new XAttribute("rgb", "FFC00000")))));
+            styleXml.Root!.Elements(S + "dxfs").Remove();
+            var next = styleXml.Root.Elements().FirstOrDefault(element => element.Name.LocalName is "tableStyles" or "colors" or "extLst");
+            if (next is null) styleXml.Root.Add(dxfs); else next.AddBeforeSelf(dxfs);
+            Write(styles, styleXml);
+            var sheetIndex = 0;
+            foreach (var part in document.WorkbookPart.WorksheetParts)
+            {
+                var xml = Read(part); xml.Root!.Elements(S + "conditionalFormatting").Remove();
+                if (!noRules)
+                {
+                    var count = fiveSheets ? (sheetIndex == 4 ? 5 : 6) : 1;
+                    for (var priority = 1; priority <= count; priority++)
+                        xml.Root.Add(new XElement(S + "conditionalFormatting", new XAttribute("sqref", "A1:A1048576 C2:C5"),
+                            new XElement(S + "cfRule", new XAttribute("type", ruleType), new XAttribute("dxfId", 0), new XAttribute("priority", priority), new XAttribute("stopIfTrue", 1),
+                                ruleType == "expression" ? new XElement(S + "formula", "A1>0") : null)));
+                    xml.Root.Add(new XElement(S + "conditionalFormatting", new XAttribute("sqref", "B2:B5"),
+                        new XElement(S + "cfRule", new XAttribute("type", "expression"), new XAttribute("dxfId", 1), new XAttribute("priority", 100), new XElement(S + "formula", "B2>0"))));
+                }
+                xml.Root.Add(new XElement(S + "extLst", new XElement(S + "ext", new XAttribute("uri", "urn:nera:synthetic:compat004"),
+                    new XElement(XNamespace.Get("urn:nera:synthetic:compat004") + "retained", "synthetic-only"))));
+                Write(part, xml); sheetIndex++;
+            }
+        }
+        output.Position = 0; return output;
+    }
+
+    private static XElement[] Inspect(Stream source)
+    {
+        source.Position = 0; using var document = SpreadsheetDocument.Open(source, false);
+        var result = new List<XElement> { new(Read(document.WorkbookPart!.WorkbookStylesPart!).Root!.Element(S + "dxfs")!) };
+        foreach (var sheet in document.WorkbookPart.WorksheetParts)
+        {
+            var xml = Read(sheet);
+            result.Add(new XElement("metadata", xml.Root!.Elements().Where(element => element.Name.LocalName is "conditionalFormatting" or "extLst").Select(element => new XElement(element))));
+        }
+        return result.ToArray();
+    }
+    private static void AssertProjectionEqual(XElement[] expected, XElement[] actual)
+    {
+        Assert.AreEqual(expected.Length, actual.Length);
+        for (var index = 0; index < expected.Length; index++) Assert.IsTrue(XNode.DeepEquals(expected[index], actual[index]), "Protected formatting XML changed.");
+    }
+    private static void ModifyStyles(MemoryStream source, Action<XElement> change)
+    {
+        source.Position = 0;
+        using (var doc = SpreadsheetDocument.Open(source, true)) { var part = doc.WorkbookPart!.WorkbookStylesPart!; var xml = Read(part); change(xml.Root!); Write(part, xml); }
+        source.Position = 0;
+    }
+    private static void ModifySheet(MemoryStream source, Action<XElement> change)
+    {
+        source.Position = 0;
+        using (var doc = SpreadsheetDocument.Open(source, true)) { var part = doc.WorkbookPart!.WorksheetParts.First(); var xml = Read(part); change(xml.Root!); Write(part, xml); }
+        source.Position = 0;
+    }
+    private static XDocument Read(OpenXmlPart part) { using var stream = part.GetStream(FileMode.Open, FileAccess.Read); return XDocument.Load(stream); }
+    private static void Write(OpenXmlPart part, XDocument xml) { using var stream = part.GetStream(FileMode.Create, FileAccess.Write); xml.Save(stream); }
+}
