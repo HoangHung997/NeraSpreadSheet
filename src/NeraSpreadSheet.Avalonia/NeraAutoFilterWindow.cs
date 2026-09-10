@@ -2,7 +2,6 @@ using global::Avalonia.Automation;
 using global::Avalonia.Controls;
 using global::Avalonia.Input;
 using global::Avalonia.Layout;
-using global::Avalonia.Threading;
 using NeraSpreadSheet.Commands;
 using NeraSpreadSheet.Editing;
 
@@ -39,7 +38,7 @@ public sealed class NeraAutoFilterWindow : Window, IDisposable
         PresentationLocalization? localization = null)
     {
         ArgumentNullException.ThrowIfNull(session);
-        _localization = localization ?? PresentationLocalization.Vietnamese;
+        _localization = localization ?? PresentationLocalization.Default;
         _presenter = new SpreadsheetAutoFilterPagedPresenter(session, target, PageSize);
         Title = $"Bộ lọc — {target.ColumnName}";
         Width = 520;
@@ -50,7 +49,7 @@ public sealed class NeraAutoFilterWindow : Window, IDisposable
         var root = new DockPanel { Margin = new global::Avalonia.Thickness(10) };
         var top = new StackPanel { Spacing = 7 };
         top.Children.Add(_summary);
-        _search.Watermark = _localization.Get("Tìm kiếm");
+        _search.PlaceholderText = _localization.Get("Tìm kiếm");
         SetIdentity(_search, "filter-search", _localization.Get("Tìm kiếm"));
         top.Children.Add(_search);
         var sorting = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
