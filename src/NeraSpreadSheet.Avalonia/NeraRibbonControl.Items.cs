@@ -111,6 +111,18 @@ public sealed partial class NeraRibbonControl
             SetIdentity(native, $"ribbon-command-{command.CommandId.Value}-choice-{choice.Value}", choice.Caption); combo.Items.Add(native);
             if (string.Equals(command.SelectedValue, choice.Value, StringComparison.Ordinal)) combo.SelectedItem = native;
         }
+        // Composite command values may be valid even when they are not one of the
+        // preset choices (for example ZoomIn turns 100% into 110%). Do not render
+        // an empty ComboBox merely because the host's common-value list is sparse.
+        if (combo.SelectedItem is null && !string.IsNullOrWhiteSpace(command.SelectedValue))
+        {
+            var caption = command.DisplayText ?? command.SelectedValue;
+            if (command.CommandId.Value == "Ui.Zoom" && !caption.EndsWith('%')) caption += "%";
+            var current = new ComboBoxItem { Content = caption, Tag = command.SelectedValue, IsEnabled = command.IsEnabled };
+            SetIdentity(current, $"ribbon-command-{command.CommandId.Value}-choice-current", caption);
+            combo.Items.Insert(0, current);
+            combo.SelectedItem = current;
+        }
         SetIdentity(combo, "ribbon-command-" + command.CommandId.Value, item.Presentation.AutomationName); ToolTip.SetTip(combo, ToolTipText(command));
         combo.SelectionChanged += async (_, e) =>
         {
