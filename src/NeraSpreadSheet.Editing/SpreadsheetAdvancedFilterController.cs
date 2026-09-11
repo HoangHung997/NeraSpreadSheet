@@ -60,9 +60,9 @@ public sealed class SpreadsheetAdvancedFilterController
         CopyRows(sheet, options.ListRange, matchedRows, destination);
     }
 
-    private void CopyRows(Worksheet sheet, CellRange listRange, IReadOnlyList<int> rows, CellAddress destination)
+    private void CopyRows(Worksheet sheet, CellRange listRange, int[] rows, CellAddress destination)
     {
-        var outputRows = checked(rows.Count + 1);
+        var outputRows = checked(rows.Length + 1);
         if (destination.RowIndex > SpreadsheetLimits.MaxRows - outputRows ||
             destination.ColumnIndex > SpreadsheetLimits.MaxColumns - listRange.ColumnCount)
             throw new InvalidOperationException("Advanced Filter output would exceed worksheet limits.");
@@ -75,7 +75,7 @@ public sealed class SpreadsheetAdvancedFilterController
 
         var updates = new List<KeyValuePair<CellAddress, CellData>>(checked(outputRows * listRange.ColumnCount));
         CopyRow(listRange.Top, destination.RowIndex);
-        for (var index = 0; index < rows.Count; index++) CopyRow(rows[index], destination.RowIndex + index + 1);
+        for (var index = 0; index < rows.Length; index++) CopyRow(rows[index], destination.RowIndex + index + 1);
         _session.Execute(new SetCellsOperation(sheet, updates, "Advanced Filter copy"));
 
         void CopyRow(int sourceRow, int targetRow)
@@ -132,10 +132,10 @@ public sealed class SpreadsheetAdvancedFilterController
         return rows;
     }
 
-    private static int[] KeepUniqueRows(Worksheet sheet, CellRange list, IReadOnlyList<int> rows)
+    private static int[] KeepUniqueRows(Worksheet sheet, CellRange list, int[] rows)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var unique = new List<int>(rows.Count);
+        var unique = new List<int>(rows.Length);
         foreach (var row in rows)
         {
             var parts = new string[list.ColumnCount];
