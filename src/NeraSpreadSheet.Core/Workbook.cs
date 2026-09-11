@@ -67,6 +67,7 @@ public sealed class Workbook
 
     public Worksheet AddWorksheet(string? requestedName = null)
     {
+        EnsureStructureWritable();
         var name = requestedName is null
             ? GenerateUniqueName("Sheet")
             : ValidateWorksheetName(requestedName);
@@ -90,6 +91,7 @@ public sealed class Workbook
         string newName)
     {
         ArgumentNullException.ThrowIfNull(worksheet);
+        EnsureStructureWritable();
         var validated = ValidateWorksheetName(newName);
         if (!_worksheets.Contains(worksheet))
         {
@@ -121,6 +123,7 @@ public sealed class Workbook
     public void RemoveWorksheet(Worksheet worksheet)
     {
         ArgumentNullException.ThrowIfNull(worksheet);
+        EnsureStructureWritable();
         if (_worksheets.Count <= 1)
         {
             throw new InvalidOperationException(
@@ -198,6 +201,16 @@ public sealed class Workbook
     }
 
     internal void NotifyTableCollectionChanged() => Version++;
+
+    private void EnsureStructureWritable()
+    {
+        var protection = this.GetProtectionSettings();
+        if (protection.Enabled && protection.LockStructure)
+        {
+            throw new InvalidOperationException(
+                "The workbook structure is protected. Unprotect the workbook before adding, removing or renaming worksheets.");
+        }
+    }
 
     private void NotifyAppearanceChanged()
     {
