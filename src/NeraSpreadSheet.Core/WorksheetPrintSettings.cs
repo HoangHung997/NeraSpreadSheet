@@ -6,6 +6,27 @@ public enum SpreadsheetPageOrientation
     Landscape,
 }
 
+public enum SpreadsheetPageOrder
+{
+    DownThenOver,
+    OverThenDown,
+}
+
+public enum SpreadsheetPrintComments
+{
+    None,
+    AsDisplayed,
+    AtEnd,
+}
+
+public enum SpreadsheetPrintErrors
+{
+    Displayed,
+    Blank,
+    Dash,
+    NotAvailable,
+}
+
 public readonly record struct SpreadsheetPaperSize
 {
     public static SpreadsheetPaperSize A4 { get; } =
@@ -80,15 +101,10 @@ public readonly record struct SpreadsheetPageMargins
     }
 
     public double LeftInches { get; }
-
     public double RightInches { get; }
-
     public double TopInches { get; }
-
     public double BottomInches { get; }
-
     public double HeaderInches { get; }
-
     public double FooterInches { get; }
 
     private static void Validate(double value, string parameterName)
@@ -111,44 +127,43 @@ public readonly record struct SpreadsheetRepeatTitles
     }
 
     public CellRange? Rows { get; }
-
     public CellRange? Columns { get; }
 }
 
 public sealed record SpreadsheetPageSetup
 {
-    public SpreadsheetPaperSize PaperSize { get; init; } =
-        SpreadsheetPaperSize.A4;
-
-    public SpreadsheetPageOrientation Orientation { get; init; } =
-        SpreadsheetPageOrientation.Portrait;
-
-    public SpreadsheetPageMargins Margins { get; init; } =
-        SpreadsheetPageMargins.Normal;
-
+    public SpreadsheetPaperSize PaperSize { get; init; } = SpreadsheetPaperSize.A4;
+    public SpreadsheetPageOrientation Orientation { get; init; } = SpreadsheetPageOrientation.Portrait;
+    public SpreadsheetPageMargins Margins { get; init; } = SpreadsheetPageMargins.Normal;
     public double ScalePercent { get; init; } = 100d;
-
     public int? FitToPagesWide { get; init; }
-
     public int? FitToPagesTall { get; init; }
-
     public SpreadsheetRepeatTitles RepeatTitles { get; init; }
-
     public IReadOnlyList<int> ManualRowBreaks { get; init; } = [];
-
     public IReadOnlyList<int> ManualColumnBreaks { get; init; } = [];
-
     public bool CenterHorizontally { get; init; }
-
     public bool CenterVertically { get; init; }
-
     public bool PrintGridlines { get; init; }
-
     public bool PrintHeadings { get; init; }
 
-    public string? OddHeader { get; init; }
+    public SpreadsheetPageOrder PageOrder { get; init; } = SpreadsheetPageOrder.DownThenOver;
+    public int? PrintQualityDpi { get; init; }
+    public int? FirstPageNumber { get; init; }
+    public bool BlackAndWhite { get; init; }
+    public bool DraftQuality { get; init; }
+    public SpreadsheetPrintComments PrintComments { get; init; }
+    public SpreadsheetPrintErrors PrintErrors { get; init; } = SpreadsheetPrintErrors.Displayed;
 
+    public string? OddHeader { get; init; }
     public string? OddFooter { get; init; }
+    public string? EvenHeader { get; init; }
+    public string? EvenFooter { get; init; }
+    public string? FirstHeader { get; init; }
+    public string? FirstFooter { get; init; }
+    public bool DifferentOddEvenPages { get; init; }
+    public bool DifferentFirstPage { get; init; }
+    public bool ScaleHeaderFooterWithDocument { get; init; } = true;
+    public bool AlignHeaderFooterWithMargins { get; init; } = true;
 
     public SpreadsheetPageSetup Copy() => this with
     {
@@ -160,7 +175,6 @@ public sealed record SpreadsheetPageSetup
 public sealed record WorksheetPrintSettings
 {
     public CellRange? PrintArea { get; init; }
-
     public SpreadsheetPageSetup PageSetup { get; init; } = new();
 
     public WorksheetPrintSettings Copy() => this with
