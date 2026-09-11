@@ -78,105 +78,158 @@ jobs:
           foreach ($mode in @('smoke', 'full-ui-smoke', 'formula-ux-smoke', 'ribbon-visual-smoke', 'dialogs-smoke', 'compatibility-smoke', 'qa-gaps-smoke')) {
             if ($IsLinux) { $lines = & xvfb-run -a $app "--$mode" 2>&1 }
             else { $lines = & $app "--$mode" 2>&1 }
-            $exitCode = $LASTEXITCODE
-            $lines | ForEach-Object { Write-Host $_ }
-            if ($exitCode -ne 0) { throw "Published application $mode failed with exit code $exitCode" }
+            $exit = $LASTEXITCODE
+            $lines | Tee-Object "artifacts/published-images/$mode.log"
+            if ($exit -ne 0) { throw "Published application $mode failed: $exit" }
           }
+          python scripts/verify-avalonia-ribbon-visual.py artifacts/published-images/ribbon-visual $env:NERA_SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Published image provenance failed.' }
+          python scripts/verify-avalonia-dialogs.py artifacts/published-images/dialogs $env:NERA_SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Published dialog evidence validation failed.' }
+          python scripts/verify-avalonia-compatibility.py artifacts/published-images/compatibility $env:NERA_SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Published compatibility evidence failed.' }
+          python scripts/verify-avalonia-qa-gaps.py artifacts/published-images/qa-gaps $env:NERA_SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Published QA gaps evidence failed.' }
       - name: Build the Check out folder and downloadable ZIP
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory artifacts/check-out -Force | Out-Null
-          Copy-Item artifacts/app/* artifacts/check-out/ -Recurse -Force
-          Copy-Item artifacts/published-images artifacts/check-out/Images -Recurse -Force
-          Compress-Archive -Path artifacts/check-out/* -DestinationPath "artifacts/NeraSpreadSheet-${{ matrix.rid }}.zip" -Force
+        run: python scripts/check-out/pack.py --root . --app artifacts/app --images artifacts/published-images --output artifacts/delivery --sha ${{ github.sha }} --rid ${{ matrix.rid }} --run-url https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
       - uses: actions/upload-artifact@v4
         with:
-          name: NeraSpreadSheet-${{ matrix.rid }}
-          path: |
-            artifacts/NeraSpreadSheet-${{ matrix.rid }}.zip
-            artifacts/check-out/**
+          name: check-out-${{ matrix.rid }}-${{ github.sha }}
+          path: artifacts/delivery/
+          compression-level: 0
           if-no-files-found: error
+          retention-days: 30
       - name: Keep actual failure logs without pretending they are a package
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: NeraSpreadSheet-${{ matrix.rid }}-failure
-          path: artifacts/published-images/**
-          if-no-files-found: ignore
+          name: check-out-failure-${{ matrix.rid }}-${{ github.sha }}
+          path: artifacts/published-images/
+          if-no-files-found: warn
 
-  download-centre:
-    name: Verified Check out download centre
-    needs: [delivery-tests, core-and-hosts, openxml, ios, windows-packages, maui-packages, legacy-demo, avalonia, applications]
+  compatibility-probe:
+    name: Paired sparse XLSX compatibility measurement
+    needs: delivery-tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v4
         with:
-          pattern: NeraSpreadSheet-*
-          path: artifacts/downloads
-          merge-multiple: true
-      - uses: actions/download-artifact@v4
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
         with:
-          pattern: experimental-*
-          path: artifacts/downloads
-          merge-multiple: true
-      - uses: actions/download-artifact@v4
+          ref: 2742459e9e26b1153c438d7c623778e7c8364957
+          path: compatibility-probe-baseline
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
         with:
-          pattern: avalonia-*
-          path: artifacts/downloads
-          merge-multiple: true
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: maui-*
-          path: artifacts/downloads
-          merge-multiple: true
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: openxml-*
-          path: artifacts/downloads
-          merge-multiple: true
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: ios-*
-          path: artifacts/downloads
-          merge-multiple: true
-      - name: Assemble exact-source downloads; publish prerelease only from validated main
-        run: python scripts/check-out/pack.py --source artifacts/downloads --output 'Check out' --source-sha "${{ github.sha }}" --run-id "${{ github.run_id }}" --ref "${{ github.ref }}"
+          global-json-file: global.json
+      - name: Run the identical 100000-cell serializer probe on both source revisions
+        run: |
+          mkdir -p artifacts/compatibility-probe
+          cp -R benchmarks/NeraSpreadSheet.CompatibilityProbe compatibility-probe-baseline/benchmarks/
+          diff -r benchmarks/NeraSpreadSheet.CompatibilityProbe compatibility-probe-baseline/benchmarks/NeraSpreadSheet.CompatibilityProbe
+          dotnet run --project compatibility-probe-baseline/benchmarks/NeraSpreadSheet.CompatibilityProbe -c Release -- 2742459e9e26b1153c438d7c623778e7c8364957 artifacts/compatibility-probe/before.json
+          dotnet run --project benchmarks/NeraSpreadSheet.CompatibilityProbe -c Release -- ${{ github.sha }} artifacts/compatibility-probe/after.json
+          python scripts/check-out/verify_compatibility_probe.py artifacts/compatibility-probe ${{ github.sha }}
       - uses: actions/upload-artifact@v4
         with:
-          name: NeraSpreadSheet-Check-out
-          path: Check out/**
+          name: compatibility-probe-${{ github.sha }}
+          path: artifacts/compatibility-probe
           if-no-files-found: error
 
-  archive-superseded-branches:
-    name: Archive and remove superseded branches (once)
-    needs: [download-centre]
-    if: github.ref == 'refs/heads/main'
+  assemble:
+    name: Verified Check out download centre
+    needs: [delivery-tests, core-and-hosts, openxml, ios, windows-packages, maui-packages, legacy-demo, avalonia, applications, compatibility-probe]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
-      - name: Archive and remove superseded branches
-        shell: bash
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: check-out-*-${{ github.sha }}
+          path: incoming/
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdk-packages
+          path: incoming/sdk-packages
+      - uses: actions/download-artifact@v4
+        with:
+          name: primary-ribbon-windows-latest-${{ github.sha }}
+          path: incoming/ribbon-sdk
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: primary-ribbon-*-${{ github.sha }}
+          path: incoming/additional-images/Avalonia-build
+      - uses: actions/download-artifact@v4
+        with:
+          name: ribbon-visual-matrix
+          path: incoming/additional-images/Legacy-SDK
+      - uses: actions/download-artifact@v4
+        with:
+          name: maui-windows-ribbon-ux007
+          path: incoming/additional-images/MAUI-Ribbon
+      - uses: actions/download-artifact@v4
+        with:
+          name: maui-windows-table-filter-ux006
+          path: incoming/additional-images/MAUI-Filter
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-009-win11-x64-demo-${{ github.sha }}
+          path: incoming/additional-images/Legacy-demo
+      - uses: actions/download-artifact@v4
+        with:
+          name: compatibility-probe-${{ github.sha }}
+          path: incoming/compatibility-probe
+      - name: Assemble exact-source downloads; publish prerelease only from validated main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.sha }}
+          SOURCE_REF: ${{ github.ref }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
         run: |
-          set -euo pipefail
-          mapfile -t branches < <(git ls-remote --heads origin 'refs/heads/*' | awk '{sub("refs/heads/", "", $2); print $2}' | grep -v '^main$' | sort)
-          if [ ${#branches[@]} -eq 0 ]; then
-            echo "No superseded branches remain."
-            exit 0
-          fi
-          stamp=$(date -u +%Y%m%d)
-          index=0
-          for branch in "${branches[@]}"; do
-            index=$((index + 1))
-            sha=$(git ls-remote --heads origin "refs/heads/$branch" | awk '{print $1}')
-            [ -n "$sha" ] || continue
-            safe=$(printf '%03d' "$index")
-            tag="archive/consolidation-${stamp}/${safe}"
-            git tag -f "$tag" "$sha"
-            git push origin "refs/tags/$tag" --force
-            git push origin --delete "$branch"
-          done
+          extra=()
+          if [ "$SOURCE_REF" = 'refs/heads/main' ]; then extra+=(--publish); fi
+          python scripts/check-out/assemble.py --source incoming --output delivery --sha "$SOURCE_SHA" --repo "$REPO" --run-id "$RUN_ID" "${extra[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Check-out-index-${{ github.sha }}
+          path: |
+            delivery/CHECKOUT.json
+            delivery/SHA256SUMS.txt
+            delivery/Nera-Check-out-evidence.zip
+            delivery/Nera-SDK-packages.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  one-time-branch-cleanup:
+    name: Archive and remove superseded branches (once)
+    needs: assemble
+    if: github.ref == 'refs/heads/main' && github.repository == 'HoangHung997/NeraSpreadSheet'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Archive first, verify exact leases, close integrated PRs, then delete
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/check-out/archive-branches.py --manifest 'Check out/branches.json' --sha ${{ github.sha }} --repo ${{ github.repository }} --run-url https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }} --apply
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: consolidation-cleanup-${{ github.sha }}
+          path: consolidation-result.json
+          if-no-files-found: warn
