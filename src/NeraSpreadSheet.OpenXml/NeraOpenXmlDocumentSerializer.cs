@@ -4,9 +4,9 @@ using NeraSpreadSheet.Core;
 namespace NeraSpreadSheet.OpenXml;
 
 /// <summary>
-/// Full-document serializer that layers worksheet print settings and dynamic
-/// array spill cleanup over the established workbook serializer without
-/// introducing OpenXml types into Core.
+/// Full-document serializer that layers worksheet print settings, review/protection
+/// metadata and dynamic-array spill cleanup over the established workbook serializer
+/// without introducing OpenXml types into Core.
 /// </summary>
 public sealed class NeraOpenXmlDocumentSerializer :
     IOpenXmlWorkbookSerializer
@@ -56,6 +56,10 @@ public sealed class NeraOpenXmlDocumentSerializer :
             document,
             workbook,
             cancellationToken);
+        OpenXmlProtection009Codec.Read(
+            document,
+            workbook,
+            cancellationToken);
         return workbook;
     }
 
@@ -87,6 +91,10 @@ public sealed class NeraOpenXmlDocumentSerializer :
             workbook,
             cancellationToken);
         patched = OpenXmlPageSetupFidelity008Codec.Patch(
+            patched,
+            workbook,
+            cancellationToken);
+        patched = OpenXmlProtection009Codec.Patch(
             patched,
             workbook,
             cancellationToken);
