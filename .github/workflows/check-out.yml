@@ -2,7 +2,7 @@ name: Check out — integrated SDK and test applications
 
 on:
   push:
-    branches: [main, fix/qa-gaps-005, fix/border-fidelity-006]
+    branches: [main, fix/qa-gaps-005]
   workflow_dispatch:
 
 permissions:
@@ -10,7 +10,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: check-out-${{ github.ref }}-${{ github.sha }}
+  group: check-out-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
