@@ -173,6 +173,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         var styleTable = OpenXmlStyleTable.Read(
             workbookPart,
             workbook.Styles,
+            workbook.Theme,
             exactStyleState?.Catalog);
         var differentialStyles =
             OpenXmlConditionalFormattingCodec.ReadDifferentialStyles(

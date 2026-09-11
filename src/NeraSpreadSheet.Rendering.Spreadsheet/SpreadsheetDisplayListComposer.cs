@@ -177,6 +177,14 @@ public static class SpreadsheetDisplayListComposer
         }
 
         builder.PushClip(pane);
+        // Grid lines are the worksheet background. Explicit cell borders must
+        // be painted afterwards so Excel borders are never washed out by grid chrome.
+        DrawGrid(
+            builder,
+            rows,
+            columns,
+            pane,
+            theme);
         DrawUnmergedCells(
             builder,
             worksheet,
@@ -185,12 +193,6 @@ public static class SpreadsheetDisplayListComposer
             pane,
             styles,
             dateSystem);
-        DrawGrid(
-            builder,
-            rows,
-            columns,
-            pane,
-            theme);
         DrawMergedCells(
             builder,
             worksheet,
@@ -631,24 +633,125 @@ public static class SpreadsheetDisplayListComposer
         PointD start,
         PointD end)
     {
-        if (border.Style ==
-            CellBorderLineStyle.None)
+        if (border.Style == CellBorderLineStyle.None)
         {
             return;
         }
 
-        var multiplier = border.Style switch
+        var strokeWidth = border.Style switch
         {
-            CellBorderLineStyle.Medium => 1.5d,
-            CellBorderLineStyle.Thick or
-            CellBorderLineStyle.DoubleLine => 2d,
-            _ => 1d,
+            CellBorderLineStyle.Hair => Math.Max(0.5d, border.Width * 0.5d),
+            CellBorderLineStyle.Medium or
+            CellBorderLineStyle.MediumDashed or
+            CellBorderLineStyle.MediumDashDot or
+            CellBorderLineStyle.MediumDashDotDot => border.Width * 1.5d,
+            CellBorderLineStyle.Thick => border.Width * 2d,
+            _ => border.Width,
         };
+
+        if (border.Style == CellBorderLineStyle.DoubleLine)
+        {
+            DrawDoubleBorder(builder, start, end, border.Width, border.Color);
+            return;
+        }
+
+        var pattern = border.Style switch
+        {
+            CellBorderLineStyle.Dotted => new[] { 0.8d, 1.8d },
+            CellBorderLineStyle.Dashed => new[] { 4d, 2d },
+            CellBorderLineStyle.MediumDashed => new[] { 6d, 3d },
+            CellBorderLineStyle.DashDot => new[] { 5d, 2d, 1d, 2d },
+            CellBorderLineStyle.MediumDashDot => new[] { 7d, 3d, 1.5d, 3d },
+            CellBorderLineStyle.DashDotDot => new[] { 5d, 2d, 1d, 2d, 1d, 2d },
+            CellBorderLineStyle.MediumDashDotDot => new[] { 7d, 3d, 1.5d, 3d, 1.5d, 3d },
+            CellBorderLineStyle.SlantDashDot => new[] { 5d, 2d, 1d, 2d },
+            _ => null,
+        };
+
+        if (pattern is null)
+        {
+            builder.DrawLine(start, end, strokeWidth, border.Color);
+            return;
+        }
+
+        DrawPatternedBorder(builder, start, end, strokeWidth, border.Color, pattern);
+    }
+
+    private static void DrawDoubleBorder(
+        DisplayListBuilder builder,
+        PointD start,
+        PointD end,
+        double width,
+        ColorRgba color)
+    {
+        var dx = end.X - start.X;
+        var dy = end.Y - start.Y;
+        var length = Math.Sqrt((dx * dx) + (dy * dy));
+        if (length <= double.Epsilon)
+        {
+            return;
+        }
+
+        var unitX = dx / length;
+        var unitY = dy / length;
+        var lineWidth = Math.Max(0.75d, width * 0.75d);
+        var offset = Math.Max(1d, lineWidth * 1.25d);
+        var normalX = -unitY * offset;
+        var normalY = unitX * offset;
+
         builder.DrawLine(
-            start,
-            end,
-            border.Width * multiplier,
-            border.Color);
+            new PointD(start.X + normalX, start.Y + normalY),
+            new PointD(end.X + normalX, end.Y + normalY),
+            lineWidth,
+            color);
+        builder.DrawLine(
+            new PointD(start.X - normalX, start.Y - normalY),
+            new PointD(end.X - normalX, end.Y - normalY),
+            lineWidth,
+            color);
+    }
+
+    private static void DrawPatternedBorder(
+        DisplayListBuilder builder,
+        PointD start,
+        PointD end,
+        double strokeWidth,
+        ColorRgba color,
+        double[] pattern)
+    {
+        var dx = end.X - start.X;
+        var dy = end.Y - start.Y;
+        var length = Math.Sqrt((dx * dx) + (dy * dy));
+        if (length <= double.Epsilon || pattern.Length == 0)
+        {
+            return;
+        }
+
+        var unitX = dx / length;
+        var unitY = dy / length;
+        var distance = 0d;
+        var patternIndex = 0;
+        var draw = true;
+        while (distance < length)
+        {
+            var requested = Math.Max(0.25d, pattern[patternIndex]);
+            var segment = Math.Min(requested, length - distance);
+            if (draw && segment > 0d)
+            {
+                var segmentStart = new PointD(
+                    start.X + (unitX * distance),
+                    start.Y + (unitY * distance));
+                var segmentEndDistance = distance + segment;
+                var segmentEnd = new PointD(
+                    start.X + (unitX * segmentEndDistance),
+                    start.Y + (unitY * segmentEndDistance));
+                builder.DrawLine(segmentStart, segmentEnd, strokeWidth, color);
+            }
+
+            distance += segment;
+            patternIndex = (patternIndex + 1) % pattern.Length;
+            draw = !draw;
+        }
     }
 
     private static void DrawGrid(

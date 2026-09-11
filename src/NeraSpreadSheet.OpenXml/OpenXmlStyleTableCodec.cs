@@ -83,6 +83,7 @@ internal sealed class OpenXmlStyleTable
     public static OpenXmlStyleTable Read(
         WorkbookPart workbookPart,
         CellStyleCatalog catalog,
+        WorkbookTheme theme,
         IReadOnlyList<NeraCellStyle>? exactCatalog = null)
     {
         ArgumentNullException.ThrowIfNull(workbookPart);
@@ -112,7 +113,7 @@ internal sealed class OpenXmlStyleTable
         {
             var style = exactCatalog is not null && index < exactCatalog.Count
                 ? exactCatalog[index]
-                : ReadCellStyle(stylesheet!, cellFormatElements[index], numberFormats);
+                : ReadCellStyle(stylesheet!, cellFormatElements[index], numberFormats, theme);
             styles.Add(style);
             catalog.Intern(style);
         }
@@ -246,7 +247,8 @@ internal sealed class OpenXmlStyleTable
     private static NeraCellStyle ReadCellStyle(
         Stylesheet stylesheet,
         CellFormat cellFormat,
-        IReadOnlyDictionary<uint, string> numberFormats)
+        IReadOnlyDictionary<uint, string> numberFormats,
+        WorkbookTheme theme)
     {
         var font = GetElement(stylesheet.Fonts, cellFormat.FontId?.Value)
             as OpenXmlFont;
@@ -258,9 +260,9 @@ internal sealed class OpenXmlStyleTable
         var numberFormatId = cellFormat.NumberFormatId?.Value ?? 0U;
         return new NeraCellStyle
         {
-            Font = ReadFont(font),
-            Fill = ReadFill(fill),
-            Border = ReadBorder(border),
+            Font = ReadFont(font, theme),
+            Fill = ReadFill(fill, theme),
+            Border = ReadBorder(border, theme),
             Alignment = ReadAlignment(alignment),
             NumberFormat = new CellNumberFormatStyle
             {
@@ -281,7 +283,7 @@ internal sealed class OpenXmlStyleTable
         return parent.ChildElements[(int)index.Value];
     }
 
-    private static CellFontStyle ReadFont(OpenXmlFont? font)
+    private static CellFontStyle ReadFont(OpenXmlFont? font, WorkbookTheme theme)
     {
         if (font is null)
         {
@@ -316,11 +318,11 @@ internal sealed class OpenXmlStyleTable
                   subscriptVertical.Equals(VerticalAlignmentRunValues.Subscript)
                     ? CellFontVerticalAlignment.Subscript
                     : CellFontVerticalAlignment.None,
-            Color = ReadColor(font.Color, NeraCellStyle.Default.Font.Color),
+            Color = ReadColor(font.Color, NeraCellStyle.Default.Font.Color, theme),
         };
     }
 
-    private static CellFillStyle ReadFill(OpenXmlFill? fill)
+    private static CellFillStyle ReadFill(OpenXmlFill? fill, WorkbookTheme theme)
     {
         var pattern = fill?.PatternFill;
         if (pattern is null)
@@ -331,24 +333,24 @@ internal sealed class OpenXmlStyleTable
         return new CellFillStyle
         {
             IsVisible = patternType != CellFillPattern.None,
-            Color = ReadColor(pattern.ForegroundColor, ColorRgba.Transparent),
-            BackgroundColor = ReadColor(pattern.BackgroundColor, ColorRgba.Transparent),
+            Color = ReadColor(pattern.ForegroundColor, ColorRgba.Transparent, theme),
+            BackgroundColor = ReadColor(pattern.BackgroundColor, ColorRgba.Transparent, theme),
             Pattern = patternType,
         };
     }
 
-    private static NeraBorderStyle ReadBorder(OpenXmlBorder? border) => new()
+    private static NeraBorderStyle ReadBorder(OpenXmlBorder? border, WorkbookTheme theme) => new()
     {
-        Left = ReadBorderSide(border?.LeftBorder),
-        Top = ReadBorderSide(border?.TopBorder),
-        Right = ReadBorderSide(border?.RightBorder),
-        Bottom = ReadBorderSide(border?.BottomBorder),
-        Diagonal = ReadBorderSide(border?.DiagonalBorder),
+        Left = ReadBorderSide(border?.LeftBorder, theme),
+        Top = ReadBorderSide(border?.TopBorder, theme),
+        Right = ReadBorderSide(border?.RightBorder, theme),
+        Bottom = ReadBorderSide(border?.BottomBorder, theme),
+        Diagonal = ReadBorderSide(border?.DiagonalBorder, theme),
         DiagonalUp = border?.DiagonalUp?.Value ?? false,
         DiagonalDown = border?.DiagonalDown?.Value ?? false,
     };
 
-    private static NeraBorderSide ReadBorderSide(BorderPropertiesType? side)
+    private static NeraBorderSide ReadBorderSide(BorderPropertiesType? side, WorkbookTheme theme)
     {
         if (side?.Style?.Value is not BorderStyleValues styleValue)
         {
@@ -371,7 +373,7 @@ internal sealed class OpenXmlStyleTable
         {
             Style = style,
             Width = width,
-            Color = ReadColor(side.Color, ColorRgba.Black),
+            Color = ReadColor(side.Color, ColorRgba.Black, theme),
         };
     }
 
@@ -409,24 +411,88 @@ internal sealed class OpenXmlStyleTable
         };
     }
 
-    private static ColorRgba ReadColor(ColorType? color, ColorRgba fallback)
+    private static ColorRgba ReadColor(
+        ColorType? color,
+        ColorRgba fallback,
+        WorkbookTheme theme)
     {
-        var rgb = color?.Rgb?.Value;
-        if (string.IsNullOrWhiteSpace(rgb))
+        if (color is null || color.Auto?.Value == true)
         {
             return fallback;
         }
-        var normalized = rgb.Length == 8 ? rgb : rgb.Length == 6 ? $"FF{rgb}" : null;
-        if (normalized is null ||
-            !uint.TryParse(normalized, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var argb))
+
+        var rgb = color.Rgb?.Value;
+        if (!string.IsNullOrWhiteSpace(rgb))
         {
+            var normalized = rgb.Length == 8 ? rgb : rgb.Length == 6 ? $"FF{rgb}" : null;
+            if (normalized is not null &&
+                uint.TryParse(normalized, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var argb))
+            {
+                return new ColorRgba(
+                    (byte)((argb >> 16) & 0xFF),
+                    (byte)((argb >> 8) & 0xFF),
+                    (byte)(argb & 0xFF),
+                    (byte)((argb >> 24) & 0xFF));
+            }
             return fallback;
         }
-        return new ColorRgba(
-            (byte)((argb >> 16) & 0xFF),
-            (byte)((argb >> 8) & 0xFF),
-            (byte)(argb & 0xFF),
-            (byte)((argb >> 24) & 0xFF));
+
+        if (color.Theme?.Value is uint themeIndex && themeIndex <= 11U)
+        {
+            var themeColor = themeIndex switch
+            {
+                0U => WorkbookThemeColor.Light1,
+                1U => WorkbookThemeColor.Dark1,
+                2U => WorkbookThemeColor.Light2,
+                3U => WorkbookThemeColor.Dark2,
+                4U => WorkbookThemeColor.Accent1,
+                5U => WorkbookThemeColor.Accent2,
+                6U => WorkbookThemeColor.Accent3,
+                7U => WorkbookThemeColor.Accent4,
+                8U => WorkbookThemeColor.Accent5,
+                9U => WorkbookThemeColor.Accent6,
+                10U => WorkbookThemeColor.Hyperlink,
+                _ => WorkbookThemeColor.FollowedHyperlink,
+            };
+            var tint = color.Tint?.Value ?? 0d;
+            if (!double.IsFinite(tint) || tint is < -1d or > 1d)
+            {
+                return fallback;
+            }
+            return TableStyleColor.FromTheme(themeColor, tint).Resolve(theme);
+        }
+
+        if (color.Indexed?.Value is uint indexed)
+        {
+            // ECMA-376 index 64 is the legacy Excel Automatic color. For borders
+            // that means the caller-provided automatic/default border color.
+            if (indexed == 64U)
+            {
+                return fallback;
+            }
+            return indexed switch
+            {
+                0U => new ColorRgba(0, 0, 0),
+                1U => new ColorRgba(255, 255, 255),
+                2U => new ColorRgba(255, 0, 0),
+                3U => new ColorRgba(0, 255, 0),
+                4U => new ColorRgba(0, 0, 255),
+                5U => new ColorRgba(255, 255, 0),
+                6U => new ColorRgba(255, 0, 255),
+                7U => new ColorRgba(0, 255, 255),
+                8U => new ColorRgba(128, 0, 0),
+                9U => new ColorRgba(0, 128, 0),
+                10U => new ColorRgba(0, 0, 128),
+                11U => new ColorRgba(128, 128, 0),
+                12U => new ColorRgba(128, 0, 128),
+                13U => new ColorRgba(0, 128, 128),
+                14U => new ColorRgba(192, 192, 192),
+                15U => new ColorRgba(128, 128, 128),
+                _ => fallback,
+            };
+        }
+
+        return fallback;
     }
 
     private static uint AddFont(
