@@ -1,0 +1,50 @@
+name: Border fidelity 006 — apply and validate
+
+on:
+  push:
+    branches:
+      - fix/border-fidelity-006
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-test:
+    if: ${{ !contains(github.event.head_commit.message, '[border-fidelity-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Apply deterministic border fidelity patch
+        run: python scripts/border-fidelity-006/apply.py
+
+      - name: Verify patch cleanliness
+        run: git diff --check
+
+      - name: Test spreadsheet border rendering
+        run: dotnet test tests/NeraSpreadSheet.Rendering.Spreadsheet.Tests/NeraSpreadSheet.Rendering.Spreadsheet.Tests.csproj --configuration Release
+
+      - name: Test OpenXML border color import
+        run: dotnet test tests/NeraSpreadSheet.OpenXml.Tests/NeraSpreadSheet.OpenXml.Tests.csproj --configuration Release
+
+      - name: Commit validated source changes
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No source changes were produced."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/NeraSpreadSheet.Rendering.Spreadsheet/SpreadsheetDisplayListComposer.cs \
+            src/NeraSpreadSheet.OpenXml/OpenXmlStyleTableCodec.cs \
+            src/NeraSpreadSheet.OpenXml/NeraOpenXmlWorkbookSerializer.cs
+          git commit -m "fix(border): restore Excel border fidelity [border-fidelity-applied]"
+          git push origin HEAD:fix/border-fidelity-006
