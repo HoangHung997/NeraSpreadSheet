@@ -19,6 +19,7 @@ public sealed class DataReview009DialogTests
         using var fixture = new Fixture(new NeraDataValidationDialog(session));
         fixture.Select("validation-type", "List");
         fixture.Find<TextBox>("validation-formula1").Text = "\"Yes,No\"";
+        fixture.SelectTab("input");
         fixture.Find<CheckBox>("validation-show-input").IsChecked = true;
         fixture.Find<TextBox>("validation-prompt-title").Text = "Choose";
         fixture.Find<TextBox>("validation-prompt").Text = "Pick Yes or No";
@@ -131,6 +132,13 @@ public sealed class DataReview009DialogTests
         {
             var choice = Find<ComboBox>(id);
             choice.SelectedItem = choice.Items.OfType<ComboBoxItem>().Single(item => Equals(item.Tag, tag));
+        }
+
+        internal void SelectTab(string tag)
+        {
+            var tabs = Dialog.GetVisualDescendants().OfType<TabControl>().Single();
+            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Tag, tag));
+            Dialog.UpdateLayout();
         }
 
         internal void Click(string id) => Find<Button>(id).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
