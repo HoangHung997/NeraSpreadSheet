@@ -2,7 +2,7 @@ name: QA gaps 005 — Avalonia interaction and Table/Filter
 
 on:
   push:
-    branches: [fix/qa-gaps-005]
+    branches: [fix/qa-gaps-005, fix/border-fidelity-006]
   workflow_dispatch:
 
 permissions:
