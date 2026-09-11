@@ -39,7 +39,13 @@ public sealed partial class FullShellWindow
         var dialog = new NeraZoomDialog(pane.Zoom, _runtime.Localization, _ribbon.IconTheme);
         var accepted = await ShowSettingsAsync(dialog, pane);
         if (accepted && !_closed && ReferenceEquals(Session, session) && ReferenceEquals(session.ActiveWorksheet, sheet) && ReferenceEquals(pane, _split.ActiveSpreadsheet))
-            _split.SetZoom(dialog.Zoom);
+        {
+            if (dialog.FitSelectionRequested)
+            {
+                if (pane.ZoomToSelection()) _split.SetZoom(pane.Zoom);
+            }
+            else _split.SetZoom(dialog.Zoom);
+        }
     }
     private async Task<bool> ShowSettingsAsync(NeraSettingsDialog dialog, NeraSpreadsheetControl pane)
     {
