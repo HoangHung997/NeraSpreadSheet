@@ -62,6 +62,7 @@ public sealed class SetCellsOperation : ISpreadsheetEditOperation
 
     public void Execute()
     {
+        EnsureProtectedCellsAreEditable();
         _originals ??= _updates
             .Select(pair => new KeyValuePair<CellAddress, CellData>(
                 pair.Key,
@@ -77,7 +78,24 @@ public sealed class SetCellsOperation : ISpreadsheetEditOperation
             throw new InvalidOperationException(
                 "The operation has not been executed yet.");
         }
+        // Undo restores a previously-authorized transaction even when the sheet has
+        // since become protected; history must remain reversible.
         Worksheet.SetCells(_originals);
+    }
+
+    private void EnsureProtectedCellsAreEditable()
+    {
+        var protection = Worksheet.GetProtectionSettings();
+        if (!protection.Enabled) return;
+        foreach (var pair in _updates)
+        {
+            var address = Worksheet.ResolveMergedAnchor(pair.Key);
+            if (Worksheet.GetEffectiveStyle(address, Worksheet.Workbook.Styles).Protection.Locked)
+            {
+                throw new InvalidOperationException(
+                    $"Cell {address.ToA1()} is locked because worksheet '{Worksheet.Name}' is protected.");
+            }
+        }
     }
 
     private static CellRange CalculateRange(
