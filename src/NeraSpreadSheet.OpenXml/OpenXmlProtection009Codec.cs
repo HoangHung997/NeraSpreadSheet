@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using NeraSpreadSheet.Core;
 using NeraWorkbook = NeraSpreadSheet.Core.Workbook;
+using NeraWorksheet = NeraSpreadSheet.Core.Worksheet;
 
 namespace NeraSpreadSheet.OpenXml;
 
@@ -72,7 +73,7 @@ internal static class OpenXmlProtection009Codec
         });
     }
 
-    private static void ReadWorksheetProtection(WorksheetPart part, Worksheet worksheet)
+    private static void ReadWorksheetProtection(WorksheetPart part, NeraWorksheet worksheet)
     {
         var xml = Load(part);
         var element = xml.Root?.Element(Ns + "sheetProtection");
