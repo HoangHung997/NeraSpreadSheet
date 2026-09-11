@@ -3,6 +3,23 @@
 > **Hồ sơ lịch sử trước hợp nhất.** Chỉ đạo nhánh và handoff hiện hành ở [CONSOLIDATION_20260909](CONSOLIDATION_20260909.md).
 > Không tiếp tục queue/lease/nhánh trong các checkpoint cũ dưới đây. Source canonical là `main`; xem `Check out`.
 
+## QA checkpoint 11/09/2026 — Ribbon auxiliary dialogs
+
+Worktree QA `NERASPREADSHEET-QA-REPORT-20260911` đã fetch và kiểm tra đúng
+`origin/main` tại `54067a37f7d91ab8c0ae42671e39bfef9c9ea273`. Build Release
+solution Avalonia PASS (0 warning/0 error); Avalonia 203/203, Rendering 128/128
+và OpenXml 199/199 PASS. Đã chụp đối chiếu từng tab Ribbon chuẩn và các dialog
+phụ quan trọng của Nera/Excel (Format Cells, Page Setup, Zoom, Data, Review,
+Protect, Statistics, Chart warning, Ribbon customization) trong
+`evidence-ribbon-dialogs/`. Báo cáo đầy đủ là
+`NeraSpreadSheet_Ribbon_Dialog_QA_Report_20260911.md`; kết luận hiện tại chưa
+đạt Excel parity 100%, còn thiếu nhiều dialog Data/Review/Protection và các
+trường chi tiết của Format Cells/Page Setup. Không sửa source hoặc workbook.
+Implementation commit và CI run: docs-only QA checkpoint, chưa tạo CI mới;
+build/test local ở đúng SHA nêu trên đã xác minh. Bước tiếp theo duy nhất:
+review report và dùng backlog P0/P1 trong báo cáo để mở contract/API cho các
+dialog còn thiếu trước khi làm visual parity.
+
 
 ## Yêu cầu mới được xếp hàng — không đổi công việc hiện tại
 
