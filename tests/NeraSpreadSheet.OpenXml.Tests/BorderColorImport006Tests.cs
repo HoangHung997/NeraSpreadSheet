@@ -3,6 +3,8 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Foundation;
+using NeraCellStyle = NeraSpreadSheet.Core.CellStyle;
+using NeraCellValue = NeraSpreadSheet.Core.CellValue;
 using NeraWorkbook = NeraSpreadSheet.Core.Workbook;
 using OpenXmlColor = DocumentFormat.OpenXml.Spreadsheet.Color;
 
@@ -22,7 +24,7 @@ public sealed class BorderColorImport006Tests
         {
             Theme = theme,
         };
-        var style = CellStyle.Default with
+        var style = NeraCellStyle.Default with
         {
             Border = new CellBorderStyle
             {
@@ -41,7 +43,7 @@ public sealed class BorderColorImport006Tests
         var styleId = workbook.Styles.Intern(style);
         workbook.Worksheets[0].SetCell(
             new CellAddress(0, 0),
-            new CellData(CellValue.FromText("Border"), styleId: styleId));
+            new CellData(NeraCellValue.FromText("Border"), styleId: styleId));
 
         var serializer = new NeraOpenXmlWorkbookSerializer();
         await using var stream = new MemoryStream();
