@@ -29,23 +29,39 @@ public sealed class SpreadsheetPageSetupDraft : IDisposable
     {
         ArgumentNullException.ThrowIfNull(settings);
         if (!IsCurrent) throw new InvalidOperationException("The worksheet or its print settings changed. Reopen Page Setup.");
-        Validate(settings.PageSetup);
+        Validate(settings);
         var changed = !Equivalent(_initial, settings);
         if (changed) _session.Execute(new PageSettingsOperation(_worksheet, _initial.Copy(), settings.Copy()));
         Dispose(); return changed;
     }
-    private static void Validate(SpreadsheetPageSetup setup)
+    private static void Validate(WorksheetPrintSettings settings)
     {
+        var setup = settings.PageSetup;
         ArgumentNullException.ThrowIfNull(setup);
-        if (!Enum.IsDefined(setup.Orientation)) throw new ArgumentOutOfRangeException(nameof(setup));
+        if (!Enum.IsDefined(setup.Orientation) || !Enum.IsDefined(setup.PageOrder) ||
+            !Enum.IsDefined(setup.PrintComments) || !Enum.IsDefined(setup.PrintErrors))
+            throw new ArgumentOutOfRangeException(nameof(settings));
         if (!double.IsFinite(setup.ScalePercent) || setup.ScalePercent is < 10 or > 400)
-            throw new ArgumentException("Print scaling must be between 10 and 400 percent.", nameof(setup));
+            throw new ArgumentException("Print scaling must be between 10 and 400 percent.", nameof(settings));
         if (setup.FitToPagesWide is <= 0 || setup.FitToPagesTall is <= 0)
-            throw new ArgumentException("Fit-to-page counts must be positive or automatic.", nameof(setup));
+            throw new ArgumentException("Fit-to-page counts must be positive or automatic.", nameof(settings));
+        if (setup.PrintQualityDpi is <= 0 or > 9600)
+            throw new ArgumentException("Print quality must be a positive DPI value up to 9600.", nameof(settings));
+        if (setup.FirstPageNumber is <= 0 or > 32767)
+            throw new ArgumentException("First page number must be between 1 and 32767 or automatic.", nameof(settings));
         var width = setup.Orientation == SpreadsheetPageOrientation.Landscape ? setup.PaperSize.HeightInches : setup.PaperSize.WidthInches;
         var height = setup.Orientation == SpreadsheetPageOrientation.Landscape ? setup.PaperSize.WidthInches : setup.PaperSize.HeightInches;
         if (width <= 0 || height <= 0 || setup.Margins.LeftInches + setup.Margins.RightInches >= width || setup.Margins.TopInches + setup.Margins.BottomInches >= height)
-            throw new ArgumentException("Margins must leave a positive printable area.", nameof(setup));
+            throw new ArgumentException("Margins must leave a positive printable area.", nameof(settings));
+        ValidateRange(settings.PrintArea, nameof(settings.PrintArea));
+        ValidateRange(setup.RepeatTitles.Rows, nameof(setup.RepeatTitles));
+        ValidateRange(setup.RepeatTitles.Columns, nameof(setup.RepeatTitles));
+    }
+    private static void ValidateRange(CellRange? range, string parameterName)
+    {
+        if (range is not { } value) return;
+        if (value.Top < 0 || value.Left < 0 || value.Bottom >= SpreadsheetLimits.MaxRows || value.Right >= SpreadsheetLimits.MaxColumns)
+            throw new ArgumentOutOfRangeException(parameterName);
     }
     private static bool Equivalent(WorksheetPrintSettings first, WorksheetPrintSettings second) =>
         first.PrintArea == second.PrintArea &&
