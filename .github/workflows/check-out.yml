@@ -10,7 +10,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: check-out-${{ github.ref }}
+  group: check-out-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
