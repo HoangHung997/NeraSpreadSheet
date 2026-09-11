@@ -10,13 +10,6 @@ namespace NeraSpreadSheet.Avalonia;
 /// </summary>
 public static class NeraSpreadsheetRibbonPreset
 {
-    /// <summary>
-    /// Builds an Excel-style arrangement over the supplied registry. Built-in IDs
-    /// retain their session handlers. Optional Ui.* IDs are host actions illustrated
-    /// by the sample (font choices, page setup, help and view controls); this factory
-    /// does not register, execute or enable them. Existing sample aliases remain
-    /// accepted. Call again if the registered capability set changes.
-    /// </summary>
     public static RibbonDefinition Create(CommandRegistry registry,
         Func<CommandItem, RibbonGalleryPreview?>? tableStylePreview = null)
     {
@@ -63,10 +56,13 @@ public static class NeraSpreadsheetRibbonPreset
             Group("formula-audit", "Kiểm tra công thức", 50, Item("Ui.Errors")));
         AddTab("data", "Dữ liệu",
             Group("sort", "Sắp xếp", 100, Item("Data.SortAscending", large: true), Item("Data.SortDescending")),
-            Group("filter", "Lọc", 95, Item("Ui.Filter", large: true), Item("Ui.FilterClear"), Item("Ui.FilterReapply")),
-            Group("data-tools", "Công cụ dữ liệu", 60, Item("Ui.Statistics"), Item("Insert.Pivot.Sum")));
+            Group("filter", "Lọc", 95,
+                Item("Ui.Filter", large: true), Item("Ui.FilterClear"), Item("Ui.FilterReapply"), Item("Ui.AdvancedFilter")),
+            Group("data-tools", "Công cụ dữ liệu", 75,
+                Item("Ui.DataValidation", large: true), Item("Ui.Consolidate"), Item("Ui.Statistics"), Item("Insert.Pivot.Sum")));
         AddTab("review", "Xem lại",
             Group("audit", "Kiểm tra dữ liệu", 100, Item("Ui.Errors", large: true), Item("Ui.Statistics")),
+            Group("protection", "Bảo vệ", 90, Item("Ui.ProtectSheet", large: true), Item("Ui.ProtectWorkbook")),
             Group("help", "Trợ giúp", 50, Item("Ui.FormulaHelp", large: true)));
         AddTab("view", "Xem",
             Group("show", "Hiển thị", 100, Item("Ui.Gridlines", RibbonItemKind.Toggle), Item("Ui.Headers", RibbonItemKind.Toggle),
@@ -78,8 +74,6 @@ public static class NeraSpreadsheetRibbonPreset
                 Item("View.Split.Horizontal"), Item("View.Split.None"), Item("View.Split.Undo"), Item("View.Split.Redo")),
             Group("appearance", "Giao diện", 40, Item("Ui.Theme", RibbonItemKind.ComboBox, width: 148), Item("View.Theme")));
 
-        // The existing contextual Table definition remains canonical. Applications
-        // opt in only by registering their actual Table command handlers.
         var tableTab = RibbonProductionCommandCatalog.CreateDefaultDefinition(tableStylePreview)
             .Tabs.Single(tab => tab.Id == "table-design");
         var tableGroups = tableTab.Groups.Select(group => new RibbonGroupDefinition(group.Id, group.Caption,
