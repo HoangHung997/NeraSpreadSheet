@@ -22,7 +22,9 @@ jobs:
           global-json-file: global.json
 
       - name: Apply deterministic border fidelity patch
-        run: python scripts/border-fidelity-006/apply.py
+        run: |
+          python scripts/border-fidelity-006/apply.py
+          python scripts/border-fidelity-006/fix-analyzer.py
 
       - name: Verify patch cleanliness
         run: git diff --check
