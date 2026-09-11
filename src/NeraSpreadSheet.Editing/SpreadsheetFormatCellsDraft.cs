@@ -11,6 +11,7 @@ public sealed class SpreadsheetFormatCellsDraft : IDisposable
     private readonly Worksheet _worksheet;
     private readonly long _worksheetVersion;
     private readonly CellStyle[] _styles;
+    private readonly CellRange[] _ranges;
     private bool _invalidated;
     private bool _completed;
     private bool _disposed;
@@ -24,12 +25,12 @@ public sealed class SpreadsheetFormatCellsDraft : IDisposable
         _worksheetVersion = _worksheet.Version;
         ActiveStyle = session.Styles.ActiveCellStyle;
         PreviewValue = _worksheet.GetCell(_worksheet.ResolveMergedAnchor(session.Selection.ActiveCell)).Value;
-        var ranges = session.Selection.Ranges.ToArray();
-        var total = ranges.Sum(range => (long)range.RowCount * range.ColumnCount);
+        _ranges = session.Selection.Ranges.ToArray();
+        var total = _ranges.Sum(range => (long)range.RowCount * range.ColumnCount);
         IsSelectionInspected = total is > 0 and <= MaximumInspectedCells;
         var styles = new HashSet<CellStyle>();
         if (IsSelectionInspected)
-            foreach (var range in ranges)
+            foreach (var range in _ranges)
                 for (var row = range.Top; row <= range.Bottom; row++)
                     for (var column = range.Left; column <= range.Right; column++)
                         styles.Add(_worksheet.GetEffectiveStyle(new CellAddress(row, column), session.Workbook.Styles));
@@ -66,18 +67,47 @@ public sealed class SpreadsheetFormatCellsDraft : IDisposable
 
     /// <summary>Applies only explicitly chosen properties in one canonical Undo transaction.
     /// Returns false for an untouched draft; does not create an empty history entry.</summary>
-    public bool Apply(CellStylePatch patch)
+    public bool Apply(CellStylePatch patch, SpreadsheetBorderSelection? borderSelection = null)
     {
         ArgumentNullException.ThrowIfNull(patch);
         if (!IsCurrent) throw new InvalidOperationException("The formatting target changed. Close and reopen the dialog.");
         if (patch.NumberFormatCode is { } code) SpreadsheetNumberFormats.Validate(code);
-        // Validate against a temporary catalog, never add preview styles to the workbook.
         _ = new CellStyleCatalog().Intern(patch.Apply(CellStyle.Default));
-        var changes = !patch.IsEmpty && (_styles.Length == 0 || _styles.Any(style => patch.Apply(style) != style));
-        if (changes) _session.Styles.ApplyPatchToSelection(patch, "Format cells");
+
+        var borderChanges = borderSelection?.HasChanges == true;
+        var patchChanges = !patch.IsEmpty && (_styles.Length == 0 || _styles.Any(style => patch.Apply(style) != style));
+        if (!borderChanges && !patchChanges)
+        {
+            _completed = true;
+            Dispose();
+            return false;
+        }
+
+        if (!borderChanges)
+        {
+            _session.Styles.ApplyPatchToSelection(patch, "Format cells");
+        }
+        else
+        {
+            var total = _ranges.Sum(range => (long)range.RowCount * range.ColumnCount);
+            if (total <= 0 || total > SpreadsheetStyleController.DefaultMaximumMaterializedCells)
+            {
+                throw new InvalidOperationException(
+                    "Excel-style edge borders require a finite selection no larger than the style materialization limit.");
+            }
+
+            var border = borderSelection!;
+            _session.Execute(new SetWorksheetAddressStylesOperation(
+                _worksheet,
+                _session.Workbook.Styles,
+                _ranges,
+                (address, style) => border.Apply(address, _ranges, patch.Apply(style)),
+                "Format cells"));
+        }
+
         _completed = true;
         Dispose();
-        return changes;
+        return true;
     }
 
     private void Invalidate(object? sender, EventArgs args) => _invalidated = true;
