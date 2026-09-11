@@ -21,7 +21,7 @@ jobs:
       - name: Build Avalonia and analyzers
         run: dotnet build NeraSpreadSheet.Avalonia.slnx -c Release --no-restore
       - name: Editing Data Review regressions
-        run: dotnet test tests/NeraSpreadSheet.Editing.Tests/NeraSpreadSheet.Editing.Tests.csproj -c Release --no-build
+        run: dotnet test tests/NeraSpreadSheet.Editing.Tests/NeraSpreadSheet.Editing.Tests.csproj -c Release
       - name: Avalonia Data Review regressions
         run: dotnet test tests/NeraSpreadSheet.Avalonia.Tests/NeraSpreadSheet.Avalonia.Tests.csproj -c Release --no-build
       - name: Core regressions
