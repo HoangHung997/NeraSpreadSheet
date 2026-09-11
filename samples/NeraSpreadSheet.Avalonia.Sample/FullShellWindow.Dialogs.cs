@@ -13,6 +13,7 @@ public sealed partial class FullShellWindow
         AddAsync("Ui.Dialog.PageSetup", "Thiết lập trang nâng cao", () => ShowPageSetupAsync(NeraPageSetupTab.Page), state: DialogState);
         AddAsync("Ui.Dialog.PrintOptions", "Tùy chọn trang tính khi in", () => ShowPageSetupAsync(NeraPageSetupTab.Sheet), state: DialogState);
         AddAsync("Ui.Dialog.Zoom", "Thiết lập thu phóng", ShowZoomAsync, state: DialogState);
+        RegisterDataReview009Commands();
         RegisterQaGapCommands();
     }
     private CommandState DialogState() => new(!_settingsOpen);
@@ -58,8 +59,6 @@ public sealed partial class FullShellWindow
         }
         finally
         {
-            // ShowDialog can fail before a Closed event. Do not retain a dead
-            // window or leave commands disabled after that startup failure.
             _dialogs.Remove(dialog);
             _settingsOpen = false;
             if (!_closed) { _runtime.Refresh(); if (ReferenceEquals(_split.ActiveSpreadsheet, pane)) pane.Focus(); }
