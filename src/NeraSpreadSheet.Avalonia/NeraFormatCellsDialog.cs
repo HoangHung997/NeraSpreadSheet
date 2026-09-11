@@ -9,7 +9,7 @@ using NeraSpreadSheet.Iconography;
 
 namespace NeraSpreadSheet.Avalonia;
 
-public enum NeraFormatCellsTab { Number, Font, Alignment, Border, Fill }
+public enum NeraFormatCellsTab { Number, Font, Alignment, Border, Fill, Protection }
 
 /// <summary>Reusable Format Cells UI. Native controls edit only a pending property patch;
 /// OK uses the existing shared formatting transaction. Cancel and previews do not mutate cells.</summary>
@@ -22,6 +22,9 @@ public sealed partial class NeraFormatCellsDialog : NeraSettingsDialog, IDisposa
     private readonly HashSet<string> _dirty = [];
     private readonly TabControl _tabs = new();
     private string? _numberParameterError;
+    private SpreadsheetBorderSelection? _borderSelection;
+    private ComboBox? _borderLine;
+    private TextBox? _borderColor;
 
     public NeraFormatCellsDialog(SpreadsheetSession session, NeraFormatCellsTab initialTab = NeraFormatCellsTab.Number,
         PresentationLocalization? localization = null, NeraIconTheme theme = NeraIconTheme.Light, Func<bool>? contextIsCurrent = null)
@@ -36,8 +39,9 @@ public sealed partial class NeraFormatCellsDialog : NeraSettingsDialog, IDisposa
             _tabs.Items.Add(Tab("number", "Số", BuildNumber()));
             _tabs.Items.Add(Tab("font", "Phông chữ", BuildFont()));
             _tabs.Items.Add(Tab("alignment", "Căn chỉnh", BuildAlignment()));
-            _tabs.Items.Add(Tab("border", "Đường viền", BuildBorder()));
+            _tabs.Items.Add(Tab("border", "Đường viền", BuildBorderFidelity007()));
             _tabs.Items.Add(Tab("fill", "Màu nền", BuildFill()));
+            _tabs.Items.Add(Tab("protection", "Bảo vệ", BuildProtectionFidelity007()));
             _tabs.SelectedIndex = (int)initialTab;
             AddTabs(_tabs);
             Closed += (_, _) => _draft.Dispose();
@@ -46,7 +50,7 @@ public sealed partial class NeraFormatCellsDialog : NeraSettingsDialog, IDisposa
     }
 
     public NeraFormatCellsTab SelectedFormatTab => (NeraFormatCellsTab)_tabs.SelectedIndex;
-    public bool HasPendingChanges => _dirty.Count > 0 || _numberParameterError is not null;
+    public bool HasPendingChanges => _dirty.Count > 0 || _numberParameterError is not null || _borderSelection?.HasChanges == true;
     /// <summary>Releases target subscriptions even when this dialog has never been shown.
     /// Call on the UI thread. Closing a shown dialog also releases its draft.</summary>
     public void Dispose()
@@ -65,7 +69,7 @@ public sealed partial class NeraFormatCellsDialog : NeraSettingsDialog, IDisposa
         var patch = new CellStylePatch();
         foreach (var key in _updates.Keys)
             if (_dirty.Contains(key)) patch = _updates[key](patch);
-        _draft.Apply(patch);
+        _draft.Apply(patch, CurrentBorderSelectionFidelity007());
         return true;
     }
     private string? CommonText(Func<CellStyle, string> selector) => _draft.TryGetCommon(selector, out var value) ? value : null;
