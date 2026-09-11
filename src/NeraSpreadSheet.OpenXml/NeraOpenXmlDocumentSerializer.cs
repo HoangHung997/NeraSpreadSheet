@@ -52,6 +52,10 @@ public sealed class NeraOpenXmlDocumentSerializer :
             document,
             workbook,
             cancellationToken);
+        OpenXmlPageSetupFidelity008Codec.Read(
+            document,
+            workbook,
+            cancellationToken);
         return workbook;
     }
 
@@ -80,6 +84,10 @@ public sealed class NeraOpenXmlDocumentSerializer :
             cancellationToken).ConfigureAwait(false);
         var patched = OpenXmlWorksheetPrintSettingsCodec.Patch(
             generated.ToArray(),
+            workbook,
+            cancellationToken);
+        patched = OpenXmlPageSetupFidelity008Codec.Patch(
+            patched,
             workbook,
             cancellationToken);
         patched = OpenXmlDynamicArraySpillCodec.Patch(
