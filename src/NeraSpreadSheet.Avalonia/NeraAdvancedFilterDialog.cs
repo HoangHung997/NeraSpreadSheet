@@ -27,7 +27,8 @@ public sealed class NeraAdvancedFilterDialog : NeraSettingsDialog
         _action = ChoiceField(panel, "advanced-filter-action", "Hành động",
             [("FilterInPlace", "Lọc danh sách tại chỗ"), ("CopyToAnotherLocation", "Sao chép sang vị trí khác")],
             SpreadsheetAdvancedFilterAction.FilterInPlace.ToString());
-        var selected = session.Selection.Ranges.FirstOrDefault();
+        var ranges = session.Selection.Ranges;
+        var selected = ranges.Count == 0 ? default : ranges[0];
         _listRange = TextField(panel, "advanced-filter-list-range", "Vùng danh sách", selected.RowCount > 0 ? NeraDataReviewRangeParser.Format(selected) : null);
         _criteriaRange = TextField(panel, "advanced-filter-criteria-range", "Vùng điều kiện", null);
         _copyTo = TextField(panel, "advanced-filter-copy-to", "Sao chép đến", null);
