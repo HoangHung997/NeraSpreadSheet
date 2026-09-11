@@ -35,7 +35,8 @@ public sealed class NeraConsolidateDialog : NeraSettingsDialog
         _function = ChoiceField(panel, "consolidate-function", "Hàm",
             Enum.GetValues<SpreadsheetConsolidationFunction>().Select(value => (value.ToString(), FunctionCaption(value))),
             SpreadsheetConsolidationFunction.Sum.ToString());
-        var selected = session.Selection.Ranges.FirstOrDefault();
+        var ranges = session.Selection.Ranges;
+        var selected = ranges.Count == 0 ? default : ranges[0];
         _reference = TextField(panel, "consolidate-reference", "Tham chiếu", selected.RowCount > 0 ? NeraDataReviewRangeParser.Format(new SpreadsheetConsolidationSource(session.ActiveWorksheet, selected)) : null);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         var add = new Button { Content = L("Thêm"), MinWidth = 80 };
@@ -83,7 +84,7 @@ public sealed class NeraConsolidateDialog : NeraSettingsDialog
 
     private void RemoveReference()
     {
-        if (_references.SelectedIndex is < 0 or >= int.MaxValue || _references.SelectedIndex >= _sources.Count) return;
+        if (_references.SelectedIndex < 0 || _references.SelectedIndex >= _sources.Count) return;
         _sources.RemoveAt(_references.SelectedIndex);
         RefreshReferences();
     }
