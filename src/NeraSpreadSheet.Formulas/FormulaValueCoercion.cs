@@ -28,8 +28,27 @@ public static class FormulaValueCoercion
         return false;
     }
 
+    public static ExcelDateSystem GetDateSystem(IFormulaEvaluationContext? context) =>
+        context is IFormulaDateSystemEvaluationContext dateContext
+            ? dateContext.DateSystem
+            : ExcelDateSystem.Date1900;
+
     public static bool TryNumber(
         CellValue value,
+        out double number,
+        bool allowText = false) =>
+        TryNumber(value, ExcelDateSystem.Date1900, out number, allowText);
+
+    public static bool TryNumber(
+        CellValue value,
+        IFormulaEvaluationContext context,
+        out double number,
+        bool allowText = false) =>
+        TryNumber(value, GetDateSystem(context), out number, allowText);
+
+    public static bool TryNumber(
+        CellValue value,
+        ExcelDateSystem dateSystem,
         out double number,
         bool allowText = false)
     {
@@ -47,10 +66,12 @@ public static class FormulaValueCoercion
             case CellValueKind.DateTime:
                 try
                 {
-                    number = ((DateTime)value.RawValue!).ToOADate();
+                    number = ExcelDateSerial.ToSerial(
+                        (DateTime)value.RawValue!,
+                        dateSystem);
                     return double.IsFinite(number);
                 }
-                catch (OverflowException)
+                catch (ArgumentOutOfRangeException)
                 {
                     number = 0d;
                     return false;
@@ -105,6 +126,9 @@ public static class FormulaValueCoercion
             case CellValueKind.Number:
                 result = Math.Abs((double)value.RawValue!) > double.Epsilon;
                 return true;
+            case CellValueKind.DateTime:
+                result = true;
+                return true;
             case CellValueKind.Blank:
                 result = false;
                 return true;
@@ -123,6 +147,28 @@ public static class FormulaValueCoercion
     public static bool TryDateTime(
         CellValue value,
         out DateTime dateTime,
+        bool allowText = true) =>
+        TryDateTime(
+            value,
+            ExcelDateSystem.Date1900,
+            out dateTime,
+            allowText);
+
+    public static bool TryDateTime(
+        CellValue value,
+        IFormulaEvaluationContext context,
+        out DateTime dateTime,
+        bool allowText = true) =>
+        TryDateTime(
+            value,
+            GetDateSystem(context),
+            out dateTime,
+            allowText);
+
+    public static bool TryDateTime(
+        CellValue value,
+        ExcelDateSystem dateSystem,
+        out DateTime dateTime,
         bool allowText = true)
     {
         switch (value.Kind)
@@ -131,15 +177,10 @@ public static class FormulaValueCoercion
                 dateTime = (DateTime)value.RawValue!;
                 return true;
             case CellValueKind.Number:
-                try
-                {
-                    dateTime = DateTime.FromOADate((double)value.RawValue!);
-                    return true;
-                }
-                catch (ArgumentException)
-                {
-                    break;
-                }
+                return ExcelDateSerial.TryFromSerial(
+                    (double)value.RawValue!,
+                    dateSystem,
+                    out dateTime);
             case CellValueKind.Text when allowText:
                 if (DateTime.TryParse(
                         (string)value.RawValue!,
