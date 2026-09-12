@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraWorkbook = NeraSpreadSheet.Core.Workbook;
+using NeraCellStyle = NeraSpreadSheet.Core.CellStyle;
 using NeraCellValue = NeraSpreadSheet.Core.CellValue;
 using OpenXmlCell = DocumentFormat.OpenXml.Spreadsheet.Cell;
 
@@ -11,7 +12,7 @@ namespace NeraSpreadSheet.OpenXml.Tests;
 [TestClass]
 public sealed class ExcelDateSerialRoundTripTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(ExcelDateSystem.Date1900)]
     [DataRow(ExcelDateSystem.Date1904)]
     public async Task LegacyDateTimeExportsAsNumericSerialAndReloadsAsNumber(ExcelDateSystem dateSystem)
@@ -19,7 +20,7 @@ public sealed class ExcelDateSerialRoundTripTests
         var workbook = new NeraWorkbook { DateSystem = dateSystem };
         var worksheet = workbook.Worksheets[0];
         var date = new DateTime(2026, 8, 21, 12, 30, 0);
-        var styleId = workbook.Styles.Intern(CellStyle.Default with
+        var styleId = workbook.Styles.Intern(NeraCellStyle.Default with
         {
             NumberFormat = new CellNumberFormatStyle { FormatCode = "yyyy-mm-dd hh:mm" },
         });
@@ -32,7 +33,9 @@ public sealed class ExcelDateSerialRoundTripTests
         stream.Position = 0L;
         using (var document = SpreadsheetDocument.Open(stream, false))
         {
-            var cell = document.WorkbookPart!.WorksheetParts.Single().Worksheet.Descendants<OpenXmlCell>().Single();
+            var workbookPart = document.WorkbookPart
+                ?? throw new InvalidDataException("Workbook part is required.");
+            var cell = workbookPart.WorksheetParts.Single().Worksheet.Descendants<OpenXmlCell>().Single();
             Assert.AreNotEqual(CellValues.Date, cell.DataType?.Value);
             Assert.IsTrue(double.TryParse(cell.CellValue?.Text,
                 System.Globalization.NumberStyles.Float,
@@ -67,11 +70,14 @@ public sealed class ExcelDateSerialRoundTripTests
         stream.Position = 0L;
         using (var document = SpreadsheetDocument.Open(stream, true))
         {
-            var cell = document.WorkbookPart!.WorksheetParts.Single().Worksheet.Descendants<OpenXmlCell>().Single();
+            var workbookPart = document.WorkbookPart
+                ?? throw new InvalidDataException("Workbook part is required.");
+            var worksheetPart = workbookPart.WorksheetParts.Single();
+            var cell = worksheetPart.Worksheet.Descendants<OpenXmlCell>().Single();
             cell.DataType = CellValues.Date;
             cell.CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("2026-08-21T00:00:00.0000000");
-            document.WorkbookPart.Workbook.Save();
-            document.WorkbookPart.WorksheetParts.Single().Worksheet.Save();
+            workbookPart.Workbook.Save();
+            worksheetPart.Worksheet.Save();
         }
 
         stream.Position = 0L;
