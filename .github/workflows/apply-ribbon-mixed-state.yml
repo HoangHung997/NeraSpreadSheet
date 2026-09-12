@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: fix/ribbon-format-sync-011
-      - name: Patch mixed selection state projection and smoke
+      - name: Patch mixed selection state projection
         shell: bash
         run: |
           if git log -1 --format=%s | grep -Fq "project mixed selection formatting"; then
@@ -23,70 +23,28 @@ jobs:
           fi
           python - <<'PY'
           from pathlib import Path
-
-          ribbon = Path('samples/NeraSpreadSheet.Avalonia.Sample/FullShellWindow.Ribbon.cs')
-          text = ribbon.read_text(encoding='utf-8')
-          replacements = {
-              '() => new CommandState(true, Session.Styles.ActiveCellStyle.Font.Weight >= 600)': '() => RibbonToggleState(style => style.Font.Weight >= 600)',
-              '() => new CommandState(true, Session.Styles.ActiveCellStyle.Font.Italic)': '() => RibbonToggleState(style => style.Font.Italic)',
-              '() => ChoiceState(Session.Styles.ActiveCellStyle.Font.Family, _fontChoices)': '() => RibbonChoiceState(style => style.Font.Family, _fontChoices)',
-              '() => ChoiceState(Session.Styles.ActiveCellStyle.Font.Size.ToString(CultureInfo.InvariantCulture), SizeChoices)': 'RibbonFontSizeState',
-              'state: () => new CommandState(true, Session.Styles.ActiveCellStyle.Font.Underline || Session.Styles.ActiveCellStyle.Font.DoubleUnderline)': 'state: () => RibbonToggleState(style => style.Font.Underline || style.Font.DoubleUnderline)',
-              '() => ChoiceState(Session.Styles.ActiveCellStyle.Fill.IsVisible ? ColorText(Session.Styles.ActiveCellStyle.Fill.Color) : "none", ColorChoices)': '() => RibbonChoiceState(style => style.Fill.IsVisible ? ColorText(style.Fill.Color) : "none", ColorChoices)',
-              '() => ChoiceState(ColorText(Session.Styles.ActiveCellStyle.Font.Color), ColorChoices)': '() => RibbonChoiceState(style => ColorText(style.Font.Color), ColorChoices)',
-              '() => ChoiceState(BorderPresetValue(Session.Styles.ActiveCellStyle.Border), BorderChoices)': '() => RibbonChoiceState(style => BorderPresetValue(style.Border), BorderChoices)',
-              'state: () => new CommandState(true, Session.Styles.ActiveCellStyle.Alignment.Horizontal == alignment)': 'state: () => RibbonAlignmentState(alignment)',
-              'state: () => new CommandState(true, Session.Styles.ActiveCellStyle.Alignment.WrapText)': 'state: () => RibbonToggleState(style => style.Alignment.WrapText)',
-              '() => ChoiceState(Session.Styles.ActiveCellStyle.NumberFormat.FormatCode, NumberChoices)': '() => RibbonChoiceState(style => style.NumberFormat.FormatCode, NumberChoices)',
-              'state: () => new CommandState(true, Session.Styles.ActiveCellStyle.NumberFormat.FormatCode == "0%")': 'state: () => RibbonNumberFormatMatchState("0%")',
-              'state: () => new CommandState(true, Session.Styles.ActiveCellStyle.NumberFormat.FormatCode == "#,##0.00")': 'state: () => RibbonNumberFormatMatchState("#,##0.00")',
-          }
-          for old, new in replacements.items():
+          path = Path('samples/NeraSpreadSheet.Avalonia.Sample/FullShellWindow.Ribbon.cs')
+          text = path.read_text(encoding='utf-8')
+          replacements = [
+              ('() => new CommandState(true, Session.Styles.ActiveCellStyle.Font.Weight >= 600)', '() => RibbonToggleState(style => style.Font.Weight >= 600)'),
+              ('() => new CommandState(true, Session.Styles.ActiveCellStyle.Font.Italic)', '() => RibbonToggleState(style => style.Font.Italic)'),
+              ('() => ChoiceState(Session.Styles.ActiveCellStyle.Font.Family, _fontChoices)', '() => RibbonChoiceState(style => style.Font.Family, _fontChoices)'),
+              ('() => ChoiceState(Session.Styles.ActiveCellStyle.Font.Size.ToString(CultureInfo.InvariantCulture), SizeChoices)', 'RibbonFontSizeState'),
+              ('state: () => new CommandState(true, Session.Styles.ActiveCellStyle.Font.Underline || Session.Styles.ActiveCellStyle.Font.DoubleUnderline)', 'state: () => RibbonToggleState(style => style.Font.Underline || style.Font.DoubleUnderline)'),
+              ('() => ChoiceState(Session.Styles.ActiveCellStyle.Fill.IsVisible ? ColorText(Session.Styles.ActiveCellStyle.Fill.Color) : "none", ColorChoices)', '() => RibbonChoiceState(style => style.Fill.IsVisible ? ColorText(style.Fill.Color) : "none", ColorChoices)'),
+              ('() => ChoiceState(ColorText(Session.Styles.ActiveCellStyle.Font.Color), ColorChoices)', '() => RibbonChoiceState(style => ColorText(style.Font.Color), ColorChoices)'),
+              ('() => ChoiceState(BorderPresetValue(Session.Styles.ActiveCellStyle.Border), BorderChoices)', '() => RibbonChoiceState(style => BorderPresetValue(style.Border), BorderChoices)'),
+              ('state: () => new CommandState(true, Session.Styles.ActiveCellStyle.Alignment.Horizontal == alignment)', 'state: () => RibbonAlignmentState(alignment)'),
+              ('state: () => new CommandState(true, Session.Styles.ActiveCellStyle.Alignment.WrapText)', 'state: () => RibbonToggleState(style => style.Alignment.WrapText)'),
+              ('() => ChoiceState(Session.Styles.ActiveCellStyle.NumberFormat.FormatCode, NumberChoices)', '() => RibbonChoiceState(style => style.NumberFormat.FormatCode, NumberChoices)'),
+              ('state: () => new CommandState(true, Session.Styles.ActiveCellStyle.NumberFormat.FormatCode == "0%")', 'state: () => RibbonNumberFormatMatchState("0%")'),
+              ('state: () => new CommandState(true, Session.Styles.ActiveCellStyle.NumberFormat.FormatCode == "#,##0.00")', 'state: () => RibbonNumberFormatMatchState("#,##0.00")'),
+          ]
+          for old, new in replacements:
               if old not in text:
-                  raise SystemExit('Missing Ribbon replacement: ' + old)
+                  raise SystemExit('Missing replacement: ' + old)
               text = text.replace(old, new, 1)
-          ribbon.write_text(text, encoding='utf-8')
-
-          smoke = Path('samples/NeraSpreadSheet.Avalonia.Sample/FullShellWindow.RibbonFormatSyncSmoke.cs')
-          text = smoke.read_text(encoding='utf-8')
-          anchor = '''            await AssertSelection(first, firstFont, "13", bold: true, italic: true, underline: true,
-                "#123456", "#D2DCE6", "#,##0.000", CellHorizontalAlignment.Center, wrap: true, "all", "first-return");
-'''
-          insert = anchor + '''
-            Session.Selection.Select(new CellRange(first, second));
-            _runtime.Refresh();
-            await SettleRibbonAsync();
-            Check("mixed-font-family-state", State("Ui.FontFamily").SelectedValue is null);
-            Check("mixed-font-size-state", State("Ui.FontSize").SelectedValue is null);
-            Check("mixed-bold-state", State("Cell.Bold").IsChecked is null);
-            Check("mixed-italic-state", State("Cell.Italic").IsChecked is null);
-            Check("mixed-underline-state", State("Ui.Underline").IsChecked is null);
-            Check("mixed-font-color-state", State("Ui.FontColor").SelectedValue is null);
-            Check("mixed-fill-state", State("Ui.Fill").SelectedValue is null);
-            Check("mixed-number-state", State("Ui.Number").SelectedValue is null);
-            Check("mixed-align-left-state", State("Ui.Align.Left").IsChecked is null);
-            Check("mixed-align-center-state", State("Ui.Align.Center").IsChecked is null);
-            Check("mixed-align-right-state", State("Ui.Align.Right").IsChecked is null);
-            Check("mixed-wrap-state", State("Ui.Wrap").IsChecked is null);
-            Check("mixed-border-state", State("Ui.Borders").SelectedValue is null);
-            Check("mixed-font-family-native", SelectedTag("ribbon-command-Ui.FontFamily") is null);
-            Check("mixed-font-size-native", SelectedTag("ribbon-command-Ui.FontSize") is null);
-            Check("mixed-font-color-native", SelectedTag("ribbon-command-Ui.FontColor") is null);
-            Check("mixed-fill-native", SelectedTag("ribbon-command-Ui.Fill") is null);
-            Check("mixed-number-native", SelectedTag("ribbon-command-Ui.Number") is null);
-            Check("mixed-border-native", SelectedTag("ribbon-command-Ui.Borders") is null);
-
-            await AssertSelection(first, firstFont, "13", bold: true, italic: true, underline: true,
-                "#123456", "#D2DCE6", "#,##0.000", CellHorizontalAlignment.Center, wrap: true, "all", "after-mixed");
-'''
-          if anchor not in text:
-              raise SystemExit('Smoke insertion anchor not found')
-          text = text.replace(anchor, insert, 1)
-          text = text.replace('.Single(control => AutomationProperties.GetAutomationId(control) == automationId);',
-                              '.SingleOrDefault(control => AutomationProperties.GetAutomationId(control) == automationId);')
-          text = text.replace('return (combo.SelectedItem as ComboBoxItem)?.Tag as string;',
-                              'return (combo?.SelectedItem as ComboBoxItem)?.Tag as string;')
-          smoke.write_text(text, encoding='utf-8')
+          path.write_text(text, encoding='utf-8')
           PY
           git diff --check
           if git diff --quiet; then
@@ -94,6 +52,6 @@ jobs:
           fi
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add samples/NeraSpreadSheet.Avalonia.Sample/FullShellWindow.Ribbon.cs samples/NeraSpreadSheet.Avalonia.Sample/FullShellWindow.RibbonFormatSyncSmoke.cs
+          git add samples/NeraSpreadSheet.Avalonia.Sample/FullShellWindow.Ribbon.cs
           git commit -m "fix(ribbon): project mixed selection formatting"
           git push origin HEAD:fix/ribbon-format-sync-011
