@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NeraSpreadSheet.Core;
 
 namespace NeraSpreadSheet.Formulas.Tests;
 
@@ -71,15 +72,15 @@ public sealed class FormulaSurfaceTextDateTests
     }
 
     [TestMethod]
-    public void DateAndTimeFunctionsUseDateValuesAndSerialFractions()
+    public void DateAndTimeFunctionsUseExcelSerialNumbersAndSerialFractions()
     {
         var engine = new NeraFormulaEngine();
         var context = new FormulaSurfaceTestContext();
 
-        var date = engine.Evaluate("=DATE(2026,2,28)", context).Value;
         Assert.AreEqual(
-            new DateTime(2026, 2, 28),
-            date.RawValue);
+            ExcelDateSerial.ToSerial(new DateTime(2026, 2, 28)),
+            Number(engine, context, "=DATE(2026,2,28)"),
+            1e-12d);
         Assert.AreEqual(2026d, Number(
             engine,
             context,
@@ -117,15 +118,13 @@ public sealed class FormulaSurfaceTextDateTests
         var context = new FormulaSurfaceTestContext();
 
         Assert.AreEqual(
-            new DateTime(2026, 3, 28),
-            engine.Evaluate(
-                "=EDATE(DATE(2026,2,28),1)",
-                context).Value.RawValue);
+            ExcelDateSerial.ToSerial(new DateTime(2026, 3, 28)),
+            Number(engine, context, "=EDATE(DATE(2026,2,28),1)"),
+            1e-12d);
         Assert.AreEqual(
-            new DateTime(2026, 2, 28),
-            engine.Evaluate(
-                "=EOMONTH(DATE(2026,1,15),1)",
-                context).Value.RawValue);
+            ExcelDateSerial.ToSerial(new DateTime(2026, 2, 28)),
+            Number(engine, context, "=EOMONTH(DATE(2026,1,15),1)"),
+            1e-12d);
         Assert.AreEqual(2d, Number(
             engine,
             context,
@@ -145,11 +144,13 @@ public sealed class FormulaSurfaceTextDateTests
         var engine = new NeraFormulaEngine();
 
         Assert.AreEqual(
-            current.Date,
-            engine.Evaluate("=TODAY()", context).Value.RawValue);
+            ExcelDateSerial.ToSerial(current.Date),
+            Number(engine, context, "=TODAY()"),
+            1e-12d);
         Assert.AreEqual(
-            current,
-            engine.Evaluate("=NOW()", context).Value.RawValue);
+            ExcelDateSerial.ToSerial(current),
+            Number(engine, context, "=NOW()"),
+            1e-12d);
     }
 
     private static string Text(
