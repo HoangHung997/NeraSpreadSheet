@@ -74,6 +74,9 @@ public sealed partial class FullShellWindow
                 CaptureRibbonScene(zoom, theme + "-zoom", 1, directory, captures);
                 DialogControl<Button>(zoom, "dialog-cancel").RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await zoomActivation;
             }
+
+            await CaptureDialogVisual010Async(directory, captures, checks, sheet, version, history);
+
             SetRibbonTheme(NeraIconTheme.Light);
             var editActivation = _ribbon.ActivateCommandAsync("Ui.Dialog.Number"); await SettleRibbonAsync();
             var edit = _dialogs.OfType<NeraFormatCellsDialog>().Single(); await SettleDialog(edit);
@@ -96,11 +99,32 @@ public sealed partial class FullShellWindow
             Check("stale-target-refused", stale.IsVisible && Session.History.UndoCount == priorHistory);
             DialogControl<Button>(stale, "dialog-cancel").RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await staleActivation;
             Check("all-dialogs-closed", !_settingsOpen && !_dialogs.OfType<NeraSettingsDialog>().Any());
-            Check("all-captures", captures.Count == 36 && captures.Select(capture => capture.name).Distinct(StringComparer.Ordinal).Count() == 36);
-            var report = new { schema = "nera.ribbon.dialogs.v1", sha, nativeWindow = true, physicalInputTested = false, assertions = checks.Count, checks, captures,
-                assemblySha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(typeof(NeraFormatCellsDialog).Assembly.Location))).ToLowerInvariant() };
+            Check("all-captures", captures.Count == 85 && captures.Select(capture => capture.name).Distinct(StringComparer.Ordinal).Count() == 85);
+            var report = new
+            {
+                schema = "nera.ribbon.dialogs.v2",
+                sha,
+                nativeWindow = true,
+                physicalInputTested = false,
+                monitorDpiSwitchTested = false,
+                rasterScaleIsNotMonitorDpi = true,
+                liveRenderScaling = RenderScaling,
+                assertions = checks.Count,
+                checks,
+                captures,
+                assemblySha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(typeof(NeraFormatCellsDialog).Assembly.Location))).ToLowerInvariant(),
+            };
             File.WriteAllText(Path.Combine(directory, "manifest.json"), JsonSerializer.Serialize(report, RibbonVisualJson));
-            Console.WriteLine("NERA_AVALONIA_DIALOGS_SUCCESS " + JsonSerializer.Serialize(new { sha, nativeWindow = true, physicalInputTested = false, assertions = checks.Count, captures = captures.Count }));
+            Console.WriteLine("NERA_AVALONIA_DIALOGS_SUCCESS " + JsonSerializer.Serialize(new
+            {
+                sha,
+                nativeWindow = true,
+                physicalInputTested = false,
+                monitorDpiSwitchTested = false,
+                assertions = checks.Count,
+                captures = captures.Count,
+                liveRenderScaling = RenderScaling,
+            }));
             lifetime.Shutdown(0);
         }
         catch (Exception exception) { Console.Error.WriteLine("NERA_AVALONIA_DIALOGS_FAILURE " + exception); lifetime.Shutdown(1); }
