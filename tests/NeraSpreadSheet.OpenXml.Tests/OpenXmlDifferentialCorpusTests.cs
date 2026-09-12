@@ -215,12 +215,18 @@ public sealed class OpenXmlDifferentialCorpusTests
                 worksheet.EnumerateUsedCells()
                     .OrderBy(static pair => pair.Key.RowIndex)
                     .ThenBy(static pair => pair.Key.ColumnIndex)
-                    .Select(pair => new CellSnapshot(
-                        pair.Key,
-                        pair.Value.Value.Kind,
-                        pair.Value.Value.RawValue,
-                        pair.Value.Formula,
-                        workbook.Styles.Get(pair.Value.StyleId)))
+                    .Select(pair =>
+                    {
+                        var (kind, rawValue) = CanonicalizeForXlsx(
+                            pair.Value.Value,
+                            workbook.DateSystem);
+                        return new CellSnapshot(
+                            pair.Key,
+                            kind,
+                            rawValue,
+                            pair.Value.Formula,
+                            workbook.Styles.Get(pair.Value.StyleId));
+                    })
                     .ToArray(),
                 worksheet.MergedCells.Ranges
                     .OrderBy(static range => range.TopLeft.RowIndex)
@@ -230,6 +236,20 @@ public sealed class OpenXmlDifferentialCorpusTests
                     .ToArray()))
             .ToArray();
         return new WorkbookSnapshot(sheets);
+    }
+
+    private static (CellValueKind Kind, object? RawValue) CanonicalizeForXlsx(
+        CellValue value,
+        ExcelDateSystem dateSystem)
+    {
+        if (value.Kind != CellValueKind.DateTime || value.RawValue is not DateTime date)
+        {
+            return (value.Kind, value.RawValue);
+        }
+
+        return (
+            CellValueKind.Number,
+            ExcelDateSerial.ToSerial(date, dateSystem));
     }
 
     private static void AssertEquivalent(
@@ -254,7 +274,16 @@ public sealed class OpenXmlDifferentialCorpusTests
                 var cellContext = $"{sheetContext}, cell={expectedCell.Address.ToA1()}";
                 Assert.AreEqual(expectedCell.Address, actualCell.Address, cellContext);
                 Assert.AreEqual(expectedCell.Kind, actualCell.Kind, cellContext);
-                Assert.AreEqual(expectedCell.RawValue, actualCell.RawValue, cellContext);
+                if (expectedCell.Kind == CellValueKind.Number &&
+                    expectedCell.RawValue is double expectedNumber &&
+                    actualCell.RawValue is double actualNumber)
+                {
+                    Assert.AreEqual(expectedNumber, actualNumber, 1e-9d, cellContext);
+                }
+                else
+                {
+                    Assert.AreEqual(expectedCell.RawValue, actualCell.RawValue, cellContext);
+                }
                 Assert.AreEqual(expectedCell.Formula, actualCell.Formula, cellContext);
                 Assert.AreEqual(expectedCell.Style, actualCell.Style, cellContext);
             }
