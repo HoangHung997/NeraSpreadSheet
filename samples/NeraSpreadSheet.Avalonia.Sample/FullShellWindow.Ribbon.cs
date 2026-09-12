@@ -47,8 +47,8 @@ public sealed partial class FullShellWindow
         AddAsync("Edit.Copy", "Sao chép", async () => { await _split.ActiveSpreadsheet.CopyToClipboardAsync(); }, "Ctrl+C", "edit.copy");
         AddAsync("Edit.Cut", "Cắt", async () => { await _split.ActiveSpreadsheet.CopyToClipboardAsync(true); }, "Ctrl+X", "edit.cut");
         AddAsync("Edit.Paste", "Dán", async () => { await _split.ActiveSpreadsheet.PasteFromClipboardAsync(); }, "Ctrl+V", "edit.paste");
-        Add("Cell.Bold", "Đậm", () => Session.Styles.ToggleBold(), "Ctrl+B", "font.bold", () => new CommandState(true, Session.Styles.ActiveCellStyle.Font.Weight >= 600));
-        Add("Cell.Italic", "Nghiêng", () => Session.Styles.ToggleItalic(), "Ctrl+I", "font.italic", () => new CommandState(true, Session.Styles.ActiveCellStyle.Font.Italic));
+        Add("Cell.Bold", "Đậm", () => Session.Styles.ToggleBold(), "Ctrl+B", "font.bold", () => RibbonToggleState(style => style.Font.Weight >= 600));
+        Add("Cell.Italic", "Nghiêng", () => Session.Styles.ToggleItalic(), "Ctrl+I", "font.italic", () => RibbonToggleState(style => style.Font.Italic));
         Add("Cell.Clear", "Xóa nội dung", () => Session.ClearSelection(), icon: "cell.clear");
         Add("Formula.Calculate", "Tính lại", () => Session.Recalculate(), "F9", "formula.calculate-now");
         Add("View.Freeze", "Cố định khung", () => Session.View.FreezeAtActiveCell(), icon: "view.freeze-panes");
@@ -74,30 +74,30 @@ public sealed partial class FullShellWindow
                     context => RestrictMetadataCommand(entry.Id) ? CommandState.Disabled : ResolveSessionHandler(entry.Id) is IStatefulCommandHandler stateful ? stateful.GetState(context) : new CommandState(ResolveSessionHandler(entry.Id).CanExecute(context))));
         }
         Choice("Ui.FontFamily", "Phông chữ", "font.family", value => ApplyStyle(s => s with { Font = s.Font with { Family = value } }),
-            () => ChoiceState(Session.Styles.ActiveCellStyle.Font.Family, _fontChoices));
+            () => RibbonChoiceState(style => style.Font.Family, _fontChoices));
         Choice("Ui.FontSize", "Cỡ chữ", "font.size", value => ApplyStyle(s => s with { Font = s.Font with { Size = ParseNumber(value) } }),
-            () => ChoiceState(Session.Styles.ActiveCellStyle.Font.Size.ToString(CultureInfo.InvariantCulture), SizeChoices));
+            RibbonFontSizeState);
         Add("Ui.Underline", "Gạch chân", () => ApplyStyle(s => s with { Font = s.Font with { Underline = !s.Font.Underline, DoubleUnderline = false } }),
-            icon: "font.underline", state: () => new CommandState(true, Session.Styles.ActiveCellStyle.Font.Underline || Session.Styles.ActiveCellStyle.Font.DoubleUnderline));
+            icon: "font.underline", state: () => RibbonToggleState(style => style.Font.Underline || style.Font.DoubleUnderline));
         Choice("Ui.Fill", "Màu nền", "fill.color", value => { if (value == "none") Session.Styles.ClearFill(); else Session.Styles.SetFill(ParseColor(value)); },
-            () => ChoiceState(Session.Styles.ActiveCellStyle.Fill.IsVisible ? ColorText(Session.Styles.ActiveCellStyle.Fill.Color) : "none", ColorChoices));
+            () => RibbonChoiceState(style => style.Fill.IsVisible ? ColorText(style.Fill.Color) : "none", ColorChoices));
         Choice("Ui.FontColor", "Màu chữ", "font.color", value => Session.Styles.SetFontColor(value == "none" ? ColorRgba.Black : ParseColor(value)),
-            () => ChoiceState(ColorText(Session.Styles.ActiveCellStyle.Font.Color), ColorChoices));
-        Choice("Ui.Borders", "Đường viền", "border.all", ApplyBorder, () => ChoiceState(BorderPresetValue(Session.Styles.ActiveCellStyle.Border), BorderChoices));
+            () => RibbonChoiceState(style => ColorText(style.Font.Color), ColorChoices));
+        Choice("Ui.Borders", "Đường viền", "border.all", ApplyBorder, () => RibbonChoiceState(style => BorderPresetValue(style.Border), BorderChoices));
         foreach (var alignment in Enum.GetValues<CellHorizontalAlignment>().Where(value => value is CellHorizontalAlignment.Left or CellHorizontalAlignment.Center or CellHorizontalAlignment.Right))
         {
             var caption = alignment switch { CellHorizontalAlignment.Left => "Căn trái", CellHorizontalAlignment.Center => "Căn giữa", _ => "Căn phải" };
             Add("Ui.Align." + alignment, caption, () => ApplyStyle(s => s with { Alignment = s.Alignment with { Horizontal = alignment } }),
-                icon: "align." + alignment.ToString().ToLowerInvariant(), state: () => new CommandState(true, Session.Styles.ActiveCellStyle.Alignment.Horizontal == alignment));
+                icon: "align." + alignment.ToString().ToLowerInvariant(), state: () => RibbonAlignmentState(alignment));
         }
         Add("Ui.Wrap", "Ngắt dòng", () => ApplyStyle(s => s with { Alignment = s.Alignment with { WrapText = !s.Alignment.WrapText } }),
-            icon: "align.wrap", state: () => new CommandState(true, Session.Styles.ActiveCellStyle.Alignment.WrapText));
+            icon: "align.wrap", state: () => RibbonToggleState(style => style.Alignment.WrapText));
         Choice("Ui.Number", "Định dạng số", "number.format", value => Session.Styles.SetNumberFormat(value),
-            () => ChoiceState(Session.Styles.ActiveCellStyle.NumberFormat.FormatCode, NumberChoices));
+            () => RibbonChoiceState(style => style.NumberFormat.FormatCode, NumberChoices));
         Add("Ui.Percent", "Phần trăm", () => Session.Styles.SetNumberFormat("0%"), icon: "number.percent",
-            state: () => new CommandState(true, Session.Styles.ActiveCellStyle.NumberFormat.FormatCode == "0%"));
+            state: () => RibbonNumberFormatMatchState("0%"));
         Add("Ui.Decimal", "Hai số thập phân", () => Session.Styles.SetNumberFormat("#,##0.00"), icon: "number.decimal-increase",
-            state: () => new CommandState(true, Session.Styles.ActiveCellStyle.NumberFormat.FormatCode == "#,##0.00"));
+            state: () => RibbonNumberFormatMatchState("#,##0.00"));
         Choice("Ui.Orientation", "Hướng giấy", "page.orientation", value => SetPageSetup(setup => setup with
             { Orientation = value == "landscape" ? SpreadsheetPageOrientation.Landscape : SpreadsheetPageOrientation.Portrait }),
             () => ChoiceState(Session.ActiveWorksheet.GetPrintSettings().PageSetup.Orientation == SpreadsheetPageOrientation.Landscape ? "landscape" : "portrait", OrientationChoices));
