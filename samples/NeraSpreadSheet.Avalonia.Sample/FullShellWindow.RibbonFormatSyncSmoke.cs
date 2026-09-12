@@ -78,7 +78,7 @@ public sealed partial class FullShellWindow
             Check("mixed-font-color-native", SelectedTag("ribbon-command-Ui.FontColor") is null);
             Check("mixed-fill-native", SelectedTag("ribbon-command-Ui.Fill") is null);
             Check("mixed-number-native", SelectedTag("ribbon-command-Ui.Number") is null);
-            Check("mixed-border-native", SelectedTag("ribbon-command-Ui.Borders") is null);
+            Check("mixed-border-native", SelectedDropDownValue("ribbon-command-Ui.Borders") is null);
 
             await AssertSelection(first, firstFont, "13", bold: true, italic: true, underline: true,
                 "#123456", "#D2DCE6", "#,##0.000", CellHorizontalAlignment.Center, wrap: true, "all", "after-mixed");
@@ -166,7 +166,7 @@ public sealed partial class FullShellWindow
             Check("font-color-native-" + suffix, SelectedTag("ribbon-command-Ui.FontColor") == fontColor);
             Check("fill-native-" + suffix, SelectedTag("ribbon-command-Ui.Fill") == fill);
             Check("number-native-" + suffix, SelectedTag("ribbon-command-Ui.Number") == number);
-            Check("border-native-" + suffix, SelectedTag("ribbon-command-Ui.Borders") == border);
+            Check("border-native-" + suffix, SelectedDropDownValue("ribbon-command-Ui.Borders") == border);
             Check("bold-native-" + suffix, FindRibbonControl<ToggleButton>("ribbon-command-Cell.Bold").IsChecked == bold);
             Check("italic-native-" + suffix, FindRibbonControl<ToggleButton>("ribbon-command-Cell.Italic").IsChecked == italic);
             Check("underline-native-" + suffix, FindRibbonControl<ToggleButton>("ribbon-command-Ui.Underline").IsChecked == underline);
@@ -185,6 +185,22 @@ public sealed partial class FullShellWindow
             var combo = _ribbon.GetVisualDescendants().OfType<ComboBox>()
                 .SingleOrDefault(control => AutomationProperties.GetAutomationId(control) == automationId);
             return (combo?.SelectedItem as ComboBoxItem)?.Tag as string;
+        }
+
+        string? SelectedDropDownValue(string automationId)
+        {
+            var button = _ribbon.GetVisualDescendants().OfType<Button>()
+                .SingleOrDefault(control => AutomationProperties.GetAutomationId(control) == automationId);
+            if (button?.ContextMenu is not { } menu) return null;
+            var prefix = automationId + "-choice-";
+            foreach (var item in menu.Items.OfType<MenuItem>())
+            {
+                if (item.IsChecked != true) continue;
+                var id = AutomationProperties.GetAutomationId(item);
+                if (id is not null && id.StartsWith(prefix, StringComparison.Ordinal))
+                    return id[prefix.Length..];
+            }
+            return null;
         }
 
         static CellBorderStyle FourSides(CellBorderSide side) => new()

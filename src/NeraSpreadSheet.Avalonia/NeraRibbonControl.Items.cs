@@ -68,7 +68,7 @@ public sealed partial class NeraRibbonControl
         DockPanel.SetDock(arrow, Dock.Right); panel.Children.Add(arrow);
         var primary = BuildButton(item with { Width = Math.Max(1, item.Width - 18 * LayoutSnapshot.Scale) });
         SetIdentity(primary, $"ribbon-command-{command.CommandId.Value}-primary", item.Presentation.AutomationName); panel.Children.Add(primary);
-        var menu = new ContextMenu(); foreach (var choice in command.SelectableItems) menu.Items.Add(BuildChoice(command.CommandId, choice));
+        var menu = new ContextMenu(); foreach (var choice in command.SelectableItems) menu.Items.Add(BuildChoice(command.CommandId, choice, command.SelectedValue));
         arrow.ContextMenu = menu; arrow.Click += (_, _) => menu.Open(arrow);
         SetIdentity(arrow, $"ribbon-command-{command.CommandId.Value}-menu", item.Presentation.AutomationName + " — " + Localize("Lựa chọn"));
         return panel;
@@ -77,21 +77,22 @@ public sealed partial class NeraRibbonControl
     {
         var command = item.Presentation.Command;
         var button = new Button { Content = BuildContent(item, true), IsEnabled = command.IsEnabled, Padding = new Thickness(3, 1) };
-        var menu = new ContextMenu(); foreach (var choice in command.SelectableItems) menu.Items.Add(BuildChoice(command.CommandId, choice));
+        var menu = new ContextMenu(); foreach (var choice in command.SelectableItems) menu.Items.Add(BuildChoice(command.CommandId, choice, command.SelectedValue));
         button.ContextMenu = menu; button.Click += (_, _) => menu.Open(button);
         SetIdentity(button, "ribbon-command-" + command.CommandId.Value, item.Presentation.AutomationName); ToolTip.SetTip(button, ToolTipText(command));
         return button;
     }
-    private MenuItem BuildChoice(CommandId id, CommandItem choice)
+    private MenuItem BuildChoice(CommandId id, CommandItem choice, string? selectedValue = null)
     {
+        var selected = choice.IsChecked ?? (selectedValue is not null && string.Equals(choice.Value, selectedValue, StringComparison.Ordinal));
         var native = new MenuItem
         {
             Header = choice.Caption, IsEnabled = choice.IsEnabled,
-            ToggleType = choice.IsChecked.HasValue ? MenuItemToggleType.CheckBox : MenuItemToggleType.None, IsChecked = choice.IsChecked ?? false,
+            ToggleType = choice.IsChecked.HasValue || selectedValue is not null ? MenuItemToggleType.CheckBox : MenuItemToggleType.None, IsChecked = selected,
         };
         SetIdentity(native, $"ribbon-command-{id.Value}-choice-{choice.Value}", choice.Caption); ToolTip.SetTip(native, choice.Tooltip ?? choice.Caption);
         if (choice.IconKey is { } key && ResolveIcon(key, 16) is { } image) native.Icon = new Image { Source = image, Width = 16, Height = 16 };
-        foreach (var child in choice.Children) native.Items.Add(BuildChoice(id, child));
+        foreach (var child in choice.Children) native.Items.Add(BuildChoice(id, child, selectedValue));
         if (choice.Children.Count == 0) native.Click += async (_, e) => { e.Handled = true; await ActivateChoiceAsync(id, choice.Value); };
         return native;
     }
@@ -200,7 +201,7 @@ public sealed partial class NeraRibbonControl
                 primary.Click += async (_, e) => { e.Handled = true; await ActivateCommandAsync(command.CommandId); };
                 native.Items.Add(primary); native.Items.Add(new Separator());
             }
-            foreach (var choice in command.SelectableItems) native.Items.Add(BuildChoice(command.CommandId, choice));
+            foreach (var choice in command.SelectableItems) native.Items.Add(BuildChoice(command.CommandId, choice, command.SelectedValue));
         }
         else native.Click += async (_, e) => { e.Handled = true; await ActivateCommandAsync(command.CommandId); };
         return native;
