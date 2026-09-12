@@ -59,6 +59,16 @@ public interface IFormulaEvaluationContext
 }
 
 /// <summary>
+/// Exposes the workbook's Excel date system so formula date serials and
+/// arithmetic use the same 1900/1904 basis as XLSX persistence and display.
+/// Contexts that do not implement this contract retain the Excel 1900 default.
+/// </summary>
+public interface IFormulaDateSystemEvaluationContext : IFormulaEvaluationContext
+{
+    ExcelDateSystem DateSystem { get; }
+}
+
+/// <summary>
 /// Provides sparse used-row identities for an unbounded formula reference
 /// while preserving the original dependency range.
 /// </summary>
