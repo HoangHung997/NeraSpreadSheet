@@ -2,7 +2,7 @@
 
 Đây là **sổ gói Check out chính thức trong repository GitHub**.
 
-## Bản mới nhất
+## Bản mới nhất hiện tại
 
 - Ngày giờ tạo: **12/09/2026 09:59:14 (ICT, UTC+7)**
 - Source SHA: `36bc29a829b82a67c7f7c92d40087c5733361a06`
@@ -13,12 +13,12 @@
 
 ## Quy tắc
 
-Mỗi lượt full Check out thành công phải tạo một file lịch sử riêng dạng:
+Mỗi lượt full Check out thành công trên `main` phải tạo một file lịch sử riêng dạng:
 
 `YYYY-MM-DD_HHMM_ICT_<short-sha>.json`
 
-và cập nhật `latest.json`.
+và cập nhật `latest.json` cùng block **Bản Check out mới nhất** trong `Check out/README.md`.
 
-Mỗi record chứa ngày giờ tạo gói, source SHA, workflow run ID, trạng thái validation, artifact IDs/links và checksum khi có. Vì vậy **không được dùng tên `latest` một mình để xác định gói mới/cũ**; phải đối chiếu ngày giờ + SHA + run ID.
+Mỗi record chứa ngày giờ tạo gói, source SHA, workflow run ID, trạng thái validation, link tải immutable và checksum. Vì vậy **không dùng tên `latest` một mình để xác định gói mới/cũ**; phải đối chiếu ngày giờ + SHA + run ID.
 
-Các binary ZIP lớn nằm ở GitHub Actions/Release để không làm Git history phình, nhưng metadata quản lý và lịch sử của chúng luôn nằm trong thư mục này.
+Các binary ZIP lớn nằm ở GitHub Actions/Release để không làm Git history phình, nhưng metadata quản lý và lịch sử của chúng luôn nằm trong thư mục này. `scripts/check-out/assemble.py` tự cập nhật registry sau khi full Check out của `main` đã PASS và publication thành công.
