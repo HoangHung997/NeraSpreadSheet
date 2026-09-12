@@ -2,7 +2,7 @@ name: Check out — integrated SDK and test applications
 
 on:
   push:
-    branches: [main, fix/qa-gaps-005]
+    branches: [main, fix/qa-gaps-005, fix/dialog-visual-010]
   workflow_dispatch:
 
 permissions:
