@@ -1,18 +1,11 @@
 {
   "schema": "nera.checkout.package-registry.latest.v1",
-  "createdAt": "2026-09-12T09:59:14+07:00",
-  "createdAtDisplay": "12/09/2026 09:59:14 (ICT, UTC+7)",
-  "sourceSha": "36bc29a829b82a67c7f7c92d40087c5733361a06",
-  "workflowRunId": 34668687734,
-  "workflowRun": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734",
-  "record": "2026-09-12_0959_ICT_36bc29a8.json",
-  "recordPath": "Check out/Packages/2026-09-12_0959_ICT_36bc29a8.json",
   "status": "validated",
-  "isLatest": true,
-  "downloads": {
-    "win-x64": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10289896809",
-    "linux-x64": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10290271349",
-    "osx-arm64": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10290935384",
-    "index": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10289956872"
-  }
+  "createdAt": "2026-09-12T19:35:43+07:00",
+  "createdAtDisplay": "12/09/2026 19:35:43 (ICT, UTC+7)",
+  "sourceSha": "f6185fb881cf761b5c37499b1a56f62c0372fc7d",
+  "workflowRunId": 34693588527,
+  "record": "2026-09-12_1935_ICT_f6185fb8.json",
+  "immutableReleaseTag": "check-out-f6185fb881cf-34693588527",
+  "isLatest": true
 }
