@@ -11,7 +11,7 @@ internal static class DateTimeFormulaFunctions
             "DATE",
             3,
             3,
-            static (arguments, _) => Date(arguments));
+            static (arguments, context) => Date(arguments, context));
         yield return FormulaFunctionFactory.Create(
             "TIME",
             3,
@@ -21,73 +21,81 @@ internal static class DateTimeFormulaFunctions
             "YEAR",
             1,
             1,
-            static (arguments, _) => DatePart(
+            static (arguments, context) => DatePart(
                 arguments[0],
+                context,
                 static value => value.Year));
         yield return FormulaFunctionFactory.Create(
             "MONTH",
             1,
             1,
-            static (arguments, _) => DatePart(
+            static (arguments, context) => DatePart(
                 arguments[0],
+                context,
                 static value => value.Month));
         yield return FormulaFunctionFactory.Create(
             "DAY",
             1,
             1,
-            static (arguments, _) => DatePart(
+            static (arguments, context) => DatePart(
                 arguments[0],
+                context,
                 static value => value.Day));
         yield return FormulaFunctionFactory.Create(
             "HOUR",
             1,
             1,
-            static (arguments, _) => TimePart(
+            static (arguments, context) => TimePart(
                 arguments[0],
+                context,
                 static value => value.Hours));
         yield return FormulaFunctionFactory.Create(
             "MINUTE",
             1,
             1,
-            static (arguments, _) => TimePart(
+            static (arguments, context) => TimePart(
                 arguments[0],
+                context,
                 static value => value.Minutes));
         yield return FormulaFunctionFactory.Create(
             "SECOND",
             1,
             1,
-            static (arguments, _) => TimePart(
+            static (arguments, context) => TimePart(
                 arguments[0],
+                context,
                 static value => value.Seconds));
         yield return FormulaFunctionFactory.Create(
             "DAYS",
             2,
             2,
-            static (arguments, _) => Days(arguments));
+            static (arguments, context) => Days(arguments, context));
         yield return FormulaFunctionFactory.Create(
             "EDATE",
             2,
             2,
-            static (arguments, _) => ShiftMonth(
+            static (arguments, context) => ShiftMonth(
                 arguments,
+                context,
                 endOfMonth: false));
         yield return FormulaFunctionFactory.Create(
             "EOMONTH",
             2,
             2,
-            static (arguments, _) => ShiftMonth(
+            static (arguments, context) => ShiftMonth(
                 arguments,
+                context,
                 endOfMonth: true));
         yield return FormulaFunctionFactory.Create(
             "WEEKDAY",
             1,
             2,
-            static (arguments, _) => Weekday(arguments));
+            static (arguments, context) => Weekday(arguments, context));
         yield return FormulaFunctionFactory.Create(
             "DATEVALUE",
             1,
             1,
-            static (arguments, _) => DateValue(arguments[0]));
+            static (arguments, context) => DateValue(arguments[0], context));
         yield return FormulaFunctionFactory.Create(
             "TIMEVALUE",
             1,
@@ -97,17 +105,23 @@ internal static class DateTimeFormulaFunctions
             "TODAY",
             0,
             0,
-            static (_, context) => CellValue.FromDateTime(
-                GetCurrentDateTime(context).Date));
+            static (_, context) => CellValue.FromNumber(
+                ExcelDateSerial.ToSerial(
+                    GetCurrentDateTime(context).Date,
+                    FormulaValueCoercion.GetDateSystem(context))));
         yield return FormulaFunctionFactory.Create(
             "NOW",
             0,
             0,
-            static (_, context) => CellValue.FromDateTime(
-                GetCurrentDateTime(context)));
+            static (_, context) => CellValue.FromNumber(
+                ExcelDateSerial.ToSerial(
+                    GetCurrentDateTime(context),
+                    FormulaValueCoercion.GetDateSystem(context))));
     }
 
-    private static CellValue Date(IReadOnlyList<CellValue> arguments)
+    private static CellValue Date(
+        IReadOnlyList<CellValue> arguments,
+        IFormulaEvaluationContext context)
     {
         if (!TryInteger(arguments[0], out var year) ||
             !TryInteger(arguments[1], out var month) ||
@@ -129,7 +143,9 @@ internal static class DateTimeFormulaFunctions
             var result = new DateTime(year, 1, 1)
                 .AddMonths(month - 1)
                 .AddDays(day - 1d);
-            return CellValue.FromDateTime(result);
+            return CellValue.FromNumber(ExcelDateSerial.ToSerial(
+                result,
+                FormulaValueCoercion.GetDateSystem(context)));
         }
         catch (ArgumentOutOfRangeException)
         {
@@ -167,10 +183,12 @@ internal static class DateTimeFormulaFunctions
 
     private static CellValue DatePart(
         CellValue value,
+        IFormulaEvaluationContext context,
         Func<DateTime, int> selector)
     {
         return FormulaValueCoercion.TryDateTime(
                 value,
+                context,
                 out var dateTime)
             ? CellValue.FromNumber(selector(dateTime))
             : FormulaValueCoercion.Error("#VALUE!");
@@ -178,15 +196,12 @@ internal static class DateTimeFormulaFunctions
 
     private static CellValue TimePart(
         CellValue value,
+        IFormulaEvaluationContext context,
         Func<TimeSpan, int> selector)
     {
-        if (value.Kind == CellValueKind.DateTime)
-        {
-            return CellValue.FromNumber(selector(
-                ((DateTime)value.RawValue!).TimeOfDay));
-        }
         if (!FormulaValueCoercion.TryNumber(
                 value,
+                context,
                 out var number,
                 allowText: true))
         {
@@ -207,27 +222,26 @@ internal static class DateTimeFormulaFunctions
         return CellValue.FromNumber(selector(TimeSpan.FromTicks(ticks)));
     }
 
-    private static CellValue Days(IReadOnlyList<CellValue> arguments)
+    private static CellValue Days(
+        IReadOnlyList<CellValue> arguments,
+        IFormulaEvaluationContext context)
     {
-        if (!FormulaValueCoercion.TryDateTime(
-                arguments[0],
-                out var endDate) ||
-            !FormulaValueCoercion.TryDateTime(
-                arguments[1],
-                out var startDate))
+        if (!FormulaValueCoercion.TryNumber(arguments[0], context, out var endDate, allowText: true) ||
+            !FormulaValueCoercion.TryNumber(arguments[1], context, out var startDate, allowText: true))
         {
             return FormulaValueCoercion.Error("#VALUE!");
         }
-        return CellValue.FromNumber(
-            (endDate.Date - startDate.Date).TotalDays);
+        return CellValue.FromNumber(Math.Truncate(endDate) - Math.Truncate(startDate));
     }
 
     private static CellValue ShiftMonth(
         IReadOnlyList<CellValue> arguments,
+        IFormulaEvaluationContext context,
         bool endOfMonth)
     {
         if (!FormulaValueCoercion.TryDateTime(
                 arguments[0],
+                context,
                 out var startDate) ||
             !TryInteger(arguments[1], out var months))
         {
@@ -250,7 +264,9 @@ internal static class DateTimeFormulaFunctions
                     shifted.Second,
                     shifted.Kind);
             }
-            return CellValue.FromDateTime(shifted);
+            return CellValue.FromNumber(ExcelDateSerial.ToSerial(
+                shifted,
+                FormulaValueCoercion.GetDateSystem(context)));
         }
         catch (ArgumentOutOfRangeException)
         {
@@ -258,10 +274,13 @@ internal static class DateTimeFormulaFunctions
         }
     }
 
-    private static CellValue Weekday(IReadOnlyList<CellValue> arguments)
+    private static CellValue Weekday(
+        IReadOnlyList<CellValue> arguments,
+        IFormulaEvaluationContext context)
     {
         if (!FormulaValueCoercion.TryDateTime(
                 arguments[0],
+                context,
                 out var dateTime))
         {
             return FormulaValueCoercion.Error("#VALUE!");
@@ -286,12 +305,19 @@ internal static class DateTimeFormulaFunctions
             : CellValue.FromNumber(result);
     }
 
-    private static CellValue DateValue(CellValue value)
+    private static CellValue DateValue(
+        CellValue value,
+        IFormulaEvaluationContext context)
     {
+        if (value.Kind == CellValueKind.Number)
+        {
+            return CellValue.FromNumber(Math.Truncate((double)value.RawValue!));
+        }
         if (value.Kind == CellValueKind.DateTime)
         {
-            return CellValue.FromDateTime(
-                ((DateTime)value.RawValue!).Date);
+            return CellValue.FromNumber(ExcelDateSerial.ToSerial(
+                ((DateTime)value.RawValue!).Date,
+                FormulaValueCoercion.GetDateSystem(context)));
         }
         var text = FormulaValueCoercion.ToText(value);
         return DateTime.TryParse(
@@ -300,7 +326,9 @@ internal static class DateTimeFormulaFunctions
                 DateTimeStyles.AllowWhiteSpaces |
                 DateTimeStyles.RoundtripKind,
                 out var dateTime)
-            ? CellValue.FromDateTime(dateTime.Date)
+            ? CellValue.FromNumber(ExcelDateSerial.ToSerial(
+                dateTime.Date,
+                FormulaValueCoercion.GetDateSystem(context)))
             : FormulaValueCoercion.Error("#VALUE!");
     }
 
@@ -310,6 +338,11 @@ internal static class DateTimeFormulaFunctions
         {
             return CellValue.FromNumber(
                 ((DateTime)value.RawValue!).TimeOfDay.TotalDays);
+        }
+        if (value.Kind == CellValueKind.Number)
+        {
+            var number = (double)value.RawValue!;
+            return CellValue.FromNumber(number - Math.Floor(number));
         }
         var text = FormulaValueCoercion.ToText(value);
         if (TimeSpan.TryParse(
