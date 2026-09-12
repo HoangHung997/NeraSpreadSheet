@@ -18,17 +18,11 @@
 
 ## Tải về
 
-Các gói binary lớn không commit trực tiếp vào Git history để tránh làm repository phình rất nhanh. Tuy nhiên **mọi gói build được quản lý từ chính thư mục `Check out/Packages/` trên GitHub** bằng registry có ngày giờ, source SHA, run ID, artifact ID, checksum và link tải chính xác.
+Các gói binary lớn không commit trực tiếp vào Git history để tránh làm repository phình rất nhanh. Tuy nhiên **mọi gói build được quản lý từ chính thư mục `Check out/Packages/` trên GitHub** bằng registry có ngày giờ, source SHA, run ID, artifact/release link và checksum.
 
-| Gói | Gói của lượt build 12/09/2026 09:59 ICT |
-|---|---|
-| **Windows x64** | [Artifact `check-out-win-x64-36bc29a8…`](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10289896809) |
-| Linux x64 | [Artifact `check-out-linux-x64-36bc29a8…`](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10290271349) |
-| macOS Apple Silicon | [Artifact `check-out-osx-arm64-36bc29a8…`](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10290935384) |
-| Check out index + evidence + SDK packages | [Artifact `Check-out-index-36bc29a8…`](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10289956872) |
-| Full CI | [Run `34668687734`](https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734) |
+Để tải **đúng gói của một lượt build cụ thể**, mở [`Packages/latest.json`](Packages/latest.json), sau đó mở file `record` mà nó trỏ tới. File record đó chứa link immutable của Windows/Linux/macOS cùng SHA-256. Các record cũ được giữ lại nên có thể phân biệt và tải lại bản cũ khi cần.
 
-Khi `main` được xuất bản chính thức, các alias Release vẫn dùng được:
+Các alias Release của bản main mới nhất:
 
 | Gói | Release latest |
 |---|---|
@@ -54,7 +48,7 @@ Check out/
   README.md                             <- trang này, có ngày giờ gói mới nhất
 ```
 
-Mỗi bản ghi `Packages/*.json` phải có tối thiểu: `createdAt`, `sourceSha`, `workflowRunId`, `status`, danh sách package/artifact và checksum khi có. Vì vậy chỉ nhìn thư mục `Check out` trên GitHub cũng phân biệt được gói nào mới, gói nào cũ.
+Mỗi bản ghi `Packages/*.json` phải có tối thiểu: `createdAt`, `sourceSha`, `workflowRunId`, `status`, danh sách package và checksum. Vì vậy chỉ nhìn thư mục `Check out` trên GitHub cũng phân biệt được gói nào mới, gói nào cũ.
 
 ## Sau khi giải nén gói ứng dụng
 
