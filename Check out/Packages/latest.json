@@ -1,0 +1,10 @@
+{
+  "schema": "nera.checkout.package-registry.latest.v1",
+  "createdAt": "2026-09-12T09:59:14+07:00",
+  "createdAtDisplay": "12/09/2026 09:59:14 (ICT, UTC+7)",
+  "sourceSha": "36bc29a829b82a67c7f7c92d40087c5733361a06",
+  "workflowRunId": 34668687734,
+  "record": "2026-09-12_0959_ICT_36bc29a8.json",
+  "status": "validated",
+  "isLatest": true
+}
