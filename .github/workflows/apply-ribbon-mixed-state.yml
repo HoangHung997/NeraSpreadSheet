@@ -2,7 +2,8 @@ name: Apply Ribbon Mixed Selection State
 
 on:
   push:
-    branches: [fix/ribbon-format-sync-011]
+    branches:
+      - fix/ribbon-format-sync-011
 
 permissions:
   contents: write
@@ -10,13 +11,16 @@ permissions:
 jobs:
   patch:
     runs-on: ubuntu-latest
-    if: ${{ contains(github.event.head_commit.message, 'project mixed selection formatting') == false }}
     steps:
       - uses: actions/checkout@v6
         with:
           ref: fix/ribbon-format-sync-011
       - name: Patch mixed selection state projection and smoke
+        shell: bash
         run: |
+          if git log -1 --format=%s | grep -Fq "project mixed selection formatting"; then
+            exit 0
+          fi
           python - <<'PY'
           from pathlib import Path
 
@@ -85,7 +89,9 @@ jobs:
           smoke.write_text(text, encoding='utf-8')
           PY
           git diff --check
-          git diff --exit-code && exit 0 || true
+          if git diff --quiet; then
+            exit 0
+          fi
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add samples/NeraSpreadSheet.Avalonia.Sample/FullShellWindow.Ribbon.cs samples/NeraSpreadSheet.Avalonia.Sample/FullShellWindow.RibbonFormatSyncSmoke.cs
