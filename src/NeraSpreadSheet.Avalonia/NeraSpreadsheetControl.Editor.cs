@@ -35,7 +35,7 @@ public sealed partial class NeraSpreadsheetControl
             {
                 var end = _editor.Text?.Length ?? 0; _editor.CaretIndex = end; _editor.SelectionStart = end; _editor.SelectionEnd = end;
             }
-            else if (!wasEditing) _editor.SelectAll();
+            else if (!wasEditing && focusEditor) _editor.SelectAll();
         }
         finally { _updatingFormulaDraft = false; }
         RefreshFormulaAssistance(); RefreshFormulaHighlights(); NotifyDraftChanged(); return true;
@@ -79,6 +79,24 @@ public sealed partial class NeraSpreadsheetControl
         _editor.FontWeight = (FontWeight)Math.Clamp(style.Font.Weight, 1, 999);
         _editor.FontStyle = style.Font.Italic ? FontStyle.Italic : FontStyle.Normal;
         _editor.Foreground = new SolidColorBrush(Color.FromArgb(style.Font.Color.Alpha, style.Font.Color.Red, style.Font.Color.Green, style.Font.Color.Blue));
+        var editorBackground = style.Fill.IsVisible
+            ? style.Fill.Pattern is CellFillPattern.None or CellFillPattern.Solid
+                ? style.Fill.Color
+                : style.Fill.BackgroundColor.Alpha == 0 ? _renderTheme.Background : style.Fill.BackgroundColor
+            : _renderTheme.Background;
+        _editor.Background = new SolidColorBrush(Color.FromArgb(
+            editorBackground.Alpha,
+            editorBackground.Red,
+            editorBackground.Green,
+            editorBackground.Blue));
+        _editor.BorderBrush = Brushes.Transparent;
+        _editor.BorderThickness = new Thickness(0);
+        // Mirror the display-list cell text inset (4 DIP horizontal / 1 DIP vertical)
+        // after visual zoom. Fixed native padding is disproportionately large below 100%.
+        _editor.Padding = new Thickness(4d * _zoom, 1d * _zoom);
+        // Formula-bar selection is mirrored into the draft. Preserve those UTF-16 endpoints
+        // without painting a second inactive selection band over the cell text.
+        _editor.IsInactiveSelectionHighlightEnabled = false;
         _editor.TextWrapping = style.Alignment.WrapText ? TextWrapping.Wrap : TextWrapping.NoWrap;
         _editor.TextAlignment = style.Alignment.Horizontal switch
         {
