@@ -44,15 +44,13 @@ public static partial class ExcelCellValueFormatter
         try
         {
             var numeric = value.Kind == CellValueKind.DateTime
-                ? ToSerial((DateTime)value.RawValue!, dateSystem)
+                ? ExcelDateSerial.ToSerial((DateTime)value.RawValue!, dateSystem)
                 : (double)value.RawValue!;
             var section = SelectNumericSection(code, numeric, out var magnitude);
             var normalized = RemoveDirectives(section);
             if (string.Equals(normalized, "General", StringComparison.OrdinalIgnoreCase))
             {
-                return value.Kind == CellValueKind.DateTime
-                    ? ((DateTime)value.RawValue!).ToString(culture)
-                    : numeric.ToString("G15", culture);
+                return numeric.ToString("G15", culture);
             }
 
             if (IsDateTimeFormat(normalized))
@@ -576,15 +574,8 @@ public static partial class ExcelCellValueFormatter
         return result.ToString();
     }
 
-    private static double ToSerial(DateTime dateTime, ExcelDateSystem dateSystem) =>
-        dateSystem == ExcelDateSystem.Date1904
-            ? (dateTime - new DateTime(1904, 1, 1)).TotalDays
-            : dateTime.ToOADate();
-
     private static DateTime FromSerial(double serial, ExcelDateSystem dateSystem) =>
-        dateSystem == ExcelDateSystem.Date1904
-            ? new DateTime(1904, 1, 1).AddDays(serial)
-            : DateTime.FromOADate(serial);
+        ExcelDateSerial.FromSerial(serial, dateSystem);
 
     [GeneratedRegex(@"\[(?!(?:h+|m+|s+)\])[^\]]+\]", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex DirectiveRegex();

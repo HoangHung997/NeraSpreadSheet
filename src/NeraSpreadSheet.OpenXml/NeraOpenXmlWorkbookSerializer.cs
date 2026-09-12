@@ -210,6 +210,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 sharedStrings,
                 styleTable,
                 workbook.Styles,
+                workbook.DateSystem,
                 options,
                 cancellationToken);
             ImportMergedCells(
@@ -301,6 +302,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 worksheet,
                 workbook.Styles,
                 styleTable,
+                workbook.DateSystem,
                 options,
                 cancellationToken);
             worksheetPart.Worksheet.Save();
@@ -365,6 +367,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         SharedStringTable? sharedStrings,
         OpenXmlStyleTable styleTable,
         CellStyleCatalog catalog,
+        ExcelDateSystem dateSystem,
         OpenXmlImportOptions options,
         CancellationToken cancellationToken)
     {
@@ -395,7 +398,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 var value = formula is not null &&
                             !options.LoadCachedFormulaValues
                     ? NeraCellValue.Blank
-                    : ReadValue(cell, sharedStrings);
+                    : ReadValue(cell, sharedStrings, dateSystem);
                 var styleId = cell.StyleIndex?.Value is uint styleIndex
                     ? catalog.Intern(styleTable.GetStyle(styleIndex))
                     : CellStyleCatalog.DefaultStyleId;
@@ -444,7 +447,8 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
 
     private static NeraCellValue ReadValue(
         Cell cell,
-        SharedStringTable? sharedStrings)
+        SharedStringTable? sharedStrings,
+        ExcelDateSystem dateSystem)
     {
         var dataType = cell.DataType?.Value;
         var raw = cell.CellValue?.Text;
@@ -487,7 +491,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 CultureInfo.InvariantCulture,
                 DateTimeStyles.RoundtripKind,
                 out var dateTime)
-                ? NeraCellValue.FromDateTime(dateTime)
+                ? NeraCellValue.FromNumber(ExcelDateSerial.ToSerial(dateTime, dateSystem))
                 : NeraCellValue.Blank;
         }
         if (dataType == CellValues.String)
@@ -622,6 +626,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         NeraWorksheet worksheet,
         CellStyleCatalog catalog,
         OpenXmlStyleTable styleTable,
+        ExcelDateSystem dateSystem,
         OpenXmlExportOptions options,
         CancellationToken cancellationToken)
     {
@@ -694,6 +699,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                         pair.Value,
                         catalog,
                         styleTable,
+                        dateSystem,
                         options,
                         sharedFormulaPlan));
                 }
@@ -784,6 +790,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
         CellData data,
         CellStyleCatalog catalog,
         OpenXmlStyleTable styleTable,
+        ExcelDateSystem dateSystem,
         OpenXmlExportOptions options,
         OpenXmlSharedFormulaExportPlan sharedFormulaPlan)
     {
@@ -805,12 +812,12 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                 sharedFormulaPlan);
             if (options.WriteCachedFormulaValues)
             {
-                ApplyValue(cell, data.Value, isFormulaResult: true);
+                ApplyValue(cell, data.Value, dateSystem, isFormulaResult: true);
             }
             return cell;
         }
 
-        ApplyValue(cell, data.Value, isFormulaResult: false);
+        ApplyValue(cell, data.Value, dateSystem, isFormulaResult: false);
         return cell;
     }
 
@@ -879,6 +886,7 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
     private static void ApplyValue(
         Cell cell,
         NeraCellValue value,
+        ExcelDateSystem dateSystem,
         bool isFormulaResult)
     {
         switch (value.Kind)
@@ -918,11 +926,16 @@ public sealed class NeraOpenXmlWorkbookSerializer : IOpenXmlWorkbookSerializer
                     (bool)value.RawValue! ? "1" : "0");
                 return;
             case CellValueKind.DateTime:
-                cell.DataType = CellValues.Date;
                 cell.CellValue = new OpenXmlCellValue(
-                    ((DateTime)value.RawValue!).ToString(
-                        "O",
-                        CultureInfo.InvariantCulture));
+                    ExcelDateSerial.ToSerial(
+                        (DateTime)value.RawValue!,
+                        dateSystem).ToString(
+                            "R",
+                            CultureInfo.InvariantCulture));
+                if (!isFormulaResult)
+                {
+                    cell.DataType = CellValues.Number;
+                }
                 return;
             case CellValueKind.Error:
                 cell.DataType = CellValues.Error;

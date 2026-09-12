@@ -372,7 +372,8 @@ public sealed class WorkbookCalculationEngine
           IFilterAwareFormulaEvaluationContext,
           IFormulaReferenceIntrospectionContext,
           IFormulaSparseRangeContext,
-          IFormulaWorkbookMetadataEvaluationContext
+          IFormulaWorkbookMetadataEvaluationContext,
+          IFormulaDateSystemEvaluationContext
     {
         private readonly WorkbookCalculationEngine _owner;
         private readonly Workbook _workbook;
@@ -403,6 +404,8 @@ public sealed class WorkbookCalculationEngine
         public string CurrentWorksheetName => _currentWorksheet.Name;
 
         public CellAddress CurrentCellAddress => _currentAddress;
+
+        public ExcelDateSystem DateSystem => _workbook.DateSystem;
 
         public int WorksheetCount => _workbook.Worksheets.Count;
 

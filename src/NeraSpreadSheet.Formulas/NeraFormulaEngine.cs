@@ -88,7 +88,7 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
         List<FormulaDependency> dependencies)
     {
         var value = EvaluateNode(unary.Operand, context, dependencies);
-        if (!TryNumber(value, out var number))
+        if (!TryNumber(value, context, out var number))
         {
             return CellValue.FromError("#VALUE!");
         }
@@ -124,7 +124,7 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
             FormulaTokenKind.Greater or
             FormulaTokenKind.GreaterOrEqual)
         {
-            var comparison = Compare(left, right);
+            var comparison = Compare(left, right, context);
             return CellValue.FromBoolean(binary.Operator switch
             {
                 FormulaTokenKind.Equal => comparison == 0,
@@ -136,8 +136,8 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
                 _ => false,
             });
         }
-        if (!TryNumber(left, out var leftNumber) ||
-            !TryNumber(right, out var rightNumber))
+        if (!TryNumber(left, context, out var leftNumber) ||
+            !TryNumber(right, context, out var rightNumber))
         {
             return CellValue.FromError("#VALUE!");
         }
@@ -813,24 +813,14 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
 
     private static bool TryNumber(
         CellValue value,
-        out double number)
-    {
-        switch (value.Kind)
-        {
-            case CellValueKind.Number:
-                number = (double)value.RawValue!;
-                return true;
-            case CellValueKind.Boolean:
-                number = (bool)value.RawValue! ? 1d : 0d;
-                return true;
-            case CellValueKind.Blank:
-                number = 0d;
-                return true;
-            default:
-                number = 0d;
-                return false;
-        }
-    }
+        out double number) =>
+        FormulaValueCoercion.TryNumber(value, out number);
+
+    private static bool TryNumber(
+        CellValue value,
+        IFormulaEvaluationContext context,
+        out double number) =>
+        FormulaValueCoercion.TryNumber(value, context, out number);
 
     private static bool TryBoolean(
         CellValue value,
@@ -854,10 +844,23 @@ public sealed partial class NeraFormulaEngine : IFormulaEngine
         }
     }
 
-    private static int Compare(CellValue left, CellValue right)
+    private static int Compare(CellValue left, CellValue right) =>
+        Compare(left, right, context: null);
+
+    private static int Compare(
+        CellValue left,
+        CellValue right,
+        IFormulaEvaluationContext? context)
     {
-        if (TryNumber(left, out var leftNumber) &&
-            TryNumber(right, out var rightNumber))
+        double leftNumber;
+        double rightNumber;
+        var leftNumeric = context is null
+            ? TryNumber(left, out leftNumber)
+            : TryNumber(left, context, out leftNumber);
+        var rightNumeric = context is null
+            ? TryNumber(right, out rightNumber)
+            : TryNumber(right, context, out rightNumber);
+        if (leftNumeric && rightNumeric)
         {
             return leftNumber.CompareTo(rightNumber);
         }

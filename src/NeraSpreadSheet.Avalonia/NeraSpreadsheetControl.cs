@@ -36,6 +36,9 @@ public sealed partial class NeraSpreadsheetControl : Control, IDisposable
         MinWidth = 0,
         MinHeight = 0,
         UseLayoutRounding = false,
+        HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden,
+        VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden,
+        IsInactiveSelectionHighlightEnabled = false,
     };
     private SpreadsheetSession? _session;
     private SpreadsheetViewportEngine? _viewport;

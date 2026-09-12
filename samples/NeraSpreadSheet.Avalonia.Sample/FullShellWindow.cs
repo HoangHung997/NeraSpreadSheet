@@ -25,7 +25,15 @@ public sealed partial class FullShellWindow : Window, IDisposable
     private readonly RibbonRuntimeController _runtime;
     private readonly NeraRibbonControl _ribbon;
     private readonly NeraBarPresenter _menu;
-    private readonly TextBox _formula = new() { AcceptsReturn = true, MinHeight = 30, MaxHeight = 100 };
+    private readonly TextBox _formula = new()
+    {
+        AcceptsReturn = true,
+        MinHeight = 30,
+        MaxHeight = 100,
+        TextWrapping = global::Avalonia.Media.TextWrapping.NoWrap,
+        HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden,
+        VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden,
+    };
     private readonly TextBlock _address = new() { MinWidth = 80, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _status = new() { Margin = new Thickness(6) };
     private readonly StackPanel _tabs = new() { Orientation = Orientation.Horizontal, Spacing = 5, Margin = new Thickness(6) };
