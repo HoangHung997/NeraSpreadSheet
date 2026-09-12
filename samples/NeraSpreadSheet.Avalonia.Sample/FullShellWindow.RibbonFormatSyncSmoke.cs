@@ -30,10 +30,10 @@ public sealed partial class FullShellWindow
             var systemFonts = FontManager.Current.SystemFonts
                 .Select(static family => family.Name)
                 .Where(static name => !string.IsNullOrWhiteSpace(name))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Distinct(StringComparer.CurrentCultureIgnoreCase)
                 .ToArray();
             var fontState = State("Ui.FontFamily");
-            Check("system-fonts-enumerated", fontState.ItemsSource.Count >= systemFonts.Length && fontState.ItemsSource.Count > 5);
+            Check("system-fonts-enumerated", fontState.ItemsSource.Count == systemFonts.Length);
             Check("system-fonts-present", systemFonts.All(name => fontState.ItemsSource.Any(item => string.Equals(item.Value, name, StringComparison.OrdinalIgnoreCase))));
 
             var firstFont = systemFonts.FirstOrDefault() ?? FontManager.Current.DefaultFontFamily.Name;
@@ -55,7 +55,7 @@ public sealed partial class FullShellWindow
             await AssertSelection(first, firstFont, "13", bold: true, italic: true, underline: true,
                 "#123456", "#D2DCE6", "#,##0.000", CellHorizontalAlignment.Center, wrap: true, "all", "first-return");
 
-            Console.WriteLine("NERA_RIBBON_FORMAT_SYNC_SUCCESS checks=" + checks.Count);
+            Console.WriteLine("NERA_RIBBON_FORMAT_SYNC_SUCCESS checks=" + checks.Count + " fonts=" + systemFonts.Length);
             lifetime.Shutdown(0);
         }
         catch (Exception exception)
