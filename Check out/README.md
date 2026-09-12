@@ -2,6 +2,7 @@
 
 **Một nơi duy nhất trên GitHub để xem ảnh, xem lịch sử gói và tải ứng dụng Avalonia/SDK.**
 
+<!-- CHECKOUT-LATEST:START -->
 ## Bản Check out mới nhất
 
 - **Ngày giờ tạo gói:** **12/09/2026 09:59:14 (ICT, UTC+7)**
@@ -13,6 +14,7 @@
 - **Bản ghi bất biến của lượt build này:** [`Packages/2026-09-12_0959_ICT_36bc29a8.json`](Packages/2026-09-12_0959_ICT_36bc29a8.json)
 
 > Muốn biết gói mới hay cũ: **ưu tiên ngày giờ tạo gói trong README này và `Packages/latest.json`**, sau đó đối chiếu `sourceSha` và `workflowRunId`. Không dùng tên file hoặc link `latest` một mình để kết luận.
+<!-- CHECKOUT-LATEST:END -->
 
 ## Tải về
 
