@@ -15,8 +15,8 @@ namespace NeraSpreadSheet.Avalonia.Sample;
 
 public sealed partial class FullShellWindow
 {
-    private static readonly CommandItem[] FontChoices = [new("Segoe UI", "Segoe UI"), new("Inter", "Inter"), new("Arial", "Arial"), new("Calibri", "Calibri"), new("Times New Roman", "Times New Roman")];
-    private static readonly CommandItem[] SizeChoices = [new("10", "10"), new("11", "11"), new("12", "12"), new("14", "14"), new("16", "16"), new("18", "18"), new("24", "24")];
+    private static readonly Lazy<CommandItem[]> FontChoices = new(CreateSystemFontChoices);
+    private static readonly CommandItem[] SizeChoices = [new("8", "8"), new("9", "9"), new("10", "10"), new("11", "11"), new("12", "12"), new("14", "14"), new("16", "16"), new("18", "18"), new("20", "20"), new("22", "22"), new("24", "24"), new("26", "26"), new("28", "28"), new("36", "36"), new("48", "48"), new("72", "72")];
     private static readonly CommandItem[] NumberChoices = [new("General", "Chung"), new("#,##0", "Số nguyên"), new("#,##0.00", "Hai số thập phân"), new("0%", "Phần trăm"), new("dd/mm/yyyy", "Ngày tháng")];
     private static readonly CommandItem[] ColorChoices = [new("none", "Không màu"), new("#217346", "Xanh lá"), new("#156082", "Xanh lam"), new("#FFC000", "Vàng"), new("#C00000", "Đỏ"), new("#FFFFFF", "Trắng"), new("#000000", "Đen")];
     private static readonly CommandItem[] BorderChoices = [new("all", "Tất cả đường viền", iconKey: "border.all"), new("none", "Không viền", iconKey: "border.none"), new("bottom", "Viền dưới", iconKey: "border.bottom")];
@@ -74,16 +74,16 @@ public sealed partial class FullShellWindow
                     context => RestrictMetadataCommand(entry.Id) ? CommandState.Disabled : ResolveSessionHandler(entry.Id) is IStatefulCommandHandler stateful ? stateful.GetState(context) : new CommandState(ResolveSessionHandler(entry.Id).CanExecute(context))));
         }
         Choice("Ui.FontFamily", "Phông chữ", "font.family", value => ApplyStyle(s => s with { Font = s.Font with { Family = value } }),
-            () => ChoiceState(Session.Styles.ActiveCellStyle.Font.Family, FontChoices));
+            () => ChoiceState(Session.Styles.ActiveCellStyle.Font.Family, FontChoices.Value));
         Choice("Ui.FontSize", "Cỡ chữ", "font.size", value => ApplyStyle(s => s with { Font = s.Font with { Size = ParseNumber(value) } }),
             () => ChoiceState(Session.Styles.ActiveCellStyle.Font.Size.ToString(CultureInfo.InvariantCulture), SizeChoices));
-        Add("Ui.Underline", "Gạch chân", () => ApplyStyle(s => s with { Font = s.Font with { Underline = !s.Font.Underline } }),
-            icon: "font.underline", state: () => new CommandState(true, Session.Styles.ActiveCellStyle.Font.Underline));
+        Add("Ui.Underline", "Gạch chân", () => ApplyStyle(s => s with { Font = s.Font with { Underline = !s.Font.Underline, DoubleUnderline = false } }),
+            icon: "font.underline", state: () => new CommandState(true, Session.Styles.ActiveCellStyle.Font.Underline || Session.Styles.ActiveCellStyle.Font.DoubleUnderline));
         Choice("Ui.Fill", "Màu nền", "fill.color", value => { if (value == "none") Session.Styles.ClearFill(); else Session.Styles.SetFill(ParseColor(value)); },
             () => ChoiceState(Session.Styles.ActiveCellStyle.Fill.IsVisible ? ColorText(Session.Styles.ActiveCellStyle.Fill.Color) : "none", ColorChoices));
         Choice("Ui.FontColor", "Màu chữ", "font.color", value => Session.Styles.SetFontColor(value == "none" ? ColorRgba.Black : ParseColor(value)),
             () => ChoiceState(ColorText(Session.Styles.ActiveCellStyle.Font.Color), ColorChoices));
-        Choice("Ui.Borders", "Đường viền", "border.all", ApplyBorder, () => ChoiceState(null, BorderChoices));
+        Choice("Ui.Borders", "Đường viền", "border.all", ApplyBorder, () => ChoiceState(BorderPresetValue(Session.Styles.ActiveCellStyle.Border), BorderChoices));
         foreach (var alignment in Enum.GetValues<CellHorizontalAlignment>().Where(value => value is CellHorizontalAlignment.Left or CellHorizontalAlignment.Center or CellHorizontalAlignment.Right))
         {
             var caption = alignment switch { CellHorizontalAlignment.Left => "Căn trái", CellHorizontalAlignment.Center => "Căn giữa", _ => "Căn phải" };
@@ -94,8 +94,10 @@ public sealed partial class FullShellWindow
             icon: "align.wrap", state: () => new CommandState(true, Session.Styles.ActiveCellStyle.Alignment.WrapText));
         Choice("Ui.Number", "Định dạng số", "number.format", value => Session.Styles.SetNumberFormat(value),
             () => ChoiceState(Session.Styles.ActiveCellStyle.NumberFormat.FormatCode, NumberChoices));
-        Add("Ui.Percent", "Phần trăm", () => Session.Styles.SetNumberFormat("0%"), icon: "number.percent");
-        Add("Ui.Decimal", "Hai số thập phân", () => Session.Styles.SetNumberFormat("#,##0.00"), icon: "number.decimal-increase");
+        Add("Ui.Percent", "Phần trăm", () => Session.Styles.SetNumberFormat("0%"), icon: "number.percent",
+            state: () => new CommandState(true, Session.Styles.ActiveCellStyle.NumberFormat.FormatCode == "0%"));
+        Add("Ui.Decimal", "Hai số thập phân", () => Session.Styles.SetNumberFormat("#,##0.00"), icon: "number.decimal-increase",
+            state: () => new CommandState(true, Session.Styles.ActiveCellStyle.NumberFormat.FormatCode == "#,##0.00"));
         Choice("Ui.Orientation", "Hướng giấy", "page.orientation", value => SetPageSetup(setup => setup with
             { Orientation = value == "landscape" ? SpreadsheetPageOrientation.Landscape : SpreadsheetPageOrientation.Portrait }),
             () => ChoiceState(Session.ActiveWorksheet.GetPrintSettings().PageSetup.Orientation == SpreadsheetPageOrientation.Landscape ? "landscape" : "portrait", OrientationChoices));
@@ -148,7 +150,40 @@ public sealed partial class FullShellWindow
     private static double ParseNumber(string text) => double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture);
     private static string ColorText(ColorRgba color) => $"#{color.Red:X2}{color.Green:X2}{color.Blue:X2}";
     private static ColorRgba ParseColor(string text) { var color = Color.Parse(text); return new ColorRgba(color.R, color.G, color.B, color.A); }
-    private static CommandState ChoiceState(string? selected, IEnumerable<CommandItem> choices) => new(true, null, null, selected, choices);
+    private static CommandState ChoiceState(string? selected, IEnumerable<CommandItem> choices)
+    {
+        var materialized = choices.ToList();
+        if (!string.IsNullOrWhiteSpace(selected) && !materialized.Any(item => string.Equals(item.Value, selected, StringComparison.Ordinal)))
+            materialized.Insert(0, new CommandItem(selected, selected));
+        return new CommandState(true, null, selected, selected, materialized);
+    }
+    private static CommandItem[] CreateSystemFontChoices()
+    {
+        var names = FontManager.Current.SystemFonts
+            .Select(static family => family.Name?.Trim())
+            .Where(static name => !string.IsNullOrWhiteSpace(name))
+            .Select(static name => name!)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(static name => name, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+        if (names.Length == 0)
+        {
+            var fallback = FontManager.Current.DefaultFontFamily.Name;
+            names = [string.IsNullOrWhiteSpace(fallback) ? "Default" : fallback];
+        }
+        return names.Select(static name => new CommandItem(name, name)).ToArray();
+    }
+    private static string? BorderPresetValue(CellBorderStyle border)
+    {
+        var left = border.Left.Style != CellBorderLineStyle.None;
+        var top = border.Top.Style != CellBorderLineStyle.None;
+        var right = border.Right.Style != CellBorderLineStyle.None;
+        var bottom = border.Bottom.Style != CellBorderLineStyle.None;
+        if (!left && !top && !right && !bottom && border.Diagonal.Style == CellBorderLineStyle.None) return "none";
+        if (left && top && right && bottom) return "all";
+        if (!left && !top && !right && bottom) return "bottom";
+        return null;
+    }
     private void ApplyBorder(string value)
     {
         if (value == "all") Session.Styles.SetAllBorders(CellBorderLineStyle.Thin, new ColorRgba(105, 120, 132));
@@ -214,13 +249,17 @@ public sealed partial class FullShellWindow
     private sealed class ShellHandler(FullShellWindow owner, Func<CommandContext, ValueTask> action, Func<CommandContext, CommandState> state) : IStatefulCommandHandler
     {
         public bool CanExecute(CommandContext context) => GetState(context).IsEnabled;
-        public CommandState GetState(CommandContext context) => state(context) with { IsEnabled = !owner._busy && !owner._closed && state(context).IsEnabled };
+        public CommandState GetState(CommandContext context)
+        {
+            var snapshot = state(context);
+            return snapshot with { IsEnabled = !owner._busy && !owner._closed && snapshot.IsEnabled };
+        }
         public async ValueTask ExecuteAsync(CommandContext context)
         {
             context.CancellationToken.ThrowIfCancellationRequested();
             if (owner._split.EditingSpreadsheet is { } editor && !editor.CommitEditor()) throw new InvalidOperationException("Dữ liệu chưa hợp lệ; bản nháp vẫn được giữ.");
             await action(context); owner._commandExecutions++;
-            if (!owner._closed) { owner.RefreshSelection(); owner._menu.Runtime.Refresh(); }
+            if (!owner._closed) { owner.RefreshSelection(); owner._runtime.Refresh(); owner._menu.Runtime.Refresh(); }
         }
     }
     private sealed class PageSetupOperation(Worksheet worksheet, WorksheetPrintSettings before, WorksheetPrintSettings after) : ISpreadsheetEditOperation
