@@ -35,7 +35,10 @@ public sealed class ExcelDateSerialRoundTripTests
         {
             var workbookPart = document.WorkbookPart
                 ?? throw new InvalidDataException("Workbook part is required.");
-            var cell = workbookPart.WorksheetParts.Single().Worksheet.Descendants<OpenXmlCell>().Single();
+            var worksheetPart = workbookPart.WorksheetParts.Single();
+            var openXmlWorksheet = worksheetPart.Worksheet
+                ?? throw new InvalidDataException("Worksheet XML is required.");
+            var cell = openXmlWorksheet.Descendants<OpenXmlCell>().Single();
             Assert.AreNotEqual(CellValues.Date, cell.DataType?.Value);
             Assert.IsTrue(double.TryParse(cell.CellValue?.Text,
                 System.Globalization.NumberStyles.Float,
@@ -72,12 +75,16 @@ public sealed class ExcelDateSerialRoundTripTests
         {
             var workbookPart = document.WorkbookPart
                 ?? throw new InvalidDataException("Workbook part is required.");
+            var workbookXml = workbookPart.Workbook
+                ?? throw new InvalidDataException("Workbook XML is required.");
             var worksheetPart = workbookPart.WorksheetParts.Single();
-            var cell = worksheetPart.Worksheet.Descendants<OpenXmlCell>().Single();
+            var openXmlWorksheet = worksheetPart.Worksheet
+                ?? throw new InvalidDataException("Worksheet XML is required.");
+            var cell = openXmlWorksheet.Descendants<OpenXmlCell>().Single();
             cell.DataType = CellValues.Date;
             cell.CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("2026-08-21T00:00:00.0000000");
-            workbookPart.Workbook.Save();
-            worksheetPart.Worksheet.Save();
+            workbookXml.Save();
+            openXmlWorksheet.Save();
         }
 
         stream.Position = 0L;
