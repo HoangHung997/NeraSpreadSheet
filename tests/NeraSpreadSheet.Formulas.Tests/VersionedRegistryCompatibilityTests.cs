@@ -41,8 +41,9 @@ public sealed class VersionedRegistryCompatibilityTests
 
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(
-            new DateTime(2026, 8, 23),
-            result.Value.RawValue);
+            ExcelDateSerial.ToSerial(new DateTime(2026, 8, 23)),
+            (double)result.Value.RawValue!,
+            1e-12d);
         Assert.AreEqual(1, result.Dependencies.Count);
     }
 
