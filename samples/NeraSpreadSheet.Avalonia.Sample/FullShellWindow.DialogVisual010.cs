@@ -29,7 +29,7 @@ public sealed partial class FullShellWindow
             checks.Add(id);
         }
 
-        async Task CloseAsync(NeraSettingsDialog dialog, Task activation, string key)
+        async Task CloseAsync(NeraSettingsDialog dialog, ValueTask<bool> activation, string key)
         {
             DialogControl<Button>(dialog, "dialog-cancel").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await activation;
