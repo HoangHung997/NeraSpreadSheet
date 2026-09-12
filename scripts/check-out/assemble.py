@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Collect validated platform bundles and publish preview assets, never nuget.org."""
 import argparse
+import base64
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
 import re
 import shutil
 import subprocess
+from urllib.parse import quote
 import zipfile
 import gallery
 import verify_compatibility_probe
@@ -19,6 +22,82 @@ def digest(path):
 
 def gh(*args):
     return subprocess.check_output(['gh', *args], text=True).strip()
+
+
+def put_repo_text(repo, path, text, message, branch='main'):
+    """Create/update a small UTF-8 registry file in GitHub without committing binaries."""
+    endpoint = f'repos/{repo}/contents/{quote(path, safe="/")}'
+    current = subprocess.run(['gh', 'api', endpoint, '-f', f'ref={branch}'], capture_output=True, text=True)
+    sha = None
+    if current.returncode == 0:
+        sha = json.loads(current.stdout)['sha']
+    elif '404' not in current.stderr and 'Not Found' not in current.stderr:
+        raise RuntimeError(current.stderr)
+    args = ['api', '--method', 'PUT', endpoint,
+            '-f', f'message={message} [skip ci]',
+            '-f', 'content=' + base64.b64encode(text.encode('utf-8')).decode('ascii'),
+            '-f', f'branch={branch}']
+    if sha:
+        args += ['-f', f'sha={sha}']
+    gh(*args)
+
+
+def publish_repo_registry(repo, sha, run_id, tag, platforms):
+    """Persist latest package identity/history in Check out/ after validated main publication."""
+    ict = timezone(timedelta(hours=7))
+    created = datetime.now(ict)
+    created_iso = created.isoformat(timespec='seconds')
+    created_display = created.strftime('%d/%m/%Y %H:%M:%S') + ' (ICT, UTC+7)'
+    filename = created.strftime('%Y-%m-%d_%H%M_ICT_') + sha[:8] + '.json'
+    record_path = 'Check out/Packages/' + filename
+    release_base = f'https://github.com/{repo}/releases/download/{tag}'
+    package_rows = []
+    for rid in ('win-x64', 'linux-x64', 'osx-arm64'):
+        meta = platforms[rid]
+        package_rows.append(dict(
+            rid=rid,
+            filename=meta['filename'],
+            bytes=meta['bytes'],
+            sha256=meta['sha256'],
+            download=f'{release_base}/{meta["filename"]}'))
+    record = dict(
+        schema='nera.checkout.package-registry.v1',
+        status='validated',
+        createdAt=created_iso,
+        createdAtDisplay=created_display,
+        sourceSha=sha,
+        workflowRunId=int(run_id),
+        workflowRun=f'https://github.com/{repo}/actions/runs/{run_id}',
+        immutableReleaseTag=tag,
+        immutableRelease=f'https://github.com/{repo}/releases/tag/{tag}',
+        packages=package_rows)
+    put_repo_text(repo, record_path, json.dumps(record, ensure_ascii=False, indent=2) + '\n',
+                  'docs(checkout): record validated package set')
+    latest = dict(
+        schema='nera.checkout.package-registry.latest.v1',
+        status='validated',
+        createdAt=created_iso,
+        createdAtDisplay=created_display,
+        sourceSha=sha,
+        workflowRunId=int(run_id),
+        record=filename,
+        immutableReleaseTag=tag,
+        isLatest=True)
+    put_repo_text(repo, 'Check out/Packages/latest.json', json.dumps(latest, ensure_ascii=False, indent=2) + '\n',
+                  'docs(checkout): update latest package registry')
+
+    readme_endpoint = f'repos/{repo}/contents/{quote("Check out/README.md", safe="/")}'
+    readme_meta = json.loads(gh('api', readme_endpoint, '-f', 'ref=main'))
+    readme = base64.b64decode(readme_meta['content']).decode('utf-8')
+    start = '<!-- CHECKOUT-LATEST:START -->'
+    end = '<!-- CHECKOUT-LATEST:END -->'
+    if start not in readme or end not in readme:
+        raise RuntimeError('Check out README is missing auto-update markers')
+    block = f'''{start}\n## Bản Check out mới nhất\n\n- **Ngày giờ tạo gói:** **{created_display}**\n- **Trạng thái:** VALIDATED — full `Check out` PASS\n- **Source SHA đã build:** `{sha}`\n- **Full workflow run:** `{run_id}`\n- **Registry mới nhất trong repo:** [`Packages/latest.json`](Packages/latest.json)\n- **Bản ghi bất biến của lượt build này:** [`Packages/{filename}`](Packages/{filename})\n- **Immutable Release:** [`{tag}`](https://github.com/{repo}/releases/tag/{tag})\n\n> Muốn biết gói mới hay cũ: ưu tiên **ngày giờ tạo gói + source SHA + workflow run ID**. Không dùng tên `latest` một mình để kết luận.\n{end}'''
+    prefix, remainder = readme.split(start, 1)
+    _, suffix = remainder.split(end, 1)
+    put_repo_text(repo, 'Check out/README.md', prefix + block + suffix,
+                  'docs(checkout): refresh latest package date')
 
 
 def assemble(source, output, sha, repo, run_id, publish):
@@ -119,7 +198,8 @@ def assemble(source, output, sha, repo, run_id, publish):
         gh('release','upload','check-out-latest','--repo',repo,'--clobber',*assets)
         gh('release','edit','check-out-latest','--repo',repo,'--prerelease','--title','Check out — bản thử nghiệm mới nhất','--notes-file',str(notes))
     assert_current_main()
-    print(json.dumps(dict(published=True,sourceSha=sha,immutableTag=tag,latestTag='check-out-latest')))
+    publish_repo_registry(repo, sha, run_id, tag, platforms)
+    print(json.dumps(dict(published=True,sourceSha=sha,immutableTag=tag,latestTag='check-out-latest',repoRegistry=True)))
     notes.unlink()
 
 
