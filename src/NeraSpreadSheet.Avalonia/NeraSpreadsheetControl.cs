@@ -27,7 +27,16 @@ public sealed partial class NeraSpreadsheetControl : Control, IDisposable
     private readonly ContinuousScrollController _scroll = new();
     private readonly DispatcherTimer _frameTimer = new() { Interval = TimeSpan.FromSeconds(1d / 60d) };
     private readonly Stopwatch _frameClock = new();
-    private readonly TextBox _editor = new() { IsVisible = false, AcceptsReturn = true, BorderThickness = new Thickness(1), Padding = new Thickness(2, 0) };
+    private readonly TextBox _editor = new()
+    {
+        IsVisible = false,
+        AcceptsReturn = true,
+        BorderThickness = new Thickness(0),
+        Padding = new Thickness(0),
+        MinWidth = 0,
+        MinHeight = 0,
+        UseLayoutRounding = false,
+    };
     private SpreadsheetSession? _session;
     private SpreadsheetViewportEngine? _viewport;
     private Worksheet? _worksheet;
