@@ -13,9 +13,8 @@ public static class ExcelDateSerial
     public static double ToSerial(DateTime value, ExcelDateSystem dateSystem = ExcelDateSystem.Date1900)
     {
         var date = DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
-        var serial = dateSystem == ExcelDateSystem.Date1904
-            ? (date - Epoch1904).TotalDays
-            : (date - Epoch1900).TotalDays;
+        var epoch = dateSystem == ExcelDateSystem.Date1904 ? Epoch1904 : Epoch1900;
+        var serial = (date.Ticks - epoch.Ticks) / (double)TimeSpan.TicksPerDay;
 
         // Excel intentionally preserves Lotus 1-2-3 compatibility and treats
         // 1900 as a leap year. Real dates on/after 1900-03-01 therefore have
@@ -52,16 +51,38 @@ public static class ExcelDateSerial
             return false;
         }
 
+        var adjusted = dateSystem == ExcelDateSystem.Date1900 && serial >= 61d
+            ? serial - 1d
+            : serial;
+        var epoch = dateSystem == ExcelDateSystem.Date1904 ? Epoch1904 : Epoch1900;
+
         try
         {
-            var adjusted = dateSystem == ExcelDateSystem.Date1900 && serial >= 61d
-                ? serial - 1d
-                : serial;
-            value = (dateSystem == ExcelDateSystem.Date1904 ? Epoch1904 : Epoch1900)
-                .AddDays(adjusted);
+            // DateTime.AddDays performs floating-point scaling internally and can
+            // introduce a one-tick drift after serial -> date round trips. Excel
+            // serials are fractions of a day, so convert once to ticks and round
+            // to the nearest representable DateTime tick instead.
+            var tickOffset = adjusted * TimeSpan.TicksPerDay;
+            if (!double.IsFinite(tickOffset) ||
+                tickOffset < long.MinValue ||
+                tickOffset > long.MaxValue)
+            {
+                return false;
+            }
+
+            var roundedOffset = checked((long)Math.Round(
+                tickOffset,
+                MidpointRounding.AwayFromZero));
+            var ticks = checked(epoch.Ticks + roundedOffset);
+            if (ticks < DateTime.MinValue.Ticks || ticks > DateTime.MaxValue.Ticks)
+            {
+                return false;
+            }
+
+            value = new DateTime(ticks, DateTimeKind.Unspecified);
             return true;
         }
-        catch (ArgumentOutOfRangeException)
+        catch (OverflowException)
         {
             return false;
         }
