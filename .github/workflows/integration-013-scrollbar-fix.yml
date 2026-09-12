@@ -1,0 +1,52 @@
+name: INTEGRATION-013-SCROLLBAR-FIX
+
+on:
+  push:
+    branches: [fix/excel-edit-date-integration-013]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Apply attached-property fix
+        shell: python
+        run: |
+          from pathlib import Path
+          def rep(path, old, new):
+              p=Path(path); t=p.read_text(encoding='utf-8')
+              if old not in t: raise SystemExit(f'missing pattern in {path}: {old!r}')
+              p.write_text(t.replace(old,new,1),encoding='utf-8')
+
+          p='src/NeraSpreadSheet.Avalonia/NeraSpreadsheetControl.cs'
+          rep(p,
+              '        HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden,\n        VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden,\n',
+              '')
+          rep(p,
+              '        _editor.TextChanged += OnEditorTextChanged;\n        InitializeFormulaAssistance();',
+              '        _editor.TextChanged += OnEditorTextChanged;\n        _editor.SetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty, global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden);\n        _editor.SetValue(ScrollViewer.VerticalScrollBarVisibilityProperty, global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden);\n        InitializeFormulaAssistance();')
+
+          p='samples/NeraSpreadSheet.Avalonia.Sample/FullShellWindow.cs'
+          rep(p,
+              '        HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden,\n        VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden,\n',
+              '')
+          rep(p,
+              '        Title = "NeraSpreadSheet — Avalonia"; Width = 1280; Height = 800; MinWidth = 740; MinHeight = 480;\n',
+              '        Title = "NeraSpreadSheet — Avalonia"; Width = 1280; Height = 800; MinWidth = 740; MinHeight = 480;\n        _formula.SetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty, global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden);\n        _formula.SetValue(ScrollViewer.VerticalScrollBarVisibilityProperty, global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden);\n')
+
+          p='tests/NeraSpreadSheet.Avalonia.Tests/EditPresentation013Tests.cs'
+          rep(p,
+              '                Assert.AreEqual(ScrollBarVisibility.Hidden, editor.HorizontalScrollBarVisibility);\n                Assert.AreEqual(ScrollBarVisibility.Hidden, editor.VerticalScrollBarVisibility);',
+              '                Assert.AreEqual(ScrollBarVisibility.Hidden, editor.GetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty));\n                Assert.AreEqual(ScrollBarVisibility.Hidden, editor.GetValue(ScrollViewer.VerticalScrollBarVisibilityProperty));')
+      - name: Commit
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src samples tests
+          git commit -m "fix(editor): hide native scrollbars through Avalonia attached properties"
+          git push origin HEAD:fix/excel-edit-date-integration-013
