@@ -1,0 +1,40 @@
+{
+  "schema": "nera.checkout.package-registry.v1",
+  "status": "validated",
+  "createdAt": "2026-09-12T09:59:14+07:00",
+  "createdAtDisplay": "12/09/2026 09:59:14 (ICT, UTC+7)",
+  "sourceSha": "36bc29a829b82a67c7f7c92d40087c5733361a06",
+  "cleanBranchHeadAfterValidation": "719503161dc4f2db97aaacdaa9e60dbcfb6c5fe2",
+  "workflowRunId": 34668687734,
+  "workflowRun": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734",
+  "verifiedDownloadCentre": "success",
+  "packages": [
+    {
+      "rid": "win-x64",
+      "artifactId": 10289896809,
+      "artifactName": "check-out-win-x64-36bc29a829b82a67c7f7c92d40087c5733361a06",
+      "artifactUrl": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10289896809",
+      "nestedZipSha256": "456f1cd56f47fcb58acf7dc8dd6d0dce5a70458277a0d64f74f4efddf02d810b"
+    },
+    {
+      "rid": "linux-x64",
+      "artifactId": 10290271349,
+      "artifactName": "check-out-linux-x64-36bc29a829b82a67c7f7c92d40087c5733361a06",
+      "artifactUrl": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10290271349",
+      "nestedZipSha256": "c964d5b2017f3f000fd926237e3ec4dae94070dfc3dfd65b3e1b561f3f04a17d"
+    },
+    {
+      "rid": "osx-arm64",
+      "artifactId": 10290935384,
+      "artifactName": "check-out-osx-arm64-36bc29a829b82a67c7f7c92d40087c5733361a06",
+      "artifactUrl": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10290935384",
+      "nestedZipSha256": "68107d562759ee5bc0ad5fcf8df94babb00fc47ef0a8a55ab81dff8e960debb9"
+    },
+    {
+      "kind": "index",
+      "artifactId": 10289956872,
+      "artifactName": "Check-out-index-36bc29a829b82a67c7f7c92d40087c5733361a06",
+      "artifactUrl": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10289956872"
+    }
+  ]
+}
