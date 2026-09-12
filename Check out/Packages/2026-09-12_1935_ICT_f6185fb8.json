@@ -1,0 +1,34 @@
+{
+  "schema": "nera.checkout.package-registry.v1",
+  "status": "validated",
+  "createdAt": "2026-09-12T19:35:43+07:00",
+  "createdAtDisplay": "12/09/2026 19:35:43 (ICT, UTC+7)",
+  "sourceSha": "f6185fb881cf761b5c37499b1a56f62c0372fc7d",
+  "workflowRunId": 34693588527,
+  "workflowRun": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34693588527",
+  "immutableReleaseTag": "check-out-f6185fb881cf-34693588527",
+  "immutableRelease": "https://github.com/HoangHung997/NeraSpreadSheet/releases/tag/check-out-f6185fb881cf-34693588527",
+  "packages": [
+    {
+      "rid": "win-x64",
+      "filename": "Nera-Avalonia-win-x64.zip",
+      "bytes": 84134047,
+      "sha256": "0704e883cc48870b475f32e1b2e152947a7fff8165c2d54843933de43bbd7de2",
+      "download": "https://github.com/HoangHung997/NeraSpreadSheet/releases/download/check-out-f6185fb881cf-34693588527/Nera-Avalonia-win-x64.zip"
+    },
+    {
+      "rid": "linux-x64",
+      "filename": "Nera-Avalonia-linux-x64.zip",
+      "bytes": 57448512,
+      "sha256": "76cc0225752848022815d05a3582c32eca14eef9c46f7c1c002805ba44bbb6f7",
+      "download": "https://github.com/HoangHung997/NeraSpreadSheet/releases/download/check-out-f6185fb881cf-34693588527/Nera-Avalonia-linux-x64.zip"
+    },
+    {
+      "rid": "osx-arm64",
+      "filename": "Nera-Avalonia-osx-arm64.zip",
+      "bytes": 57827795,
+      "sha256": "47395acf030340982fb325bf0be34e150f74e482a5afec9b634f57f2a7a5e9ea",
+      "download": "https://github.com/HoangHung997/NeraSpreadSheet/releases/download/check-out-f6185fb881cf-34693588527/Nera-Avalonia-osx-arm64.zip"
+    }
+  ]
+}
