@@ -30,8 +30,8 @@ public sealed class EditPresentation013Tests
                 Assert.IsTrue(editor.IsVisible);
                 Assert.IsNotNull(editor.Background, "Editor must cover the display-list text beneath it while editing.");
                 Assert.AreEqual(0d, editor.BorderThickness.Left, 1e-9);
-                Assert.AreEqual(ScrollBarVisibility.Hidden, editor.HorizontalScrollBarVisibility);
-                Assert.AreEqual(ScrollBarVisibility.Hidden, editor.VerticalScrollBarVisibility);
+                Assert.AreEqual(ScrollBarVisibility.Hidden, editor.GetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty));
+                Assert.AreEqual(ScrollBarVisibility.Hidden, editor.GetValue(ScrollViewer.VerticalScrollBarVisibilityProperty));
                 Assert.IsFalse(editor.IsInactiveSelectionHighlightEnabled);
                 Assert.AreEqual(session.ActiveWorksheet.Dimensions.GetRowHeight(0) * 0.65d,
                     editor.Bounds.Height, 0.75d,

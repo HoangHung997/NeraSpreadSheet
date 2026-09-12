@@ -31,8 +31,6 @@ public sealed partial class FullShellWindow : Window, IDisposable
         MinHeight = 30,
         MaxHeight = 100,
         TextWrapping = global::Avalonia.Media.TextWrapping.NoWrap,
-        HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden,
-        VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden,
     };
     private readonly TextBlock _address = new() { MinWidth = 80, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _status = new() { Margin = new Thickness(6) };
@@ -50,6 +48,8 @@ public sealed partial class FullShellWindow : Window, IDisposable
     public FullShellWindow()
     {
         Title = "NeraSpreadSheet — Avalonia"; Width = 1280; Height = 800; MinWidth = 740; MinHeight = 480;
+        _formula.SetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty, global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden);
+        _formula.SetValue(ScrollViewer.VerticalScrollBarVisibilityProperty, global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden);
         _split.Session = CreateWorkbook(); RegisterCommands();
         _runtime = new RibbonRuntimeController(NeraSpreadsheetRibbonPreset.Create(_registry), _registry);
         _ribbon = new NeraRibbonControl(_runtime);

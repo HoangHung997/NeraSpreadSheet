@@ -36,8 +36,6 @@ public sealed partial class NeraSpreadsheetControl : Control, IDisposable
         MinWidth = 0,
         MinHeight = 0,
         UseLayoutRounding = false,
-        HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden,
-        VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden,
         IsInactiveSelectionHighlightEnabled = false,
     };
     private SpreadsheetSession? _session;
@@ -59,6 +57,8 @@ public sealed partial class NeraSpreadsheetControl : Control, IDisposable
         _frameTimer.Tick += OnFrame;
         _editor.AddHandler(InputElement.KeyDownEvent, OnEditorKeyDown, RoutingStrategies.Tunnel);
         _editor.TextChanged += OnEditorTextChanged;
+        _editor.SetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty, global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden);
+        _editor.SetValue(ScrollViewer.VerticalScrollBarVisibilityProperty, global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden);
         InitializeFormulaAssistance();
     }
     /// <summary>Exactly one reusable native editor, not a control per cell.</summary>
