@@ -25,11 +25,13 @@ jobs:
         run: dotnet build NeraSpreadSheet.Avalonia.slnx -c Release --no-restore
       - name: Avalonia regressions
         run: dotnet test tests/NeraSpreadSheet.Avalonia.Tests/NeraSpreadSheet.Avalonia.Tests.csproj -c Release --no-build
-      - name: Native Ribbon visual and QA gaps smoke
+      - name: Native Ribbon formatting sync, visual, and QA smoke
         shell: pwsh
         run: |
           dotnet publish samples/NeraSpreadSheet.Avalonia.Sample/NeraSpreadSheet.Avalonia.Sample.csproj -c Release -r win-x64 --self-contained true -p:PublishTrimmed=false -p:PublishSingleFile=false -o artifacts/app
           $app = Join-Path $pwd 'artifacts/app/NeraSpreadSheet.Avalonia.Sample.exe'
+          & $app --format-sync-smoke
+          if ($LASTEXITCODE -ne 0) { throw "Ribbon format sync smoke failed: $LASTEXITCODE" }
           & $app --ribbon-visual-smoke
           if ($LASTEXITCODE -ne 0) { throw "Ribbon visual smoke failed: $LASTEXITCODE" }
           & $app --qa-gaps-smoke
