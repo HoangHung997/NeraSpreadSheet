@@ -21,4 +21,6 @@ và cập nhật `latest.json` cùng block **Bản Check out mới nhất** tron
 
 Mỗi record chứa ngày giờ tạo gói, source SHA, workflow run ID, trạng thái validation, link tải immutable và checksum. Vì vậy **không dùng tên `latest` một mình để xác định gói mới/cũ**; phải đối chiếu ngày giờ + SHA + run ID.
 
-Các binary ZIP lớn nằm ở GitHub Actions/Release để không làm Git history phình, nhưng metadata quản lý và lịch sử của chúng luôn nằm trong thư mục này. `scripts/check-out/assemble.py` tự cập nhật registry sau khi full Check out của `main` đã PASS và publication thành công.
+Các binary ZIP lớn vẫn là tài sản GitHub của cùng repository nhưng nằm ở GitHub Actions/Release thay vì Git history. Lý do: commit trực tiếp các ZIP 50–100 MB mỗi lượt build sẽ làm repository tăng dung lượng vĩnh viễn. Metadata quản lý, lịch sử, SHA và link tải của tất cả gói luôn nằm trong thư mục này.
+
+`scripts/check-out/assemble.py` tự cập nhật registry sau khi full Check out của `main` đã PASS và publication thành công. Các commit cập nhật registry dùng `[skip ci]` để không tạo vòng lặp workflow.
