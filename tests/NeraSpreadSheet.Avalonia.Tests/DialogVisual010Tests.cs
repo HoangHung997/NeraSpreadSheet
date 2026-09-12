@@ -12,6 +12,8 @@ namespace NeraSpreadSheet.Avalonia.Tests;
 [TestClass]
 public sealed class DialogVisual010Tests
 {
+    private static readonly string[] FooterButtonIds = ["dialog-ok", "dialog-cancel"];
+
     [TestMethod]
     public async Task SettingsDialogsShouldOwnInitialKeyboardFocusAndDefaultCancelButtons()
     {
@@ -60,7 +62,7 @@ public sealed class DialogVisual010Tests
                     dialog.Height = dialog.MinHeight;
                     dialog.UpdateLayout();
                     var client = (Control)dialog.Content!;
-                    foreach (var id in new[] { "dialog-ok", "dialog-cancel" })
+                    foreach (var id in FooterButtonIds)
                     {
                         var button = fixture.Find<Button>(id);
                         var position = button.TranslatePoint(default, client)
