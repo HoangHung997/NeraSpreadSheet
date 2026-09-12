@@ -1,0 +1,84 @@
+name: PREPARE-MAIN-CONSOLIDATION
+
+on:
+  push:
+    branches: [fix/excel-edit-date-integration-013]
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Merge QA lineage, lock final Check out trigger, and verify branch ancestry
+        shell: python
+        run: |
+          import subprocess
+          from pathlib import Path
+
+          def run(*args):
+              subprocess.run(args, check=True)
+
+          qa = 'd2a704ad976fc09853f5db679698816cc82f4a92'
+          run('git', 'config', 'user.name', 'github-actions[bot]')
+          run('git', 'config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com')
+          run('git', 'fetch', 'origin', '+refs/heads/*:refs/remotes/origin/*')
+          run('git', 'fetch', 'origin', qa)
+          run('git', 'merge', '--no-ff', '--no-edit', qa)
+
+          workflow = Path('.github/workflows/check-out.yml')
+          text = workflow.read_text(encoding='utf-8')
+          old_branches = 'branches: [main, fix/qa-gaps-005, fix/editor-zoom-fidelity-012]'
+          if old_branches not in text:
+              raise SystemExit('Expected Check out branch trigger was not found')
+          text = text.replace(old_branches, 'branches: [main]', 1)
+          text = text.replace(
+              'one-time-branch-cleanup:\n    name: Archive and remove superseded branches (once)',
+              'branch-cleanup:\n    name: Archive and remove integrated work branches',
+              1)
+          old_line = next((line for line in text.splitlines()
+              if 'run: python scripts/check-out/archive-branches.py' in line), None)
+          if old_line is None:
+              raise SystemExit('Old cleanup command was not found')
+          sha_expr = '$' + '{{ github.sha }}'
+          repo_expr = '$' + '{{ github.repository }}'
+          run_expr = '$' + '{{ github.run_id }}'
+          new_line = (
+              '        run: python scripts/check-out/archive-current-branches.py '
+              f'--validated-sha {sha_expr} --repo {repo_expr} --run-id {run_expr} --apply')
+          text = text.replace(old_line, new_line, 1)
+          workflow.write_text(text, encoding='utf-8')
+
+          # QA commit is now a real ancestor. Require every other non-main remote
+          # work branch tip to be contained before final promotion can proceed.
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          refs = subprocess.check_output([
+              'git', 'for-each-ref', '--format=%(refname) %(objectname)',
+              'refs/remotes/origin/'], text=True).splitlines()
+          missing = []
+          for row in refs:
+              ref, sha = row.split(' ', 1)
+              name = ref.removeprefix('refs/remotes/origin/')
+              if name in ('HEAD', 'main', 'fix/excel-edit-date-integration-013'):
+                  continue
+              result = subprocess.run(['git', 'merge-base', '--is-ancestor', sha, head])
+              if result.returncode != 0:
+                  missing.append(f'{name}@{sha}')
+          if missing:
+              raise SystemExit('Work branches not contained in candidate: ' + ', '.join(missing))
+
+          run('python', '-m', 'py_compile', 'scripts/check-out/archive-current-branches.py')
+          Path('.github/workflows/prepare-main-consolidation.yml').unlink()
+      - name: Commit final consolidation configuration
+        shell: bash
+        run: |
+          git diff --check
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(repo): prepare canonical main consolidation"
+          fi
+          git push origin HEAD:fix/excel-edit-date-integration-013
