@@ -1,0 +1,43 @@
+name: Post Check out — archive and remove integrated branches
+
+on:
+  workflow_run:
+    workflows: ["Check out — integrated SDK and test applications"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+
+concurrency:
+  group: post-checkout-branch-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: github.event.workflow_run.conclusion == 'success' && github.repository == 'HoangHung997/NeraSpreadSheet'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+      - name: Archive exact branch tips, close integrated PRs, and leave only main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python scripts/check-out/archive-current-branches.py
+          --validated-sha ${{ github.event.workflow_run.head_sha }}
+          --repo ${{ github.repository }}
+          --run-id ${{ github.event.workflow_run.id }}
+          --apply
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: post-checkout-branch-cleanup-${{ github.event.workflow_run.head_sha }}
+          path: consolidation-result.json
+          if-no-files-found: warn
+          retention-days: 30
