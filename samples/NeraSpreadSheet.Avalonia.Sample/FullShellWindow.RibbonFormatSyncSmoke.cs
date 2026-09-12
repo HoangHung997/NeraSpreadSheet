@@ -33,8 +33,10 @@ public sealed partial class FullShellWindow
                 .Distinct(StringComparer.CurrentCultureIgnoreCase)
                 .ToArray();
             var fontState = State("Ui.FontFamily");
-            Check("system-fonts-enumerated", fontState.ItemsSource.Count == systemFonts.Length);
+            Check("system-fonts-enumerated", fontState.ItemsSource.Count >= systemFonts.Length);
             Check("system-fonts-present", systemFonts.All(name => fontState.ItemsSource.Any(item => string.Equals(item.Value, name, StringComparison.OrdinalIgnoreCase))));
+            Check("active-font-retained", string.IsNullOrWhiteSpace(fontState.SelectedValue) ||
+                fontState.ItemsSource.Any(item => string.Equals(item.Value, fontState.SelectedValue, StringComparison.OrdinalIgnoreCase)));
 
             var firstFont = systemFonts.FirstOrDefault() ?? FontManager.Current.DefaultFontFamily.Name;
             var secondFont = systemFonts.Skip(1).FirstOrDefault() ?? firstFont;
