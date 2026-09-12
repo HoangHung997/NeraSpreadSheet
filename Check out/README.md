@@ -5,15 +5,15 @@
 <!-- CHECKOUT-LATEST:START -->
 ## Bản Check out mới nhất
 
-- **Ngày giờ tạo gói:** **12/09/2026 09:59:14 (ICT, UTC+7)**
+- **Ngày giờ tạo gói:** **12/09/2026 19:35:43 (ICT, UTC+7)**
 - **Trạng thái:** VALIDATED — full `Check out` PASS
-- **Source SHA đã build:** `36bc29a829b82a67c7f7c92d40087c5733361a06`
-- **Full workflow run:** `34668687734`
-- **Final clean branch HEAD sau khi dọn trigger tạm:** `719503161dc4f2db97aaacdaa9e60dbcfb6c5fe2`
+- **Source SHA đã build:** `f6185fb881cf761b5c37499b1a56f62c0372fc7d`
+- **Full workflow run:** `34693588527`
 - **Registry mới nhất trong repo:** [`Packages/latest.json`](Packages/latest.json)
-- **Bản ghi bất biến của lượt build này:** [`Packages/2026-09-12_0959_ICT_36bc29a8.json`](Packages/2026-09-12_0959_ICT_36bc29a8.json)
+- **Bản ghi bất biến của lượt build này:** [`Packages/2026-09-12_1935_ICT_f6185fb8.json`](Packages/2026-09-12_1935_ICT_f6185fb8.json)
+- **Immutable Release:** [`check-out-f6185fb881cf-34693588527`](https://github.com/HoangHung997/NeraSpreadSheet/releases/tag/check-out-f6185fb881cf-34693588527)
 
-> Muốn biết gói mới hay cũ: **ưu tiên ngày giờ tạo gói trong README này và `Packages/latest.json`**, sau đó đối chiếu `sourceSha` và `workflowRunId`. Không dùng tên file hoặc link `latest` một mình để kết luận.
+> Muốn biết gói mới hay cũ: ưu tiên **ngày giờ tạo gói + source SHA + workflow run ID**. Không dùng tên `latest` một mình để kết luận.
 <!-- CHECKOUT-LATEST:END -->
 
 ## Tải về
