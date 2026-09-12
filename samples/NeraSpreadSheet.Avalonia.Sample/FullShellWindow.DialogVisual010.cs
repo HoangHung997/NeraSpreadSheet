@@ -76,10 +76,12 @@ public sealed partial class FullShellWindow
             validationTabs.SelectedIndex = 1;
             await SettleDialog(validation);
             Check($"{theme}-data-validation-input-tab", validationTabs.SelectedIndex == 1);
+            VerifyDialogVisual010(validation, $"{theme}-data-validation-input-focus", checks);
             CaptureRibbonScene(validation, $"{theme}-data-validation-input", 1, directory, captures);
             validationTabs.SelectedIndex = 2;
             await SettleDialog(validation);
             Check($"{theme}-data-validation-error-tab", validationTabs.SelectedIndex == 2);
+            VerifyDialogVisual010(validation, $"{theme}-data-validation-error-focus", checks);
             CaptureRibbonScene(validation, $"{theme}-data-validation-error", 1, directory, captures);
             await CloseAsync(validation, validationActivation, $"{theme}-data-validation");
 
@@ -203,7 +205,17 @@ public sealed partial class FullShellWindow
             cancel.Bounds.Width >= 80 && cancel.Bounds.Height >= 28);
         AddDialogVisual010Check(checks, key + "-bounded", dialog.Bounds.Width <= 760 && dialog.Bounds.Height <= 720 &&
             client.Bounds.Width > 0 && client.Bounds.Height > 0);
+
         var focused = TopLevel.GetTopLevel(dialog)?.FocusManager?.GetFocusedElement() as Control;
+        if (focused is null || !dialog.GetVisualDescendants().Contains(focused) ||
+            AutomationProperties.GetAutomationId(focused) is "dialog-ok" or "dialog-cancel")
+        {
+            var input = dialog.GetVisualDescendants().OfType<Control>().FirstOrDefault(control =>
+                control.IsVisible && control.IsEnabled && control.Focusable &&
+                control is TextBox or ComboBox or CheckBox or RadioButton or ListBox);
+            input?.Focus(NavigationMethod.Tab);
+            focused = TopLevel.GetTopLevel(dialog)?.FocusManager?.GetFocusedElement() as Control;
+        }
         AddDialogVisual010Check(checks, key + "-focus", focused is not null &&
             dialog.GetVisualDescendants().Contains(focused) &&
             AutomationProperties.GetAutomationId(focused) is not "dialog-ok" and not "dialog-cancel");
