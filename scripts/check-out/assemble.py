@@ -27,7 +27,7 @@ def gh(*args):
 def put_repo_text(repo, path, text, message, branch='main'):
     """Create/update a small UTF-8 registry file in GitHub without committing binaries."""
     endpoint = f'repos/{repo}/contents/{quote(path, safe="/")}'
-    current = subprocess.run(['gh', 'api', endpoint, '-f', f'ref={branch}'], capture_output=True, text=True)
+    current = subprocess.run(['gh', 'api', '--method', 'GET', endpoint, '-f', f'ref={branch}'], capture_output=True, text=True)
     sha = None
     if current.returncode == 0:
         sha = json.loads(current.stdout)['sha']
@@ -87,7 +87,7 @@ def publish_repo_registry(repo, sha, run_id, tag, platforms):
                   'docs(checkout): update latest package registry')
 
     readme_endpoint = f'repos/{repo}/contents/{quote("Check out/README.md", safe="/")}'
-    readme_meta = json.loads(gh('api', readme_endpoint, '-f', 'ref=main'))
+    readme_meta = json.loads(gh('api', '--method', 'GET', readme_endpoint, '-f', 'ref=main'))
     readme = base64.b64decode(readme_meta['content']).decode('utf-8')
     start = '<!-- CHECKOUT-LATEST:START -->'
     end = '<!-- CHECKOUT-LATEST:END -->'
