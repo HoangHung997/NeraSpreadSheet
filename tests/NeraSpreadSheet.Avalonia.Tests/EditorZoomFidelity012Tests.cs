@@ -12,6 +12,7 @@ namespace NeraSpreadSheet.Avalonia.Tests;
 public sealed class EditorZoomFidelity012Tests
 {
     private const string VietnameseText = "Phiếu yêu cầu nghiệm thu hoàn thành";
+    private static readonly double[] ZoomLevels = [0.50d, 0.65d, 0.75d, 0.85d, 1.00d, 1.25d];
 
     [TestMethod]
     public Task CellEditorChromeAndInsetsScaleWithZoomWithoutChangingCellGeometry() =>
@@ -39,7 +40,7 @@ public sealed class EditorZoomFidelity012Tests
             var editor = (TextBox)fixture.Control.Children[0];
             var cellGeometry = fixture.Session.ActiveWorksheet.Dimensions.GetRowHeight(0);
 
-            foreach (var zoom in new[] { 0.50d, 0.65d, 0.75d, 0.85d, 1.00d, 1.25d })
+            foreach (var zoom in ZoomLevels)
             {
                 fixture.Control.Zoom = zoom;
                 fixture.Window.UpdateLayout();
