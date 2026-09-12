@@ -31,7 +31,7 @@ public sealed partial class FullShellWindow
                 .Select(static family => family.Name?.Trim())
                 .Where(static name => !string.IsNullOrWhiteSpace(name))
                 .Select(static name => name!)
-                .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
             var fontState = State("Ui.FontFamily");
             Check("system-fonts-present", systemFonts.All(name => fontState.ItemsSource.Any(item => string.Equals(item.Value, name, StringComparison.OrdinalIgnoreCase))));
@@ -56,6 +56,32 @@ public sealed partial class FullShellWindow
                 "#782850", "none", "dd-mmm-yyyy", CellHorizontalAlignment.Right, wrap: false, "bottom", "second");
             await AssertSelection(first, firstFont, "13", bold: true, italic: true, underline: true,
                 "#123456", "#D2DCE6", "#,##0.000", CellHorizontalAlignment.Center, wrap: true, "all", "first-return");
+
+            Session.Selection.Select(new CellRange(first, second));
+            _runtime.Refresh();
+            await SettleRibbonAsync();
+            Check("mixed-font-family-state", State("Ui.FontFamily").SelectedValue is null);
+            Check("mixed-font-size-state", State("Ui.FontSize").SelectedValue is null);
+            Check("mixed-bold-state", State("Cell.Bold").IsChecked is null);
+            Check("mixed-italic-state", State("Cell.Italic").IsChecked is null);
+            Check("mixed-underline-state", State("Ui.Underline").IsChecked is null);
+            Check("mixed-font-color-state", State("Ui.FontColor").SelectedValue is null);
+            Check("mixed-fill-state", State("Ui.Fill").SelectedValue is null);
+            Check("mixed-number-state", State("Ui.Number").SelectedValue is null);
+            Check("mixed-align-left-state", State("Ui.Align.Left").IsChecked is null);
+            Check("mixed-align-center-state", State("Ui.Align.Center").IsChecked is null);
+            Check("mixed-align-right-state", State("Ui.Align.Right").IsChecked is null);
+            Check("mixed-wrap-state", State("Ui.Wrap").IsChecked is null);
+            Check("mixed-border-state", State("Ui.Borders").SelectedValue is null);
+            Check("mixed-font-family-native", SelectedTag("ribbon-command-Ui.FontFamily") is null);
+            Check("mixed-font-size-native", SelectedTag("ribbon-command-Ui.FontSize") is null);
+            Check("mixed-font-color-native", SelectedTag("ribbon-command-Ui.FontColor") is null);
+            Check("mixed-fill-native", SelectedTag("ribbon-command-Ui.Fill") is null);
+            Check("mixed-number-native", SelectedTag("ribbon-command-Ui.Number") is null);
+            Check("mixed-border-native", SelectedTag("ribbon-command-Ui.Borders") is null);
+
+            await AssertSelection(first, firstFont, "13", bold: true, italic: true, underline: true,
+                "#123456", "#D2DCE6", "#,##0.000", CellHorizontalAlignment.Center, wrap: true, "all", "after-mixed");
 
             Console.WriteLine("NERA_RIBBON_FORMAT_SYNC_SUCCESS checks=" + checks.Count + " fonts=" + systemFonts.Length);
             lifetime.Shutdown(0);
@@ -157,8 +183,8 @@ public sealed partial class FullShellWindow
         string? SelectedTag(string automationId)
         {
             var combo = _ribbon.GetVisualDescendants().OfType<ComboBox>()
-                .Single(control => AutomationProperties.GetAutomationId(control) == automationId);
-            return (combo.SelectedItem as ComboBoxItem)?.Tag as string;
+                .SingleOrDefault(control => AutomationProperties.GetAutomationId(control) == automationId);
+            return (combo?.SelectedItem as ComboBoxItem)?.Tag as string;
         }
 
         static CellBorderStyle FourSides(CellBorderSide side) => new()
