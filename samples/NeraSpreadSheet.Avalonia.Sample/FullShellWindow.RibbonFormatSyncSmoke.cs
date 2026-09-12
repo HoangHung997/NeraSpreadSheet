@@ -28,12 +28,12 @@ public sealed partial class FullShellWindow
             Check("native-window", IsVisible && Spreadsheet.ActiveSpreadsheet.RenderedFrameCount > 0);
 
             var systemFonts = FontManager.Current.SystemFonts
-                .Select(static family => family.Name)
+                .Select(static family => family.Name?.Trim())
                 .Where(static name => !string.IsNullOrWhiteSpace(name))
+                .Select(static name => name!)
                 .Distinct(StringComparer.CurrentCultureIgnoreCase)
                 .ToArray();
             var fontState = State("Ui.FontFamily");
-            Check("system-fonts-enumerated", fontState.ItemsSource.Count >= systemFonts.Length);
             Check("system-fonts-present", systemFonts.All(name => fontState.ItemsSource.Any(item => string.Equals(item.Value, name, StringComparison.OrdinalIgnoreCase))));
             Check("active-font-retained", string.IsNullOrWhiteSpace(fontState.SelectedValue) ||
                 fontState.ItemsSource.Any(item => string.Equals(item.Value, fontState.SelectedValue, StringComparison.OrdinalIgnoreCase)));
