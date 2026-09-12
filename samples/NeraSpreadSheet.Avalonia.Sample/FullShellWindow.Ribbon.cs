@@ -15,7 +15,7 @@ namespace NeraSpreadSheet.Avalonia.Sample;
 
 public sealed partial class FullShellWindow
 {
-    private static readonly Lazy<CommandItem[]> FontChoices = new(CreateSystemFontChoices);
+    private CommandItem[] _fontChoices = CreateSystemFontChoices();
     private static readonly CommandItem[] SizeChoices = [new("8", "8"), new("9", "9"), new("10", "10"), new("11", "11"), new("12", "12"), new("14", "14"), new("16", "16"), new("18", "18"), new("20", "20"), new("22", "22"), new("24", "24"), new("26", "26"), new("28", "28"), new("36", "36"), new("48", "48"), new("72", "72")];
     private static readonly CommandItem[] NumberChoices = [new("General", "Chung"), new("#,##0", "Số nguyên"), new("#,##0.00", "Hai số thập phân"), new("0%", "Phần trăm"), new("dd/mm/yyyy", "Ngày tháng")];
     private static readonly CommandItem[] ColorChoices = [new("none", "Không màu"), new("#217346", "Xanh lá"), new("#156082", "Xanh lam"), new("#FFC000", "Vàng"), new("#C00000", "Đỏ"), new("#FFFFFF", "Trắng"), new("#000000", "Đen")];
@@ -74,7 +74,7 @@ public sealed partial class FullShellWindow
                     context => RestrictMetadataCommand(entry.Id) ? CommandState.Disabled : ResolveSessionHandler(entry.Id) is IStatefulCommandHandler stateful ? stateful.GetState(context) : new CommandState(ResolveSessionHandler(entry.Id).CanExecute(context))));
         }
         Choice("Ui.FontFamily", "Phông chữ", "font.family", value => ApplyStyle(s => s with { Font = s.Font with { Family = value } }),
-            () => ChoiceState(Session.Styles.ActiveCellStyle.Font.Family, FontChoices.Value));
+            () => ChoiceState(Session.Styles.ActiveCellStyle.Font.Family, _fontChoices));
         Choice("Ui.FontSize", "Cỡ chữ", "font.size", value => ApplyStyle(s => s with { Font = s.Font with { Size = ParseNumber(value) } }),
             () => ChoiceState(Session.Styles.ActiveCellStyle.Font.Size.ToString(CultureInfo.InvariantCulture), SizeChoices));
         Add("Ui.Underline", "Gạch chân", () => ApplyStyle(s => s with { Font = s.Font with { Underline = !s.Font.Underline, DoubleUnderline = false } }),

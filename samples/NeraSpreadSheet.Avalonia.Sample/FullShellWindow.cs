@@ -45,6 +45,7 @@ public sealed partial class FullShellWindow : Window, IDisposable
         _split.Session = CreateWorkbook(); RegisterCommands();
         _runtime = new RibbonRuntimeController(NeraSpreadsheetRibbonPreset.Create(_registry), _registry);
         _ribbon = new NeraRibbonControl(_runtime);
+        Opened += (_, _) => { _fontChoices = CreateSystemFontChoices(); _runtime.Refresh(); };
         _menu = new NeraBarPresenter(new BarRuntimeController(new BarDefinition("main-menu", BarKind.MainMenu,
             [BarItemDefinition.Submenu("Tệp", [BarItemDefinition.Command("Shell.Open"), BarItemDefinition.Command("Shell.Save")], "file"),
              BarItemDefinition.Submenu("Chỉnh sửa", [BarItemDefinition.Command("Edit.Undo"), BarItemDefinition.Command("Edit.Redo"), BarItemDefinition.Command("Edit.Copy"), BarItemDefinition.Command("Edit.Paste")], "edit")]), _registry));
