@@ -4,7 +4,14 @@
   "createdAtDisplay": "12/09/2026 09:59:14 (ICT, UTC+7)",
   "sourceSha": "36bc29a829b82a67c7f7c92d40087c5733361a06",
   "workflowRunId": 34668687734,
+  "workflowRun": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734",
   "record": "2026-09-12_0959_ICT_36bc29a8.json",
   "status": "validated",
-  "isLatest": true
+  "isLatest": true,
+  "downloads": {
+    "win-x64": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10289896809",
+    "linux-x64": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10290271349",
+    "osx-arm64": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10290935384",
+    "index": "https://github.com/HoangHung997/NeraSpreadSheet/actions/runs/34668687734/artifacts/10289956872"
+  }
 }
