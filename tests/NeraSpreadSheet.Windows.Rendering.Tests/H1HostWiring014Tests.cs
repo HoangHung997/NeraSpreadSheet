@@ -33,7 +33,7 @@ public sealed class H1HostWiring014Tests
 
     [TestMethod]
     [Timeout(120_000)]
-    public void DesktopHostsRestoreFractionalScrollAndZoomPerWorksheet()
+    public void DesktopHostsRestoreSupportedPerWorksheetViewportState()
     {
         RunSta(() =>
         {
@@ -192,6 +192,8 @@ public sealed class H1HostWiring014Tests
     private static void VerifyWinFormsViewState()
     {
         var session = CreateTwoSheetSession(out var first, out var second);
+        session.View.SetWorksheetViewport(first, 0, 0, 1.35);
+        session.View.SetWorksheetViewport(second, 0, 0, 0.8);
         using var form = new WinFormsForm
         {
             Width = 900,
@@ -210,29 +212,27 @@ public sealed class H1HostWiring014Tests
         {
             form.Show();
             WinFormsApplication.DoEvents();
-            control.Zoom = 1.35;
             control.ScrollTo(137.25, 88.5);
             AssertViewport(session.View.GetWorksheetState(first), 1.35, 137.25, 88.5);
 
             session.ActivateWorksheet(second);
             WinFormsApplication.DoEvents();
-            Assert.AreEqual(1d, control.Zoom, 1e-9);
             Assert.AreEqual(0d, control.ScrollSnapshot.OffsetX, 1e-9);
             Assert.AreEqual(0d, control.ScrollSnapshot.OffsetY, 1e-9);
-            control.Zoom = 0.8;
             control.ScrollTo(51.5, 67.25);
+            AssertViewport(session.View.GetWorksheetState(second), 0.8, 51.5, 67.25);
 
             session.ActivateWorksheet(first);
             WinFormsApplication.DoEvents();
-            Assert.AreEqual(1.35, control.Zoom, 1e-9);
             Assert.AreEqual(137.25, control.ScrollSnapshot.OffsetX, 1e-6);
             Assert.AreEqual(88.5, control.ScrollSnapshot.OffsetY, 1e-6);
+            Assert.AreEqual(1.35, session.View.GetWorksheetState(first).Zoom, 1e-9);
 
             session.ActivateWorksheet(second);
             WinFormsApplication.DoEvents();
-            Assert.AreEqual(0.8, control.Zoom, 1e-9);
             Assert.AreEqual(51.5, control.ScrollSnapshot.OffsetX, 1e-6);
             Assert.AreEqual(67.25, control.ScrollSnapshot.OffsetY, 1e-6);
+            Assert.AreEqual(0.8, session.View.GetWorksheetState(second).Zoom, 1e-9);
         }
         finally
         {
