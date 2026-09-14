@@ -281,7 +281,7 @@ public sealed class CrossSessionStructuralView015Tests
             active,
             anchor,
             Array.AsReadOnly(new[] { range }),
-            version: 0);
+            0);
         var split = default(SpreadsheetSplitViewState)
             .WithPaneScroll(
                 SpreadsheetSplitViewPane.TopLeft,
