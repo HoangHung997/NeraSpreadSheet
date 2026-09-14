@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Interaction;
 
@@ -63,6 +64,12 @@ internal static class SpreadsheetCrossSessionStructuralViewCoordinator
         }
     }
 
+    /// <summary>
+    /// Maps captured inactive peer states after a committed structural change.
+    /// A peer that changed its cached view between capture and apply is skipped.
+    /// If any applied peer throws, already-applied peers are restored in reverse
+    /// order and the original exception remains the exception that escapes.
+    /// </summary>
     internal static void ApplyMapped(
         IReadOnlyList<PeerViewSnapshot> snapshots,
         WorksheetStructuralChange change,
@@ -70,39 +77,140 @@ internal static class SpreadsheetCrossSessionStructuralViewCoordinator
     {
         ArgumentNullException.ThrowIfNull(snapshots);
         ArgumentNullException.ThrowIfNull(worksheetBefore);
-        foreach (var snapshot in snapshots)
+        var applied = new List<PeerViewSnapshot>(snapshots.Count);
+        try
         {
-            if (!CanApply(snapshot))
+            foreach (var snapshot in snapshots)
             {
-                continue;
-            }
+                if (!CanApply(snapshot) ||
+                    !SameState(
+                        snapshot.Session.View.GetWorksheetState(snapshot.Worksheet),
+                        snapshot.BeforeState))
+                {
+                    continue;
+                }
 
-            var mapped = MapState(
-                snapshot.Worksheet,
-                snapshot.State,
-                change,
-                worksheetBefore);
-            snapshot.Session.View.SetWorksheetState(
-                snapshot.Worksheet,
-                mapped,
-                source: snapshot);
+                var mapped = MapState(
+                    snapshot.Worksheet,
+                    snapshot.BeforeState,
+                    change,
+                    worksheetBefore);
+                snapshot.Session.View.SetWorksheetState(
+                    snapshot.Worksheet,
+                    mapped,
+                    source: snapshot);
+                snapshot.AppliedState = mapped;
+                applied.Add(snapshot);
+            }
+        }
+        catch (Exception original)
+        {
+            var recoveryErrors = new List<Exception>();
+            for (var index = applied.Count - 1; index >= 0; index--)
+            {
+                var snapshot = applied[index];
+                try
+                {
+                    RestoreOneIfUnchanged(snapshot);
+                }
+                catch (Exception recovery)
+                {
+                    recoveryErrors.Add(recovery);
+                }
+            }
+            if (recoveryErrors.Count > 0)
+            {
+                original.Data["NeraSpreadSheet.CrossSessionStructuralRecoveryErrors"] =
+                    recoveryErrors.ToArray();
+            }
+            ExceptionDispatchInfo.Capture(original).Throw();
+            throw;
         }
     }
 
-    internal static void Restore(IReadOnlyList<PeerViewSnapshot> snapshots)
+    /// <summary>
+    /// Restores the pre-operation state only when the peer is still inactive and
+    /// still has the exact state applied by this operation. User/host view changes
+    /// made after Execute therefore survive a later Undo.
+    /// </summary>
+    internal static void RestoreIfUnchanged(
+        IReadOnlyList<PeerViewSnapshot> snapshots)
     {
         ArgumentNullException.ThrowIfNull(snapshots);
-        foreach (var snapshot in snapshots)
+        var restored = new List<(PeerViewSnapshot Snapshot, SpreadsheetWorksheetViewState Applied)>();
+        try
         {
-            if (!CanApply(snapshot))
+            for (var index = snapshots.Count - 1; index >= 0; index--)
             {
-                continue;
+                var snapshot = snapshots[index];
+                if (snapshot.AppliedState is not { } applied ||
+                    !CanApply(snapshot) ||
+                    !SameState(
+                        snapshot.Session.View.GetWorksheetState(snapshot.Worksheet),
+                        applied))
+                {
+                    continue;
+                }
+
+                snapshot.Session.View.SetWorksheetState(
+                    snapshot.Worksheet,
+                    snapshot.BeforeState,
+                    source: snapshot);
+                snapshot.AppliedState = null;
+                restored.Add((snapshot, applied));
             }
-            snapshot.Session.View.SetWorksheetState(
-                snapshot.Worksheet,
-                snapshot.State,
-                source: snapshot);
         }
+        catch (Exception original)
+        {
+            var recoveryErrors = new List<Exception>();
+            for (var index = restored.Count - 1; index >= 0; index--)
+            {
+                var (snapshot, applied) = restored[index];
+                try
+                {
+                    if (CanApply(snapshot) &&
+                        SameState(
+                            snapshot.Session.View.GetWorksheetState(snapshot.Worksheet),
+                            snapshot.BeforeState))
+                    {
+                        snapshot.Session.View.SetWorksheetState(
+                            snapshot.Worksheet,
+                            applied,
+                            source: snapshot);
+                        snapshot.AppliedState = applied;
+                    }
+                }
+                catch (Exception recovery)
+                {
+                    recoveryErrors.Add(recovery);
+                }
+            }
+            if (recoveryErrors.Count > 0)
+            {
+                original.Data["NeraSpreadSheet.CrossSessionStructuralRecoveryErrors"] =
+                    recoveryErrors.ToArray();
+            }
+            ExceptionDispatchInfo.Capture(original).Throw();
+            throw;
+        }
+    }
+
+    private static void RestoreOneIfUnchanged(PeerViewSnapshot snapshot)
+    {
+        if (snapshot.AppliedState is not { } applied ||
+            !CanApply(snapshot) ||
+            !SameState(
+                snapshot.Session.View.GetWorksheetState(snapshot.Worksheet),
+                applied))
+        {
+            return;
+        }
+
+        snapshot.Session.View.SetWorksheetState(
+            snapshot.Worksheet,
+            snapshot.BeforeState,
+            source: snapshot);
+        snapshot.AppliedState = null;
     }
 
     private static bool CanApply(PeerViewSnapshot snapshot) =>
@@ -279,6 +387,17 @@ internal static class SpreadsheetCrossSessionStructuralViewCoordinator
         return offset;
     }
 
+    private static bool SameState(
+        SpreadsheetWorksheetViewState left,
+        SpreadsheetWorksheetViewState right) =>
+        left.Zoom == right.Zoom &&
+        left.SplitState == right.SplitState &&
+        left.FrozenRows == right.FrozenRows &&
+        left.FrozenColumns == right.FrozenColumns &&
+        left.Selection.ActiveCell == right.Selection.ActiveCell &&
+        left.Selection.AnchorCell == right.Selection.AnchorCell &&
+        left.Selection.Ranges.SequenceEqual(right.Selection.Ranges);
+
     private static void Prune(SessionBucket bucket) =>
         bucket.Sessions.RemoveAll(static reference => !reference.TryGetTarget(out _));
 
@@ -288,8 +407,21 @@ internal static class SpreadsheetCrossSessionStructuralViewCoordinator
         public List<WeakReference<SpreadsheetSession>> Sessions { get; } = [];
     }
 
-    internal sealed record PeerViewSnapshot(
-        SpreadsheetSession Session,
-        Worksheet Worksheet,
-        SpreadsheetWorksheetViewState State);
+    internal sealed class PeerViewSnapshot
+    {
+        internal PeerViewSnapshot(
+            SpreadsheetSession session,
+            Worksheet worksheet,
+            SpreadsheetWorksheetViewState beforeState)
+        {
+            Session = session;
+            Worksheet = worksheet;
+            BeforeState = beforeState;
+        }
+
+        internal SpreadsheetSession Session { get; }
+        internal Worksheet Worksheet { get; }
+        internal SpreadsheetWorksheetViewState BeforeState { get; }
+        internal SpreadsheetWorksheetViewState? AppliedState { get; set; }
+    }
 }
