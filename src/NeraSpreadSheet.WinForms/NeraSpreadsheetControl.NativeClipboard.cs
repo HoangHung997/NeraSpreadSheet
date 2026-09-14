@@ -64,8 +64,9 @@ public sealed partial class NeraSpreadsheetControl
 
                     var text = Clipboard.GetText(TextDataFormat.UnicodeText);
                     Guid? payloadId = null;
-                    if (Clipboard.ContainsData(SpreadsheetClipboardNativeFormats.PayloadId) &&
-                        Clipboard.GetData(SpreadsheetClipboardNativeFormats.PayloadId) is string raw &&
+                    if (Clipboard.TryGetData<string>(
+                            SpreadsheetClipboardNativeFormats.PayloadId,
+                            out var raw) &&
                         Guid.TryParse(raw, out var parsed))
                     {
                         payloadId = parsed;
