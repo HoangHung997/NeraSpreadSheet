@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Interaction;
@@ -199,9 +200,57 @@ public sealed class CrossSessionStructuralView015Tests
         workbook.RemoveWorksheet(target);
         peer.View.PruneRemovedWorksheetStates();
 
-        // The coordinator must not dereference or recreate state for a worksheet
-        // that no longer belongs to the workbook.
         Assert.IsFalse(workbook.Worksheets.Contains(target));
+    }
+
+    [TestMethod]
+    public void UndoHistoryShouldNotKeepInactivePeerSessionAlive()
+    {
+        var workbook = new Workbook();
+        var target = workbook.Worksheets[0];
+        var other = workbook.AddWorksheet("Other");
+        var origin = new SpreadsheetSession(workbook, target);
+        var weakPeer = CreatePeerAndRecordStructuralOperation(
+            workbook,
+            target,
+            other,
+            origin);
+
+        for (var pass = 0; pass < 5 && weakPeer.TryGetTarget(out _); pass++)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+        }
+
+        Assert.IsFalse(
+            weakPeer.TryGetTarget(out _),
+            "Undo history must not strongly retain an inactive peer session.");
+        Assert.IsTrue(origin.History.CanUndo);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference<SpreadsheetSession> CreatePeerAndRecordStructuralOperation(
+        Workbook workbook,
+        Worksheet target,
+        Worksheet other,
+        SpreadsheetSession origin)
+    {
+        var peer = new SpreadsheetSession(workbook, other);
+        peer.View.SetWorksheetState(
+            target,
+            CreateState(
+                active: new CellAddress(5, 5),
+                anchor: new CellAddress(5, 5),
+                range: new CellRange(new CellAddress(5, 5), new CellAddress(5, 5)),
+                zoom: 1.1,
+                offsetX: 123.5,
+                offsetY: 456.25,
+                frozenRows: 0,
+                frozenColumns: 0));
+        var weak = new WeakReference<SpreadsheetSession>(peer);
+        origin.Structure.InsertRows(1, 1);
+        return weak;
     }
 
     private static (
