@@ -67,8 +67,9 @@ internal static class SpreadsheetCrossSessionStructuralViewCoordinator
     /// <summary>
     /// Maps captured inactive peer states after a committed structural change.
     /// A peer that changed its cached view between capture and apply is skipped.
-    /// If any applied peer throws, already-applied peers are restored in reverse
-    /// order and the original exception remains the exception that escapes.
+    /// If any applied peer throws, every peer whose setter may already have
+    /// mutated state is restored in reverse order and the original exception
+    /// remains the exception that escapes.
     /// </summary>
     internal static void ApplyMapped(
         IReadOnlyList<PeerViewSnapshot> snapshots,
@@ -95,12 +96,18 @@ internal static class SpreadsheetCrossSessionStructuralViewCoordinator
                     snapshot.BeforeState,
                     change,
                     worksheetBefore);
+
+                // Register the attempted mutation before calling the setter.
+                // SetWorksheetState publishes events after changing its cache;
+                // an observer can therefore throw after state was already
+                // committed. Including this peer up front makes that case
+                // recoverable as part of the same transaction.
+                snapshot.AppliedState = mapped;
+                applied.Add(snapshot);
                 peer.View.SetWorksheetState(
                     snapshot.Worksheet,
                     mapped,
                     source: snapshot);
-                snapshot.AppliedState = mapped;
-                applied.Add(snapshot);
             }
         }
         catch (Exception original)
@@ -197,19 +204,29 @@ internal static class SpreadsheetCrossSessionStructuralViewCoordinator
     private static void RestoreOneIfUnchanged(PeerViewSnapshot snapshot)
     {
         if (snapshot.AppliedState is not { } applied ||
-            !TryGetApplicablePeer(snapshot, out var peer) ||
-            !SameState(
-                peer.View.GetWorksheetState(snapshot.Worksheet),
-                applied))
+            !TryGetApplicablePeer(snapshot, out var peer))
         {
+            snapshot.AppliedState = null;
             return;
         }
 
-        peer.View.SetWorksheetState(
-            snapshot.Worksheet,
-            snapshot.BeforeState,
-            source: snapshot);
-        snapshot.AppliedState = null;
+        var current = peer.View.GetWorksheetState(snapshot.Worksheet);
+        if (SameState(current, applied))
+        {
+            peer.View.SetWorksheetState(
+                snapshot.Worksheet,
+                snapshot.BeforeState,
+                source: snapshot);
+            snapshot.AppliedState = null;
+            return;
+        }
+
+        // If the setter failed before mutating, current still equals BeforeState.
+        // Clear the attempted marker without performing an unnecessary write.
+        if (SameState(current, snapshot.BeforeState))
+        {
+            snapshot.AppliedState = null;
+        }
     }
 
     private static bool TryGetApplicablePeer(
