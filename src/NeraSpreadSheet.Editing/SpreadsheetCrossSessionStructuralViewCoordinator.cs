@@ -82,9 +82,9 @@ internal static class SpreadsheetCrossSessionStructuralViewCoordinator
         {
             foreach (var snapshot in snapshots)
             {
-                if (!CanApply(snapshot) ||
+                if (!TryGetApplicablePeer(snapshot, out var peer) ||
                     !SameState(
-                        snapshot.Session.View.GetWorksheetState(snapshot.Worksheet),
+                        peer.View.GetWorksheetState(snapshot.Worksheet),
                         snapshot.BeforeState))
                 {
                     continue;
@@ -95,7 +95,7 @@ internal static class SpreadsheetCrossSessionStructuralViewCoordinator
                     snapshot.BeforeState,
                     change,
                     worksheetBefore);
-                snapshot.Session.View.SetWorksheetState(
+                peer.View.SetWorksheetState(
                     snapshot.Worksheet,
                     mapped,
                     source: snapshot);
@@ -108,10 +108,9 @@ internal static class SpreadsheetCrossSessionStructuralViewCoordinator
             var recoveryErrors = new List<Exception>();
             for (var index = applied.Count - 1; index >= 0; index--)
             {
-                var snapshot = applied[index];
                 try
                 {
-                    RestoreOneIfUnchanged(snapshot);
+                    RestoreOneIfUnchanged(applied[index]);
                 }
                 catch (Exception recovery)
                 {
@@ -144,15 +143,15 @@ internal static class SpreadsheetCrossSessionStructuralViewCoordinator
             {
                 var snapshot = snapshots[index];
                 if (snapshot.AppliedState is not { } applied ||
-                    !CanApply(snapshot) ||
+                    !TryGetApplicablePeer(snapshot, out var peer) ||
                     !SameState(
-                        snapshot.Session.View.GetWorksheetState(snapshot.Worksheet),
+                        peer.View.GetWorksheetState(snapshot.Worksheet),
                         applied))
                 {
                     continue;
                 }
 
-                snapshot.Session.View.SetWorksheetState(
+                peer.View.SetWorksheetState(
                     snapshot.Worksheet,
                     snapshot.BeforeState,
                     source: snapshot);
@@ -168,12 +167,12 @@ internal static class SpreadsheetCrossSessionStructuralViewCoordinator
                 var (snapshot, applied) = restored[index];
                 try
                 {
-                    if (CanApply(snapshot) &&
+                    if (TryGetApplicablePeer(snapshot, out var peer) &&
                         SameState(
-                            snapshot.Session.View.GetWorksheetState(snapshot.Worksheet),
+                            peer.View.GetWorksheetState(snapshot.Worksheet),
                             snapshot.BeforeState))
                     {
-                        snapshot.Session.View.SetWorksheetState(
+                        peer.View.SetWorksheetState(
                             snapshot.Worksheet,
                             applied,
                             source: snapshot);
@@ -198,24 +197,34 @@ internal static class SpreadsheetCrossSessionStructuralViewCoordinator
     private static void RestoreOneIfUnchanged(PeerViewSnapshot snapshot)
     {
         if (snapshot.AppliedState is not { } applied ||
-            !CanApply(snapshot) ||
+            !TryGetApplicablePeer(snapshot, out var peer) ||
             !SameState(
-                snapshot.Session.View.GetWorksheetState(snapshot.Worksheet),
+                peer.View.GetWorksheetState(snapshot.Worksheet),
                 applied))
         {
             return;
         }
 
-        snapshot.Session.View.SetWorksheetState(
+        peer.View.SetWorksheetState(
             snapshot.Worksheet,
             snapshot.BeforeState,
             source: snapshot);
         snapshot.AppliedState = null;
     }
 
-    private static bool CanApply(PeerViewSnapshot snapshot) =>
-        snapshot.Session.Workbook.Worksheets.Contains(snapshot.Worksheet) &&
-        !ReferenceEquals(snapshot.Session.ActiveWorksheet, snapshot.Worksheet);
+    private static bool TryGetApplicablePeer(
+        PeerViewSnapshot snapshot,
+        out SpreadsheetSession peer)
+    {
+        if (!snapshot.Session.TryGetTarget(out peer!) ||
+            !peer.Workbook.Worksheets.Contains(snapshot.Worksheet) ||
+            ReferenceEquals(peer.ActiveWorksheet, snapshot.Worksheet))
+        {
+            peer = null!;
+            return false;
+        }
+        return true;
+    }
 
     private static SpreadsheetWorksheetViewState MapState(
         Worksheet worksheet,
@@ -414,12 +423,12 @@ internal static class SpreadsheetCrossSessionStructuralViewCoordinator
             Worksheet worksheet,
             SpreadsheetWorksheetViewState beforeState)
         {
-            Session = session;
+            Session = new WeakReference<SpreadsheetSession>(session);
             Worksheet = worksheet;
             BeforeState = beforeState;
         }
 
-        internal SpreadsheetSession Session { get; }
+        internal WeakReference<SpreadsheetSession> Session { get; }
         internal Worksheet Worksheet { get; }
         internal SpreadsheetWorksheetViewState BeforeState { get; }
         internal SpreadsheetWorksheetViewState? AppliedState { get; set; }
