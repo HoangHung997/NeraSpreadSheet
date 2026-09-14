@@ -110,7 +110,8 @@ public sealed class CrossSessionStructuralView015Tests
             frozenColumns: 1);
         peer.View.SetWorksheetState(target, before);
 
-        origin.Structure.InsertRows(2, 1);
+        // Insert inside the frozen region so the freeze boundary must move too.
+        origin.Structure.InsertRows(1, 1);
         Assert.AreEqual(
             new CellAddress(7, 5),
             peer.View.GetWorksheetState(target).Selection.ActiveCell);
@@ -216,18 +217,27 @@ public sealed class CrossSessionStructuralView015Tests
             other,
             origin);
 
-        for (var pass = 0; pass < 5 && weakPeer.TryGetTarget(out _); pass++)
+        for (var pass = 0; pass < 8; pass++)
         {
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
+            if (!IsPeerAlive(weakPeer))
+            {
+                break;
+            }
         }
 
         Assert.IsFalse(
-            weakPeer.TryGetTarget(out _),
+            IsPeerAlive(weakPeer),
             "Undo history must not strongly retain an inactive peer session.");
         Assert.IsTrue(origin.History.CanUndo);
+        GC.KeepAlive(origin);
     }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static bool IsPeerAlive(WeakReference<SpreadsheetSession> weak) =>
+        weak.TryGetTarget(out _);
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference<SpreadsheetSession> CreatePeerAndRecordStructuralOperation(
