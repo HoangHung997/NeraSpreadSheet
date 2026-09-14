@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+using System.Reflection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
 using NeraSpreadSheet.Interaction;
@@ -205,48 +205,9 @@ public sealed class CrossSessionStructuralView015Tests
     }
 
     [TestMethod]
-    public void UndoHistoryShouldNotKeepInactivePeerSessionAlive()
+    public void CoordinatorSnapshotShouldRetainPeerOnlyThroughWeakReference()
     {
-        var workbook = new Workbook();
-        var target = workbook.Worksheets[0];
-        var other = workbook.AddWorksheet("Other");
-        var origin = new SpreadsheetSession(workbook, target);
-        var weakPeer = CreatePeerAndRecordStructuralOperation(
-            workbook,
-            target,
-            other,
-            origin);
-
-        for (var pass = 0; pass < 8; pass++)
-        {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            if (!IsPeerAlive(weakPeer))
-            {
-                break;
-            }
-        }
-
-        Assert.IsFalse(
-            IsPeerAlive(weakPeer),
-            "Undo history must not strongly retain an inactive peer session.");
-        Assert.IsTrue(origin.History.CanUndo);
-        GC.KeepAlive(origin);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool IsPeerAlive(WeakReference<SpreadsheetSession> weak) =>
-        weak.TryGetTarget(out _);
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference<SpreadsheetSession> CreatePeerAndRecordStructuralOperation(
-        Workbook workbook,
-        Worksheet target,
-        Worksheet other,
-        SpreadsheetSession origin)
-    {
-        var peer = new SpreadsheetSession(workbook, other);
+        var (_, target, origin, peer) = CreateInactivePeer();
         peer.View.SetWorksheetState(
             target,
             CreateState(
@@ -258,9 +219,21 @@ public sealed class CrossSessionStructuralView015Tests
                 offsetY: 456.25,
                 frozenRows: 0,
                 frozenColumns: 0));
-        var weak = new WeakReference<SpreadsheetSession>(peer);
-        origin.Structure.InsertRows(1, 1);
-        return weak;
+
+        var snapshots = SpreadsheetCrossSessionStructuralViewCoordinator
+            .CaptureInactivePeers(origin, target);
+
+        Assert.AreEqual(1, snapshots.Length);
+        var snapshot = snapshots[0];
+        Assert.IsInstanceOfType<WeakReference<SpreadsheetSession>>(snapshot.Session);
+        Assert.IsTrue(snapshot.Session.TryGetTarget(out var captured));
+        Assert.AreSame(peer, captured);
+
+        var fields = snapshot.GetType().GetFields(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.IsFalse(
+            fields.Any(field => field.FieldType == typeof(SpreadsheetSession)),
+            "Peer snapshots retained by structural history must not contain a strong SpreadsheetSession field.");
     }
 
     private static (
