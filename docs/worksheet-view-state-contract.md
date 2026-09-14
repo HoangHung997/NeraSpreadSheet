@@ -192,8 +192,8 @@ Exact-code-head `69141857513229e6b7bca2d7f9d0ede17e6e64fc` đã qua workflow
 `CROSS-SESSION-STRUCTURAL-015` run `34843573572`: restore, full solution build +
 analyzers, Editing regressions và Core regressions đều **SUCCESS**. Workflow
 checkpoint tạm được xóa sau qualification; product/test code đã kiểm không đổi.
-Clean branch HEAD `dedff75b19073cb8b4c9fe155c5607b790dbf3aa` chỉ bổ sung tài liệu
-sau cleanup; không đổi product/test code so với exact-code-head đã qualification.
+Sau exact-code-head chỉ có cleanup workflow tạm và cập nhật tài liệu; vì vậy
+validation vẫn áp dụng trực tiếp cho product/test delta của checkpoint.
 
 Giới hạn còn lại: active-peer/native host arbitration, row/column reorder xuyên
 session nếu dùng transaction khác Insert/Delete, và broader session disposal/GC
