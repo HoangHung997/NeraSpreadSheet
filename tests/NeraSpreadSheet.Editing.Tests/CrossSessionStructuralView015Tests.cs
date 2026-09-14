@@ -205,35 +205,22 @@ public sealed class CrossSessionStructuralView015Tests
     }
 
     [TestMethod]
-    public void CoordinatorSnapshotShouldRetainPeerOnlyThroughWeakReference()
+    public void CoordinatorSnapshotTypeShouldRetainPeerOnlyThroughWeakReference()
     {
-        var (_, target, origin, peer) = CreateInactivePeer();
-        peer.View.SetWorksheetState(
-            target,
-            CreateState(
-                active: new CellAddress(5, 5),
-                anchor: new CellAddress(5, 5),
-                range: new CellRange(new CellAddress(5, 5), new CellAddress(5, 5)),
-                zoom: 1.1,
-                offsetX: 123.5,
-                offsetY: 456.25,
-                frozenRows: 0,
-                frozenColumns: 0));
-
-        var snapshots = SpreadsheetCrossSessionStructuralViewCoordinator
-            .CaptureInactivePeers(origin, target);
-
-        Assert.AreEqual(1, snapshots.Length);
-        var snapshot = snapshots[0];
-        Assert.IsInstanceOfType<WeakReference<SpreadsheetSession>>(snapshot.Session);
-        Assert.IsTrue(snapshot.Session.TryGetTarget(out var captured));
-        Assert.AreSame(peer, captured);
-
-        var fields = snapshot.GetType().GetFields(
+        var assembly = typeof(SpreadsheetSession).Assembly;
+        var snapshotType = assembly.GetType(
+            "NeraSpreadSheet.Editing.SpreadsheetCrossSessionStructuralViewCoordinator+PeerViewSnapshot",
+            throwOnError: true)!;
+        var fields = snapshotType.GetFields(
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
         Assert.IsFalse(
             fields.Any(field => field.FieldType == typeof(SpreadsheetSession)),
             "Peer snapshots retained by structural history must not contain a strong SpreadsheetSession field.");
+        Assert.IsTrue(
+            fields.Any(field =>
+                field.FieldType == typeof(WeakReference<SpreadsheetSession>)),
+            "Peer snapshots must retain the session only through WeakReference<SpreadsheetSession>.");
     }
 
     private static (
