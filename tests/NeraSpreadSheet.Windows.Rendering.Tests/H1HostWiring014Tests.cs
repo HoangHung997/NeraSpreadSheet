@@ -75,12 +75,12 @@ public sealed class H1HostWiring014Tests
             WpfClipboard.SetText("external\t7");
             session.Selection.SetActiveCell(new CellAddress(2, 0));
             Assert.IsTrue(control.PasteFromOperatingSystemClipboard());
-            Assert.AreEqual("external", sheet.GetValue(new CellAddress(2, 0)).ToString());
-            Assert.AreEqual("7", sheet.GetValue(new CellAddress(2, 1)).ToString());
+            Assert.AreEqual("external", sheet.GetValue(new CellAddress(2, 0)));
+            Assert.AreEqual(7d, sheet.GetValue(new CellAddress(2, 1)));
 
             session.Selection.SetActiveCell(default);
             Assert.IsTrue(control.CopyToOperatingSystemClipboard(cut: true));
-            Assert.IsTrue(sheet.GetValue(default).IsBlank);
+            Assert.IsNull(sheet.GetValue(default));
             session.Selection.SetActiveCell(new CellAddress(4, 0));
             Assert.IsTrue(control.PasteFromOperatingSystemClipboard());
             Assert.AreEqual("=1+2", sheet.GetFormula(new CellAddress(4, 0)));
@@ -129,8 +129,8 @@ public sealed class H1HostWiring014Tests
             WinFormsClipboard.SetText("outside\t11");
             session.Selection.SetActiveCell(new CellAddress(2, 0));
             Assert.IsTrue(control.PasteFromOperatingSystemClipboard());
-            Assert.AreEqual("outside", sheet.GetValue(new CellAddress(2, 0)).ToString());
-            Assert.AreEqual("11", sheet.GetValue(new CellAddress(2, 1)).ToString());
+            Assert.AreEqual("outside", sheet.GetValue(new CellAddress(2, 0)));
+            Assert.AreEqual(11d, sheet.GetValue(new CellAddress(2, 1)));
         }
         finally
         {
