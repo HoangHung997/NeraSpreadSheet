@@ -3,8 +3,9 @@ using NeraSpreadSheet.Editing;
 namespace NeraSpreadSheet.WinForms;
 
 /// <summary>
-/// Binds the standalone WinForms viewport's continuous scroll/zoom to the shared
-/// per-worksheet session view state without creating another history model.
+/// Binds the standalone WinForms viewport's continuous scroll to the shared
+/// per-worksheet session view state without inventing a WinForms zoom API that the
+/// host does not expose. The existing session zoom value is preserved untouched.
 /// </summary>
 public sealed class NeraWorksheetViewStateBinding : IDisposable
 {
@@ -17,7 +18,6 @@ public sealed class NeraWorksheetViewStateBinding : IDisposable
     {
         _control = control ?? throw new ArgumentNullException(nameof(control));
         _control.ScrollChanged += OnScrollChanged;
-        _control.ZoomChanged += OnZoomChanged;
         _control.Layout += OnLayout;
         EnsureSession();
         RestoreActiveWorksheet();
@@ -59,8 +59,6 @@ public sealed class NeraWorksheetViewStateBinding : IDisposable
 
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e) => PersistViewport();
 
-    private void OnZoomChanged(object? sender, EventArgs e) => PersistViewport();
-
     private void PersistViewport()
     {
         if (_disposed || _synchronizing)
@@ -73,11 +71,12 @@ public sealed class NeraWorksheetViewStateBinding : IDisposable
             return;
         }
         var scroll = _control.ScrollSnapshot;
+        var current = _session.View.GetWorksheetState(_session.ActiveWorksheet);
         _session.View.SetWorksheetViewport(
             _session.ActiveWorksheet,
             scroll.OffsetX,
             scroll.OffsetY,
-            _control.Zoom,
+            current.Zoom,
             this);
     }
 
@@ -96,10 +95,6 @@ public sealed class NeraWorksheetViewStateBinding : IDisposable
         _synchronizing = true;
         try
         {
-            if (Math.Abs(_control.Zoom - state.Zoom) > 1e-9)
-            {
-                _control.Zoom = state.Zoom;
-            }
             _control.ScrollTo(state.OffsetX, state.OffsetY, animated: false);
         }
         finally
@@ -113,7 +108,7 @@ public sealed class NeraWorksheetViewStateBinding : IDisposable
                 _session.ActiveWorksheet,
                 actual.OffsetX,
                 actual.OffsetY,
-                _control.Zoom,
+                state.Zoom,
                 this);
         }
     }
@@ -126,7 +121,6 @@ public sealed class NeraWorksheetViewStateBinding : IDisposable
         }
         _disposed = true;
         _control.ScrollChanged -= OnScrollChanged;
-        _control.ZoomChanged -= OnZoomChanged;
         _control.Layout -= OnLayout;
         if (_session is not null)
         {
