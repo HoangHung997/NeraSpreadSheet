@@ -33,11 +33,11 @@ vùng còn lại được giữ, không materialize axes. Hai sessions cùng wor
 ghi đè selection/zoom/scroll của nhau.
 
 Split/freeze và mapping của structural/reorder transactions hiện có tiếp tục
-là nguồn dữ liệu có thẩm quyền. Batch không sửa transaction controllers hoặc
-suy ra phép reorder chỉ từ một CellsChanged event. Exact identity remapping
-cho cached selection ở một session khác khi external structural edits xảy ra
-vẫn cần event/transaction grant và nghiệm thu bổ sung; không claim đã xử lý
-mọi biến đổi xuyên cửa sổ từ cơ chế khôi phục cơ bản này.
+là nguồn dữ liệu có thẩm quyền. Batch ban đầu không sửa transaction controllers
+hoặc suy ra phép reorder chỉ từ một CellsChanged event. Phần inactive cross-session
+cho Insert/Delete hàng/cột sau đó được nghiệm thu riêng tại
+`CROSS-SESSION-STRUCTURAL-015` bên dưới; active-peer/native arbitration và các
+structural transaction khác vẫn không được suy rộng từ checkpoint đó.
 
 ## V2 — Standard XML và độ chính xác native
 
@@ -128,9 +128,10 @@ WorksheetViewStateWindowBindingTests: viewport không đổi selection/freeze,
 source tag/guard/no-op/error paths; thứ tự view đảo giữa hai sheet, view thiếu,
 ID không tồn tại, duplicate SheetViews và hai vòng lưu/nạp. Không giảm assertion/test cũ.
 
-Cross-session inactive structural identity remapping vẫn cần typed transaction/host
-grant. Không giả lập structural signal bằng CellsChanged hoặc lấy những sửa lỗi
-binding này để đóng các phần đó.
+Phần inactive cross-session Insert/Delete đã được đóng bởi checkpoint 015 bên
+dưới. Reorder xuyên session, active-peer/native host arbitration và những đường
+structural khác vẫn cần grant/acceptance riêng; không giả lập signal bằng
+CellsChanged để đóng các mục này.
 
 ## QA-GAPS-005 — binding Avalonia UI chính
 
