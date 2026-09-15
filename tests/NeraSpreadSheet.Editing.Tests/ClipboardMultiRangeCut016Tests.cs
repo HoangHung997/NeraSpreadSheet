@@ -23,7 +23,7 @@ public sealed class ClipboardMultiRangeCut016Tests
         Assert.AreEqual("A1", worksheet.GetValue(new CellAddress(0, 0)));
         Assert.AreEqual("C1", worksheet.GetValue(new CellAddress(0, 2)));
         Assert.AreEqual("B1-outside", worksheet.GetValue(new CellAddress(0, 1)));
-        Assert.AreEqual(selection, session.Selection.Capture());
+        AssertSelectionEquivalent(selection, session.Selection.Capture());
         Assert.IsFalse(session.Clipboard.IsClipboardWritePending);
         Assert.IsFalse(session.Undo());
         Assert.IsFalse(session.Redo());
@@ -78,5 +78,13 @@ public sealed class ClipboardMultiRangeCut016Tests
         session.Selection.Select(new CellRange(new CellAddress(0, 2), new CellAddress(0, 2)), additive: true);
         Assert.AreEqual(2, session.Selection.Ranges.Count);
         return session;
+    }
+
+    private static void AssertSelectionEquivalent(SelectionSnapshot expected, SelectionSnapshot actual)
+    {
+        Assert.AreEqual(expected.ActiveCell, actual.ActiveCell);
+        Assert.AreEqual(expected.AnchorCell, actual.AnchorCell);
+        Assert.AreEqual(expected.Version, actual.Version);
+        CollectionAssert.AreEqual(expected.Ranges.ToArray(), actual.Ranges.ToArray());
     }
 }
