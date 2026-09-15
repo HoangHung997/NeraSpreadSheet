@@ -10,6 +10,7 @@ public sealed class SpreadsheetStructureController
     public SpreadsheetStructureController(SpreadsheetSession session)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
+        SpreadsheetCrossSessionStructuralViewCoordinator.Register(_session);
     }
 
     public void InsertRows(int rowIndex, int count = 1) =>
@@ -92,6 +93,8 @@ public sealed class SpreadsheetStructureController
         private int _frozenRowsBefore;
         private int _frozenColumnsBefore;
         private SpreadsheetSplitViewState _splitStateBefore;
+        private SpreadsheetCrossSessionStructuralViewCoordinator.PeerViewSnapshot[]
+            _peerSnapshots = [];
 
         public StructuralWorksheetOperation(
             SpreadsheetSession session,
@@ -130,6 +133,9 @@ public sealed class SpreadsheetStructureController
         public void Execute()
         {
             var clearedSpillCount = PrepareCanonicalState();
+            _peerSnapshots =
+                SpreadsheetCrossSessionStructuralViewCoordinator
+                    .CaptureInactivePeers(_session, Worksheet);
             var versionBeforeApply = Worksheet.Version;
             try
             {
@@ -138,6 +144,11 @@ public sealed class SpreadsheetStructureController
                 RestoreMappedSelection();
                 ApplyMappedFreezeState();
                 ApplyMappedSplitState();
+                SpreadsheetCrossSessionStructuralViewCoordinator.ApplyMapped(
+                    _peerSnapshots,
+                    _change,
+                    _worksheetBefore ?? throw new InvalidOperationException(
+                        "Worksheet state was not captured."));
             }
             catch
             {
@@ -225,6 +236,8 @@ public sealed class SpreadsheetStructureController
                 SpreadsheetSplitViewChangeKind.State,
                 this);
             _session.Selection.Restore(_selectionBefore);
+            SpreadsheetCrossSessionStructuralViewCoordinator.RestoreIfUnchanged(
+                _peerSnapshots);
         }
 
         private void RewriteWorkbookFormulas()

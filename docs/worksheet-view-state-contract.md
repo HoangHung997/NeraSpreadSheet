@@ -33,11 +33,11 @@ vùng còn lại được giữ, không materialize axes. Hai sessions cùng wor
 ghi đè selection/zoom/scroll của nhau.
 
 Split/freeze và mapping của structural/reorder transactions hiện có tiếp tục
-là nguồn dữ liệu có thẩm quyền. Batch không sửa transaction controllers hoặc
-suy ra phép reorder chỉ từ một CellsChanged event. Exact identity remapping
-cho cached selection ở một session khác khi external structural edits xảy ra
-vẫn cần event/transaction grant và nghiệm thu bổ sung; không claim đã xử lý
-mọi biến đổi xuyên cửa sổ từ cơ chế khôi phục cơ bản này.
+là nguồn dữ liệu có thẩm quyền. Batch ban đầu không sửa transaction controllers
+hoặc suy ra phép reorder chỉ từ một CellsChanged event. Phần inactive cross-session
+cho Insert/Delete hàng/cột sau đó được nghiệm thu riêng tại
+`CROSS-SESSION-STRUCTURAL-015` bên dưới; active-peer/native arbitration và các
+structural transaction khác vẫn không được suy rộng từ checkpoint đó.
 
 ## V2 — Standard XML và độ chính xác native
 
@@ -128,9 +128,10 @@ WorksheetViewStateWindowBindingTests: viewport không đổi selection/freeze,
 source tag/guard/no-op/error paths; thứ tự view đảo giữa hai sheet, view thiếu,
 ID không tồn tại, duplicate SheetViews và hai vòng lưu/nạp. Không giảm assertion/test cũ.
 
-Cross-session inactive structural identity remapping vẫn cần typed transaction/host
-grant. Không giả lập structural signal bằng CellsChanged hoặc lấy những sửa lỗi
-binding này để đóng các phần đó.
+Phần inactive cross-session Insert/Delete đã được đóng bởi checkpoint 015 bên
+dưới. Reorder xuyên session, active-peer/native host arbitration và những đường
+structural khác vẫn cần grant/acceptance riêng; không giả lập signal bằng
+CellsChanged để đóng các mục này.
 
 ## QA-GAPS-005 — binding Avalonia UI chính
 
@@ -150,3 +151,50 @@ của model; ComboBox hiển thị cả giá trị động ngoài danh sách pre
 Acceptance native riêng chạy A→B→A/B với selection, fractional scroll và zoom,
 đồng thời kiểm Undo count không đổi. Kết quả thực thi thuộc worklog
 `QA_GAPS_005.md`; đoạn này chỉ mô tả contract/source và không thay exact-head CI.
+
+## CROSS-SESSION-STRUCTURAL-015 — nghiệm thu inactive structural remapping
+
+Checkpoint này đóng phần **inactive cross-session structural identity** cho
+Insert/Delete hàng/cột được thực hiện qua `SpreadsheetStructureController`.
+Không suy cấu trúc từ `CellsChanged`: origin operation truyền trực tiếp
+`WorksheetStructuralChange` cho coordinator dùng chung theo Workbook.
+
+Mỗi `SpreadsheetSession` đăng ký bằng `ConditionalWeakTable<Workbook,...>` và
+`WeakReference<SpreadsheetSession>`. Snapshot được giữ trong structural Undo
+history cũng chỉ giữ peer session bằng weak reference; checkpoint không thêm
+strong cross-session owner. Đây là bằng chứng ownership của coordinator, không
+phải tuyên bố mọi subsystem có sẵn trong `SpreadsheetSession` đều đã được audit
+về lifetime/GC.
+
+Trước mỗi Execute/Redo, operation chụp state của các peer mà worksheet đang
+**inactive**. Sau structural commit, selection active/anchor/ranges, freeze
+boundary và fractional scroll của mọi pane được map bằng typed change; zoom giữ
+nguyên. Range bị xóa hoàn toàn fallback về mapped active cell. Peer đang active
+không thuộc phạm vi này và không bị coordinator sửa.
+
+Undo chỉ trả peer về snapshot trước operation nếu peer vẫn inactive và state
+hiện tại còn đúng state operation đã áp dụng. Nếu người dùng/host đã đổi
+selection/scroll/zoom sau Execute, Undo không ghi đè thay đổi mới đó. Redo gọi
+Execute lại nên chụp peer state mới thay vì inverse-map snapshot cũ.
+
+Apply/restore peer state là transaction có recovery theo thứ tự ngược. Vì
+`SetWorksheetState` có thể đổi cache trước khi observer ném exception, snapshot
+được đánh dấu attempted trước setter; failure sau mutation vẫn được rollback.
+Recovery error phụ được đính vào exception gốc, không thay exception gốc.
+Worksheet đã remove hoặc peer không còn sống được bỏ qua an toàn.
+
+Regression mới gồm InsertRows/DeleteColumns, fully-deleted selection,
+fractional offsets, freeze mapping, active-peer exclusion, Undo/Redo, peer đổi
+view trước Undo, removed worksheet, weak snapshot ownership và observer failure
+sau mutation với rollback toàn peer + history không ghi operation lỗi.
+
+Exact-head `1e9819835f968a8c69ee02ffc012040b752236bb` đã qua workflow
+`CROSS-SESSION-STRUCTURAL-015` run `34920408532`: restore, full solution build +
+analyzers, Editing regressions và Core regressions đều **SUCCESS**. Workflow
+qualification tạm được xóa sau PASS; product/test/docs của checkpoint đã được
+kiểm trên chính head qualification này.
+
+Giới hạn còn lại: active-peer/native host arbitration, row/column reorder xuyên
+session nếu dùng transaction khác Insert/Delete, và broader session disposal/GC
+ngoài object graph coordinator vẫn là phạm vi riêng; checkpoint này không dùng
+kết quả inactive structural để đóng các mục đó.
