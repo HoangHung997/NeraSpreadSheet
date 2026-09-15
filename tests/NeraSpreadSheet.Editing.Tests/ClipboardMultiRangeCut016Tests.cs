@@ -1,5 +1,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NeraSpreadSheet.Core;
+using NeraSpreadSheet.Interaction;
 
 namespace NeraSpreadSheet.Editing.Tests;
 
