@@ -13,6 +13,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  crossbuild-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact NotePad source
+        uses: actions/checkout@v4
+        with:
+          repository: HoangHung997/NotePad
+          ref: 3b79dee4c5b7843d7a9ad3987a5b33ad414536a3
+          path: notepad
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cross-build exact Windows source
+        working-directory: notepad
+        run: |
+          test "$(git rev-parse HEAD)" = "3b79dee4c5b7843d7a9ad3987a5b33ad414536a3"
+          dotnet restore H2Notes.Avalonia.slnx -p:EnableWindowsTargeting=true
+          dotnet build H2Notes.Avalonia.slnx -c Release --no-restore -p:EnableWindowsTargeting=true
+          dotnet publish src/H2Notes.Avalonia/H2Notes.Avalonia.csproj -c Release -r win-x64 --self-contained true -p:EnableWindowsTargeting=true -o artifacts/H2Notes-Avalonia-Portable-crossbuild
+          test -s artifacts/H2Notes-Avalonia-Portable-crossbuild/H2Notes.Avalonia.exe
+          cat > artifacts/H2Notes-Avalonia-Portable-crossbuild/CROSSBUILD-NOT-NATIVE-VERIFIED.txt <<EOF
+          Source repository: HoangHung997/NotePad
+          Source commit: 3b79dee4c5b7843d7a9ad3987a5b33ad414536a3
+          Task: AR-061
+          External runner repository: HoangHung997/NeraSpreadSheet
+          This is compile/publish evidence only; native Windows runtime acceptance and packaged-helper IPC still require the Windows job.
+          EOF
+
+      - name: Upload cross-build
+        uses: actions/upload-artifact@v4
+        with:
+          name: H2Notes-Avalonia-Portable-win-x64-AR061-external-crossbuild
+          path: notepad/artifacts/H2Notes-Avalonia-Portable-crossbuild/
+          if-no-files-found: error
+          retention-days: 14
+
   build-ar061:
     runs-on: windows-latest
     timeout-minutes: 45
