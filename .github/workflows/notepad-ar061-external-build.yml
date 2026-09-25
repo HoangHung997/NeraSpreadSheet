@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: notepad-ar061-e50ee2
+  group: notepad-ar061-3b79
   cancel-in-progress: true
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: HoangHung997/NotePad
-          ref: e50ee2aca2e9085700050ffec54d72e5219f8e4f
+          ref: 3b79dee4c5b7843d7a9ad3987a5b33ad414536a3
           path: notepad
           fetch-depth: 0
           persist-credentials: false
@@ -37,7 +37,7 @@ jobs:
           $ErrorActionPreference='Stop'
           Set-Location notepad
           $sha = git rev-parse HEAD
-          if ($sha -ne 'e50ee2aca2e9085700050ffec54d72e5219f8e4f') { throw "Wrong NotePad SHA: $sha" }
+          if ($sha -ne '3b79dee4c5b7843d7a9ad3987a5b33ad414536a3') { throw "Wrong NotePad SHA: $sha" }
           if (git status --porcelain) { throw 'Dirty NotePad checkout before build.' }
           New-Item -ItemType Directory -Force artifacts/external-ar061 | Out-Null
           @{
@@ -112,7 +112,7 @@ jobs:
           dotnet publish .\src\H2Notes.Avalonia\H2Notes.Avalonia.csproj -c Release -r win-x64 --self-contained true -o .\artifacts\H2Notes-Avalonia-Portable
           @"
           Source repository: HoangHung997/NotePad
-          Source commit: e50ee2aca2e9085700050ffec54d72e5219f8e4f
+          Source commit: 3b79dee4c5b7843d7a9ad3987a5b33ad414536a3
           Task: AR-061
           External runner repository: HoangHung997/NeraSpreadSheet
           GitHub run: ${{ github.run_id }}
