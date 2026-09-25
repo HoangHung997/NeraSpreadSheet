@@ -1,0 +1,164 @@
+name: NotePad AR-061 external build
+
+on:
+  push:
+    branches:
+      - 'ci/notepad-ar061-e50ee2'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notepad-ar061-e50ee2
+  cancel-in-progress: true
+
+jobs:
+  build-ar061:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact NotePad source
+        uses: actions/checkout@v4
+        with:
+          repository: HoangHung997/NotePad
+          ref: e50ee2aca2e9085700050ffec54d72e5219f8e4f
+          path: notepad
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Record source identity
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Set-Location notepad
+          $sha = git rev-parse HEAD
+          if ($sha -ne 'e50ee2aca2e9085700050ffec54d72e5219f8e4f') { throw "Wrong NotePad SHA: $sha" }
+          if (git status --porcelain) { throw 'Dirty NotePad checkout before build.' }
+          New-Item -ItemType Directory -Force artifacts/external-ar061 | Out-Null
+          @{
+            task='AR-061'
+            source_sha=$sha
+            source_repo='HoangHung997/NotePad'
+            external_runner_repo='HoangHung997/NeraSpreadSheet'
+            evidence_level='E1/E2 build evidence only; not native E3'
+          } | ConvertTo-Json -Depth 5 | Set-Content artifacts/external-ar061/identity.json
+
+      - name: Restore
+        shell: pwsh
+        working-directory: notepad
+        run: dotnet restore .\H2Notes.Avalonia.slnx
+
+      - name: Build
+        shell: pwsh
+        working-directory: notepad
+        run: dotnet build .\H2Notes.Avalonia.slnx -c Release --no-restore
+
+      - name: AR-061 focused tests
+        shell: pwsh
+        working-directory: notepad
+        run: |
+          $ErrorActionPreference='Stop'
+          dotnet run --project .\tests\H2Notes.Tests\H2Notes.Tests.csproj -c Release --no-build -- --filter AR-061 2>&1 | Tee-Object artifacts/external-ar061/ar061-focused.log
+          if ($LASTEXITCODE -ne 0) { throw 'AR-061 focused tests failed.' }
+          if ((Get-Content artifacts/external-ar061/ar061-focused.log -Raw) -notmatch 'RESULT: [1-9][0-9]* passed, 0 failed') { throw 'AR-061 focused result marker missing.' }
+
+      - name: DesktopHost self tests
+        shell: pwsh
+        working-directory: notepad
+        run: |
+          $ErrorActionPreference='Stop'
+          $out = Join-Path $env:RUNNER_TEMP 'h2-ar061-desktop-self'
+          dotnet run --project .\experiments\H2AgentLab.DesktopHost\H2AgentLab.DesktopHost.csproj -c Release --no-build -- --self-test $out 2>&1 | Tee-Object artifacts/external-ar061/desktop-self.log
+          if ($LASTEXITCODE -ne 0) { throw 'DesktopHost self tests failed.' }
+          Get-Content -LiteralPath (Join-Path $out 'desktop-host-self-tests.txt') | Tee-Object -Append artifacts/external-ar061/desktop-self.log
+
+      - name: DesktopHost V2 and MB-112 acceptance
+        shell: pwsh
+        working-directory: notepad
+        run: |
+          $ErrorActionPreference='Stop'
+          $desktop=(Resolve-Path '.\experiments\H2AgentLab.DesktopHost\bin\Release\net10.0-windows\H2AgentLab.DesktopHost.exe').Path
+          dotnet run --project .\experiments\H2AgentLab\H2AgentLab.csproj -c Release --no-build -- --v2-desktop-host-test artifacts/external-ar061/v2-desktop $desktop 2>&1 | Tee-Object artifacts/external-ar061/v2-desktop.log
+          if ($LASTEXITCODE -ne 0) { throw 'V2 DesktopHost regression failed.' }
+          dotnet run --project .\experiments\H2AgentLab\H2AgentLab.csproj -c Release --no-build -- --mb-desktop-computer-use-acceptance-test artifacts/external-ar061/mb112 $desktop 2>&1 | Tee-Object artifacts/external-ar061/mb112.log
+          if ($LASTEXITCODE -ne 0) { throw 'MB-112 acceptance failed.' }
+
+      - name: Full H2 Notes tests
+        shell: pwsh
+        working-directory: notepad
+        run: |
+          $ErrorActionPreference='Stop'
+          dotnet run --project .\tests\H2Notes.Tests\H2Notes.Tests.csproj -c Release --no-build 2>&1 | Tee-Object artifacts/external-ar061/full-h2.log
+          if ($LASTEXITCODE -ne 0) { throw 'Full H2 tests failed.' }
+          if ((Get-Content artifacts/external-ar061/full-h2.log -Raw) -notmatch 'RESULT: [1-9][0-9]* passed, 0 failed') { throw 'Full H2 result marker missing.' }
+
+      - name: Run required Agent suites
+        shell: pwsh
+        working-directory: notepad
+        run: |
+          $ErrorActionPreference='Stop'
+          .\tools\agent-reliability\run_agent_suites.ps1 -OutputDirectory artifacts/external-ar061/all-agent-suites
+
+      - name: Publish self-contained Windows x64
+        shell: pwsh
+        working-directory: notepad
+        run: |
+          $ErrorActionPreference='Stop'
+          dotnet publish .\src\H2Notes.Avalonia\H2Notes.Avalonia.csproj -c Release -r win-x64 --self-contained true -o .\artifacts\H2Notes-Avalonia-Portable
+          @"
+          Source repository: HoangHung997/NotePad
+          Source commit: e50ee2aca2e9085700050ffec54d72e5219f8e4f
+          Task: AR-061
+          External runner repository: HoangHung997/NeraSpreadSheet
+          GitHub run: ${{ github.run_id }}
+          Built UTC: $([DateTime]::UtcNow.ToString('O'))
+          "@ | Set-Content -LiteralPath .\artifacts\H2Notes-Avalonia-Portable\SOURCE.txt -Encoding UTF8
+
+      - name: Verify packaged Agent helpers
+        shell: pwsh
+        working-directory: notepad
+        run: |
+          $ErrorActionPreference='Stop'
+          $report = Join-Path $env:RUNNER_TEMP 'h2-ar061-packaged-helpers.json'
+          $app = Resolve-Path .\artifacts\H2Notes-Avalonia-Portable\H2Notes.Avalonia.exe
+          $process = Start-Process -FilePath $app -ArgumentList @('--verify-agent-helpers', $report) -WindowStyle Hidden -Wait -PassThru
+          Get-Content -LiteralPath $report | Tee-Object artifacts/external-ar061/packaged-helpers.json
+          if ($process.ExitCode -ne 0) { throw 'Packaged Agent helpers failed startup/IPC verification.' }
+
+      - name: Hash portable payload
+        shell: pwsh
+        working-directory: notepad
+        run: |
+          $ErrorActionPreference='Stop'
+          $files = Get-ChildItem .\artifacts\H2Notes-Avalonia-Portable -File -Recurse | Sort-Object FullName
+          $manifest = foreach ($file in $files) {
+            [pscustomobject]@{
+              path = $file.FullName.Substring((Resolve-Path .\artifacts\H2Notes-Avalonia-Portable).Path.Length + 1).Replace('\','/')
+              bytes = $file.Length
+              sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant()
+            }
+          }
+          $manifest | ConvertTo-Json -Depth 5 | Set-Content artifacts/external-ar061/portable-manifest.json
+          if (-not (Test-Path .\artifacts\H2Notes-Avalonia-Portable\H2Notes.Avalonia.exe)) { throw 'Portable executable missing.' }
+
+      - name: Upload portable
+        uses: actions/upload-artifact@v4
+        with:
+          name: H2Notes-Avalonia-Portable-win-x64-AR061-external
+          path: notepad/artifacts/H2Notes-Avalonia-Portable/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AR061-external-build-evidence
+          path: notepad/artifacts/external-ar061/
+          if-no-files-found: warn
+          retention-days: 14
